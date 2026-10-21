@@ -1545,6 +1545,21 @@ export default function LivestockDetailPage() {
                   <p className="text-xs text-slate-600">
                     Animal entered the municipal inventory as part of batch <strong>{activeItem.batchCode}</strong> ({activeItem.breed}). Individual parent tags were not separately indexed.
                   </p>
+                  {activeItem.batchId && (
+                    <div className="pt-1">
+                      <Link
+                        href={`/livestock-inventory/batches?batch=${encodeURIComponent(String(activeItem.batchId))}&livestockType=${encodeURIComponent(activeItem.livestockTypeName || "Cattle")}&animalId=${encodeURIComponent(String(activeItem.id))}${activeItem.tagNumber ? `&tag=${encodeURIComponent(activeItem.tagNumber)}` : ""}`}
+                      >
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 rounded-xl bg-teal-700/10 hover:bg-teal-700/20 text-teal-900 border-teal-300 text-xs font-bold gap-1.5 cursor-pointer"
+                        >
+                          <Layers className="size-3.5 text-teal-700" /> View Herd Roster
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">

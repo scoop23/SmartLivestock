@@ -59,7 +59,7 @@ function LivestockInventoryContent() {
   const [deleteTarget, setDeleteTarget] = useState<LivestockInventoryItem | null>(null);
   const [detailTarget, setDetailTarget] = useState<LivestockInventoryItem | null>(null);
   const [editTarget, setEditTarget] = useState<LivestockInventoryItem | null>(null);
-  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(livestockTypeParam);
   const [highlightedType, setHighlightedType] = useState<string | null>(null);
   const handledActivityLinkRef = useRef<string | null>(null);
   const requestedInventoryTourRef = useRef<"manage" | "all" | "health" | null>(null);
@@ -411,13 +411,17 @@ function LivestockInventoryContent() {
 
   // Filtered inventories when a specific species is clicked
   const typeFilteredInventories = selectedType
-    ? inventories.filter((item) => item.livestockTypeName === selectedType)
+    ? inventories.filter(
+        (item) => item.livestockTypeName.toLowerCase() === selectedType.toLowerCase()
+      )
     : inventories;
 
   // Herds belonging to the selected species, so the species drilldown can
   // surface group-managed batches alongside the individual registry records.
   const typeFilteredBatches = selectedType
-    ? userBatches.filter((batch) => batch.livestockTypeName === selectedType)
+    ? userBatches.filter(
+        (batch) => batch.livestockTypeName.toLowerCase() === selectedType.toLowerCase()
+      )
     : [];
 
   // Mutations
@@ -642,7 +646,14 @@ function LivestockInventoryContent() {
                 batches={typeFilteredBatches}
                 isLoading={isLoading}
                 livestockTypes={livestockTypes}
-                onBack={() => setSelectedType(null)}
+                onBack={() => {
+                  setSelectedType(null);
+                  if (livestockTypeParam) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete("livestockType");
+                    router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
+                  }
+                }}
                 onView={(item) => setDetailTarget(item)}
                 onEdit={(item) => setEditTarget(item)}
                 onDelete={(item) => setDeleteTarget(item)}

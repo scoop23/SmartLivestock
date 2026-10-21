@@ -113,6 +113,8 @@ export function SpeciesDrilldownView({
           isLoading={isLoading}
           livestockTypes={livestockTypes}
           showMetrics={false}
+          showSpeciesFilter={false}
+          showSexFilter={true}
           defaultViewMode="grid"
           onView={onView}
           onEdit={onEdit}

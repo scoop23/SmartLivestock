@@ -126,9 +126,10 @@ function LivestockInfographicHeroContent({
       : selectedStage === "grower"
       ? "Grower / Yearling Stage (88% Scale)"
       : "Adult / Mature Stage (100% Scale)";
+  const speciesDrilldownHref = `/livestock-inventory?livestockType=${encodeURIComponent(activeItem.livestockTypeName || "Cattle")}`;
   const herdRosterHref = activeItem.batchId
-    ? `/livestock-inventory/batches?batch=${encodeURIComponent(String(activeItem.batchId))}&animalId=${encodeURIComponent(String(activeItem.id))}${activeItem.tagNumber ? `&tag=${encodeURIComponent(activeItem.tagNumber)}` : ""}`
-    : "/livestock-inventory";
+    ? `/livestock-inventory/batches?batch=${encodeURIComponent(String(activeItem.batchId))}&livestockType=${encodeURIComponent(activeItem.livestockTypeName || "Cattle")}&animalId=${encodeURIComponent(String(activeItem.id))}${activeItem.tagNumber ? `&tag=${encodeURIComponent(activeItem.tagNumber)}` : ""}`
+    : `/livestock-inventory/batches?livestockType=${encodeURIComponent(activeItem.livestockTypeName || "Cattle")}`;
 
   return (
     <div className="w-full rounded-3xl overflow-hidden border border-emerald-950/40 shadow-2xl bg-gradient-to-b from-[#092b1b] via-[#072417] to-[#04160e] text-white relative">
@@ -140,15 +141,29 @@ function LivestockInfographicHeroContent({
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href={herdRosterHref}
+              href={speciesDrilldownHref}
             >
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs font-bold gap-1.5"
+                className="h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs font-bold gap-1.5 cursor-pointer"
+                title={`Back to ${activeItem.livestockTypeName || "Cattle"} inventory`}
               >
                 <ArrowLeft className="size-3.5" />
-                {activeItem.batchId ? "Herds" : "My Livestock"}
+                Back to {activeItem.livestockTypeName || "Cattle"}
+              </Button>
+            </Link>
+
+            {/* Dedicated View Herd button right in top title bar */}
+            <Link href={herdRosterHref}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-200 border-teal-400/40 text-xs font-bold gap-1.5 cursor-pointer shadow-xs"
+                title={activeItem.batchId ? `Open Herd ${activeItem.batchCode || ""} roster` : `Browse ${activeItem.livestockTypeName || "Cattle"} herds`}
+              >
+                <Layers className="size-3.5 text-teal-300" />
+                {activeItem.batchId ? `View Herd ${activeItem.batchCode ? `(${activeItem.batchCode})` : ""}` : `View ${activeItem.livestockTypeName || "Cattle"} Herds`}
               </Button>
             </Link>
 
@@ -177,9 +192,11 @@ function LivestockInfographicHeroContent({
             </Badge>
 
             {activeItem.batchCode && (
-              <Badge className="bg-teal-500/20 border border-teal-400/30 text-teal-200 font-bold text-xs">
-                <Layers className="size-3 mr-1" /> Herd {activeItem.batchCode}
-              </Badge>
+              <Link href={herdRosterHref}>
+                <Badge className="bg-teal-500/20 hover:bg-teal-500/30 border border-teal-400/30 text-teal-200 font-bold text-xs transition-colors cursor-pointer">
+                  <Layers className="size-3 mr-1" /> Herd {activeItem.batchCode}
+                </Badge>
+              </Link>
             )}
           </div>
 
@@ -205,6 +222,18 @@ function LivestockInfographicHeroContent({
               <AlertTriangle className="size-3.5" /> Corrections
             </Button>
           )}
+
+          <Link href={herdRosterHref}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-200 border-teal-400/30 font-bold text-xs gap-1.5 cursor-pointer shadow-xs"
+              title={activeItem.batchId ? `Open Herd ${activeItem.batchCode || ""} roster` : `Browse ${activeItem.livestockTypeName || "Cattle"} herds`}
+            >
+              <Layers className="size-3.5 text-teal-300" />
+              {activeItem.batchId ? "View Herd" : `View ${activeItem.livestockTypeName || "Cattle"} Herds`}
+            </Button>
+          </Link>
 
           <Button
             onClick={() => setIsFullPhotoModalOpen(true)}

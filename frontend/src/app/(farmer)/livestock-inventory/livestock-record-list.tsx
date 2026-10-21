@@ -3,6 +3,13 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
 Select,
@@ -26,7 +33,9 @@ TooltipProvider,
 TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/components/ui/utils";
+import { QrCodePass } from "@/components/qr-code-pass";
 import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
+import { livestockIdentityQrPayload } from "@/lib/livestock-identity";
 import { cowHead } from "@lucide/lab";
 import {
 ArrowDownAZ,
@@ -51,6 +60,7 @@ LayoutGrid,
 List,
 Pencil,
 Plus,
+QrCode,
 RotateCcw,
 Scale,
 Search,
@@ -231,10 +241,8 @@ export type SortKey =
   | "weight_asc";
 
 const SORT_OPTIONS: { value: SortKey; label: string; icon: React.ElementType }[] = [
-  { value: "newest", label: "Newest First", icon: ArrowDownWideNarrow },
-  { value: "oldest", label: "Oldest First", icon: ArrowUpDown },
-  { value: "quantity_desc", label: "Most Heads", icon: ArrowDownWideNarrow },
-  { value: "quantity_asc", label: "Fewest Heads", icon: ArrowUpDown },
+  { value: "newest", label: "Newest", icon: ArrowDownWideNarrow },
+  { value: "oldest", label: "Oldest", icon: ArrowUpDown },
   { value: "breed_az", label: "Breed A → Z", icon: ArrowDownAZ },
   { value: "weight_desc", label: "Weight: High to Low", icon: Scale },
   { value: "weight_asc", label: "Weight: Low to High", icon: Scale },
@@ -254,6 +262,8 @@ export interface LivestockRecordListProps {
   showAddRecord?: boolean;
   centerViewToggle?: boolean;
   defaultViewMode?: "grid" | "table";
+  showSpeciesFilter?: boolean;
+  showSexFilter?: boolean;
 }
 
 /* ── Split Card with Hero Image Layout (like Herd Card) ── */
@@ -262,12 +272,14 @@ function LivestockSplitCard({
   onView,
   onEdit,
   onDelete,
+  onQr,
   handleCopyTag,
 }: {
   item: LivestockInventoryItem;
   onView: (item: LivestockInventoryItem) => void;
   onEdit: (item: LivestockInventoryItem) => void;
   onDelete: (item: LivestockInventoryItem) => void;
+  onQr: (item: LivestockInventoryItem) => void;
   handleCopyTag: (tag: string) => void;
 }) {
   const [photoIndex, setPhotoIndex] = useState(0);
@@ -314,18 +326,74 @@ function LivestockSplitCard({
 
   const hasVax = Boolean(item.lastVaccinationDate);
   const isApproved = item.status === "APPROVED";
+  const speciesTheme = getSpeciesTheme(item.livestockTypeName);
+
+  const rawSex = (item.sex || "").trim().toUpperCase();
+  const isFemale = rawSex === "FEMALE" || rawSex === "F";
+  const isMale = rawSex === "MALE" || rawSex === "M";
+  const isCastrated = rawSex === "CASTRATED" || rawSex.includes("CASTRAT");
+
+  const genderTheme = useMemo(() => {
+    if (isFemale) {
+      return {
+        card: "border-pink-200/90 bg-gradient-to-br from-pink-50/70 via-rose-50/30 to-white hover:border-pink-400 hover:shadow-pink-500/10 border-l-4 border-l-pink-500",
+        heroFallback: "bg-gradient-to-br from-rose-950 via-pink-900 to-slate-900",
+        heroText: "text-pink-300",
+        tagBorder: "border-pink-400/40 text-pink-300",
+        tagIcon: "text-pink-400",
+        titleHover: "hover:text-pink-800",
+        tagNumberColor: "text-pink-900",
+        detailsBtn: "border-pink-200 text-pink-800 hover:bg-pink-50 hover:text-pink-900",
+      };
+    }
+    if (isMale) {
+      return {
+        card: "border-sky-200/90 bg-gradient-to-br from-sky-50/70 via-blue-50/30 to-white hover:border-sky-400 hover:shadow-sky-500/10 border-l-4 border-l-sky-500",
+        heroFallback: "bg-gradient-to-br from-slate-950 via-sky-950 to-slate-900",
+        heroText: "text-sky-300",
+        tagBorder: "border-sky-400/40 text-sky-300",
+        tagIcon: "text-sky-400",
+        titleHover: "hover:text-sky-800",
+        tagNumberColor: "text-sky-900",
+        detailsBtn: "border-sky-200 text-sky-800 hover:bg-sky-50 hover:text-sky-900",
+      };
+    }
+    if (isCastrated) {
+      return {
+        card: "border-purple-200/90 bg-gradient-to-br from-purple-50/70 via-violet-50/30 to-white hover:border-purple-400 hover:shadow-purple-500/10 border-l-4 border-l-purple-500",
+        heroFallback: "bg-gradient-to-br from-purple-950 via-indigo-950 to-slate-900",
+        heroText: "text-purple-300",
+        tagBorder: "border-purple-400/40 text-purple-300",
+        tagIcon: "text-purple-400",
+        titleHover: "hover:text-purple-800",
+        tagNumberColor: "text-purple-900",
+        detailsBtn: "border-purple-200 text-purple-800 hover:bg-purple-50 hover:text-purple-900",
+      };
+    }
+    return {
+      card: "border-slate-200/90 bg-white hover:border-slate-400 border-l-4 border-l-slate-400",
+      heroFallback: "bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900",
+      heroText: "text-emerald-300",
+      tagBorder: "border-emerald-400/40 text-emerald-300",
+      tagIcon: "text-emerald-400",
+      titleHover: "hover:text-emerald-800",
+      tagNumberColor: "text-emerald-900",
+      detailsBtn: "border-emerald-200 text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900",
+    };
+  }, [isFemale, isMale, isCastrated]);
 
   return (
     <Card
       data-tour="livestock-record-card"
       className={cn(
-        "group overflow-hidden rounded-xl border transition-all duration-200 flex flex-col sm:flex-row justify-between",
-        "border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md",
-        item.status === "SUBJECT_TO_REVISION" && "border-rose-300/80 bg-rose-50/15"
+        "group overflow-hidden rounded-2xl border transition-all duration-200 flex flex-col sm:flex-row justify-between",
+        "shadow-xs hover:shadow-md",
+        genderTheme.card,
+        item.status === "SUBJECT_TO_REVISION" && "ring-2 ring-rose-400/50"
       )}
     >
       {/* ── LEFT HERO IMAGE SECTION ── */}
-      <div data-tour="record-card-identity" className="relative aspect-[21/9] sm:aspect-auto sm:w-52 md:w-56 lg:w-60 sm:self-stretch min-h-[150px] sm:min-h-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
+      <div data-tour="record-card-identity" className="relative aspect-[21/9] sm:aspect-auto sm:w-52 md:w-56 lg:w-60 sm:self-stretch min-h-[150px] sm:min-h-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-slate-850 to-slate-800">
         {currentPhoto ? (
           <Image
             src={currentPhoto}
@@ -335,20 +403,21 @@ function LivestockSplitCard({
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 p-3 text-white">
+          <div className={cn("flex h-full w-full flex-col items-center justify-center p-3 text-white", genderTheme.heroFallback)}>
             <span className="text-4xl drop-shadow-md">{avatar.emoji}</span>
-            <span className="mt-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+            <span className={cn("mt-1 text-[11px] font-bold uppercase tracking-wider", genderTheme.heroText)}>
               {item.livestockTypeName}
             </span>
           </div>
         )}
 
         {/* Ambient Dark Gradient on bottom/sides */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/15" />
 
         {/* Top Badges */}
         <div className="absolute left-2.5 right-2.5 top-2.5 flex items-center justify-between gap-1.5 z-10">
-          <Badge className="rounded-full border border-white/20 bg-black/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md">
+          <Badge className={cn("rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-xs backdrop-blur-md border", speciesTheme.badge)}>
+            <span className={cn("inline-block size-1.5 rounded-full mr-1 shrink-0", speciesTheme.dot)} />
             {item.livestockTypeName}
           </Badge>
 
@@ -379,8 +448,8 @@ function LivestockSplitCard({
 
         {/* Bottom Hero Overlay: Tag Badge & Photo Counter or Herd */}
         <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-white z-10">
-          <div className="flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-mono font-bold backdrop-blur-md text-emerald-300">
-            <Tag className="size-3 text-emerald-400" />
+          <div className={cn("flex items-center gap-1 rounded-full bg-black/75 px-2 py-0.5 text-[10px] font-mono font-bold backdrop-blur-md shadow-xs border", genderTheme.tagBorder)}>
+            <Tag className={cn("size-3", genderTheme.tagIcon)} />
             <span>{item.tagNumber || `TAG-${item.id}`}</span>
           </div>
 
@@ -394,7 +463,7 @@ function LivestockSplitCard({
           ) : item.batchCode ? (
             <Link
               href={getHerdRosterHref(item)}
-              className="relative z-10 rounded-md bg-white/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-900 shadow-2xs hover:bg-emerald-100"
+              className="relative z-10 rounded-md bg-white/95 px-2 py-0.5 font-mono text-[10px] font-bold text-teal-900 border border-teal-200/80 shadow-2xs hover:bg-teal-50 transition-colors"
               title={`Open Herd ${item.batchCode} and highlight this animal`}
             >
               Herd {item.batchCode}
@@ -409,17 +478,20 @@ function LivestockSplitCard({
       </div>
 
       {/* ── RIGHT CONTENT SECTION ── */}
-      <div className="flex flex-1 flex-col justify-between p-3 sm:p-3.5 space-y-2 min-w-0">
-        <div className="space-y-2">
+      <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-4 space-y-2.5 min-w-0">
+        <div className="space-y-2.5">
           {/* Header Row: Title & Regulatory Status */}
           <div data-tour="record-card-review" className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <Link
                   href={`/livestock-inventory/${item.tagNumber || item.id}`}
-                  className="text-sm sm:text-base font-bold text-slate-950 hover:text-emerald-800 transition-colors line-clamp-1"
+                  className={cn("text-sm sm:text-base font-bold text-slate-950 transition-colors line-clamp-1", genderTheme.titleHover)}
                 >
-                  {item.livestockTypeName} {item.tagNumber ? `#${item.tagNumber}` : `#${item.id}`}
+                  <span>{item.livestockTypeName}</span>{" "}
+                  <span className={cn("font-mono font-extrabold", genderTheme.tagNumberColor)}>
+                    {item.tagNumber ? `#${item.tagNumber}` : `#${item.id}`}
+                  </span>
                 </Link>
                 {item.tagNumber && (
                   <button
@@ -450,11 +522,29 @@ function LivestockSplitCard({
                   </Badge>
                 )}
               </div>
-              <p className="mt-0.5 text-xs font-medium text-slate-600 line-clamp-1">
-                {item.breed || "Standard Breed"}
-                {item.sex ? ` · ${item.sex}` : ""}
-                {item.age ? ` · ${formatLivestockAge(item.age)}` : ""}
-              </p>
+
+              {/* Subtitle with Breed and Color-Coded Sex Badge */}
+              <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
+                <span className="font-medium text-slate-700">{item.breed || "Standard Breed"}</span>
+                {isFemale && (
+                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold bg-pink-50 text-pink-700 border border-pink-200/80 shadow-2xs">
+                    ♀ Female
+                  </span>
+                )}
+                {isMale && (
+                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold bg-sky-50 text-sky-700 border border-sky-200/80 shadow-2xs">
+                    ♂ Male
+                  </span>
+                )}
+                {isCastrated && (
+                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold bg-purple-50 text-purple-700 border border-purple-200/80 shadow-2xs">
+                    ⚲ Castrated
+                  </span>
+                )}
+                {item.age && (
+                  <span className="text-slate-400 text-[11px]">&bull; {formatLivestockAge(item.age)}</span>
+                )}
+              </div>
             </div>
 
             <div className="shrink-0 flex flex-col items-end gap-1">
@@ -462,40 +552,51 @@ function LivestockSplitCard({
             </div>
           </div>
 
-          {/* Core Stats: 2x2 Grid */}
-          <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold text-slate-700">
-            {/* Weight */}
-            <div data-tour="record-card-weight" className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
-              <div className="p-1 rounded-md bg-white text-[#1E4D2B] shadow-2xs shrink-0">
-                <Weight className="size-3.5 text-[#1E4D2B]" />
+          {/* Core Stats: 2x2 Themed Grid with Vibrant Distinct Colors */}
+          <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
+            {/* Weight (Emerald Theme) */}
+            <div data-tour="record-card-weight" className="p-2 rounded-xl bg-emerald-50/60 border border-emerald-200/70 flex items-center gap-2 transition-colors hover:bg-emerald-50">
+              <div className="p-1 rounded-lg bg-white text-emerald-700 border border-emerald-200/60 shadow-2xs shrink-0">
+                <Weight className="size-3.5" />
               </div>
               <div className="min-w-0">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-800/80 block leading-tight">
                   Weight
                 </span>
-                <span className="font-extrabold text-slate-900 truncate block leading-tight">
+                <span className="font-extrabold text-emerald-950 truncate block leading-tight">
                   {item.weight ? `${item.weight} kg` : "Unrecorded"}
                 </span>
               </div>
             </div>
 
-            {/* Immunization */}
-            <div data-tour="record-card-immunization" className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
-              <div className="p-1 rounded-md bg-white shadow-2xs shrink-0">
+            {/* Immunization (Teal / Amber Theme) */}
+            <div data-tour="record-card-immunization" className={cn(
+              "p-2 rounded-xl border flex items-center gap-2 transition-colors",
+              hasVax
+                ? "bg-teal-50/60 border-teal-200/70 hover:bg-teal-50"
+                : "bg-amber-50/70 border-amber-200/80 hover:bg-amber-50"
+            )}>
+              <div className={cn(
+                "p-1 rounded-lg bg-white shadow-2xs shrink-0 border",
+                hasVax ? "text-teal-700 border-teal-200/60" : "text-amber-600 border-amber-200/60"
+              )}>
                 {hasVax ? (
-                  <ShieldCheck className="size-3.5 text-emerald-600" />
+                  <ShieldCheck className="size-3.5 text-teal-600" />
                 ) : (
                   <ShieldAlert className="size-3.5 text-amber-600" />
                 )}
               </div>
               <div className="min-w-0">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                <span className={cn(
+                  "text-[9px] font-bold uppercase tracking-wider block leading-tight",
+                  hasVax ? "text-teal-800/80" : "text-amber-800/80"
+                )}>
                   Immunization
                 </span>
                 <span
                   className={cn(
                     "font-extrabold truncate block leading-tight",
-                    hasVax ? "text-emerald-700" : "text-amber-600"
+                    hasVax ? "text-teal-950" : "text-amber-800"
                   )}
                   title={hasVax ? item.lastVaccinationDate ?? undefined : "Due for Vaccine"}
                 >
@@ -504,31 +605,31 @@ function LivestockSplitCard({
               </div>
             </div>
 
-            {/* Life Stage */}
-            <div data-tour="record-card-life-stage" className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
-              <div className="p-1 rounded-md bg-white text-slate-700 shadow-2xs shrink-0">
-                <Icon iconNode={cowHead} className="size-3.5 text-slate-600" />
+            {/* Life Stage (Indigo Theme) */}
+            <div data-tour="record-card-life-stage" className="p-2 rounded-xl bg-indigo-50/60 border border-indigo-200/70 flex items-center gap-2 transition-colors hover:bg-indigo-50">
+              <div className="p-1 rounded-lg bg-white text-indigo-700 border border-indigo-200/60 shadow-2xs shrink-0">
+                <Icon iconNode={cowHead} className="size-3.5" />
               </div>
               <div className="min-w-0">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-800/80 block leading-tight">
                   Life Stage
                 </span>
-                <span className="font-extrabold text-slate-900 truncate block leading-tight">
+                <span className="font-extrabold text-indigo-950 truncate block leading-tight">
                   {formatAgeClassification(item.ageClassification)}
                 </span>
               </div>
             </div>
 
-            {/* Birth Date / Registered */}
-            <div data-tour="record-card-birth" className="p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center gap-2">
-              <div className="p-1 rounded-md bg-white text-teal-700 shadow-2xs shrink-0">
-                <CalendarDays className="size-3.5 text-teal-700" />
+            {/* Birth Date / Registered (Sky Theme) */}
+            <div data-tour="record-card-birth" className="p-2 rounded-xl bg-sky-50/60 border border-sky-200/70 flex items-center gap-2 transition-colors hover:bg-sky-50">
+              <div className="p-1 rounded-lg bg-white text-sky-700 border border-sky-200/60 shadow-2xs shrink-0">
+                <CalendarDays className="size-3.5" />
               </div>
               <div className="min-w-0">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-sky-800/80 block leading-tight">
                   Birth / Age
                 </span>
-                <span className="font-extrabold text-slate-900 truncate block leading-tight">
+                <span className="font-extrabold text-sky-950 truncate block leading-tight">
                   {item.birthDate ? formatCalendarDate(item.birthDate) : (item.age ? formatLivestockAge(item.age) : "Not recorded")}
                 </span>
               </div>
@@ -537,7 +638,7 @@ function LivestockSplitCard({
 
           {/* Officer remarks if present */}
           {item.reviewRemarks && (
-            <div data-tour="record-card-remarks" className="p-2 rounded-lg bg-rose-50/80 border border-rose-200/80 text-[11px] text-rose-950 flex items-start gap-1.5">
+            <div data-tour="record-card-remarks" className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] text-rose-950 flex items-start gap-1.5 shadow-2xs">
               <Info className="size-3.5 text-rose-600 shrink-0 mt-0.5" />
               <p className="line-clamp-2 leading-relaxed min-w-0">
                 <strong className="font-bold text-rose-900">Officer Note:</strong> {item.reviewRemarks}
@@ -560,11 +661,35 @@ function LivestockSplitCard({
               size="sm"
               aria-label={`View details for ${item.tagNumber || `livestock ${item.id}`}`}
               onClick={() => onView(item)}
-              className="h-8 gap-1.5 rounded-lg border-emerald-200 px-2.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900 cursor-pointer"
+              className={cn("h-8 gap-1.5 rounded-lg px-2.5 text-xs font-semibold cursor-pointer shadow-2xs transition-colors", genderTheme.detailsBtn)}
             >
               <Eye className="size-3.5" />
               <span>Details</span>
             </Button>
+
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={`View QR pass for ${item.tagNumber || `livestock ${item.id}`}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onQr(item);
+                    }}
+                    className="h-8 gap-1 rounded-lg border-slate-200 px-2 text-xs font-semibold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer shadow-2xs transition-colors"
+                  >
+                    <QrCode className="size-3.5 text-emerald-700" />
+                    <span>QR</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  View Digital QR Pass
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             <TooltipProvider delayDuration={200}>
               <Tooltip>
@@ -629,6 +754,8 @@ export default function LivestockRecordList({
   showAddRecord = true,
   centerViewToggle = false,
   defaultViewMode,
+  showSpeciesFilter = true,
+  showSexFilter = false,
 }: LivestockRecordListProps) {
   const router = useRouter();
 
@@ -644,18 +771,22 @@ export default function LivestockRecordList({
   const setOperationalFilter = (value: OperationalStatus | "ALL") => { updateOperationalFilter(value); setCurrentPage(1); };
   const [typeFilter, updateTypeFilter] = useState<string>("ALL");
   const setTypeFilter = (value: string) => { updateTypeFilter(value); setCurrentPage(1); };
+  const [sexFilter, updateSexFilter] = useState<string>("ALL");
+  const setSexFilter = (value: string) => { updateSexFilter(value); setCurrentPage(1); };
   const [sortBy, updateSortBy] = useState<SortKey>("newest");
   const setSortBy = (value: SortKey) => { updateSortBy(value); setCurrentPage(1); };
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
+  const [qrItem, setQrItem] = useState<LivestockInventoryItem | null>(null);
   const pageSize = 12;
 
   /* Count active filters */
   const activeFilterCount = [
     statusFilter !== "ALL",
     operationalFilter !== "ALL",
-    typeFilter !== "ALL",
+    (showSpeciesFilter && typeFilter !== "ALL"),
+    (showSexFilter && sexFilter !== "ALL"),
     searchQuery.trim().length > 0,
   ].filter(Boolean).length;
 
@@ -664,6 +795,7 @@ export default function LivestockRecordList({
     setStatusFilter("ALL");
     setOperationalFilter("ALL");
     setTypeFilter("ALL");
+    setSexFilter("ALL");
     setSortBy("newest");
     setCurrentPage(1);
   };
@@ -694,7 +826,19 @@ export default function LivestockRecordList({
       const matchesOperational =
         operationalFilter === "ALL" || item.operationalStatus === operationalFilter;
 
-      return matchesSearch && matchesStatus && matchesType && matchesOperational;
+      const rawSex = (item.sex || "").trim().toUpperCase();
+      const isFemale = rawSex === "FEMALE" || rawSex === "F";
+      const isMale = rawSex === "MALE" || rawSex === "M";
+      const isCastrated = rawSex === "CASTRATED" || rawSex.includes("CASTRAT");
+
+      const matchesSex =
+        !showSexFilter ||
+        sexFilter === "ALL" ||
+        (sexFilter === "FEMALE" && isFemale) ||
+        (sexFilter === "MALE" && isMale) ||
+        (sexFilter === "CASTRATED" && isCastrated);
+
+      return matchesSearch && matchesStatus && matchesType && matchesOperational && matchesSex;
     });
 
     // Sorting
@@ -720,7 +864,7 @@ export default function LivestockRecordList({
     });
 
     return result;
-  }, [items, searchQuery, statusFilter, operationalFilter, typeFilter, sortBy]);
+  }, [items, searchQuery, statusFilter, operationalFilter, typeFilter, sexFilter, showSexFilter, sortBy]);
 
   /* Reset pagination to page 1 whenever filters change */
 
@@ -967,7 +1111,7 @@ export default function LivestockRecordList({
           )}
         >
           {/* Species Dropdown */}
-          {livestockTypes && (
+          {showSpeciesFilter && livestockTypes && (
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger aria-label="Filter by livestock type" className={cn("min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700", centerViewToggle ? "w-[150px] shrink-0" : "w-full sm:w-[150px]")}>
                 <SelectValue placeholder="All Species" />
@@ -979,6 +1123,21 @@ export default function LivestockRecordList({
                     {name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {/* Sex Dropdown */}
+          {showSexFilter && (
+            <Select value={sexFilter} onValueChange={setSexFilter}>
+              <SelectTrigger aria-label="Filter by sex" className={cn("min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700", centerViewToggle ? "w-[150px] shrink-0" : "w-full sm:w-[150px]")}>
+                <SelectValue placeholder="All Sexes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Sexes</SelectItem>
+                <SelectItem value="FEMALE">Female</SelectItem>
+                <SelectItem value="MALE">Male</SelectItem>
+                <SelectItem value="CASTRATED">Castrated</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -1172,6 +1331,7 @@ export default function LivestockRecordList({
               onView={onView}
               onEdit={onEdit}
               onDelete={onDelete}
+              onQr={setQrItem}
               handleCopyTag={handleCopyTag}
             />
           ))}
@@ -1283,8 +1443,36 @@ export default function LivestockRecordList({
                     </TableCell>
 
                     {/* Sex */}
-                    <TableCell className="text-xs font-semibold text-slate-700">
-                      {item.sex}
+                    <TableCell className="text-xs font-semibold">
+                      {(() => {
+                        const rowRawSex = (item.sex || "").trim().toUpperCase();
+                        const isRowFemale = rowRawSex === "FEMALE" || rowRawSex === "F";
+                        const isRowMale = rowRawSex === "MALE" || rowRawSex === "M";
+                        const isRowCastrated = rowRawSex === "CASTRATED" || rowRawSex.includes("CASTRAT");
+
+                        if (isRowFemale) {
+                          return (
+                            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold bg-pink-50 text-pink-700 border border-pink-200/80 shadow-2xs">
+                              ♀ Female
+                            </span>
+                          );
+                        }
+                        if (isRowMale) {
+                          return (
+                            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold bg-sky-50 text-sky-700 border border-sky-200/80 shadow-2xs">
+                              ♂ Male
+                            </span>
+                          );
+                        }
+                        if (isRowCastrated) {
+                          return (
+                            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold bg-purple-50 text-purple-700 border border-purple-200/80 shadow-2xs">
+                              ⚲ Castrated
+                            </span>
+                          );
+                        }
+                        return <span className="text-slate-600 font-medium">{item.sex || "—"}</span>;
+                      })()}
                     </TableCell>
 
                     {/* Quantity */}
@@ -1345,6 +1533,17 @@ export default function LivestockRecordList({
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>Details</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={`View QR pass for ${item.tagNumber || `livestock ${item.id}`}`}
+                          onClick={() => setQrItem(item)}
+                          className="h-8 gap-1 rounded-lg border-slate-200 px-2 text-xs font-semibold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
+                          title="View QR Code Pass"
+                        >
+                          <QrCode className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>QR</span>
                         </Button>
                         <Button
                           variant="ghost"
@@ -1462,6 +1661,33 @@ export default function LivestockRecordList({
           </div>
         </div>
       )}
+
+      {/* ═══ Animal Digital QR Pass Dialog ═══ */}
+      <Dialog open={Boolean(qrItem)} onOpenChange={(open) => !open && setQrItem(null)}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-2xl border-slate-200">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Livestock QR Pass</DialogTitle>
+            <DialogDescription>Digital QR clearance pass for livestock record</DialogDescription>
+          </DialogHeader>
+          {qrItem && (
+            <div className="p-4 sm:p-5 bg-slate-50/50">
+              <QrCodePass
+                code={qrItem.tagNumber || `ID-${qrItem.id}`}
+                qrPayload={
+                  /^\d+$/.test(String(qrItem.id))
+                    ? livestockIdentityQrPayload(qrItem.id)
+                    : `SL-LIVESTOCK:${qrItem.id}`
+                }
+                title={`${qrItem.livestockTypeName} ${qrItem.tagNumber ? `#${qrItem.tagNumber}` : `#${qrItem.id}`}`}
+                subtitle="SmartLivestock Animal Digital Pass"
+                specie={qrItem.livestockTypeName}
+                headCount={qrItem.quantity || 1}
+                status={qrItem.status}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
