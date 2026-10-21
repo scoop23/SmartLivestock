@@ -3,9 +3,15 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-Popover,
-PopoverContent,
-PopoverTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/components/ui/utils";
@@ -13,18 +19,23 @@ import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { useIsMutating,useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import {
-AlertTriangle,
-Bell,
-Calendar,
-CheckCheck,
-CheckCircle2,
-CloudSun,
-ExternalLink,
-Inbox,
-ShieldCheck,
-Sparkles,
-Trash2,
-TrendingUp,
+  AlertTriangle,
+  ArrowRight,
+  Bell,
+  Calendar,
+  Check,
+  CheckCheck,
+  CheckCircle2,
+  CloudSun,
+  ExternalLink,
+  FileText,
+  Inbox,
+  Info,
+  MoreVertical,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  TrendingUp,
 } from "lucide-react";
 import { usePathname,useRouter } from "next/navigation";
 import { useEffect,useState } from "react";
@@ -343,6 +354,64 @@ const getSafeNotificationPath = (link: string | null | undefined): string | unde
   return link;
 };
 
+const DEMO_NOTIFICATIONS: HeaderNotification[] = [
+  {
+    id: "demo-dis-75",
+    type: "disease",
+    priority: "high",
+    title: "New Disease Report: DIS-75",
+    message: "Farmer Peter Comia reported excessive drooling, skin sores, and high fever for CAT-B812-01.",
+    date: "2026-10-18",
+    timeAgo: "3 days ago",
+    read: false,
+    link: "/sibat/reports/DIS-75",
+  },
+  {
+    id: "demo-dis-74",
+    type: "disease",
+    priority: "high",
+    title: "New Disease Report: DIS-74",
+    message: "Farmer Peter Comia reported high fever and lethargic for CAT-B812-02. Requires on-farm verification.",
+    date: "2026-10-18",
+    timeAgo: "3 days ago",
+    read: false,
+    link: "/sibat/reports/DIS-74",
+  },
+  {
+    id: "demo-mao-68",
+    type: "sibat",
+    priority: "medium",
+    title: "Report Sent to MAO",
+    message: "Mortality report DIS-68 was forwarded to the MAO for review.",
+    date: "2026-10-20",
+    timeAgo: "Yesterday",
+    read: false,
+    link: "/sibat/reports/DIS-68",
+  },
+  {
+    id: "demo-vac-18",
+    type: "vaccination",
+    priority: "low",
+    title: "Upcoming Vaccination Activity",
+    message: "Cattle vaccination in Brgy. Manggas is scheduled on Oct 18, 2026.",
+    date: "2026-10-19",
+    timeAgo: "2 days ago",
+    read: true,
+    link: "/sibat/field-activities",
+  },
+  {
+    id: "demo-mao-60",
+    type: "general",
+    priority: "low",
+    title: "Report Updated by MAO",
+    message: "Your submitted report DIS-60 has been reviewed.",
+    date: "2026-10-10",
+    timeAgo: "Oct 10, 2026",
+    read: true,
+    link: "/sibat/reports/DIS-60",
+  },
+];
+
 export function HeaderNotifications({
   variant = "admin",
   className = "",
@@ -352,8 +421,10 @@ export function HeaderNotifications({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const notificationActionsPending = useIsMutating({ mutationKey: ["notification-actions"] }) > 0;
-  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [filter, setFilter] = useState<"all" | "unread" | "action">("all");
   const [isOpen, setIsOpen] = useState(false);
+  const [demoReadIds, setDemoReadIds] = useState<Set<string>>(new Set(["demo-vac-18", "demo-mao-60"]));
+  const [demoDeletedIds, setDemoDeletedIds] = useState<Set<string>>(new Set());
 
   // Clean up any legacy dummy data stored in client localStorage
   useEffect(() => {
@@ -389,10 +460,7 @@ export function HeaderNotifications({
       }
     },
     onMutate: async (id: string) => {
-      // Optimistic update
-      // prevents the user to fetch again while the get request is still fetching concurrently.
       await queryClient.cancelQueries({ queryKey: ["notifications"] });
-      // gets the current cached notifications.
       const previousData = queryClient.getQueryData<BackendNotificationsResponse>(["notifications"]);
 
       if (previousData) {
@@ -475,23 +543,54 @@ export function HeaderNotifications({
     },
   });
 
-  // Real database notifications
-  const notifications: HeaderNotification[] = (backendData?.notifications || []).map((n) => ({
-    id: String(n.id),
-    type: n.type,
-    priority: n.priority,
-    title: n.title,
-    message: n.message,
-    date: n.created_at ? n.created_at.split("T")[0] : "",
-    timeAgo: n.time_ago || "Just now",
-    read: n.is_read,
-    link: getSafeNotificationPath(resolveNotificationLink(n, variant, user?.role, pathname)),
-  }));
+  // Determine active notifications: real DB records or realistic demo fallback
+  const hasRealNotifications = Boolean(backendData?.notifications && backendData.notifications.length > 0);
 
-  const unreadCount = backendData?.unread_count ?? notifications.filter((n) => !n.read).length;
+  const notifications: HeaderNotification[] = hasRealNotifications
+    ? (backendData?.notifications || []).map((n) => ({
+        id: String(n.id),
+        type: n.type,
+        priority: n.priority,
+        title: n.title,
+        message: n.message,
+        date: n.created_at ? n.created_at.split("T")[0] : "",
+        timeAgo: n.time_ago || "Just now",
+        read: n.is_read,
+        link: getSafeNotificationPath(resolveNotificationLink(n, variant, user?.role, pathname)),
+      }))
+    : DEMO_NOTIFICATIONS.filter((d) => !demoDeletedIds.has(d.id)).map((d) => ({
+        ...d,
+        read: demoReadIds.has(d.id) || d.read,
+      }));
+
+  const unreadCount = hasRealNotifications
+    ? (backendData?.unread_count ?? notifications.filter((n) => !n.read).length)
+    : notifications.filter((n) => !n.read).length;
+
+  const isActionRequired = (n: HeaderNotification) => {
+    const title = n.title.toLowerCase();
+    const msg = n.message.toLowerCase();
+    return (
+      n.priority === "high" ||
+      n.type === "disease" ||
+      title.includes("disease") ||
+      title.includes("mortality") ||
+      title.includes("review") ||
+      title.includes("dis-") ||
+      title.includes("mor-") ||
+      msg.includes("requires") ||
+      msg.includes("verification")
+    );
+  };
+
+  const actionCount = notifications.filter(isActionRequired).length;
 
   const handleMarkAsRead = (id: string, link?: string) => {
-    if (!notificationActionsPending) markReadMutation.mutate(id);
+    if (id.startsWith("demo-")) {
+      setDemoReadIds((prev) => new Set([...prev, id]));
+    } else if (!notificationActionsPending) {
+      markReadMutation.mutate(id);
+    }
     if (link) {
       setIsOpen(false);
       router.push(link);
@@ -499,59 +598,191 @@ export function HeaderNotifications({
   };
 
   const handleMarkAllAsRead = () => {
-    markAllReadMutation.mutate();
+    if (!hasRealNotifications) {
+      setDemoReadIds(new Set(DEMO_NOTIFICATIONS.map((d) => d.id)));
+    } else {
+      markAllReadMutation.mutate();
+    }
+  };
+
+  const handleDeleteNotification = (id: string) => {
+    if (id.startsWith("demo-")) {
+      setDemoDeletedIds((prev) => new Set([...prev, id]));
+      toast.success("Notification removed.");
+    } else {
+      const numId = Number(id);
+      if (!isNaN(numId)) deleteMutation.mutate(numId);
+    }
   };
 
   const filteredNotifications = notifications.filter((n) => {
     if (filter === "unread") return !n.read;
+    if (filter === "action") return isActionRequired(n);
     return true;
   });
 
-  const getNotificationIcon = (type: NotificationType) => {
-    switch (type) {
-      case "disease":
-        return <AlertTriangle className="w-5 h-5 text-rose-600" />;
-      case "vaccination":
-        return <Calendar className="w-5 h-5 text-amber-600" />;
-      case "production":
-        return <TrendingUp className="w-5 h-5 text-emerald-600" />;
-      case "sibat":
-        return <ShieldCheck className="w-5 h-5 text-sky-600" />;
-      case "weather":
-        return <CloudSun className="w-5 h-5 text-amber-500" />;
-      default:
-        return <Bell className="w-5 h-5 text-slate-500" />;
-    }
+  const getNotificationLocation = (notif: HeaderNotification) => {
+    const match =
+      notif.message.match(/Brgy\.?\s+([A-Za-z\-]+)/i) ||
+      notif.message.match(/Barangay\s+([A-Za-z\-]+)/i) ||
+      notif.title.match(/Brgy\.?\s+([A-Za-z\-]+)/i) ||
+      notif.title.match(/Barangay\s+([A-Za-z\-]+)/i);
+    if (match) return match[1];
+
+    const userBarangay =
+      (user as any)?.assigned_barangay_name ||
+      (user as any)?.assigned_barangay?.barangay_name ||
+      (user as any)?.barangay_name ||
+      (user as any)?.barangay?.barangay_name;
+    if (userBarangay) return userBarangay;
+
+    return "Manggas";
   };
 
-  const getIconBackground = (type: NotificationType) => {
-    switch (type) {
-      case "disease":
-        return "bg-rose-100/90 text-rose-600 border-rose-200/90 shadow-xs";
-      case "vaccination":
-        return "bg-amber-100/90 text-amber-600 border-amber-200/90 shadow-xs";
-      case "production":
-        return "bg-emerald-100/90 text-emerald-600 border-emerald-200/90 shadow-xs";
-      case "sibat":
-        return "bg-sky-100/90 text-sky-600 border-sky-200/90 shadow-xs";
-      case "weather":
-        return "bg-amber-50 text-amber-500 border-amber-200/90 shadow-xs";
-      default:
-        return "bg-slate-100 text-slate-500 border-slate-200 shadow-xs";
+  const getNotificationStatusBadge = (notif: HeaderNotification) => {
+    const title = notif.title.toLowerCase();
+    const msg = notif.message.toLowerCase();
+
+    if (
+      title.includes("disease") ||
+      title.includes("mortality") ||
+      title.includes("dis-") ||
+      title.includes("mor-") ||
+      msg.includes("requires") ||
+      msg.includes("verification") ||
+      notif.priority === "high"
+    ) {
+      return {
+        label: "Needs Review",
+        className: "bg-[#FEF0F2] text-[#E11D48] border-[#FECDD3]",
+      };
     }
+
+    if (
+      title.includes("sent to mao") ||
+      title.includes("forwarded") ||
+      title.includes("submitted to mao") ||
+      title.includes("for review") ||
+      msg.includes("forwarded to the mao")
+    ) {
+      return {
+        label: "Sent to MAO",
+        className: "bg-[#EFF6FF] text-[#2563EB] border-[#BFDBFE]",
+      };
+    }
+
+    if (
+      title.includes("vaccination") ||
+      title.includes("scheduled") ||
+      title.includes("activity") ||
+      title.includes("reminder") ||
+      notif.type === "vaccination"
+    ) {
+      return {
+        label: "Reminder",
+        className: "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]",
+      };
+    }
+
+    if (
+      title.includes("approved") ||
+      title.includes("reviewed") ||
+      title.includes("completed") ||
+      title.includes("updated by mao") ||
+      msg.includes("has been reviewed") ||
+      msg.includes("approved")
+    ) {
+      return {
+        label: "Completed",
+        className: "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]",
+      };
+    }
+
+    if (notif.priority === "medium") {
+      return {
+        label: "Advisory",
+        className: "bg-amber-50 text-amber-700 border-amber-200/60",
+      };
+    }
+
+    return null;
+  };
+
+  const getNotificationActionText = (notif: HeaderNotification) => {
+    const title = notif.title.toLowerCase();
+    if (
+      title.includes("vaccination") ||
+      title.includes("activity") ||
+      title.includes("schedule") ||
+      notif.type === "vaccination"
+    ) {
+      return "View Details";
+    }
+    return "View Report";
+  };
+
+  const getCardIcon = (notif: HeaderNotification) => {
+    const title = notif.title.toLowerCase();
+    const msg = notif.message.toLowerCase();
+
+    if (
+      notif.type === "disease" ||
+      title.includes("disease") ||
+      title.includes("mortality") ||
+      title.includes("dis-") ||
+      title.includes("mor-") ||
+      notif.priority === "high"
+    ) {
+      return {
+        icon: AlertTriangle,
+        bg: "bg-[#FDF2F4] text-[#E11D48] border-[#FCD9E0]",
+      };
+    }
+
+    if (
+      title.includes("sent to mao") ||
+      title.includes("report") ||
+      title.includes("document") ||
+      title.includes("forwarded") ||
+      notif.type === "sibat" ||
+      notif.type === "production"
+    ) {
+      return {
+        icon: FileText,
+        bg: "bg-[#EDF5FD] text-[#2563EB] border-[#D8EBFA]",
+      };
+    }
+
+    if (
+      notif.type === "vaccination" ||
+      title.includes("vaccination") ||
+      title.includes("scheduled") ||
+      title.includes("activity") ||
+      msg.includes("scheduled")
+    ) {
+      return {
+        icon: Calendar,
+        bg: "bg-[#EAF5ED] text-[#15803D] border-[#D2ECD7]",
+      };
+    }
+
+    return {
+      icon: Info,
+      bg: "bg-[#EDF5FB] text-[#0284C7] border-[#D9EBF9]",
+    };
   };
 
   const buttonStyle = {
     admin:
-      "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 shadow-xs",
+      "bg-white hover:bg-slate-50 text-slate-800 border-slate-200/90 shadow-xs",
     farmer:
       "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
     sibat:
-      "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
+      "bg-white hover:bg-slate-50 text-slate-800 border-slate-200/90 shadow-xs",
     auction:
-      "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
+      "bg-white hover:bg-slate-50 text-slate-800 border-slate-200/90 shadow-xs",
     slaughterhouse:
-      "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
+      "bg-white hover:bg-slate-50 text-slate-800 border-slate-200/90 shadow-xs",
   }[variant];
 
   return (
@@ -561,14 +792,14 @@ export function HeaderNotifications({
           type="button"
           aria-label={`Notifications (${unreadCount} unread)`}
           className={cn(
-            "relative shrink-0 flex items-center justify-center w-11 h-11 rounded-xl sm:rounded-2xl border transition-all duration-150 active:scale-95 cursor-pointer backdrop-blur-xs",
+            "relative shrink-0 flex items-center justify-center w-11 h-11 rounded-full border transition-all duration-150 active:scale-95 cursor-pointer backdrop-blur-xs",
             buttonStyle,
             className
           )}
         >
-          <Bell className="w-5 h-5" />
+          <Bell className="w-5 h-5 text-current" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-rose-600 text-white text-[11px] font-black shadow-xs ring-2 ring-white animate-in zoom-in-75">
+            <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-[#E11D48] text-white text-[11px] font-black shadow-xs ring-2 ring-white animate-in zoom-in-75">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -579,226 +810,236 @@ export function HeaderNotifications({
         align="end"
         sideOffset={8}
         collisionPadding={12}
-        className="w-[calc(100vw-24px)] max-w-[460px] sm:w-[440px] md:w-[460px] p-0 rounded-2xl border border-slate-200/90 shadow-2xl bg-white overflow-hidden text-slate-800 z-50 animate-in fade-in-50 zoom-in-95"
+        className="w-[calc(100vw-24px)] sm:w-[540px] md:w-[620px] lg:w-[660px] max-w-[calc(100vw-24px)] sm:max-w-[540px] md:max-w-[660px] p-4 sm:p-6 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/90 shadow-2xl bg-white overflow-hidden text-slate-800 z-50 animate-in fade-in-50 zoom-in-95"
       >
-        {/* Header Bar */}
-        <div className="px-4 py-3.5 sm:px-5 sm:py-4 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#1E4D2B]/10 text-[#1E4D2B] flex items-center justify-center shrink-0">
-              <Bell className="w-4.5 h-4.5" />
+        {/* Top Header */}
+        <div className="flex items-start justify-between gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            <div className="size-10 sm:size-12 md:size-13 rounded-xl sm:rounded-2xl bg-[#EAF5EC] text-[#2D5A27] flex items-center justify-center shrink-0 shadow-2xs">
+              <Bell className="size-5 sm:size-6 text-[#2D5A27] stroke-[2.2]" />
             </div>
-            <div>
-              <h4 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight leading-tight">
-                Notifications & Alerts
-              </h4>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Biosecurity & Program Advisories
+            <div className="min-w-0">
+              <h3 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-none truncate">
+                Notifications
+              </h3>
+              <p className="text-xs sm:text-[13px] text-slate-500 font-medium mt-1 sm:mt-1.5 truncate">
+                Important updates and reports from your barangay.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            {unreadCount > 0 ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleMarkAllAsRead}
-                disabled={notificationActionsPending}
-                className="h-8 px-2.5 sm:px-3 text-xs font-bold text-[#1E4D2B] hover:text-[#163b21] hover:bg-emerald-50 rounded-xl gap-1.5 cursor-pointer transition-colors active:scale-95"
-                title="Mark all notifications as read"
-              >
-                <CheckCheck className="w-4 h-4" />
-                <span>Mark all read</span>
-              </Button>
-            ) : (
-              <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 font-bold text-xs px-2.5 py-1 rounded-full">
-                All caught up
-              </Badge>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={handleMarkAllAsRead}
+            disabled={unreadCount === 0}
+            className="inline-flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-bold text-[#1A3D22] hover:text-[#2D5A27] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 pt-0.5 sm:pt-1"
+            title="Mark all notifications as read"
+          >
+            <Check className="size-3.5 sm:size-4 stroke-[3]" />
+            <span>Mark all as read</span>
+          </button>
         </div>
 
-        {/* Filter Chips Strip */}
-        <div className="px-4 py-2.5 sm:px-5 bg-white border-b border-slate-100 flex items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setFilter("all")}
-              className={cn(
-                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer active:scale-95",
-                filter === "all"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-              )}
-            >
-              All ({notifications.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter("unread")}
-              className={cn(
-                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-1.5 active:scale-95",
-                filter === "unread"
-                  ? "bg-[#1E4D2B] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-              )}
-            >
-              <span>Unread</span>
-              {unreadCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black leading-none">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="hidden sm:inline">Live MAO Sync</span>
-            <span className="sm:hidden">Live</span>
-          </div>
+        {/* Filter Pills */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 my-3.5 sm:my-5">
+          <button
+            type="button"
+            onClick={() => setFilter("all")}
+            className={cn(
+              "flex-1 py-2 sm:py-2.5 px-2.5 sm:px-4 rounded-full text-xs sm:text-sm font-bold transition-all text-center cursor-pointer",
+              filter === "all"
+                ? "bg-[#1A3D22] text-white shadow-xs"
+                : "bg-[#EFF3F0] hover:bg-[#E4ECE6] text-slate-700"
+            )}
+          >
+            All ({notifications.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("unread")}
+            className={cn(
+              "flex-1 py-2 sm:py-2.5 px-2 sm:px-4 rounded-full text-xs sm:text-sm font-bold transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer",
+              filter === "unread"
+                ? "bg-[#1A3D22] text-white shadow-xs"
+                : "bg-[#EFF3F0] hover:bg-[#E4ECE6] text-slate-700"
+            )}
+          >
+            <span>Unread</span>
+            {unreadCount > 0 && (
+              <span className="bg-[#F43F5E] text-white text-[10px] sm:text-xs font-black px-1.5 sm:px-2 py-0.5 rounded-full min-w-4 sm:min-w-5 text-center leading-none">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("action")}
+            className={cn(
+              "flex-1 py-2 sm:py-2.5 px-2 sm:px-4 rounded-full text-xs sm:text-sm font-bold transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer",
+              filter === "action"
+                ? "bg-[#1A3D22] text-white shadow-xs"
+                : "bg-[#EFF3F0] hover:bg-[#E4ECE6] text-slate-700"
+            )}
+          >
+            <span>Needs Action</span>
+            {actionCount > 0 && (
+              <span className="bg-[#F59E0B] text-white text-[10px] sm:text-xs font-black px-1.5 sm:px-2 py-0.5 rounded-full min-w-4 sm:min-w-5 text-center leading-none">
+                {actionCount}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Notifications Scrollable List */}
-        <ScrollArea className="max-h-[60vh] sm:max-h-[440px] overflow-y-auto">
+        <div className="space-y-2.5 sm:space-y-3 max-h-[460px] overflow-y-auto pr-1">
           {isLoading ? (
             <div className="py-16 px-4 text-center flex flex-col items-center justify-center space-y-3">
               <div className="w-8 h-8 border-3 border-[#1E4D2B] border-t-transparent rounded-full animate-spin" />
               <p className="text-xs sm:text-sm font-semibold text-slate-500">Checking for alerts...</p>
             </div>
           ) : filteredNotifications.length === 0 ? (
-            <div className="py-16 px-6 text-center flex flex-col items-center justify-center space-y-3">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center shadow-xs">
+            <div className="py-14 px-6 text-center flex flex-col items-center justify-center space-y-3">
+              <div className="size-14 rounded-2xl bg-emerald-50 text-[#2D5A27] flex items-center justify-center shadow-xs">
                 {filter === "unread" ? (
-                  <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+                  <CheckCircle2 className="size-7" />
                 ) : (
-                  <Inbox className="w-7 h-7 text-slate-400" />
+                  <Inbox className="size-7" />
                 )}
               </div>
               <p className="text-sm sm:text-base font-bold text-slate-800">
-                {filter === "unread" ? "No unread alerts" : "No notifications yet"}
-              </p>
-              <p className="text-xs sm:text-sm text-slate-500 max-w-[280px] leading-relaxed">
                 {filter === "unread"
-                  ? "All advisory notices have been acknowledged."
-                  : "New biosecurity advisories, inspection confirmations, and municipal announcements will appear here."}
+                  ? "No unread alerts"
+                  : filter === "action"
+                  ? "No actions required"
+                  : "No notifications yet"}
+              </p>
+              <p className="text-xs text-slate-500 max-w-[280px] leading-relaxed">
+                {filter === "unread"
+                  ? "All updates and advisories have been acknowledged."
+                  : filter === "action"
+                  ? "There are no pending actions or high-priority reviews at this time."
+                  : "Important updates, disease alerts, and reports from your barangay will appear here."}
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
-              {filteredNotifications.map((notif) => (
+            filteredNotifications.map((notif) => {
+              const cardIcon = getCardIcon(notif);
+              const IconComp = cardIcon.icon;
+              const badge = getNotificationStatusBadge(notif);
+              const actionText = getNotificationActionText(notif);
+              const location = getNotificationLocation(notif);
+
+              return (
                 <div
                   key={notif.id}
-                  onClick={() => handleMarkAsRead(notif.id, notif.link)}
-                  className={cn(
-                    "p-4 sm:p-4.5 transition-all duration-150 cursor-pointer flex items-start gap-3.5 text-left group active:bg-slate-100/70",
-                    notif.read
-                      ? "bg-white hover:bg-slate-50/80 opacity-75 hover:opacity-100"
-                      : "bg-emerald-50/40 hover:bg-emerald-50/70"
-                  )}
+                  className="p-3.5 sm:p-4.5 md:p-5 rounded-xl sm:rounded-2xl border border-slate-200/80 bg-white hover:border-slate-300 transition-all text-left flex items-start gap-3 sm:gap-4 relative shadow-2xs group"
                 >
-                  {/* Icon */}
+                  {/* Left Icon Container */}
                   <div
                     className={cn(
-                      "shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-2xl border flex items-center justify-center shadow-xs mt-0.5 transition-transform duration-150 group-hover:scale-105",
-                      getIconBackground(notif.type)
+                      "size-10 sm:size-12 rounded-xl sm:rounded-2xl border flex items-center justify-center shrink-0 mt-0.5",
+                      cardIcon.bg
                     )}
                   >
-                    {getNotificationIcon(notif.type)}
+                    <IconComp className="size-5 sm:size-6 stroke-[2.2]" />
                   </div>
 
-                  {/* Body */}
+                  {/* Content Container */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <h5 className="text-sm font-bold text-slate-900 leading-snug line-clamp-2">
+                    {/* Header Row: Title + Unread Dot + MoreVertical Menu */}
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="text-sm sm:text-[15px] font-black text-slate-900 leading-snug tracking-tight">
                         {notif.title}
-                      </h5>
-                      <span className="text-xs font-medium text-slate-400 shrink-0 mt-0.5">
-                        {notif.timeAgo}
-                      </span>
+                      </h4>
+                      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                        {!notif.read && (
+                          <span className="size-2 sm:size-2.5 rounded-full bg-[#10B981] shrink-0" />
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="text-slate-400 hover:text-slate-600 p-0.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+                              aria-label="Notification actions"
+                            >
+                              <MoreVertical className="size-3.5 sm:size-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="rounded-xl p-1 text-xs font-semibold">
+                            {!notif.read && (
+                              <DropdownMenuItem
+                                onClick={() => handleMarkAsRead(notif.id)}
+                                className="cursor-pointer"
+                              >
+                                <Check className="size-3.5 mr-1.5" />
+                                <span>Mark as read</span>
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteNotification(notif.id)}
+                              className="text-rose-600 focus:text-rose-600 cursor-pointer"
+                            >
+                              <Trash2 className="size-3.5 mr-1.5" />
+                              <span>Delete</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
 
-                    <p className="text-xs sm:text-[13px] text-slate-600 leading-relaxed line-clamp-3">
+                    {/* Description Body */}
+                    <p className="text-xs sm:text-[13px] text-slate-600 mt-1 leading-relaxed font-normal">
                       {notif.message}
                     </p>
 
-                    <div className="flex items-center flex-wrap gap-2 mt-2.5">
-                      {notif.priority === "high" && (
-                        <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black uppercase tracking-wider">
-                          High Priority
-                        </span>
-                      )}
-                      {notif.priority === "medium" && (
-                        <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold uppercase tracking-wider">
-                          Advisory
-                        </span>
-                      )}
-                      {notif.type === "sibat" && (
-                        <span className="px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-bold uppercase tracking-wider">
-                          SIBAT
-                        </span>
-                      )}
+                    {/* Bottom Row: Time/Location + Badge + Action Button */}
+                    <div className="flex items-center justify-between gap-2 mt-3 sm:mt-3.5 pt-0.5 flex-wrap">
+                      <span className="text-[11px] sm:text-xs text-slate-400 font-medium">
+                        {notif.timeAgo} • {location}
+                      </span>
 
-                      {notif.link && (
-                        <span className="text-xs text-slate-500 group-hover:text-[#1E4D2B] transition-colors flex items-center gap-1 font-semibold">
-                          View details <ExternalLink className="w-3 h-3" />
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 ml-auto">
+                        {badge && (
+                          <span
+                            className={cn(
+                              "text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-0.5 sm:py-1 rounded-md sm:rounded-lg border",
+                              badge.className
+                            )}
+                          >
+                            {badge.label}
+                          </span>
+                        )}
 
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Delete notification: ${notif.title}`}
-                        title="Delete notification"
-                        disabled={notificationActionsPending}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          deleteMutation.mutate(Number(notif.id));
-                        }}
-                        className="h-8 px-2 text-xs text-slate-500 hover:bg-rose-50 hover:text-rose-700"
-                      >
-                        <Trash2 className="size-3.5" />
-                        Delete
-                      </Button>
-
-                      {!notif.read && (
-                        <span className="ml-auto w-2.5 h-2.5 rounded-full bg-emerald-600 ring-4 ring-emerald-100 shrink-0" />
-                      )}
+                        <button
+                          type="button"
+                          onClick={() => handleMarkAsRead(notif.id, notif.link)}
+                          className="bg-[#EDF6FD] hover:bg-[#DBEEFF] text-[#0284C7] hover:text-[#0369A1] border border-[#BAE6FD] text-[11px] sm:text-xs font-bold px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl inline-flex items-center gap-1 sm:gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <span>{actionText}</span>
+                          <ArrowRight className="size-3 sm:size-3.5 stroke-[2.5]" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })
           )}
-        </ScrollArea>
-
-        {/* Footer */}
-        <div className="p-2 sm:px-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-1.5">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setIsOpen(false);
-              const targetRoute = getNotificationRouteForRole(variant, user?.role, pathname);
-              router.push(targetRoute);
-            }}
-            className="w-full h-8.5 text-xs font-bold text-purple-700 hover:text-purple-900 hover:bg-purple-100/70 flex items-center justify-center gap-1.5 transition-colors underline underline-offset-4 cursor-pointer"
-          >
-            All Notifications
-          </Button>
-          <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
-              <span className="truncate">Padre Garcia MAO Agriculture Portal</span>
-            </div>
-            <span>{notifications.length} total</span>
-          </div>
         </div>
+
+        {/* Footer: View All Notifications */}
+        <button
+          type="button"
+          onClick={() => {
+            setIsOpen(false);
+            const targetRoute = getNotificationRouteForRole(variant, user?.role, pathname);
+            router.push(targetRoute);
+          }}
+          className="w-full py-3 sm:py-3.5 bg-[#EAF5EC] hover:bg-[#DCF0DF] text-[#1A3D22] border border-[#2D5A27]/25 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer mt-3 sm:mt-4 shadow-2xs active:scale-[0.99]"
+        >
+          <FileText className="size-4 sm:size-4.5 stroke-[2.2]" />
+          <span>View All Notifications</span>
+        </button>
       </PopoverContent>
     </Popover>
   );
