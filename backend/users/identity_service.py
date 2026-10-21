@@ -2,6 +2,8 @@
 import hashlib
 import hmac
 import json
+import logging
+import re
 import time
 from datetime import timedelta
 from urllib.error import HTTPError, URLError
@@ -16,6 +18,8 @@ from rest_framework.authentication import BaseAuthentication, get_authorization_
 from rest_framework.exceptions import AuthenticationFailed
 
 from .models import IdentityVerificationAttempt as Attempt, User
+
+logger = logging.getLogger(__name__)
 
 
 class ProviderUnavailable(Exception):
@@ -64,6 +68,36 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def _provider_error_category(error):
+    """Classify a provider error without logging its raw body or submitted values."""
+    try:
+        body = error.read(64 * 1024)
+        data = json.loads(body) if body else {}
+    except (OSError, ValueError, UnicodeDecodeError):
+        data = {}
+
+    if error.code in (401, 403):
+        return "credentials_or_access_rejected"
+
+    text = json.dumps(data, ensure_ascii=True).lower() if isinstance(data, (dict, list)) else ""
+    if "workflow" in text and any(word in text for word in ("invalid", "not found", "inactive", "unpublished")):
+        return "workflow_rejected"
+    if any(word in text for word in ("credit", "quota", "balance")):
+        return "account_limit_or_credits"
+    if isinstance(data, list) and all(isinstance(item, dict) and "loc" in item and "type" in item for item in data):
+        # FastAPI-style validation responses expose field paths and error types;
+        # never log their input/context values or human-readable message.
+        paths = []
+        for item in data[:8]:
+            location = item.get("loc", [])
+            safe_path = ".".join(str(part) for part in location if re.fullmatch(r"[A-Za-z0-9_-]{1,40}", str(part)))
+            error_type = str(item.get("type", ""))
+            if safe_path and re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", error_type):
+                paths.append(f"{safe_path}:{error_type}")
+        return "request_validation_failed" + ("[" + ",".join(paths) + "]" if paths else "")
+    return "provider_rejected_request" if 400 <= error.code < 500 else "provider_server_error"
+
+
 def provider_request(method, path, payload=None):
     # Host is fixed. No browser-supplied URL can receive the server credential.
     request = Request("https://verification.didit.me/v3/" + path,
@@ -79,7 +113,14 @@ def provider_request(method, path, payload=None):
             if not isinstance(data, dict):
                 raise ValueError()
             return data
-    except (HTTPError, URLError, TimeoutError, OSError, ValueError):
+    except HTTPError as error:
+        request_id = next((error.headers.get(name) for name in ("X-Request-ID", "Request-ID") if error.headers.get(name)), "")
+        request_id = request_id if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", request_id) else ""
+        logger.warning("Didit request failed: status=%s category=%s request_id=%s",
+                       error.code, _provider_error_category(error), request_id or "none")
+        raise ProviderUnavailable("Verification service unavailable. Retry later or contact MAO for manual review.") from None
+    except (URLError, TimeoutError, OSError, ValueError) as error:
+        logger.warning("Didit request failed: category=%s", type(error).__name__)
         raise ProviderUnavailable("Verification service unavailable. Retry later or contact MAO for manual review.") from None
 
 
