@@ -191,13 +191,43 @@ function LivestockInfographicHeroContent({
               {activeItem.livestockTypeName} &bull; {activeItem.breed || "Standard Breed"}
             </Badge>
 
-            {activeItem.batchCode && (
-              <Link href={herdRosterHref}>
-                <Badge className="bg-teal-500/20 hover:bg-teal-500/30 border border-teal-400/30 text-teal-200 font-bold text-xs transition-colors cursor-pointer">
-                  <Layers className="size-3 mr-1" /> Herd {activeItem.batchCode}
-                </Badge>
-              </Link>
-            )}
+            {/* Biological Sex Badge */}
+            {(() => {
+              const rawSex = (activeItem.sex || "").trim().toUpperCase();
+              const isFemale = rawSex === "FEMALE" || rawSex === "F";
+              const isMale = rawSex === "MALE" || rawSex === "M";
+              const isCastrated = rawSex === "CASTRATED" || rawSex.includes("CASTRAT");
+
+              if (isFemale) {
+                return (
+                  <Badge className="bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/40 text-pink-200 font-extrabold text-xs shadow-2xs">
+                    ♀ Female
+                  </Badge>
+                );
+              }
+              if (isMale) {
+                return (
+                  <Badge className="bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-200 font-extrabold text-xs shadow-2xs">
+                    ♂ Male
+                  </Badge>
+                );
+              }
+              if (isCastrated) {
+                return (
+                  <Badge className="bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/40 text-purple-200 font-extrabold text-xs shadow-2xs">
+                    ⚲ Castrated
+                  </Badge>
+                );
+              }
+              if (activeItem.sex) {
+                return (
+                  <Badge className="bg-slate-500/20 border border-slate-400/40 text-slate-200 font-extrabold text-xs">
+                    {activeItem.sex}
+                  </Badge>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs text-emerald-200/80">
@@ -222,27 +252,6 @@ function LivestockInfographicHeroContent({
               <AlertTriangle className="size-3.5" /> Corrections
             </Button>
           )}
-
-          <Link href={herdRosterHref}>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-200 border-teal-400/30 font-bold text-xs gap-1.5 cursor-pointer shadow-xs"
-              title={activeItem.batchId ? `Open Herd ${activeItem.batchCode || ""} roster` : `Browse ${activeItem.livestockTypeName || "Cattle"} herds`}
-            >
-              <Layers className="size-3.5 text-teal-300" />
-              {activeItem.batchId ? "View Herd" : `View ${activeItem.livestockTypeName || "Cattle"} Herds`}
-            </Button>
-          </Link>
-
-          <Button
-            onClick={() => setIsFullPhotoModalOpen(true)}
-            variant="outline"
-            size="sm"
-            className="rounded-xl bg-white/10 hover:bg-white/20 text-white border-white/20 font-bold text-xs gap-1.5 cursor-pointer"
-          >
-            <Camera className="size-3.5 text-emerald-300" /> Full Photo
-          </Button>
 
           <Button
             onClick={onOpenPassport}
