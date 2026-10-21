@@ -5,18 +5,41 @@
 
 /* Isolate selected print targets while letting ordinary pages print normally. */
 @media print {
-  /* Ordinary pages print normally. Isolate content only when a print action
-     explicitly marks a selected record or pass. */
-  body:has(#livestock-identity-pass, .qr-code-pass-print-active, #livestock-clearance-print) * {
-    visibility: hidden !important;
-  }
-
+  /* When isolation is active, hide all other direct children of body */
   body.app-print-isolation-active > *:not(.app-print-target-active) {
     display: none !important;
   }
 
+  body.app-print-isolation-active {
+    display: block !important;
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+
+  /* Ordinary pages without isolation hide background elements only when explicitly marked */
+  body:not(.app-print-isolation-active):has(#livestock-identity-pass, .qr-code-pass-print-active, #livestock-clearance-print) *:not(
+    .app-print-target-active,
+    .app-print-target-active *,
+    #livestock-identity-pass,
+    #livestock-identity-pass *,
+    .qr-code-pass-print-active,
+    .qr-code-pass-print-active *,
+    #livestock-clearance-print,
+    #livestock-clearance-print *
+  ) {
+    visibility: hidden !important;
+  }
+
   .app-print-target-active,
-  .app-print-target-active * {
+  .app-print-target-active *,
+  .qr-code-pass-print-active,
+  .qr-code-pass-print-active *,
+  #livestock-identity-pass,
+  #livestock-identity-pass *,
+  #livestock-clearance-print,
+  #livestock-clearance-print * {
     visibility: visible !important;
     max-height: none !important;
     overflow: visible !important;
@@ -41,6 +64,19 @@
     page-break-inside: auto !important;
   }
 
+  /* Specific sizing for QR identity passes */
+  .app-print-target-active.qr-code-pass,
+  .app-print-target-active.qr-code-pass-print-active,
+  .qr-code-pass-print-active {
+    max-width: 28rem !important;
+    margin: 1.5rem auto !important;
+    border: 2px solid #cbd5e1 !important;
+    border-radius: 1rem !important;
+    background: white !important;
+    box-shadow: none !important;
+    padding: 1.25rem !important;
+  }
+
   /* Screen cards use Tailwind's truncate/line-clamp utilities to fit small
      dialog columns. Printed reports need the complete values instead. */
   .app-print-target-active .truncate {
@@ -60,28 +96,31 @@
   .app-print-target-active button,
   .app-print-target-active [role="button"],
   .app-print-target-active [data-slot="dialog-close"],
-  .app-print-target-active .app-print-actions {
+  .app-print-target-active .app-print-actions,
+  .app-print-target-active .qr-code-pass-actions,
+  .qr-code-pass-actions,
+  .livestock-id-pass-action {
     display: none !important;
   }
 
-  body:has(#livestock-identity-pass),
-  body:has(.qr-code-pass-print-active),
-  body:has(#livestock-clearance-print) {
+  body:not(.app-print-isolation-active):has(#livestock-identity-pass),
+  body:not(.app-print-isolation-active):has(.qr-code-pass-print-active),
+  body:not(.app-print-isolation-active):has(#livestock-clearance-print) {
     display: grid !important;
     place-items: center !important;
     min-height: 100vh !important;
     margin: 0 !important;
   }
 
-  body:has(#livestock-identity-pass) > *:not(:has(#livestock-identity-pass)),
-  body:has(.qr-code-pass-print-active) > *:not(:has(.qr-code-pass-print-active)),
-  body:has(#livestock-clearance-print) > *:not(:has(#livestock-clearance-print)) {
+  body:not(.app-print-isolation-active):has(#livestock-identity-pass) > *:not(#livestock-identity-pass):not(:has(#livestock-identity-pass)),
+  body:not(.app-print-isolation-active):has(.qr-code-pass-print-active) > *:not(.qr-code-pass-print-active):not(:has(.qr-code-pass-print-active)),
+  body:not(.app-print-isolation-active):has(#livestock-clearance-print) > *:not(#livestock-clearance-print):not(:has(#livestock-clearance-print)) {
     display: none !important;
   }
 
-  body:has(#livestock-identity-pass) > *:has(#livestock-identity-pass),
-  body:has(.qr-code-pass-print-active) > *:has(.qr-code-pass-print-active),
-  body:has(#livestock-clearance-print) > *:has(#livestock-clearance-print) {
+  body:not(.app-print-isolation-active):has(#livestock-identity-pass) > *:has(#livestock-identity-pass),
+  body:not(.app-print-isolation-active):has(.qr-code-pass-print-active) > *:has(.qr-code-pass-print-active),
+  body:not(.app-print-isolation-active):has(#livestock-clearance-print) > *:has(#livestock-clearance-print) {
     display: grid !important;
     place-items: center !important;
     width: 100% !important;
@@ -112,8 +151,6 @@
     translate: none !important;
   }
 
-  #livestock-identity-pass,
-  #livestock-identity-pass * { visibility: visible !important; }
   #livestock-identity-pass {
     position: static !important;
     width: 100% !important;
@@ -128,10 +165,7 @@
     page-break-inside: avoid !important;
   }
   #livestock-identity-pass [data-slot="dialog-close"] { display: none !important; }
-  .livestock-id-pass-action { display: none !important; }
 
-  .qr-code-pass-print-active,
-  .qr-code-pass-print-active * { visibility: visible !important; }
   .qr-code-pass-print-active {
     position: static !important;
     width: 100% !important;
@@ -145,10 +179,7 @@
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
-  .qr-code-pass-print-active .qr-code-pass-actions { display: none !important; }
 
-  #livestock-clearance-print,
-  #livestock-clearance-print * { visibility: visible !important; }
   #livestock-clearance-print {
     display: block !important;
     position: static !important;

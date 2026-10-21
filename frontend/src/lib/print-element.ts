@@ -23,20 +23,26 @@ export function printElement(target: HTMLElement | null, extraClassName?: string
   document.body.classList.add("app-print-isolation-active");
   document.body.append(printTarget);
 
+  let cleanedUp = false;
   const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
     window.removeEventListener("afterprint", cleanup);
-    printTarget.remove();
+    if (document.body.contains(printTarget)) {
+      printTarget.remove();
+    }
     document.body.classList.remove("app-print-isolation-active");
   };
   window.addEventListener("afterprint", cleanup, { once: true });
+
+  // Safety fallback cleans up if afterprint is cancelled or not dispatched by the browser
+  const fallbackTimer = window.setTimeout(cleanup, 4000);
+  window.addEventListener("afterprint", () => window.clearTimeout(fallbackTimer), { once: true });
 
   try {
     window.print();
   } catch (error) {
     cleanup();
     throw error;
-  } finally {
-    // Some embedded browsers return without dispatching `afterprint`.
-    cleanup();
   }
 }
