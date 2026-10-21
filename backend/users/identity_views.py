@@ -269,6 +269,7 @@ def reviews(request, user_id=None):
             try:
                 result["provider_review"] = service.provider_review_data(attempts[0])
             except service.ProviderUnavailable:
+                result["provider_review"] = service.local_duplicate_review_data(attempts[0])
                 result["provider_review_error"] = "Didit images or extracted name are unavailable. Refresh and try again."
         return result
 

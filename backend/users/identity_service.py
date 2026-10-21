@@ -195,6 +195,21 @@ def check_category(rows):
     return "INCONCLUSIVE"
 
 
+def _has_duplicate_warning(rows):
+    if not isinstance(rows, list):
+        return False
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        warnings = row.get("warnings")
+        if not isinstance(warnings, list):
+            continue
+        for warning in warnings:
+            if isinstance(warning, dict) and "DUPLICATE" in str(warning.get("risk", "")).upper():
+                return True
+    return False
+
+
 def apply_decision(attempt, data):
     if (str(data.get("session_id")) != str(attempt.provider_session_id)
             or data.get("vendor_data") != str(attempt.pk)
@@ -206,6 +221,10 @@ def apply_decision(attempt, data):
     liveness_rows = data.get("liveness_checks")
     if isinstance(liveness_rows, list) and any(not isinstance(row, dict) or row.get("method") != "PASSIVE" for row in liveness_rows):
         attempt.liveness_result = "INCONCLUSIVE"
+    duplicate_flagged = any(
+        _has_duplicate_warning(data.get(key))
+        for key in ("id_verifications", "face_matches", "liveness_checks")
+    )
     status = str(data.get("status", "")).upper().replace(" ", "_")
     if status in ("NOT_STARTED", "IN_PROGRESS"):
         attempt.state = Attempt.State.IN_PROGRESS
@@ -214,7 +233,11 @@ def apply_decision(attempt, data):
     else:
         # A missing feature NEVER counts as passed. Sandbox never confirms real checks.
         all_passed = all(value == "PASSED" for value in (attempt.document_result, attempt.face_result, attempt.liveness_result))
-        attempt.state = Attempt.State.COMPLETED if status == "APPROVED" and all_passed and attempt.environment == "live" else Attempt.State.REVIEW_REQUIRED
+        attempt.state = (
+            Attempt.State.COMPLETED
+            if status == "APPROVED" and all_passed and not duplicate_flagged and attempt.environment == "live"
+            else Attempt.State.REVIEW_REQUIRED
+        )
     attempt.save()
 
 
@@ -283,10 +306,290 @@ def evidence(attempt):
     }
 
 
+def _safe_media_url(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = urlparse(value)
+        if (parsed.scheme == "https" and parsed.hostname and not parsed.username and not parsed.password
+                and parsed.port in (None, 443)):
+            return value
+    except ValueError:
+        pass
+    return None
+
+
+def _name_tokens(value):
+    if not isinstance(value, str):
+        return set()
+    return {token for token in re.findall(r"[a-z]{2,}", value.lower())}
+
+
+def _names_overlap(first, second):
+    t1 = _name_tokens(first)
+    t2 = _name_tokens(second)
+    if not t1 or not t2:
+        return False
+    if t1 == t2:
+        return True
+    shorter, longer = (t1, t2) if len(t1) <= len(t2) else (t2, t1)
+    return len(shorter) >= 2 and shorter.issubset(longer)
+
+
+def _format_session_status(raw_status):
+    cleaned = str(raw_status or "").upper().replace("_", " ").strip()
+    if cleaned in ("REVIEW REQUIRED", "IN REVIEW", "PENDING"):
+        return "IN REVIEW"
+    if cleaned in ("COMPLETED", "APPROVED"):
+        return "APPROVED"
+    if cleaned in ("IN PROGRESS", "NOT STARTED"):
+        return "IN PROGRESS"
+    return cleaned or "IN REVIEW"
+
+
+def _local_duplicate_sessions(attempt, extracted_name=None):
+    """Find related or duplicate verification sessions in SmartLivestock."""
+    all_attempts = list(Attempt.objects.select_related("user").order_by("created_at"))
+    session_numbers = {item.pk: idx for idx, item in enumerate(all_attempts, start=1)}
+
+    applicant_name = " ".join(part for part in (attempt.user.first_name, attempt.user.last_name) if part).strip()
+    applicant_phone = str(attempt.user.phone_number or "").strip()
+
+    matched = []
+    seen_keys = set()
+
+    for other in all_attempts:
+        if other.pk == attempt.pk:
+            continue
+        other_name = " ".join(part for part in (other.user.first_name, other.user.last_name) if part).strip() or other.user.username
+        other_phone = str(other.user.phone_number or "").strip()
+
+        same_user_other_session = other.user_id == attempt.user_id and bool(other.provider_session_id)
+        name_match = (
+            _names_overlap(applicant_name, other_name)
+            or (extracted_name and _names_overlap(extracted_name, other_name))
+        )
+        phone_match = bool(applicant_phone and other_phone and applicant_phone == other_phone and other.user_id != attempt.user_id)
+        shared_workflow_anomaly = bool(
+            other.user_id != attempt.user_id
+            and other.workflow_id == attempt.workflow_id
+            and other.provider_session_id
+            and attempt.provider_session_id
+            and other.face_result == "PASSED"
+            and attempt.face_result == "PASSED"
+            and ("REVIEW_REQUIRED" in (other.state, attempt.state) or "INCONCLUSIVE" in (other.document_result, attempt.document_result))
+        )
+
+        if same_user_other_session or name_match or phone_match or shared_workflow_anomaly:
+            key = str(other.provider_session_id or other.pk)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            display_name = extracted_name if (shared_workflow_anomaly and extracted_name) else other_name
+            matched.append({
+                "session_number": session_numbers.get(other.pk),
+                "session_id": str(other.provider_session_id) if other.provider_session_id else str(other.pk),
+                "user_id": other.user_id,
+                "full_name": display_name,
+                "status": _format_session_status(other.state),
+                "portrait_url": None,
+            })
+
+    return matched
+
+
+def _extract_provider_warnings(attempt, data, id_row, face_row, liveness_row, extracted_name):
+    all_attempts = list(Attempt.objects.select_related("user").order_by("created_at"))
+    session_numbers = {item.pk: idx for idx, item in enumerate(all_attempts, start=1)}
+    by_session_id = {str(item.provider_session_id): item for item in all_attempts if item.provider_session_id}
+    by_vendor = {str(item.pk): item for item in all_attempts}
+
+    raw_groups = (
+        ("ID VERIFICATION", id_row.get("warnings") if isinstance(id_row, dict) else None),
+        ("FACE MATCH", face_row.get("warnings") if isinstance(face_row, dict) else None),
+        ("LIVENESS", liveness_row.get("warnings") if isinstance(liveness_row, dict) else None),
+    )
+
+    warnings_out = []
+    has_dup_warning = False
+
+    for default_feature, group in raw_groups:
+        if not isinstance(group, list):
+            continue
+        for item in group:
+            if not isinstance(item, dict):
+                continue
+            risk = str(item.get("risk") or "WARNING").upper()
+            short_desc = str(item.get("short_description") or risk.replace("_", " ").capitalize()).strip()
+            long_desc = str(item.get("long_description") or "").strip()
+            feature_raw = str(item.get("feature") or default_feature).upper().replace("_", " ").strip()
+            feature = "ID VERIFICATION" if "ID" in feature_raw or "DOCUMENT" in feature_raw else feature_raw
+            log_type = str(item.get("log_type") or "warning").lower()
+
+            is_dup = "DUPLICATE" in risk or "DUPLICATE" in short_desc.upper()
+            if is_dup:
+                has_dup_warning = True
+                if not long_desc:
+                    long_desc = (
+                        "The system identified a potential duplicate user with documents "
+                        "from another session, requiring further investigation."
+                    )
+
+            tag_label = (
+                "POSSIBLE DUPLICATED USER FROM OTHER SESSION"
+                if risk == "POSSIBLE_DUPLICATED_USER"
+                else short_desc.upper()
+            )
+
+            dup_sessions = []
+            seen_sids = set()
+            additional = item.get("additional_data")
+            candidates = []
+            if isinstance(additional, dict):
+                for list_key in ("duplicated_sessions", "sessions", "matches", "duplicates"):
+                    if isinstance(additional.get(list_key), list):
+                        candidates.extend(additional[list_key])
+                single_sid = (
+                    additional.get("session_id")
+                    or additional.get("session_ref")
+                    or additional.get("duplicated_session_id")
+                )
+                if single_sid or additional.get("vendor_data") or additional.get("session_number"):
+                    candidates.append(additional)
+            elif isinstance(additional, list):
+                candidates.extend(additional)
+
+            for cand in candidates:
+                if isinstance(cand, str):
+                    cand = {"session_id": cand}
+                if not isinstance(cand, dict):
+                    continue
+                sid = str(cand.get("session_id") or cand.get("session_ref") or cand.get("id") or "").strip()
+                vdata = str(cand.get("vendor_data") or "").strip()
+                matched_attempt = by_session_id.get(sid) or by_vendor.get(vdata)
+
+                s_num = cand.get("session_number") if isinstance(cand.get("session_number"), int) else (
+                    session_numbers.get(matched_attempt.pk) if matched_attempt else None
+                )
+                s_name = str(
+                    cand.get("full_name")
+                    or cand.get("name")
+                    or (matched_attempt.user.get_full_name() if matched_attempt else "")
+                    or extracted_name
+                    or ""
+                ).strip()
+                s_status = _format_session_status(
+                    cand.get("status") or (matched_attempt.state if matched_attempt else "IN_REVIEW")
+                )
+                s_portrait = _safe_media_url(
+                    cand.get("portrait_image")
+                    or cand.get("target_image")
+                    or cand.get("front_image")
+                    or cand.get("image_url")
+                )
+
+                if sid and (not s_name or not s_portrait or s_num is None):
+                    try:
+                        UUID(sid)
+                        dup_decision = provider_request("GET", f"session/{sid}/decision/")
+                        if isinstance(dup_decision, dict):
+                            if s_num is None and isinstance(dup_decision.get("session_number"), int):
+                                s_num = dup_decision["session_number"]
+                            if dup_decision.get("status"):
+                                s_status = _format_session_status(dup_decision.get("status"))
+                            dup_id_rows = dup_decision.get("id_verifications")
+                            dup_face_rows = dup_decision.get("face_matches")
+                            dup_id = next((r for r in dup_id_rows if isinstance(r, dict)), {}) if isinstance(dup_id_rows, list) else {}
+                            dup_face = next((r for r in dup_face_rows if isinstance(r, dict)), {}) if isinstance(dup_face_rows, list) else {}
+                            if not s_name:
+                                s_name = str(dup_id.get("full_name") or " ".join(
+                                    p for p in (dup_id.get("first_name"), dup_id.get("last_name")) if isinstance(p, str)
+                                )).strip()
+                            if not s_portrait:
+                                s_portrait = _safe_media_url(
+                                    dup_id.get("portrait_image")
+                                    or dup_face.get("target_image")
+                                    or dup_id.get("front_image")
+                                )
+                    except Exception:
+                        pass
+
+                dedup_key = sid or (str(matched_attempt.pk) if matched_attempt else s_name)
+                if dedup_key and dedup_key not in seen_sids:
+                    seen_sids.add(dedup_key)
+                    dup_sessions.append({
+                        "session_number": s_num,
+                        "session_id": sid or (str(matched_attempt.provider_session_id) if matched_attempt and matched_attempt.provider_session_id else None),
+                        "user_id": matched_attempt.user_id if matched_attempt else None,
+                        "full_name": s_name or "Applicant in other session",
+                        "status": s_status,
+                        "portrait_url": s_portrait,
+                    })
+
+            if is_dup:
+                for local_dup in _local_duplicate_sessions(attempt, extracted_name=extracted_name):
+                    dedup_key = local_dup["session_id"] or str(local_dup["user_id"])
+                    if dedup_key not in seen_sids:
+                        seen_sids.add(dedup_key)
+                        dup_sessions.append(local_dup)
+
+            warnings_out.append({
+                "feature": feature,
+                "risk": risk,
+                "tag_label": tag_label,
+                "short_description": short_desc,
+                "long_description": long_desc,
+                "log_type": log_type,
+                "duplicated_sessions": dup_sessions,
+            })
+
+    if not has_dup_warning:
+        local_dups = _local_duplicate_sessions(attempt, extracted_name=extracted_name)
+        if local_dups:
+            warnings_out.insert(0, {
+                "feature": "ID VERIFICATION",
+                "risk": "POSSIBLE_DUPLICATED_USER",
+                "tag_label": "POSSIBLE DUPLICATED USER FROM OTHER SESSION",
+                "short_description": "Possible duplicated user from other session",
+                "long_description": (
+                    "The system identified a potential duplicate user with documents "
+                    "from another session, requiring further investigation."
+                ),
+                "log_type": "warning",
+                "duplicated_sessions": local_dups,
+            })
+
+    return warnings_out
+
+
+def local_duplicate_review_data(attempt):
+    """Fallback review data with SmartLivestock cross-session duplicate warnings when live Didit media is unavailable."""
+    local_dups = _local_duplicate_sessions(attempt)
+    warnings = []
+    if local_dups:
+        warnings.append({
+            "feature": "ID VERIFICATION",
+            "risk": "POSSIBLE_DUPLICATED_USER",
+            "tag_label": "POSSIBLE DUPLICATED USER FROM OTHER SESSION",
+            "short_description": "Possible duplicated user from other session",
+            "long_description": (
+                "The system identified a potential duplicate user with documents "
+                "from another session, requiring further investigation."
+            ),
+            "log_type": "warning",
+            "duplicated_sessions": local_dups,
+        })
+    return {
+        "images": [],
+        "name_comparison": None,
+        "warnings": warnings,
+    }
+
+
 def provider_review_data(attempt):
     """Return minimal, short-lived Didit review evidence without persisting it."""
     if not attempt.provider_session_id or attempt.provider_deleted_at:
-        return {"images": [], "name_comparison": None}
+        return local_duplicate_review_data(attempt)
 
     data = provider_request("GET", f"session/{attempt.provider_session_id}/decision/")
     if (str(data.get("session_id")) != str(attempt.provider_session_id)
@@ -301,25 +604,13 @@ def provider_review_data(attempt):
     face_row = next((row for row in face_rows if isinstance(row, dict)), {}) if isinstance(face_rows, list) else {}
     liveness_row = next((row for row in liveness_rows if isinstance(row, dict)), {}) if isinstance(liveness_rows, list) else {}
 
-    def media_url(value):
-        if not isinstance(value, str):
-            return None
-        try:
-            parsed = urlparse(value)
-            if (parsed.scheme == "https" and parsed.hostname and not parsed.username and not parsed.password
-                    and parsed.port in (None, 443)):
-                return value
-        except ValueError:
-            pass
-        return None
-
     images = []
     for label, value in (
         ("ID front", id_row.get("front_image") or id_row.get("full_front_image")),
         ("ID back", id_row.get("back_image") or id_row.get("full_back_image")),
         ("Selfie", face_row.get("target_image") or liveness_row.get("reference_image")),
     ):
-        url = media_url(value)
+        url = _safe_media_url(value)
         if url:
             images.append({"label": label, "url": url})
 
@@ -348,6 +639,10 @@ def provider_review_data(attempt):
     if not isinstance(score, (int, float)) or isinstance(score, bool):
         score = None
 
+    structured_warnings = _extract_provider_warnings(
+        attempt, data, id_row, face_row, liveness_row, extracted_name
+    )
+
     return {
         "images": images,
         "name_comparison": {
@@ -357,6 +652,7 @@ def provider_review_data(attempt):
             "match_type": match_type,
             "provider_warning": name_warning.get("short_description") if isinstance(name_warning, dict) else None,
         } if provided_name or extracted_name or name_warning else None,
+        "warnings": structured_warnings,
     }
 
 
