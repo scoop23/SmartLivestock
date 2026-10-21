@@ -46,13 +46,22 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import type { OwnRegistrationDocumentsResponse } from '@/lib/registration-documents';
 
 export default function PendingPage() {
   const router = useRouter();
   const [privacyDialogOpen, setPrivacyDialogOpen] = useState(false);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [revisionRequested, setRevisionRequested] = useState(false);
+
+  const handleDocumentsUpdated = useCallback((data: OwnRegistrationDocumentsResponse) => {
+    setRevisionRequested(
+      data.account_status === 'SUBJECT_TO_REVISION' ||
+        data.documents.some((document) => document.verification_status === 'SUBJECT_TO_REVISION'),
+    );
+  }, []);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -81,16 +90,20 @@ export default function PendingPage() {
     },
     {
       num: '03',
-      title: 'MAO Field Verification & ID Audit',
-      desc: 'Agricultural technologist desk review and cross-matching',
-      status: 'IN PROGRESS',
+      title: revisionRequested ? 'MAO Requested Document Revision' : 'MAO Field Verification & ID Audit',
+      desc: revisionRequested
+        ? 'Review MAO’s remarks and upload a replacement document below.'
+        : 'Agricultural technologist desk review and cross-matching',
+      status: revisionRequested ? 'ACTION REQUIRED' : 'IN PROGRESS',
       current: true,
-      icon: Clock,
+      icon: revisionRequested ? AlertCircle : Clock,
     },
     {
       num: '04',
-      title: 'Portal Access & Agri-ID Activation',
-      desc: 'Issuance of livestock monitoring credentials and dashboard rights',
+      title: revisionRequested ? 'MAO Re-review & Portal Activation' : 'Portal Access & Agri-ID Activation',
+      desc: revisionRequested
+        ? 'MAO will review your replacement document before activating portal access.'
+        : 'Issuance of livestock monitoring credentials and dashboard rights',
       status: 'PENDING',
       completed: false,
       icon: Sparkles,
@@ -166,36 +179,42 @@ export default function PendingPage() {
              ═════════════════════════════════════════════════════════════ */}
           <div className="lg:col-span-5 space-y-4 sm:space-y-6">
             {/* Holographic Authority Card */}
-            <div className="rounded-3xl border border-emerald-500/20 bg-gradient-to-b from-white/[0.08] to-white/[0.02] backdrop-blur-2xl p-5 sm:p-7 text-white shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+            <div className={`rounded-3xl border ${revisionRequested ? 'border-rose-500/30' : 'border-emerald-500/20'} bg-gradient-to-b from-white/[0.08] to-white/[0.02] backdrop-blur-2xl p-5 sm:p-7 text-white shadow-2xl relative overflow-hidden`}>
+              <div className={`absolute top-0 right-0 w-32 h-32 ${revisionRequested ? 'bg-rose-500/15' : 'bg-amber-500/10'} rounded-full blur-2xl pointer-events-none`} />
 
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-mono font-bold tracking-wider">
-                <Radio className="size-3 text-emerald-400 animate-pulse" />
+              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${revisionRequested ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'} border text-[11px] font-mono font-bold tracking-wider`}>
+                <Radio className={`size-3 ${revisionRequested ? 'text-rose-400' : 'text-emerald-400'} animate-pulse`} />
                 VERIFICATION RADAR
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight mt-3 bg-gradient-to-r from-emerald-100 via-teal-100 to-white bg-clip-text text-transparent">
-                Application Under Review
+              <h1 className={`text-2xl sm:text-3xl font-black tracking-tight leading-tight mt-3 bg-gradient-to-r ${revisionRequested ? 'from-rose-100 via-red-100 to-white' : 'from-emerald-100 via-teal-100 to-white'} bg-clip-text text-transparent`}>
+                {revisionRequested ? 'Action Required: Document Revision' : 'Application Under Review'}
               </h1>
 
               <p className="text-xs text-slate-300 leading-relaxed mt-2.5 font-normal">
-                Your livestock raiser profile and farm holdings are currently being validated by Padre Garcia municipal agriculture officers.
+                {revisionRequested
+                  ? 'MAO requested a correction to one or more registration documents. Review the reason and upload a replacement below.'
+                  : 'Your livestock raiser profile and farm holdings are currently being validated by Padre Garcia municipal agriculture officers.'}
               </p>
 
               {/* Status Pulse Visual Indicator */}
-              <div className="mt-5 sm:mt-6 p-3.5 sm:p-4 rounded-2xl bg-black/40 border border-emerald-500/20 flex items-center gap-3.5 sm:gap-4">
+              <div className={`mt-5 sm:mt-6 p-3.5 sm:p-4 rounded-2xl bg-black/40 ${revisionRequested ? 'border-rose-500/30' : 'border-emerald-500/20'} border flex items-center gap-3.5 sm:gap-4`}>
                 <div className="relative size-12 sm:size-14 shrink-0 flex items-center justify-center">
-                  <div className="absolute inset-0 rounded-2xl bg-amber-500/20 animate-ping opacity-60" />
-                  <div className="relative size-11 sm:size-12 rounded-2xl bg-gradient-to-br from-amber-500/30 to-amber-600/10 border border-amber-400/40 flex items-center justify-center text-amber-300 shadow-lg shadow-amber-950/40">
-                    <Clock className="size-5 sm:size-6 animate-pulse" />
+                  <div className={`absolute inset-0 rounded-2xl ${revisionRequested ? 'bg-rose-500/20' : 'bg-amber-500/20'} animate-ping opacity-60`} />
+                  <div className={`relative size-11 sm:size-12 rounded-2xl bg-gradient-to-br ${revisionRequested ? 'from-rose-500/30 to-red-600/10 border-rose-400/40 text-rose-300 shadow-rose-950/40' : 'from-amber-500/30 to-amber-600/10 border-amber-400/40 text-amber-300 shadow-amber-950/40'} border flex items-center justify-center shadow-lg`}>
+                    {revisionRequested
+                      ? <AlertCircle className="size-5 sm:size-6" />
+                      : <Clock className="size-5 sm:size-6 animate-pulse" />}
                   </div>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-mono font-black text-amber-300 uppercase tracking-wide">
-                    QUEUE STATUS: REVIEWING
+                  <p className={`text-xs font-mono font-black ${revisionRequested ? 'text-rose-300' : 'text-amber-300'} uppercase tracking-wide`}>
+                    {revisionRequested ? 'QUEUE STATUS: REVISION REQUIRED' : 'QUEUE STATUS: REVIEWING'}
                   </p>
                   <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
-                    Standard municipal turnaround is <strong>1 to 2 business days</strong>.
+                    {revisionRequested
+                      ? <>Upload the requested replacement so MAO can continue reviewing your application.</>
+                      : <>Standard municipal turnaround is <strong>1 to 2 business days</strong>.</>}
                   </p>
                 </div>
               </div>
@@ -247,18 +266,18 @@ export default function PendingPage() {
             <div className="rounded-[2rem] sm:rounded-[2.5rem] border border-emerald-500/25 bg-white shadow-2xl shadow-black/50 overflow-hidden relative">
               {/* Glowing Top Progress Line */}
               <div className="h-1.5 w-full bg-slate-100 relative overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 w-3/4 transition-all duration-500 shadow-sm shadow-emerald-500/50" />
+                <div className={`h-full bg-gradient-to-r ${revisionRequested ? 'from-rose-600 via-rose-500 to-red-400 shadow-rose-500/50' : 'from-emerald-500 via-teal-400 to-amber-400 shadow-emerald-500/50'} ${revisionRequested ? 'w-1/2' : 'w-3/4'} transition-all duration-500 shadow-sm`} />
               </div>
 
               {/* Terminal Header Banner */}
               <div className="p-5 sm:p-8 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 sm:gap-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
-                      Phase 3 of 4
+                    <span className={`font-mono text-[10px] font-black uppercase tracking-wider ${revisionRequested ? 'text-rose-800 bg-rose-100 border-rose-200' : 'text-amber-800 bg-amber-100 border-amber-200'} px-2 py-0.5 rounded-md border`}>
+                      {revisionRequested ? 'Action Required' : 'Phase 3 of 4'}
                     </span>
                     <span className="text-xs font-semibold text-slate-500">
-                      Municipal Desk Audit
+                      {revisionRequested ? 'MAO Document Revision' : 'Municipal Desk Audit'}
                     </span>
                   </div>
                   <h2 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight mt-1.5">
@@ -273,7 +292,7 @@ export default function PendingPage() {
                   type="button"
                   onClick={handleRefresh}
                   disabled={isRefreshing}
-                  className="self-start sm:self-auto shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-emerald-300 bg-white hover:bg-emerald-50/50 text-slate-600 hover:text-emerald-800 text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                  className={`self-start sm:self-auto shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border ${revisionRequested ? 'border-rose-200 hover:border-rose-300 hover:bg-rose-50/50 hover:text-rose-800' : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-800'} bg-white text-slate-600 text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50`}
                   title="Check latest status"
                 >
                   <RefreshCw className={`size-3.5 ${isRefreshing ? 'animate-spin text-emerald-600' : ''}`} />
@@ -293,7 +312,9 @@ export default function PendingPage() {
                         key={step.num}
                         className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex items-start gap-3 sm:gap-3.5 ${
                           step.current
-                            ? 'bg-amber-50/80 border-amber-200/90 shadow-xs'
+                            ? revisionRequested
+                              ? 'bg-rose-50/80 border-rose-200/90 shadow-xs'
+                              : 'bg-amber-50/80 border-amber-200/90 shadow-xs'
                             : step.completed
                             ? 'bg-emerald-50/60 border-emerald-100'
                             : 'bg-slate-50/60 border-slate-200/60 opacity-60'
@@ -302,7 +323,9 @@ export default function PendingPage() {
                         <div
                           className={`size-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-2xs ${
                             step.current
-                              ? 'bg-amber-500 text-white shadow-amber-500/20'
+                              ? revisionRequested
+                                ? 'bg-rose-600 text-white shadow-rose-600/20'
+                                : 'bg-amber-500 text-white shadow-amber-500/20'
                               : step.completed
                               ? 'bg-[#2D5A27] text-white shadow-emerald-900/20'
                               : 'bg-slate-200 text-slate-500'
@@ -319,7 +342,9 @@ export default function PendingPage() {
                             <span
                               className={`text-[9px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-md shrink-0 ${
                                 step.current
-                                  ? 'bg-amber-500/20 text-amber-800 border border-amber-300'
+                                  ? revisionRequested
+                                    ? 'bg-rose-500/15 text-rose-800 border border-rose-300'
+                                    : 'bg-amber-500/20 text-amber-800 border border-amber-300'
                                   : step.completed
                                   ? 'bg-emerald-600/15 text-emerald-800 border border-emerald-300'
                                   : 'bg-slate-200 text-slate-500'
@@ -341,7 +366,7 @@ export default function PendingPage() {
                 </div>
 
                 {/* Registration Document Status & MAO Revision Replacement Flow */}
-                <RegistrationDocumentsPanel variant="pending" />
+                <RegistrationDocumentsPanel variant="pending" onDocumentsUpdated={handleDocumentsUpdated} />
 
                 {/* Biometric / Identity Verification Callout */}
                 <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50/40 to-white border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-xs">
