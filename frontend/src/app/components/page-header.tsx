@@ -177,7 +177,7 @@ export function PageHeader({
           className={`pointer-events-none absolute right-32 -bottom-28 h-48 w-48 rounded-full blur-3xl transform-gpu [contain:paint] ${glowClasses[variant]}`}
         />
         <div className={`relative ${maxWidthClass} mx-auto px-4 py-3.5 sm:py-5 md:px-6 md:py-7`}>
-          <div className={`flex gap-2.5 sm:gap-3 ${variant === "farmer" || variant === "sibat" ? "flex-col sm:flex-row sm:items-center sm:justify-between" : "items-center justify-between"}`}>
+          <div className={`flex gap-2.5 sm:gap-3 ${variant === "farmer" || variant === "sibat" || Boolean(action) || mobileActionsRow ? "flex-col sm:flex-row sm:items-center sm:justify-between" : "items-center justify-between"}`}>
             <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
               <HeaderMenuButton className={chipClasses[variant]} />
               {icon ? (
@@ -188,17 +188,27 @@ export function PageHeader({
                 </div>
               ) : null}
               <div className="min-w-0 flex-1">
-                <h1 className={`min-w-0 break-words ${variant === "sibat" ? "" : "[overflow-wrap:anywhere]"} text-base sm:text-2xl font-extrabold tracking-tight leading-snug`}>
+                <h1 className="min-w-0 break-words text-base sm:text-2xl font-extrabold tracking-tight leading-snug">
                   {title}
                 </h1>
                 {subtitle && (
-                <p className={`${variant === "sibat" ? "text-xs sm:text-sm" : "text-xs sm:text-sm"} font-medium opacity-90 mt-0.5 sm:mt-1 leading-relaxed ${variant === "farmer" || variant === "sibat" || wrapSubtitleOnMobile ? "whitespace-normal break-words" : "truncate"}`}>
+                  <p className={`text-xs sm:text-sm font-medium opacity-90 mt-0.5 sm:mt-1 leading-relaxed ${variant === "farmer" || variant === "sibat" || Boolean(action) || wrapSubtitleOnMobile ? "whitespace-normal break-words" : "truncate"}`}>
                     {subtitle}
                   </p>
                 )}
               </div>
             </div>
-            <div className={`shrink-0 flex gap-2 sm:gap-2.5 ${variant === "farmer" ? (mobileActionsRow ? "w-full items-center justify-end border-t border-white/15 pt-2.5 sm:ml-2 sm:w-auto sm:border-0 sm:pt-0" : "ml-0 items-center justify-end sm:ml-2") : variant === "sibat" ? "w-full items-center justify-end border-t border-white/15 pt-2.5 sm:ml-2 sm:w-auto sm:border-0 sm:pt-0" : "ml-2 items-center"}`}>
+            <div className={`shrink-0 flex gap-2 sm:gap-2.5 ${
+              variant === "farmer"
+                ? (mobileActionsRow || Boolean(action)
+                    ? "w-full items-center justify-end border-t border-white/15 pt-2.5 sm:ml-2 sm:w-auto sm:border-0 sm:pt-0"
+                    : "ml-0 items-center justify-end sm:ml-2")
+                : variant === "sibat"
+                  ? "w-full items-center justify-end border-t border-white/15 pt-2.5 sm:ml-2 sm:w-auto sm:border-0 sm:pt-0"
+                  : Boolean(action) || mobileActionsRow
+                    ? `w-full items-center justify-end border-t ${variant === "admin" ? "border-slate-200/80" : "border-white/15"} pt-2.5 sm:ml-2 sm:w-auto sm:border-0 sm:pt-0`
+                    : "ml-2 items-center"
+            }`}>
               <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2.5">
                 {showNotifications && <HeaderNotifications variant={variant} />}
                 {variant === "farmer" && showTutorialToggle && <TutorialAutoToggle dark />}
