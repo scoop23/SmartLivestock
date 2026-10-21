@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import api from '@/lib/axios';
-import { identityClient, IDENTITY_TOKEN_KEY } from '@/lib/identity-verification';
+import { identityClient, saveRegistrationIdentitySession } from '@/lib/identity-verification';
 import { cowHead } from '@lucide/lab';
 import axios from 'axios';
 import {
@@ -371,7 +371,8 @@ export default function FarmerRegistrationPage() {
         submissionData.append('rsbsa_document', documents.rsbsa);
       }
 
-      const registration = await identityClient().post<{
+      const registrationClient = identityClient();
+      const registration = await registrationClient.post<{
         identity_verification?: { required: boolean; access_token: string };
       }>('/api/users/register/', submissionData, {
         timeout: 30 * 60 * 1000,
@@ -379,9 +380,9 @@ export default function FarmerRegistrationPage() {
 
       if (registration.data.identity_verification?.required) {
         try {
-          sessionStorage.setItem(
-            IDENTITY_TOKEN_KEY,
-            registration.data.identity_verification.access_token
+          saveRegistrationIdentitySession(
+            registration.data.identity_verification.access_token,
+            String(registrationClient.defaults.baseURL)
           );
           router.push('/farmer-registration/identity');
         } catch {

@@ -1,6 +1,6 @@
 import axios from "axios";
 import api, { getActiveApiUrl, LOCAL_API_URL } from "@/lib/axios";
-import { IDENTITY_TOKEN_KEY } from "@/lib/identity-verification";
+import { IDENTITY_TOKEN_KEY, saveRegistrationIdentitySession } from "@/lib/identity-verification";
 
 export interface RegistrationDocumentItem {
   id: number;
@@ -56,11 +56,11 @@ function buildAuthHeaders(): Record<string, string> {
   return {};
 }
 
-function shouldFallbackToLocal(err: unknown): boolean {
+function shouldFallbackToLocal(err: unknown, activeApiUrl = getActiveApiUrl()): boolean {
   return (
     axios.isAxiosError(err) &&
     err.response?.status === 404 &&
-    getActiveApiUrl() !== LOCAL_API_URL &&
+    activeApiUrl !== LOCAL_API_URL &&
     typeof window !== "undefined" &&
     (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
   );
@@ -93,19 +93,21 @@ export async function establishDocumentRevisionSession(
   password: string
 ): Promise<OwnRegistrationDocumentsResponse> {
   const payload = { email: email.trim().toLowerCase(), password };
+  let sessionApiUrl = getActiveApiUrl();
   let data: OwnRegistrationDocumentsResponse;
   try {
     const res = await axios.post<OwnRegistrationDocumentsResponse>(
-      `${getActiveApiUrl()}/api/users/documents/session/`,
+      `${sessionApiUrl}/api/users/documents/session/`,
       payload
     );
     data = res.data;
   } catch (err) {
-    if (shouldFallbackToLocal(err)) {
+    if (shouldFallbackToLocal(err, sessionApiUrl)) {
       const res = await axios.post<OwnRegistrationDocumentsResponse>(
         `${LOCAL_API_URL}/api/users/documents/session/`,
         payload
       );
+      sessionApiUrl = LOCAL_API_URL;
       data = res.data;
     } else {
       throw err;
@@ -113,11 +115,7 @@ export async function establishDocumentRevisionSession(
   }
 
   if (data.access_token && typeof window !== "undefined") {
-    try {
-      sessionStorage.setItem(IDENTITY_TOKEN_KEY, data.access_token);
-    } catch {
-      // Ignore sessionStorage errors
-    }
+    saveRegistrationIdentitySession(data.access_token, sessionApiUrl);
   }
   return data;
 }

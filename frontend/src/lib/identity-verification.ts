@@ -1,7 +1,40 @@
 import axios from "axios";
-import { getActiveApiUrl } from "@/lib/axios";
+import {
+  FALLBACK_API_URL,
+  getActiveApiUrl,
+  LOCAL_API_URL,
+  PRIMARY_API_URL,
+  RENDER_API_URL,
+} from "@/lib/axios";
 
 export const IDENTITY_TOKEN_KEY = "registration-identity-session";
+export const IDENTITY_API_URL_KEY = "registration-identity-api-url";
+
+const allowedIdentityApiUrls = new Set([
+  PRIMARY_API_URL,
+  FALLBACK_API_URL,
+  LOCAL_API_URL,
+  RENDER_API_URL,
+]);
+
+export function saveRegistrationIdentitySession(token: string, apiUrl: string): void {
+  if (!allowedIdentityApiUrls.has(apiUrl)) throw new Error("Unrecognized registration server");
+  sessionStorage.setItem(IDENTITY_TOKEN_KEY, token);
+  sessionStorage.setItem(IDENTITY_API_URL_KEY, apiUrl);
+}
+
+function registrationApiUrl(token?: string): string {
+  if (token && typeof window !== "undefined") {
+    try {
+      const storedToken = sessionStorage.getItem(IDENTITY_TOKEN_KEY);
+      const storedUrl = sessionStorage.getItem(IDENTITY_API_URL_KEY);
+      if (storedToken === token && storedUrl && allowedIdentityApiUrls.has(storedUrl)) return storedUrl;
+    } catch {
+      // Use the current configured API URL if browser storage is unavailable.
+    }
+  }
+  return getActiveApiUrl();
+}
 export interface IdentityConfig {
   enabled: boolean;
   available: boolean;
@@ -33,7 +66,7 @@ export interface IdentityAttempt {
 export function identityClient(registrationToken?: string) {
   const access = typeof window !== "undefined" ? localStorage.getItem("access") : null;
   return axios.create({
-    baseURL: getActiveApiUrl(), timeout: 20000,
+    baseURL: registrationApiUrl(registrationToken), timeout: 20000,
     headers: registrationToken ? { Authorization: `Identity ${registrationToken}` }
       : access ? { Authorization: `Bearer ${access}` } : {},
   });
