@@ -185,7 +185,28 @@ export function LivestockMilkForecastTab({ livestockId }: { livestockId: number 
 
         {data.status === "NOT_READY" ? (
           <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-            <strong>Insufficient historical data.</strong> {data.reason} Only this animal’s approved milk records count toward a real forecast.
+            {data.data_source === "approved_livestock_records" && data.observation_count < data.minimum_history_required ? (
+              <>
+                <strong>Milk prediction progress</strong>
+                <p className="mt-1">
+                  {data.observation_count} of {data.minimum_history_required} approved daily milk dates recorded.
+                  {" "}{data.minimum_history_required - data.observation_count} more distinct {data.minimum_history_required - data.observation_count === 1 ? "date" : "dates"} needed.
+                </p>
+                <div
+                  role="progressbar"
+                  aria-label="Approved daily milk dates toward prediction"
+                  aria-valuemin={0}
+                  aria-valuemax={data.minimum_history_required}
+                  aria-valuenow={data.observation_count}
+                  className="mt-3 h-2 overflow-hidden rounded-full bg-amber-200"
+                >
+                  <div className="h-full rounded-full bg-amber-600" style={{ width: `${Math.min(100, (data.observation_count / data.minimum_history_required) * 100)}%` }} />
+                </div>
+                <p className="mt-2 text-xs">Only this animal’s approved milk records count. Multiple records on one date count as one day.</p>
+              </>
+            ) : (
+              <p><strong>Prediction not ready.</strong> {data.reason}</p>
+            )}
             {data.demonstration_available && !showDemo && (
               <button
                 type="button"
