@@ -172,8 +172,6 @@ export default function LoginPage() {
       const status = response?.status;
       const data = response?.data;
 
-      triggerShake();
-
       // 1. Check if the account is pending approval or not approved yet
       const accountStatusStr = typeof data?.account_status === 'string'
         ? data.account_status
@@ -239,6 +237,9 @@ export default function LoginPage() {
         }
         return;
       }
+
+      // Pending accounts get a status message, not the login form shake.
+      triggerShake();
 
       // 2. Check for invalid email or password (401 Unauthorized or 400 Bad Request with credentials error)
       if (status === 401 || status === 400) {
