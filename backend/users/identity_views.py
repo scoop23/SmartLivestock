@@ -218,6 +218,26 @@ def webhook(request):
     return Response(status=204)
 
 
+@api_view(["POST"])
+@authentication_classes([service.RegistrationIdentityAuthentication, ApprovedJWTAuthentication])
+@permission_classes([IsAuthenticated])
+@throttle_classes([IdentityThrottle])
+@transaction.atomic
+def request_assistance(request):
+    # Only the authenticated registration owner can request help for their attempt.
+    attempt = request.user.identity_attempts.select_for_update().first()
+    if not attempt:
+        return no_store(Response({"detail": "No registration verification attempt exists."}, status=409))
+    if request.data:
+        return no_store(Response({"detail": "Verification results cannot be supplied by the browser."}, status=400))
+    if not attempt.events.filter(state="ASSISTANCE_REQUESTED").exists():
+        Event.objects.create(attempt=attempt, state="ASSISTANCE_REQUESTED", actor=request.user,
+                             remarks="Farmer requested MAO assistance completing automated capture.")
+        notify_evidence(attempt)
+    # Preserve actual provider results and state; requesting help does not pass checks.
+    return no_store(Response({"attempt": service.evidence(attempt)}))
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def reviews(request, user_id=None):

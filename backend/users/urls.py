@@ -9,6 +9,7 @@ urlpatterns = [
     path("identity/status/", identity_views.own_status, name="identity_status"),
     path("identity/start/", identity_views.start, name="identity_start"),
     path("identity/refresh/", identity_views.refresh, name="identity_refresh"),
+    path("identity/assistance/", identity_views.request_assistance, name="identity_assistance"),
     path("identity/webhook/", identity_views.webhook, name="identity_webhook"),
     path("identity/reviews/", identity_views.reviews, name="identity_reviews"),
     path("identity/reviews/<int:user_id>/", identity_views.reviews, name="identity_review_detail"),

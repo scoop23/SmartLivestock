@@ -59,6 +59,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
+import type { IdentityConfig } from '@/lib/identity-verification';
 
 interface BarangayOption {
   id: number;
@@ -88,6 +90,12 @@ const DEFAULT_BARANGAYS: BarangayOption[] = [
 
 export default function FarmerRegistrationPage() {
   const router = useRouter();
+  const identityConfig = useQuery({
+    queryKey: ['identity-config'],
+    queryFn: async () => (await identityClient().get<IdentityConfig>('/api/users/identity/config/')).data,
+    retry: false,
+  });
+  const identityEnabled = identityConfig.data?.enabled === true;
 
   // Form states
   const [formData, setFormData] = useState({
@@ -300,6 +308,7 @@ export default function FarmerRegistrationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting || identityConfig.isPending || identityConfig.isError) return;
     setError('');
     setFieldErrors({});
 
@@ -363,10 +372,6 @@ export default function FarmerRegistrationPage() {
         timeout: 30 * 60 * 1000,
       });
 
-      toast.success('Registration Submitted!', {
-        description: 'Your application has been received and is pending MAO verification.',
-      });
-
       if (registration.data.identity_verification?.required) {
         try {
           sessionStorage.setItem(
@@ -381,6 +386,9 @@ export default function FarmerRegistrationPage() {
           router.push('/pending');
         }
       } else {
+        toast.success('Registration Submitted!', {
+          description: 'Your application is pending MAO verification.',
+        });
         router.push('/pending');
       }
       setFormData((previous) => ({ ...previous, password: '', confirmPassword: '' }));
@@ -452,6 +460,10 @@ export default function FarmerRegistrationPage() {
       sub: 'Attach verification IDs and consent under RA 10173',
       icon: Shield,
     },
+    ...(identityEnabled ? [{
+      num: 4, phase: '04', title: 'Step 4: ID & Selfie Verification',
+      short: 'ID & Selfie', sub: 'Complete Didit capture before finishing registration', icon: Scan,
+    }] : []),
   ];
 
   return (
@@ -647,7 +659,7 @@ export default function FarmerRegistrationPage() {
               <div className="h-1.5 w-full bg-slate-100 relative overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600 transition-all duration-500 shadow-sm shadow-emerald-500/50"
-                  style={{ width: step === 1 ? '33.33%' : step === 2 ? '66.66%' : '100%' }}
+                  style={{ width: `${(step / (identityEnabled ? 4 : 3)) * 100}%` }}
                 />
               </div>
 
@@ -687,7 +699,7 @@ export default function FarmerRegistrationPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
-                      Step {step} of 3
+                      Step {step} of {identityEnabled ? 4 : 3}
                     </span>
                     <span className="text-xs font-semibold text-slate-500">
                       {step === 1 ? 'Credentials' : step === 2 ? 'Farm Details' : 'Documents'}
@@ -730,7 +742,7 @@ export default function FarmerRegistrationPage() {
                             placeholder="e.g. Juan"
                             value={formData.firstName}
                             onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                            className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                            className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
                               fieldErrors.firstName ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
                             }`}
                             required
@@ -753,7 +765,7 @@ export default function FarmerRegistrationPage() {
                             placeholder="e.g. Dela Cruz"
                             value={formData.lastName}
                             onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                            className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                            className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
                               fieldErrors.lastName ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
                             }`}
                             required
@@ -779,7 +791,7 @@ export default function FarmerRegistrationPage() {
                           placeholder="juan.delacruz@example.com"
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                          className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
                             fieldErrors.email ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
                           }`}
                           required
@@ -810,7 +822,7 @@ export default function FarmerRegistrationPage() {
                             const val = e.target.value.replace(/\D/g, '');
                             setFormData({ ...formData, phoneNumber: val });
                           }}
-                          className={`w-full px-3.5 h-12 bg-slate-50 hover:bg-white text-sm font-medium placeholder:text-black/40 outline-none ${
+                          className={`w-full px-3.5 h-12 bg-slate-50 hover:bg-white text-sm font-medium text-black placeholder:text-black/40 outline-none ${
                             fieldErrors.phone_number || fieldErrors.phoneNumber ? 'bg-rose-50/30' : ''
                           }`}
                           required
@@ -836,7 +848,7 @@ export default function FarmerRegistrationPage() {
                             placeholder="••••••••"
                             value={formData.password}
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                            className={`w-full pl-10 pr-11 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                            className={`w-full pl-10 pr-11 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
                               fieldErrors.password ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
                             }`}
                             required
@@ -863,7 +875,7 @@ export default function FarmerRegistrationPage() {
                             placeholder="••••••••"
                             value={formData.confirmPassword}
                             onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                            className={`w-full pl-10 pr-11 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                            className={`w-full pl-10 pr-11 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
                               fieldErrors.confirmPassword ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
                             }`}
                             required
@@ -1005,7 +1017,7 @@ export default function FarmerRegistrationPage() {
                         >
                           <SelectTrigger
                             id="barangay"
-                            className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium data-[placeholder]:!text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                            className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black data-[placeholder]:!text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
                               fieldErrors.barangay ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
                             }`}
                           >
@@ -1042,7 +1054,7 @@ export default function FarmerRegistrationPage() {
                         placeholder="e.g. 1.50"
                         value={formData.farmSize}
                         onChange={(e) => setFormData({ ...formData, farmSize: e.target.value })}
-                        className={`w-full px-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                        className={`w-full px-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
                           fieldErrors.farmSize || fieldErrors.farm_size ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
                         }`}
                         required
@@ -1086,7 +1098,7 @@ export default function FarmerRegistrationPage() {
                           placeholder="e.g. Sitio Ilaya, Purok 3, Near Barangay Hall"
                           value={formData.address}
                           onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                          className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                          className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
                             fieldErrors.address ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
                           }`}
                           required
@@ -1111,7 +1123,7 @@ export default function FarmerRegistrationPage() {
                           placeholder="e.g. 04-10-18-000-00000"
                           value={formData.rsbsaNumber}
                           onChange={(e) => setFormData({ ...formData, rsbsaNumber: e.target.value })}
-                          className="w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border border-slate-200 rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20"
+                          className="w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border border-slate-200 rounded-2xl text-sm font-medium text-black placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20"
                         />
                         <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                       </div>
@@ -1170,7 +1182,7 @@ export default function FarmerRegistrationPage() {
                         >
                           <SelectTrigger
                             id="governmentIdType"
-                            className="w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white px-3.5 text-sm font-medium text-slate-800 data-[placeholder]:!text-black/40 transition focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20"
+                            className="w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white px-3.5 text-sm font-medium text-black data-[placeholder]:!text-black/40 transition focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20"
                           >
                             <SelectValue placeholder="Select ID type" />
                           </SelectTrigger>
@@ -1507,6 +1519,8 @@ export default function FarmerRegistrationPage() {
                     )}
 
                     {/* Step 3 Actions */}
+                    {identityEnabled && <p className="text-sm text-slate-600">Next: ID and selfie checks with Didit. We save one pending application before capture so you can resume without registering again. MAO still makes the approval decision.</p>}
+                    {identityConfig.isError && <p role="alert" className="text-sm text-rose-700">Cannot load registration requirements. Check your connection and retry before submitting. <button type="button" className="underline" onClick={() => void identityConfig.refetch()}>Retry</button></p>}
                     <div className="flex gap-3 pt-2">
                       <Button
                         type="button"
@@ -1520,7 +1534,7 @@ export default function FarmerRegistrationPage() {
                       </Button>
                       <Button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || identityConfig.isPending || identityConfig.isError}
                         className="flex-2 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl shadow-green-900/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
                       >
                         {isSubmitting ? (
@@ -1531,7 +1545,7 @@ export default function FarmerRegistrationPage() {
                         ) : (
                           <>
                             <BadgeCheck className="size-4.5" />
-                            <span>Complete Registration</span>
+                            <span>{identityConfig.isPending ? 'Loading requirements...' : identityEnabled ? 'Continue to ID & Selfie' : 'Complete Registration'}</span>
                           </>
                         )}
                       </Button>

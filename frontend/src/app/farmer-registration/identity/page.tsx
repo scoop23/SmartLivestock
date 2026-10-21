@@ -3,6 +3,7 @@
 import { useEffect, useState, useId } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { IdentityChecks } from "@/components/identity-evidence";
 import {
@@ -11,7 +12,9 @@ import {
 } from "@/lib/identity-verification";
 
 export default function RegistrationIdentityPage() {
+  const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
+  const [manualReview, setManualReview] = useState(false);
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const pageId = useId();
@@ -26,6 +29,7 @@ export default function RegistrationIdentityPage() {
     (await identityClient().get<IdentityConfig>("/api/users/identity/config/")).data });
   const status = useQuery({ queryKey: ["registration-identity-status", pageId, Boolean(token)], enabled: Boolean(token),
     retry: false, gcTime: 0,
+    refetchOnWindowFocus: true,
     queryFn: async () => (await identityClient(token!).get<{ attempt: IdentityAttempt | null }>("/api/users/identity/status/")).data });
   const start = useMutation({
     mutationFn: async (retry: boolean) => (await identityClient(token!).post<{ url?: string }>("/api/users/identity/start/", {
@@ -45,11 +49,23 @@ export default function RegistrationIdentityPage() {
     onError: (failure) => setError(identityError(failure)),
   });
   const attempt = status.data?.attempt ?? null;
+  const resultReady = Boolean(attempt && ["COMPLETED", "REVIEW_REQUIRED"].includes(attempt.state));
+  const finish = useMutation({
+    mutationFn: async () => {
+      if (manualReview && !resultReady) await identityClient(token!).post("/api/users/identity/assistance/", {});
+    },
+    onSuccess: () => router.push("/pending"),
+    onError: (failure) => setError(identityError(failure)),
+  });
   const retry = Boolean(attempt && ["FAILED_TECHNICAL", "RETRY_REQUIRED", "REVIEW_REQUIRED"].includes(attempt.state));
+  const canFinish = Boolean(token && !status.isError && !status.isPending && !start.isPending && !refresh.isPending && (resultReady || manualReview));
 
   return <main className="mx-auto min-h-screen w-full max-w-xl space-y-5 px-4 py-8 text-slate-900">
-    <h1 className="text-2xl font-bold">Registration identity checks</h1>
-    <p className="text-sm">Your registration has been saved. These checks support human review and never approve or reject your account automatically.</p>
+    <nav aria-label="Registration progress" className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+      {["1. Credentials saved", "2. Farm details saved", "3. Documents saved", "4. ID & selfie"].map((label, index) => <span key={label} aria-current={index === 3 ? "step" : undefined} className={index === 3 ? "rounded-xl bg-[#2D5A27] p-3 font-semibold text-white" : "rounded-xl bg-emerald-50 p-3 text-emerald-900"}>{label}</span>)}
+    </nav>
+    <h1 className="text-2xl font-bold">Step 4: ID and selfie verification</h1>
+    <p className="text-sm">Your details and documents have been saved as one pending application. Complete the Didit capture below before finishing registration, or explicitly request manual assistance. These checks support human review and never approve or reject your account automatically.</p>
     {config.isPending || (token && status.isPending) ? <p role="status">Loading verification information…</p> : null}
     {config.isError || status.isError ? <p role="alert" className="text-sm text-rose-700">{identityError(config.error || status.error)}</p> : null}
     {!token ? <p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm">No active registration session was found. Contact MAO for assistance. Do not register a second account.</p> : null}
@@ -82,6 +98,14 @@ export default function RegistrationIdentityPage() {
       </div>
     </section> : null}
     {error ? <p role="alert" className="text-sm text-rose-700">{error}</p> : null}
-    <Link href="/pending" className="inline-block py-3 text-sm font-semibold underline">View pending registration</Link>
+    {token && <section className="space-y-4 rounded-2xl border bg-white p-4">
+      {!resultReady && <label className="flex items-start gap-3 text-sm">
+        <input type="checkbox" className="mt-1 size-5 shrink-0" checked={manualReview} onChange={(event) => setManualReview(event.target.checked)} />
+        <span>I cannot complete automated capture and need MAO assistance. I understand my application remains pending and requires a documented human assessment; this does not mark ID, face matching or liveness as passed.</span>
+      </label>}
+      <Button disabled={!canFinish || finish.isPending} onClick={() => finish.mutate()} className="min-h-12 w-full whitespace-normal bg-[#2D5A27] text-white hover:bg-[#23471f]">{finish.isPending ? "Saving request..." : resultReady ? "Complete Registration" : "Complete Registration — Request Manual Review"}</Button>
+      <p className="text-xs text-slate-600">MAO must review your documents and the current evidence before approving your account. No second account is created.</p>
+    </section>}
+    {!token && <Link href="/pending" className="inline-block py-3 text-sm font-semibold underline">View pending registration</Link>}
   </main>;
 }
