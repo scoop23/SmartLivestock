@@ -97,7 +97,7 @@ requests. Notification ownership remains enforced server-side.
 
 | Area | Source modules and interfaces |
 |---|---|
-| Registration and users | Farmer registration, document review, account status, assignments, JWT login/refresh and password recovery. |
+| Registration and users | Farmer registration, document review, account status, assignments, JWT login/refresh and password recovery. Optional provider-backed identity evidence is disabled pending configuration; see [setup and limitations](docs/registration-identity-verification.md). |
 | Livestock | Individual registry, herd membership/photos, QR identity, census, ownership certificates and gate records. |
 | Production | Species-appropriate milk/meat/eggs/wool records, weight logs, calving, live sales and supported inventory events. |
 | Health | Disease/mortality reporting, verification and approval, evidence, case follow-up and official resolution. |

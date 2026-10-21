@@ -54,6 +54,7 @@ Users,
 } from "lucide-react";
 import { useAdminBarangays } from "../admin/admin-charts";
 import { DocumentPreviewDialog } from "./document-preview-dialog";
+import { IdentityEvidencePanel } from "@/components/identity-evidence";
 
 export type { ApiUser,UserAccountStatus,UserDocumentItem };
 
@@ -596,6 +597,7 @@ export default function UserManagementPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 p-4">
+                  {selectedUser.role === "FARMER" ? <IdentityEvidencePanel userId={selectedUser.id} canAssess /> : null}
                   {(selectedUser.documents || []).length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center"><FileText className="mx-auto size-5 text-slate-400" /><p className="mt-2 text-sm font-medium text-slate-700">No documents attached</p><p className="mt-1 text-xs text-slate-500">No files were uploaded during registration.</p></div>
                   ) : selectedUser.documents.map((doc) => (

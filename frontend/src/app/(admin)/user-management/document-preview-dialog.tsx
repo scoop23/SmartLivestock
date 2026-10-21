@@ -88,7 +88,7 @@ function DocumentPreviewDialogContent({
         setIsLoading(false);
       } catch (err: unknown) {
         if (!isMounted) return;
-        console.error('Failed to load document preview:', err);
+        // Never log request headers or private document responses.
 
         const status = httpError(err)?.response?.status;
         if (status === 401) {

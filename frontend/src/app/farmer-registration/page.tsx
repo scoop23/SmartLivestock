@@ -1,46 +1,63 @@
 'use client';
 
-import { httpError } from "@/lib/http-error";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-Dialog,
-DialogContent,
-DialogDescription,
-DialogHeader,
-DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import api from '@/lib/axios';
+import { identityClient, IDENTITY_TOKEN_KEY } from '@/lib/identity-verification';
 import { cowHead } from '@lucide/lab';
 import axios from 'axios';
 import {
-AlertCircle,
-ArrowLeft,
-ArrowRight,
-BadgeCheck,
-Building2,
-Camera,
-Check,
-ExternalLink,
-Eye,
-EyeOff,
-FileCheck,
-FileText,
-Icon,
-Loader2,
-Lock,
-Mail,
-MapPin,
-Shield,
-Upload,
-User,
-X
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
+  Building2,
+  Camera,
+  Check,
+  CheckCircle2,
+  Cpu,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  FileCheck,
+  FileText,
+  Fingerprint,
+  Globe,
+  Icon,
+  Loader2,
+  Lock,
+  Mail,
+  MapPin,
+  Phone,
+  Radio,
+  Scan,
+  Shield,
+  ShieldCheck,
+  Sparkles,
+  Upload,
+  User,
+  X,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import React,{ useEffect,useRef,useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 interface BarangayOption {
@@ -57,13 +74,13 @@ const DEFAULT_BARANGAYS: BarangayOption[] = [
   { id: 5, barangay_name: 'Banay-Banay' },
   { id: 6, barangay_name: 'Bawi' },
   { id: 7, barangay_name: 'San Miguel' },
-  { id: 8, barangay_name: 'Bukal' },
-  { id: 9, barangay_name: 'San Felipe' },
-  { id: 10, barangay_name: 'Maugat West' },
-  { id: 11, barangay_name: 'Tamak' },
-  { id: 12, barangay_name: 'Quilo Quilo North' },
-  { id: 13, barangay_name: 'Quilo Quilo South' },
-  { id: 14, barangay_name: 'Castillo' },
+  { id: 8, barangay_name: 'Poblacion' },
+  { id: 9, barangay_name: 'Quilo-quilo North' },
+  { id: 10, barangay_name: 'Quilo-quilo South' },
+  { id: 11, barangay_name: 'San Felipe' },
+  { id: 12, barangay_name: 'Castillo' },
+  { id: 13, barangay_name: 'Galamay-Amo' },
+  { id: 14, barangay_name: 'Maugat West' },
   { id: 15, barangay_name: 'Maugat East' },
   { id: 16, barangay_name: 'Payapa' },
   { id: 17, barangay_name: 'Tangob' },
@@ -125,7 +142,6 @@ export default function FarmerRegistrationPage() {
     async function loadBarangays() {
       setIsLoadingBarangays(true);
       try {
-        // Try /api/livestock/barangays/ first, then fallback to /livestock/barangays/
         let response;
         try {
           response = await api.get('/api/livestock/barangays/');
@@ -152,7 +168,8 @@ export default function FarmerRegistrationPage() {
     { label: 'One number (0–9)', met: /[0-9]/.test(formData.password) },
     { label: 'One special character (e.g. !@#$%)', met: /[^A-Za-z0-9]/.test(formData.password) },
   ];
-  const passwordMeetsRequirements = passwordRequirements.every((requirement) => requirement.met);
+  const passwordMeetsRequirements = passwordRequirements.every((req) => req.met);
+  const passwordStrengthScore = passwordRequirements.filter((req) => req.met).length;
 
   const nextStep = () => {
     setError('');
@@ -162,7 +179,7 @@ export default function FarmerRegistrationPage() {
       const errors: Record<string, string> = {};
       if (!formData.firstName.trim()) errors.firstName = 'First name is required.';
       if (!formData.lastName.trim()) errors.lastName = 'Last name is required.';
-      
+
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!formData.email.trim()) {
         errors.email = 'Email address is required.';
@@ -227,16 +244,23 @@ export default function FarmerRegistrationPage() {
     const isGovernmentIdPdf = key === 'governmentIdPdf';
     const isAllowedIdPhoto = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
     if (isGovernmentIdPhoto && (!isAllowedIdPhoto || documents.governmentIdPdf)) {
-      setError(documents.governmentIdPdf
-        ? 'Use either one ID PDF or two ID photos, not both.'
-        : 'Front and back ID uploads must be image files.');
+      setError(
+        documents.governmentIdPdf
+          ? 'Use either one ID PDF or two ID photos, not both.'
+          : 'Front and back ID uploads must be image files.'
+      );
       e.target.value = '';
       return;
     }
-    if (isGovernmentIdPdf && (file.type !== 'application/pdf' || documents.governmentIdFront || documents.governmentIdBack)) {
-      setError(documents.governmentIdFront || documents.governmentIdBack
-        ? 'Use either one ID PDF or two ID photos, not both.'
-        : 'The government ID document must be a PDF.');
+    if (
+      isGovernmentIdPdf &&
+      (file.type !== 'application/pdf' || documents.governmentIdFront || documents.governmentIdBack)
+    ) {
+      setError(
+        documents.governmentIdFront || documents.governmentIdBack
+          ? 'Use either one ID PDF or two ID photos, not both.'
+          : 'The government ID document must be a PDF.'
+      );
       e.target.value = '';
       return;
     }
@@ -254,13 +278,21 @@ export default function FarmerRegistrationPage() {
     if (previews[key] && previews[key] !== 'pdf') URL.revokeObjectURL(previews[key]);
     setError('');
     setDocuments((prev) => ({ ...prev, [key]: file }));
-    setPreviews((prev) => ({ ...prev, [key]: file.type === 'application/pdf' ? 'pdf' : URL.createObjectURL(file) }));
+    setPreviews((prev) => ({
+      ...prev,
+      [key]: file.type === 'application/pdf' ? 'pdf' : URL.createObjectURL(file),
+    }));
     toast.success(`${key === 'rsbsa' ? 'RSBSA document' : 'Government ID file'} attached!`);
   };
 
   const removeDocument = (key: 'governmentIdFront' | 'governmentIdBack' | 'governmentIdPdf' | 'rsbsa') => {
     if (previews[key] && previews[key] !== 'pdf') URL.revokeObjectURL(previews[key]);
-    const inputRefs = { governmentIdFront: govIdFrontRef, governmentIdBack: govIdBackRef, governmentIdPdf: govIdPdfRef, rsbsa: rsbsaRef };
+    const inputRefs = {
+      governmentIdFront: govIdFrontRef,
+      governmentIdBack: govIdBackRef,
+      governmentIdPdf: govIdPdfRef,
+      rsbsa: rsbsaRef,
+    };
     if (inputRefs[key].current) inputRefs[key].current.value = '';
     setDocuments((prev) => ({ ...prev, [key]: null }));
     setPreviews((prev) => ({ ...prev, [key]: '' }));
@@ -270,11 +302,6 @@ export default function FarmerRegistrationPage() {
     e.preventDefault();
     setError('');
     setFieldErrors({});
-
-    if (!privacyAgreed) {
-      setError('You must agree to the Data Privacy Policy before submitting your registration.');
-      return;
-    }
 
     const hasGovernmentId = Boolean(
       documents.governmentIdFront || documents.governmentIdBack || documents.governmentIdPdf
@@ -292,23 +319,26 @@ export default function FarmerRegistrationPage() {
       return;
     }
 
+    if (!privacyAgreed) {
+      setError('You must accept the Data Privacy Agreement to proceed with registration.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Build standard FormData object to carry text & files seamlessly
       const submissionData = new FormData();
       submissionData.append('first_name', formData.firstName.trim());
       submissionData.append('last_name', formData.lastName.trim());
       submissionData.append('email', formData.email.trim().toLowerCase());
       submissionData.append('password', formData.password);
 
-      // Clean phone number (format as standard +639XXXXXXXXX)
       const cleanDigits = formData.phoneNumber.replace(/\D/g, '');
       const formattedPhone = cleanDigits.startsWith('63')
         ? `+${cleanDigits}`
         : cleanDigits.startsWith('0')
-          ? `+63${cleanDigits.slice(1)}`
-          : `+63${cleanDigits}`;
+        ? `+63${cleanDigits.slice(1)}`
+        : `+63${cleanDigits}`;
       submissionData.append('phone_number', formattedPhone);
 
       submissionData.append('barangay', formData.barangay);
@@ -319,7 +349,6 @@ export default function FarmerRegistrationPage() {
         submissionData.append('rsbsa_number', formData.rsbsaNumber.trim());
       }
 
-      // Include the selected ID type and either a two-photo set or one PDF.
       if (governmentIdType) submissionData.append('government_id_type', governmentIdType);
       if (documents.governmentIdFront) submissionData.append('government_id_front', documents.governmentIdFront);
       if (documents.governmentIdBack) submissionData.append('government_id_back', documents.governmentIdBack);
@@ -328,8 +357,9 @@ export default function FarmerRegistrationPage() {
         submissionData.append('rsbsa_document', documents.rsbsa);
       }
 
-      // Allow extra time for large ID photos on slower connections.
-      await api.post('/api/users/register/', submissionData, {
+      const registration = await identityClient().post<{
+        identity_verification?: { required: boolean; access_token: string };
+      }>('/api/users/register/', submissionData, {
         timeout: 30 * 60 * 1000,
       });
 
@@ -337,9 +367,24 @@ export default function FarmerRegistrationPage() {
         description: 'Your application has been received and is pending MAO verification.',
       });
 
-      router.push('/pending');
+      if (registration.data.identity_verification?.required) {
+        try {
+          sessionStorage.setItem(
+            IDENTITY_TOKEN_KEY,
+            registration.data.identity_verification.access_token
+          );
+          router.push('/farmer-registration/identity');
+        } catch {
+          toast.error(
+            'Registration saved. This browser could not continue identity verification. Contact MAO for manual assistance; do not register again.'
+          );
+          router.push('/pending');
+        }
+      } else {
+        router.push('/pending');
+      }
+      setFormData((previous) => ({ ...previous, password: '', confirmPassword: '' }));
     } catch (err: unknown) {
-      console.error('Registration error:', err);
       if (axios.isAxiosError<Record<string, unknown>>(err) && err.response?.data) {
         const data = err.response.data;
         const newFieldErrors: Record<string, string> = {};
@@ -347,7 +392,18 @@ export default function FarmerRegistrationPage() {
 
         Object.entries(data).forEach(([key, val]) => {
           const messageStr = Array.isArray(val) ? val.join(' ') : String(val);
-          if (['email', 'password', 'phone_number', 'first_name', 'last_name', 'barangay', 'farm_size', 'address'].includes(key)) {
+          if (
+            [
+              'email',
+              'password',
+              'phone_number',
+              'first_name',
+              'last_name',
+              'barangay',
+              'farm_size',
+              'address',
+            ].includes(key)
+          ) {
             newFieldErrors[key] = messageStr;
           } else {
             generalMessages.push(messageStr);
@@ -357,776 +413,1160 @@ export default function FarmerRegistrationPage() {
         setFieldErrors(newFieldErrors);
         setError(
           generalMessages.join(' ') ||
-          'Registration failed. Please correct the highlighted fields and try again.'
+            'Registration failed. Please correct the highlighted fields and try again.'
         );
       } else {
-        setError(err instanceof Error ? err.message : 'Unable to connect to registration server. Please check your connection.');
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to connect to registration server. Please check your connection.'
+        );
       }
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const stepsList = [
+    {
+      num: 1,
+      phase: '01',
+      title: 'Step 1: Personal Credentials',
+      short: 'Credentials',
+      sub: 'Enter your name and secure account details',
+      icon: User,
+    },
+    {
+      num: 2,
+      phase: '02',
+      title: 'Step 2: Farm Location & Size',
+      short: 'Farm Details',
+      sub: 'Record your livestock holding parcel in Padre Garcia',
+      icon: MapPin,
+    },
+    {
+      num: 3,
+      phase: '03',
+      title: 'Step 3: Verification Documents & Agreement',
+      short: 'Documents',
+      sub: 'Attach verification IDs and consent under RA 10173',
+      icon: Shield,
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-3 sm:p-6 py-8 sm:py-12 selection:bg-emerald-600 selection:text-white">
-      {/* Top Bar with Home / Back Link */}
-      <div className="w-full max-w-xl mb-4 flex items-center justify-between px-2">
-        <Link
-          href="/login"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-emerald-800 transition-colors py-1.5 px-3 rounded-xl hover:bg-slate-200/60"
-        >
-          <ArrowLeft className="size-4" />
-          <span>Back to Sign In</span>
-        </Link>
-        <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-full border border-emerald-200">
-          Official LGU Portal
-        </span>
-      </div>
+    <div className="min-h-screen bg-[#051408] text-slate-100 flex flex-col justify-between selection:bg-emerald-500 selection:text-slate-950 relative overflow-x-hidden">
+      {/* ── Background Tech Mesh & Luminous Orbs ── */}
+      <div
+        aria-hidden
+        className="fixed inset-0 bg-[radial-gradient(rgba(16,185,129,0.12)_1px,transparent_1px)] [background-size:28px_28px] pointer-events-none [mask-image:radial-gradient(ellipse_80%_60%_at_50%_40%,#000_40%,transparent_100%)] opacity-80"
+      />
+      <div
+        aria-hidden
+        className="fixed -top-40 -left-40 size-[36rem] rounded-full bg-emerald-500/15 blur-[120px] pointer-events-none animate-pulse"
+      />
+      <div
+        aria-hidden
+        className="fixed -bottom-40 -right-40 size-[36rem] rounded-full bg-teal-500/12 blur-[120px] pointer-events-none"
+      />
+      <div
+        aria-hidden
+        className="fixed top-1/3 left-1/2 -translate-x-1/2 size-[42rem] rounded-full bg-emerald-600/10 blur-[150px] pointer-events-none"
+      />
 
-      {/* Top Stepper Indicator */}
-      <div className="w-full max-w-xl mb-6 px-4">
-        <div className="flex items-center justify-between relative">
-          {[
-            { num: 1, label: 'Identity', icon: User },
-            { num: 2, label: 'Farm Info', icon: MapPin },
-            { num: 3, label: 'Documents & Consent', icon: Shield },
-          ].map((item, idx) => {
-            const Icon = item.icon;
-            const isCompleted = step > item.num;
-            const isCurrent = step === item.num;
-
-            return (
-              <div key={item.num} className="flex-1 flex flex-col items-center relative">
-                {/* Connecting Line */}
-                {idx > 0 && (
-                  <div
-                    className={`absolute top-4 right-1/2 left-[-50%] h-1 transition-all duration-300 -z-0 ${
-                      step >= item.num ? 'bg-[#2D5A27]' : 'bg-slate-200'
-                    }`}
-                  />
-                )}
-
-                {/* Step Circle */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Allow clicking back to earlier steps
-                    if (item.num < step) setStep(item.num);
-                  }}
-                  className={`size-9 sm:size-10 rounded-2xl flex items-center justify-center font-black text-xs transition-all z-10 shadow-sm ${
-                    isCompleted
-                      ? 'bg-[#2D5A27] text-white ring-4 ring-emerald-600/15'
-                      : isCurrent
-                        ? 'bg-[#2D5A27] text-white ring-4 ring-emerald-600/30 shadow-md scale-105'
-                        : 'bg-white text-slate-400 border border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  {isCompleted ? <Check className="size-4.5 stroke-[3]" /> : <Icon className="size-4" />}
-                </button>
-
-                {/* Step Title */}
-                <span
-                  className={`text-[11px] font-bold mt-1.5 transition-colors text-center ${
-                    isCurrent ? 'text-[#2D5A27]' : isCompleted ? 'text-slate-700' : 'text-slate-400'
-                  }`}
-                >
-                  {item.label}
+      {/* ── Top Floating Navigation Header ── */}
+      <header className="border-b border-emerald-500/15 bg-black/40 backdrop-blur-xl px-4 sm:px-8 py-3.5 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-700 text-slate-950 flex items-center justify-center font-black shadow-lg shadow-emerald-500/25 border border-emerald-300/30">
+              <Icon iconNode={cowHead} className="size-5 text-slate-950" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-black tracking-tight text-white">SmartLivestock</span>
+                <span className="font-mono text-[10px] text-emerald-400 font-extrabold uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                  AGRI-ID
                 </span>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Main Registration Card */}
-      <div className="w-full max-w-xl bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-xl shadow-slate-200/70 border border-slate-100 overflow-hidden">
-        {/* Card Banner Header */}
-        <div className="bg-gradient-to-r from-[#1f421a] via-[#2D5A27] to-[#1a3816] p-6 sm:p-8 text-white text-center relative overflow-hidden">
-          <div className="absolute -right-8 -top-8 size-36 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute -left-8 -bottom-8 size-36 bg-emerald-300/10 rounded-full blur-2xl pointer-events-none" />
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-[10px] font-black uppercase tracking-wider text-emerald-200 mb-2">
-            <Icon iconNode={cowHead} className="size-3 text-emerald-300" />
-            <span>Municipality of Padre Garcia • MAO Registry</span>
+              <p className="text-[11px] text-emerald-200/70 font-medium hidden sm:block">
+                Padre Garcia Municipal Agriculture Office • Livestock Raiser Terminal
+              </p>
+            </div>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Livestock Raiser Registration</h1>
-          <p className="text-emerald-100/80 text-xs sm:text-sm font-medium mt-1 max-w-md mx-auto">
-            Enroll your farm holding in the digital livestock census and veterinary monitoring ledger
-          </p>
+          <div className="flex items-center gap-2.5">
+            <span className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono text-emerald-300 font-bold tracking-wider">
+              <span className="relative flex size-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full size-2 bg-emerald-400"></span>
+              </span>
+              LGU NETWORK // ONLINE
+            </span>
+
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white px-3.5 py-2 rounded-xl border border-white/10 hover:border-emerald-500/40 bg-white/[0.04] hover:bg-emerald-500/10 transition-all shadow-xs"
+            >
+              <ArrowLeft className="size-3.5" />
+              <span>Sign In</span>
+            </Link>
+          </div>
         </div>
+      </header>
 
-        {/* Multi-Step Form */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-8 space-y-6">
+      {/* ── Main Two-Column Viewport Container ── */}
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-10 flex-1 flex flex-col justify-center relative z-10">
+        <div className="lg:grid lg:grid-cols-12 gap-8 xl:gap-12 items-start">
           {/* ═════════════════════════════════════════════════════════════
-              STEP 1: PERSONAL IDENTITY & CREDENTIALS
+              LEFT COLUMN: COMMAND & TELEMETRY TERMINAL (Desktop Sticky)
              ═════════════════════════════════════════════════════════════ */}
-          {step === 1 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
-              <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-                <div className="size-8 rounded-xl bg-emerald-100 text-[#2D5A27] flex items-center justify-center font-bold">
-                  <User className="size-4.5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-black text-slate-900">Step 1: Personal Identification</h2>
-                  <p className="text-[11px] text-slate-500">Your official government name and login credentials</p>
-                </div>
+          <div className="lg:col-span-5 hidden lg:block sticky top-24 space-y-6">
+            {/* Holographic Authority Card */}
+            <div className="rounded-3xl border border-emerald-500/20 bg-gradient-to-b from-white/[0.08] to-white/[0.02] backdrop-blur-2xl p-7 text-white shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-mono font-bold tracking-wider">
+                <Radio className="size-3 text-emerald-400 animate-pulse" />
+                OFFICIAL MUNICIPAL PORTAL
               </div>
 
-              {/* Name fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="firstName" className="text-[11px] font-extrabold text-slate-700 uppercase">
-                    First Name <span className="text-rose-500">*</span>
-                  </Label>
-                  <input
-                    id="firstName"
-                    type="text"
-                    placeholder="e.g. Juan"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    className={`w-full px-3.5 py-3 bg-slate-50/80 hover:bg-slate-50 border rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] font-medium transition-all ${
-                      fieldErrors.firstName ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                    }`}
-                    required
-                  />
-                  {fieldErrors.firstName && (
-                    <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.firstName}</p>
-                  )}
-                </div>
+              <h1 className="text-2xl xl:text-3xl font-black tracking-tight leading-tight mt-3 bg-gradient-to-r from-emerald-100 via-teal-100 to-white bg-clip-text text-transparent">
+                Farmer Registration
+              </h1>
 
-                <div className="space-y-1">
-                  <Label htmlFor="lastName" className="text-[11px] font-extrabold text-slate-700 uppercase">
-                    Last Name <span className="text-rose-500">*</span>
-                  </Label>
-                  <input
-                    id="lastName"
-                    type="text"
-                    placeholder="e.g. Dela Cruz"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    className={`w-full px-3.5 py-3 bg-slate-50/80 hover:bg-slate-50 border rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] font-medium transition-all ${
-                      fieldErrors.lastName ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                    }`}
-                    required
-                  />
-                  {fieldErrors.lastName && (
-                    <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.lastName}</p>
-                  )}
-                </div>
-              </div>
+              <p className="text-xs text-slate-300 leading-relaxed mt-2.5 font-normal">
+                Create an accredited raiser account with the Municipal Agriculture Office.
+              </p>
 
-              {/* Email Address */}
-              <div className="space-y-1">
-                <Label htmlFor="email" className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
-                  <span>Email Address <span className="text-rose-500">*</span></span>
-                  <span className="text-[10px] text-slate-400 font-normal">Used to sign in</span>
-                </Label>
-                <div className="relative">
-                  <input
-                    id="email"
-                    type="email"
-                    placeholder="juan.delacruz@example.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className={`w-full pl-10 pr-3.5 py-3 bg-slate-50/80 hover:bg-slate-50 border rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] font-medium transition-all ${
-                      fieldErrors.email ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                    }`}
-                    required
-                  />
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-                </div>
-                {fieldErrors.email && (
-                  <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.email}</p>
-                )}
-              </div>
-
-              {/* Mobile Number */}
-              <div className="space-y-1">
-                <Label htmlFor="phone" className="text-[11px] font-extrabold text-slate-700 uppercase">
-                  Mobile Number <span className="text-rose-500">*</span>
-                </Label>
-                <div className="flex">
-                  <span className="inline-flex items-center px-3.5 bg-slate-100 border border-r-0 border-slate-200 rounded-l-2xl text-xs text-slate-700 font-black">
-                    🇵🇭 +63
-                  </span>
-                  <input
-                    id="phone"
-                    type="tel"
-                    placeholder="912 345 6789"
-                    maxLength={13}
-                    value={formData.phoneNumber}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '');
-                      setFormData({ ...formData, phoneNumber: val });
-                    }}
-                    className={`w-full px-3.5 py-3 bg-slate-50/80 hover:bg-slate-50 border rounded-r-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] font-medium transition-all ${
-                      fieldErrors.phone_number ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                    }`}
-                    required
-                  />
-                </div>
-                {fieldErrors.phone_number && (
-                  <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.phone_number}</p>
-                )}
-              </div>
-
-              {/* Password and Strength Meter */}
-              <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-[11px] font-extrabold text-slate-700 uppercase">
-                  Account Password <span className="text-rose-500">*</span>
-                </Label>
-                <div className="relative">
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Minimum 8 characters"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className={`w-full pl-10 pr-11 py-3 bg-slate-50/80 hover:bg-slate-50 border rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] font-medium transition-all ${
-                      fieldErrors.password ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                    }`}
-                    required
-                    minLength={8}
-                  />
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-
-                <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                  <p className="text-[11px] font-bold text-slate-700">Password requirements</p>
-                  <ul className="grid grid-cols-1 gap-y-1.5 sm:grid-cols-2" aria-label="Password requirements">
-                    {passwordRequirements.map((requirement) => (
-                      <li
-                        key={requirement.label}
-                        className={`inline-flex items-center gap-1.5 text-[11px] ${requirement.met ? 'font-medium text-emerald-700' : 'text-slate-500'}`}
-                      >
-                        {requirement.met ? (
-                          <Check className="size-3.5 shrink-0" aria-hidden="true" />
-                        ) : (
-                          <span className="size-3.5 shrink-0 rounded-full border border-slate-300" aria-hidden="true" />
-                        )}
-                        {requirement.label}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="text-[10px] leading-relaxed text-slate-500">Avoid common or easy-to-guess passwords.</p>
-                </div>
-                {fieldErrors.password && (
-                  <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.password}</p>
-                )}
-              </div>
-
-              {/* Confirm Password */}
-              <div className="space-y-1">
-                <Label htmlFor="confirmPassword" className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
-                  <span>Confirm Password <span className="text-rose-500">*</span></span>
-                </Label>
-                <div className="relative">
-                  <input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    placeholder="Re-type your password"
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    className={`w-full pl-10 pr-11 py-3 bg-slate-50/80 hover:bg-slate-50 border rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] font-medium transition-all ${
-                      fieldErrors.confirmPassword ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                    }`}
-                    required
-                  />
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
-                  >
-                    {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-                {formData.confirmPassword && (
-                  formData.password === formData.confirmPassword ? (
-                    <p className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-600">
-                      <Check className="size-3" /> Passwords Match
-                    </p>
-                  ) : (
-                    <p className="inline-flex items-center gap-1 text-[10px] font-extrabold text-rose-500">
-                      <X className="size-3" /> Does Not Match
-                    </p>
-                  )
-                )}
-                {fieldErrors.confirmPassword && (
-                  <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.confirmPassword}</p>
-                )}
-              </div>
-
-              {error && (
-                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
-                  <AlertCircle className="size-4 text-rose-600 shrink-0 mt-0.5" />
-                  <p>{error}</p>
-                </div>
-              )}
-
-              <Button
-                type="button"
-                onClick={nextStep}
-                className="w-full py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-green-900/20 flex items-center justify-center gap-2 mt-3 cursor-pointer"
-              >
-                <span>Proceed to Farm Details</span>
-                <ArrowRight className="size-4" />
-              </Button>
-            </div>
-          )}
-
-          {/* ═════════════════════════════════════════════════════════════
-              STEP 2: FARM LOCATION & HOLDING SIZE
-             ═════════════════════════════════════════════════════════════ */}
-          {step === 2 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
-              <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-                <div className="size-8 rounded-xl bg-emerald-100 text-[#2D5A27] flex items-center justify-center font-bold">
-                  <MapPin className="size-4.5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-black text-slate-900">Step 2: Farm Location & Size</h2>
-                  <p className="text-[11px] text-slate-500">Record your livestock holding parcel in Padre Garcia</p>
-                </div>
-              </div>
-
-              {/* Barangay Dropdown */}
-              <div className="space-y-1">
-                <Label htmlFor="barangay" className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
-                  <span>Barangay in Padre Garcia <span className="text-rose-500">*</span></span>
-                  {isLoadingBarangays && (
-                    <span className="text-[10px] text-emerald-700 flex items-center gap-1 font-bold">
-                      <Loader2 className="size-3 animate-spin" /> Loading barangays...
-                    </span>
-                  )}
-                </Label>
-                <div className="relative">
-                  <select
-                    id="barangay"
-                    value={formData.barangay}
-                    onChange={(e) => setFormData({ ...formData, barangay: e.target.value })}
-                    className={`w-full pl-10 pr-3.5 py-3 bg-slate-50/80 hover:bg-slate-50 border rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] font-medium transition-all ${
-                      fieldErrors.barangay ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                    }`}
-                    required
-                  >
-                    <option value="">Select Barangay ({barangays.length} available)</option>
-                    {barangays.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        Barangay {b.barangay_name}
-                      </option>
-                    ))}
-                  </select>
-                  <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
-                </div>
-                {fieldErrors.barangay && (
-                  <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.barangay}</p>
-                )}
-              </div>
-
-              {/* Farm Size in Hectares */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="farmSize" className="text-[11px] font-extrabold text-slate-700 uppercase">
-                    Farm / Pasture Size (Hectares) <span className="text-rose-500">*</span>
-                  </Label>
-                  <span className="text-[10px] text-slate-400">1 ha = 10,000 sqm</span>
-                </div>
-                <input
-                  id="farmSize"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  placeholder="e.g. 1.50"
-                  value={formData.farmSize}
-                  onChange={(e) => setFormData({ ...formData, farmSize: e.target.value })}
-                  className={`w-full px-3.5 py-3 bg-slate-50/80 hover:bg-slate-50 border rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] font-medium transition-all ${
-                    fieldErrors.farm_size ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                  }`}
-                  required
-                />
-
-                {/* Quick preset chips */}
-                <div className="flex items-center gap-2 pt-1 flex-wrap">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase">Presets:</span>
-                  {[
-                    { label: 'Backyard (0.2 ha)', val: '0.2' },
-                    { label: 'Smallholder (0.5 ha)', val: '0.5' },
-                    { label: 'Medium (1.5 ha)', val: '1.5' },
-                    { label: 'Pasture (3.0 ha)', val: '3.0' },
-                  ].map((preset) => (
-                    <button
-                      key={preset.val}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, farmSize: preset.val })}
-                      className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-slate-600 hover:text-emerald-800 transition-colors"
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-                {fieldErrors.farm_size && (
-                  <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.farm_size}</p>
-                )}
-              </div>
-
-              {/* Detailed Street Address / Sitio */}
-              <div className="space-y-1">
-                <Label htmlFor="address" className="text-[11px] font-extrabold text-slate-700 uppercase">
-                  Detailed Address / Sitio <span className="text-rose-500">*</span>
-                </Label>
-                <div className="relative">
-                  <input
-                    id="address"
-                    type="text"
-                    placeholder="e.g. Sitio Ilaya, Purok 3, Near Barangay Hall"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className={`w-full pl-10 pr-3.5 py-3 bg-slate-50/80 hover:bg-slate-50 border rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] font-medium transition-all ${
-                      fieldErrors.address ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                    }`}
-                    required
-                  />
-                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-                </div>
-                {fieldErrors.address && (
-                  <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.address}</p>
-                )}
-              </div>
-
-              {/* Optional RSBSA Number */}
-              <div className="space-y-1 pt-1">
-                <Label htmlFor="rsbsaNumber" className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
-                  <span>RSBSA Reference Number</span>
-                  <span className="text-slate-400 font-normal text-[10px]">Optional (if already enrolled)</span>
-                </Label>
-                <div className="relative">
-                  <input
-                    id="rsbsaNumber"
-                    type="text"
-                    placeholder="e.g. 04-10-18-000-00000"
-                    value={formData.rsbsaNumber}
-                    onChange={(e) => setFormData({ ...formData, rsbsaNumber: e.target.value })}
-                    className="w-full pl-10 pr-3.5 py-3 bg-slate-50/80 hover:bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2D5A27]/20 focus:border-[#2D5A27] font-medium transition-all"
-                  />
-                  <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-                </div>
-                <p className="text-[10px] text-slate-400 leading-normal">
-                  Registry System for Basic Sectors in Agriculture (DA-RSBSA identifier)
+              {/* Interactive Step Navigator */}
+              <div className="mt-6 pt-6 border-t border-white/10 space-y-3">
+                <p className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold">
+                  REGISTRATION STEPS
                 </p>
+
+                <div className="space-y-2.5">
+                  {stepsList.map((item) => {
+                    const IconComponent = item.icon;
+                    const isCompleted = step > item.num;
+                    const isCurrent = step === item.num;
+
+                    return (
+                      <button
+                        key={item.num}
+                        type="button"
+                        onClick={() => {
+                          if (item.num < step) setStep(item.num);
+                        }}
+                        disabled={item.num > step}
+                        className={`w-full text-left p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                          isCurrent
+                            ? 'border-emerald-400/50 bg-emerald-500/15 text-white shadow-lg shadow-emerald-950/40'
+                            : isCompleted
+                            ? 'border-emerald-500/20 bg-white/[0.04] text-slate-300 hover:border-emerald-400/30 cursor-pointer'
+                            : 'border-white/5 bg-transparent text-slate-500 cursor-not-allowed opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className={`size-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 transition-all ${
+                              isCompleted
+                                ? 'bg-[#1A3D22] text-emerald-300 border border-emerald-500/40'
+                                : isCurrent
+                                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/40'
+                                : 'bg-white/10 text-slate-400'
+                            }`}
+                          >
+                            {isCompleted ? (
+                              <Check className="size-4 stroke-[3]" />
+                            ) : (
+                              <IconComponent className="size-4" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold truncate">
+                              <span className="font-mono text-[10px] text-emerald-400/90 mr-1.5">
+                                {item.phase} //
+                              </span>
+                              {item.title}
+                            </p>
+                            <p className="text-[10px] text-slate-400 truncate mt-0.5">{item.sub}</p>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                            isCompleted
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : isCurrent
+                              ? 'bg-emerald-400 text-slate-950 font-black'
+                              : 'text-slate-600'
+                          }`}
+                        >
+                          {isCompleted ? 'DONE' : isCurrent ? 'ACTIVE' : 'PENDING'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              {error && (
-                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
-                  <AlertCircle className="size-4 text-rose-600 shrink-0 mt-0.5" />
-                  <p>{error}</p>
+              {/* Live Network Grid Diagnostics */}
+              <div className="mt-6 pt-5 border-t border-white/10 grid grid-cols-3 gap-2 text-center">
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                  <p className="font-mono text-sm font-black text-emerald-400">17 / 17</p>
+                  <p className="text-[9px] text-slate-400 uppercase tracking-wider mt-0.5">Barangays</p>
                 </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={prevStep}
-                  className="flex-1 py-6 border-slate-200 text-slate-700 font-bold rounded-2xl text-xs uppercase cursor-pointer"
-                >
-                  <ArrowLeft className="size-4 mr-1" />
-                  <span>Back</span>
-                </Button>
-                <Button
-                  type="button"
-                  onClick={nextStep}
-                  className="flex-2 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-green-900/20 flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span>Proceed to Documents & Consent</span>
-                  <ArrowRight className="size-4" />
-                </Button>
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                  <p className="font-mono text-sm font-black text-teal-400">DA-BAI</p>
+                  <p className="text-[9px] text-slate-400 uppercase tracking-wider mt-0.5">Compliant</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                  <p className="font-mono text-sm font-black text-emerald-400">256-BIT</p>
+                  <p className="text-[9px] text-slate-400 uppercase tracking-wider mt-0.5">Encrypted</p>
+                </div>
               </div>
             </div>
-          )}
+
+            {/* Municipal Security Stamp */}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-[11px] text-slate-400 flex items-center gap-3">
+              <ShieldCheck className="size-5 text-emerald-400 shrink-0" />
+              <span>
+                Accredited under the Padre Garcia Municipal Agriculture Office Livestock Framework &
+                Republic Act 10173.
+              </span>
+            </div>
+          </div>
 
           {/* ═════════════════════════════════════════════════════════════
-              STEP 3: DOCUMENT VERIFICATION & DATA PRIVACY AGREEMENT
+              RIGHT COLUMN: REGISTRATION TERMINAL CARD (Desktop & Mobile)
              ═════════════════════════════════════════════════════════════ */}
-          {step === 3 && (
-            <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-200">
-              <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-                <div className="size-8 rounded-xl bg-emerald-100 text-[#2D5A27] flex items-center justify-center font-bold">
-                  <FileCheck className="size-4.5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-black text-slate-900">Step 3: Verification Documents & Agreement</h2>
-                  <p className="text-[11px] text-slate-500">Attach verification IDs and consent under RA 10173</p>
+          <div className="lg:col-span-7 w-full max-w-2xl mx-auto lg:max-w-none">
+            {/* Card Container */}
+            <div className="rounded-[2rem] border border-emerald-500/25 bg-white shadow-2xl shadow-black/40 overflow-hidden relative">
+              {/* Glowing Top Progress Line */}
+              <div className="h-1.5 w-full bg-slate-100 relative overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600 transition-all duration-500 shadow-sm shadow-emerald-500/50"
+                  style={{ width: step === 1 ? '33.33%' : step === 2 ? '66.66%' : '100%' }}
+                />
+              </div>
+
+              {/* Mobile Stepper Bar (visible on sm/md screens) */}
+              <div className="lg:hidden p-4 pb-0 bg-slate-50/80 border-b border-slate-100">
+                <div className="flex items-center justify-between gap-1.5">
+                  {stepsList.map((item) => {
+                    const isCompleted = step > item.num;
+                    const isCurrent = step === item.num;
+
+                    return (
+                      <button
+                        key={item.num}
+                        type="button"
+                        onClick={() => {
+                          if (item.num < step) setStep(item.num);
+                        }}
+                        disabled={item.num > step}
+                        className={`flex-1 py-2 px-1 rounded-xl text-center text-xs font-bold transition-all border ${
+                          isCurrent
+                            ? 'bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs'
+                            : isCompleted
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-white text-slate-400 border-slate-200 opacity-60'
+                        }`}
+                      >
+                        <span className="font-mono text-[10px] mr-1">{item.phase}</span>
+                        <span>{item.short}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Guided ID capture: front first, then back, with one complete PDF as an alternative. */}
-              <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="governmentIdType" className="text-[11px] font-extrabold uppercase text-slate-700">
-                    Government ID type <span className="text-rose-500">*</span> <span className="font-medium normal-case text-slate-400">(required)</span>
-                  </Label>
-                  <select
-                    id="governmentIdType"
-                    required
-                    value={governmentIdType}
-                    onChange={(e) => {
-                      setGovernmentIdType(e.target.value);
-                      setError('');
-                    }}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/15"
-                  >
-                    <option value="">Select ID type</option>
-                    <option value="PHILID">PhilID / National ID</option>
-                    <option value="DRIVERS_LICENSE">Driver’s License</option>
-                    <option value="VOTERS_ID">Voter’s ID</option>
-                    <option value="PASSPORT">Passport</option>
-                    <option value="UMID">UMID</option>
-                    <option value="POSTAL_ID">Postal ID</option>
-                    <option value="PRC_ID">PRC ID</option>
-                    <option value="OTHER_GOV_ID">Other Government ID</option>
-                  </select>
-                  <p className="text-[10px] leading-relaxed text-slate-500">
-                    Take a clear photo of the front, then the back, or upload one PDF containing both sides.
+              {/* Terminal Step Header Banner */}
+              <div className="p-5 sm:p-7 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
+                      Step {step} of 3
+                    </span>
+                    <span className="text-xs font-semibold text-slate-500">
+                      {step === 1 ? 'Credentials' : step === 2 ? 'Farm Details' : 'Documents'}
+                    </span>
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight mt-1.5">
+                    {step === 1
+                      ? 'Step 1: Personal Credentials'
+                      : step === 2
+                      ? 'Step 2: Farm Location & Size'
+                      : 'Step 3: Verification Documents & Agreement'}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {step === 1
+                      ? 'Enter your name and secure account details'
+                      : step === 2
+                      ? 'Record your livestock holding parcel in Padre Garcia'
+                      : 'Attach verification IDs and consent under RA 10173'}
                   </p>
                 </div>
+              </div>
 
-                {governmentIdType && (
-                  <div className="space-y-3 border-t border-slate-100 pt-3">
-                    <input ref={govIdFrontRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(e) => handleFileSelect(e, 'governmentIdFront')} />
-                    <input ref={govIdBackRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(e) => handleFileSelect(e, 'governmentIdBack')} />
-                    <input ref={govIdPdfRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => handleFileSelect(e, 'governmentIdPdf')} />
-
-                    {documents.governmentIdPdf ? (
-                      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
-                        <div className="flex min-w-0 items-center gap-2.5"><span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-[10px] font-black text-rose-700">PDF</span><div className="min-w-0"><p className="text-xs font-semibold text-emerald-900">Complete ID PDF attached</p><p className="truncate text-[10px] text-slate-600">{documents.governmentIdPdf.name}</p><p className="text-[10px] text-slate-500">Make sure the PDF shows both sides.</p></div></div>
-                        <button type="button" onClick={() => removeDocument('governmentIdPdf')} className="shrink-0 rounded-lg px-2.5 py-1.5 text-[10px] font-semibold text-rose-700 hover:bg-rose-100">Remove</button>
+              {/* Form Body */}
+              <form onSubmit={handleSubmit} className="p-5 sm:p-8 space-y-5">
+                {/* ═════════════════════════════════════════════════════════════
+                    STEP 1: PERSONAL IDENTITY & CREDENTIALS
+                   ═════════════════════════════════════════════════════════════ */}
+                {step === 1 && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+                    {/* First & Last Name */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div className="space-y-1">
+                        <Label htmlFor="firstName" className="text-[11px] font-extrabold text-slate-700 uppercase">
+                          First Name <span className="text-rose-500">*</span>
+                        </Label>
+                        <div className="relative">
+                          <input
+                            id="firstName"
+                            type="text"
+                            placeholder="e.g. Juan"
+                            value={formData.firstName}
+                            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                            className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                              fieldErrors.firstName ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                            }`}
+                            required
+                          />
+                          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                        </div>
+                        {fieldErrors.firstName && (
+                          <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.firstName}</p>
+                        )}
                       </div>
-                    ) : documents.governmentIdFront && documents.governmentIdBack ? (
-                      <div className="space-y-2.5">
-                        <div className="flex items-center justify-between gap-2"><div><p className="text-xs font-semibold text-slate-900">Both sides captured</p><p className="text-[10px] text-slate-500">Check each photo before continuing.</p></div><Badge variant="secondary" className="text-[10px]">2 of 2 complete</Badge></div>
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          {([
-                            { key: 'governmentIdFront' as const, label: 'Front', ref: govIdFrontRef },
-                            { key: 'governmentIdBack' as const, label: 'Back', ref: govIdBackRef },
-                          ]).map(({ key, label, ref }) => (
-                            <div key={key} className="flex min-w-0 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-2">
-                              <img src={previews[key]} alt={`${label} of ${governmentIdType}`} className="size-14 shrink-0 rounded-lg border border-emerald-200 object-cover" />
-                              <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-slate-800">{label} side</p><p className="truncate text-[10px] text-slate-500">{documents[key]?.name}</p><div className="mt-1 flex gap-3"><button type="button" onClick={() => { if (ref.current) { ref.current.value = ''; ref.current.click(); } }} className="text-[10px] font-semibold text-[#2D5A27] hover:underline">Retake</button><button type="button" onClick={() => removeDocument(key)} className="text-[10px] font-semibold text-rose-600 hover:underline">Remove</button></div></div>
-                              <Check className="size-4 shrink-0 text-emerald-700" />
-                            </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor="lastName" className="text-[11px] font-extrabold text-slate-700 uppercase">
+                          Last Name <span className="text-rose-500">*</span>
+                        </Label>
+                        <div className="relative">
+                          <input
+                            id="lastName"
+                            type="text"
+                            placeholder="e.g. Dela Cruz"
+                            value={formData.lastName}
+                            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                            className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                              fieldErrors.lastName ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                            }`}
+                            required
+                          />
+                          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                        </div>
+                        {fieldErrors.lastName && (
+                          <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.lastName}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Email Address */}
+                    <div className="space-y-1">
+                      <Label htmlFor="email" className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
+                        <span>Email Address <span className="text-rose-500">*</span></span>
+                        <span className="text-[10px] text-slate-400 font-normal">Used to sign in</span>
+                      </Label>
+                      <div className="relative">
+                        <input
+                          id="email"
+                          type="email"
+                          placeholder="juan.delacruz@example.com"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                            fieldErrors.email ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                          }`}
+                          required
+                        />
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                      </div>
+                      {fieldErrors.email && (
+                        <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.email}</p>
+                      )}
+                    </div>
+
+                    {/* Mobile Number with +63 Prefix */}
+                    <div className="space-y-1">
+                      <Label htmlFor="phone" className="text-[11px] font-extrabold text-slate-700 uppercase">
+                        Mobile Number <span className="text-rose-500">*</span>
+                      </Label>
+                      <div className="flex rounded-2xl overflow-hidden border border-slate-200 focus-within:border-[#2D5A27] focus-within:ring-2 focus-within:ring-[#2D5A27]/20 transition-all">
+                        <span className="inline-flex items-center px-3.5 bg-slate-100 text-xs text-slate-700 font-black border-r border-slate-200 shrink-0">
+                          🇵🇭 +63
+                        </span>
+                        <input
+                          id="phone"
+                          type="tel"
+                          placeholder="912 345 6789"
+                          maxLength={13}
+                          value={formData.phoneNumber}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            setFormData({ ...formData, phoneNumber: val });
+                          }}
+                          className={`w-full px-3.5 h-12 bg-slate-50 hover:bg-white text-sm font-medium placeholder:text-black/40 outline-none ${
+                            fieldErrors.phone_number || fieldErrors.phoneNumber ? 'bg-rose-50/30' : ''
+                          }`}
+                          required
+                        />
+                      </div>
+                      {(fieldErrors.phoneNumber || fieldErrors.phone_number) && (
+                        <p className="text-[11px] text-rose-600 font-bold">
+                          {fieldErrors.phoneNumber || fieldErrors.phone_number}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Password Fields */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="password" className="text-[11px] font-extrabold text-slate-700 uppercase">
+                          Account Password <span className="text-rose-500">*</span>
+                        </Label>
+                        <div className="relative">
+                          <input
+                            id="password"
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="••••••••"
+                            value={formData.password}
+                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            className={`w-full pl-10 pr-11 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                              fieldErrors.password ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                            }`}
+                            required
+                          />
+                          <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 rounded-lg cursor-pointer"
+                          >
+                            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="confirmPassword" className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
+                          <span>Confirm Password <span className="text-rose-500">*</span></span>
+                        </Label>
+                        <div className="relative">
+                          <input
+                            id="confirmPassword"
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            placeholder="••••••••"
+                            value={formData.confirmPassword}
+                            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                            className={`w-full pl-10 pr-11 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                              fieldErrors.confirmPassword ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                            }`}
+                            required
+                          />
+                          <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 rounded-lg cursor-pointer"
+                          >
+                            {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {formData.confirmPassword && (
+                      formData.password === formData.confirmPassword ? (
+                        <p className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-600">
+                          <Check className="size-3" /> Passwords Match
+                        </p>
+                      ) : (
+                        <p className="inline-flex items-center gap-1 text-[10px] font-extrabold text-rose-500">
+                          <X className="size-3" /> Does Not Match
+                        </p>
+                      )
+                    )}
+
+                    {/* Password Requirements Diagnostic Gauge */}
+                    {formData.password && (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-700">Password Requirements</span>
+                          <span
+                            className={`font-mono font-bold text-[11px] ${
+                              passwordStrengthScore <= 2
+                                ? 'text-rose-600'
+                                : passwordStrengthScore <= 4
+                                ? 'text-amber-600'
+                                : 'text-emerald-700'
+                            }`}
+                          >
+                            {passwordStrengthScore <= 2
+                              ? 'Weak'
+                              : passwordStrengthScore <= 4
+                              ? 'Moderate'
+                              : 'Strong'}
+                          </span>
+                        </div>
+
+                        {/* Multi-segment strength bar */}
+                        <div className="grid grid-cols-5 gap-1.5 h-1.5">
+                          {[1, 2, 3, 4, 5].map((idx) => (
+                            <div
+                              key={idx}
+                              className={`rounded-full transition-all duration-300 ${
+                                idx <= passwordStrengthScore
+                                  ? passwordStrengthScore <= 2
+                                    ? 'bg-rose-500'
+                                    : passwordStrengthScore <= 4
+                                    ? 'bg-amber-500'
+                                    : 'bg-emerald-600'
+                                  : 'bg-slate-200'
+                              }`}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Requirement Chips */}
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {passwordRequirements.map((req, idx) => (
+                            <span
+                              key={idx}
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold border transition-colors ${
+                                req.met
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  : 'bg-white text-slate-400 border-slate-200'
+                              }`}
+                            >
+                              {req.met ? <Check className="size-3 text-emerald-600" /> : '•'}
+                              <span>{req.label}</span>
+                            </span>
                           ))}
                         </div>
                       </div>
-                    ) : !documents.governmentIdFront ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-slate-900">Step 1 of 2 · Front side</p><p className="text-[10px] text-slate-500">Place the front of your ID inside the frame and take a clear photo.</p></div><Badge variant="outline" className="shrink-0 text-[10px]">Front</Badge></div>
-                        <button type="button" onClick={() => { if (govIdFrontRef.current) { govIdFrontRef.current.value = ''; govIdFrontRef.current.click(); } }} className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center transition hover:border-[#2D5A27] hover:bg-emerald-50/40">
-                          <span className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-[#2D5A27]"><Camera className="size-5" /></span><span className="text-xs font-semibold text-slate-800">Take or upload front photo</span><span className="text-[10px] text-slate-500">JPG, PNG, or WEBP · Max 10MB</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-slate-900">Step 2 of 2 · Back side</p><p className="text-[10px] text-slate-500">Front saved. Turn the ID over and capture the back.</p></div><Badge variant="outline" className="shrink-0 text-[10px]">Back</Badge></div>
-                        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/50 p-2"><img src={previews.governmentIdFront} alt={`Front of ${governmentIdType}`} className="size-11 shrink-0 rounded-md border border-emerald-200 object-cover" /><div className="min-w-0 flex-1"><p className="text-[10px] font-semibold text-emerald-800">Front side captured</p><p className="truncate text-[10px] text-slate-500">{documents.governmentIdFront.name}</p></div><div className="flex shrink-0 flex-col items-end gap-1"><button type="button" onClick={() => { if (govIdFrontRef.current) { govIdFrontRef.current.value = ''; govIdFrontRef.current.click(); } }} className="text-[10px] font-semibold text-[#2D5A27] hover:underline">Retake</button><button type="button" onClick={() => removeDocument('governmentIdFront')} className="text-[10px] font-semibold text-rose-600 hover:underline">Remove</button></div></div>
-                        <button type="button" onClick={() => { if (govIdBackRef.current) { govIdBackRef.current.value = ''; govIdBackRef.current.click(); } }} className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center transition hover:border-[#2D5A27] hover:bg-emerald-50/40">
-                          <span className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-[#2D5A27]"><Camera className="size-5" /></span><span className="text-xs font-semibold text-slate-800">Take or upload back photo</span><span className="text-[10px] text-slate-500">JPG, PNG, or WEBP · Max 10MB</span>
-                        </button>
+                    )}
+
+                    {fieldErrors.password && (
+                      <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.password}</p>
+                    )}
+                    {fieldErrors.confirmPassword && (
+                      <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.confirmPassword}</p>
+                    )}
+
+                    {error && (
+                      <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
+                        <AlertCircle className="size-4 text-rose-600 shrink-0 mt-0.5" />
+                        <p>{error}</p>
                       </div>
                     )}
 
-                    <div className="border-t border-slate-100 pt-3">
-                      {documents.governmentIdFront || documents.governmentIdBack ? (
-                        <p className="text-center text-[10px] text-slate-500">To use a PDF instead, remove the captured photo(s) first.</p>
-                      ) : (
-                        <button type="button" onClick={() => govIdPdfRef.current?.click()} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"><FileText className="size-4 text-rose-600" />Upload one complete PDF instead</button>
+                    <Button
+                      type="button"
+                      onClick={nextStep}
+                      className="w-full py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-green-900/20 flex items-center justify-center gap-2 mt-3 cursor-pointer"
+                    >
+                      <span>Proceed to Farm Details</span>
+                      <ArrowRight className="size-4" />
+                    </Button>
+                  </div>
+                )}
+
+                {/* ═════════════════════════════════════════════════════════════
+                    STEP 2: FARM LOCATION & SIZE
+                   ═════════════════════════════════════════════════════════════ */}
+                {step === 2 && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+                    {/* Barangay Dropdown */}
+                    <div className="space-y-1">
+                      <Label htmlFor="barangay" className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
+                        <span>
+                          Barangay in Padre Garcia <span className="text-rose-500">*</span>
+                        </span>
+                        {isLoadingBarangays && (
+                          <span className="text-[10px] text-emerald-700 flex items-center gap-1 font-bold">
+                            <Loader2 className="size-3 animate-spin" /> Loading barangays...
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Select
+                          value={formData.barangay ? String(formData.barangay) : undefined}
+                          onValueChange={(val) => {
+                            setFormData({ ...formData, barangay: val });
+                            if (fieldErrors.barangay) {
+                              setFieldErrors((prev) => ({ ...prev, barangay: '' }));
+                            }
+                          }}
+                        >
+                          <SelectTrigger
+                            id="barangay"
+                            className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium data-[placeholder]:!text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                              fieldErrors.barangay ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                            }`}
+                          >
+                            <SelectValue placeholder="Select your barangay" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-2xl max-h-72">
+                            {barangays.map((b) => (
+                              <SelectItem key={b.id} value={String(b.id)} className="rounded-xl text-sm font-medium py-2">
+                                {b.barangay_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none z-10" />
+                      </div>
+                      {fieldErrors.barangay && (
+                        <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.barangay}</p>
                       )}
+                    </div>
+
+                    {/* Farm Size in Hectares & Presets */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="farmSize" className="text-[11px] font-extrabold text-slate-700 uppercase">
+                          Farm / Pasture Size (Hectares) <span className="text-rose-500">*</span>
+                        </Label>
+                        <span className="text-[10px] text-slate-400">1 ha = 10,000 sqm</span>
+                      </div>
+                      <input
+                        id="farmSize"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        placeholder="e.g. 1.50"
+                        value={formData.farmSize}
+                        onChange={(e) => setFormData({ ...formData, farmSize: e.target.value })}
+                        className={`w-full px-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                          fieldErrors.farmSize || fieldErrors.farm_size ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                        }`}
+                        required
+                      />
+
+                      {/* Quick preset chips */}
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Presets:</span>
+                        {[
+                          { label: 'Backyard (0.2 ha)', val: '0.2' },
+                          { label: 'Smallholder (0.5 ha)', val: '0.5' },
+                          { label: 'Medium (1.5 ha)', val: '1.5' },
+                          { label: 'Pasture (3.0 ha)', val: '3.0' },
+                        ].map((preset) => (
+                          <button
+                            key={preset.val}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, farmSize: preset.val })}
+                            className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-slate-600 hover:text-emerald-800 transition-colors cursor-pointer"
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                      {(fieldErrors.farmSize || fieldErrors.farm_size) && (
+                        <p className="text-[11px] text-rose-600 font-bold">
+                          {fieldErrors.farmSize || fieldErrors.farm_size}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Detailed Street Address / Sitio */}
+                    <div className="space-y-1">
+                      <Label htmlFor="address" className="text-[11px] font-extrabold text-slate-700 uppercase">
+                        Detailed Address / Sitio <span className="text-rose-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <input
+                          id="address"
+                          type="text"
+                          placeholder="e.g. Sitio Ilaya, Purok 3, Near Barangay Hall"
+                          value={formData.address}
+                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                          className={`w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20 ${
+                            fieldErrors.address ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                          }`}
+                          required
+                        />
+                        <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                      </div>
+                      {fieldErrors.address && (
+                        <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.address}</p>
+                      )}
+                    </div>
+
+                    {/* Optional RSBSA Number */}
+                    <div className="space-y-1 pt-1">
+                      <Label htmlFor="rsbsaNumber" className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
+                        <span>RSBSA Reference Number</span>
+                        <span className="text-slate-400 font-normal text-[10px]">Optional (if already enrolled)</span>
+                      </Label>
+                      <div className="relative">
+                        <input
+                          id="rsbsaNumber"
+                          type="text"
+                          placeholder="e.g. 04-10-18-000-00000"
+                          value={formData.rsbsaNumber}
+                          onChange={(e) => setFormData({ ...formData, rsbsaNumber: e.target.value })}
+                          className="w-full pl-10 pr-3.5 h-12 bg-slate-50 hover:bg-white border border-slate-200 rounded-2xl text-sm font-medium placeholder:text-black/40 transition-all focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20"
+                        />
+                        <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-normal">
+                        Registry System for Basic Sectors in Agriculture (DA-RSBSA identifier)
+                      </p>
+                    </div>
+
+                    {error && (
+                      <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
+                        <AlertCircle className="size-4 text-rose-600 shrink-0 mt-0.5" />
+                        <p>{error}</p>
+                      </div>
+                    )}
+
+                    {/* Step 2 Actions */}
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={prevStep}
+                        className="flex-1 py-6 border-slate-200 text-slate-700 font-bold rounded-2xl text-xs uppercase cursor-pointer hover:bg-slate-50"
+                      >
+                        <ArrowLeft className="size-4 mr-1" />
+                        <span>Back</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={nextStep}
+                        className="flex-2 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-green-900/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>Proceed to Documents & Consent</span>
+                        <ArrowRight className="size-4" />
+                      </Button>
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* RSBSA Certificate / Barangay Clearance (Optional) */}
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
-                  <span>RSBSA Stub / Barangay Certificate</span>
-                  <span className="text-[10px] text-slate-400">Optional</span>
-                </Label>
-                <input
-                  ref={rsbsaRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  className="hidden"
-                  onChange={(e) => handleFileSelect(e, 'rsbsa')}
-                />
-                {previews.rsbsa ? (
-                  <div className="relative border-2 border-emerald-600 bg-emerald-50/30 rounded-2xl p-3 flex items-center justify-between shadow-xs">
-                    <div className="flex items-center gap-3">
-                      {previews.rsbsa === 'pdf' ? (
-                        <div className="size-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black text-xs">
-                          PDF
+                {/* ═════════════════════════════════════════════════════════════
+                    STEP 3: DOCUMENT VERIFICATION & DATA PRIVACY AGREEMENT
+                   ═════════════════════════════════════════════════════════════ */}
+                {step === 3 && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+                    {/* Guided ID capture */}
+                    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="governmentIdType" className="text-[11px] font-extrabold uppercase text-slate-700">
+                          Government ID type <span className="text-rose-500">*</span> <span className="font-medium normal-case text-slate-400">(required)</span>
+                        </Label>
+                        <Select
+                          value={governmentIdType || undefined}
+                          onValueChange={(val) => {
+                            setGovernmentIdType(val);
+                            setError('');
+                          }}
+                        >
+                          <SelectTrigger
+                            id="governmentIdType"
+                            className="w-full h-12 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white px-3.5 text-sm font-medium text-slate-800 data-[placeholder]:!text-black/40 transition focus:border-[#2D5A27] focus:ring-2 focus:ring-[#2D5A27]/20"
+                          >
+                            <SelectValue placeholder="Select ID type" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl">
+                            <SelectItem value="PHILID" className="text-sm font-medium py-2 rounded-lg">PhilID / National ID</SelectItem>
+                            <SelectItem value="DRIVERS_LICENSE" className="text-sm font-medium py-2 rounded-lg">Driver’s License</SelectItem>
+                            <SelectItem value="VOTERS_ID" className="text-sm font-medium py-2 rounded-lg">Voter’s ID</SelectItem>
+                            <SelectItem value="PASSPORT" className="text-sm font-medium py-2 rounded-lg">Passport</SelectItem>
+                            <SelectItem value="UMID" className="text-sm font-medium py-2 rounded-lg">UMID</SelectItem>
+                            <SelectItem value="POSTAL_ID" className="text-sm font-medium py-2 rounded-lg">Postal ID</SelectItem>
+                            <SelectItem value="PRC_ID" className="text-sm font-medium py-2 rounded-lg">PRC ID</SelectItem>
+                            <SelectItem value="OTHER_GOV_ID" className="text-sm font-medium py-2 rounded-lg">Other Government ID</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-[10px] leading-relaxed text-slate-500">
+                          Take a clear photo of the front, then the back, or upload one PDF containing both sides.
+                        </p>
+                      </div>
+
+                      {governmentIdType && (
+                        <div className="space-y-3 border-t border-slate-100 pt-3">
+                          <input
+                            ref={govIdFrontRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            capture="environment"
+                            className="hidden"
+                            onChange={(e) => handleFileSelect(e, 'governmentIdFront')}
+                          />
+                          <input
+                            ref={govIdBackRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            capture="environment"
+                            className="hidden"
+                            onChange={(e) => handleFileSelect(e, 'governmentIdBack')}
+                          />
+                          <input
+                            ref={govIdPdfRef}
+                            type="file"
+                            accept="application/pdf"
+                            className="hidden"
+                            onChange={(e) => handleFileSelect(e, 'governmentIdPdf')}
+                          />
+
+                          {documents.governmentIdPdf ? (
+                            <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+                              <div className="flex min-w-0 items-center gap-2.5">
+                                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-[10px] font-black text-rose-700">
+                                  PDF
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold text-emerald-900">Complete ID PDF attached</p>
+                                  <p className="truncate text-[10px] text-slate-600">{documents.governmentIdPdf.name}</p>
+                                  <p className="text-[10px] text-slate-500">Make sure the PDF shows both sides.</p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeDocument('governmentIdPdf')}
+                                className="shrink-0 rounded-lg px-2.5 py-1.5 text-[10px] font-semibold text-rose-700 hover:bg-rose-100 cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ) : documents.governmentIdFront && documents.governmentIdBack ? (
+                            <div className="space-y-2.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-900">Both sides captured</p>
+                                  <p className="text-[10px] text-slate-500">Check each photo before continuing.</p>
+                                </div>
+                                <Badge variant="secondary" className="text-[10px]">2 of 2 complete</Badge>
+                              </div>
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {[
+                                  { key: 'governmentIdFront' as const, label: 'Front', ref: govIdFrontRef },
+                                  { key: 'governmentIdBack' as const, label: 'Back', ref: govIdBackRef },
+                                ].map(({ key, label, ref }) => (
+                                  <div
+                                    key={key}
+                                    className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50/50 p-2"
+                                  >
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <img
+                                        src={previews[key]}
+                                        alt={`${label} of ${governmentIdType}`}
+                                        className="size-11 shrink-0 rounded-md border border-emerald-200 object-cover"
+                                      />
+                                      <div className="min-w-0">
+                                        <p className="text-[10px] font-semibold text-emerald-800">{label} side captured</p>
+                                        <p className="truncate text-[10px] text-slate-500">{documents[key]?.name}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (ref.current) {
+                                            ref.current.value = '';
+                                            ref.current.click();
+                                          }
+                                        }}
+                                        className="text-[10px] font-semibold text-[#2D5A27] hover:underline cursor-pointer"
+                                      >
+                                        Retake
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeDocument(key)}
+                                        className="text-[10px] font-semibold text-rose-600 hover:underline cursor-pointer"
+                                      >
+                                        Remove
+                                      </button>
+                                      <Check className="size-4 shrink-0 text-emerald-700" />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : !documents.governmentIdFront ? (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-900">Step 1 of 2 · Front side</p>
+                                  <p className="text-[10px] text-slate-500">Place the front of your ID inside the frame and take a clear photo.</p>
+                                </div>
+                                <Badge variant="outline" className="shrink-0 text-[10px]">Front</Badge>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (govIdFrontRef.current) {
+                                    govIdFrontRef.current.value = '';
+                                    govIdFrontRef.current.click();
+                                  }
+                                }}
+                                className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center transition hover:border-[#2D5A27] hover:bg-emerald-50/40 cursor-pointer"
+                              >
+                                <span className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-[#2D5A27]">
+                                  <Camera className="size-5" />
+                                </span>
+                                <span className="text-xs font-semibold text-slate-800">Take or upload front photo</span>
+                                <span className="text-[10px] text-slate-500">JPG, PNG, or WEBP · Max 10MB</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-900">Step 2 of 2 · Back side</p>
+                                  <p className="text-[10px] text-slate-500">Front saved. Turn the ID over and capture the back.</p>
+                                </div>
+                                <Badge variant="outline" className="shrink-0 text-[10px]">Back</Badge>
+                              </div>
+                              <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/50 p-2">
+                                <img
+                                  src={previews.governmentIdFront}
+                                  alt={`Front of ${governmentIdType}`}
+                                  className="size-11 shrink-0 rounded-md border border-emerald-200 object-cover"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[10px] font-semibold text-emerald-800">Front side captured</p>
+                                  <p className="truncate text-[10px] text-slate-500">{documents.governmentIdFront?.name}</p>
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (govIdFrontRef.current) {
+                                        govIdFrontRef.current.value = '';
+                                        govIdFrontRef.current.click();
+                                      }
+                                    }}
+                                    className="text-[10px] font-semibold text-[#2D5A27] hover:underline cursor-pointer"
+                                  >
+                                    Retake
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeDocument('governmentIdFront')}
+                                    className="text-[10px] font-semibold text-rose-600 hover:underline cursor-pointer"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (govIdBackRef.current) {
+                                    govIdBackRef.current.value = '';
+                                    govIdBackRef.current.click();
+                                  }
+                                }}
+                                className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center transition hover:border-[#2D5A27] hover:bg-emerald-50/40 cursor-pointer"
+                              >
+                                <span className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-[#2D5A27]">
+                                  <Camera className="size-5" />
+                                </span>
+                                <span className="text-xs font-semibold text-slate-800">Take or upload back photo</span>
+                                <span className="text-[10px] text-slate-500">JPG, PNG, or WEBP · Max 10MB</span>
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="border-t border-slate-100 pt-3">
+                            {documents.governmentIdFront || documents.governmentIdBack ? (
+                              <p className="text-center text-[10px] text-slate-500">To use a PDF instead, remove the captured photo(s) first.</p>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => govIdPdfRef.current?.click()}
+                                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 cursor-pointer"
+                              >
+                                <FileText className="size-4 text-rose-600" />Upload one complete PDF instead
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* RSBSA Certificate / Barangay Clearance (Optional) */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
+                        <span>RSBSA Stub / Barangay Certificate</span>
+                        <span className="text-[10px] text-slate-400">Optional</span>
+                      </Label>
+                      <input
+                        ref={rsbsaRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
+                        className="hidden"
+                        onChange={(e) => handleFileSelect(e, 'rsbsa')}
+                      />
+                      {previews.rsbsa ? (
+                        <div className="relative border-2 border-emerald-600 bg-emerald-50/30 rounded-2xl p-3 flex items-center justify-between shadow-xs">
+                          <div className="flex items-center gap-3">
+                            {previews.rsbsa === 'pdf' ? (
+                              <div className="size-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black text-xs">
+                                PDF
+                              </div>
+                            ) : (
+                              <img
+                                src={previews.rsbsa}
+                                alt="RSBSA Document"
+                                className="size-12 rounded-xl object-cover border border-emerald-300"
+                              />
+                            )}
+                            <div>
+                              <p className="text-xs font-bold text-slate-900 truncate max-w-[200px]">
+                                {documents.rsbsa?.name}
+                              </p>
+                              <p className="text-[10px] text-emerald-700 font-extrabold">
+                                Attached for expedited review
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeDocument('rsbsa')}
+                            className="px-2.5 py-1 text-[10px] font-black uppercase text-rose-600 hover:bg-rose-100 rounded-lg transition-colors cursor-pointer"
+                          >
+                            Remove
+                          </button>
                         </div>
                       ) : (
-                        <img
-                          src={previews.rsbsa}
-                          alt="RSBSA Document"
-                          className="size-12 rounded-xl object-cover border border-emerald-300"
-                        />
+                        <div
+                          onClick={() => rsbsaRef.current?.click()}
+                          className="p-4 border-2 border-dashed border-slate-200 hover:border-[#2D5A27] rounded-2xl flex items-center justify-between transition-colors cursor-pointer bg-slate-50/60 hover:bg-emerald-50/20 group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="size-10 rounded-xl bg-slate-100 group-hover:bg-emerald-100 text-slate-500 group-hover:text-[#2D5A27] flex items-center justify-center transition-colors">
+                              <FileText className="size-5" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-800">Upload RSBSA Stub or Certificate</p>
+                              <p className="text-[10px] text-slate-400">Speeds up MAO field audit verification</p>
+                            </div>
+                          </div>
+                          <Upload className="size-4 text-slate-400 group-hover:text-[#2D5A27]" />
+                        </div>
                       )}
-                      <div>
-                        <p className="text-xs font-bold text-slate-900 truncate max-w-[200px]">
-                          {documents.rsbsa?.name}
-                        </p>
-                        <p className="text-[10px] text-emerald-700 font-extrabold">
-                          Attached for expedited review
-                        </p>
+                    </div>
+
+                    {/* Data Privacy Act Agreement Card */}
+                    <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/90 border border-emerald-200/90 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Shield className="size-4.5 text-[#2D5A27] shrink-0" />
+                          <h3 className="text-xs font-black uppercase tracking-wider text-[#2D5A27]">
+                            Data Privacy Act of 2012 (RA 10173) Consent
+                          </h3>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPrivacyDialogOpen(true)}
+                          className="inline-flex items-center gap-1 text-[11px] font-black text-[#2D5A27] hover:underline cursor-pointer shrink-0"
+                        >
+                          <span>Read Policy</span>
+                          <ExternalLink className="size-3" />
+                        </button>
+                      </div>
+
+                      <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                        By registering, you authorize the <strong>Municipal Agriculture Office (MAO)</strong> of Padre Garcia, Batangas to collect, process, and retain your personal and farm information strictly for official agricultural programs, quarterly livestock censuses, vaccine assistance, and disease surveillance.
+                      </p>
+
+                      <div className="flex items-start space-x-3 pt-1 border-t border-emerald-200/60">
+                        <Checkbox
+                          id="privacy-consent"
+                          checked={privacyAgreed}
+                          onCheckedChange={(checked) => {
+                            setPrivacyAgreed(Boolean(checked));
+                            if (error) setError('');
+                          }}
+                          className="mt-0.5 rounded-lg border-emerald-600 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
+                        />
+                        <Label
+                          htmlFor="privacy-consent"
+                          className="text-xs font-bold text-slate-800 leading-snug cursor-pointer select-none"
+                        >
+                          I have read and agree to the <strong className="text-[#2D5A27]">Data Privacy Policy</strong> and hereby submit my registration for municipal validation. <span className="text-rose-500">*</span>
+                        </Label>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeDocument('rsbsa')}
-                      className="px-2.5 py-1 text-[10px] font-black uppercase text-rose-600 hover:bg-rose-100 rounded-lg transition-colors cursor-pointer"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => rsbsaRef.current?.click()}
-                    className="p-4 border-2 border-dashed border-slate-200 hover:border-[#2D5A27] rounded-2xl flex items-center justify-between transition-colors cursor-pointer bg-slate-50/60 hover:bg-emerald-50/20 group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="size-10 rounded-xl bg-slate-100 group-hover:bg-emerald-100 text-slate-500 group-hover:text-[#2D5A27] flex items-center justify-center transition-colors">
-                        <FileText className="size-5" />
+
+                    {error && (
+                      <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
+                        <AlertCircle className="size-4 text-rose-600 shrink-0 mt-0.5" />
+                        <p>{error}</p>
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">Upload RSBSA Stub or Certificate</p>
-                        <p className="text-[10px] text-slate-400">Speeds up MAO field audit verification</p>
-                      </div>
+                    )}
+
+                    {/* Step 3 Actions */}
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={prevStep}
+                        disabled={isSubmitting}
+                        className="flex-1 py-6 border-slate-200 text-slate-700 font-bold rounded-2xl text-xs uppercase cursor-pointer hover:bg-slate-50"
+                      >
+                        <ArrowLeft className="size-4 mr-1" />
+                        <span>Back</span>
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="flex-2 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl shadow-green-900/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="size-4.5 animate-spin" />
+                            <span>Submitting Registration...</span>
+                          </>
+                        ) : (
+                          <>
+                            <BadgeCheck className="size-4.5" />
+                            <span>Complete Registration</span>
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    <Upload className="size-4 text-slate-400 group-hover:text-[#2D5A27]" />
                   </div>
                 )}
-              </div>
+              </form>
 
-              {/* Data Privacy Act Agreement Card */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/90 border border-emerald-200/90 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Shield className="size-4.5 text-[#2D5A27] shrink-0" />
-                    <h3 className="text-xs font-black uppercase tracking-wider text-[#2D5A27]">
-                      Data Privacy Act of 2012 (RA 10173) Consent
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setPrivacyDialogOpen(true)}
-                    className="inline-flex items-center gap-1 text-[11px] font-black text-[#2D5A27] hover:underline cursor-pointer shrink-0"
-                  >
-                    <span>Read Policy</span>
-                    <ExternalLink className="size-3" />
-                  </button>
-                </div>
-
-                <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                  By registering, you authorize the <strong>Municipal Agriculture Office (MAO)</strong> of Padre Garcia, Batangas to collect, process, and retain your personal and farm information strictly for official agricultural programs, quarterly livestock censuses, vaccine assistance, and disease surveillance.
+              {/* Card Footer */}
+              <div className="bg-slate-50/80 p-4 border-t border-slate-100 text-center">
+                <p className="text-xs text-slate-500 font-medium">
+                  Already registered?{' '}
+                  <Link href="/login" className="text-[#2D5A27] font-black hover:underline">
+                    Log In
+                  </Link>
                 </p>
-
-                <div className="flex items-start space-x-3 pt-1 border-t border-emerald-200/60">
-                  <Checkbox
-                    id="privacy-consent"
-                    checked={privacyAgreed}
-                    onCheckedChange={(checked) => {
-                      setPrivacyAgreed(Boolean(checked));
-                      if (error) setError('');
-                    }}
-                    className="mt-0.5 rounded-lg border-emerald-600 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
-                  />
-                  <Label
-                    htmlFor="privacy-consent"
-                    className="text-xs font-bold text-slate-800 leading-snug cursor-pointer select-none"
-                  >
-                    I have read and agree to the <strong className="text-[#2D5A27]">Data Privacy Policy</strong> and hereby submit my registration for municipal validation. <span className="text-rose-500">*</span>
-                  </Label>
-                </div>
-              </div>
-
-              {error && (
-                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
-                  <AlertCircle className="size-4 text-rose-600 shrink-0 mt-0.5" />
-                  <p>{error}</p>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={prevStep}
-                  disabled={isSubmitting}
-                  className="flex-1 py-6 border-slate-200 text-slate-700 font-bold rounded-2xl text-xs uppercase cursor-pointer"
-                >
-                  <ArrowLeft className="size-4 mr-1" />
-                  <span>Back</span>
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-2 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl shadow-green-900/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="size-4.5 animate-spin" />
-                      <span>Submitting Registration...</span>
-                    </>
-                  ) : (
-                    <>
-                      <BadgeCheck className="size-4.5" />
-                      <span>Complete Registration</span>
-                    </>
-                  )}
-                </Button>
               </div>
             </div>
-          )}
-        </form>
-
-        {/* Card Footer */}
-        <div className="bg-slate-50/80 p-4 border-t border-slate-100 text-center">
-          <p className="text-xs text-slate-500 font-medium">
-            Already registered?{' '}
-            <Link href="/login" className="text-[#2D5A27] font-black hover:underline">
-              Log In
-            </Link>
-          </p>
+          </div>
         </div>
-      </div>
+      </main>
 
-      {/* Footer Info */}
-      <div className="mt-8 text-center text-xs text-slate-400 font-medium space-y-1">
+      {/* ── Footer ── */}
+      <footer className="mt-8 border-t border-emerald-500/10 bg-black/30 backdrop-blur-md py-4 text-center text-xs text-slate-400 font-medium relative z-10 space-y-1">
         <p>© {new Date().getFullYear()} Municipal Agriculture Office (MAO) • Padre Garcia, Batangas</p>
         <p className="text-[11px] text-slate-400/80">Cattle & Livestock Information System</p>
-      </div>
+      </footer>
 
-      {/* ═════════════════════════════════════════════════════════════
-          DATA PRIVACY POLICY MODAL DIALOG
-         ═════════════════════════════════════════════════════════════ */}
+      {/* ── Data Privacy Policy Modal Dialog ── */}
       <Dialog open={privacyDialogOpen} onOpenChange={setPrivacyDialogOpen}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto rounded-3xl p-6">
           <DialogHeader className="space-y-1">
             <div className="flex items-center gap-2 text-emerald-800">
               <Shield className="size-5" />
-              <DialogTitle className="text-base font-black">
-                Padre Garcia Data Privacy Policy
-              </DialogTitle>
+              <DialogTitle className="text-base font-black">Padre Garcia Data Privacy Policy</DialogTitle>
             </div>
             <DialogDescription className="text-xs text-slate-500">
               Republic Act No. 10173 (Data Privacy Act of 2012) Compliance
@@ -1137,7 +1577,9 @@ export default function FarmerRegistrationPage() {
             <div>
               <h4 className="font-bold text-slate-900 mb-1">1. Information We Collect</h4>
               <p>
-                The Municipal Agriculture Office (MAO) collects personal identification details (full name, email, contact number), farm location and size, and livestock holding declarations solely for municipal monitoring and farmer support services.
+                The Municipal Agriculture Office (MAO) collects personal identification details (full name,
+                email, contact number), farm location and size, and livestock holding declarations solely
+                for municipal monitoring and farmer support services.
               </p>
             </div>
 
@@ -1154,14 +1596,17 @@ export default function FarmerRegistrationPage() {
             <div>
               <h4 className="font-bold text-slate-900 mb-1">3. Confidentiality & Storage</h4>
               <p>
-                Your records are stored securely within the SmartLivestock municipal database and are only accessible by authorized MAO personnel and accredited SIBAT agricultural technologists.
+                Your records are stored securely within the SmartLivestock municipal database and are only
+                accessible by authorized MAO personnel and accredited SIBAT agricultural technologists.
               </p>
             </div>
 
             <div>
               <h4 className="font-bold text-slate-900 mb-1">4. Your Rights as a Data Subject</h4>
               <p>
-                Under RA 10173, you retain the right to access, verify, request corrections to, or withdraw consent regarding your stored records by visiting the Padre Garcia Municipal Agriculture Office during standard office hours.
+                Under RA 10173, you retain the right to access, verify, request corrections to, or withdraw
+                consent regarding your stored records by visiting the Padre Garcia Municipal Agriculture
+                Office during standard office hours.
               </p>
             </div>
           </div>

@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from phonenumber_field.modelfields import PhoneNumberField  # type: ignore
 from django.conf import settings
+from .document_security import PrivateRegistrationStorage, document_upload_path
+import uuid
 
 
 # Custom User model: uses email as the login identifier instead of username.
@@ -112,7 +114,7 @@ class UserDocument(models.Model):
     document_type = models.CharField(
         max_length=20, choices=DocumentType.choices, default=DocumentType.OTHER
     )
-    document_file = models.FileField(upload_to="user_documents/")
+    document_file = models.FileField(upload_to=document_upload_path, storage=PrivateRegistrationStorage())
     uploaded_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
     review_remarks = models.TextField(
@@ -121,6 +123,55 @@ class UserDocument(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.document_type}"
+
+
+class IdentityVerificationAttempt(models.Model):
+    """Supporting evidence only. Account/document approval remains a human action."""
+    class State(models.TextChoices):
+        NOT_STARTED = "NOT_STARTED", "Not started"
+        IN_PROGRESS = "IN_PROGRESS", "In progress"
+        REVIEW_REQUIRED = "REVIEW_REQUIRED", "Human review required"
+        COMPLETED = "COMPLETED", "Provider checks completed"
+        RETRY_REQUIRED = "RETRY_REQUIRED", "Retry required"
+        FAILED_TECHNICAL = "FAILED_TECHNICAL", "Service unavailable"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="identity_attempts")
+    document = models.ForeignKey(UserDocument, on_delete=models.PROTECT)
+    state = models.CharField(max_length=24, choices=State.choices, default=State.NOT_STARTED)
+    provider_session_id = models.UUIDField(null=True, blank=True, unique=True)
+    workflow_id = models.CharField(max_length=64, blank=True)
+    environment = models.CharField(max_length=8, default="sandbox")
+    document_result = models.CharField(max_length=20, default="NOT_COMPLETED")
+    face_result = models.CharField(max_length=20, default="NOT_COMPLETED")
+    liveness_result = models.CharField(max_length=20, default="NOT_COMPLETED")
+    consent_at = models.DateTimeField(null=True, blank=True)
+    policy_version = models.CharField(max_length=64, blank=True)
+    # Snapshot the displayed policy, not provider raw data.
+    retention_notice = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    last_provider_timestamp = models.BigIntegerField(default=0)
+    manual_review_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="identity_manual_reviews")
+    manual_review_at = models.DateTimeField(null=True, blank=True)
+    manual_review_reason = models.TextField(blank=True)
+    manual_result_signature = models.CharField(max_length=100, blank=True)
+    retention_hold = models.BooleanField(default=False)
+    provider_deleted_at = models.DateTimeField(null=True, blank=True)
+    retention_due_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class IdentityVerificationEvent(models.Model):
+    attempt = models.ForeignKey(IdentityVerificationAttempt, on_delete=models.CASCADE, related_name="events")
+    provider_event_id = models.UUIDField(null=True, blank=True, unique=True)
+    state = models.CharField(max_length=24)
+    actor = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    remarks = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 # Notification model: in-app notifications and biosecurity advisories delivered to users

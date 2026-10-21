@@ -13,6 +13,7 @@ from django.db.models import Q
 from rest_framework_simplejwt.views import TokenObtainPairView  # type: ignore
 from rest_framework.generics import CreateAPIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.throttling import AnonRateThrottle
 
 from livestock.permission import IsMAO
 from users.models import User, UserDocument, Notification
@@ -54,11 +55,31 @@ class MyTokenView(TokenObtainPairView):
 # Registration view for new farmers.
 # POST with email, password, first_name, last_name, phone_number, barangay, farm_size, address.
 # Atomically creates both a User (with status=PENDING) and a Farmer profile.
+class RegistrationThrottle(AnonRateThrottle):
+    rate = "10/hour"
+
+
 class RegisterView(CreateAPIView):
     # Registration is public; the serializer always creates a pending FARMER account.
     permission_classes = [AllowAny]
     serializer_class = RegisterSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+    throttle_classes = [RegistrationThrottle]
+
+    def perform_create(self, serializer):
+        self.registered_user = serializer.save()
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        from django.conf import settings
+        if settings.IDENTITY_ENABLED:
+            from .identity_service import registration_token
+            from .identity_views import enroll, no_store
+            enroll(self.registered_user)
+            response.data["identity_verification"] = {"required": True, "access_token": registration_token(self.registered_user)}
+            return no_store(response)
+        return response
 
 
 # Get current logged-in user basic profile or update photo/profile details
@@ -157,8 +178,9 @@ def all_users_list(request):
 # PATCH /api/users/<id>/status/ -> Update account status (MAO only)
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated, IsMAO])
+@transaction.atomic
 def update_user_status(request, pk):
-    user = get_object_or_404(User, pk=pk)
+    user = get_object_or_404(User.objects.select_for_update(), pk=pk)
 
     serializer = UserStatusUpdateSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -169,6 +191,10 @@ def update_user_status(request, pk):
     # Administrative safeguard:
     # If approving an account with submitted documents, ensure documents are not pending or under revision
     if new_status == User.AccountStatus.APPROVED:
+        from .identity_service import evidence_fingerprint
+        attempt = user.identity_attempts.select_for_update().first()
+        if attempt and (not attempt.manual_review_at or attempt.manual_result_signature != evidence_fingerprint(attempt)):
+            return Response({"detail": "Record an MAO assessment of the current identity evidence before approving this account. Incomplete checks require documented manual assessment."}, status=400)
         if user.documents.filter(verification_status=UserDocument.VerificationStatus.SUBJECT_TO_REVISION).exists():
             return Response(
                 {"detail": "Cannot approve account while submitted documents are marked Subject to Revision. Please resolve or request updated documents first."},
@@ -261,7 +287,8 @@ def view_user_document(request, pk):
     is_mao = bool(getattr(request.user, "role", None) and request.user.role.role_name in {"MAO", "ADMIN"})
     is_owner = bool(request.user.pk == doc.user_id)
 
-    if not (is_staff_admin or is_mao or is_owner):
+    from .identity_service import can_read_evidence
+    if not (is_staff_admin or is_mao or is_owner or can_read_evidence(request.user, doc.user)):
         return Response(
             {"detail": "You do not have permission to access this registration document."},
             status=status.HTTP_403_FORBIDDEN,
@@ -283,6 +310,10 @@ def view_user_document(request, pk):
     response = FileResponse(file_handle, content_type=content_type)
     # Inline disposition allows PDFs and images to render in browser modals / iframes
     response["Content-Disposition"] = f'inline; filename="{filename}"'
+    response["Cache-Control"] = "no-store, private"
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Content-Security-Policy"] = "sandbox"
+    response["Referrer-Policy"] = "no-referrer"
     return response
 
 

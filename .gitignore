@@ -18,6 +18,10 @@ user_documents/
 backend/user_documents/
 media/
 backend/media/
+backend/private_documents/
+identity-check.sqlite3
+frontend/test-artifacts/
+frontend/.next-identity-*/
 backend/local.sqlite3
 backend/.env
 

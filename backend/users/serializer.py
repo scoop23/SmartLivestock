@@ -221,22 +221,17 @@ class RegisterSerializer(serializers.ModelSerializer):
     )
 
     def _validate_upload(self, file_obj, label: str):
-        if not file_obj:
-            return file_obj
-        max_size = 10 * 1024 * 1024  # 10 MB limit
-        if file_obj.size > max_size:
-            raise serializers.ValidationError(f"{label} file size must be 10MB or less.")
-        import os
-        ext = os.path.splitext(file_obj.name)[1].lower()
-        allowed = [".pdf", ".jpg", ".jpeg", ".png", ".webp"]
-        if ext not in allowed:
-            raise serializers.ValidationError(
-                f"Unsupported file format for {label}. Allowed formats: PDF, JPG, PNG, WEBP."
-            )
-        return file_obj
+        from .document_security import validate_document
+        return validate_document(file_obj, label)
 
     def validate_government_id(self, value):
         return self._validate_upload(value, "Government ID")
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("An account already exists for this email. Do not register again; contact MAO if your application is pending.")
+        return value
 
     def _validate_id_format(self, file_obj, label, allowed_extensions):
         file_obj = self._validate_upload(file_obj, label)

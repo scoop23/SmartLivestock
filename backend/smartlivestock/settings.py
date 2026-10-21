@@ -258,6 +258,24 @@ os.makedirs(STATIC_ROOT, exist_ok=True)
 # Local media fallback settings (used in development or when R2 is unconfigured)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "media"))
+PRIVATE_DOCUMENT_ROOT = Path(os.environ.get("PRIVATE_DOCUMENT_ROOT", BASE_DIR / "private_documents"))
+IDENTITY_ENABLED = os.environ.get("IDENTITY_ENABLED", "false").lower() == "true"
+DIDIT_API_KEY = os.environ.get("DIDIT_API_KEY", "")
+DIDIT_WORKFLOW_ID = os.environ.get("DIDIT_WORKFLOW_ID", "")
+DIDIT_WEBHOOK_SECRET = os.environ.get("DIDIT_WEBHOOK_SECRET", "")
+DIDIT_APPLICATION_ID = os.environ.get("DIDIT_APPLICATION_ID", "")
+IDENTITY_ENVIRONMENT = os.environ.get("IDENTITY_ENVIRONMENT", "sandbox")
+IDENTITY_POLICY_VERSION = os.environ.get("IDENTITY_POLICY_VERSION", "")
+IDENTITY_RETENTION_NOTICE = os.environ.get("IDENTITY_RETENTION_NOTICE", "")
+IDENTITY_PRIVACY_CONTACT = os.environ.get("IDENTITY_PRIVACY_CONTACT", "")
+IDENTITY_RETENTION_DAYS = int(os.environ.get("IDENTITY_RETENTION_DAYS", "0"))
+IDENTITY_PROVIDER_PRIVACY_CONFIRMED = os.environ.get("IDENTITY_PROVIDER_PRIVACY_CONFIRMED", "false").lower() == "true"
+# Private PDF parsers must not emit document fragments in diagnostics.
+LOGGING = {
+    "version": 1, "disable_existing_loggers": False,
+    "handlers": {"private_parser_null": {"class": "logging.NullHandler"}},
+    "loggers": {"pypdf": {"handlers": ["private_parser_null"], "propagate": False}},
+}
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 # Cloudflare R2 Credentials & Endpoint

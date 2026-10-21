@@ -46,6 +46,7 @@ import CensusDetailsDialog from "./census-details-dialog";
 import { ReviewWorkloadPanel } from "@/app/(admin)/admin/review-workload-panel";
 
 import { SibatFarmerFinderDialog } from "./components/sibat-farmer-finder-dialog";
+import { IdentityReviewQueue } from "@/components/identity-evidence";
 
 
 import {
@@ -695,6 +696,8 @@ function SibatPortalContent() {
               </div>
             </button>
           </div>
+
+          <IdentityReviewQueue />
 
           {/* Needs Attention Card */}
           <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xs" aria-labelledby="needs-attention-title">

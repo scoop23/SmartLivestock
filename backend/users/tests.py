@@ -255,6 +255,15 @@ from users.models import UserDocument, Notification
 
 class FarmerRegistrationAndValidationTests(APITestCase):
     def setUp(self):
+        import tempfile
+        from django.test import override_settings
+        from django.core.cache import cache
+        cache.clear()
+        self.private_root = tempfile.TemporaryDirectory()
+        self.addCleanup(self.private_root.cleanup)
+        storage_override = override_settings(PRIVATE_DOCUMENT_ROOT=self.private_root.name, USE_R2_STORAGE=False, IDENTITY_ENABLED=False)
+        storage_override.enable()
+        self.addCleanup(storage_override.disable)
         self.farmer_role, _ = Role.objects.get_or_create(role_name=Role.UserRoles.FARMER)
         self.mao_role, _ = Role.objects.get_or_create(role_name=Role.UserRoles.MAO)
         self.barangay = Barangay.objects.create(
@@ -265,8 +274,9 @@ class FarmerRegistrationAndValidationTests(APITestCase):
 
 
     def test_anonymous_can_register_with_synthetic_documents_and_rsbsa(self):
-        gov_id = SimpleUploadedFile("synthetic-government-id.pdf", b"%PDF-1.4 synthetic gov id", content_type="application/pdf")
-        rsbsa_doc = SimpleUploadedFile("synthetic-rsbsa.pdf", b"%PDF-1.4 synthetic rsbsa doc", content_type="application/pdf")
+        from .test_identity_verification import pdf_file
+        gov_id = pdf_file("synthetic-government-id.pdf")
+        rsbsa_doc = pdf_file("synthetic-rsbsa.pdf")
 
         payload = {
             "first_name": "Test",
@@ -279,6 +289,7 @@ class FarmerRegistrationAndValidationTests(APITestCase):
             "address": "Synthetic Test Farm Sitio 1",
             "rsbsa_number": "RSBSA-2026-0042",
             "government_id": gov_id,
+            "government_id_type": "PASSPORT",
             "rsbsa_document": rsbsa_doc,
         }
 

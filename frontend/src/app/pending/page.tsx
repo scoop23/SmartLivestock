@@ -20,6 +20,7 @@ Sparkles
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import Link from 'next/link';
 
 export default function PendingPage() {
   const router = useRouter();
@@ -59,6 +60,9 @@ export default function PendingPage() {
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
               Your registration application was received and is currently being verified by the Municipal Agriculture Office (MAO) in accordance with municipal livestock guidelines.
+            </p>
+            <p className="text-xs text-slate-600">
+              If ID/selfie checks were requested during registration, <Link href="/farmer-registration/identity" className="font-semibold text-emerald-800 underline">resume your identity-check session</Link>. If the session has expired, contact MAO; do not register another account.
             </p>
           </div>
 
