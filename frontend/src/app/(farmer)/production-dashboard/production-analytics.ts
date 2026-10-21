@@ -123,13 +123,76 @@ export interface SlaughterDetails {
   inventory_reconciled_at: string | null;
 }
 
+export type AnomalyAssessmentStatus =
+  | "NOT_APPLICABLE"
+  | "UNAVAILABLE"
+  | "INSUFFICIENT_HISTORY"
+  | "CLEAN"
+  | "ANOMALY_DETECTED";
+
+export type ProductionReviewQueue = "SIBAT" | "CBAT" | "MAO" | "FARMER" | "NONE";
+
+export interface MilkAnomalyAssessment {
+  assessment_status?: AnomalyAssessmentStatus;
+  sufficient_history?: boolean;
+  anomaly_detected?: boolean;
+  requires_cbat_verification?: boolean;
+  next_review_queue?: ProductionReviewQueue;
+  reason?: string;
+  severity?: "NONE" | "MODERATE" | "HIGH";
+  anomaly_direction?: "SPIKE" | "DECLINE" | "NONE";
+  submitted_quantity?: number;
+  unit?: string;
+  record_date?: string;
+  historical_baseline?: {
+    history_days_count: number;
+    window_days_used: number;
+    baseline_median_liters: number | null;
+    baseline_mean_liters: number | null;
+    mad_liters: number | null;
+    std_liters: number | null;
+    min_liters: number | null;
+    max_liters: number | null;
+    latest_approved_date: string | null;
+    recent_observations?: {
+      record_date: string;
+      quantity_liters: number;
+    }[];
+  } | null;
+  deviation?: {
+    absolute_liters: number | null;
+    percentage_change: number | null;
+    robust_z_score: number | null;
+  } | null;
+  forecast_comparison?: {
+    available: boolean;
+    status: "MATCHED" | "NOT_READY" | "DATE_NOT_IN_HORIZON" | "UNAVAILABLE";
+    reason: string;
+    forecast_date: string | null;
+    expected_liters: number | null;
+    deviation_liters: number | null;
+    deviation_pct: number | null;
+    model_used: string | null;
+  } | null;
+  cbat_verification?: {
+    verified_by_id: number;
+    verified_by_name: string;
+    verified_by_role: string;
+    status: string;
+    remarks: string;
+    verified_at: string;
+  } | null;
+  assessed_at?: string;
+}
+
 export interface ProductionRecordItem {
   slaughterDetails?: SlaughterDetails | null;
   valuationSnapshot?: ProductionValuationSnapshot | null;
   id: number;
   barangayName?: string | null;
   farmerName: string | null;
-  livestockId: number; 
+  livestockId: number;
+  livestockTagNumber?: string | null;
   livestockTypeName: string | null;
   productionType: ProductionType;
   quantity: number;
@@ -137,6 +200,12 @@ export interface ProductionRecordItem {
   recordDate: string; // "YYYY-MM-DD"
   notes: string;
   status: ProductionStatus;
+  anomalyAssessmentStatus?: AnomalyAssessmentStatus;
+  anomalyDetected?: boolean;
+  requiresCbatVerification?: boolean;
+  nextReviewQueue?: ProductionReviewQueue;
+  anomalyReason?: string;
+  anomalyAssessment?: MilkAnomalyAssessment | null;
   reviewRemarks: string | null;
   reviewedByName?: string | null;
   reviewedByRole?: string | null;
@@ -151,6 +220,7 @@ export interface ApiProductionRecord {
   barangay_name?: string | null;
   farmer_name: string;
   livestock: number;
+  livestock_tag_number?: string | null;
   livestock_type_name?: string | null;
   production_type?: string;
   quantity: string | number;
@@ -158,6 +228,12 @@ export interface ApiProductionRecord {
   record_date: string;
   notes?: string;
   status: ProductionStatus;
+  anomaly_assessment_status?: AnomalyAssessmentStatus;
+  anomaly_detected?: boolean;
+  requires_cbat_verification?: boolean;
+  next_review_queue?: ProductionReviewQueue;
+  anomaly_reason?: string;
+  anomaly_assessment?: MilkAnomalyAssessment | null;
   review_remarks?: string | null;
   reviewed_by_name?: string | null;
   reviewed_by_role?: string | null;
@@ -172,6 +248,7 @@ export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecord
   barangayName: item.barangay_name ?? null,
   farmerName: item.farmer_name ?? null,
   livestockId: item.livestock,
+  livestockTagNumber: item.livestock_tag_number ?? null,
   livestockTypeName: item.livestock_type_name ?? null,
   productionType: (item.production_type ?? "milk").toLowerCase() as ProductionType,
   quantity: Number(item.quantity) || 0,
@@ -179,6 +256,12 @@ export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecord
   recordDate: item.record_date,
   notes: item.notes ?? "",
   status: item.status,
+  anomalyAssessmentStatus: item.anomaly_assessment_status ?? "NOT_APPLICABLE",
+  anomalyDetected: Boolean(item.anomaly_detected),
+  requiresCbatVerification: Boolean(item.requires_cbat_verification),
+  nextReviewQueue: item.next_review_queue ?? "SIBAT",
+  anomalyReason: item.anomaly_reason ?? "",
+  anomalyAssessment: item.anomaly_assessment ?? null,
   reviewRemarks: item.review_remarks ?? null,
   reviewedByName: item.reviewed_by_name ?? null,
   reviewedByRole: item.reviewed_by_role ?? null,

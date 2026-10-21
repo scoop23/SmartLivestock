@@ -199,12 +199,36 @@ export default function ProductionRecordDialog({
                 </div>
               )}
 
-              {record.status === "PENDING" && (
-                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed">
-                  <p className="font-bold uppercase tracking-wider text-amber-800 mb-0.5">
-                    Awaiting Validation
+              {record.status === "VERIFIED" && (
+                <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 text-xs leading-relaxed">
+                  <p className="font-bold uppercase tracking-wider text-sky-800 mb-0.5">
+                    Field Verified ({record.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"})
                   </p>
-                  This record is awaiting review by your local SIBAT officer.
+                  This record has been field-verified by {record.reviewedByName || (record.reviewedByRole === "CBAT" ? "a CBAT officer" : "a SIBAT officer")} and forwarded to MAO for final approval.
+                </div>
+              )}
+
+              {record.status === "PENDING" && (
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed space-y-1">
+                  <p className="font-bold uppercase tracking-wider text-amber-800 mb-0.5">
+                    {record.nextReviewQueue === "MAO" && !record.requiresCbatVerification
+                      ? "Awaiting MAO Final Approval"
+                      : record.nextReviewQueue === "CBAT" || record.requiresCbatVerification
+                        ? "Awaiting CBAT Field Verification"
+                        : "Awaiting Validation"}
+                  </p>
+                  <p>
+                    {record.nextReviewQueue === "MAO" && !record.requiresCbatVerification
+                      ? "This milk production record matched your cow's historical baseline and is queued directly for MAO final approval."
+                      : record.nextReviewQueue === "CBAT" || record.requiresCbatVerification
+                        ? "This milk production record showed an unusual change compared with your cow's approved baseline and is queued for CBAT field verification."
+                        : "This record is awaiting review by your local SIBAT officer."}
+                  </p>
+                  {(record.nextReviewQueue === "CBAT" || record.requiresCbatVerification) && record.anomalyReason && (
+                    <p className="text-[11px] text-amber-800 pt-1 border-t border-amber-200/70">
+                      {record.anomalyReason}
+                    </p>
+                  )}
                 </div>
               )}
 

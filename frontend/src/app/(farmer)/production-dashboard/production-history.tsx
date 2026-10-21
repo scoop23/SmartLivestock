@@ -30,11 +30,14 @@ import { toast } from "sonner";
 import { STATUS_CHIPS,type SortKey } from "../livestock-inventory/livestock-record-list";
 
 import { Separator } from "@/components/ui/separator";
+import api from "@/lib/axios";
 import {
 PRODUCTION_TYPE_LABELS,
 deleteProductionRecord,
 fetchProductionRecords,
 formatProductionStatus,
+mapProductionRecord,
+type ApiProductionRecord,
 type ProductionRecordItem,
 type ProductionStatus,
 type ProductionType,
@@ -92,6 +95,7 @@ export default function ProductionHistory({
     error,
     refetch,
     isLoading,
+    isFetching,
   } = useQuery<ProductionRecordItem[], AxiosError<ApiError>>({
     queryKey: ["production"],
     queryFn: fetchProductionRecords,
@@ -106,30 +110,66 @@ export default function ProductionHistory({
   const [sortBy, setSortBy] = useState<SortKey>("newest");
   const handledInitialRecordRef = useRef<string | null>(null);
 
+  // Single-item fallback in case the list was cached before this specific record was submitted
+  const requestedNumericId = initialRecordId && Number.isInteger(Number(initialRecordId)) ? Number(initialRecordId) : null;
+  const { data: directRecord, isLoading: isDirectLoading } = useQuery({
+    queryKey: ["production_record_direct", requestedNumericId],
+    queryFn: async () => {
+      if (!requestedNumericId) return null;
+      try {
+        const res = await api.get<ApiProductionRecord>(`production/records/${requestedNumericId}/`);
+        return res.data ? mapProductionRecord(res.data) : null;
+      } catch {
+        return null;
+      }
+    },
+    enabled: Boolean(
+      requestedNumericId &&
+      !userProductions.some((r) => r.id === requestedNumericId) &&
+      !isLoading &&
+      !isFetching
+    ),
+  });
+
   // Dashboard activity links carry only the record ID. Resolve it against the
-  // authenticated farmer's existing production query before opening its dialog.
+  // authenticated farmer's existing production query or direct fallback before opening its dialog.
   useEffect(() => {
     if (!initialRecordId) {
       handledInitialRecordRef.current = null;
       return;
     }
-    if (isLoading || isError || handledInitialRecordRef.current === initialRecordId) return;
+    // Do not show premature errors while the query or background refetch is running
+    if (isLoading || isFetching || isDirectLoading || handledInitialRecordRef.current === initialRecordId) {
+      return;
+    }
 
     const requestedId = Number(initialRecordId);
-    const requestedRecord = Number.isInteger(requestedId)
-      ? userProductions.find((record) => record.id === requestedId)
-      : undefined;
+    const requestedRecord =
+      (Number.isInteger(requestedId)
+        ? userProductions.find((record) => record.id === requestedId)
+        : undefined) ||
+      userProductions.find(
+        (record) =>
+          String(record.id) === String(initialRecordId).trim() ||
+          (record.livestockTagNumber &&
+            record.livestockTagNumber.toUpperCase() === String(initialRecordId).trim().toUpperCase())
+      ) ||
+      directRecord;
 
     if (requestedRecord) {
       startTransition(() => {
+        if (typeFilter !== "ALL" && typeFilter !== requestedRecord.productionType) {
+          setTypeFilter("ALL");
+        }
         setSelected(requestedRecord);
         setDialogRecord(requestedRecord);
       });
-    } else {
+      handledInitialRecordRef.current = initialRecordId;
+    } else if (!isLoading && !isFetching && !isDirectLoading) {
       toast.error("That production record could not be found in your history.");
+      handledInitialRecordRef.current = initialRecordId;
     }
-    handledInitialRecordRef.current = initialRecordId;
-  }, [initialRecordId, isLoading, isError, userProductions]);
+  }, [initialRecordId, isLoading, isFetching, isDirectLoading, userProductions, directRecord, typeFilter]);
 
   const clearRecordLink = () => {
     const url = new URL(window.location.href);

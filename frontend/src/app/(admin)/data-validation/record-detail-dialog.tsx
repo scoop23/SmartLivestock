@@ -1,6 +1,11 @@
 "use client";
 
 import type { InventoryApiItem } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
+import type {
+  AnomalyAssessmentStatus,
+  MilkAnomalyAssessment,
+  ProductionReviewQueue,
+} from "@/app/(farmer)/production-dashboard/production-analytics";
 import { httpError } from "@/lib/http-error";
 import type { InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
 import { CensusItemEntry } from "@/app/(sibat)/sibat/sibat-analytics";
@@ -80,6 +85,7 @@ export type DetailRecordData =
     farmerName: string;
     barangayName: string;
     livestockTypeName: string;
+    livestockTagNumber?: string | null;
     productionType: string;
     quantity: number;
     unit: string;
@@ -88,8 +94,15 @@ export type DetailRecordData =
     status: string;
     reviewRemarks?: string | null;
     reviewedByName?: string | null;
+    reviewedByRole?: string | null;
     reviewedAt?: string | null;
     createdAt: string;
+    anomalyAssessmentStatus?: AnomalyAssessmentStatus;
+    anomalyDetected?: boolean;
+    requiresCbatVerification?: boolean;
+    nextReviewQueue?: ProductionReviewQueue;
+    anomalyReason?: string;
+    anomalyAssessment?: MilkAnomalyAssessment | null;
   }
   | {
     kind: "inventory";
@@ -210,7 +223,13 @@ function RecordDetailDialogContent({
   const isPending = statusNorm === "PENDING";
   const isVerified = statusNorm === "VERIFIED";
   const isAuctionRecord = record.kind === "incident" && record.type === "inspection";
-  const canMaoReview = isVerified || (isAuctionRecord && isPending);
+  const isCleanDirectProduction =
+    record.kind === "production" &&
+    isPending &&
+    record.nextReviewQueue === "MAO" &&
+    !record.requiresCbatVerification &&
+    record.anomalyAssessmentStatus === "CLEAN";
+  const canMaoReview = isVerified || (isAuctionRecord && isPending) || isCleanDirectProduction;
   const isApproved = statusNorm === "APPROVED";
   const isRejected = statusNorm === "SUBJECT_TO_REVISION" || statusNorm === "SUBJECT_FOR_REVISION" || statusNorm === "REJECTED" || statusNorm === "FLAGGED";
 
@@ -371,14 +390,18 @@ function RecordDetailDialogContent({
                 {isApproved
                   ? "MAO Approved & Certified"
                   : isVerified
-                    ? "SIBAT Field-Verified"
+                    ? `${record.kind === "production" && record.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"} Field-Verified`
                     : isRejected
                       ? "Subject for Revision"
                       : isAuctionRecord && isPending
                         ? "Awaiting MAO"
-                        : record.kind === "census"
-                        ? "Pending MAO Review"
-                        : "Pending SIBAT Verification"}
+                        : isCleanDirectProduction
+                          ? "Clean Baseline • Pending MAO Review"
+                          : record.kind === "production" && isPending && (record.requiresCbatVerification || record.nextReviewQueue === "CBAT")
+                            ? "Pending CBAT Verification"
+                            : record.kind === "census"
+                              ? "Pending MAO Review"
+                              : "Pending SIBAT Verification"}
               </span>
             </Badge>
           </div>
@@ -647,6 +670,117 @@ function RecordDetailDialogContent({
                   <p className="text-xs text-slate-700 leading-relaxed italic">
                     &quot;{record.notes}&quot;
                   </p>
+                </div>
+              )}
+
+              {record.productionType === "milk" && record.anomalyAssessment && record.anomalyAssessmentStatus !== "NOT_APPLICABLE" && (
+                <div
+                  className={`p-4 rounded-2xl border shadow-2xs space-y-2.5 text-xs ${
+                    record.anomalyDetected
+                      ? "bg-amber-50/80 border-amber-200 text-amber-950"
+                      : record.anomalyAssessmentStatus === "CLEAN"
+                        ? "bg-emerald-50/70 border-emerald-200 text-emerald-950"
+                        : "bg-slate-50 border-slate-200 text-slate-800"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-[10px] font-black uppercase tracking-wider">
+                      Milk Anomaly Assessment & Review Routing
+                    </span>
+                    <Badge
+                      className={`text-[9px] font-black uppercase border-0 ${
+                        record.anomalyDetected
+                          ? "bg-amber-200 text-amber-950"
+                          : record.anomalyAssessmentStatus === "CLEAN"
+                            ? "bg-emerald-200 text-emerald-950"
+                            : "bg-slate-200 text-slate-800"
+                      }`}
+                    >
+                      {record.anomalyDetected
+                        ? `Anomaly Flagged • CBAT Verification Required`
+                        : record.anomalyAssessmentStatus === "CLEAN"
+                          ? "No Anomaly • Direct to MAO"
+                          : "Insufficient Baseline History"}
+                    </Badge>
+                  </div>
+
+                  <p className="text-xs font-medium leading-relaxed">
+                    {record.anomalyReason || record.anomalyAssessment.reason}
+                  </p>
+
+                  {record.anomalyAssessment.historical_baseline &&
+                    record.anomalyAssessment.historical_baseline.baseline_median_liters != null && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div className="p-2.5 rounded-xl bg-white/90 border border-slate-200/70">
+                          <span className="text-[9px] font-black uppercase text-slate-400 block">
+                            Cow Rolling Median
+                          </span>
+                          <span className="text-xs font-black text-slate-900">
+                            {record.anomalyAssessment.historical_baseline.baseline_median_liters} L/day
+                          </span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-white/90 border border-slate-200/70">
+                          <span className="text-[9px] font-black uppercase text-slate-400 block">
+                            Cow Rolling Mean
+                          </span>
+                          <span className="text-xs font-black text-slate-900">
+                            {record.anomalyAssessment.historical_baseline.baseline_mean_liters} L/day
+                          </span>
+                        </div>
+                        {record.anomalyAssessment.deviation &&
+                          record.anomalyAssessment.deviation.absolute_liters != null && (
+                            <div className="p-2.5 rounded-xl bg-white/90 border border-slate-200/70 col-span-2 sm:col-span-1">
+                              <span className="text-[9px] font-black uppercase text-slate-400 block">
+                                Baseline Deviation
+                              </span>
+                              <span className="text-xs font-black text-slate-900">
+                                {record.anomalyAssessment.deviation.absolute_liters > 0 ? "+" : ""}
+                                {record.anomalyAssessment.deviation.absolute_liters} L (
+                                {(record.anomalyAssessment.deviation.percentage_change ?? 0) > 0 ? "+" : ""}
+                                {record.anomalyAssessment.deviation.percentage_change ?? 0}%)
+                              </span>
+                            </div>
+                          )}
+                      </div>
+                    )}
+
+                  {record.anomalyAssessment.forecast_comparison && (
+                    <div className="pt-2 border-t border-slate-200/70 text-[11px]">
+                      <span className="text-[9px] font-black uppercase text-slate-500 block">
+                        7-Day Forecast Comparison
+                      </span>
+                      {record.anomalyAssessment.forecast_comparison.available &&
+                      record.anomalyAssessment.forecast_comparison.status === "MATCHED" ? (
+                        <p className="mt-0.5">
+                          Date-aligned forecast:{" "}
+                          <strong>{record.anomalyAssessment.forecast_comparison.expected_liters} L</strong> (difference:{" "}
+                          {(record.anomalyAssessment.forecast_comparison.deviation_liters ?? 0) > 0 ? "+" : ""}
+                          {record.anomalyAssessment.forecast_comparison.deviation_liters} L /{" "}
+                          {(record.anomalyAssessment.forecast_comparison.deviation_pct ?? 0) > 0 ? "+" : ""}
+                          {record.anomalyAssessment.forecast_comparison.deviation_pct}%).
+                        </p>
+                      ) : (
+                        <p className="mt-0.5 italic text-slate-600">
+                          {record.anomalyAssessment.forecast_comparison.reason ||
+                            "Forecast comparison omitted."}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {record.anomalyAssessment.cbat_verification && (
+                    <div className="pt-2 border-t border-slate-200/70 text-[11px] space-y-0.5">
+                      <span className="text-[9px] font-black uppercase text-sky-800 block">
+                        CBAT Field Verification Record
+                      </span>
+                      <p>
+                        Verified by <strong>{record.anomalyAssessment.cbat_verification.verified_by_name}</strong>
+                        {record.anomalyAssessment.cbat_verification.remarks
+                          ? ` — "${record.anomalyAssessment.cbat_verification.remarks}"`
+                          : ""}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

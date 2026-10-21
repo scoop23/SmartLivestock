@@ -5,8 +5,16 @@ import type { BatchApiItem, InventoryApiItem } from "@/app/(farmer)/livestock-in
 // Live data fetchers, query hooks, and review mutations for SIBAT validation.
 // ---------------------------------------------------------------------------
 
-import { mapProductionRecord,type ApiProductionRecord,type ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
+import {
+  mapProductionRecord,
+  type AnomalyAssessmentStatus,
+  type ApiProductionRecord,
+  type MilkAnomalyAssessment,
+  type ProductionRecordItem,
+  type ProductionReviewQueue,
+} from "@/app/(farmer)/production-dashboard/production-analytics";
 import type { BiosecurityAction,SeverityLevel,SibatInspectionData,SibatStatus,SibatValidationRecord } from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
+import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { getAttachedPhoto } from "@/lib/photo-storage";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
@@ -69,6 +77,14 @@ export interface UnifiedSubmissionItem {
   reviewedAt?: string | null;
   reviewedByName?: string | null;
   reviewedByRole?: string | null;
+  livestockId?: number | null;
+  livestockTagNumber?: string | null;
+  anomalyAssessmentStatus?: AnomalyAssessmentStatus;
+  anomalyDetected?: boolean;
+  requiresCbatVerification?: boolean;
+  nextReviewQueue?: ProductionReviewQueue;
+  anomalyReason?: string;
+  anomalyAssessment?: MilkAnomalyAssessment | null;
   createdAt: string;
 }
 
@@ -231,6 +247,15 @@ export const mapProductionToUnified = (p: ProductionRecordItem): UnifiedSubmissi
     reviewedByRole: p.reviewedByRole,
     reviewedByName: p.reviewedByName,
     reviewedAt: p.reviewedAt,
+    livestockId: p.livestockId,
+    livestockTagNumber: p.livestockTagNumber,
+     tagNumber: p.livestockTagNumber || undefined,
+    anomalyAssessmentStatus: p.anomalyAssessmentStatus,
+    anomalyDetected: p.anomalyDetected,
+    requiresCbatVerification: p.requiresCbatVerification,
+    nextReviewQueue: p.nextReviewQueue,
+    anomalyReason: p.anomalyReason,
+    anomalyAssessment: p.anomalyAssessment,
     createdAt: p.createdAt,
   };
 };
@@ -652,9 +677,12 @@ export async function fetchSalesFromFarmers(): Promise<UnifiedSubmissionItem[]> 
 // ── Hooks ──
 
 export function useCensusSubmission() {
+  const { user } = useAuth();
+  const isCbat = user?.role?.toUpperCase() === "CBAT";
   return useQuery({
     queryKey: ["census-submissions"],
     queryFn: fetchCensusSubmissions,
+    enabled: !isCbat,
     staleTime: 60_000,
   });
 }
@@ -695,9 +723,12 @@ export async function fetchCalvingRecords(): Promise<RawCalvingRecord[]> {
 }
 
 export function useCalvingFromFarmers() {
+  const { user } = useAuth();
+  const isCbat = user?.role?.toUpperCase() === "CBAT";
   return useQuery({
     queryKey: ["sibat-calving-records"],
     queryFn: fetchCalvingRecords,
+    enabled: !isCbat,
     staleTime: 30_000,
   });
 }
@@ -746,21 +777,36 @@ export function useClinicalHealthRecords() {
 }
 
 export function useSibatSubmissions() {
+  const { user } = useAuth();
+  const isCbat = user?.role?.toUpperCase() === "CBAT";
   const prodQuery = useProductionFromFarmers();
-  const salesQuery = useQuery({ queryKey: ["sibat-sales-records"], queryFn: fetchSalesFromFarmers, staleTime: 30_000 });
+  const salesQuery = useQuery({
+    queryKey: ["sibat-sales-records"],
+    queryFn: fetchSalesFromFarmers,
+    enabled: !isCbat,
+    staleTime: 30_000,
+  });
   const invQuery = useInventoryFromFarmers();
   const batchQuery = useBatchesFromFarmers();
   const calvingQuery = useCalvingFromFarmers();
 
-  const isLoading = prodQuery.isLoading || invQuery.isLoading || batchQuery.isLoading || calvingQuery.isLoading || salesQuery.isLoading;
-  const isError = prodQuery.isError || invQuery.isError || batchQuery.isError || calvingQuery.isError || salesQuery.isError;
-  const refetch = () => Promise.all([
-    prodQuery.refetch(),
-    invQuery.refetch(),
-    batchQuery.refetch(),
-    calvingQuery.refetch(),
-    salesQuery.refetch(),
-  ]);
+  const isLoading =
+    prodQuery.isLoading ||
+    invQuery.isLoading ||
+    batchQuery.isLoading ||
+    (!isCbat && (calvingQuery.isLoading || salesQuery.isLoading));
+  const isError =
+    prodQuery.isError ||
+    invQuery.isError ||
+    batchQuery.isError ||
+    (!isCbat && (calvingQuery.isError || salesQuery.isError));
+  const refetch = () =>
+    Promise.all([
+      prodQuery.refetch(),
+      invQuery.refetch(),
+      batchQuery.refetch(),
+      ...(isCbat ? [] : [calvingQuery.refetch(), salesQuery.refetch()]),
+    ]);
 
   const productionUnified = (prodQuery.data || []).map(mapProductionToUnified);
   const inventoryUnified = (invQuery.data || [])

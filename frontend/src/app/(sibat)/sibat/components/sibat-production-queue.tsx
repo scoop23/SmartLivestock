@@ -736,6 +736,20 @@ function SibatProductionQueueContent({
                             : "Logged without remarks"}
                         </span>
                       </div>
+
+                      {item.anomalyDetected && (
+                        <div className="mt-1 inline-flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50/90 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
+                          <AlertCircle className="size-3.5 text-amber-700 shrink-0 mt-0.5" />
+                          <span className="line-clamp-2">
+                            {item.anomalyReason || "Flagged for CBAT field verification against cow milk baseline."}
+                          </span>
+                        </div>
+                      )}
+                      {!item.anomalyDetected && item.anomalyAssessmentStatus === "INSUFFICIENT_HISTORY" && (
+                        <div className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                          <span>Baseline history still building — standard field check</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Right: Status Pill & Action Button */}

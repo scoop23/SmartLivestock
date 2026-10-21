@@ -52,6 +52,17 @@ ReviewTargetItem,
 ValidationReviewDialog,
 } from "./validation-review-dialog";
 
+function isMaoReviewableProduction(record: ProductionRecordItem): boolean {
+  const statusNorm = (record.status || "PENDING").toUpperCase();
+  if (statusNorm === "VERIFIED") return true;
+  return (
+    statusNorm === "PENDING" &&
+    record.nextReviewQueue === "MAO" &&
+    !record.requiresCbatVerification &&
+    record.anomalyAssessmentStatus === "CLEAN"
+  );
+}
+
 function matchesStatusFilter(
   rawStatus: string | null | undefined,
   statusFilter: ValidationStatus
@@ -296,11 +307,19 @@ function AdminDataValidationContent() {
         kind: "production", id: item.id, farmerName: item.farmerName || "Registered Farmer",
         barangayName: item.barangayName || "Padre Garcia",
         livestockTypeName: item.livestockTypeName || "Livestock",
+        livestockTagNumber: item.livestockTagNumber,
         productionType: item.productionType, quantity: item.quantity, unit: item.unit,
         recordDate: item.recordDate, notes: item.notes, status: item.status,
         reviewRemarks: item.reviewRemarks, reviewedByName: item.reviewedByName,
+        reviewedByRole: item.reviewedByRole,
         reviewedAt: item.reviewedAt, createdAt: item.createdAt,
         slaughterDetails: item.slaughterDetails,
+        anomalyAssessmentStatus: item.anomalyAssessmentStatus,
+        anomalyDetected: item.anomalyDetected,
+        requiresCbatVerification: item.requiresCbatVerification,
+        nextReviewQueue: item.nextReviewQueue,
+        anomalyReason: item.anomalyReason,
+        anomalyAssessment: item.anomalyAssessment,
       };
     }
 
@@ -388,7 +407,7 @@ function AdminDataValidationContent() {
 
   const domainVerifiedCounts = useMemo(() => ({
     census: censusSubmissions.filter((c) => (c.status || "").toUpperCase() === "VERIFIED").length,
-    production: productionRecords.filter((p) => (p.status || "").toUpperCase() === "VERIFIED").length,
+    production: productionRecords.filter(isMaoReviewableProduction).length,
     inventory: inventoryRecords.filter((i) => !i.isBatch && i.entryType === "INDIVIDUAL" && (i.status || "").toUpperCase() === "VERIFIED").length,
     // Only records whose stored status is VERIFIED belong in this badge.
     // Pending inspections remain reviewable, but they are not SIBAT-verified.
@@ -425,7 +444,10 @@ function AdminDataValidationContent() {
         (p.barangayName && p.barangayName.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (p.livestockTypeName && p.livestockTypeName.toLowerCase().includes(searchQuery.toLowerCase())) ||
         p.notes.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStatus = matchesStatusFilter(p.status, statusFilter);
+      const matchStatus =
+        statusFilter === "AWAITING_MAO"
+          ? isMaoReviewableProduction(p)
+          : matchesStatusFilter(p.status, statusFilter);
       const matchBarangay = barangayFilter === "ALL" || p.barangayName === barangayFilter;
       return matchSearch && matchStatus && matchBarangay;
     });
@@ -523,7 +545,7 @@ function AdminDataValidationContent() {
           .map((c) => c.id);
       case "production":
         return paginatedProduction
-          .filter((p) => (p.status || "PENDING").toUpperCase() === "VERIFIED")
+          .filter(isMaoReviewableProduction)
           .map((p) => p.id);
       case "inventory":
         return paginatedInventory
@@ -577,7 +599,7 @@ function AdminDataValidationContent() {
         }));
     } else if (activeDomain === "production") {
       targets = productionRecords
-        .filter((p) => selectedIds.includes(p.id) && (p.status || "PENDING").toUpperCase() === "VERIFIED")
+        .filter((p) => selectedIds.includes(p.id) && isMaoReviewableProduction(p))
         .map((p) => ({
           id: p.id,
           domain: "production",
@@ -626,7 +648,8 @@ function AdminDataValidationContent() {
         return censusSubmissions.find((item) => item.id === id)?.status.toUpperCase() === "VERIFIED";
       }
       if (activeDomain === "production") {
-        return productionRecords.find((item) => item.id === id)?.status.toUpperCase() === "VERIFIED";
+        const item = productionRecords.find((rec) => rec.id === id);
+        return item ? isMaoReviewableProduction(item) : false;
       }
       if (activeDomain === "inventory") {
         const item = inventoryRecords.find((record) => record.id === id);

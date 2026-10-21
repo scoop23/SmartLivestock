@@ -44,9 +44,18 @@ export function ProductionTable({
   onViewDetail,
   onReview,
 }: ProductionTableProps) {
-  const reviewableRecords = records.filter(
-    (record) => (record.status || "PENDING").toUpperCase() === "VERIFIED",
-  );
+  const isMaoReviewable = (record: ProductionRecordItem) => {
+    const statusNorm = (record.status || "PENDING").toUpperCase();
+    if (statusNorm === "VERIFIED") return true;
+    return (
+      statusNorm === "PENDING" &&
+      record.nextReviewQueue === "MAO" &&
+      !record.requiresCbatVerification &&
+      record.anomalyAssessmentStatus === "CLEAN"
+    );
+  };
+
+  const reviewableRecords = records.filter(isMaoReviewable);
   const allSelected =
     reviewableRecords.length > 0 && reviewableRecords.every((record) => selectedIds.includes(record.id));
 
@@ -57,6 +66,7 @@ export function ProductionTable({
     farmerName: prod.farmerName || "Registered Farmer",
     barangayName: prod.barangayName || "Batangas Municipality",
     livestockTypeName: prod.livestockTypeName || "Livestock",
+    livestockTagNumber: prod.livestockTagNumber,
     productionType: prod.productionType,
     quantity: prod.quantity,
     unit: prod.unit,
@@ -65,8 +75,15 @@ export function ProductionTable({
     status: prod.status,
     reviewRemarks: prod.reviewRemarks,
     reviewedByName: prod.reviewedByName,
+    reviewedByRole: prod.reviewedByRole,
     reviewedAt: prod.reviewedAt,
     createdAt: prod.createdAt,
+    anomalyAssessmentStatus: prod.anomalyAssessmentStatus,
+    anomalyDetected: prod.anomalyDetected,
+    requiresCbatVerification: prod.requiresCbatVerification,
+    nextReviewQueue: prod.nextReviewQueue,
+    anomalyReason: prod.anomalyReason,
+    anomalyAssessment: prod.anomalyAssessment,
   });
 
   return (
@@ -123,7 +140,12 @@ export function ProductionTable({
                 records.map((prod) => {
                   const isSelected = selectedIds.includes(prod.id);
                   const statusNorm = (prod.status || "PENDING").toUpperCase();
-                  const canReview = statusNorm === "VERIFIED";
+                  const isCleanDirectToMao =
+                    statusNorm === "PENDING" &&
+                    prod.nextReviewQueue === "MAO" &&
+                    !prod.requiresCbatVerification &&
+                    prod.anomalyAssessmentStatus === "CLEAN";
+                  const canReview = isMaoReviewable(prod);
                   const detailPayload = buildDetailPayload(prod);
 
                   return (
@@ -204,7 +226,17 @@ export function ProductionTable({
                         </Badge>
                         {statusNorm === "VERIFIED" && prod.reviewedByName && (
                           <span className="block text-[8px] text-sky-700 font-bold tracking-tight mt-0.5">
-                            By {prod.reviewedByName}
+                            By {prod.reviewedByName} ({prod.reviewedByRole || "SIBAT"})
+                          </span>
+                        )}
+                        {isCleanDirectToMao && (
+                          <span className="block text-[8px] text-emerald-700 font-bold tracking-tight mt-0.5">
+                            Clean Baseline • Direct to MAO
+                          </span>
+                        )}
+                        {statusNorm === "PENDING" && (prod.requiresCbatVerification || prod.nextReviewQueue === "CBAT") && (
+                          <span className="block text-[8px] text-amber-700 font-bold tracking-tight mt-0.5">
+                            Awaiting CBAT Verification
                           </span>
                         )}
                       </TableCell>
@@ -297,7 +329,12 @@ export function ProductionTable({
           records.map((prod) => {
             const isSelected = selectedIds.includes(prod.id);
             const statusNorm = (prod.status || "PENDING").toUpperCase();
-            const canReview = statusNorm === "VERIFIED";
+            const isCleanDirectToMao =
+              statusNorm === "PENDING" &&
+              prod.nextReviewQueue === "MAO" &&
+              !prod.requiresCbatVerification &&
+              prod.anomalyAssessmentStatus === "CLEAN";
+            const canReview = isMaoReviewable(prod);
             const detailPayload = buildDetailPayload(prod);
 
             return (
@@ -356,8 +393,20 @@ export function ProductionTable({
 
                 {statusNorm === "VERIFIED" && prod.reviewedByName && (
                   <div className="text-[10px] text-sky-800 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100 flex items-center justify-between">
-                    <span className="font-bold">Verified by SIBAT Officer</span>
+                    <span className="font-bold">Verified by {prod.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"} Officer</span>
                     <span className="font-mono font-bold">{prod.reviewedByName}</span>
+                  </div>
+                )}
+                {isCleanDirectToMao && (
+                  <div className="text-[10px] text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100 flex items-center justify-between">
+                    <span className="font-bold">Clean Milk Baseline</span>
+                    <span className="font-mono font-bold">Routed Direct to MAO</span>
+                  </div>
+                )}
+                {statusNorm === "PENDING" && (prod.requiresCbatVerification || prod.nextReviewQueue === "CBAT") && (
+                  <div className="text-[10px] text-amber-800 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-100 flex items-center justify-between">
+                    <span className="font-bold">Anomaly Flagged</span>
+                    <span className="font-mono font-bold">Awaiting CBAT Verification</span>
                   </div>
                 )}
 
@@ -393,7 +442,6 @@ export function ProductionTable({
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={!canReview}
                     onClick={() => onViewDetail(detailPayload)}
                     className="flex-1 py-2.5 h-auto rounded-xl border-gray-200 text-gray-700 text-xs font-bold gap-1.5"
                   >
@@ -404,6 +452,7 @@ export function ProductionTable({
                   <Button
                     type="button"
                     size="sm"
+                    disabled={!canReview}
                     onClick={() =>
                       onReview({
                         id: prod.id,
@@ -427,8 +476,10 @@ export function ProductionTable({
                     <span>
                       {prod.status === "VERIFIED"
                         ? "MAO Approve"
+                        : isCleanDirectToMao
+                        ? "MAO Approve"
                         : prod.status === "PENDING"
-                        ? "Validate"
+                        ? "Awaiting Field"
                         : "Re-evaluate"}
                     </span>
                   </Button>

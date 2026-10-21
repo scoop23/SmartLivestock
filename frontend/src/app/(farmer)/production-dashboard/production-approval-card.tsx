@@ -269,14 +269,14 @@ export default function ProductionApprovalCard({
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <h4 className="text-xs font-black uppercase tracking-wider text-sky-900">
-                    Verified by SIBAT Field Officer
+                    Verified by {record.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"} Field Officer
                   </h4>
                   <Badge className="bg-sky-600 text-white text-[9px] px-1.5 py-0 font-bold hover:bg-sky-600">
                     Ready for MAO
                   </Badge>
                 </div>
                 <p className="text-xs text-sky-800 mt-1 leading-relaxed">
-                  Your entry has been field-verified by SIBAT and is awaiting final MAO certification.
+                  Your entry has been field-verified by {record.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"} and is awaiting final MAO certification.
                 </p>
               </div>
             </div>
@@ -286,7 +286,7 @@ export default function ProductionApprovalCard({
                 <div className="flex items-center gap-1.5 text-sky-800">
                   <MessageSquareQuote className="size-4" />
                   <p className="text-xs font-bold uppercase tracking-wider">
-                    SIBAT Inspection Notes
+                    {record.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"} Inspection Notes
                   </p>
                 </div>
                 <p className="text-xs text-sky-900 italic">
@@ -305,13 +305,32 @@ export default function ProductionApprovalCard({
               </div>
               <div className="min-w-0">
                 <h4 className="text-xs font-black uppercase tracking-wider text-amber-900">
-                  Awaiting Validation
+                  {record.nextReviewQueue === "MAO" && !record.requiresCbatVerification
+                    ? "Awaiting MAO Final Approval"
+                    : record.nextReviewQueue === "CBAT" || record.requiresCbatVerification
+                      ? "Awaiting CBAT Field Verification"
+                      : "Awaiting Validation"}
                 </h4>
                 <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-                  Your submitted entry is currently queued for review by the barangay SIBAT officer.
+                  {record.nextReviewQueue === "MAO" && !record.requiresCbatVerification
+                    ? "Your milk yield passed automated historical baseline assessment and is queued directly for MAO final approval."
+                    : record.nextReviewQueue === "CBAT" || record.requiresCbatVerification
+                      ? "Your milk entry showed an unusual change relative to this cow's approved baseline and is queued for CBAT field verification before MAO approval."
+                      : "Your submitted entry is currently queued for review by the barangay SIBAT officer."}
                 </p>
               </div>
             </div>
+
+            {(record.nextReviewQueue === "CBAT" || record.requiresCbatVerification) && record.anomalyReason && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                  Field Verification Context
+                </p>
+                <p className="text-xs text-amber-900 leading-relaxed">
+                  {record.anomalyReason}
+                </p>
+              </div>
+            )}
 
             {record.reviewRemarks && (
               <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3.5 space-y-1.5">
