@@ -139,7 +139,10 @@ def start(request):
         attempt.save()
         Event.objects.create(attempt=attempt, state=attempt.state)
         notify_evidence(attempt)
-        return no_store(Response({"detail": str(error), "attempt": service.evidence(attempt)}, status=503))
+        response_data = {"detail": str(error), "attempt": service.evidence(attempt)}
+        if error.code == "DIDIT_BILLING_LIMIT":
+            response_data.update({"code": error.code, "manual_review_available": True})
+        return no_store(Response(response_data, status=503))
     Event.objects.create(attempt=attempt, state=attempt.state)
     return no_store(Response({"attempt": service.evidence(attempt), "url": url}, status=201))
 

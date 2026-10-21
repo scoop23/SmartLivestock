@@ -493,15 +493,15 @@ export default function FarmerRegistrationPage() {
 
       {/* ── Top Floating Navigation Header ── */}
       <header className="border-b border-emerald-500/15 bg-black/40 backdrop-blur-xl px-4 sm:px-8 py-3.5 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="size-10 rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-700 text-slate-950 flex items-center justify-center font-black shadow-lg shadow-emerald-500/25 border border-emerald-300/30">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="size-9 sm:size-10 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-700 text-slate-950 flex items-center justify-center font-black shadow-lg shadow-emerald-500/25 border border-emerald-300/30">
               <Icon iconNode={cowHead} className="size-5 text-slate-950" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-black tracking-tight text-white">SmartLivestock</span>
-                <span className="font-mono text-[10px] text-emerald-400 font-extrabold uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="text-sm sm:text-base font-black tracking-tight text-white truncate">SmartLivestock</span>
+                <span className="shrink-0 whitespace-nowrap font-mono text-[10px] text-emerald-400 font-extrabold uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md">
                   AGRI-ID
                 </span>
               </div>
@@ -511,7 +511,7 @@ export default function FarmerRegistrationPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 shrink-0">
             <span className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono text-emerald-300 font-bold tracking-wider">
               <span className="relative flex size-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -522,9 +522,9 @@ export default function FarmerRegistrationPage() {
 
             <Link
               href="/login"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white px-3.5 py-2 rounded-xl border border-white/10 hover:border-emerald-500/40 bg-white/[0.04] hover:bg-emerald-500/10 transition-all shadow-xs"
+              className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-white/10 hover:border-emerald-500/40 bg-white/[0.04] hover:bg-emerald-500/10 transition-all shadow-xs"
             >
-              <ArrowLeft className="size-3.5" />
+              <ArrowLeft className="size-3.5 shrink-0" />
               <span>Sign In</span>
             </Link>
           </div>
@@ -669,31 +669,58 @@ export default function FarmerRegistrationPage() {
               </div>
 
               {/* Mobile Stepper Bar (visible on sm/md screens) */}
-              <div className="lg:hidden p-4 pb-0 bg-slate-50/80 border-b border-slate-100">
-                <div className="flex items-center justify-between gap-1.5">
-                  {stepsList.map((item) => {
+              <div className="lg:hidden px-3 sm:px-6 py-4 bg-slate-50/80 border-b border-slate-100">
+                <div className="flex items-start justify-between relative">
+                  {stepsList.map((item, idx) => {
                     const isCompleted = step > item.num;
                     const isCurrent = step === item.num;
+                    const isLast = idx === stepsList.length - 1;
 
                     return (
-                      <button
-                        key={item.num}
-                        type="button"
-                        onClick={() => {
-                          if (item.num < step) setStep(item.num);
-                        }}
-                        disabled={item.num > step}
-                        className={`flex-1 py-2 px-1 rounded-xl text-center text-xs font-bold transition-all border ${
-                          isCurrent
-                            ? 'bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs'
-                            : isCompleted
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-white text-slate-400 border-slate-200 opacity-60'
-                        }`}
-                      >
-                        <span className="font-mono text-[10px] mr-1">{item.phase}</span>
-                        <span>{item.short}</span>
-                      </button>
+                      <div key={item.num} className="flex-1 flex flex-col items-center relative min-w-0">
+                        {/* Connector Line to Next Step */}
+                        {!isLast && (
+                          <div
+                            aria-hidden
+                            className={`absolute top-4 left-1/2 w-full h-0.5 transition-colors duration-300 ${
+                              isCompleted ? 'bg-emerald-500' : 'bg-slate-200'
+                            }`}
+                          />
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (item.num < step) setStep(item.num);
+                          }}
+                          disabled={item.num > step}
+                          className="relative z-10 flex flex-col items-center gap-1.5 group w-full px-1 disabled:cursor-not-allowed"
+                        >
+                          <span
+                            className={`size-8 rounded-full flex items-center justify-center font-mono text-xs font-black transition-all border ${
+                              isCurrent
+                                ? 'bg-[#2D5A27] text-white border-[#2D5A27] shadow-sm ring-4 ring-emerald-500/15'
+                                : isCompleted
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 cursor-pointer'
+                                : 'bg-white text-slate-400 border-slate-200'
+                            }`}
+                          >
+                            {isCompleted ? <Check className="size-3.5 stroke-[3]" /> : item.phase}
+                          </span>
+
+                          <span
+                            className={`text-[11px] leading-tight text-center whitespace-nowrap transition-colors ${
+                              isCurrent
+                                ? 'font-extrabold text-[#2D5A27]'
+                                : isCompleted
+                                ? 'font-bold text-emerald-800'
+                                : 'font-semibold text-slate-400'
+                            }`}
+                          >
+                            {item.short}
+                          </span>
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -1045,11 +1072,11 @@ export default function FarmerRegistrationPage() {
 
                     {/* Farm Size in Hectares & Presets */}
                     <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
                         <Label htmlFor="farmSize" className="text-[11px] font-extrabold text-slate-700 uppercase">
                           Farm / Pasture Size (Hectares) <span className="text-rose-500">*</span>
                         </Label>
-                        <span className="text-[10px] text-slate-400">1 ha = 10,000 sqm</span>
+                        <span className="text-[10px] text-slate-400 shrink-0">1 ha = 10,000 sqm</span>
                       </div>
                       <input
                         id="farmSize"
@@ -1117,9 +1144,9 @@ export default function FarmerRegistrationPage() {
 
                     {/* Optional RSBSA Number */}
                     <div className="space-y-1 pt-1">
-                      <Label htmlFor="rsbsaNumber" className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">
-                        <span>RSBSA Reference Number</span>
-                        <span className="text-slate-400 font-normal text-[10px]">Optional (if already enrolled)</span>
+                      <Label htmlFor="rsbsaNumber" className="text-[11px] font-extrabold text-slate-700 uppercase flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                        <span className="shrink-0">RSBSA Reference Number</span>
+                        <span className="text-slate-400 font-normal text-[10px] shrink-0">Optional (if already enrolled)</span>
                       </Label>
                       <div className="relative">
                         <input
@@ -1145,23 +1172,23 @@ export default function FarmerRegistrationPage() {
                     )}
 
                     {/* Step 2 Actions */}
-                    <div className="flex gap-3 pt-2">
+                    <div className="flex flex-col-reverse sm:flex-row sm:items-stretch gap-2.5 sm:gap-3 pt-2">
                       <Button
                         type="button"
                         variant="outline"
                         onClick={prevStep}
-                        className="flex-1 py-6 border-slate-200 text-slate-700 font-bold rounded-2xl text-xs uppercase cursor-pointer hover:bg-slate-50"
+                        className="w-full sm:w-auto shrink-0 px-5 min-h-12 h-auto py-3.5 border-slate-200 text-slate-700 font-bold rounded-2xl text-xs uppercase cursor-pointer hover:bg-slate-50"
                       >
-                        <ArrowLeft className="size-4 mr-1" />
+                        <ArrowLeft className="size-4 mr-1 shrink-0" />
                         <span>Back</span>
                       </Button>
                       <Button
                         type="button"
                         onClick={nextStep}
-                        className="flex-2 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-green-900/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-full sm:flex-1 shrink min-w-0 whitespace-normal h-auto min-h-12 py-3.5 px-4 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-green-900/20 flex items-center justify-center gap-1.5 text-center leading-tight cursor-pointer"
                       >
                         <span>Proceed to Documents & Consent</span>
-                        <ArrowRight className="size-4" />
+                        <ArrowRight className="size-4 shrink-0" />
                       </Button>
                     </div>
                   </div>
@@ -1504,7 +1531,7 @@ export default function FarmerRegistrationPage() {
                         By registering, you authorize the <strong>Municipal Agriculture Office (MAO)</strong> of Padre Garcia, Batangas to collect, process, and retain your personal and farm information strictly for official agricultural programs, quarterly livestock censuses, vaccine assistance, and disease surveillance.
                       </p>
 
-                      <div className="flex items-start space-x-3 pt-1 border-t border-emerald-200/60">
+                      <div className="flex items-start gap-3 pt-1 border-t border-emerald-200/60">
                         <Checkbox
                           id="privacy-consent"
                           checked={privacyAgreed}
@@ -1512,11 +1539,11 @@ export default function FarmerRegistrationPage() {
                             setPrivacyAgreed(Boolean(checked));
                             if (error) setError('');
                           }}
-                          className="mt-0.5 rounded-lg border-emerald-600 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
+                          className="mt-0.5 shrink-0 rounded-lg border-emerald-600 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
                         />
                         <Label
                           htmlFor="privacy-consent"
-                          className="text-xs font-bold text-slate-800 leading-snug cursor-pointer select-none"
+                          className="block text-xs font-bold text-slate-800 leading-relaxed cursor-pointer select-none"
                         >
                           I have read and agree to the <strong className="text-[#2D5A27]">Data Privacy Policy</strong> and hereby submit my registration for municipal validation. <span className="text-rose-500">*</span>
                         </Label>
@@ -1533,30 +1560,30 @@ export default function FarmerRegistrationPage() {
                     {/* Step 3 Actions */}
                     {identityEnabled && <p className="text-sm text-slate-600">Next: ID and selfie checks with Didit. We save one pending application before capture so you can resume without registering again. MAO still makes the approval decision.</p>}
                     {identityConfig.isError && <p role="alert" className="text-sm text-rose-700">Cannot load registration requirements. Check your connection and retry before submitting. <button type="button" className="underline" onClick={() => void identityConfig.refetch()}>Retry</button></p>}
-                    <div className="flex gap-3 pt-2">
+                    <div className="flex flex-col-reverse sm:flex-row sm:items-stretch gap-2.5 sm:gap-3 pt-2">
                       <Button
                         type="button"
                         variant="outline"
                         onClick={prevStep}
                         disabled={isSubmitting}
-                        className="flex-1 py-6 border-slate-200 text-slate-700 font-bold rounded-2xl text-xs uppercase cursor-pointer hover:bg-slate-50"
+                        className="w-full sm:w-auto shrink-0 px-5 min-h-12 h-auto py-3.5 border-slate-200 text-slate-700 font-bold rounded-2xl text-xs uppercase cursor-pointer hover:bg-slate-50"
                       >
-                        <ArrowLeft className="size-4 mr-1" />
+                        <ArrowLeft className="size-4 mr-1 shrink-0" />
                         <span>Back</span>
                       </Button>
                       <Button
                         type="submit"
                         disabled={isSubmitting || identityConfig.isPending || identityConfig.isError}
-                        className="flex-2 py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl shadow-green-900/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+                        className="w-full sm:flex-1 shrink min-w-0 whitespace-normal h-auto min-h-12 py-3.5 px-4 bg-[#2D5A27] hover:bg-[#23471f] text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl shadow-green-900/25 flex items-center justify-center gap-2 text-center leading-tight cursor-pointer disabled:opacity-70"
                       >
                         {isSubmitting ? (
                           <>
-                            <Loader2 className="size-4.5 animate-spin" />
+                            <Loader2 className="size-4.5 animate-spin shrink-0" />
                             <span>Submitting Registration...</span>
                           </>
                         ) : (
                           <>
-                            <BadgeCheck className="size-4.5" />
+                            <BadgeCheck className="size-4.5 shrink-0" />
                             <span>{identityConfig.isPending ? 'Loading requirements...' : identityEnabled ? 'Continue to ID & Selfie' : 'Complete Registration'}</span>
                           </>
                         )}

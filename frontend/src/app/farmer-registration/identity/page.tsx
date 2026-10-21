@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { IdentityChecks } from "@/components/identity-evidence";
 import {
-  IDENTITY_TOKEN_KEY, identityClient, identityError, identityMessage, providerCaptureUrl,
+  IDENTITY_TOKEN_KEY, identityClient, identityError, identityMessage, isDiditBillingLimit, providerCaptureUrl,
   type IdentityAttempt, type IdentityConfig,
 } from "@/lib/identity-verification";
 
@@ -15,6 +15,7 @@ export default function RegistrationIdentityPage() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [manualReview, setManualReview] = useState(false);
+  const [billingFallback, setBillingFallback] = useState(false);
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const pageId = useId();
@@ -41,7 +42,13 @@ export default function RegistrationIdentityPage() {
         catch { setError("The verification destination is unavailable. Contact MAO for assistance."); }
       } else void status.refetch();
     },
-    onError: (failure) => { setError(identityError(failure)); void status.refetch(); },
+    onError: (failure) => {
+      const billingLimit = isDiditBillingLimit(failure);
+      setBillingFallback(billingLimit);
+      setManualReview(billingLimit);
+      setError(identityError(failure));
+      void status.refetch();
+    },
   });
   const refresh = useMutation({
     mutationFn: () => identityClient(token!).post("/api/users/identity/refresh/", {}),
@@ -89,7 +96,7 @@ export default function RegistrationIdentityPage() {
         <span>I have read this notice and consent to Didit processing my ID, selfie, face comparison and liveness checks for this registration. I understand that inconclusive or unavailable checks require human assessment.</span>
       </label>
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Button disabled={!consent || start.isPending || attempt?.state === "COMPLETED"} onClick={() => { setError(""); start.mutate(retry); }} className="min-h-11 whitespace-normal">
+        <Button disabled={!consent || start.isPending || attempt?.state === "COMPLETED"} onClick={() => { setError(""); setBillingFallback(false); setManualReview(false); start.mutate(retry); }} className="min-h-11 whitespace-normal">
           {start.isPending ? "Starting…" : retry ? "Retry ID and selfie capture" : attempt?.state === "IN_PROGRESS" ? "Resume / retake capture" : "Continue to ID and selfie capture"}
         </Button>
         <Button variant="outline" disabled={!attempt?.provider_reference || refresh.isPending || start.isPending} onClick={() => refresh.mutate()} className="min-h-11">
@@ -101,9 +108,9 @@ export default function RegistrationIdentityPage() {
     {token && <section className="space-y-4 rounded-2xl border bg-white p-4">
       {!resultReady && <label className="flex items-start gap-3 text-sm">
         <input type="checkbox" className="mt-1 size-5 shrink-0" checked={manualReview} onChange={(event) => setManualReview(event.target.checked)} />
-        <span>I cannot complete automated capture and need MAO assistance. I understand my application remains pending and requires a documented human assessment; this does not mark ID, face matching or liveness as passed.</span>
+        <span>{billingFallback ? "Didit could not start because of its billing or credit limit. I want MAO to review my existing registration documents manually. My application remains pending; no ID, face-match, or liveness check is marked as passed." : "I cannot complete automated capture and need MAO assistance. I understand my application remains pending and requires a documented human assessment; this does not mark ID, face matching or liveness as passed."}</span>
       </label>}
-      <Button disabled={!canFinish || finish.isPending} onClick={() => finish.mutate()} className="min-h-12 w-full whitespace-normal bg-[#2D5A27] text-white hover:bg-[#23471f]">{finish.isPending ? "Saving request..." : resultReady ? "Complete Registration" : "Complete Registration — Request Manual Review"}</Button>
+      <Button disabled={!canFinish || finish.isPending} onClick={() => finish.mutate()} className="min-h-12 w-full whitespace-normal bg-[#2D5A27] text-white hover:bg-[#23471f]">{finish.isPending ? "Saving request..." : resultReady ? "Complete Registration" : billingFallback ? "Continue with MAO manual review" : "Complete Registration — Request Manual Review"}</Button>
       <p className="text-xs text-slate-600">MAO must review your documents and the current evidence before approving your account. No second account is created.</p>
     </section>}
     {!token && <Link href="/pending" className="inline-block py-3 text-sm font-semibold underline">View pending registration</Link>}

@@ -55,12 +55,21 @@ export function identityMessage(attempt: IdentityAttempt | null): string {
 }
 
 export function identityError(error: unknown): string {
+  if (isDiditBillingLimit(error)) {
+    return "Didit could not start the automated check because of a billing or credit limit. No ID, face-match, or liveness check was completed. You can continue by requesting MAO manual review below.";
+  }
   const status = axios.isAxiosError(error) ? error.response?.status : undefined;
   if (status === 401) return "Registration session expired. Contact MAO for assistance; do not register again.";
   if (status === 429) return "Too many attempts. Wait before retrying or contact MAO.";
   if (status === 403) return "You are not authorized to access this identity evidence.";
   if (status === 400) return "Check your consent and current privacy notice, then try again.";
   return "Verification is unavailable or interrupted. Retry later or contact MAO. Your registration has not been automatically approved or rejected.";
+}
+
+export function isDiditBillingLimit(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false;
+  const data = error.response?.data as { code?: unknown } | undefined;
+  return data?.code === "DIDIT_BILLING_LIMIT";
 }
 
 export function providerCaptureUrl(value: string): string {

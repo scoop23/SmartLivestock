@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 class ProviderUnavailable(Exception):
     """Safe service boundary; deliberately excludes response bodies and credentials."""
+    def __init__(self, message, code=None):
+        super().__init__(message)
+        self.code = code
 
 
 def available():
@@ -116,8 +119,14 @@ def provider_request(method, path, payload=None):
     except HTTPError as error:
         request_id = next((error.headers.get(name) for name in ("X-Request-ID", "Request-ID") if error.headers.get(name)), "")
         request_id = request_id if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", request_id) else ""
+        category = _provider_error_category(error)
         logger.warning("Didit request failed: status=%s category=%s request_id=%s",
-                       error.code, _provider_error_category(error), request_id or "none")
+                       error.code, category, request_id or "none")
+        if category == "account_limit_or_credits":
+            raise ProviderUnavailable(
+                "Didit cannot start automated verification because the workflow or account has a billing/credit limit. You can continue by requesting MAO manual review.",
+                code="DIDIT_BILLING_LIMIT",
+            ) from None
         raise ProviderUnavailable("Verification service unavailable. Retry later or contact MAO for manual review.") from None
     except (URLError, TimeoutError, OSError, ValueError) as error:
         logger.warning("Didit request failed: category=%s", type(error).__name__)
