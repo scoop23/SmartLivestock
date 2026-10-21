@@ -135,12 +135,31 @@ def safe_session_url(value):
     return value
 
 
-def create_provider_session(attempt):
-    data = provider_request("POST", "session/", {
+def registration_callback_url(origin=None):
+    """Return only a configured public HTTPS callback; local origins omit it."""
+    allowed_origins = getattr(settings, "CORS_ALLOWED_ORIGINS", [])
+    candidate = origin if origin in allowed_origins else settings.FRONTEND_URL
+    try:
+        parsed = urlparse(candidate)
+        if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
+                or parsed.port not in (None, 443) or parsed.path not in ("", "/")
+                or parsed.query or parsed.fragment):
+            return None
+    except (TypeError, ValueError):
+        return None
+    return candidate.rstrip("/") + "/farmer-registration/identity"
+
+
+def create_provider_session(attempt, callback_url=None):
+    payload = {
         "workflow_id": attempt.workflow_id, "vendor_data": str(attempt.pk),
-        "callback": settings.FRONTEND_URL + "/farmer-registration/identity",
         "expected_details": {"first_name": attempt.user.first_name, "last_name": attempt.user.last_name},
-    })
+    }
+    # Didit needs no callback to create a session. In local development, omit
+    # localhost callbacks; the farmer can return with the browser Back button.
+    if callback_url:
+        payload["callback"] = callback_url
+    data = provider_request("POST", "session/", payload)
     try:
         session_id = UUID(data["session_id"])
         if data.get("vendor_data") != str(attempt.pk) or data.get("workflow_id") != attempt.workflow_id:

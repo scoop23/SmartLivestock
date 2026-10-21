@@ -132,7 +132,8 @@ def start(request):
     attempt.retention_due_at = timezone.now() + timedelta(days=settings.IDENTITY_RETENTION_DAYS)
     attempt.save()
     try:
-        url = service.create_provider_session(attempt)
+        callback_url = service.registration_callback_url(request.headers.get("Origin"))
+        url = service.create_provider_session(attempt, callback_url=callback_url)
     except service.ProviderUnavailable as error:
         attempt.state = Attempt.State.FAILED_TECHNICAL
         attempt.save()
