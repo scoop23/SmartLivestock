@@ -69,8 +69,11 @@ class Command(BaseCommand):
             cattle = self._get_reference(LivestockType, "name__iexact", "Cattle", "Cattle livestock type")
             roles = {
                 name: self._get_reference(Role, "role_name", name, f"{name} role")
-                for name in (Role.UserRoles.FARMER, Role.UserRoles.CBAT, Role.UserRoles.MAO)
+                for name in (Role.UserRoles.FARMER, Role.UserRoles.MAO)
             }
+            # CBAT is a valid reviewer role in the model, but older databases may
+            # only have SIBAT. The demo needs a CBAT account for flagged milk.
+            roles[Role.UserRoles.CBAT], _ = Role.objects.get_or_create(role_name=Role.UserRoles.CBAT)
 
             farmer_user = self._get_or_create_user("farmer-user", FARMER_EMAIL, "demo_milk_farmer", roles[Role.UserRoles.FARMER], barangay, password)
             cbat_user = self._get_or_create_user("cbat-user", CBAT_EMAIL, "demo_milk_cbat", roles[Role.UserRoles.CBAT], barangay, password)
@@ -119,6 +122,10 @@ class Command(BaseCommand):
         if not settings.DEBUG and target_env != "staging" and not is_isolated_test_run:
             raise CommandError("Refusing to seed with DEBUG disabled unless the database is explicitly identified and acknowledged as staging.")
         connection = connections["default"]
+        if target_env == "development" and connection.vendor == "postgresql":
+            host = str(connection.settings_dict.get("HOST") or "").lower()
+            if host not in {"localhost", "127.0.0.1", "::1"}:
+                raise CommandError("Development demo seeding requires local PostgreSQL. Confirm Django is connected to localhost before retrying. No database changes were made.")
         is_memory_database = connection.vendor == "sqlite" and "memory" in str(connection.settings_dict.get("NAME", "")).lower()
         if is_memory_database:
             # Django's isolated in-memory test database is safe by construction.
