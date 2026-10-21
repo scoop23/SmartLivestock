@@ -4,8 +4,9 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -17,8 +18,19 @@ from livestock.serializer import (
     BarangaySerializer,
 )
 from users.models import Notification
+from users.authentication import ApprovedJWTAuthentication
 from users.notification_views import create_notification, notify_role, notify_review_revision
 from smartlivestock.workflows import require_action, role_name, validate_review_transition
+
+
+class OptionalApprovedJWTAuthentication(ApprovedJWTAuthentication):
+    """Use valid approved-user identity for scoping, but allow this public list without it."""
+
+    def authenticate(self, request):
+        try:
+            return super().authenticate(request)
+        except AuthenticationFailed:
+            return None
 
 
 
@@ -381,6 +393,8 @@ def list_livestock_types(request):
 
 
 @api_view(["GET"])
+@authentication_classes([OptionalApprovedJWTAuthentication])
+@permission_classes([AllowAny])
 def get_barangays(request):
     """
     GET /api/livestock/barangays/
