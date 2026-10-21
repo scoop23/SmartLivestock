@@ -1,3 +1,6 @@
+import logging
+import uuid
+
 from smartlivestock.workflows import scope_reviewer_queryset
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -24,8 +27,83 @@ from .serializer import (
     WeightRecordSerializer,
     CalvingRecordSerializer,
 )
-from smartlivestock.workflows import require_action, role_name, validate_review_transition
+from smartlivestock.workflows import (
+    require_action,
+    role_name,
+    scope_reviewer_queryset,
+    validate_production_review_transition,
+    validate_review_transition,
+)
 from livestock.reconciliation import reconcile_approved_calving, reconcile_approved_sale
+
+
+logger = logging.getLogger(__name__)
+
+
+def _notify_production_route(record: ProductionRecord, actor: User, *, is_resubmission: bool = False) -> None:
+    """Send notifications only to the review queue that owns the next action."""
+    farmer_name = actor.get_full_name() or actor.username
+    source_obj = record.livestock or record.batch
+    barangay_id = source_obj.farmer.barangay_id if source_obj and source_obj.farmer_id else None
+    action_word = "corrected and resubmitted" if is_resubmission else "logged"
+    prod_display = record.get_production_type_display()
+
+    if record.next_review_queue == ProductionRecord.ReviewQueue.MAO:
+        notify_role(
+            role_name="MAO",
+            notification_type=Notification.NotificationType.PRODUCTION,
+            priority=Notification.Priority.MEDIUM,
+            title="Milk Production Ready for MAO Approval" if not is_resubmission else "Resubmitted Milk Record Ready for MAO Approval",
+            message=(
+                f"{farmer_name} {action_word} {record.quantity} {record.unit} of {prod_display} "
+                f"(no anomaly detected against cow baseline; routed directly to MAO)."
+            ),
+            link=f"/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
+            related_entity_type="production_record",
+            related_entity_id=record.pk,
+        )
+    elif record.next_review_queue == ProductionRecord.ReviewQueue.CBAT:
+        notify_role(
+            barangay_id=barangay_id,
+            role_name="CBAT",
+            notification_type=Notification.NotificationType.PRODUCTION,
+            priority=Notification.Priority.HIGH,
+            title="Milk Anomaly Flagged for CBAT Verification" if not is_resubmission else "Resubmitted Milk Record Flagged for CBAT Verification",
+            message=(
+                f"{farmer_name} {action_word} {record.quantity} {record.unit} of {prod_display}. "
+                f"{record.anomaly_reason or 'Milk yield anomaly detected; CBAT field verification required.'}"
+            ),
+            link=f"/sibat/production-records?reviewType=PRODUCTION&reviewId={record.pk}",
+            related_entity_type="production_record",
+            related_entity_id=record.pk,
+        )
+    else:
+        notify_role(
+            barangay_id=barangay_id,
+            role_name="SIBAT",
+            notification_type=Notification.NotificationType.PRODUCTION,
+            priority=Notification.Priority.MEDIUM,
+            title="Production Record Resubmitted" if is_resubmission else "New Production Entry Awaiting Verification",
+            message=(
+                f"{farmer_name} corrected a {prod_display} production record."
+                if is_resubmission
+                else f"{farmer_name} logged {record.quantity} {record.unit} of {prod_display}."
+            ),
+            link=f"/sibat?tab=production&reviewType=PRODUCTION&reviewId={record.pk}",
+            related_entity_type="production_record",
+            related_entity_id=record.pk,
+        )
+        if is_resubmission:
+            notify_role(
+                role_name="ADMIN",
+                notification_type=Notification.NotificationType.GENERAL,
+                priority=Notification.Priority.MEDIUM,
+                title="Production Record Resubmitted",
+                message=f"{farmer_name} corrected a {prod_display} production record.",
+                link=f"/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
+                related_entity_type="production_record",
+                related_entity_id=record.pk,
+            )
 
 
 @api_view(["GET", "POST"])
@@ -42,21 +120,32 @@ def production_record_list_create(request):
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        record = serializer.save()
-        if role_name(request.user) == "FARMER":
-            farmer_name = request.user.get_full_name() or request.user.username
-            notify_role(
-                barangay_id=(record.livestock or record.batch).farmer.barangay_id,
-                role_name="SIBAT",
-                notification_type=Notification.NotificationType.PRODUCTION,
-                priority=Notification.Priority.MEDIUM,
-                title="New Production Entry Awaiting Verification",
-                message=f"{farmer_name} logged {record.quantity} {record.unit} of {record.get_production_type_display()}.",
-                link=f"/sibat?tab=production&reviewType=PRODUCTION&reviewId={record.pk}",
-                related_entity_type="production_record",
-                related_entity_id=record.pk,
+        failure_stage = "save"
+        try:
+            record = serializer.save()
+            if role_name(request.user) == "FARMER":
+                failure_stage = "notification"
+                _notify_production_route(record, request.user, is_resubmission=False)
+            failure_stage = "response"
+            return Response(serializer.data, status=201)
+        except Exception:
+            diagnostic_id = uuid.uuid4().hex[:12]
+            logger.exception(
+                "Production record POST failed (diagnostic_id=%s, stage=%s)",
+                diagnostic_id,
+                failure_stage,
             )
-        return Response(serializer.data, status=201)
+            return Response(
+                {
+                    "detail": (
+                        f"Production record save failed during {failure_stage}. "
+                        "Check whether the record was created before retrying."
+                    ),
+                    "diagnostic_id": diagnostic_id,
+                    "stage": failure_stage,
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     # GET
     user = request.user
@@ -69,6 +158,23 @@ def production_record_list_create(request):
     else:
         require_action(user, "production", "read_all")
         records = scope_reviewer_queryset(ProductionRecord.objects.all(), request.user)
+        if user_role == "CBAT":
+            records = records.filter(
+                production_type=ProductionRecord.ProductionType.MILK,
+            ).filter(
+                Q(requires_cbat_verification=True)
+                | Q(anomaly_detected=True)
+                | Q(next_review_queue=ProductionRecord.ReviewQueue.CBAT)
+                | Q(reviewed_by__role__role_name="CBAT")
+            )
+        elif user_role == "SIBAT":
+            records = records.exclude(
+                status=ProductionRecord.ProductionStatus.PENDING,
+                next_review_queue__in=[
+                    ProductionRecord.ReviewQueue.CBAT,
+                    ProductionRecord.ReviewQueue.MAO,
+                ],
+            )
 
     records = records.select_related(
         "farmer_at_record__user",
@@ -82,7 +188,7 @@ def production_record_list_create(request):
     ).order_by("-record_date", "-created_at")
 
     records = records.select_related("slaughter").prefetch_related("slaughter__selected_animals")
-    serializer = ProductionRecordSerializer(records, many=True)
+    serializer = ProductionRecordSerializer(records, many=True, context={"request": request})
     return Response(serializer.data, status=200)
 
 
@@ -107,7 +213,17 @@ def production_record_detail(request, pk):
         )
     else:
         require_action(user, "production", "read_all")
-        record = get_object_or_404(scope_reviewer_queryset(ProductionRecord.objects.select_for_update(of=("self",)), request.user), pk=pk)
+        scoped_qs = scope_reviewer_queryset(ProductionRecord.objects.select_for_update(of=("self",)), request.user)
+        if user_role == "CBAT":
+            scoped_qs = scoped_qs.filter(
+                production_type=ProductionRecord.ProductionType.MILK,
+            ).filter(
+                Q(requires_cbat_verification=True)
+                | Q(anomaly_detected=True)
+                | Q(next_review_queue=ProductionRecord.ReviewQueue.CBAT)
+                | Q(reviewed_by__role__role_name="CBAT")
+            )
+        record = get_object_or_404(scoped_qs, pk=pk)
 
     if request.method == "DELETE":
         if user_role != "FARMER":
@@ -141,6 +257,7 @@ def production_record_detail(request, pk):
                 status=status.HTTP_403_FORBIDDEN,
             )
         was_returned = record.status == ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION
+        previous_queue = record.next_review_queue
         serializer = ProductionRecordSerializer(
             record,
             data=request.data,
@@ -148,42 +265,17 @@ def production_record_detail(request, pk):
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        record = serializer.save()
         if was_returned:
-            record.status = ProductionRecord.ProductionStatus.PENDING
-            record.reviewed_by = None
-            record.reviewed_at = None
-            record.save(update_fields=["status", "reviewed_by", "reviewed_at"])
             if record.slaughter_id:
                 SlaughterRecord.objects.filter(pk=record.slaughter_id).update(status="PENDING", reviewed_by=None, reviewed_at=None)
-            notify_role(
-                barangay_id=(record.livestock or record.batch).farmer.barangay_id,
-                role_name="SIBAT",
-                notification_type=Notification.NotificationType.PRODUCTION,
-                priority=Notification.Priority.MEDIUM,
-                title="Production Record Resubmitted",
-                message=(
-                    f"{user.get_full_name() or user.username} corrected a "
-                    f"{record.get_production_type_display()} production record."
-                ),
-                link=f"/sibat?tab=production&reviewType=PRODUCTION&reviewId={record.pk}",
-                related_entity_type="production_record",
-                related_entity_id=record.pk,
-            )
-            notify_role(
-                role_name="ADMIN",
-                notification_type=Notification.NotificationType.GENERAL,
-                priority=Notification.Priority.MEDIUM,
-                title="Production Record Resubmitted",
-                message=f"{user.get_full_name() or user.username} corrected a {record.get_production_type_display()} production record.",
-                link=f"/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
-                related_entity_type="production_record",
-                related_entity_id=record.pk,
-            )
+            _notify_production_route(record, user, is_resubmission=True)
+        elif record.next_review_queue != previous_queue:
+            _notify_production_route(record, user, is_resubmission=True)
         return Response(serializer.data, status=200)
 
     # GET
-    serializer = ProductionRecordSerializer(record)
+    serializer = ProductionRecordSerializer(record, context={"request": request})
     return Response(serializer.data, status=200)
 
 
@@ -194,8 +286,9 @@ def review_production_record(request, pk):
     """
     POST /production/records/<pk>/review/
     Review and verify production records:
-    - SIBAT: Field verification (status = VERIFIED)
-    - MAO: Official municipal certification (status = APPROVED or SUBJECT_TO_REVISION)
+    - CBAT: Field verification of flagged milk anomaly records (status = VERIFIED or SUBJECT_TO_REVISION)
+    - SIBAT: Field verification of standard production records (status = VERIFIED or SUBJECT_TO_REVISION)
+    - MAO/ADMIN: Official municipal certification (status = APPROVED or SUBJECT_TO_REVISION)
     """
     # Scope joins optional animal/herd sources; PostgreSQL must lock only the event row.
     record = get_object_or_404(scope_reviewer_queryset(ProductionRecord.objects.select_for_update(of=("self",)), request.user), pk=pk)
@@ -209,31 +302,77 @@ def review_production_record(request, pk):
         )
 
     user = request.user
-    role_name = getattr(getattr(user, "role", None), "role_name", "")
+    reviewer_role = getattr(getattr(user, "role", None), "role_name", "")
 
-    if role_name not in ["SIBAT", "MAO", "ADMIN"]:
+    if reviewer_role not in ["SIBAT", "CBAT", "MAO", "ADMIN"]:
         return Response(
-            {"error": "Only SIBAT and MAO may review production records."},
+            {"error": "Only SIBAT, CBAT, and MAO may review production records."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    validate_review_transition(
-        domain="production",
-        role=role_name,
-        current=record.status,
+    previous_status = record.status
+    validate_production_review_transition(
+        record=record,
+        role=reviewer_role,
         target=new_status,
         remarks=remarks,
     )
 
+    reviewed_at_now = timezone.now()
+    reviewer_display = user.get_full_name().strip() or user.username
+
+    if isinstance(record.anomaly_assessment, dict):
+        assessment_copy = dict(record.anomaly_assessment)
+        review_events = list(assessment_copy.get("review_events") or [])
+        review_events.append({
+            "reviewer_id": user.pk,
+            "reviewer_name": reviewer_display,
+            "reviewer_role": reviewer_role,
+            "from_status": previous_status,
+            "to_status": new_status,
+            "remarks": remarks,
+            "reviewed_at": reviewed_at_now.isoformat(),
+        })
+        assessment_copy["review_events"] = review_events
+        if reviewer_role == "CBAT":
+            assessment_copy["cbat_verification"] = {
+                "verified_by_id": user.pk,
+                "verified_by_name": reviewer_display,
+                "verified_by_role": reviewer_role,
+                "status": new_status,
+                "remarks": remarks,
+                "verified_at": reviewed_at_now.isoformat(),
+            }
+        record.anomaly_assessment = assessment_copy
+
     record.status = new_status
     record.reviewed_by = request.user
     record.review_remarks = remarks
-    record.reviewed_at = timezone.now()
+    record.reviewed_at = reviewed_at_now
     record.save()
+
+    source_farmer = (record.livestock or record.batch).farmer
     if new_status == "SUBJECT_TO_REVISION":
-        notify_review_revision((record.livestock or record.batch).farmer, request.user,
-            title="Revision required: record #" + str(record.pk), message=remarks,
-            link=f"/sibat?tab=production&reviewType=PRODUCTION&reviewId={record.pk}")
+        if record.requires_cbat_verification and reviewer_role in {"MAO", "ADMIN"}:
+            notify_role(
+                role_name="CBAT",
+                barangay_id=source_farmer.barangay_id,
+                notification_type=Notification.NotificationType.PRODUCTION,
+                priority=Notification.Priority.HIGH,
+                title=f"Revision required: record #{record.pk}",
+                message=remarks,
+                link=f"/sibat/production-records?reviewType=PRODUCTION&reviewId={record.pk}",
+                related_entity_type="production_record",
+                related_entity_id=record.pk,
+            )
+        else:
+            notify_review_revision(
+                source_farmer,
+                request.user,
+                title="Revision required: record #" + str(record.pk),
+                message=remarks,
+                link=f"/sibat?tab=production&reviewType=PRODUCTION&reviewId={record.pk}",
+            )
 
     if record.slaughter_id:
         slaughter = record.slaughter
@@ -247,13 +386,14 @@ def review_production_record(request, pk):
             reconcile_approved_slaughter(slaughter)
 
     if new_status == ProductionRecord.ProductionStatus.VERIFIED:
+        verifier_label = "CBAT" if reviewer_role == "CBAT" else "SIBAT"
         notify_role(
             role_name="MAO",
             notification_type=Notification.NotificationType.PRODUCTION,
             priority=Notification.Priority.MEDIUM,
             title="Production Record Awaiting MAO Approval",
             message=(
-                f"SIBAT verified {record.quantity} {record.unit} of "
+                f"{verifier_label} verified {record.quantity} {record.unit} of "
                 f"{record.get_production_type_display()} from "
                 f"{record.created_by.get_full_name() or record.created_by.username}."
             ),
@@ -267,12 +407,13 @@ def review_production_record(request, pk):
     if target_farmer:
         prod_info = f"{record.quantity} {record.unit} of {record.get_production_type_display()}"
         if new_status == ProductionRecord.ProductionStatus.VERIFIED:
+            verifier_label = "CBAT" if reviewer_role == "CBAT" else "SIBAT"
             create_notification(
                 user=target_farmer,
                 notification_type=Notification.NotificationType.PRODUCTION,
                 priority=Notification.Priority.MEDIUM,
-                title="Production Record Verified by SIBAT",
-                message=f"Your production declaration for {prod_info} was verified on-farm by SIBAT.{f' Remarks: {remarks}' if remarks else ''}",
+                title=f"Production Record Verified by {verifier_label}",
+                message=f"Your production declaration for {prod_info} was verified on-farm by {verifier_label}.{f' Remarks: {remarks}' if remarks else ''}",
                 link="/production-dashboard",
             )
         elif new_status == ProductionRecord.ProductionStatus.APPROVED:
@@ -294,7 +435,7 @@ def review_production_record(request, pk):
                 link="/production-dashboard",
             )
 
-    serializer = ProductionRecordSerializer(record)
+    serializer = ProductionRecordSerializer(record, context={"request": request})
     return Response(serializer.data, status=200)
 
 

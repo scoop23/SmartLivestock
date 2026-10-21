@@ -62,6 +62,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
                 "inventory_reconciled_at": obj.slaughter.inventory_reconciled_at}
 
     livestock_type_name = serializers.SerializerMethodField()
+    livestock_tag_number = serializers.CharField(source="livestock.tag_number", read_only=True, allow_null=True)
     farmer_name = serializers.SerializerMethodField()
     barangay_name = serializers.SerializerMethodField()
     batch_code = serializers.CharField(
@@ -69,6 +70,23 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
     )
     reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
+    anomaly_assessment = serializers.SerializerMethodField(read_only=True)
+
+    def get_anomaly_assessment(self, obj):
+        assessment = obj.anomaly_assessment
+        if not isinstance(assessment, dict):
+            return None
+        request = self.context.get("request")
+        role = getattr(getattr(getattr(request, "user", None), "role", None), "role_name", "").upper()
+        if role == "FARMER":
+            # Farmers see their routing state and user-facing status without internal reviewer thresholds/audit history.
+            return {
+                "assessment_status": assessment.get("assessment_status"),
+                "anomaly_detected": assessment.get("anomaly_detected"),
+                "requires_cbat_verification": assessment.get("requires_cbat_verification"),
+                "next_review_queue": obj.next_review_queue,
+            }
+        return assessment
 
     def get_livestock_type_name(self, obj):
         if obj.livestock and obj.livestock.livestock_type:
@@ -109,6 +127,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "id",
             "barangay_name",
             "livestock",
+            "livestock_tag_number",
             "batch",
             "batch_code",
             "farmer_name",
@@ -123,13 +142,33 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "record_date",
             "notes",
             "status",
+            "anomaly_assessment_status",
+            "anomaly_detected",
+            "requires_cbat_verification",
+            "next_review_queue",
+            "anomaly_reason",
+            "anomaly_assessment",
             "review_remarks",
             "reviewed_at",
             "reviewed_by_name",
             "reviewed_by_role",
             "created_at",
         )
-        read_only_fields = ("status", "review_remarks", "reviewed_at", "created_at", "valuation_snapshot", "farmer_at_record")
+        read_only_fields = (
+            "status",
+            "anomaly_assessment_status",
+            "anomaly_detected",
+            "requires_cbat_verification",
+            "next_review_queue",
+            "anomaly_reason",
+            "anomaly_assessment",
+            "review_remarks",
+            "reviewed_at",
+            "created_at",
+            "valuation_snapshot",
+            "farmer_at_record",
+            "livestock_tag_number",
+        )
 
     def validate_quantity(self, value):
         # A submitted measurement needs a positive amount; no report is not zero output.
@@ -267,10 +306,12 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         validated_data["created_by"] = user
         source = validated_data.get("livestock") or validated_data.get("batch")
         validated_data["farmer_at_record"] = source.farmer
+        from .services.milk_anomaly import apply_milk_anomaly_assessment
         from .services.valuation import snapshot_for
         animals = validated_data.pop("selected_animals", [])
         record = ProductionRecord(**validated_data)
         record.valuation_snapshot = snapshot_for(record)
+        apply_milk_anomaly_assessment(record)
         record.save()
         if record.production_type == "MEAT":
             from .services.slaughter import sync_slaughter
@@ -294,8 +335,14 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         if "livestock" in validated_data or "batch" in validated_data:
             source = instance.livestock or instance.batch
             instance.farmer_at_record = source.farmer
+        if instance.status == ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION:
+            instance.status = ProductionRecord.ProductionStatus.PENDING
+            instance.reviewed_by = None
+            instance.reviewed_at = None
+        from .services.milk_anomaly import apply_milk_anomaly_assessment
         from .services.valuation import snapshot_for
         instance.valuation_snapshot = snapshot_for(instance, instance.valuation_snapshot)
+        apply_milk_anomaly_assessment(instance, previous_assessment=instance.anomaly_assessment)
         instance.save()
         if instance.production_type == "MEAT":
             from .services.slaughter import sync_slaughter

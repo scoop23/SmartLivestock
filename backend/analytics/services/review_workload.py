@@ -73,8 +73,10 @@ def _stage_age_before(*, created_statuses, reviewed_statuses, end):
 def review_workload_summary(*, now=None, user=None):
     """Summarize open review queues without returning or aggregating record details."""
     now = now or timezone.now()
-    is_sibat = bool(user and role_name(user) == "SIBAT")
-    assigned_only = is_sibat and not has_all_barangay_access(user)
+    user_role = role_name(user) if user else ""
+    is_sibat = user_role == "SIBAT"
+    is_cbat = user_role == "CBAT"
+    assigned_only = (is_sibat or is_cbat) and not has_all_barangay_access(user)
 
     def scoped(queryset):
         if user is None:
@@ -99,11 +101,65 @@ def review_workload_summary(*, now=None, user=None):
     domains = []
     overall = {
         "sibat": {"count": 0, "aging": {"under_3_days": 0, "3_to_7_days": 0, "over_7_days": 0}},
+        "cbat": {"count": 0, "aging": {"under_3_days": 0, "3_to_7_days": 0, "over_7_days": 0}},
         "mao": {"count": 0, "aging": {"under_3_days": 0, "3_to_7_days": 0, "over_7_days": 0}},
         "returned": 0,
     }
 
     def add_domain(key, label, queryset, *, sibat_statuses, mao_created_statuses, mao_reviewed_statuses):
+        if key == "production":
+            sibat_base = Q(status="PENDING") & ~Q(next_review_queue__in=["CBAT", "MAO"])
+            cbat_base = Q(status="PENDING", next_review_queue="CBAT")
+            mao_base = Q(status="VERIFIED") | Q(status="PENDING", next_review_queue="MAO")
+            sibat_ages = {
+                bucket: sibat_base & cond
+                for bucket, cond in _age_buckets(created_statuses=("PENDING",), reviewed_statuses=(), now=now).items()
+            }
+            cbat_ages = {
+                bucket: cbat_base & cond
+                for bucket, cond in _age_buckets(created_statuses=("PENDING",), reviewed_statuses=(), now=now).items()
+            }
+            mao_ages = {
+                bucket: (
+                    (Q(status="PENDING", next_review_queue="MAO") & _age_buckets(created_statuses=("PENDING",), reviewed_statuses=(), now=now)[bucket])
+                    | (Q(status="VERIFIED") & _age_buckets(created_statuses=(), reviewed_statuses=("VERIFIED",), now=now)[bucket])
+                )
+                for bucket in ("under_3_days", "3_to_7_days", "over_7_days")
+            }
+            counts = queryset.aggregate(
+                sibat_count=Count("pk", filter=sibat_base),
+                cbat_count=Count("pk", filter=cbat_base),
+                mao_count=Count("pk", filter=mao_base),
+                returned_count=Count("pk", filter=Q(status="SUBJECT_TO_REVISION")),
+                **{f"sibat_{bucket}": Count("pk", filter=cond) for bucket, cond in sibat_ages.items()},
+                **{f"cbat_{bucket}": Count("pk", filter=cond) for bucket, cond in cbat_ages.items()},
+                **{f"mao_{bucket}": Count("pk", filter=cond) for bucket, cond in mao_ages.items()},
+            )
+            sibat_aging = {bucket: counts[f"sibat_{bucket}"] for bucket in sibat_ages}
+            cbat_aging = {bucket: counts[f"cbat_{bucket}"] for bucket in cbat_ages}
+            mao_aging = {bucket: counts[f"mao_{bucket}"] for bucket in mao_ages}
+            row = {
+                "key": key,
+                "label": label,
+                "sibat_count": counts["sibat_count"],
+                "cbat_count": counts["cbat_count"],
+                "mao_count": counts["mao_count"],
+                "returned_count": counts["returned_count"],
+                "sibat_aging": sibat_aging,
+                "cbat_aging": cbat_aging,
+                "mao_aging": mao_aging,
+            }
+            domains.append(row)
+            overall["sibat"]["count"] += row["sibat_count"]
+            overall["cbat"]["count"] += row["cbat_count"]
+            overall["mao"]["count"] += row["mao_count"]
+            overall["returned"] += row["returned_count"]
+            for bucket in overall["sibat"]["aging"]:
+                overall["sibat"]["aging"][bucket] += sibat_aging[bucket]
+                overall["cbat"]["aging"][bucket] += cbat_aging[bucket]
+                overall["mao"]["aging"][bucket] += mao_aging[bucket]
+            return
+
         sibat_ages = _age_buckets(created_statuses=sibat_statuses, reviewed_statuses=(), now=now)
         mao_ages = _age_buckets(
             created_statuses=mao_created_statuses,
@@ -129,9 +185,11 @@ def review_workload_summary(*, now=None, user=None):
             "key": key,
             "label": label,
             "sibat_count": counts["sibat_count"],
+            "cbat_count": 0,
             "mao_count": counts["mao_count"],
             "returned_count": counts["returned_count"],
             "sibat_aging": sibat_aging,
+            "cbat_aging": {"under_3_days": 0, "3_to_7_days": 0, "over_7_days": 0},
             "mao_aging": mao_aging,
         }
         domains.append(row)
@@ -143,7 +201,7 @@ def review_workload_summary(*, now=None, user=None):
             overall["mao"]["aging"][bucket] += mao_aging[bucket]
 
     for key, label, queryset in standard_domains:
-        if is_sibat and key == "sales":
+        if (is_sibat or is_cbat) and key == "sales":
             continue
         add_domain(
             key,

@@ -23,6 +23,20 @@ class ProductionRecord(models.Model):
         APPROVED = "APPROVED", "Approved"
         SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
+    class AnomalyAssessmentStatus(models.TextChoices):
+        NOT_APPLICABLE = "NOT_APPLICABLE", "Not Applicable"
+        UNAVAILABLE = "UNAVAILABLE", "Assessment Unavailable"
+        INSUFFICIENT_HISTORY = "INSUFFICIENT_HISTORY", "Insufficient History"
+        CLEAN = "CLEAN", "Assessed — No Anomaly Detected"
+        ANOMALY_DETECTED = "ANOMALY_DETECTED", "Anomaly Detected — CBAT Review Required"
+
+    class ReviewQueue(models.TextChoices):
+        SIBAT = "SIBAT", "SIBAT Field Verification"
+        CBAT = "CBAT", "CBAT Milk Anomaly Verification"
+        MAO = "MAO", "MAO Final Approval"
+        FARMER = "FARMER", "Farmer Revision Required"
+        NONE = "NONE", "Completed"
+
     livestock = models.ForeignKey(
         "livestock.LivestockInventory",
         on_delete=models.PROTECT,
@@ -74,6 +88,24 @@ class ProductionRecord(models.Model):
 
     valuation_snapshot = models.JSONField(null=True, blank=True, editable=False)
 
+    # Cow-specific milk anomaly assessment and conditional review routing.
+    anomaly_assessment_status = models.CharField(
+        max_length=24,
+        choices=AnomalyAssessmentStatus.choices,
+        default=AnomalyAssessmentStatus.NOT_APPLICABLE,
+        db_index=True,
+    )
+    anomaly_detected = models.BooleanField(default=False, db_index=True)
+    requires_cbat_verification = models.BooleanField(default=False, db_index=True)
+    next_review_queue = models.CharField(
+        max_length=16,
+        choices=ReviewQueue.choices,
+        default=ReviewQueue.SIBAT,
+        db_index=True,
+    )
+    anomaly_reason = models.TextField(blank=True, default="")
+    anomaly_assessment = models.JSONField(null=True, blank=True)
+
     notes = models.TextField(
         max_length=500,
         blank=True,
@@ -106,6 +138,31 @@ class ProductionRecord(models.Model):
                 self.farmer_at_record_id = self.livestock.farmer_id
             elif self.batch_id:
                 self.farmer_at_record_id = self.batch.farmer_id
+
+        update_fields = kwargs.get("update_fields")
+        if (
+            self.status == self.ProductionStatus.PENDING
+            and self.production_type == self.ProductionType.MILK
+            and self.livestock_id
+            and self.anomaly_assessment is None
+            and update_fields is None
+        ):
+            from production.services.milk_anomaly import apply_milk_anomaly_assessment
+
+            apply_milk_anomaly_assessment(self)
+        elif self.status == self.ProductionStatus.VERIFIED:
+            self.next_review_queue = self.ReviewQueue.MAO
+            if update_fields is not None and "next_review_queue" not in update_fields:
+                kwargs["update_fields"] = [*update_fields, "next_review_queue"]
+        elif self.status == self.ProductionStatus.APPROVED:
+            self.next_review_queue = self.ReviewQueue.NONE
+            if update_fields is not None and "next_review_queue" not in update_fields:
+                kwargs["update_fields"] = [*update_fields, "next_review_queue"]
+        elif self.status == self.ProductionStatus.SUBJECT_TO_REVISION:
+            self.next_review_queue = self.ReviewQueue.FARMER
+            if update_fields is not None and "next_review_queue" not in update_fields:
+                kwargs["update_fields"] = [*update_fields, "next_review_queue"]
+
         super().save(*args, **kwargs)
 
 

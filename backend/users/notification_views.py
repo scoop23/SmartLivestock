@@ -19,6 +19,17 @@ def reviewer_recipients_for_barangay(barangay_id, *, include_cbat=False):
     ).distinct()
 
 
+def cbat_recipients_for_barangay(barangay_id):
+    """Current authorized CBAT officers for a barangay or with all-barangays scope."""
+    scope = Q(access_scope=User.AccessScope.ALL_BARANGAYS)
+    if barangay_id is not None:
+        scope |= Q(assigned_barangay_id=barangay_id)
+    return User.objects.filter(
+        scope, role__role_name="CBAT", is_active=True,
+        account_status=User.AccountStatus.APPROVED,
+    ).distinct()
+
+
 def get_notification_recipients_for_farmer(farmer):
     return reviewer_recipients_for_barangay(farmer.barangay_id)
 
@@ -86,6 +97,8 @@ def notify_role(
     if role_name == "SIBAT" and not municipal_broadcast:
         # Missing farmer location must never accidentally broadcast to all officers.
         recipients = reviewer_recipients_for_barangay(barangay_id, include_cbat=include_cbat)
+    elif role_name == "CBAT" and not municipal_broadcast:
+        recipients = cbat_recipients_for_barangay(barangay_id)
     notifications = [
         Notification(
             user=user,

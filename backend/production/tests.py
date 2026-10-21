@@ -7,7 +7,7 @@ from django.test import TestCase
 #   - LiveAnimalSale with different sale methods (MATA-MATA vs WEIGHING)
 #   - Status workflow: PENDING → VERIFIED → APPROVED/SUBJECT_TO_REVISION
 
-from datetime import date
+from datetime import date, timedelta
 from rest_framework import status
 from rest_framework.test import APITestCase
 from users.models import Notification, Role, User
@@ -906,3 +906,593 @@ class SlaughterhouseAggregateRecordAPITests(APITestCase):
         self.client.force_authenticate(self.farmer_user)
         response = self.client.get("/api/production/slaughterhouse/records/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class MilkAnomalyDetectionAndRoutingTests(APITestCase):
+    def setUp(self):
+        self.farmer_role = Role.objects.create(role_name=Role.UserRoles.FARMER)
+        self.sibat_role = Role.objects.create(role_name=Role.UserRoles.SIBAT)
+        self.cbat_role = Role.objects.create(role_name=Role.UserRoles.CBAT)
+        self.mao_role = Role.objects.create(role_name=Role.UserRoles.MAO)
+
+        self.barangay_a = Barangay.objects.create(barangay_name="Poblacion", latitude=13.88, longitude=121.21)
+        self.barangay_b = Barangay.objects.create(barangay_name="Maugat East", latitude=13.89, longitude=121.22)
+
+        self.farmer_user = User.objects.create_user(
+            username="milk-farmer-a",
+            email="milk-farmer-a@example.com",
+            password=None,
+            role=self.farmer_role,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.farmer = Farmer.objects.create(
+            user=self.farmer_user,
+            barangay=self.barangay_a,
+            address="Purok 1",
+        )
+
+        self.other_farmer_user = User.objects.create_user(
+            username="milk-farmer-b",
+            email="milk-farmer-b@example.com",
+            password=None,
+            role=self.farmer_role,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.other_farmer = Farmer.objects.create(
+            user=self.other_farmer_user,
+            barangay=self.barangay_b,
+            address="Purok 2",
+        )
+
+        self.sibat_user = User.objects.create_user(
+            username="milk-sibat-a",
+            email="milk-sibat-a@example.com",
+            password=None,
+            role=self.sibat_role,
+            assigned_barangay=self.barangay_a,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.cbat_user = User.objects.create_user(
+            username="milk-cbat-a",
+            email="milk-cbat-a@example.com",
+            password=None,
+            role=self.cbat_role,
+            assigned_barangay=self.barangay_a,
+            access_scope=User.AccessScope.ASSIGNED_ONLY,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.other_cbat_user = User.objects.create_user(
+            username="milk-cbat-b",
+            email="milk-cbat-b@example.com",
+            password=None,
+            role=self.cbat_role,
+            assigned_barangay=self.barangay_b,
+            access_scope=User.AccessScope.ASSIGNED_ONLY,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.all_barangay_cbat_user = User.objects.create_user(
+            username="milk-cbat-all",
+            email="milk-cbat-all@example.com",
+            password=None,
+            role=self.cbat_role,
+            assigned_barangay=self.barangay_b,
+            access_scope=User.AccessScope.ALL_BARANGAYS,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.mao_user = User.objects.create_user(
+            username="milk-mao",
+            email="milk-mao@example.com",
+            password=None,
+            role=self.mao_role,
+            account_status=User.AccountStatus.APPROVED,
+        )
+
+        self.cattle = LivestockType.objects.create(name="Cattle")
+        self.poultry = LivestockType.objects.create(name="Poultry")
+
+        self.cow = LivestockInventory.objects.create(
+            farmer=self.farmer,
+            livestock_type=self.cattle,
+            quantity=1,
+            tag_number="COW-A-01",
+            sex="Female",
+            status=LivestockInventory.StatusType.APPROVED,
+            created_by=self.farmer_user,
+        )
+        self.second_cow = LivestockInventory.objects.create(
+            farmer=self.farmer,
+            livestock_type=self.cattle,
+            quantity=1,
+            tag_number="COW-A-02",
+            sex="Female",
+            status=LivestockInventory.StatusType.APPROVED,
+            created_by=self.farmer_user,
+        )
+        self.other_farmer_cow = LivestockInventory.objects.create(
+            farmer=self.other_farmer,
+            livestock_type=self.cattle,
+            quantity=1,
+            tag_number="COW-B-01",
+            sex="Female",
+            status=LivestockInventory.StatusType.APPROVED,
+            created_by=self.other_farmer_user,
+        )
+
+    def seed_approved_milk_history(self, cow, quantities, end_date=date(2026, 3, 10)):
+        start_date = end_date - timedelta(days=len(quantities) - 1)
+        records = []
+        for idx, qty in enumerate(quantities):
+            records.append(
+                ProductionRecord.objects.create(
+                    livestock=cow,
+                    production_type=ProductionRecord.ProductionType.MILK,
+                    quantity=qty,
+                    unit=ProductionRecord.UnitType.LITERS,
+                    record_date=start_date + timedelta(days=idx),
+                    status=ProductionRecord.ProductionStatus.APPROVED,
+                    anomaly_assessment_status=ProductionRecord.AnomalyAssessmentStatus.CLEAN,
+                    next_review_queue=ProductionRecord.ReviewQueue.NONE,
+                    created_by=cow.farmer.user,
+                )
+            )
+        return records
+
+    def submit_milk(self, quantity, record_date="2026-03-11", cow=None, extra=None):
+        target_cow = cow or self.cow
+        self.client.force_authenticate(user=target_cow.farmer.user)
+        payload = {
+            "livestock": target_cow.pk,
+            "production_type": "MILK",
+            "unit": "LITERS",
+            "quantity": str(quantity),
+            "record_date": str(record_date),
+        }
+        if extra:
+            payload.update(extra)
+        return self.client.post("/production/records/", payload, format="json")
+
+    def test_01_clean_milk_submission_routes_directly_to_mao_and_remains_unapproved(self):
+        self.seed_approved_milk_history(self.cow, [12.0, 12.2, 11.8, 12.1, 11.9, 12.0, 12.1])
+        response = self.submit_milk("12.3")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        record = ProductionRecord.objects.get(pk=response.data["id"])
+        self.assertEqual(record.status, ProductionRecord.ProductionStatus.PENDING)
+        self.assertEqual(record.anomaly_assessment_status, ProductionRecord.AnomalyAssessmentStatus.CLEAN)
+        self.assertFalse(record.anomaly_detected)
+        self.assertFalse(record.requires_cbat_verification)
+        self.assertEqual(record.next_review_queue, ProductionRecord.ReviewQueue.MAO)
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.mao_user,
+                title="Milk Production Ready for MAO Approval",
+            ).exists()
+        )
+        # Clean milk records bypass SIBAT and CBAT queues
+        self.client.force_authenticate(user=self.sibat_user)
+        sibat_ids = [r["id"] for r in self.client.get("/production/records/").data]
+        self.assertNotIn(record.pk, sibat_ids)
+        self.client.force_authenticate(user=self.cbat_user)
+        cbat_ids = [r["id"] for r in self.client.get("/production/records/").data]
+        self.assertNotIn(record.pk, cbat_ids)
+
+    def test_02_mao_can_approve_clean_pending_milk_record_directly(self):
+        self.seed_approved_milk_history(self.cow, [12.0, 12.2, 11.8, 12.1, 11.9, 12.0])
+        response = self.submit_milk("12.1")
+        record_id = response.data["id"]
+
+        self.client.force_authenticate(user=self.mao_user)
+        review_resp = self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "APPROVED", "remarks": "Clean milk yield approved directly by MAO."},
+            format="json",
+        )
+        self.assertEqual(review_resp.status_code, status.HTTP_200_OK, review_resp.data)
+        record = ProductionRecord.objects.get(pk=record_id)
+        self.assertEqual(record.status, ProductionRecord.ProductionStatus.APPROVED)
+        self.assertEqual(record.next_review_queue, ProductionRecord.ReviewQueue.NONE)
+        self.assertEqual(record.reviewed_by, self.mao_user)
+
+    def test_03_mao_can_return_clean_pending_milk_record_for_revision_with_remarks(self):
+        self.seed_approved_milk_history(self.cow, [12.0, 12.2, 11.8, 12.1, 11.9, 12.0])
+        response = self.submit_milk("12.1")
+        record_id = response.data["id"]
+
+        self.client.force_authenticate(user=self.mao_user)
+        # Returning without remarks fails
+        no_remarks = self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "SUBJECT_TO_REVISION", "remarks": ""},
+            format="json",
+        )
+        self.assertEqual(no_remarks.status_code, status.HTTP_400_BAD_REQUEST)
+
+        with_remarks = self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "SUBJECT_TO_REVISION", "remarks": "Please confirm morning + evening milking notes."},
+            format="json",
+        )
+        self.assertEqual(with_remarks.status_code, status.HTTP_200_OK, with_remarks.data)
+        record = ProductionRecord.objects.get(pk=record_id)
+        self.assertEqual(record.status, ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION)
+        self.assertEqual(record.next_review_queue, ProductionRecord.ReviewQueue.FARMER)
+
+    def test_04_spike_anomaly_routes_to_cbat_and_requires_cbat_verification(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.2, 9.8, 10.1, 9.9, 10.0, 10.1])
+        response = self.submit_milk("18.5")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        record = ProductionRecord.objects.get(pk=response.data["id"])
+        self.assertEqual(record.status, ProductionRecord.ProductionStatus.PENDING)
+        self.assertEqual(record.anomaly_assessment_status, ProductionRecord.AnomalyAssessmentStatus.ANOMALY_DETECTED)
+        self.assertTrue(record.anomaly_detected)
+        self.assertTrue(record.requires_cbat_verification)
+        self.assertEqual(record.next_review_queue, ProductionRecord.ReviewQueue.CBAT)
+        self.assertEqual(record.anomaly_assessment["anomaly_direction"], "SPIKE")
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.cbat_user,
+                title="Milk Anomaly Flagged for CBAT Verification",
+            ).exists()
+        )
+        # Scoped notification should not notify out-of-barangay CBAT
+        self.assertFalse(
+            Notification.objects.filter(
+                user=self.other_cbat_user,
+                title="Milk Anomaly Flagged for CBAT Verification",
+            ).exists()
+        )
+
+    def test_05_decline_anomaly_routes_to_cbat_and_requires_cbat_verification(self):
+        self.seed_approved_milk_history(self.cow, [14.0, 14.2, 13.8, 14.1, 13.9, 14.0, 14.1])
+        response = self.submit_milk("6.0")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        record = ProductionRecord.objects.get(pk=response.data["id"])
+        self.assertEqual(record.status, ProductionRecord.ProductionStatus.PENDING)
+        self.assertEqual(record.anomaly_assessment_status, ProductionRecord.AnomalyAssessmentStatus.ANOMALY_DETECTED)
+        self.assertTrue(record.anomaly_detected)
+        self.assertTrue(record.requires_cbat_verification)
+        self.assertEqual(record.next_review_queue, ProductionRecord.ReviewQueue.CBAT)
+        self.assertEqual(record.anomaly_assessment["anomaly_direction"], "DECLINE")
+
+    def test_06_mao_cannot_directly_approve_unverified_flagged_milk_record(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.2, 9.8, 10.1, 9.9, 10.0])
+        response = self.submit_milk("19.0")
+        record_id = response.data["id"]
+
+        self.client.force_authenticate(user=self.mao_user)
+        mao_resp = self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "APPROVED"},
+            format="json",
+        )
+        self.assertEqual(mao_resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("CBAT", str(mao_resp.data))
+
+        # SIBAT also cannot verify a record assigned to CBAT
+        self.client.force_authenticate(user=self.sibat_user)
+        sibat_resp = self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "VERIFIED"},
+            format="json",
+        )
+        self.assertEqual(sibat_resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_07_cbat_can_return_flagged_milk_record_to_farmer_with_required_remarks(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.2, 9.8, 10.1, 9.9, 10.0])
+        response = self.submit_milk("19.0")
+        record_id = response.data["id"]
+
+        self.client.force_authenticate(user=self.cbat_user)
+        ret_resp = self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "SUBJECT_TO_REVISION", "remarks": "Reported 19 L appears to combine two cows; please verify."},
+            format="json",
+        )
+        self.assertEqual(ret_resp.status_code, status.HTTP_200_OK, ret_resp.data)
+        record = ProductionRecord.objects.get(pk=record_id)
+        self.assertEqual(record.status, ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION)
+        self.assertEqual(record.next_review_queue, ProductionRecord.ReviewQueue.FARMER)
+        self.assertEqual(record.reviewed_by, self.cbat_user)
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.farmer_user,
+                title="Revision Required on Production Record",
+            ).exists()
+        )
+
+    def test_08_cbat_cannot_return_record_without_remarks(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.2, 9.8, 10.1, 9.9, 10.0])
+        response = self.submit_milk("19.0")
+        record_id = response.data["id"]
+
+        self.client.force_authenticate(user=self.cbat_user)
+        ret_resp = self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "SUBJECT_TO_REVISION", "remarks": "   "},
+            format="json",
+        )
+        self.assertEqual(ret_resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("remarks", ret_resp.data)
+
+    def test_09_cbat_can_verify_flagged_milk_record_and_forward_to_mao(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.2, 9.8, 10.1, 9.9, 10.0])
+        response = self.submit_milk("17.5")
+        record_id = response.data["id"]
+
+        self.client.force_authenticate(user=self.cbat_user)
+        ver_resp = self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "VERIFIED", "remarks": "Inspected on farm; cow switched to lactating ration."},
+            format="json",
+        )
+        self.assertEqual(ver_resp.status_code, status.HTTP_200_OK, ver_resp.data)
+        record = ProductionRecord.objects.get(pk=record_id)
+        self.assertEqual(record.status, ProductionRecord.ProductionStatus.VERIFIED)
+        self.assertEqual(record.next_review_queue, ProductionRecord.ReviewQueue.MAO)
+        self.assertEqual(record.reviewed_by, self.cbat_user)
+        self.assertEqual(record.anomaly_assessment["cbat_verification"]["verified_by_role"], "CBAT")
+
+        # Now MAO can approve the CBAT-verified record, preserving CBAT verification audit context
+        self.client.force_authenticate(user=self.mao_user)
+        mao_resp = self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "APPROVED", "remarks": "Approved after CBAT field confirmation."},
+            format="json",
+        )
+        self.assertEqual(mao_resp.status_code, status.HTTP_200_OK, mao_resp.data)
+        record.refresh_from_db()
+        self.assertEqual(record.status, ProductionRecord.ProductionStatus.APPROVED)
+        self.assertEqual(record.next_review_queue, ProductionRecord.ReviewQueue.NONE)
+        self.assertEqual(
+            record.anomaly_assessment["cbat_verification"]["remarks"],
+            "Inspected on farm; cow switched to lactating ration.",
+        )
+
+    def test_10_cbat_cannot_final_approve_any_record(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.2, 9.8, 10.1, 9.9, 10.0])
+        response = self.submit_milk("18.0")
+        record_id = response.data["id"]
+
+        self.client.force_authenticate(user=self.cbat_user)
+        approve_resp = self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "APPROVED"},
+            format="json",
+        )
+        self.assertIn(approve_resp.status_code, (status.HTTP_400_BAD_REQUEST, status.HTTP_403_FORBIDDEN))
+        record = ProductionRecord.objects.get(pk=record_id)
+        self.assertEqual(record.status, ProductionRecord.ProductionStatus.PENDING)
+
+    def test_11_out_of_barangay_cbat_cannot_view_or_review_another_barangays_record(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.2, 9.8, 10.1, 9.9, 10.0])
+        response = self.submit_milk("18.0")
+        record_id = response.data["id"]
+
+        self.client.force_authenticate(user=self.other_cbat_user)
+        list_resp = self.client.get("/production/records/")
+        self.assertEqual(list_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual([r["id"] for r in list_resp.data], [])
+
+        detail_resp = self.client.get(f"/production/records/{record_id}/")
+        self.assertIn(detail_resp.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND))
+
+        review_resp = self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "VERIFIED", "remarks": "Unauthorized attempt"},
+            format="json",
+        )
+        self.assertIn(review_resp.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND))
+
+        forecast_resp = self.client.get(f"/api/analytics/livestock/{self.cow.pk}/milk-forecast/")
+        self.assertIn(forecast_resp.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND))
+
+    def test_12_all_barangay_cbat_can_review_within_municipality_scope(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.2, 9.8, 10.1, 9.9, 10.0])
+        response = self.submit_milk("18.0")
+        record_id = response.data["id"]
+
+        self.client.force_authenticate(user=self.all_barangay_cbat_user)
+        list_resp = self.client.get("/production/records/")
+        self.assertIn(record_id, [r["id"] for r in list_resp.data])
+
+        review_resp = self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "VERIFIED", "remarks": "Municipality-wide CBAT verified."},
+            format="json",
+        )
+        self.assertEqual(review_resp.status_code, status.HTTP_200_OK, review_resp.data)
+
+    def test_13_farmer_cannot_override_anomaly_status_routing_or_review_fields(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.2, 9.8, 10.1, 9.9, 10.0])
+        response = self.submit_milk(
+            "20.0",
+            extra={
+                "status": "APPROVED",
+                "anomaly_assessment_status": "CLEAN",
+                "anomaly_detected": False,
+                "requires_cbat_verification": False,
+                "next_review_queue": "MAO",
+                "reviewed_by": self.mao_user.pk,
+                "review_remarks": "Forged approval",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        record = ProductionRecord.objects.get(pk=response.data["id"])
+        self.assertEqual(record.status, ProductionRecord.ProductionStatus.PENDING)
+        self.assertEqual(record.anomaly_assessment_status, ProductionRecord.AnomalyAssessmentStatus.ANOMALY_DETECTED)
+        self.assertTrue(record.anomaly_detected)
+        self.assertTrue(record.requires_cbat_verification)
+        self.assertEqual(record.next_review_queue, ProductionRecord.ReviewQueue.CBAT)
+        self.assertIsNone(record.reviewed_by)
+        # Farmer response sanitizes internal detector thresholds/version
+        self.assertNotIn("thresholds", response.data.get("anomaly_assessment") or {})
+
+    def test_14_farmer_cannot_view_another_farmers_records_or_cow_forecast(self):
+        self.seed_approved_milk_history(self.other_farmer_cow, [11.0, 11.2, 10.8, 11.1, 10.9, 11.0])
+        other_resp = self.submit_milk("11.1", cow=self.other_farmer_cow)
+        other_record_id = other_resp.data["id"]
+
+        self.client.force_authenticate(user=self.farmer_user)
+        detail_resp = self.client.get(f"/production/records/{other_record_id}/")
+        self.assertIn(detail_resp.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND))
+
+        forecast_resp = self.client.get(f"/api/analytics/livestock/{self.other_farmer_cow.pk}/milk-forecast/")
+        self.assertIn(forecast_resp.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND))
+
+    def test_15_another_cows_milk_records_do_not_affect_selected_cows_anomaly_baseline(self):
+        # Cow 1 produces ~10 L/day; Cow 2 produces ~25 L/day
+        self.seed_approved_milk_history(self.cow, [10.0, 10.1, 9.9, 10.0, 10.2, 9.8])
+        self.seed_approved_milk_history(self.second_cow, [25.0, 25.5, 24.8, 25.2, 25.0, 24.9])
+
+        # Submitting 25 L for Cow 1 is a spike for Cow 1, even though 25 L is normal for Cow 2
+        resp_cow1 = self.submit_milk("25.0", cow=self.cow)
+        self.assertEqual(resp_cow1.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(resp_cow1.data["anomaly_detected"])
+        self.assertEqual(resp_cow1.data["next_review_queue"], "CBAT")
+
+        # Submitting 25 L for Cow 2 is clean and routes directly to MAO
+        resp_cow2 = self.submit_milk("25.0", cow=self.second_cow)
+        self.assertEqual(resp_cow2.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(resp_cow2.data["anomaly_detected"])
+        self.assertEqual(resp_cow2.data["next_review_queue"], "MAO")
+
+    def test_16_pending_verified_or_returned_milk_records_excluded_from_baseline(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.1, 9.9, 10.0, 10.2, 9.8], end_date=date(2026, 3, 6))
+        # Create unapproved high-yield records on subsequent days
+        for idx, st in enumerate([
+            ProductionRecord.ProductionStatus.PENDING,
+            ProductionRecord.ProductionStatus.VERIFIED,
+            ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION,
+        ]):
+            ProductionRecord.objects.create(
+                livestock=self.cow,
+                production_type=ProductionRecord.ProductionType.MILK,
+                quantity=30.0,
+                unit=ProductionRecord.UnitType.LITERS,
+                record_date=date(2026, 3, 7 + idx),
+                status=st,
+                created_by=self.farmer_user,
+            )
+
+        resp = self.submit_milk("10.1", record_date="2026-03-11")
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        record = ProductionRecord.objects.get(pk=resp.data["id"])
+        self.assertEqual(record.anomaly_assessment_status, ProductionRecord.AnomalyAssessmentStatus.CLEAN)
+        self.assertAlmostEqual(record.anomaly_assessment["historical_baseline"]["baseline_median_liters"], 10.0, places=1)
+        self.assertEqual(record.anomaly_assessment["historical_baseline"]["window_days_used"], 6)
+
+    def test_17_forecast_unavailable_not_ready_does_not_break_anomaly_assessment(self):
+        # 6 observations (< 60 required for 7-day forecast readiness)
+        self.seed_approved_milk_history(self.cow, [12.0, 12.1, 11.9, 12.0, 12.2, 11.8])
+        resp = self.submit_milk("12.0")
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        record = ProductionRecord.objects.get(pk=resp.data["id"])
+        self.assertEqual(record.anomaly_assessment_status, ProductionRecord.AnomalyAssessmentStatus.CLEAN)
+        forecast_cmp = record.anomaly_assessment["forecast_comparison"]
+        self.assertFalse(forecast_cmp["available"])
+        self.assertEqual(forecast_cmp["status"], "NOT_READY")
+        self.assertIn("60", forecast_cmp["reason"])
+
+    def test_18_date_aligned_forecast_context_included_only_when_valid(self):
+        from unittest.mock import patch
+
+        # Seed 65 approved daily observations ending 2026-03-10 so 7-day forecast is READY for 2026-03-11..17
+        quantities = [12.0 + ((i % 5) - 2) * 0.25 for i in range(65)]
+        self.seed_approved_milk_history(self.cow, quantities, end_date=date(2026, 3, 10))
+
+        with patch("analytics.services.predictive.livestock_milk.timezone.localdate", return_value=date(2026, 3, 10)):
+            # 1. Date-aligned submission (2026-03-11 is in the 7-day forecast window)
+            aligned_resp = self.submit_milk("12.1", record_date="2026-03-11")
+            self.assertEqual(aligned_resp.status_code, status.HTTP_201_CREATED)
+            aligned_record = ProductionRecord.objects.get(pk=aligned_resp.data["id"])
+            fc_aligned = aligned_record.anomaly_assessment["forecast_comparison"]
+            self.assertTrue(fc_aligned["available"])
+            self.assertEqual(fc_aligned["status"], "MATCHED")
+            self.assertIsNotNone(fc_aligned["expected_liters"])
+
+            # 2. Past backfilled date (2026-03-09 is before the 7-day future horizon) omits forecast comparison
+            backfill_resp = self.submit_milk("12.1", record_date="2026-03-09")
+            self.assertEqual(backfill_resp.status_code, status.HTTP_201_CREATED)
+            backfill_record = ProductionRecord.objects.get(pk=backfill_resp.data["id"])
+            fc_backfill = backfill_record.anomaly_assessment["forecast_comparison"]
+            self.assertFalse(fc_backfill["available"])
+            self.assertEqual(fc_backfill["status"], "DATE_NOT_IN_HORIZON")
+            self.assertIn("does not match", fc_backfill["reason"])
+
+    def test_19_farmer_editing_and_resubmitting_returned_milk_record_reassesses_and_updates_routing(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.2, 9.8, 10.1, 9.9, 10.0])
+        # Initial submission is a spike -> routed to CBAT
+        resp = self.submit_milk("19.5")
+        record_id = resp.data["id"]
+
+        # CBAT returns for revision
+        self.client.force_authenticate(user=self.cbat_user)
+        self.client.post(
+            f"/production/records/{record_id}/review/",
+            {"status": "SUBJECT_TO_REVISION", "remarks": "Typo in liters; please correct."},
+            format="json",
+        )
+
+        # Farmer edits quantity to 10.1 L (within normal baseline)
+        self.client.force_authenticate(user=self.farmer_user)
+        patch_resp = self.client.patch(
+            f"/production/records/{record_id}/",
+            {"quantity": "10.1", "notes": "Corrected typo from 19.5 to 10.1 L."},
+            format="json",
+        )
+        self.assertEqual(patch_resp.status_code, status.HTTP_200_OK, patch_resp.data)
+        record = ProductionRecord.objects.get(pk=record_id)
+        self.assertEqual(record.status, ProductionRecord.ProductionStatus.PENDING)
+        self.assertEqual(record.anomaly_assessment_status, ProductionRecord.AnomalyAssessmentStatus.CLEAN)
+        self.assertFalse(record.anomaly_detected)
+        self.assertFalse(record.requires_cbat_verification)
+        self.assertEqual(record.next_review_queue, ProductionRecord.ReviewQueue.MAO)
+        # Prior assessment history is preserved
+        self.assertEqual(len(record.anomaly_assessment.get("history", [])), 1)
+        self.assertEqual(record.anomaly_assessment["history"][0]["assessment_status"], "ANOMALY_DETECTED")
+
+    def test_20_non_milk_production_records_keep_existing_sibat_review_behavior(self):
+        hen = LivestockInventory.objects.create(
+            farmer=self.farmer,
+            livestock_type=self.poultry,
+            quantity=1,
+            tag_number="HEN-01",
+            sex="Female",
+            status=LivestockInventory.StatusType.APPROVED,
+            created_by=self.farmer_user,
+        )
+        self.client.force_authenticate(user=self.farmer_user)
+        egg_resp = self.client.post(
+            "/production/records/",
+            {
+                "livestock": hen.pk,
+                "production_type": "EGGS",
+                "unit": "PIECES",
+                "quantity": "12",
+                "record_date": "2026-03-11",
+            },
+            format="json",
+        )
+        self.assertEqual(egg_resp.status_code, status.HTTP_201_CREATED, egg_resp.data)
+        record = ProductionRecord.objects.get(pk=egg_resp.data["id"])
+        self.assertEqual(record.anomaly_assessment_status, ProductionRecord.AnomalyAssessmentStatus.NOT_APPLICABLE)
+        self.assertFalse(record.requires_cbat_verification)
+        self.assertEqual(record.next_review_queue, ProductionRecord.ReviewQueue.SIBAT)
+
+        # MAO cannot approve unverified EGGS record directly
+        self.client.force_authenticate(user=self.mao_user)
+        self.assertEqual(
+            self.client.post(f"/production/records/{record.pk}/review/", {"status": "APPROVED"}).status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+        # SIBAT verifies -> MAO approves
+        self.client.force_authenticate(user=self.sibat_user)
+        self.assertEqual(
+            self.client.post(f"/production/records/{record.pk}/review/", {"status": "VERIFIED"}).status_code,
+            status.HTTP_200_OK,
+        )
+        self.client.force_authenticate(user=self.mao_user)
+        self.assertEqual(
+            self.client.post(f"/production/records/{record.pk}/review/", {"status": "APPROVED"}).status_code,
+            status.HTTP_200_OK,
+        )
