@@ -62,7 +62,7 @@ export default function RegistrationIdentityPage() {
 
   return <main className="mx-auto min-h-screen w-full max-w-xl space-y-5 px-4 py-8 text-slate-900">
     <nav aria-label="Registration progress" className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-      {["1. Credentials saved", "2. Farm details saved", "3. Documents saved", "4. ID & selfie"].map((label, index) => <span key={label} aria-current={index === 3 ? "step" : undefined} className={index === 3 ? "rounded-xl bg-[#2D5A27] p-3 font-semibold text-white" : "rounded-xl bg-emerald-50 p-3 text-emerald-900"}>{label}</span>)}
+      {["1. Credentials saved", "2. Farm details saved", "3. Agreement saved", "4. ID & selfie"].map((label, index) => <span key={label} aria-current={index === 3 ? "step" : undefined} className={index === 3 ? "rounded-xl bg-[#2D5A27] p-3 font-semibold text-white" : "rounded-xl bg-emerald-50 p-3 text-emerald-900"}>{label}</span>)}
     </nav>
     <h1 className="text-2xl font-bold">Step 4: ID and selfie verification</h1>
     <p className="text-sm">Your details and documents have been saved as one pending application. Complete the Didit capture below before finishing registration, or explicitly request manual assistance. These checks support human review and never approve or reject your account automatically.</p>
@@ -75,11 +75,11 @@ export default function RegistrationIdentityPage() {
     <p role="status" className="rounded-xl border p-4 text-sm">{identityMessage(attempt)}</p>
     {config.data?.available && token ? <section className="space-y-4 rounded-2xl border bg-white p-4">
       <h2 className="font-bold">ID and selfie capture with Didit</h2>
-      <p className="text-sm">Didit will ask you to present the same government ID and take a selfie to compare with its portrait. The provider performs a separate passive liveness check to help detect spoofing. A selfie alone does not establish liveness or legal identity.</p>
+      <p className="text-sm">Didit will ask you to capture your government ID and take a selfie to compare with its portrait. The provider performs a separate passive liveness check to help detect spoofing. A selfie alone does not establish liveness or legal identity.</p>
       <p className="text-sm">Capture takes place on Didit’s secure page. Allow camera access only when ready. Use even lighting, keep your face unobstructed, and hold the ID upright with every edge visible. You can retake captures there before submission.</p>
       <p className="text-sm">If camera access is denied, enable it in browser settings and resume. If no face is detected or liveness is incomplete, retake the capture with better lighting. If the device is unsupported or unavailable, try another device or contact MAO. Use a file fallback only if Didit offers it; a photo upload by itself does not complete liveness.</p>
       <div className="space-y-2 text-sm">
-        <p>Didit processes ID images, selfie images and biometric check results, potentially outside the Philippines. SmartLivestock keeps the existing private ID uploads and minimal verification metadata, not face templates, selfie frames or raw provider responses. Authorized barangay reviewers and MAO can inspect supporting evidence; MAO retains the approval decision.</p>
+        <p>Didit processes ID images, selfie images and biometric check results, potentially outside the Philippines. SmartLivestock keeps minimal verification metadata, not Didit ID images, selfie frames, face templates or raw provider responses. Any separately submitted documents remain private. Authorized barangay reviewers and MAO can inspect supporting summaries; authorized Didit-console reviewers can inspect provider-held images. MAO retains the approval decision.</p>
         <p>{config.data.retention_notice}</p>
         <p>Assistance and privacy concerns: {config.data.privacy_contact}</p>
         <a href="https://didit.me/terms/privacy-policy/" target="_blank" rel="noreferrer" className="underline">Didit privacy policy</a>

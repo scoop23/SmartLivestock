@@ -96,6 +96,7 @@ export default function FarmerRegistrationPage() {
     retry: false,
   });
   const identityEnabled = identityConfig.data?.enabled === true;
+  const providerCapture = identityEnabled && identityConfig.data?.available === true;
 
   // Form states
   const [formData, setFormData] = useState({
@@ -315,15 +316,15 @@ export default function FarmerRegistrationPage() {
     const hasGovernmentId = Boolean(
       documents.governmentIdFront || documents.governmentIdBack || documents.governmentIdPdf
     );
-    if (!governmentIdType) {
+    if (!providerCapture && !governmentIdType) {
       setError('Select your government ID type.');
       return;
     }
-    if (!hasGovernmentId) {
+    if (!providerCapture && !hasGovernmentId) {
       setError('Upload one complete ID PDF or both front and back ID photos.');
       return;
     }
-    if (Boolean(documents.governmentIdFront) !== Boolean(documents.governmentIdBack)) {
+    if (!providerCapture && Boolean(documents.governmentIdFront) !== Boolean(documents.governmentIdBack)) {
       setError('Please upload both the front and back photos of your ID.');
       return;
     }
@@ -358,10 +359,14 @@ export default function FarmerRegistrationPage() {
         submissionData.append('rsbsa_number', formData.rsbsaNumber.trim());
       }
 
-      if (governmentIdType) submissionData.append('government_id_type', governmentIdType);
-      if (documents.governmentIdFront) submissionData.append('government_id_front', documents.governmentIdFront);
-      if (documents.governmentIdBack) submissionData.append('government_id_back', documents.governmentIdBack);
-      if (documents.governmentIdPdf) submissionData.append('government_id_pdf', documents.governmentIdPdf);
+      if (providerCapture) {
+        submissionData.append('provider_capture', 'true');
+      } else {
+        if (governmentIdType) submissionData.append('government_id_type', governmentIdType);
+        if (documents.governmentIdFront) submissionData.append('government_id_front', documents.governmentIdFront);
+        if (documents.governmentIdBack) submissionData.append('government_id_back', documents.governmentIdBack);
+        if (documents.governmentIdPdf) submissionData.append('government_id_pdf', documents.governmentIdPdf);
+      }
       if (documents.rsbsa) {
         submissionData.append('rsbsa_document', documents.rsbsa);
       }
@@ -1168,7 +1173,13 @@ export default function FarmerRegistrationPage() {
                 {step === 3 && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
                     {/* Guided ID capture */}
-                    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                    {providerCapture ? <section className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-slate-900">
+                      <h3 className="flex items-center gap-2 font-bold"><Scan className="size-5 text-emerald-700" />Government ID and selfie with Didit</h3>
+                      <p className="text-sm">Didit will guide you through government ID capture, a selfie, and a separate liveness check. You do not need to upload ID photos here as well.</p>
+                      <p className="text-sm">Keep your government ID ready. Continue below to read the biometric notice and open the capture page. MAO will still review your application.</p>
+                      {identityConfig.data?.environment === 'sandbox' && <p className="text-xs font-semibold">Sandbox testing only — this does not verify a real identity.</p>}
+                    </section> : <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                      {identityEnabled && <p role="status" className="text-sm text-amber-800">Didit is not configured for capture. Submit your ID here for manual review; no automated face or liveness result will be claimed.</p>}
                       <div className="space-y-1.5">
                         <Label htmlFor="governmentIdType" className="text-[11px] font-extrabold uppercase text-slate-700">
                           Government ID type <span className="text-rose-500">*</span> <span className="font-medium normal-case text-slate-400">(required)</span>
@@ -1406,6 +1417,7 @@ export default function FarmerRegistrationPage() {
                       )}
                     </div>
 
+                    }
                     {/* RSBSA Certificate / Barangay Clearance (Optional) */}
                     <div className="space-y-1.5">
                       <Label className="text-[11px] font-extrabold text-slate-700 uppercase flex items-center justify-between">

@@ -12,6 +12,7 @@ export interface IdentityConfig {
   privacy_contact: string;
 }
 export interface IdentityAttempt {
+  document_capture?: "LOCAL_UPLOAD" | "DIDIT_HOSTED";
   id: string;
   state: string;
   environment: string;
@@ -39,7 +40,10 @@ export function identityClient(registrationToken?: string) {
 }
 
 export function identityMessage(attempt: IdentityAttempt | null): string {
-  if (!attempt || attempt.state === "NOT_STARTED") return "ID uploaded. Face matching and liveness have not been completed.";
+  if (!attempt) return "No identity-check result is available.";
+  if (attempt.state === "NOT_STARTED") return attempt.document_capture === "DIDIT_HOSTED"
+    ? "ID and selfie capture have not started. Continue with Didit below."
+    : "ID uploaded. Face matching and liveness have not been completed.";
   if (attempt.environment === "sandbox") return "Provider sandbox only. No real identity or liveness has been verified. MAO assessment is required.";
   switch (attempt.state) {
     case "COMPLETED": return "The provider completed its checks. This is supporting evidence; MAO must still assess your documents and application.";

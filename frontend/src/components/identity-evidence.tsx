@@ -42,7 +42,10 @@ export function IdentityEvidencePanel({ userId, canAssess = false }: { userId: n
     <h3 className="font-bold">Supporting identity evidence</h3>
     <p>{identityMessage(latest)}</p>
     <IdentityChecks attempt={latest} />
-    <p className="text-xs">The provider captures its own ID image. Compare the applicant’s uploaded registration ID during manual review; these summaries do not prove the files are identical or establish legal identity.</p>
+    {latest.document_capture === "DIDIT_HOSTED" ? <div className="space-y-2 text-xs">
+      <p>The ID was submitted through Didit. No duplicate ID image is stored here. These summaries support human review and do not establish legal identity. If provider capture is incomplete, arrange alternative ID inspection before approval.</p>
+      {canAssess && <p>To inspect the captured ID, use the provider reference below in the <a className="underline" href="https://business.didit.me/" target="_blank" rel="noreferrer">Didit Business Console</a>. A separate authorized Didit account is required; SmartLivestock roles do not grant provider access.</p>}
+    </div> : <p className="text-xs">The provider captures its own ID image. Compare the applicant’s uploaded registration ID during manual review; these summaries do not prove the files are identical or establish legal identity.</p>}
     <p className="break-all text-xs text-slate-600">Provider reference: {latest.provider_reference || "Not started"} · Updated {new Date(latest.updated_at).toLocaleString()}</p>
     <p className="text-xs">Biometric consent: {latest.consent_at ? `Recorded (${latest.policy_version})` : "Not given; no provider checks started"}</p>
     <div className="flex flex-wrap gap-2">{query.data.documents.map((doc) => <Button key={doc.id} variant="outline" size="sm" onClick={() => setPreview(doc)} className="min-h-10 whitespace-normal">Preview {doc.document_type_display || doc.document_type}</Button>)}</div>
