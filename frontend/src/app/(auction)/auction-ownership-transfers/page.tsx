@@ -13,7 +13,6 @@ import { Separator } from "@/components/ui/separator";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 import api from "@/lib/axios";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
-import { OwnershipTransferKpis } from "./ownership-transfer-kpis";
 import Link from "next/link";
 import { ArrowLeft,ArrowLeftRight,QrCode,Search } from "lucide-react";
 import { useState,type FormEvent } from "react";
@@ -231,7 +230,6 @@ export default function AuctionOwnershipTransfersPage() {
         <Button asChild variant="ghost" className="-ml-3 min-h-10 gap-2 px-3 text-slate-600">
           <Link href="/auction"><ArrowLeft className="size-4" />Back to Auction</Link>
         </Button>
-        <OwnershipTransferKpis records={transfers} isLoading={isLoading} />
         <Card>
           <CardHeader>
             <div className="flex items-start gap-3">
