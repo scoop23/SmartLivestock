@@ -115,9 +115,15 @@ def start(request):
     if attempt and attempt.provider_session_id and not serializer.validated_data["retry"]:
         try:
             data = service.refresh_attempt(attempt)
-            return no_store(Response({"attempt": service.evidence(attempt), "url": service.safe_session_url(data.get("session_url"))}))
         except service.ProviderUnavailable as error:
             return no_store(Response({"detail": str(error)}, status=503))
+        if attempt.state == Attempt.State.IN_PROGRESS:
+            return no_store(Response({"attempt": service.evidence(attempt), "url": service.safe_session_url(data.get("session_url"))}))
+        if attempt.state in (Attempt.State.COMPLETED, Attempt.State.REVIEW_REQUIRED):
+            return no_store(Response({"attempt": service.evidence(attempt)}))
+        # Didit may report EXPIRED or ABANDONED only when the farmer tries to
+        # resume. In that case RETRY_REQUIRED is authoritative: fall through
+        # and create a fresh attempt instead of returning the dead session URL.
     if attempt and attempt.provider_session_id and attempt.state == Attempt.State.IN_PROGRESS:
         if not attempt.expires_at or attempt.expires_at > timezone.now():
             return no_store(Response({"detail": "Resume the existing session before requesting another attempt."}, status=409))

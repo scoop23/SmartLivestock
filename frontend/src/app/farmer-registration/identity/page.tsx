@@ -179,6 +179,14 @@ export default function RegistrationIdentityPage() {
   const attempt = status.data?.attempt ?? null;
   const identityUnauthorized = axios.isAxiosError(status.error) && status.error.response?.status === 401;
   const registrationSessionInvalid = !token || identityUnauthorized;
+  // Restore consent for the same attempt only when its recorded policy is still current.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (attempt?.consent_at && config.data?.policy_version === attempt.policy_version) {
+      setConsent(true);
+    }
+  }, [attempt?.consent_at, attempt?.policy_version, config.data?.policy_version]);
+  /* eslint-enable react-hooks/set-state-in-effect */
   // Didit's In Review (and other inconclusive results) requires a human decision.
   // A completed provider check also remains pending until MAO approves the account.
   // Send the farmer to the SmartLivestock pending page after either result is recorded.
@@ -197,7 +205,7 @@ export default function RegistrationIdentityPage() {
     onError: (failure) => setError(identityError(failure)),
   });
 
-  const retry = Boolean(attempt && ["FAILED_TECHNICAL", "RETRY_REQUIRED", "REVIEW_REQUIRED"].includes(attempt.state));
+  const retry = Boolean(attempt && ["FAILED_TECHNICAL", "RETRY_REQUIRED"].includes(attempt.state));
   const canFinish = Boolean(
     token &&
       !status.isError &&
