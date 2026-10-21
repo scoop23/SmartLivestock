@@ -248,12 +248,20 @@ def reviews(request, user_id=None):
         users = users.filter(farmer_profile__barangay_id=request.user.assigned_barangay_id) if request.user.assigned_barangay_id else users.none()
 
     def row(user):
-        attempts = user.identity_attempts.all()[:3]
+        attempts = list(user.identity_attempts.all()[:3])
         farmer = getattr(user, "farmer_profile", None)
-        return {"user_id": user.pk, "name": user.get_full_name() or user.username,
-                "barangay": farmer.barangay.barangay_name if farmer and farmer.barangay else "",
-                "attempts": [service.evidence(attempt) for attempt in attempts],
-                "documents": UserDocumentSerializer(user.documents.all(), many=True, context={"request": request}).data}
+        result = {"user_id": user.pk, "name": user.get_full_name() or user.username,
+                  "barangay": farmer.barangay.barangay_name if farmer and farmer.barangay else "",
+                  "attempts": [service.evidence(attempt) for attempt in attempts],
+                  "documents": UserDocumentSerializer(user.documents.all(), many=True, context={"request": request}).data}
+        # Raw ID/selfie media is available only to MAO/Admin on the single-user
+        # review detail, never to barangay reviewer queues or list responses.
+        if user_id and role in ("MAO", "ADMIN") and attempts:
+            try:
+                result["provider_review"] = service.provider_review_data(attempts[0])
+            except service.ProviderUnavailable:
+                result["provider_review_error"] = "Didit images or extracted name are unavailable. Refresh and try again."
+        return result
 
     if user_id:
         return no_store(Response(row(get_object_or_404(users, pk=user_id))))

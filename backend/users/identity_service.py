@@ -274,5 +274,82 @@ def evidence(attempt):
     }
 
 
+def provider_review_data(attempt):
+    """Return minimal, short-lived Didit review evidence without persisting it."""
+    if not attempt.provider_session_id or attempt.provider_deleted_at:
+        return {"images": [], "name_comparison": None}
+
+    data = provider_request("GET", f"session/{attempt.provider_session_id}/decision/")
+    if (str(data.get("session_id")) != str(attempt.provider_session_id)
+            or data.get("vendor_data") != str(attempt.pk)
+            or data.get("workflow_id") != attempt.workflow_id):
+        raise ProviderUnavailable("Didit evidence does not match this registration.")
+
+    id_rows = data.get("id_verifications")
+    face_rows = data.get("face_matches")
+    liveness_rows = data.get("liveness_checks")
+    id_row = next((row for row in id_rows if isinstance(row, dict)), {}) if isinstance(id_rows, list) else {}
+    face_row = next((row for row in face_rows if isinstance(row, dict)), {}) if isinstance(face_rows, list) else {}
+    liveness_row = next((row for row in liveness_rows if isinstance(row, dict)), {}) if isinstance(liveness_rows, list) else {}
+
+    def media_url(value):
+        if not isinstance(value, str):
+            return None
+        try:
+            parsed = urlparse(value)
+            if (parsed.scheme == "https" and parsed.hostname and not parsed.username and not parsed.password
+                    and parsed.port in (None, 443)):
+                return value
+        except ValueError:
+            pass
+        return None
+
+    images = []
+    for label, value in (
+        ("ID front", id_row.get("front_image") or id_row.get("full_front_image")),
+        ("ID back", id_row.get("back_image") or id_row.get("full_back_image")),
+        ("Selfie", face_row.get("target_image") or liveness_row.get("reference_image")),
+    ):
+        url = media_url(value)
+        if url:
+            images.append({"label": label, "url": url})
+
+    provided_name = " ".join(part for part in (attempt.user.first_name, attempt.user.last_name) if part).strip()
+    extracted_name = str(id_row.get("full_name") or " ".join(
+        part for part in (id_row.get("first_name"), id_row.get("last_name")) if isinstance(part, str)
+    )).strip()
+    warnings = id_row.get("warnings") if isinstance(id_row.get("warnings"), list) else []
+    name_warning = next((
+        warning for warning in warnings
+        if isinstance(warning, dict)
+        and "NAME_MISMATCH" in str(warning.get("risk", "")).upper()
+        and warning.get("short_description")
+    ), None)
+    score = id_row.get("name_match_score_expected_details")
+    match_type = None
+    additional_data = name_warning.get("additional_data") if isinstance(name_warning, dict) else None
+    if isinstance(additional_data, dict):
+        if not isinstance(score, (int, float)) or isinstance(score, bool):
+            score = next((additional_data.get(key) for key in ("match_score", "name_match_score", "score")
+                          if isinstance(additional_data.get(key), (int, float))
+                          and not isinstance(additional_data.get(key), bool)), None)
+        raw_match_type = additional_data.get("match_type")
+        if isinstance(raw_match_type, str) and len(raw_match_type) <= 40:
+            match_type = raw_match_type
+    if not isinstance(score, (int, float)) or isinstance(score, bool):
+        score = None
+
+    return {
+        "images": images,
+        "name_comparison": {
+            "provided_name": provided_name or None,
+            "extracted_name": extracted_name or None,
+            "name_match_score": score,
+            "match_type": match_type,
+            "provider_warning": name_warning.get("short_description") if isinstance(name_warning, dict) else None,
+        } if provided_name or extracted_name or name_warning else None,
+    }
+
+
 def evidence_fingerprint(attempt):
     return "|".join((attempt.state, attempt.document_result, attempt.face_result, attempt.liveness_result))

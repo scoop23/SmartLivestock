@@ -17,6 +17,17 @@ interface EvidenceRow {
   barangay: string;
   attempts: IdentityAttempt[];
   documents: UserDocumentItem[];
+  provider_review?: {
+    images: { label: string; url: string }[];
+    name_comparison: {
+      provided_name: string | null;
+      extracted_name: string | null;
+      name_match_score: number | null;
+      match_type: string | null;
+      provider_warning: string | null;
+    } | null;
+  };
+  provider_review_error?: string;
 }
 
 export function IdentityChecks({ attempt }: { attempt: IdentityAttempt | null }) {
@@ -42,9 +53,33 @@ export function IdentityEvidencePanel({ userId, canAssess = false }: { userId: n
     <h3 className="font-bold">Supporting identity evidence</h3>
     <p>{identityMessage(latest)}</p>
     <IdentityChecks attempt={latest} />
+    {canAssess && query.data.provider_review?.name_comparison ? <section className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+      <h4 className="font-semibold">Name read from the ID</h4>
+      <dl className="grid gap-2 sm:grid-cols-2">
+        <div><dt className="text-xs text-slate-600">Registration information</dt><dd className="font-medium">{query.data.provider_review.name_comparison.provided_name || "Not provided"}</dd></div>
+        <div><dt className="text-xs text-slate-600">Extracted from ID</dt><dd className="font-medium">{query.data.provider_review.name_comparison.extracted_name || "Not available"}</dd></div>
+      </dl>
+      {query.data.provider_review.name_comparison.provider_warning ? <p className="font-medium text-amber-900">Didit warning: {query.data.provider_review.name_comparison.provider_warning}</p> : null}
+      {query.data.provider_review.name_comparison.match_type ? <p>Didit match type: {query.data.provider_review.name_comparison.match_type.replaceAll("_", " ")}</p> : null}
+      {query.data.provider_review.name_comparison.name_match_score !== null ? <p>Didit name match score: {query.data.provider_review.name_comparison.name_match_score}/100</p> : null}
+      <p className="text-xs text-slate-700">Compare spelling and name order with the ID. A mismatch needs human review; it does not automatically reject the registration.</p>
+    </section> : null}
+    {canAssess && query.data.provider_review?.images.length ? <section className="space-y-2">
+      <h4 className="font-semibold">ID and selfie captured by Didit</h4>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {query.data.provider_review.images.map((image) => <figure key={image.label} className="space-y-1 rounded-lg border bg-white p-2">
+          {/* Didit supplies short-lived signed URLs; use native img to avoid persisting or optimizing biometric media. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image.url} alt={image.label} loading="lazy" referrerPolicy="no-referrer" className="h-48 w-full rounded object-contain" />
+          <figcaption className="text-center text-xs font-medium">{image.label}</figcaption>
+        </figure>)}
+      </div>
+      <p className="text-xs text-slate-600">These temporary Didit images are shown to MAO/Admin for this review and are not saved by SmartLivestock.</p>
+    </section> : null}
+    {canAssess && query.data.provider_review && !query.data.provider_review.images.length ? <p className="text-xs text-slate-600">No Didit capture images are available for this attempt yet. Use the uploaded registration ID for manual inspection.</p> : null}
+    {canAssess && query.data.provider_review_error ? <p role="status" className="text-xs text-amber-800">{query.data.provider_review_error}</p> : null}
     {latest.document_capture === "DIDIT_HOSTED" ? <div className="space-y-2 text-xs">
-      <p>The ID was submitted through Didit. No duplicate ID image is stored here. These summaries support human review and do not establish legal identity. If provider capture is incomplete, arrange alternative ID inspection before approval.</p>
-      {canAssess && <p>To inspect the captured ID, use the provider reference below in the <a className="underline" href="https://business.didit.me/" target="_blank" rel="noreferrer">Didit Business Console</a>. A separate authorized Didit account is required; SmartLivestock roles do not grant provider access.</p>}
+      <p>The ID was submitted through Didit. These provider results and images support human review and do not establish legal identity. If images are unavailable, arrange alternative ID inspection before approval.</p>
     </div> : <p className="text-xs">The provider captures its own ID image. Compare the applicant’s uploaded registration ID during manual review; these summaries do not prove the files are identical or establish legal identity.</p>}
     <p className="break-all text-xs text-slate-600">Provider reference: {latest.provider_reference || "Not started"} · Updated {new Date(latest.updated_at).toLocaleString()}</p>
     <p className="text-xs">Biometric consent: {latest.consent_at ? `Recorded (${latest.policy_version})` : "Not given; no provider checks started"}</p>
