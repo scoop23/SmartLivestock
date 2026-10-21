@@ -595,3 +595,31 @@ class PSAReferencePrice(models.Model):
 
     def __str__(self):
         return f"{self.commodity}: {self.reference_period} ({self.geography})"
+
+
+class MilkAnomalyDemoOwnership(models.Model):
+    """Auditable ownership markers for objects created by the milk anomaly demo seed."""
+
+    class ObjectType(models.TextChoices):
+        USER = "user", "User"
+        FARMER = "farmer", "Farmer profile"
+        LIVESTOCK = "livestock", "Livestock inventory"
+        PRODUCTION_RECORD = "production_record", "Production record"
+        NOTIFICATION = "notification", "Notification"
+
+    identifier = models.CharField(max_length=160, unique=True)
+    object_type = models.CharField(max_length=24, choices=ObjectType.choices)
+    object_id = models.PositiveBigIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["object_type", "object_id"],
+                name="unique_milk_demo_owned_object",
+            ),
+        ]
+        ordering = ["identifier"]
+
+    def __str__(self):
+        return f"Milk demo {self.identifier} ({self.object_type}:{self.object_id})"
