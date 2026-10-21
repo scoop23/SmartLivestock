@@ -854,7 +854,16 @@ export default function UserManagementPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 p-3.5 sm:p-4">
-                  {selectedUser.role === "FARMER" ? <IdentityEvidencePanel userId={selectedUser.id} canAssess /> : null}
+                  {selectedUser.role === "FARMER" ? (
+                    <IdentityEvidencePanel
+                      userId={selectedUser.id}
+                      canAssess
+                      onSelectUserId={(targetId) => {
+                        const match = users.find((u) => u.id === targetId);
+                        if (match) setSelectedUser(match);
+                      }}
+                    />
+                  ) : null}
                   {(selectedUser.documents || []).length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-4 py-7 text-center">
                       <FileText className="mx-auto size-6 text-slate-400" />

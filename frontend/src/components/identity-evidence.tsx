@@ -4,12 +4,32 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { AlertCircle, Check, Link2, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DocumentPreviewDialog } from "@/app/(admin)/user-management/document-preview-dialog";
 import type { UserDocumentItem } from "@/app/(admin)/user-management/user-management";
 import { identityClient, identityError, identityMessage, type IdentityAttempt } from "@/lib/identity-verification";
+
+interface ProviderWarningSession {
+  session_number: number | null;
+  session_id: string | null;
+  user_id: number | null;
+  full_name: string;
+  status: string;
+  portrait_url?: string | null;
+}
+
+interface ProviderWarning {
+  feature: string;
+  risk: string;
+  tag_label: string;
+  short_description: string;
+  long_description: string;
+  log_type: string;
+  duplicated_sessions: ProviderWarningSession[];
+}
 
 interface EvidenceRow {
   user_id: number;
@@ -26,6 +46,7 @@ interface EvidenceRow {
       match_type: string | null;
       provider_warning: string | null;
     } | null;
+    warnings?: ProviderWarning[];
   };
   provider_review_error?: string;
 }
@@ -81,10 +102,19 @@ export function IdentityChecks({ attempt }: { attempt: IdentityAttempt | null })
   );
 }
 
-export function IdentityEvidencePanel({ userId, canAssess = false }: { userId: number; canAssess?: boolean }) {
+export function IdentityEvidencePanel({
+  userId,
+  canAssess = false,
+  onSelectUserId,
+}: {
+  userId: number;
+  canAssess?: boolean;
+  onSelectUserId?: (targetUserId: number) => void;
+}) {
   const { user } = useAuth();
   const [reason, setReason] = useState("");
   const [preview, setPreview] = useState<UserDocumentItem | null>(null);
+  const [activeWarningIndex, setActiveWarningIndex] = useState<number | null>(0);
   const query = useQuery({ queryKey: ["identity-evidence", user?.email, user?.role, user?.accessScope, user?.assignedBarangayId, userId], enabled: Boolean(user), retry: false, gcTime: 0,
     queryFn: async () => (await identityClient().get<EvidenceRow>(`/api/users/identity/reviews/${userId}/`)).data });
   const assess = useMutation({ mutationFn: () => identityClient().post(`/api/users/identity/reviews/${userId}/assessment/`, { reason }),
@@ -93,10 +123,151 @@ export function IdentityEvidencePanel({ userId, canAssess = false }: { userId: n
   if (query.isError) return <p role="alert" className="text-sm text-rose-700">{identityError(query.error)}</p>;
   const latest = query.data.attempts[0];
   if (!latest) return <p className="text-xs text-slate-600">This registration was not enrolled in automated identity checks. Existing manual document review applies.</p>;
+  const warnings = query.data.provider_review?.warnings ?? [];
+  const selectedWarning = activeWarningIndex !== null ? warnings[activeWarningIndex] ?? null : null;
   return <section className="space-y-3 rounded-xl border bg-slate-50 p-3 text-sm">
     <h3 className="font-bold">Supporting identity evidence</h3>
     <p>{identityMessage(latest)}</p>
     <IdentityChecks attempt={latest} />
+    {canAssess && warnings.length > 0 ? (
+      <section className="relative overflow-hidden rounded-2xl border border-slate-800 bg-[#0d1113] p-4 text-slate-100 shadow-lg space-y-3.5">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-6 -top-6 flex size-28 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500/30"
+        >
+          <Check className="size-16 stroke-[3]" />
+        </div>
+
+        <div className="relative z-10 space-y-2.5">
+          <h4 className="text-base font-extrabold tracking-tight text-white">Warnings</h4>
+          {warnings.map((warning, idx) => {
+            const isSelected = activeWarningIndex === idx;
+            return (
+              <div key={`${warning.risk}-${idx}`} className="space-y-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  {warning.feature || "ID VERIFICATION"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveWarningIndex(isSelected ? null : idx)}
+                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-left text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                    isSelected
+                      ? "border-white/25 bg-white/[0.12] text-white"
+                      : "border-white/15 bg-white/[0.06] text-slate-200 hover:bg-white/[0.1]"
+                  }`}
+                >
+                  <span>{warning.tag_label}</span>
+                  <AlertCircle className="size-3.5 shrink-0 text-slate-300" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {selectedWarning ? (
+          <div className="relative z-10 space-y-3 rounded-xl border border-white/15 bg-[#15191d] p-3.5 sm:p-4 shadow-2xl">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertCircle className="size-4 shrink-0 text-slate-300" />
+                <p className="text-xs sm:text-sm font-bold text-white">
+                  {selectedWarning.short_description}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-md border border-white/15 bg-white/[0.05] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-300">
+                {selectedWarning.feature || "ID VERIFICATION"}
+              </span>
+            </div>
+
+            {selectedWarning.long_description ? (
+              <p className="text-xs leading-relaxed text-slate-400">
+                {selectedWarning.long_description}
+              </p>
+            ) : null}
+
+            {selectedWarning.duplicated_sessions.length > 0 ? (
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-300">
+                  <UserCircle2 className="size-3.5 text-slate-400" />
+                  <span>SESSION INFORMATION</span>
+                </div>
+
+                <div className="space-y-2">
+                  {selectedWarning.duplicated_sessions.map((dup, dupIdx) => {
+                    const canJump = Boolean(dup.user_id && onSelectUserId && dup.user_id !== userId);
+                    const isReview = dup.status.includes("REVIEW") || dup.status.includes("PENDING");
+                    const isApproved = dup.status.includes("APPROVED") || dup.status.includes("COMPLETED");
+                    const badgeClasses = isReview
+                      ? "border-amber-500/40 bg-amber-500/15 text-amber-400"
+                      : isApproved
+                        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+                        : "border-slate-500/40 bg-slate-500/15 text-slate-300";
+
+                    const content = (
+                      <>
+                        <div className="flex min-w-0 items-center gap-3">
+                          {dup.portrait_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={dup.portrait_url}
+                              alt={dup.full_name}
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                              className="size-11 shrink-0 rounded-lg border border-white/15 object-cover bg-slate-800"
+                            />
+                          ) : (
+                            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-slate-800 text-slate-300">
+                              <UserCircle2 className="size-6" />
+                            </div>
+                          )}
+
+                          <div className="min-w-0 space-y-1">
+                            <p className="text-xs sm:text-sm font-bold text-sky-400 truncate">
+                              Duplicate session #{dup.session_number ?? dupIdx + 1}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${badgeClasses}`}
+                              >
+                                <AlertCircle className="size-3 shrink-0" />
+                                <span>{dup.status}</span>
+                              </span>
+                              <span className="truncate text-xs font-medium text-slate-300">
+                                {dup.full_name}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <Link2 className="size-4 shrink-0 text-slate-400" />
+                      </>
+                    );
+
+                    return canJump ? (
+                      <button
+                        key={dup.session_id || `${dup.user_id}-${dupIdx}`}
+                        type="button"
+                        onClick={() => onSelectUserId?.(dup.user_id!)}
+                        title={`Inspect ${dup.full_name}'s registration profile`}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#0f1317] p-3 text-left transition-colors hover:border-sky-400/40 hover:bg-[#141a20] cursor-pointer"
+                      >
+                        {content}
+                      </button>
+                    ) : (
+                      <div
+                        key={dup.session_id || `${dup.user_id}-${dupIdx}`}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#0f1317] p-3"
+                      >
+                        {content}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+    ) : null}
     {canAssess && query.data.provider_review?.name_comparison ? <section className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
       <h4 className="font-semibold">Name read from the ID</h4>
       <dl className="grid gap-2 sm:grid-cols-2">
