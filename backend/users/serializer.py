@@ -160,9 +160,11 @@ class RegisterSerializer(serializers.ModelSerializer):
             "government_id_back",
             "government_id_pdf",
             "rsbsa_document",
+            "provider_capture",
         )
 
     password = serializers.CharField(write_only=True, trim_whitespace=False)
+    provider_capture = serializers.BooleanField(default=False, write_only=True)
 
     def validate_password(self, value):
         try:
@@ -267,6 +269,13 @@ class RegisterSerializer(serializers.ModelSerializer):
         pdf = attrs.get("government_id_pdf")
         legacy_file = attrs.get("government_id")
         id_type = attrs.get("government_id_type")
+        if attrs.get("provider_capture"):
+            from .identity_service import available
+            if not available():
+                raise serializers.ValidationError({"provider_capture": "Didit capture is unavailable. Reload registration to use manual ID submission."})
+            if any((front, back, pdf, legacy_file, id_type)):
+                raise serializers.ValidationError({"provider_capture": "Use Didit capture or manual ID upload, not both."})
+            return attrs
 
         if (front is None) != (back is None):
             raise serializers.ValidationError(
@@ -297,6 +306,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
+        validated_data.pop("provider_capture", None)
         gov_id_file = validated_data.pop("government_id", None)
         gov_id_type = validated_data.pop("government_id_type", None)
         gov_id_front = validated_data.pop("government_id_front", None)

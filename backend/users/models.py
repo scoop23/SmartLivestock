@@ -137,7 +137,8 @@ class IdentityVerificationAttempt(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="identity_attempts")
-    document = models.ForeignKey(UserDocument, on_delete=models.PROTECT)
+    # Hosted Didit capture does not create a duplicate local ID file.
+    document = models.ForeignKey(UserDocument, on_delete=models.PROTECT, null=True, blank=True)
     state = models.CharField(max_length=24, choices=State.choices, default=State.NOT_STARTED)
     provider_session_id = models.UUIDField(null=True, blank=True, unique=True)
     workflow_id = models.CharField(max_length=64, blank=True)

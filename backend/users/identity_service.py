@@ -202,6 +202,7 @@ def evidence(attempt):
     return {
         "id": str(attempt.pk), "state": attempt.state, "provider": "Didit",
         "environment": attempt.environment, "document_result": attempt.document_result,
+        "document_capture": "LOCAL_UPLOAD" if attempt.document_id else "DIDIT_HOSTED",
         "face_result": attempt.face_result, "liveness_result": attempt.liveness_result,
         "provider_reference": str(attempt.provider_session_id) if attempt.provider_session_id else None,
         "created_at": attempt.created_at, "updated_at": attempt.updated_at,

@@ -49,8 +49,6 @@ class StartSerializer(serializers.Serializer):
 
 def enroll(user):
     document = user.documents.exclude(document_type__in=["RSBSA", "BARANGAY_CERTIFICATE", "OTHER"]).first()
-    if not document:
-        raise serializers.ValidationError("Upload your government ID before starting verification.")
     return Attempt.objects.create(user=user, document=document, environment=settings.IDENTITY_ENVIRONMENT,
                                   workflow_id=settings.DIDIT_WORKFLOW_ID)
 
