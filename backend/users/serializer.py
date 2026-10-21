@@ -9,6 +9,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  # ty
 from django.db import transaction
 from django.db.models import Max
 from django.utils.timesince import timesince
+from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 from typing import cast
 
@@ -343,7 +344,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             account_status=User.AccountStatus.PENDING,
         )
 
-        Farmer.objects.create(
+        farmer_profile = Farmer.objects.create(
             user=user,
             barangay=validated_data["barangay"],
             farm_size=validated_data["farm_size"],
@@ -381,7 +382,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         from .notification_views import notify_role
         notify_role("MAO", title="Farmer account awaiting approval",
-                    message="A new farmer registration is awaiting account review.", link="/user-management")
+                    message="A new farmer registration is awaiting account review.", link="/user-management",
+                    related_entity_type="farmer_profile", related_entity_id=farmer_profile.pk)
 
         return user
 
@@ -618,6 +620,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     """
     type = serializers.CharField(source="notification_type")
     time_ago = serializers.SerializerMethodField()
+    related_barangay_name = serializers.SerializerMethodField()
     type_display = serializers.CharField(source="get_notification_type_display", read_only=True)
     priority_display = serializers.CharField(source="get_priority_display", read_only=True)
 
@@ -635,6 +638,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             "link",
             "related_entity_type",
             "related_entity_id",
+            "related_barangay_name",
             "created_at",
             "time_ago",
         )
@@ -648,5 +652,72 @@ class NotificationSerializer(serializers.ModelSerializer):
             return "Just now"
         parts = timesince(obj.created_at).split(",")
         return f"{parts[0]} ago"
+
+    def get_related_barangay_name(self, notification):
+        """Resolve the linked record's location for notifications that have one."""
+        entity_type = notification.related_entity_type
+        entity_id = notification.related_entity_id
+        if not entity_type or entity_id is None:
+            return None
+
+        try:
+            if entity_type in {"farmer", "farmer_profile"}:
+                farmer = Farmer.objects.select_related("barangay").get(pk=entity_id)
+                return farmer.barangay.barangay_name
+            if entity_type == "livestock_inventory":
+                from livestock.models import LivestockInventory
+                entity = LivestockInventory.objects.select_related("farmer__barangay").get(pk=entity_id)
+                return entity.farmer.barangay.barangay_name
+            if entity_type == "livestock_batch":
+                from livestock.models import LivestockBatch
+                entity = LivestockBatch.objects.select_related("farmer__barangay").get(pk=entity_id)
+                return entity.farmer.barangay.barangay_name
+            if entity_type == "production_record":
+                from production.models import ProductionRecord
+                entity = ProductionRecord.objects.select_related(
+                    "farmer_at_record__barangay", "livestock__farmer__barangay", "batch__farmer__barangay",
+                ).get(pk=entity_id)
+                farmer = entity.farmer_at_record or (entity.livestock.farmer if entity.livestock_id else entity.batch.farmer if entity.batch_id else None)
+                return farmer.barangay.barangay_name if farmer and farmer.barangay_id else None
+            if entity_type in {"disease_case", "mortality_record"}:
+                from diseases.models import DiseaseCase, MortalityRecord
+                model = DiseaseCase if entity_type == "disease_case" else MortalityRecord
+                entity = model.objects.select_related(
+                    "livestock__farmer__barangay", "batch__farmer__barangay",
+                ).get(pk=entity_id)
+                source = entity.livestock or entity.batch
+                return source.farmer.barangay.barangay_name if source and source.farmer_id else None
+            if entity_type == "livestock_sale":
+                from production.models import LiveAnimalSale
+                entity = LiveAnimalSale.objects.select_related(
+                    "livestock__farmer__barangay", "batch__farmer__barangay",
+                ).get(pk=entity_id)
+                source = entity.livestock or entity.batch
+                return source.farmer.barangay.barangay_name if source and source.farmer_id else None
+            if entity_type == "calving_record":
+                from production.models import CalvingRecord
+                entity = CalvingRecord.objects.select_related("dam__farmer__barangay").get(pk=entity_id)
+                return entity.dam.farmer.barangay.barangay_name
+            if entity_type == "census_submission":
+                from livestock.models import CensusSubmission
+                entity = CensusSubmission.objects.select_related("barangay").get(pk=entity_id)
+                return entity.barangay.barangay_name
+            if entity_type == "ownership_transfer":
+                from livestock.models import LivestockOwnershipTransfer
+                entity = LivestockOwnershipTransfer.objects.select_related("previous_owner__barangay").get(pk=entity_id)
+                return entity.previous_owner.barangay.barangay_name
+            if entity_type == "inspection":
+                from movements.models import LivestockInspection
+                entity = LivestockInspection.objects.select_related("shipper__barangay").get(pk=entity_id)
+                return entity.shipper.barangay.barangay_name if entity.shipper_id else None
+            if entity_type == "identity_verification":
+                from users.models import User
+                user = User.objects.select_related("farmer_profile__barangay", "assigned_barangay").get(pk=entity_id)
+                farmer = getattr(user, "farmer_profile", None)
+                barangay = farmer.barangay if farmer else user.assigned_barangay
+                return barangay.barangay_name if barangay else None
+        except (AttributeError, ObjectDoesNotExist):
+            return None
+        return None
 
 

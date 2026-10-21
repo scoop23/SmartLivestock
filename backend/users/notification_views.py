@@ -8,6 +8,54 @@ from users.serializer import NotificationSerializer
 from django.db.models import Q
 
 
+def _field_officer_notification_queryset(user, queryset):
+    """Hide record notifications outside a field officer's current jurisdiction.
+
+    Notifications are addressed once, when created. A later barangay reassignment
+    must not leave old record links visible in the officer's inbox.
+    """
+    role_name = getattr(getattr(user, "role", None), "role_name", "")
+    if role_name not in {"SIBAT", "CBAT"}:
+        return queryset
+
+    from diseases.models import DiseaseCase, MortalityRecord
+    from livestock.models import CensusSubmission, LivestockBatch, LivestockInventory, LivestockOwnershipTransfer
+    from movements.models import LivestockInspection
+    from production.models import CalvingRecord, LiveAnimalSale, ProductionRecord
+    from smartlivestock.workflows import scope_reviewer_queryset
+
+    scoped_record_ids = {
+        "production_record": scope_reviewer_queryset(ProductionRecord.objects.all(), user).values("pk"),
+        "livestock_inventory": scope_reviewer_queryset(LivestockInventory.objects.all(), user).values("pk"),
+        "livestock_batch": scope_reviewer_queryset(LivestockBatch.objects.all(), user).values("pk"),
+        "disease_case": scope_reviewer_queryset(DiseaseCase.objects.all(), user).values("pk"),
+        "mortality_record": scope_reviewer_queryset(MortalityRecord.objects.all(), user).values("pk"),
+        "livestock_sale": scope_reviewer_queryset(LiveAnimalSale.objects.all(), user).values("pk"),
+        "calving_record": scope_reviewer_queryset(CalvingRecord.objects.all(), user).values("pk"),
+        "census_submission": scope_reviewer_queryset(CensusSubmission.objects.all(), user).values("pk"),
+        "ownership_transfer": scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user).values("pk"),
+        "inspection": scope_reviewer_queryset(LivestockInspection.objects.all(), user).values("pk"),
+    }
+    # CBAT's role matrix grants field access to inventory, production, health,
+    # mortality, and batch records; SIBAT's current scope includes the full map.
+    allowed_types = set(scoped_record_ids)
+    if role_name == "CBAT":
+        allowed_types &= {
+            "production_record", "livestock_inventory", "livestock_batch",
+            "disease_case", "mortality_record",
+        }
+
+    allowed_records = Q()
+    for entity_type in allowed_types:
+        allowed_records |= Q(related_entity_type=entity_type, related_entity_id__in=scoped_record_ids[entity_type])
+
+    return queryset.filter(
+        Q(related_entity_type__isnull=True)
+        | ~Q(related_entity_type__in=scoped_record_ids)
+        | allowed_records
+    )
+
+
 def reviewer_recipients_for_barangay(barangay_id, *, include_cbat=False):
     """Current authorized officers, each returned once even if scopes overlap."""
     scope = Q(access_scope=User.AccessScope.ALL_BARANGAYS)
@@ -133,7 +181,10 @@ def get_notifications(request):
     except (ValueError, TypeError):
         limit = 30
 
-    queryset = Notification.objects.filter(user=user)
+    queryset = _field_officer_notification_queryset(
+        user,
+        Notification.objects.filter(user=user),
+    )
     unread_count = queryset.filter(is_read=False).count()
 
     if unread_only:

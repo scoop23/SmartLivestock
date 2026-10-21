@@ -38,7 +38,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { usePathname,useRouter } from "next/navigation";
-import { useEffect,useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 export type NotificationType =
@@ -59,6 +59,7 @@ export interface HeaderNotification {
   timeAgo: string;
   read: boolean;
   link?: string;
+  location?: string | null;
 }
 
 export interface HeaderNotificationsProps {
@@ -78,6 +79,7 @@ export interface BackendNotification {
   link?: string | null;
   related_entity_type?: string | null;
   related_entity_id?: number | null;
+  related_barangay_name?: string | null;
   created_at: string;
   time_ago: string;
 }
@@ -236,11 +238,11 @@ export const resolveNotificationLink = (
     }
   }
 
-  if (variant === "sibat") {
+  if (effectiveVariant === "sibat") {
     const reviewRoutes: Record<string, (id: number) => string> = {
       livestock_inventory: (id) => `/sibat?tab=inventory&reviewType=INVENTORY&reviewId=${id}`,
       livestock_batch: (id) => `/sibat?tab=inventory&reviewType=BATCH&reviewId=${id}`,
-      production_record: (id) => `/sibat?tab=production&reviewType=PRODUCTION&reviewId=${id}`,
+      production_record: (id) => `/sibat/production-records?reviewType=PRODUCTION&reviewId=${id}`,
       livestock_sale: (id) => `/sibat?tab=production&reviewType=SALE&reviewId=${id}`,
       calving_record: (id) => `/sibat?tab=calving&reviewType=CALVING&reviewId=${id}`,
       disease_case: (id) => `/sibat-alerts?recordType=DISEASE&recordId=${id}`,
@@ -354,64 +356,6 @@ const getSafeNotificationPath = (link: string | null | undefined): string | unde
   return link;
 };
 
-const DEMO_NOTIFICATIONS: HeaderNotification[] = [
-  {
-    id: "demo-dis-75",
-    type: "disease",
-    priority: "high",
-    title: "New Disease Report: DIS-75",
-    message: "Farmer Peter Comia reported excessive drooling, skin sores, and high fever for CAT-B812-01.",
-    date: "2026-10-18",
-    timeAgo: "3 days ago",
-    read: false,
-    link: "/sibat/reports/DIS-75",
-  },
-  {
-    id: "demo-dis-74",
-    type: "disease",
-    priority: "high",
-    title: "New Disease Report: DIS-74",
-    message: "Farmer Peter Comia reported high fever and lethargic for CAT-B812-02. Requires on-farm verification.",
-    date: "2026-10-18",
-    timeAgo: "3 days ago",
-    read: false,
-    link: "/sibat/reports/DIS-74",
-  },
-  {
-    id: "demo-mao-68",
-    type: "sibat",
-    priority: "medium",
-    title: "Report Sent to MAO",
-    message: "Mortality report DIS-68 was forwarded to the MAO for review.",
-    date: "2026-10-20",
-    timeAgo: "Yesterday",
-    read: false,
-    link: "/sibat/reports/DIS-68",
-  },
-  {
-    id: "demo-vac-18",
-    type: "vaccination",
-    priority: "low",
-    title: "Upcoming Vaccination Activity",
-    message: "Cattle vaccination in Brgy. Manggas is scheduled on Oct 18, 2026.",
-    date: "2026-10-19",
-    timeAgo: "2 days ago",
-    read: true,
-    link: "/sibat/field-activities",
-  },
-  {
-    id: "demo-mao-60",
-    type: "general",
-    priority: "low",
-    title: "Report Updated by MAO",
-    message: "Your submitted report DIS-60 has been reviewed.",
-    date: "2026-10-10",
-    timeAgo: "Oct 10, 2026",
-    read: true,
-    link: "/sibat/reports/DIS-60",
-  },
-];
-
 export function HeaderNotifications({
   variant = "admin",
   className = "",
@@ -423,16 +367,6 @@ export function HeaderNotifications({
   const notificationActionsPending = useIsMutating({ mutationKey: ["notification-actions"] }) > 0;
   const [filter, setFilter] = useState<"all" | "unread" | "action">("all");
   const [isOpen, setIsOpen] = useState(false);
-  const [demoReadIds, setDemoReadIds] = useState<Set<string>>(new Set(["demo-vac-18", "demo-mao-60"]));
-  const [demoDeletedIds, setDemoDeletedIds] = useState<Set<string>>(new Set());
-
-  // Clean up any legacy dummy data stored in client localStorage
-  useEffect(() => {
-    try {
-      localStorage.removeItem("smartlivestock_notifications_v1");
-    } catch { }
-  }, []);
-
   // Fetch real notifications from Django Backend
   const { data: backendData, isLoading } = useQuery<BackendNotificationsResponse | null>({
     queryKey: ["notifications"],
@@ -543,11 +477,9 @@ export function HeaderNotifications({
     },
   });
 
-  // Determine active notifications: real DB records or realistic demo fallback
-  const hasRealNotifications = Boolean(backendData?.notifications && backendData.notifications.length > 0);
-
-  const notifications: HeaderNotification[] = hasRealNotifications
-    ? (backendData?.notifications || []).map((n) => ({
+  // Notifications come only from the authenticated user's backend inbox.
+  // Static fallback cards can show another barangay's sample data as real alerts.
+  const notifications: HeaderNotification[] = (backendData?.notifications || []).map((n) => ({
         id: String(n.id),
         type: n.type,
         priority: n.priority,
@@ -557,15 +489,10 @@ export function HeaderNotifications({
         timeAgo: n.time_ago || "Just now",
         read: n.is_read,
         link: getSafeNotificationPath(resolveNotificationLink(n, variant, user?.role, pathname)),
-      }))
-    : DEMO_NOTIFICATIONS.filter((d) => !demoDeletedIds.has(d.id)).map((d) => ({
-        ...d,
-        read: demoReadIds.has(d.id) || d.read,
+        location: n.related_barangay_name,
       }));
 
-  const unreadCount = hasRealNotifications
-    ? (backendData?.unread_count ?? notifications.filter((n) => !n.read).length)
-    : notifications.filter((n) => !n.read).length;
+  const unreadCount = backendData?.unread_count ?? notifications.filter((n) => !n.read).length;
 
   const isActionRequired = (n: HeaderNotification) => {
     const title = n.title.toLowerCase();
@@ -586,9 +513,7 @@ export function HeaderNotifications({
   const actionCount = notifications.filter(isActionRequired).length;
 
   const handleMarkAsRead = (id: string, link?: string) => {
-    if (id.startsWith("demo-")) {
-      setDemoReadIds((prev) => new Set([...prev, id]));
-    } else if (!notificationActionsPending) {
+    if (!notificationActionsPending) {
       markReadMutation.mutate(id);
     }
     if (link) {
@@ -598,21 +523,12 @@ export function HeaderNotifications({
   };
 
   const handleMarkAllAsRead = () => {
-    if (!hasRealNotifications) {
-      setDemoReadIds(new Set(DEMO_NOTIFICATIONS.map((d) => d.id)));
-    } else {
-      markAllReadMutation.mutate();
-    }
+    markAllReadMutation.mutate();
   };
 
   const handleDeleteNotification = (id: string) => {
-    if (id.startsWith("demo-")) {
-      setDemoDeletedIds((prev) => new Set([...prev, id]));
-      toast.success("Notification removed.");
-    } else {
-      const numId = Number(id);
-      if (!isNaN(numId)) deleteMutation.mutate(numId);
-    }
+    const numId = Number(id);
+    if (!isNaN(numId)) deleteMutation.mutate(numId);
   };
 
   const filteredNotifications = notifications.filter((n) => {
@@ -622,6 +538,7 @@ export function HeaderNotifications({
   });
 
   const getNotificationLocation = (notif: HeaderNotification) => {
+    if (notif.location) return notif.location;
     const match =
       notif.message.match(/Brgy\.?\s+([A-Za-z\-]+)/i) ||
       notif.message.match(/Barangay\s+([A-Za-z\-]+)/i) ||
@@ -629,14 +546,14 @@ export function HeaderNotifications({
       notif.title.match(/Barangay\s+([A-Za-z\-]+)/i);
     if (match) return match[1];
 
-    const userBarangay =
-      (user as any)?.assigned_barangay_name ||
-      (user as any)?.assigned_barangay?.barangay_name ||
-      (user as any)?.barangay_name ||
-      (user as any)?.barangay?.barangay_name;
-    if (userBarangay) return userBarangay;
+    const role = user?.role?.toUpperCase();
+    if (role === "FARMER") return user?.barangay || "Location not specified";
+    if (role === "SIBAT" || role === "CBAT") {
+      if (user?.accessScope === "ALL_BARANGAYS") return "All barangays";
+      return user?.assignedBarangayName || "Unassigned";
+    }
 
-    return "Manggas";
+    return "Location not specified";
   };
 
   const getNotificationStatusBadge = (notif: HeaderNotification) => {
