@@ -24,16 +24,16 @@ Didit's [privacy policy](https://didit.me/terms/privacy-policy/) describes inter
 
 ## Data flow
 
-1. Existing registration uploads an ID and creates a pending farmer. With `IDENTITY_ENABLED=false`, the existing manual registration process applies.
-2. When enrollment is enabled, Django creates a `NOT_STARTED` attempt linked to that farmer and the existing registration document. The response includes a signed one-hour registration capability. This capability is accepted **only** by identity endpoints; it cannot log in or access portal APIs. The browser keeps it in session storage rather than a URL.
+1. When Didit is configured and available, registration uses explicit `provider_capture=true` and does not require or accept a duplicate local ID upload. The optional RSBSA attachment remains. Django accepts this mode only after checking the server's provider/privacy configuration. When disabled or unconfigured, the existing mandatory manual ID-upload validation applies.
+2. Django creates a pending farmer and, when enrollment is enabled, a `NOT_STARTED` attempt linked to that farmer. Its document relationship is optional for hosted capture; historical local-document links remain intact. The response includes a signed one-hour registration capability. This capability is accepted **only** by identity endpoints; it cannot log in or access portal APIs. The browser keeps it in session storage rather than a URL.
 3. The farmer sees a separate biometric notice and consent checkbox. Django checks the exact policy version and records consent time and the retention notice snapshot before creating a provider session. Permanent credentials stay on the server.
-4. The farmer explicitly opens Didit's hosted capture page, presents the same ID, and captures/retakes a selfie. Didit performs the configured document, passive-liveness and selfie-to-document portrait comparison. Camera permissions and capture-quality checks belong to the provider's maintained interface. SmartLivestock neither records video nor implements a local face detector.
-5. The hosted flow captures its own ID image. This is not a byte-for-byte binding to the earlier local upload. The UI explicitly tells human reviewers to inspect the registration ID; neither the code nor the demonstration should claim the two files are proven identical. No provider images or biometric templates are imported into SmartLivestock.
+4. The farmer explicitly opens Didit's hosted capture page, captures the government ID once, and captures/retakes a selfie. Didit performs the configured document, passive-liveness and selfie-to-document portrait comparison. Camera permissions and capture-quality checks belong to the provider's maintained interface. SmartLivestock neither records video nor implements a local face detector.
+5. No provider images or biometric templates are imported into SmartLivestock. Its reviewers see result summaries and the provider reference. MAO reviewers needing the actual hosted ID must use separately authorized Didit Business Console access. SmartLivestock roles do not automatically grant console access. For historical/manual uploads, existing secure local previews remain; any separate provider capture is not proven identical to the uploaded file. An incomplete capture requires alternative human ID inspection, not an assumed document check.
 6. Browser return parameters are not trusted. Django retrieves the decision from the fixed provider API host, verifies the provider session, workflow and opaque attempt reference, then extracts only result categories. It does not persist raw payloads, confidence scores, ID numbers, media URLs or face embeddings. No arbitrary thresholds were invented.
 7. A provider-approved result is `COMPLETED` only when all three feature categories passed in a live-configured attempt. Missing/inconclusive/declined checks require human review. Sandbox results never produce real-check completion. Provider completion never changes account or document approval.
 8. MAO records a reasoned assessment of the current evidence, including alternative checks where automation failed or was unavailable. The existing document-review and account-approval controls remain authoritative. The backend blocks approving an enrolled account until its current evidence has an MAO assessment. A changed result invalidates the assessment fingerprint, requiring reassessment without deleting the earlier event.
 
-CBAT/SIBAT can open the registration-evidence dialog on their field dashboard and view only assigned-barangay farmers (or all barangays when explicitly granted). They can preview the same protected documents and read attempt history but cannot record MAO assessments, approve documents, or approve accounts. MAO sees the evidence inside the existing user-management review dialog. Notifications use existing municipal and scoped field-recipient services.
+CBAT/SIBAT can open the registration-evidence dialog on their field dashboard and view only assigned-barangay farmers (or all barangays when explicitly granted). They can preview any separately uploaded protected documents and read result summaries/history, but cannot record MAO assessments, approve documents, or approve accounts. Hosted ID images are not exposed by this application. MAO sees the evidence inside the existing user-management review dialog. Notifications use existing municipal and scoped field-recipient services.
 
 ## Configuration before any real capture
 
@@ -101,6 +101,15 @@ Attempts are limited by a per-user hourly throttle and a database-enforced three
 - This report, the README link, and root `.gitignore` for private files and isolated test artifacts.
 
 ## Verification results
+
+Hosted-capture update (21 October): 24 targeted backend tests passed using mocked
+provider responses, including no-upload registration/session creation and rejection
+of disabled/unconfigured provider bypasses. TypeScript and Django checks passed.
+Mocked browser checks passed at 375/390/414/1280px, with the registration card
+visually inspected at 390px; the multipart submission contains no duplicate ID
+files. Migration 0026 permits the optional document relationship and was applied
+only to the isolated test database. It must be applied on deployment. Live Didit
+capture, document support, console-image review and callbacks remain unverified.
 
 - Django `check`: passed. Migration drift check: passed; migrations also applied successfully to the isolated test database.
 - `manage.py test users.test_identity_verification users.tests users.test_access_scope users.test_r2_storage --noinput`: **79 passed**. Provider requests are mocked. An initial Windows test cleanup error from an unclosed test stream was fixed; the rerun passed. The final focused identity run passed **22 tests**, including the additional privacy-notice-change guard (these overlap the regression run; do not add the counts together).
