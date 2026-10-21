@@ -40,6 +40,8 @@ async function run() {
     if (url.hostname === "verify.didit.me") return route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Mock external capture destination</h1>" });
     if (url.pathname === "/api/users/register/") {
       if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+      assert.match(request.postData(), /name="provider_capture"\r?\n\r?\ntrue/);
+      assert.doesNotMatch(request.postData(), /name="government_id_(front|back|pdf|type)"/);
       registrations += 1;
       return respond(201, { identity_verification: { required: true, access_token: "synthetic-issued-token" } });
     }
@@ -58,7 +60,7 @@ async function run() {
       await page.getByText(/If camera access is denied/).waitFor();
       await page.screenshot({ path: path.join(artifacts, `capture-${width}.png`), fullPage: true });
     }
-    await page.getByRole("checkbox").check();
+    await page.getByRole("checkbox", { name: /I have read this notice/ }).check();
     await page.getByRole("button", { name: "Resume / retake capture" }).click();
     await page.waitForURL("https://verify.didit.me/session/synthetic");
     assert.equal(starts.at(-1).consent, true);
@@ -67,7 +69,7 @@ async function run() {
     current = { ...baseAttempt, state: "RETRY_REQUIRED" };
     await page.goto(origin + "/farmer-registration/identity");
     await page.getByRole("button", { name: "Retry ID and selfie capture" }).waitFor();
-    await page.getByRole("checkbox").check();
+    await page.getByRole("checkbox", { name: /I have read this notice/ }).check();
     await page.getByRole("button", { name: "Retry ID and selfie capture" }).click();
     await page.waitForURL("https://verify.didit.me/session/synthetic");
     assert.equal(starts.at(-1).retry, true);
@@ -96,23 +98,20 @@ async function run() {
     await page.locator("#password").fill("SyntheticPassword123!");
     await page.locator("#confirmPassword").fill("SyntheticPassword123!");
     await page.getByRole("button", { name: "Proceed to Farm Details" }).click();
-    await page.locator("#barangay").selectOption("1");
+    await page.locator("#barangay").click();
+    await page.getByRole("option", { name: "Synthetic Barangay" }).click();
     await page.locator("#farmSize").fill("1.5");
     await page.locator("#address").fill("Synthetic test location");
     await page.getByRole("button", { name: "Proceed to Documents & Consent" }).click();
-    await page.locator("#governmentIdType").selectOption("PASSPORT");
-    const photos = page.locator('input[type="file"][accept="image/jpeg,image/png,image/webp"]');
-    await photos.nth(0).setInputFiles({ name: "bad.exe", mimeType: "application/octet-stream", buffer: Buffer.from("not-image") });
-    await page.getByText("Front and back ID uploads must be image files.").waitFor();
-    const image = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ3sAAAAASUVORK5CYII=", "base64");
-    await photos.nth(0).setInputFiles({ name: "synthetic-front.png", mimeType: "image/png", buffer: image });
-    await photos.nth(1).setInputFiles({ name: "synthetic-back.png", mimeType: "image/png", buffer: image });
+    await page.getByRole("heading", { name: "Government ID and selfie with Didit" }).waitFor();
+    assert.equal(await page.locator("#governmentIdType").count(), 0);
+    await page.screenshot({ path: path.join(artifacts, "hosted-registration-390.png"), fullPage: true });
     await page.getByRole("checkbox").check();
-    await page.getByRole("button", { name: "Complete Registration" }).click();
+    await page.getByRole("button", { name: "Continue to ID & Selfie" }).click();
     await page.waitForURL(origin + "/farmer-registration/identity");
     assert.equal(registrations, 1);
     assert.equal(await page.evaluate(() => sessionStorage.getItem("registration-identity-session")), "synthetic-issued-token");
-    console.log("PASS: registration progression and upload validation, consent gate, capture/resume link, retake retry, human-review outcomes, safe failure/expiry messaging, and 375/390/414/1280px layouts (mocked APIs).");
+    console.log("PASS: hosted registration without duplicate ID upload, consent gate, capture/resume link, retake retry, human-review outcomes, safe failure/expiry messaging, and 375/390/414/1280px layouts (mocked APIs).");
   } finally {
     await context.close();
     await browser.close();

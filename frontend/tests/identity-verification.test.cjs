@@ -37,7 +37,9 @@ test("provider destination blocks malicious origins, URL credentials and clearte
 test("a completed check still requires human assessment; sandbox never claims real verification", () => {
   assert.match(exportsObject.identityMessage({ state: "COMPLETED", environment: "live" }), /MAO must still assess/);
   assert.match(exportsObject.identityMessage({ state: "COMPLETED", environment: "sandbox" }), /No real identity or liveness/);
-  assert.match(exportsObject.identityMessage(null), /not been completed/);
+  assert.match(exportsObject.identityMessage(null), /No identity-check result/);
+  assert.match(exportsObject.identityMessage({ state: "NOT_STARTED", document_capture: "DIDIT_HOSTED" }), /capture have not started/);
+  assert.doesNotMatch(exportsObject.identityMessage({ state: "NOT_STARTED", document_capture: "DIDIT_HOSTED" }), /ID uploaded/);
 });
 
 test("inconclusive, timeout and expired states give recovery without rejection", () => {

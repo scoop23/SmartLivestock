@@ -102,6 +102,40 @@ class IdentityVerificationTests(APITestCase):
         self.assertIn("identity_verification", response.data)
         self.assertEqual(self.client.post("/api/users/register/", {**payload, "government_id_pdf": pdf_file()}, format="multipart").status_code, 400)
 
+    def test_hosted_capture_registers_pending_without_duplicate_id_upload(self):
+        self.client.credentials()
+        payload = {"email": "hosted@example.test", "password": "SyntheticPass123!", "first_name": "Test",
+                   "last_name": "Hosted", "phone_number": "+639123456789", "barangay": self.barangay.pk,
+                   "farm_size": "1.00", "address": "Synthetic", "provider_capture": True}
+        response = self.client.post("/api/users/register/", payload, format="multipart")
+        self.assertEqual(response.status_code, 201, response.data)
+        user = User.objects.get(email=payload["email"])
+        self.assertEqual(user.account_status, "PENDING")
+        self.assertFalse(user.documents.exists())
+        self.assertIsNone(user.identity_attempts.first().document_id)
+        self.client.credentials(HTTP_AUTHORIZATION="Identity " + response.data["identity_verification"]["access_token"])
+        status = self.client.get("/api/users/identity/status/")
+        self.assertEqual(status.data["attempt"]["document_capture"], "DIDIT_HOSTED")
+        with patch("users.identity_service.provider_request", side_effect=self.provider):
+            started = self.client.post("/api/users/identity/start/", {"consent": True, "policy_version": "test-v1"})
+        self.assertEqual(started.status_code, 201, started.data)
+        user.refresh_from_db()
+        self.assertEqual(user.account_status, "PENDING")
+
+    def test_hosted_capture_cannot_bypass_missing_provider_or_manual_id_requirements(self):
+        self.client.credentials()
+        payload = {"email": "blocked@example.test", "password": "SyntheticPass123!", "first_name": "Test",
+                   "last_name": "Hosted", "phone_number": "+639123456789", "barangay": self.barangay.pk,
+                   "farm_size": "1.00", "address": "Synthetic", "provider_capture": True}
+        for configuration in ({"IDENTITY_ENABLED": False}, {"DIDIT_API_KEY": ""}, {"IDENTITY_RETENTION_NOTICE": ""}):
+            with self.subTest(configuration=configuration), override_settings(**configuration):
+                self.assertEqual(self.client.post("/api/users/register/", payload, format="multipart").status_code, 400)
+        payload["provider_capture"] = False
+        self.assertEqual(self.client.post("/api/users/register/", payload, format="multipart").status_code, 400)
+        payload.update(provider_capture=True, government_id_type="PASSPORT", government_id_pdf=pdf_file())
+        self.assertEqual(self.client.post("/api/users/register/", payload, format="multipart").status_code, 400)
+        self.assertFalse(User.objects.filter(email=payload["email"]).exists())
+
     def test_upload_rejects_spoofed_content_malformed_pdf_and_oversized_file(self):
         from .document_security import validate_document
         from rest_framework.exceptions import ValidationError
