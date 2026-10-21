@@ -17,8 +17,14 @@ from pathlib import Path
 from datetime import timedelta
 import dj_database_url
 
-# Load environment variables from .env file (DEBUG, SECRET_KEY, DATABASE_PASS)
-load_dotenv()
+# Local mode can select a separate ignored env file so changing environments does
+# not require editing the Render credentials in backend/.env. Paths are resolved
+# from the backend working directory used by manage.py.
+ENV_FILE = os.environ.get("SMARTLIVESTOCK_ENV_FILE")
+if ENV_FILE:
+    load_dotenv(ENV_FILE, override=True)
+else:
+    load_dotenv()
 
 sys_debug = os.environ.get("DEBUG")
 BASE_DIR = Path(__file__).resolve().parent.parent
