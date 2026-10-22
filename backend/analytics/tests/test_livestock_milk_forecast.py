@@ -8,9 +8,10 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
+from analytics.services.predictive.livestock_milk import _feature_rows
 from analytics.views import livestock_milk_forecast
 from livestock.models import Barangay, Farmer, LivestockInventory, LivestockType
-from production.models import ProductionRecord
+from production.models import ProductionRecord, WeightRecord
 from users.models import Role, User
 
 
@@ -94,6 +95,52 @@ class LivestockMilkForecastApiTests(TestCase):
         self.assertEqual(forecast_dates, [forecast_dates[0] + timedelta(days=offset) for offset in range(7)])
         self.assertGreaterEqual(response.data["evaluation"]["train_samples"], 20)
         self.assertGreaterEqual(response.data["evaluation"]["test_samples"], 10)
+
+    def test_forecast_receives_this_cows_dated_weight_history(self):
+        self._add_daily_milk_history()
+        weighing_date = timezone.localdate() - timedelta(days=2)
+        WeightRecord.objects.create(
+            livestock=self.cow,
+            weight=Decimal("312.50"),
+            weighing_date=weighing_date,
+            created_by=self.user_a,
+        )
+
+        with patch(
+            "analytics.services.predictive.livestock_milk.forecast_livestock_milk",
+            return_value={"status": "READY"},
+        ) as forecast:
+            response = self._request(self.user_a)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(forecast.call_args.kwargs["weight_records"], [{
+            "weight_kg": 312.5,
+            "weighing_date": weighing_date,
+            "recorded_date": timezone.localdate(),
+        }])
+
+    def test_training_weight_feature_ignores_same_day_future_and_late_entered_weigh_ins(self):
+        start = timezone.localdate() - timedelta(days=10)
+        daily_records = [
+            {"date": start + timedelta(days=index), "milk_liters": 8.0 + index / 10}
+            for index in range(8)
+        ]
+        target_date = daily_records[-1]["date"]
+        weight_records = [
+            {"weight_kg": 270, "weighing_date": start + timedelta(days=3), "recorded_date": start + timedelta(days=3)},
+            {"weight_kg": 285, "weighing_date": start + timedelta(days=5), "recorded_date": start + timedelta(days=5)},
+            # The milk target is a full day's total, so same-day weigh-ins are excluded too.
+            {"weight_kg": 290, "weighing_date": start + timedelta(days=7), "recorded_date": start + timedelta(days=7)},
+            # Backdated measurements entered after the target were not known then.
+            {"weight_kg": 300, "weighing_date": start + timedelta(days=6), "recorded_date": start + timedelta(days=9)},
+            {"weight_kg": 400, "weighing_date": start + timedelta(days=9), "recorded_date": start + timedelta(days=9)},
+        ]
+
+        frame = _feature_rows(self.cow, daily_records, [], {}, weight_records)
+
+        self.assertEqual(target_date, start + timedelta(days=7))
+        self.assertEqual(frame.iloc[0]["weight_kg"], 285)
+        self.assertEqual(frame.iloc[0]["days_since_weighing"], 2)
 
     def test_farmer_cannot_access_another_farmers_cow_or_former_owners_history(self):
         self._add_daily_milk_history()

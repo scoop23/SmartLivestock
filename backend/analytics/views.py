@@ -494,7 +494,7 @@ def _livestock_milk_forecast_response(request, livestock_id):
     """
     from django.db.models import Q, Sum
     from livestock.models import LivestockInventory
-    from production.models import CalvingRecord, ProductionRecord
+    from production.models import CalvingRecord, ProductionRecord, WeightRecord
     from smartlivestock.workflows import require_action, role_name
     from .services.predictive.livestock_milk import forecast_livestock_milk
 
@@ -618,6 +618,25 @@ def _livestock_milk_forecast_response(request, livestock_id):
     )
     calving_events = [(calving_date, reviewed_at.date()) for calving_date, reviewed_at in calving_events]
 
+    # Use dated weigh-ins only. LivestockInventory.weight is the latest value
+    # without a history timestamp, so it cannot safely train historical rows.
+    weight_records = [
+        {
+            "weight_kg": float(row["weight"]),
+            "weighing_date": row["weighing_date"],
+            "recorded_date": timezone.localtime(row["created_at"]).date(),
+        }
+        for row in (
+            WeightRecord.objects.filter(
+                livestock=animal,
+                weighing_date__lte=timezone.localdate(),
+                created_at__date__lte=timezone.localdate(),
+            )
+            .order_by("-weighing_date", "-created_at", "-pk")
+            .values("weight", "weighing_date", "created_at")
+        )
+    ]
+
     # Weather is fetched only when the real milk history is otherwise forecast-ready.
     # Open-Meteo gets the farmer's barangay centroid, not private farm coordinates.
     weather_rows = {}
@@ -643,6 +662,7 @@ def _livestock_milk_forecast_response(request, livestock_id):
         calving_events,
         weather_rows=weather_rows,
         weather_message=weather_message,
+        weight_records=weight_records,
     )
     from analytics.models import IndividualMilkDemoCow
     from analytics.seed_markers import SEED_MARKER_INDIVIDUAL_MILK_DEMO

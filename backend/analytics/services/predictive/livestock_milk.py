@@ -19,20 +19,38 @@ MIN_REAL_HISTORY_DAYS = 60
 NUMERIC_FEATURES = [
     "lag_1", "lag_2", "lag_3", "lag_7", "rolling_mean_3", "rolling_mean_7",
     "day_of_week", "month", "age_years", "days_since_calving",
+    "weight_kg", "days_since_weighing",
     "prior_day_temperature_c", "prior_day_humidity_pct", "prior_day_precipitation_mm",
 ]
 CATEGORICAL_FEATURES = ["breed", "sex"]
 
 
-def _feature_rows(livestock, daily_records, calving_events, weather_rows):
+def _weight_as_of(weight_records, target_date):
+    """Return the latest weight measured and recorded before the target date."""
+    available = [
+        item for item in weight_records
+        if item["weighing_date"] < target_date and item["recorded_date"] < target_date
+    ]
+    if not available:
+        return {"weight_kg": np.nan, "days_since_weighing": np.nan}
+
+    latest = max(available, key=lambda item: (item["weighing_date"], item["recorded_date"]))
+    return {
+        "weight_kg": float(latest["weight_kg"]),
+        "days_since_weighing": (target_date - latest["weighing_date"]).days,
+    }
+
+
+def _feature_rows(livestock, daily_records, calving_events, weather_rows, weight_records=None):
     """Build each training row from earlier recorded milk values and known animal facts."""
     rows = []
     yields = [float(record["milk_liters"]) for record in daily_records]
     dates = [record["date"] for record in daily_records]
 
-    # The current weight has no historical timestamp, so exclude it to avoid future-data leakage.
-    # Each target day becomes a training example; the previous yields are inputs,
-    # and that day's yield is the value the model learns to estimate.
+    # Each target day becomes a training example; only information available by
+    # that date becomes an input, and that day's yield is the prediction target.
+    # Timestamped weigh-ins are aligned as-of the target date to prevent leakage.
+    weight_records = weight_records or []
     for index in range(7, len(daily_records)):
         target_date = dates[index]
         # A calving event is usable only after its approval was visible at the target cutoff.
@@ -45,6 +63,7 @@ def _feature_rows(livestock, daily_records, calving_events, weather_rows):
         # Weather from the preceding date was already observable before this day's
         # milk target, avoiding use of same-day/future weather during training.
         prior_weather = weather_rows.get((target_date - timedelta(days=1)).isoformat(), {})
+        weight_context = _weight_as_of(weight_records, target_date)
         rows.append({
             "date": target_date,
             "milk_liters": yields[index],
@@ -58,6 +77,7 @@ def _feature_rows(livestock, daily_records, calving_events, weather_rows):
             "month": target_date.month,
             "age_years": _age_years(livestock.birth_date, target_date),
             "days_since_calving": _days_since_calving(calving_date, target_date),
+            **weight_context,
             "prior_day_temperature_c": prior_weather.get("temperature_c"),
             "prior_day_humidity_pct": prior_weather.get("humidity_pct"),
             "prior_day_precipitation_mm": prior_weather.get("precipitation_mm"),
@@ -105,7 +125,9 @@ def _evaluate(frame, numeric_features):
     }
 
 
-def forecast_livestock_milk(livestock, daily_records, calving_events, weather_rows=None, weather_message=None):
+def forecast_livestock_milk(
+    livestock, daily_records, calving_events, weather_rows=None, weather_message=None, weight_records=None,
+):
     """Return an honest readiness result or a cow-specific seven-day forecast."""
     # Start with NOT_READY so every early return clearly tells the API/UI why a
     # forecast cannot yet be offered instead of returning an empty success.
@@ -154,7 +176,7 @@ def forecast_livestock_milk(livestock, daily_records, calving_events, weather_ro
         },
         "limitations": (
             "Experimental estimate based on this animal's approved records. It is not a guaranteed biological prediction. "
-            "Current weight is excluded because the inventory field has no historical timestamp. Disease history is excluded because available events are not reliably time-aligned to daily milk records; feed, pregnancy, and milking frequency are not modeled."
+            "Historical weight uses the latest weigh-in measured and recorded before each target date; its age is also provided to the model. Disease history is excluded because available events are not reliably time-aligned to daily milk records; feed, pregnancy, and milking frequency are not modeled."
         ),
     }
     if len(daily_records) < MIN_REAL_HISTORY_DAYS:
@@ -168,7 +190,8 @@ def forecast_livestock_milk(livestock, daily_records, calving_events, weather_ro
         result["reason"] = "The latest approved milk record is more than seven days old. Record current production before forecasting the coming week."
         return result
 
-    frame = _feature_rows(livestock, daily_records, calving_events, weather_rows)
+    weight_records = weight_records or []
+    frame = _feature_rows(livestock, daily_records, calving_events, weather_rows, weight_records)
     # A characteristic is included only when the cow has real values for it.
     numeric_features = [name for name in NUMERIC_FEATURES if frame[name].notna().any()]
     feature_columns = numeric_features + CATEGORICAL_FEATURES
@@ -177,6 +200,10 @@ def forecast_livestock_milk(livestock, daily_records, calving_events, weather_ro
         features_used.append("Age derived from recorded birth date")
     if "days_since_calving" in numeric_features:
         features_used.append("Days since last approved calving")
+    if "weight_kg" in numeric_features:
+        features_used.append("Historical recorded weight (kg)")
+    if "days_since_weighing" in numeric_features:
+        features_used.append("Days since latest recorded weigh-in")
     weather_features = {
         "prior_day_temperature_c": "Previous-day mean temperature from Open-Meteo",
         "prior_day_humidity_pct": "Previous-day mean relative humidity from Open-Meteo",
@@ -255,6 +282,7 @@ def forecast_livestock_milk(livestock, daily_records, calving_events, weather_ro
                 "month": target_date.month,
                 "age_years": _age_years(livestock.birth_date, target_date),
                 "days_since_calving": _days_since_calving(target_calving, target_date),
+                **_weight_as_of(weight_records, target_date),
                 "prior_day_temperature_c": prior_weather.get("temperature_c"),
                 "prior_day_humidity_pct": prior_weather.get("humidity_pct"),
                 "prior_day_precipitation_mm": prior_weather.get("precipitation_mm"),
