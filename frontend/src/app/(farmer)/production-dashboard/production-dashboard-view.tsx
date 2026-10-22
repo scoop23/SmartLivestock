@@ -142,8 +142,6 @@ export default function ProductionDashboardView({
   } = useQuery<ProductionRecordItem[]>({
     queryKey: ["production_records"],
     queryFn: fetchProductionRecords,
-    // Focused record forms do not render production analytics, so skip their query.
-    enabled: !(focusedActivity && focusedMode === "record"),
   });
 
   // Fetch Calving Records
@@ -890,6 +888,8 @@ export default function ProductionDashboardView({
         onClose={handleWizardClose}
         mode={editingRecord ? "edit" : "create"}
         editingRecord={editingRecord}
+        productionRecords={productionRecords}
+        isLoadingProductionRecords={isRecordsLoading}
         fixedProductionType={
           focusedActivity && ["milk", "meat", "eggs", "wool"].includes(focusedActivity)
             ? focusedActivity as ProductionType

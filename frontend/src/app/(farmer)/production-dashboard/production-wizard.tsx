@@ -65,6 +65,8 @@ interface ProductionWizardProps {
   onClose: () => void;
   mode: WizardMode;
   editingRecord: Partial<ProductionRecordItem> | null;
+  productionRecords: ProductionRecordItem[];
+  isLoadingProductionRecords: boolean;
   /** Start at the details stage when the caller already fixed the animal and production type. */
   profileMode?: boolean;
   /** Keep a wizard opened from a specific activity on that activity's type. */
@@ -184,6 +186,8 @@ function ProductionWizardContent({
   onClose,
   mode,
   editingRecord,
+  productionRecords,
+  isLoadingProductionRecords,
   profileMode = false,
   fixedProductionType,
 }: ProductionWizardProps) {
@@ -210,6 +214,25 @@ function ProductionWizardContent({
       })
     : approvedInventories;
   const meta = typeMeta[productionType] ?? typeMeta[availableTypes[0]] ?? typeMeta.milk;
+
+  const milkHistory = clickedInventory?.entryType === "INDIVIDUAL"
+    ? productionRecords.filter((record) =>
+        record.livestockId === Number(clickedInventory.id)
+        && record.productionType === "milk"
+        && record.status === "APPROVED"
+        && record.id !== editingRecord?.id
+        && record.recordDate < String(formState.prodDate ?? new Date().toISOString().slice(0, 10)),
+      )
+    : [];
+  const milkHistoryDates = [...new Set(milkHistory.map((record) => record.recordDate))].sort();
+  const milkHistoryDays = milkHistoryDates.length;
+  const milkHistoryProgress = Math.min(milkHistoryDays, 5);
+  const latestMilkDate = milkHistoryDates[milkHistoryDates.length - 1];
+  const assessmentDate = new Date(`${String(formState.prodDate ?? new Date().toISOString().slice(0, 10))}T00:00:00Z`);
+  const latestHistoryDate = latestMilkDate ? new Date(`${latestMilkDate}T00:00:00Z`) : null;
+  const milkHistoryGapDays = latestHistoryDate
+    ? Math.floor((assessmentDate.getTime() - latestHistoryDate.getTime()) / 86_400_000)
+    : null;
 
   const handleSelectInventory = (item: LivestockInventoryItem | null) => {
     onSelectInventory(item);
@@ -580,6 +603,39 @@ function ProductionWizardContent({
                   />
                 </div>
               </div>
+
+              {productionType === "milk" && clickedInventory?.entryType === "INDIVIDUAL" && (
+                <section className="space-y-2.5 rounded-xl border border-sky-200 bg-sky-50/70 p-3.5" aria-label="Milk anomaly assessment readiness">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-bold text-sky-950">Milk anomaly assessment readiness</p>
+                    <span className="text-xs font-bold text-sky-900">
+                      {isLoadingProductionRecords ? "Loading…" : `${milkHistoryProgress}/5 days`}
+                    </span>
+                  </div>
+                  <div
+                    role="progressbar"
+                    aria-label="Approved milk history days"
+                    aria-valuemin={0}
+                    aria-valuemax={5}
+                    aria-valuenow={isLoadingProductionRecords ? 0 : milkHistoryProgress}
+                    className="h-2 overflow-hidden rounded-full bg-sky-100"
+                  >
+                    <div
+                      className="h-full rounded-full bg-sky-600 transition-[width] duration-300"
+                      style={{ width: `${isLoadingProductionRecords ? 0 : (milkHistoryProgress / 5) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs leading-relaxed text-sky-900">
+                    {isLoadingProductionRecords
+                      ? "Checking this animal’s approved milk history."
+                      : milkHistoryDays < 5
+                        ? `Add ${5 - milkHistoryDays} more distinct approved milk ${5 - milkHistoryDays === 1 ? "day" : "days"} before a cow-specific anomaly assessment can run. Standard review still applies.`
+                        : milkHistoryGapDays !== null && milkHistoryGapDays > 45
+                          ? `The five-day minimum is met, but the latest approved milk record is ${milkHistoryGapDays} days before this entry. History must be within 45 days for automated assessment.`
+                          : "The five-day minimum is met. The system will check history recency and valid values before assessing this entry."}
+                  </p>
+                </section>
+              )}
 
               {productionType === "meat" && (
                 <div className="space-y-3">

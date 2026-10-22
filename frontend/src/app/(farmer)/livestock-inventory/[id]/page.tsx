@@ -2,7 +2,7 @@
 
 import { httpError } from "@/lib/http-error";
 import { printElement } from "@/lib/print-element";
-import type { ProductionType } from "@/app/(farmer)/production-dashboard/production-analytics";
+import type { ProductionRecordItem, ProductionType } from "@/app/(farmer)/production-dashboard/production-analytics";
 import {
 getBirthingTerminology,
 type CalvingRecordItem,
@@ -294,7 +294,7 @@ export default function LivestockDetailPage() {
   });
 
   // 4. Real Production Records (Milk / Meat / Eggs / Wool) from Backend API
-  const { data: allProductionRecords = [] } = useQuery<ApiProductionRecord[]>({
+  const { data: allProductionRecords = [], isLoading: isProductionRecordsLoading } = useQuery<ApiProductionRecord[]>({
     queryKey: ["production_records"],
     queryFn: async () => {
       try {
@@ -1684,6 +1684,21 @@ export default function LivestockDetailPage() {
         onClose={() => setIsProductionDialogOpen(false)}
         mode="create"
         editingRecord={null}
+        productionRecords={allProductionRecords.map((record): ProductionRecordItem => ({
+          id: record.id,
+          livestockId: record.livestock,
+          productionType: (record.production_type ?? "milk").toLowerCase() as ProductionType,
+          quantity: Number(record.quantity) || 0,
+          unit: record.unit,
+          recordDate: record.record_date,
+          notes: record.notes ?? "",
+          status: record.status as ProductionRecordItem["status"],
+          farmerName: null,
+          livestockTypeName: null,
+          reviewRemarks: record.review_remarks ?? null,
+          createdAt: record.created_at,
+        }))}
+        isLoadingProductionRecords={isProductionRecordsLoading}
       />
 
       <ProductionSubmissionSuccessDialog
