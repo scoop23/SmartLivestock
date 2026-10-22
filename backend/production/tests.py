@@ -61,6 +61,79 @@ class ProductionRecordAPITests(APITestCase):
             record_date=date(2026, 1, 1), created_by=self.farmer_user,
         )
 
+    def _valid_submission_payload(self):
+        chicken, _ = LivestockType.objects.get_or_create(name="Chicken")
+        animal = LivestockInventory.objects.create(
+            farmer=self.farmer, livestock_type=chicken, quantity=1,
+            created_by=self.farmer_user, status=LivestockInventory.StatusType.APPROVED,
+        )
+        return {
+            "livestock": animal.pk,
+            "production_type": "EGGS",
+            "quantity": "5.00",
+            "unit": "PIECES",
+            "record_date": "2026-01-02",
+        }
+
+    def test_farmer_submission_saves_record_and_creates_reviewer_notification(self):
+        self.client.force_authenticate(user=self.farmer_user)
+
+        response = self.client.post("/production/records/", self._valid_submission_payload())
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(ProductionRecord.objects.count(), 2)
+        notification = Notification.objects.get(
+            user=self.sibat_user,
+            related_entity_type="production_record",
+            related_entity_id=response.data["id"],
+        )
+        self.assertEqual(notification.title, "New Production Entry Awaiting Verification")
+
+    def test_notification_failure_reports_saved_record_without_duplicate_creation(self):
+        from unittest.mock import patch
+
+        self.client.force_authenticate(user=self.farmer_user)
+
+        def fail_after_record_is_saved(*args, **kwargs):
+            self.assertEqual(ProductionRecord.objects.count(), 2)
+            raise RuntimeError("controlled notification failure")
+
+        with patch("production.views._notify_production_route", side_effect=fail_after_record_is_saved):
+            response = self.client.post("/production/records/", self._valid_submission_payload())
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data["notification_status"], "failed")
+        self.assertIn("Do not resubmit", response.data["notification_detail"])
+        self.assertTrue(response.data["notification_diagnostic_id"])
+        self.assertEqual(ProductionRecord.objects.count(), 2)
+        self.assertTrue(ProductionRecord.objects.filter(pk=response.data["id"]).exists())
+
+    def test_invalid_submission_does_not_save_or_create_notification(self):
+        from unittest.mock import patch
+
+        self.client.force_authenticate(user=self.farmer_user)
+        payload = self._valid_submission_payload()
+        payload["quantity"] = "0"
+
+        with patch("production.views._notify_production_route") as notify:
+            response = self.client.post("/production/records/", payload)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(ProductionRecord.objects.count(), 1)
+        notify.assert_not_called()
+
+    def test_persistence_failure_still_returns_server_error(self):
+        from unittest.mock import patch
+
+        self.client.force_authenticate(user=self.farmer_user)
+
+        with patch("production.views.ProductionRecordSerializer.save", side_effect=IntegrityError):
+            response = self.client.post("/production/records/", self._valid_submission_payload())
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.data["stage"], "save")
+        self.assertEqual(ProductionRecord.objects.count(), 1)
+
     def test_farmer_can_edit_and_delete_pending_record(self):
         self.client.force_authenticate(user=self.farmer_user)
         response = self.client.patch(

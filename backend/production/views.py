@@ -120,32 +120,44 @@ def production_record_list_create(request):
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        failure_stage = "save"
         try:
             record = serializer.save()
-            if role_name(request.user) == "FARMER":
-                failure_stage = "notification"
-                _notify_production_route(record, request.user, is_resubmission=False)
-            failure_stage = "response"
-            return Response(serializer.data, status=201)
         except Exception:
             diagnostic_id = uuid.uuid4().hex[:12]
-            logger.exception(
-                "Production record POST failed (diagnostic_id=%s, stage=%s)",
+            logger.error(
+                "Production record persistence failed (diagnostic_id=%s)",
                 diagnostic_id,
-                failure_stage,
             )
             return Response(
                 {
-                    "detail": (
-                        f"Production record save failed during {failure_stage}. "
-                        "Check whether the record was created before retrying."
-                    ),
+                    "detail": "Production record could not be saved. Do not retry until the error is resolved.",
                     "diagnostic_id": diagnostic_id,
-                    "stage": failure_stage,
+                    "stage": "save",
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+        record_data = serializer.data
+        if role_name(request.user) == "FARMER":
+            try:
+                _notify_production_route(record, request.user, is_resubmission=False)
+            except Exception as error:
+                diagnostic_id = uuid.uuid4().hex[:12]
+                logger.error(
+                    "Production record notification failed (diagnostic_id=%s, error_type=%s)",
+                    diagnostic_id,
+                    type(error).__name__,
+                )
+                record_data.update({
+                    "notification_status": "failed",
+                    "notification_detail": (
+                        "Production record was saved, but its reviewer notification could not be created. "
+                        "Do not resubmit; the record is already saved. Contact support with diagnostic ID "
+                        f"{diagnostic_id}."
+                    ),
+                    "notification_diagnostic_id": diagnostic_id,
+                })
+        return Response(record_data, status=status.HTTP_201_CREATED)
 
     # GET
     user = request.user
