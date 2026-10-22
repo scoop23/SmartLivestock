@@ -933,9 +933,9 @@ function SibatReviewDialogContent({
                 variant="outline"
                 onClick={() => handleReviewAction("SUBJECT_TO_REVISION")}
                 disabled={reviewMutation.isPending}
-                className="h-8.5 px-3.5 rounded-xl border-slate-800 text-slate-800 hover:bg-slate-100 font-semibold text-xs flex items-center justify-center gap-1.5 w-full sm:w-auto"
+                className="h-8.5 px-3.5 rounded-xl border-rose-300 bg-rose-50/70 text-rose-700 hover:bg-rose-100 hover:border-rose-400 hover:text-rose-800 font-semibold text-xs flex items-center justify-center gap-1.5 w-full sm:w-auto transition-colors shadow-2xs"
               >
-                <RotateCcw className="size-3 text-slate-800" />
+                <RotateCcw className="size-3 text-rose-600" />
                 Return for Revision
               </Button>
 
