@@ -23,6 +23,8 @@ identity-check.sqlite3
 frontend/test-artifacts/
 frontend/.next-identity-*/
 backend/local.sqlite3
+backend/db.sqlite3
+backend/datadump.json
 backend/.env
 
 # Local database backups contain hashed passwords
