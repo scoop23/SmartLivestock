@@ -903,12 +903,13 @@ function SibatReviewDialogContent({
           </div>
         </div>
 
-        {/* ═══ Full-Width Milk Assessment & Visual Chart (Beneath Record Details) ═══ */}
+        {/* ═══ Full-Width Milk Assessment & Visual Chart (Appears only when PENDING with detected anomaly) ═══ */}
         {!isEditing &&
+          isPending &&
+          submission.anomalyDetected &&
           submission.sourceType === "PRODUCTION" &&
           submission.productionType?.toLowerCase() === "milk" &&
-          submission.anomalyAssessment &&
-          submission.anomalyAssessmentStatus !== "NOT_APPLICABLE" && (
+          submission.anomalyAssessment && (
             <MilkAnomalyAssessmentCard submission={submission} />
           )}
 
