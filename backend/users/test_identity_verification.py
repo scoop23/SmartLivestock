@@ -19,7 +19,7 @@ from reportlab.pdfgen.canvas import Canvas
 from rest_framework.test import APITestCase
 
 from livestock.models import Barangay, Farmer
-from .models import User, Role, UserDocument, IdentityVerificationAttempt as Attempt, IdentityVerificationEvent as Event
+from .models import User, Role, UserDocument, Notification, IdentityVerificationAttempt as Attempt, IdentityVerificationEvent as Event
 from . import identity_service as service
 from .identity_views import enroll
 
@@ -100,7 +100,17 @@ class IdentityVerificationTests(APITestCase):
         self.assertEqual(user.documents.first().user_id, user.pk)
         self.assertNotIn("password", response.data)
         self.assertIn("identity_verification", response.data)
+        registration_notices = Notification.objects.filter(title="Farmer account awaiting approval")
+        self.assertEqual(list(registration_notices.values_list("user_id", flat=True)), [self.users["mao"].pk])
         self.assertEqual(self.client.post("/api/users/register/", {**payload, "government_id_pdf": pdf_file()}, format="multipart").status_code, 400)
+
+    def test_registration_identity_evidence_notifies_mao_only(self):
+        from .identity_views import notify_evidence
+
+        notify_evidence(self.attempt)
+
+        self.assertTrue(Notification.objects.filter(user=self.users["mao"], title="Registration identity evidence updated").exists())
+        self.assertFalse(Notification.objects.filter(user__in=[self.users["sibat"], self.users["cbat"]]).exists())
 
     def test_hosted_capture_registers_pending_without_duplicate_id_upload(self):
         self.client.credentials()

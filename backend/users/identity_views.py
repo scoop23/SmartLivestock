@@ -57,11 +57,6 @@ def notify_evidence(attempt):
     notify_role("MAO", title="Registration identity evidence updated",
                 message="Identity checks need human assessment. Automated results do not approve or reject accounts.",
                 link="/user-management", related_entity_type="identity_verification", related_entity_id=attempt.user_id)
-    farmer = getattr(attempt.user, "farmer_profile", None)
-    if farmer:
-        notify_role("SIBAT", title="Registration identity evidence available",
-                    message="Review supporting identity evidence within your assigned barangay scope.",
-                    link="/sibat?identityReview=1", barangay_id=farmer.barangay_id, include_cbat=True)
 
 
 def no_store(response):
