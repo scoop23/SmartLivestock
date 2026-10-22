@@ -37,6 +37,7 @@ TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components/validation-loading-screen";
+import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import {
@@ -889,12 +890,18 @@ function SibatHerdSplitCard({
 }
 
 function SibatBatchesVerificationContent() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
   const batchIdParam = searchParams.get("batchId") || searchParams.get("id");
   const animalIdParam = searchParams.get("animalId") || searchParams.get("livestockId");
   const tagParam = searchParams.get("tag") || searchParams.get("tagNumber");
+  const herdPageTitle = user?.accessScope === "ALL_BARANGAYS"
+    ? "Herds in All Barangays"
+    : user?.assignedBarangayName
+      ? `Herds in ${user.assignedBarangayName}`
+      : "Herds";
 
   // ── States ───────────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -1411,7 +1418,7 @@ function SibatBatchesVerificationContent() {
     return (
       <>
         <PageHeader
-          title="Herds & Batches"
+          title={herdPageTitle}
           subtitle="Choose a registered livestock herd to inspect individual animals and verify records."
           variant="farmer"
           maxWidthClass="w-full"
@@ -1468,7 +1475,7 @@ function SibatBatchesVerificationContent() {
               </span>
             </div>
           ) : (
-            "Herds & Batches"
+            herdPageTitle
           )
         }
         subtitle={
