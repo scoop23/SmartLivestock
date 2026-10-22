@@ -1130,14 +1130,14 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
         self.assertTrue(
             Notification.objects.filter(
                 user=self.cbat_user,
-                title="Milk Anomaly Flagged for CBAT Verification",
+                title="Milk Anomaly Flagged for Field Verification",
             ).exists()
         )
         # Scoped notification should not notify out-of-barangay CBAT
         self.assertFalse(
             Notification.objects.filter(
                 user=self.other_cbat_user,
-                title="Milk Anomaly Flagged for CBAT Verification",
+                title="Milk Anomaly Flagged for Field Verification",
             ).exists()
         )
 
@@ -1165,16 +1165,18 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
             format="json",
         )
         self.assertEqual(mao_resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("CBAT", str(mao_resp.data))
+        self.assertIn("field-verified", str(mao_resp.data))
 
-        # SIBAT also cannot verify a record assigned to CBAT
+        # SIBAT and CBAT share the barangay-scoped field verification step.
         self.client.force_authenticate(user=self.sibat_user)
         sibat_resp = self.client.post(
             f"/production/records/{record_id}/review/",
             {"status": "VERIFIED"},
             format="json",
         )
-        self.assertEqual(sibat_resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(sibat_resp.status_code, status.HTTP_200_OK, sibat_resp.data)
+        record = ProductionRecord.objects.get(pk=record_id)
+        self.assertEqual((record.status, record.next_review_queue), ("VERIFIED", "MAO"))
 
     def test_07_cbat_can_return_flagged_milk_record_to_farmer_with_required_remarks(self):
         self.seed_approved_milk_history(self.cow, [10.0, 10.2, 9.8, 10.1, 9.9, 10.0])

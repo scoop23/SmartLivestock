@@ -9,7 +9,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from livestock.models import Barangay, Farmer, LivestockInventory, LivestockType
-from production.models import MilkAnomalyDemoOwnership, ProductionRecord
+from production.models import LiveAnimalSale, MilkAnomalyDemoOwnership, ProductionRecord, SlaughterRecord
 from users.models import Notification, Role, User
 
 
@@ -42,6 +42,13 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
     def demo_record(self, key):
         marker = MilkAnomalyDemoOwnership.objects.get(identifier=f"milk-anomaly-demo-v1:{key}")
         return ProductionRecord.objects.get(pk=marker.object_id)
+
+    def cow_state(self, cow):
+        return LivestockInventory.objects.values().get(pk=cow.pk)
+
+    def assert_cow_state(self, cow, before):
+        self.assertEqual(self.cow_state(cow), before)
+        self.assertEqual(before["operational_status"], LivestockInventory.OperationalStatus.ACTIVE)
 
     def test_seed_creates_tangob_farmer_two_cattle_sixty_approved_days_and_real_routing(self):
         self.seed()
@@ -202,6 +209,87 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
         client.force_authenticate(cbat)
         self.assertEqual(client.get("/production/records/").status_code, 200)
         self.assertEqual(client.post(f"/production/records/{foreign_record.pk}/review/", {"status": "VERIFIED"}).status_code, 404)
+
+    def test_demo_milk_approval_preserves_both_cows_and_creates_no_disposition(self):
+        self.seed()
+        clean = self.demo_record("scenario-clean")
+        anomaly = self.demo_record("scenario-anomaly")
+        cow_states = {record.livestock_id: self.cow_state(record.livestock) for record in (clean, anomaly)}
+        cbat = self.demo_user("demo.milk.cbat@smartlivestock-demo.invalid")
+        mao = self.demo_user("demo.milk.mao@smartlivestock-demo.invalid")
+        client = APIClient()
+        client.force_authenticate(cbat)
+        self.assertEqual(client.post(f"/production/records/{anomaly.pk}/review/", {"status": "VERIFIED"}).status_code, 200)
+        self.assert_cow_state(anomaly.livestock, cow_states[anomaly.livestock_id])
+        anomaly.refresh_from_db()
+        self.assertEqual((anomaly.status, anomaly.next_review_queue), ("VERIFIED", "MAO"))
+        client.force_authenticate(mao)
+        for record in (clean, anomaly):
+            response = client.post(f"/production/records/{record.pk}/review/", {"status": "APPROVED"})
+            self.assertEqual(response.status_code, 200, response.data)
+            record.refresh_from_db()
+            self.assertEqual((record.status, record.next_review_queue), ("APPROVED", "NONE"))
+            self.assertIsNone(record.slaughter_id)
+            self.assert_cow_state(record.livestock, cow_states[record.livestock_id])
+        self.assertEqual(LiveAnimalSale.objects.count(), 0)
+        self.assertEqual(SlaughterRecord.objects.count(), 0)
+
+    def test_milk_submissions_returns_and_resubmissions_preserve_cows(self):
+        self.seed()
+        farmer = self.demo_user("demo.milk.farmer@smartlivestock-demo.invalid")
+        cbat = self.demo_user("demo.milk.cbat@smartlivestock-demo.invalid")
+        mao = self.demo_user("demo.milk.mao@smartlivestock-demo.invalid")
+        clean_cow = self.demo_record("scenario-clean").livestock
+        anomaly_cow = self.demo_record("scenario-anomaly").livestock
+        cow_states = {cow.pk: self.cow_state(cow) for cow in (clean_cow, anomaly_cow)}
+        client = APIClient()
+        client.force_authenticate(farmer)
+        record_date = (timezone.localdate() + timedelta(days=2)).isoformat()
+
+        def submit(cow, quantity):
+            response = client.post("/production/records/", {
+                "livestock": cow.pk, "production_type": "MILK", "quantity": quantity,
+                "unit": "LITERS", "record_date": record_date,
+            }, format="json")
+            self.assertEqual(response.status_code, 201, response.data)
+            self.assert_cow_state(cow, cow_states[cow.pk])
+            return ProductionRecord.objects.get(pk=response.data["id"])
+
+        clean = submit(clean_cow, "10.0")
+        anomaly = submit(anomaly_cow, "15.0")
+        self.assertEqual((clean.anomaly_assessment_status, clean.next_review_queue), ("CLEAN", "MAO"))
+        self.assertEqual((anomaly.anomaly_assessment_status, anomaly.next_review_queue), ("ANOMALY_DETECTED", "CBAT"))
+
+        client.force_authenticate(cbat)
+        response = client.post(f"/production/records/{anomaly.pk}/review/", {
+            "status": "SUBJECT_TO_REVISION", "remarks": "Check the recorded liters.",
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assert_cow_state(anomaly_cow, cow_states[anomaly_cow.pk])
+        anomaly.refresh_from_db()
+        self.assertEqual((anomaly.status, anomaly.next_review_queue), ("SUBJECT_TO_REVISION", "FARMER"))
+
+        client.force_authenticate(mao)
+        response = client.post(f"/production/records/{clean.pk}/review/", {
+            "status": "SUBJECT_TO_REVISION", "remarks": "Confirm the date.",
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assert_cow_state(clean_cow, cow_states[clean_cow.pk])
+
+        client.force_authenticate(farmer)
+        for record, cow in ((anomaly, anomaly_cow), (clean, clean_cow)):
+            response = client.patch(f"/production/records/{record.pk}/", {
+                "notes": "Confirmed measurement and date.",
+            }, format="json")
+            self.assertEqual(response.status_code, 200, response.data)
+            record.refresh_from_db()
+            self.assertEqual(record.status, "PENDING")
+            self.assertTrue(record.anomaly_assessment.get("history"))
+            self.assert_cow_state(cow, cow_states[cow.pk])
+        self.assertEqual((anomaly.anomaly_assessment_status, anomaly.next_review_queue), ("ANOMALY_DETECTED", "CBAT"))
+        self.assertEqual((clean.anomaly_assessment_status, clean.next_review_queue), ("CLEAN", "MAO"))
+        self.assertEqual(LiveAnimalSale.objects.count(), 0)
+        self.assertEqual(SlaughterRecord.objects.count(), 0)
 
     def test_route_notifications_target_tangob_cbat_and_old_manggas_notice_is_hidden(self):
         manggas_cbat = User.objects.create_user(

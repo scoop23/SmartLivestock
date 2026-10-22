@@ -55,6 +55,7 @@ import {
   useUpdateSubmissionData,
   type UnifiedSubmissionItem,
 } from "../sibat-analytics";
+import { MilkAnomalyAssessmentCard } from "./milk-anomaly-assessment-card";
 
 interface SibatReviewDialogProps {
   submission: UnifiedSubmissionItem | null;
@@ -219,24 +220,31 @@ function SibatReviewDialogContent({
   const isRejected = submission.status === "REJECTED";
   const isBatch = submission.sourceType === "BATCH" || submission.entryType === "BATCH";
 
-  // Compute animal banner info (e.g. "1 animal · PG-MAN-200-04", "Leaves active inventory after MAO approval.")
+  // The source type determines whether this record changes inventory. A milk
+  // quantity is production volume, never an animal count or disposition.
   let animalCount = 1;
   let animalTagLabel = submission.tagNumber || "";
-  let animalNotice = "Leaves active inventory after MAO approval.";
+  let animalNotice = "Recorded in farm inventory.";
+  const isProductionObservation = submission.sourceType === "PRODUCTION" && !submission.slaughterDetails;
+  const isCleanMilkForMao = isPending && isProductionObservation &&
+    submission.productionType?.toLowerCase() === "milk" &&
+    submission.anomalyAssessmentStatus === "CLEAN" && submission.nextReviewQueue === "MAO";
 
-  if (submission.slaughterDetails?.animals?.length) {
+  if (submission.sourceType === "PRODUCTION" && submission.slaughterDetails?.animals?.length) {
     animalCount = submission.slaughterDetails.quantity || submission.slaughterDetails.animals.length;
     animalTagLabel = submission.slaughterDetails.animals
       .map((a) => a.tag_number || `#${a.id}`)
       .join(", ");
     animalNotice = "Leaves active inventory after MAO approval.";
+  } else if (isProductionObservation) {
+    animalTagLabel = submission.tagNumber || (submission.batchCode ? `Batch ${submission.batchCode}` : submission.livestockTypeName);
+    animalNotice = `${submission.productionType?.toLowerCase() === "milk" ? "Milk yield" : "Production"}: ${submission.quantityDisplay} on ${formatReviewDate(submission.recordDate)}.`;
   } else if (submission.tagNumber) {
     animalCount = 1;
     animalTagLabel = submission.tagNumber;
-    animalNotice =
-      submission.sourceType === "SALE" || submission.sourceType === "PRODUCTION"
-        ? "Leaves active inventory after MAO approval."
-        : "Recorded in verified farm inventory.";
+    animalNotice = submission.sourceType === "SALE"
+      ? "Leaves active inventory after MAO approval."
+      : "Recorded in verified farm inventory.";
   } else if (submission.calfTag) {
     animalCount = 1;
     animalTagLabel = submission.calfTag;
@@ -245,10 +253,6 @@ function SibatReviewDialogContent({
     animalCount = submission.quantity || 1;
     animalTagLabel = `Batch ${submission.batchCode}`;
     animalNotice = "Enrolled in cooperative herd roster.";
-  } else if (submission.sourceType === "PRODUCTION") {
-    animalCount = submission.quantity || 1;
-    animalTagLabel = submission.detailsTitle || `${submission.livestockTypeName} Yield`;
-    animalNotice = "Leaves active inventory after MAO approval.";
   }
 
   // Farmer remarks resolution
@@ -755,7 +759,7 @@ function SibatReviewDialogContent({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] sm:text-xs font-bold text-[#78350f] truncate">
-                      {animalCount} {animalCount === 1 ? "animal" : "animals"} · {animalTagLabel}
+                      {isProductionObservation ? "Production source" : `${animalCount} ${animalCount === 1 ? "animal" : "animals"}`} · {animalTagLabel}
                     </p>
                     <p className="text-[10px] sm:text-[11px] text-[#92400e]/80 truncate">
                       {animalNotice}
@@ -809,125 +813,6 @@ function SibatReviewDialogContent({
                 </div>
               )}
 
-              {/* Milk Anomaly Assessment & Forecast Context */}
-              {!isEditing &&
-                submission.sourceType === "PRODUCTION" &&
-                submission.productionType?.toLowerCase() === "milk" &&
-                submission.anomalyAssessment &&
-                submission.anomalyAssessmentStatus !== "NOT_APPLICABLE" && (
-                  <div
-                    className={`mt-3 rounded-xl border p-3 space-y-2 text-xs ${
-                      submission.anomalyDetected
-                        ? "border-amber-200 bg-amber-50/70 text-amber-950"
-                        : "border-slate-200 bg-slate-50 text-slate-800"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-[10.5px] font-black uppercase tracking-wider">
-                        Milk Baseline Assessment
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                          submission.anomalyDetected
-                            ? "bg-amber-100 text-amber-900 border-amber-300"
-                            : "bg-white text-slate-700 border-slate-200"
-                        }`}
-                      >
-                        {submission.anomalyDetected
-                          ? `${submission.anomalyAssessment.anomaly_direction || "ANOMALY"} • ${submission.anomalyAssessment.severity || "REVIEW"}`
-                          : submission.anomalyAssessmentStatus === "INSUFFICIENT_HISTORY"
-                          ? "INSUFFICIENT HISTORY"
-                          : "WITHIN BASELINE"}
-                      </span>
-                    </div>
-
-                    <p className="text-[11.5px] leading-relaxed font-medium">
-                      {submission.anomalyReason || submission.anomalyAssessment.reason}
-                    </p>
-
-                    {submission.anomalyAssessment.historical_baseline &&
-                      submission.anomalyAssessment.historical_baseline.baseline_median_liters != null && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-                          <div className="rounded-lg bg-white/90 border border-amber-200/60 p-2">
-                            <span className="text-[9.5px] font-bold uppercase text-slate-400 block">
-                              Rolling Median
-                            </span>
-                            <span className="text-xs font-black text-slate-900">
-                              {submission.anomalyAssessment.historical_baseline.baseline_median_liters} L/day
-                            </span>
-                          </div>
-                          <div className="rounded-lg bg-white/90 border border-amber-200/60 p-2">
-                            <span className="text-[9.5px] font-bold uppercase text-slate-400 block">
-                              Rolling Mean
-                            </span>
-                            <span className="text-xs font-black text-slate-900">
-                              {submission.anomalyAssessment.historical_baseline.baseline_mean_liters} L/day
-                            </span>
-                          </div>
-                          {submission.anomalyAssessment.deviation &&
-                            submission.anomalyAssessment.deviation.absolute_liters != null && (
-                              <div className="rounded-lg bg-white/90 border border-amber-200/60 p-2 col-span-2 sm:col-span-1">
-                                <span className="text-[9.5px] font-bold uppercase text-slate-400 block">
-                                  Deviation
-                                </span>
-                                <span className="text-xs font-black text-amber-900">
-                                  {submission.anomalyAssessment.deviation.absolute_liters > 0 ? "+" : ""}
-                                  {submission.anomalyAssessment.deviation.absolute_liters} L (
-                                  {(submission.anomalyAssessment.deviation.percentage_change ?? 0) > 0 ? "+" : ""}
-                                  {submission.anomalyAssessment.deviation.percentage_change ?? 0}%)
-                                </span>
-                              </div>
-                            )}
-                        </div>
-                      )}
-
-                    {submission.anomalyAssessment.historical_baseline?.recent_observations &&
-                      submission.anomalyAssessment.historical_baseline.recent_observations.length > 0 && (
-                        <div className="pt-1">
-                          <span className="text-[10px] font-bold uppercase text-slate-500 block mb-1">
-                            Recent Approved Daily Yields ({submission.anomalyAssessment.historical_baseline.window_days_used} days in window)
-                          </span>
-                          <div className="flex flex-wrap gap-1">
-                            {submission.anomalyAssessment.historical_baseline.recent_observations.map((obs) => (
-                              <span
-                                key={obs.record_date}
-                                className="rounded-md bg-white/90 border border-slate-200 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-slate-700"
-                              >
-                                {obs.record_date.slice(5)}: {obs.quantity_liters}L
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                    {submission.anomalyAssessment.forecast_comparison && (
-                      <div className="pt-1.5 border-t border-amber-200/60 text-[11px]">
-                        <span className="font-bold uppercase text-[10px] text-slate-500 block">
-                          7-Day Forecast Context (Advisory Reference Only)
-                        </span>
-                        {submission.anomalyAssessment.forecast_comparison.available &&
-                        submission.anomalyAssessment.forecast_comparison.status === "MATCHED" ? (
-                          <p className="mt-0.5 text-slate-800">
-                            Date-aligned forecast for {submission.recordDate}:{" "}
-                            <strong>
-                              {submission.anomalyAssessment.forecast_comparison.expected_liters} L
-                            </strong>{" "}
-                            (difference:{" "}
-                            {(submission.anomalyAssessment.forecast_comparison.deviation_liters ?? 0) > 0 ? "+" : ""}
-                            {submission.anomalyAssessment.forecast_comparison.deviation_liters} L /{" "}
-                            {(submission.anomalyAssessment.forecast_comparison.deviation_pct ?? 0) > 0 ? "+" : ""}
-                            {submission.anomalyAssessment.forecast_comparison.deviation_pct}%).
-                          </p>
-                        ) : (
-                          <p className="mt-0.5 text-slate-600 italic">
-                            {submission.anomalyAssessment.forecast_comparison.reason ||
-                              "Forecast comparison omitted because no date-aligned forecast was ready."}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
             </div>
           </div>
 
@@ -949,7 +834,9 @@ function SibatReviewDialogContent({
                   </div>
                 </div>
                 <div className="self-start sm:self-auto shrink-0">
-                  {isPending ? (
+                  {isCleanMilkForMao ? (
+                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-sky-200 bg-sky-50 text-[10.5px] font-semibold text-sky-900">Routed directly to MAO</span>
+                  ) : isPending ? (
                     <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#fef3c7] text-[#92400e] text-[10.5px] sm:text-[11px] font-semibold border border-amber-200/60 whitespace-nowrap">
                       Pending field review
                     </span>
@@ -993,7 +880,7 @@ function SibatReviewDialogContent({
                   placeholder="Enter field observations or validation remarks..."
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
-                  disabled={!isPending || reviewMutation.isPending}
+                  disabled={!isPending || isCleanMilkForMao || reviewMutation.isPending}
                   className="min-h-[75px] sm:min-h-[85px] w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#1b4332] focus-visible:border-[#1b4332] resize-none shadow-2xs"
                 />
                 <p className="text-[10.5px] text-slate-500 mt-1 leading-relaxed">
@@ -1016,6 +903,15 @@ function SibatReviewDialogContent({
           </div>
         </div>
 
+        {/* ═══ Full-Width Milk Assessment & Visual Chart (Beneath Record Details) ═══ */}
+        {!isEditing &&
+          submission.sourceType === "PRODUCTION" &&
+          submission.productionType?.toLowerCase() === "milk" &&
+          submission.anomalyAssessment &&
+          submission.anomalyAssessmentStatus !== "NOT_APPLICABLE" && (
+            <MilkAnomalyAssessmentCard submission={submission} />
+          )}
+
         {/* ═══ Footer ═══ */}
         <DialogFooter className="border-t border-slate-100 pt-2.5 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
           <Button
@@ -1029,7 +925,7 @@ function SibatReviewDialogContent({
             Close
           </Button>
 
-          {isPending ? (
+          {isPending && !isCleanMilkForMao ? (
             <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <Button
                 type="button"
@@ -1056,7 +952,9 @@ function SibatReviewDialogContent({
             </div>
           ) : (
             <span className="text-xs text-slate-500 font-medium italic text-center sm:text-right">
-              {isReturned
+              {isCleanMilkForMao
+                ? "Clean milk record is awaiting MAO approval; field verification is not required."
+                : isReturned
                 ? "Awaiting farmer resubmission. SIBAT review becomes available when Pending."
                 : isVerified
                 ? "Awaiting MAO decision. SIBAT verification is complete."
