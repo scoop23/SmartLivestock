@@ -1,4 +1,5 @@
 import type { RawDiseaseCase, RawMortalityRecord } from "@/app/(sibat)/sibat/sibat-analytics";
+import type { SibatInspectionData } from "@/app/(admin)/data-validation/validation-analytics";
 export type ReportType = "DISEASE" | "MORTALITY";
 
 export type BackendStatus =
@@ -8,6 +9,12 @@ export type BackendStatus =
   | "SUBJECT_TO_REVISION"
   | "SUBJECT_FOR_REVISION"
   | "REJECTED";
+
+export interface ExtendedInspectionData extends Partial<SibatInspectionData> {
+  maoRemarks?: string;
+  maoReviewedBy?: string;
+  maoReviewedAt?: string;
+}
 
 export interface FarmerReport {
   id: string;
@@ -24,6 +31,7 @@ export interface FarmerReport {
   description: string;
   photoUrl?: string;
   photoName?: string;
+  inspectorPhotoUrl?: string;
   createdAt: string;
   reviewedBy?: string | null;
   reviewedByName?: string | null;
@@ -33,6 +41,7 @@ export interface FarmerReport {
   farmerName?: string;
   barangayName?: string;
   rawItem?: RawDiseaseCase | RawMortalityRecord;
+  inspectionDetails?: ExtendedInspectionData | null;
 }
 
 export interface ObservationLogPayload {

@@ -126,6 +126,7 @@ function ReportObservationContent() {
       const attached = getAttachedPhoto(`DIS-${dc.id}`, dc.tag_number);
       const photoUrl = dc.photo_url || dc.photo || (attached.isFarmerUpload ? attached.photoUrl : undefined);
       const photoName = (dc.photo_url || dc.photo) ? "Attached Field Photo" : (attached.isFarmerUpload ? attached.photoName : undefined);
+      const inspectorPhotoUrl = dc.inspector_photo_url || dc.inspector_photo || (!attached.isFarmerUpload ? attached.photoUrl : undefined);
       list.push({
         id: `DIS-${dc.id}`,
         reportType: "DISEASE",
@@ -141,13 +142,17 @@ function ReportObservationContent() {
         description: dc.name,
         photoUrl,
         photoName,
+        inspectorPhotoUrl,
         createdAt: dc.created_at || new Date().toISOString(),
         reviewedBy: dc.reviewed_by,
         reviewedByName: dc.reviewed_by_name,
         reviewedAt: dc.reviewed_at,
         reviewRemarks: dc.review_remarks,
         previousReviewRemarks: dc.previous_remarks,
+        farmerName: dc.farmer_name,
+        barangayName: dc.barangay_name,
         rawItem: dc,
+        inspectionDetails: dc.inspection_details || null,
       });
     });
 
@@ -158,6 +163,7 @@ function ReportObservationContent() {
       const attached = getAttachedPhoto(`MOR-${m.id}`, m.tag_number);
       const photoUrl = m.photo_url || m.photo || (attached.isFarmerUpload ? attached.photoUrl : undefined);
       const photoName = (m.photo_url || m.photo) ? "Mortality Photo Evidence" : (attached.isFarmerUpload ? attached.photoName : undefined);
+      const inspectorPhotoUrl = m.inspector_photo_url || m.inspector_photo || (!attached.isFarmerUpload ? attached.photoUrl : undefined);
       list.push({
         id: `MOR-${m.id}`,
         reportType: "MORTALITY",
@@ -173,13 +179,17 @@ function ReportObservationContent() {
         description: m.cause,
         photoUrl,
         photoName,
+        inspectorPhotoUrl,
         createdAt: m.created_at || new Date().toISOString(),
         reviewedBy: m.reviewed_by,
         reviewedByName: m.reviewed_by_name,
         reviewedAt: m.reviewed_at,
         reviewRemarks: m.review_remarks,
         previousReviewRemarks: m.previous_remarks,
+        farmerName: m.farmer_name,
+        barangayName: m.barangay_name,
         rawItem: m,
+        inspectionDetails: m.inspection_details || null,
       });
     });
 

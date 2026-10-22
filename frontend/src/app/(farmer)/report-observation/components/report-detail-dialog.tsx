@@ -12,7 +12,9 @@ import {
 import { printElement } from "@/lib/print-element";
 import { cowHead } from "@lucide/lab";
 import {
+  AlertTriangle,
   BarChart3,
+  Building2,
   Calendar,
   Camera,
   CheckCircle2,
@@ -24,13 +26,27 @@ import {
   MapPin,
   Printer,
   RotateCcw,
+  ShieldAlert,
   ShieldCheck,
   Skull,
+  Stethoscope,
+  Thermometer,
   Users,
   X,
 } from "lucide-react";
 import React from "react";
 import { FarmerReport } from "../report-observation-types";
+
+const BIOSECURITY_LABELS: Record<string, string> = {
+  NONE: "None / General Advisory",
+  PEN_ISOLATION: "Temporary Pen Isolation (7 Days)",
+  TREATMENT_PRESCRIBED: "Supportive Treatment Prescribed",
+  BIOSECURE_BURIAL: "Biosecure Deep Pit Burial & Lime",
+  LAB_SAMPLE_SENT: "Blood/Tissue Sample Sent to Lab",
+  CARCASS_SECURED: "Carcass Secured Pending MAO",
+  AREA_DISINFECTED: "Area and Equipment Disinfected",
+  VETERINARY_ESCALATION: "Referred to Municipal Veterinarian",
+};
 
 interface ReportDetailDialogProps {
   report: FarmerReport | null;
@@ -99,6 +115,51 @@ export default function ReportDetailDialog({
       return dateStr;
     }
   };
+
+  // ── Multi-Tier Review Notes: CBAT & MAO ──
+  const isApproved = report.status === "APPROVED";
+  const isVerified = report.status === "VERIFIED";
+  const isRevision =
+    report.status === "SUBJECT_TO_REVISION" ||
+    report.status === "SUBJECT_FOR_REVISION" ||
+    report.status === "REJECTED";
+  const isPending = report.status === "PENDING";
+
+  // CBAT (Field Verification) Details
+  const cbatVerifiedBy =
+    report.inspectionDetails?.verifiedBy ||
+    (isVerified ? report.reviewedByName : null) ||
+    "CBAT / SIBAT Field Officer";
+
+  const cbatVerifiedAt =
+    report.inspectionDetails?.verifiedAt ||
+    (isVerified ? report.reviewedAt : null);
+
+  const cbatRemarks =
+    report.inspectionDetails?.remarks ||
+    (isVerified ? report.reviewRemarks : null);
+
+  const confirmedSymptoms = report.inspectionDetails?.confirmedSymptoms || [];
+  const biosecurityAction = report.inspectionDetails?.biosecurityAction;
+  const biosecurityText = biosecurityAction ? BIOSECURITY_LABELS[biosecurityAction] || biosecurityAction : null;
+  const temperature = report.inspectionDetails?.temperatureCelsius;
+  const isFmdSuspected = report.inspectionDetails?.fmdAssessment === "SUSPECTED";
+  const tagConfirmed = report.inspectionDetails?.tagConfirmed;
+  const severity = report.inspectionDetails?.severity;
+
+  // MAO (Municipal Agriculture Office) Details
+  const maoReviewedBy =
+    report.inspectionDetails?.maoReviewedBy ||
+    (isApproved ? report.reviewedByName : null) ||
+    "Municipal Agriculture Officer (MAO)";
+
+  const maoReviewedAt =
+    report.inspectionDetails?.maoReviewedAt ||
+    (isApproved ? report.reviewedAt : null);
+
+  const maoRemarks =
+    report.inspectionDetails?.maoRemarks ||
+    (isApproved ? report.reviewRemarks : null);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -309,23 +370,266 @@ export default function ReportDetailDialog({
                 <span>{statusConfig.title}</span>
                 {report.reviewedByName && (
                   <span className="block text-[11px] font-normal opacity-90 mt-0.5">
-                    Inspected by {report.reviewedByName}
+                    {isApproved
+                      ? `Certified by ${report.reviewedByName}`
+                      : `Inspected by ${report.reviewedByName}`}
                     {report.reviewedAt ? ` on ${formatDate(report.reviewedAt)}` : ""}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Official Inspector Revision Remarks */}
-            {(report.status === "SUBJECT_TO_REVISION" ||
-              report.status === "SUBJECT_FOR_REVISION" ||
-              report.status === "REJECTED") &&
-              report.reviewRemarks && (
-                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-950 text-xs space-y-1">
-                  <p className="font-bold text-rose-900">Feedback from SIBAT Inspector:</p>
-                  <p className="leading-relaxed">{report.reviewRemarks}</p>
+            {/* Official Revision Feedback Banner */}
+            {isRevision && report.reviewRemarks && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-950 text-xs space-y-1 shadow-2xs">
+                <p className="font-bold text-rose-900 flex items-center gap-1.5">
+                  <RotateCcw className="size-3.5 text-rose-700" />
+                  Revision Feedback:
+                </p>
+                <p className="leading-relaxed font-medium">{report.reviewRemarks}</p>
+              </div>
+            )}
+
+            {/* ══ MULTI-TIER OFFICIAL REVIEW NOTES: CBAT & MAO ══ */}
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <ShieldCheck className="size-3.5 text-[#1A365D]" />
+                  Official Field & Municipal Verification Notes
+                </span>
+                <span className="text-[10px] font-bold text-slate-400">2-Tier Verification</span>
+              </div>
+
+              {/* ── CARD 1: NOTED FROM CBAT ── */}
+              <div
+                className={`rounded-2xl border p-4 sm:p-5 transition-all shadow-2xs ${
+                  isVerified || isApproved
+                    ? "border-sky-200 bg-gradient-to-br from-sky-50/70 via-white to-sky-50/20 text-slate-900"
+                    : isRevision
+                    ? "border-rose-200 bg-rose-50/40 text-slate-900"
+                    : "border-slate-200 bg-slate-50/60 text-slate-800"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={`size-8 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs ${
+                        isVerified || isApproved
+                          ? "bg-sky-100 text-sky-800 border-sky-300"
+                          : isRevision
+                          ? "bg-rose-100 text-rose-800 border-rose-300"
+                          : "bg-slate-100 text-slate-600 border-slate-200"
+                      }`}
+                    >
+                      <Stethoscope className="size-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black uppercase tracking-wider text-sky-950">
+                          Noted from CBAT
+                        </span>
+                        <span className="text-[10px] text-sky-800 font-bold bg-sky-100 px-2 py-0.5 rounded-md border border-sky-200">
+                          SIBAT Field Verification
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                        {isVerified || isApproved
+                          ? `Inspected by ${cbatVerifiedBy}${cbatVerifiedAt ? ` · ${formatDate(cbatVerifiedAt)}` : ""}`
+                          : isRevision
+                          ? `Revision requested by ${cbatVerifiedBy || "Field Inspector"}`
+                          : "Pending on-site visit & physical verification"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full border shrink-0 ${
+                      isVerified || isApproved
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                        : isRevision
+                        ? "bg-rose-100 text-rose-800 border-rose-300"
+                        : "bg-amber-100 text-amber-800 border-amber-300"
+                    }`}
+                  >
+                    {isVerified || isApproved ? "Field Verified" : isRevision ? "Revision Needed" : "Pending Visit"}
+                  </span>
                 </div>
-              )}
+
+                {/* CBAT Remarks Text */}
+                <div className="mt-3 rounded-xl bg-white/95 border border-slate-200/90 p-3.5 text-xs text-slate-800 leading-relaxed shadow-2xs">
+                  <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                    Inspector Observations & Field Findings:
+                  </span>
+                  <p className="whitespace-pre-wrap font-medium text-slate-800">
+                    {cbatRemarks ||
+                      (isPending
+                        ? "A CBAT / SIBAT officer is assigned to conduct an on-site physical examination to verify clinical signs and confirm animal identity."
+                        : isApproved
+                        ? "On-farm physical examination confirmed the animal's identity and clinical condition prior to MAO approval."
+                        : "No specific inspector remarks entered.")}
+                  </p>
+                </div>
+
+                {/* CBAT Checkpoint Chips (if available) */}
+                {(confirmedSymptoms.length > 0 || biosecurityText || temperature != null || isFmdSuspected || severity || tagConfirmed) && (
+                  <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+                    {confirmedSymptoms.length > 0 &&
+                      confirmedSymptoms.map((sym) => (
+                        <span
+                          key={sym}
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-sky-100/90 text-sky-900 border border-sky-300 text-[11px] font-bold shadow-2xs"
+                        >
+                          <CheckCircle2 className="size-3 text-sky-700" />
+                          Confirmed: {sym}
+                        </span>
+                      ))}
+
+                    {biosecurityText && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-50 text-amber-950 border border-amber-300 text-[11px] font-bold shadow-2xs">
+                        <ShieldAlert className="size-3 text-amber-700" />
+                        Protocol: {biosecurityText}
+                      </span>
+                    )}
+
+                    {temperature != null && (
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border text-[11px] font-bold shadow-2xs ${
+                          temperature >= 39.5
+                            ? "bg-rose-50 text-rose-950 border-rose-300"
+                            : "bg-slate-100 text-slate-800 border-slate-200"
+                        }`}
+                      >
+                        <Thermometer className="size-3 text-rose-600" />
+                        Temp: {temperature}°C {temperature >= 39.5 ? "(High Fever)" : "(Normal)"}
+                      </span>
+                    )}
+
+                    {isFmdSuspected && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-100 text-rose-950 border border-rose-300 text-[11px] font-black shadow-2xs">
+                        <AlertTriangle className="size-3 text-rose-700" />
+                        Suspected FMD Flagged
+                      </span>
+                    )}
+
+                    {severity && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold">
+                        Severity: {severity}
+                      </span>
+                    )}
+
+                    {tagConfirmed && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-300 text-[11px] font-bold">
+                        <CheckCircle2 className="size-3 text-emerald-700" />
+                        Tag Confirmed
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* CBAT On-Site Photo (if available) */}
+                {report.inspectorPhotoUrl && (
+                  <div className="mt-3 pt-3 border-t border-sky-200/60">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1.5 flex items-center gap-1">
+                      <Camera className="size-3 text-sky-700" />
+                      CBAT On-Site Inspection Photo Evidence:
+                    </span>
+                    <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 max-h-48 aspect-video shadow-2xs">
+                      <img
+                        src={report.inspectorPhotoUrl}
+                        alt="CBAT Inspector Evidence"
+                        className="w-full h-full object-contain"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent p-2 flex items-center justify-between text-white text-[10px]">
+                        <span className="font-mono truncate">cbat_field_verification.jpg</span>
+                        <a
+                          href={report.inspectorPhotoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sky-300 font-bold hover:underline"
+                        >
+                          View Fullscreen
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── CARD 2: NOTED FROM MAO ── */}
+              <div
+                className={`rounded-2xl border p-4 sm:p-5 transition-all shadow-2xs ${
+                  isApproved
+                    ? "border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/20 text-slate-900"
+                    : isRevision && !isVerified
+                    ? "border-rose-200 bg-rose-50/40 text-slate-900"
+                    : "border-slate-200 bg-slate-50/60 text-slate-800"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={`size-8 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs ${
+                        isApproved
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                          : "bg-slate-100 text-slate-600 border-slate-200"
+                      }`}
+                    >
+                      <Building2 className="size-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black uppercase tracking-wider text-[#1A365D]">
+                          Noted from MAO
+                        </span>
+                        <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
+                          Municipal Agriculture Office (Padre Garcia)
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                        {isApproved
+                          ? `Authorized by ${maoReviewedBy}${maoReviewedAt ? ` · ${formatDate(maoReviewedAt)}` : ""}`
+                          : isVerified
+                          ? "CBAT verification submitted · Queued for MAO municipal sign-off"
+                          : "Awaiting CBAT field verification prior to municipal certification"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full border shrink-0 ${
+                      isApproved
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                        : isVerified
+                        ? "bg-sky-100 text-sky-800 border-sky-300"
+                        : "bg-slate-100 text-slate-600 border-slate-300"
+                    }`}
+                  >
+                    {isApproved ? "MAO Approved & Certified" : isVerified ? "Pending MAO Sign-Off" : "Queued"}
+                  </span>
+                </div>
+
+                {/* MAO Remarks Text */}
+                <div
+                  className={`mt-3 rounded-xl border p-3.5 text-xs leading-relaxed shadow-2xs ${
+                    isApproved
+                      ? "bg-emerald-50/70 border-emerald-200 text-emerald-950 font-medium"
+                      : "bg-white/95 border-slate-200/90 text-slate-700"
+                  }`}
+                >
+                  <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                    Municipal Directives & Veterinary Certification:
+                  </span>
+                  <p className="whitespace-pre-wrap font-medium">
+                    {maoRemarks ||
+                      (isApproved
+                        ? "Official MAO Animal Health Certificate verified and filed in municipal surveillance registry."
+                        : isVerified
+                        ? "The field verification report has been received and is awaiting final administrative sign-off and veterinary advisory release from the Municipal Agriculture Office."
+                        : "Awaiting field verification before municipal certification.")}
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* Case Summary Card */}
             <div className="space-y-1.5">

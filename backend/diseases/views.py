@@ -517,11 +517,32 @@ def review_disease_case(request, pk):
 
     if "inspector_photo" in request.FILES:
         record.inspector_photo = request.FILES["inspector_photo"]
+    prev_remarks = record.review_remarks
+    prev_reviewer = record.reviewed_by
+    prev_reviewed_at = record.reviewed_at
+
     record.status = new_status
     record.reviewed_by = user
     record.review_remarks = remarks
     if inspection_details is not None:
         record.inspection_details = inspection_details
+    elif role_name in {"MAO", "ADMIN"}:
+        current_insp = dict(record.inspection_details or {})
+        if prev_remarks and not current_insp.get("remarks"):
+            current_insp["remarks"] = prev_remarks
+        if prev_reviewer and not current_insp.get("verifiedBy"):
+            current_insp["verifiedBy"] = (
+                f"{prev_reviewer.first_name} {prev_reviewer.last_name}".strip()
+                or prev_reviewer.username
+            )
+        if prev_reviewed_at and not current_insp.get("verifiedAt"):
+            current_insp["verifiedAt"] = prev_reviewed_at.isoformat()
+        current_insp["maoRemarks"] = remarks
+        current_insp["maoReviewedBy"] = (
+            f"{user.first_name} {user.last_name}".strip() or user.username
+        )
+        current_insp["maoReviewedAt"] = timezone.now().isoformat()
+        record.inspection_details = current_insp
     record.reviewed_at = timezone.now()
     record.save()
 
@@ -744,11 +765,32 @@ def review_mortality_record(request, pk):
 
     if "inspector_photo" in request.FILES:
         record.inspector_photo = request.FILES["inspector_photo"]
+    prev_remarks = record.review_remarks
+    prev_reviewer = record.reviewed_by
+    prev_reviewed_at = record.reviewed_at
+
     record.status = new_status
     record.reviewed_by = user
     record.review_remarks = remarks
     if inspection_details is not None:
         record.inspection_details = inspection_details
+    elif role_name in {"MAO", "ADMIN"}:
+        current_insp = dict(record.inspection_details or {})
+        if prev_remarks and not current_insp.get("remarks"):
+            current_insp["remarks"] = prev_remarks
+        if prev_reviewer and not current_insp.get("verifiedBy"):
+            current_insp["verifiedBy"] = (
+                f"{prev_reviewer.first_name} {prev_reviewer.last_name}".strip()
+                or prev_reviewer.username
+            )
+        if prev_reviewed_at and not current_insp.get("verifiedAt"):
+            current_insp["verifiedAt"] = prev_reviewed_at.isoformat()
+        current_insp["maoRemarks"] = remarks
+        current_insp["maoReviewedBy"] = (
+            f"{user.first_name} {user.last_name}".strip() or user.username
+        )
+        current_insp["maoReviewedAt"] = timezone.now().isoformat()
+        record.inspection_details = current_insp
     record.reviewed_at = timezone.now()
     record.save()
     if new_status == MortalityRecord.MortalityRecordStatus.APPROVED:
