@@ -58,6 +58,7 @@ export interface BarangayGISData {
   batches_count: number;      // Active livestock batches/herds
   disease_cases: number;      // Historical/total disease cases count
   active_cases: number;       // Approved reports in the last 90 days; legacy field name
+  fmd_active_cases?: number;  // CBAT/SIBAT field-assessed suspected FMD, after MAO approval
   affected_heads: number;     // Animals affected by disease
   disease_risk: 'low' | 'medium' | 'high'; // Derived from recent approved reports
   recent_diseases: string[];  // Symptoms / disease names reported
@@ -178,6 +179,8 @@ export interface MunicipalSummary {
   total_meat: number;         // Legacy alias for total_slaughter_yield
   total_disease_cases: number;
   active_disease_cases: number;
+  unsupported_active_disease_cases?: number;
+  unmapped_recent_fmd_cases?: number;
   total_mortality: number;
   mortality?: MortalitySummary;
   total_farmers: number;

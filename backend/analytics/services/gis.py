@@ -377,6 +377,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             "batches_count": 0,
             "disease_cases": 0,
             "active_cases": 0,
+            "fmd_active_cases": 0,
             "affected_heads": 0,
             "disease_risk": "low",
             "recent_diseases": [],
@@ -453,6 +454,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         record_date__gte=today - timedelta(days=90), record_date__lte=today,
         clinical_status__in=[DiseaseCase.ClinicalStatus.OPEN, DiseaseCase.ClinicalStatus.NOT_RECORDED],
     )
+    suspected_fmd_reports = recent_reports & Q(inspection_details__fmdAssessment="SUSPECTED")
     disease_qs = scope_reviewer_queryset(DiseaseCase.objects.all(), user).filter(
         status=DiseaseCase.DiseaseStatus.APPROVED,
         record_date__lte=today,
@@ -467,13 +469,20 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             affected_cnt=Sum("affected_count"),
             recent_cases_cnt=Count("id", filter=recent_reports),
             recent_affected_cnt=Sum("affected_count", filter=recent_reports),
+            recent_fmd_cases_cnt=Count("id", filter=suspected_fmd_reports),
         )
     )
 
     recent_affected_by_barangay = {}
+    unmapped_recent_disease_cases = 0
+    unmapped_recent_fmd_cases = 0
     for row in disease_grouped:
         c_name = pk_to_canonical.get(row["b_id"])
+        recent_cases = row["recent_cases_cnt"] or 0
+        recent_fmd_cases = row["recent_fmd_cases_cnt"] or 0
         if not c_name or c_name not in barangays_data:
+            unmapped_recent_disease_cases += recent_cases
+            unmapped_recent_fmd_cases += recent_fmd_cases
             continue
         cases = row["cases_cnt"] or 0
         affected = row["affected_cnt"] or 0
@@ -483,7 +492,8 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         b_entry["disease_cases"] += cases
         b_entry["affected_heads"] += affected
         # Compatibility key: recent approved reports, not unresolved clinical cases.
-        b_entry["active_cases"] += row["recent_cases_cnt"] or 0
+        b_entry["active_cases"] += recent_cases
+        b_entry["fmd_active_cases"] += recent_fmd_cases
         recent_affected_by_barangay[c_name] = (
             recent_affected_by_barangay.get(c_name, 0) + (row["recent_affected_cnt"] or 0)
         )
@@ -804,6 +814,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             b_entry["batches_count"] = 0
             b_entry["disease_cases"] = 0
             b_entry["active_cases"] = 0
+            b_entry["fmd_active_cases"] = 0
             b_entry["affected_heads"] = 0
             b_entry["disease_risk"] = "low"
             b_entry["recent_diseases"] = []
@@ -830,6 +841,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         if "disease" not in allowed_layers:
             b_entry["disease_cases"] = 0
             b_entry["active_cases"] = 0
+            b_entry["fmd_active_cases"] = 0
             b_entry["affected_heads"] = 0
             b_entry["disease_risk"] = "low"
             b_entry["recent_diseases"] = []
@@ -923,6 +935,11 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             "total_meat": round(total_meat, 1),
             "total_disease_cases": total_disease,
             "active_disease_cases": total_active_disease,
+            "unmapped_recent_disease_cases": unmapped_recent_disease_cases if user_scope["can_use_simulation"] else 0,
+            "unmapped_recent_fmd_cases": unmapped_recent_fmd_cases if user_scope["can_use_simulation"] else 0,
+            "unsupported_active_disease_cases": sum(
+                max(0, b["active_cases"] - b["fmd_active_cases"]) for b in scoped_b
+            ),
             "total_mortality": total_mortality,
             "mortality": mortality_summary,
             "total_farmers": total_farmers,

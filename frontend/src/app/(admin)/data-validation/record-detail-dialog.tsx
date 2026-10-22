@@ -9,7 +9,6 @@ import type {
 import { httpError } from "@/lib/http-error";
 import type { InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
 import { CensusItemEntry } from "@/app/(sibat)/sibat/sibat-analytics";
-import { DiseaseCaseFollowUp } from "@/components/disease-case-follow-up";
 import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +49,7 @@ Printer,
 RotateCcw,
 Save,
 Search,
+ShieldAlert,
 ShieldCheck,
 Sparkles,
 Tag,
@@ -58,7 +58,7 @@ ZoomIn
 import Link from "next/link";
 import { useEffect,useState } from "react";
 import { toast } from "sonner";
-import { getIncidentTypeBadge,IncidentType } from "./validation-analytics";
+import { getIncidentTypeBadge,IncidentType,SibatInspectionData } from "./validation-analytics";
 
 export type DetailRecordData =
   | {
@@ -159,6 +159,8 @@ export type DetailRecordData =
     photoName?: string;
     inspectorPhotoUrl?: string;
     inspectorPhotoName?: string;
+    fmdAssessment?: "SUSPECTED" | "";
+    sibatInspection?: SibatInspectionData;
   };
 
 interface RecordDetailDialogProps {
@@ -423,10 +425,6 @@ function RecordDetailDialogContent({
 
         {/* ═══════════ SCROLLABLE INSPECTION BODY ═══════════ */}
         <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 bg-slate-50/50">
-          {record.kind === "incident" && record.type === "disease" && (
-            <DiseaseCaseFollowUp key={record.id} caseId={record.id} />
-          )}
-
           {/* ── LIFECYCLE PROGRESSION STEPPER ── */}
           <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-3">
@@ -1089,6 +1087,23 @@ function RecordDetailDialogContent({
           {/* INCIDENT SPECIFICS */}
           {record.kind === "incident" && (
             <div className="space-y-4">
+              {record.type === "disease" && (record.fmdAssessment === "SUSPECTED" || record.sibatInspection?.fmdAssessment === "SUSPECTED") && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-between gap-3 text-xs text-rose-950 shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldAlert className="size-5 text-rose-700 shrink-0" />
+                    <div>
+                      <p className="font-black text-rose-900">Suspected Foot and Mouth Disease (FMD) Flagged</p>
+                      <p className="text-[11px] text-rose-800">
+                        Field inspection verified vesicular indicators. Upon MAO approval, this case seeds the municipal GIS epidemic model.
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className="bg-rose-700 text-white text-[9.5px] font-black uppercase">
+                    Suspected FMD
+                  </Badge>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">

@@ -332,16 +332,15 @@ export function computeAnnualSimulationTrajectory(
 
   const { distances, bearings } = matrices;
 
-  // Step 1: Initial ground truth seeds from PostgreSQL database
+  // Step 1: Initial ground truth seeds from approved, explicitly labeled FMD reports.
   let currentInfected: Record<string, number> = {};
   for (const b of barangays) {
-    // This compatibility field counts approved reports from the last 90 days.
-    // Historical-only reports must not create current scenario seeds.
-    const liveCases = Math.max(0, b.active_cases);
+    // Generic disease reports and symptom descriptions must not be treated as FMD.
+    const liveCases = Math.max(0, b.fmd_active_cases || 0);
     currentInfected[b.name] = liveCases;
   }
 
-  // DATA TRUST AUDIT: Check if real verified disease outbreaks exist in the database
+  // Activate the explicitly labeled hypothetical scenario only when there are no eligible FMD seeds.
   const totalSeeds = Object.values(currentInfected).reduce((sum, v) => sum + v, 0);
   const isDemoScenario = totalSeeds === 0;
 

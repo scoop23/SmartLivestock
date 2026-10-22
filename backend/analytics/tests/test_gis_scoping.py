@@ -23,9 +23,11 @@ EDUCATIONAL GUIDE FOR CAPSTONE PRESENTATION / DEFENSE:
 from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 from django.urls import reverse
 from rest_framework.test import APIClient
 
+from diseases.models import DiseaseCase
 from livestock.models import Barangay, Farmer, LivestockInventory, LivestockType
 from users.models import Role
 from analytics.services.gis import get_gis_aggregated_data, get_user_gis_scope
@@ -172,6 +174,42 @@ class GISRoleScopingTestCase(TestCase):
         self.assertEqual(manggas["cattle"], 15)
         self.assertTrue(cawongan["is_in_scope"])
         self.assertTrue(manggas["is_in_scope"])
+
+    def test_only_approved_reports_marked_suspected_fmd_by_field_review_seed_simulation(self):
+        today = timezone.localdate()
+        DiseaseCase.objects.create(
+            livestock=LivestockInventory.objects.filter(farmer=self.farmer_profile).first(),
+            name="Excessive Drooling, Lethargic / Weak",
+            affected_count=1,
+            record_date=today,
+            status=DiseaseCase.DiseaseStatus.APPROVED,
+            inspection_details={"fmdAssessment": "SUSPECTED"},
+            created_by=self.farmer_user,
+        )
+        DiseaseCase.objects.create(
+            livestock=LivestockInventory.objects.filter(farmer=self.farmer_profile_2).first(),
+            name="Foot blisters and drooling",
+            affected_count=1,
+            record_date=today,
+            status=DiseaseCase.DiseaseStatus.APPROVED,
+            created_by=self.farmer_user_2,
+        )
+        DiseaseCase.objects.create(
+            livestock=LivestockInventory.objects.filter(farmer=self.farmer_profile_2).first(),
+            name="Foot blisters and drooling",
+            affected_count=1,
+            record_date=today,
+            status=DiseaseCase.DiseaseStatus.PENDING,
+            inspection_details={"fmdAssessment": "SUSPECTED"},
+            created_by=self.farmer_user_2,
+        )
+
+        data = get_gis_aggregated_data(self.admin_user)
+
+        self.assertEqual(data["barangays_dict"]["Cawongan"]["active_cases"], 1)
+        self.assertEqual(data["barangays_dict"]["Cawongan"]["fmd_active_cases"], 1)
+        self.assertEqual(data["barangays_dict"]["Manggas"]["active_cases"], 1)
+        self.assertEqual(data["barangays_dict"]["Manggas"]["fmd_active_cases"], 0)
 
     def test_sibat_assigned_barangay_scope(self):
         """SIBAT assigned only to Cawongan sees Cawongan data; Manggas data is zeroed/masked."""

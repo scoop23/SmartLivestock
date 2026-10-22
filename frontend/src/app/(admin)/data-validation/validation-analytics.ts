@@ -111,6 +111,7 @@ export interface SibatInspectionData {
   tagConfirmed: boolean;
   confirmedCount: number;
   confirmedSymptoms: string[];
+  fmdAssessment?: "SUSPECTED" | "";
   severity: string;
   biosecurityAction: string;
   remarks: string;
@@ -139,6 +140,8 @@ export interface ValidationIncidentItem {
   livestockType?: string;
   conditionName?: string;
   symptoms?: string[];
+  farmerSymptoms?: string[];
+  fmdAssessment?: "SUSPECTED" | "";
   photoUrl?: string;
   photoName?: string;
   inspectorPhotoUrl?: string;
@@ -341,8 +344,19 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
 
     diseaseCases.forEach((dc) => {
       const pUrl = dc.photo_url || dc.photo || undefined;
-      const inspUrl = dc.inspector_photo_url || dc.inspector_photo || undefined;
-      const isSibatDone = !!(dc.reviewed_by_name || dc.review_remarks || inspUrl || (dc.status || "").toUpperCase() === "VERIFIED");
+      const inspDetails = (dc.inspection_details || {}) as Partial<SibatInspectionData>;
+      const inspUrl =
+        dc.inspector_photo_url ||
+        dc.inspector_photo ||
+        (inspDetails as any)?.inspectorPhotoUrl ||
+        undefined;
+      const isSibatDone = !!(
+        dc.reviewed_by_name ||
+        dc.review_remarks ||
+        inspUrl ||
+        (dc.status || "").toUpperCase() === "VERIFIED" ||
+        dc.inspection_details
+      );
 
       incidents.push({
         id: `dis-${dc.id}`,
@@ -361,21 +375,38 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         livestockBreed: dc.breed || undefined,
         livestockType: dc.livestock_type_name || "Livestock",
         conditionName: dc.name || "Disease Case",
+        fmdAssessment: (inspDetails.fmdAssessment as "SUSPECTED" | "") || "",
+        symptoms:
+          inspDetails.confirmedSymptoms && inspDetails.confirmedSymptoms.length > 0
+            ? inspDetails.confirmedSymptoms
+            : [dc.name || "Observed Symptoms"],
+        farmerSymptoms: (dc as any).farmer_symptoms || (dc as any).symptoms || [],
         photoUrl: pUrl,
         photoName: pUrl ? `Farmer Evidence #${dc.tag_number || dc.id}` : undefined,
         inspectorPhotoUrl: inspUrl,
         inspectorPhotoName: inspUrl ? `SIBAT Inspection Photo #${dc.tag_number || dc.id}` : undefined,
-        sibatInspection: isSibatDone ? {
-          verifiedBy: dc.reviewed_by_name || "SIBAT Field Officer",
-          verifiedAt: dc.reviewed_at ? new Date(dc.reviewed_at).toLocaleDateString() : (dc.record_date || "Recently"),
-          tagConfirmed: true,
-          confirmedCount: dc.affected_count || 1,
-          confirmedSymptoms: [dc.name || "Observed Symptoms"],
-          severity: "MODERATE",
-          biosecurityAction: "Quarantine & Pen Isolation",
-          remarks: dc.review_remarks || "Field inspection completed. Verified symptoms and animal condition on-site.",
-          temperatureCelsius: 38.5,
-        } : undefined,
+        sibatInspection: isSibatDone
+          ? {
+              verifiedBy: inspDetails.verifiedBy || dc.reviewed_by_name || "SIBAT Field Officer",
+              verifiedAt:
+                inspDetails.verifiedAt ||
+                (dc.reviewed_at ? new Date(dc.reviewed_at).toLocaleDateString() : (dc.record_date || "Recently")),
+              tagConfirmed: inspDetails.tagConfirmed ?? true,
+              confirmedCount: inspDetails.confirmedCount ?? (dc.affected_count || 1),
+              confirmedSymptoms:
+                inspDetails.confirmedSymptoms && inspDetails.confirmedSymptoms.length > 0
+                  ? inspDetails.confirmedSymptoms
+                  : [dc.name || "Observed Symptoms"],
+              fmdAssessment: inspDetails.fmdAssessment || "",
+              severity: inspDetails.severity || "MODERATE",
+              biosecurityAction: inspDetails.biosecurityAction || "PEN_ISOLATION",
+              remarks:
+                inspDetails.remarks ||
+                dc.review_remarks ||
+                "Field inspection completed. Verified symptoms and animal condition on-site.",
+              temperatureCelsius: inspDetails.temperatureCelsius,
+            }
+          : undefined,
         reviewedBy: dc.reviewed_by_name || null,
         reviewedAt: dc.reviewed_at || null,
       });

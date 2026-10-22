@@ -12,6 +12,8 @@ DialogTitle,
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { hasPossibleFmdSigns, evaluateFmdSigns } from "@/lib/fmd-signs";
+import { FmdSuspicionAlertCard } from "./fmd-suspicion-alert-card";
 import { useAuth } from "@/contexts/auth-context";
 import { getAttachedPhoto,saveAttachedPhoto } from "@/lib/photo-storage";
 import {
@@ -28,6 +30,7 @@ MapPin,
 Maximize2,
 Milk,
 Scale,
+ShieldAlert,
 ShieldCheck,
 Skull,
 Sparkles,
@@ -37,7 +40,7 @@ User,
 X,
 ZoomIn
 } from "lucide-react";
-import React,{ useState } from "react";
+import React,{ useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export type SibatReportType = "DISEASE" | "MORTALITY" | "SLAUGHTER" | "PRODUCTION" | "SALE";
@@ -73,6 +76,7 @@ export interface SibatInspectionData {
   countConfirmed: boolean;
   confirmedCount: number;
   confirmedSymptoms: string[];
+  fmdAssessment?: "SUSPECTED" | "";
   severity: SeverityLevel | "";
   biosecurityAction: BiosecurityAction | "";
   remarks: string;
@@ -209,6 +213,9 @@ function DiseaseReadOnlyDetails({
             <div className="flex flex-wrap gap-2 text-xs font-bold">
               <span className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950"><AlertTriangle className="mr-1 inline size-4" />Severity: {severity}</span>
               <span className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-950"><ShieldCheck className="mr-1 inline size-4" />Biosecurity Action: {biosecurity}</span>
+              {inspection?.fmdAssessment === "SUSPECTED" && (
+                <span className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-rose-950"><ShieldAlert className="mr-1 inline size-4 text-rose-700" />Suspected FMD Flagged</span>
+              )}
             </div>
           </div>
         </div>
@@ -389,13 +396,21 @@ const CLINICAL_SYMPTOMS_LIST = [
   { id: "weak", label: "Lethargic / Isolated", desc: "Lying down away from herd" },
 ];
 
-const SIBAT_VERIFIED_PRESETS = [
-  "Physical inspection conducted on-farm. Ear tag & animal verified. Mild hoof swelling confirmed; isolated for observation.",
-  "Clinical signs match farmer report. Administered supportive oral electrolytes and prescribed isolation protocol.",
-  "Mortality verified on site. Carcass disinfected with lime and deep pit burial (2m) completed under SIBAT supervision.",
+const SIBAT_DISEASE_PRESETS = [
+  "Physical inspection conducted on-farm. Ear tag & animal verified. Mild symptoms confirmed; isolated for observation.",
+  "Clinical signs match farmer report. Administered supportive electrolytes and prescribed isolation protocol.",
+  "Mouth & hoof vesicles with salivation observed. Suspected Foot and Mouth Disease (FMD) recorded; pen isolation enforced pending MAO review.",
   "Confirmed symptoms of respiratory distress. Advised farmer on shelter ventilation and temporary herd separation.",
-  "Slaughter inspection completed on site. Carcass clean and fit for commercial consumption.",
+  "Discrepancy in recorded ear tag or physical symptoms upon inspection. Requires veterinary re-audit.",
 ];
+
+const SIBAT_MORTALITY_PRESETS = [
+  "Mortality verified on site. Carcass disinfected with lime and deep pit burial (2m) completed under SIBAT supervision.",
+  "Death caused by severe birth complications. No signs of transmissible infectious disease.",
+  "Discrepancy in recorded ear tag or animal identity. Requires re-audit.",
+];
+
+const SIBAT_VERIFIED_PRESETS = SIBAT_DISEASE_PRESETS;
 
 interface SibatInspectionDialogProps {
   record: SibatValidationRecord | null;
@@ -427,6 +442,7 @@ function SibatInspectionDialogContent({
   const [tagConfirmed, setTagConfirmed] = useState<boolean>(record?.inspection?.tagConfirmed ?? false);
   const [countConfirmed, setCountConfirmed] = useState<boolean>(record?.inspection?.countConfirmed ?? false);
   const [confirmedSymptoms, setConfirmedSymptoms] = useState<string[]>(record?.inspection?.confirmedSymptoms ?? []);
+  const [fmdAssessment, setFmdAssessment] = useState<"SUSPECTED" | "">(record?.inspection?.fmdAssessment ?? "");
   const [severity, setSeverity] = useState<SeverityLevel | "">(record?.inspection?.severity ?? "");
   const [biosecurityAction, setBiosecurityAction] = useState<BiosecurityAction | "">(record?.inspection?.biosecurityAction ?? "");
   const [temperature, setTemperature] = useState<string>(record?.inspection?.temperatureCelsius ? String(record.inspection.temperatureCelsius) : "");
@@ -533,11 +549,71 @@ function SibatInspectionDialogContent({
   const isVerified = normStatus === "VERIFIED";
   const isRevision = normStatus === "SUBJECT_FOR_REVISION" || normStatus === "SUBJECT_TO_REVISION";
   const isPendingMortality = isMortality && normStatus === "PENDING" && !readOnly;
+  const isPendingDisease = isDisease && normStatus === "PENDING" && !readOnly;
+  const isPendingVerification = (isMortality || isDisease) && normStatus === "PENDING" && !readOnly;
 
   // Active symptoms & temperature depending on whether 'ALL' or a specific head is selected
   const activeSymptoms = selectedHeadTag === "ALL"
     ? confirmedSymptoms
     : (headDiagnoses[selectedHeadTag]?.confirmedSymptoms ?? []);
+
+  const farmerReportedSigns = useMemo(() => [
+    ...(record.farmerSymptoms || []),
+    record.name,
+    record.farmerDescription,
+  ].filter(Boolean) as string[], [record.farmerSymptoms, record.name, record.farmerDescription]);
+
+  const combinedSigns = useMemo(() => {
+    return Array.from(new Set([
+      ...farmerReportedSigns,
+      ...activeSymptoms,
+    ]));
+  }, [farmerReportedSigns, activeSymptoms]);
+
+  const fmdEvaluation = useMemo(() => {
+    if (!isDisease) {
+      return {
+        hasPossibleFmd: false,
+        isHighSuspicion: false,
+        matchedSigns: [],
+        indicatorType: "NONE" as const,
+        summaryTagalog: "",
+        summaryEnglish: "",
+        checklistToInspect: [],
+      };
+    }
+    return evaluateFmdSigns(combinedSigns);
+  }, [isDisease, combinedSigns]);
+
+  const farmerHasFmdSigns = isDisease && evaluateFmdSigns(farmerReportedSigns).hasPossibleFmd;
+  const inspectorHasFmdSigns = isDisease && evaluateFmdSigns(activeSymptoms).hasPossibleFmd;
+  const hasAnyFmdSigns = fmdEvaluation.hasPossibleFmd;
+
+  const handleToggleFmdAssessment = (isSuspected: boolean) => {
+    if (isReadOnly) return;
+    if (isSuspected) {
+      setFmdAssessment("SUSPECTED");
+      if (!biosecurityAction || biosecurityAction === "NONE") {
+        setBiosecurityAction("PEN_ISOLATION");
+      }
+    } else {
+      setFmdAssessment("");
+    }
+  };
+
+  const applyFmdPresetAndProtocol = () => {
+    if (isReadOnly) return;
+    setFmdAssessment("SUSPECTED");
+    setBiosecurityAction("PEN_ISOLATION");
+    if (!severity || severity === "MILD") {
+      setSeverity("SEVERE");
+    }
+    const fmdRemark = "Mouth & hoof vesicles with salivation observed. Suspected Foot and Mouth Disease (FMD) recorded; pen isolation enforced pending MAO review.";
+    setInspectorRemarks(fmdRemark);
+    toast.success("FMD Biosecurity Protocol Applied", {
+      description: "Pen Isolation (7 days), Severe severity rating, and standard quarantine remarks configured.",
+    });
+  };
 
   const activeTemperature = selectedHeadTag === "ALL"
     ? temperature
@@ -653,6 +729,7 @@ function SibatInspectionDialogContent({
       countConfirmed,
       confirmedCount: record.reportedCount ?? 1,
       confirmedSymptoms,
+      fmdAssessment: isDisease ? fmdAssessment : "",
       severity: isMortality ? "" : severity,
       biosecurityAction,
       remarks:
@@ -745,17 +822,25 @@ function SibatInspectionDialogContent({
         <p id="sibat-inspection-description" className="sr-only">Reported animal health details, original field inspection, and case follow-up history.</p>
 
         {/* ══ POPUP HEADER ══ */}
-        {isPendingMortality ? (
+        {isPendingVerification ? (
           <header className="mb-3 flex flex-col gap-3 rounded-xl bg-gradient-to-r from-[#12365f] to-[#35618e] p-3 text-white shadow-sm sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:p-4">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="grid size-12 shrink-0 place-items-center rounded-full bg-rose-600 text-white"><Skull className="size-6" /></span>
+              <span className={`grid size-12 shrink-0 place-items-center rounded-full text-white ${isMortality ? "bg-rose-600" : "bg-sky-600"}`}>
+                {isMortality ? <Skull className="size-6" /> : <Stethoscope className="size-6" />}
+              </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-blue-100 sm:text-xs">
-                  <span>Mortality Report</span><span>#{record.id}</span>
+                  <span>{isMortality ? "Mortality Report" : "Disease Report"}</span><span>#{record.id}</span>
                   <Badge className="border border-amber-200 bg-amber-100 text-amber-900">Pending On-Farm Visit</Badge>
                 </div>
-                <DialogTitle className="mt-0.5 text-lg font-extrabold leading-tight text-white sm:text-2xl">SIBAT Mortality Verification</DialogTitle>
-                <p className="text-xs text-blue-100 sm:text-sm">Record signs observed before death, verify the animal and count, and document carcass biosecurity actions for MAO review.</p>
+                <DialogTitle className="mt-0.5 text-lg font-extrabold leading-tight text-white sm:text-2xl">
+                  {isMortality ? "SIBAT Mortality Verification" : "SIBAT Disease Verification"}
+                </DialogTitle>
+                <p className="text-xs text-blue-100 sm:text-sm">
+                  {isMortality
+                    ? "Record signs observed before death, verify the animal and count, and document carcass biosecurity actions for MAO review."
+                    : "Record clinically observed signs, verify the animal and count, and document biosecurity actions for MAO review."}
+                </p>
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2 pl-14 text-[11px] text-blue-100 sm:pl-0">
@@ -862,14 +947,14 @@ function SibatInspectionDialogContent({
 
         {/* ══ 2-COLUMN EXPANDED SIBAT INSPECTION LAYOUT ══ */}
         {isDisease && isReadOnly && <div className="mb-5"><DiseaseCaseFollowUp key={record.id} caseId={record.id} /></div>}
-        <div className={`grid grid-cols-1 gap-3 sm:gap-4 ${isRevision || isPendingMortality ? "lg:grid-cols-12" : "lg:grid-cols-12 lg:gap-6"}`}>
+        <div className={`grid grid-cols-1 gap-3 sm:gap-4 ${isRevision || isPendingVerification ? "lg:grid-cols-12" : "lg:grid-cols-12 lg:gap-6"}`}>
           {/* ── LEFT COLUMN (6 COLS): LIVESTOCK & FARMER INITIAL REPORT ── */}
-          <div className={`min-w-0 space-y-3 ${isRevision || isPendingMortality ? "lg:col-span-12" : "lg:col-span-6"}`}>
-            <div className={`rounded-2xl border ${isRevision ? "space-y-3.5 border-blue-100 bg-white p-3.5 sm:p-4" : isPendingMortality ? "grid grid-cols-1 gap-2.5 border-blue-100 bg-white p-3 sm:grid-cols-12 sm:gap-2.5" : "space-y-3.5 border-slate-200/90 bg-slate-50 p-4 sm:p-5"}`}>
-              <div className={`flex items-center justify-between ${isPendingMortality ? "sm:col-span-12" : ""}`}>
+          <div className={`min-w-0 space-y-3 ${isRevision || isPendingVerification ? "lg:col-span-12" : "lg:col-span-6"}`}>
+            <div className={`rounded-2xl border ${isRevision ? "space-y-3.5 border-blue-100 bg-white p-3.5 sm:p-4" : isPendingVerification ? "grid grid-cols-1 gap-2.5 border-blue-100 bg-white p-3 sm:grid-cols-12 sm:gap-2.5" : "space-y-3.5 border-slate-200/90 bg-slate-50 p-4 sm:p-5"}`}>
+              <div className={`flex items-center justify-between ${isPendingVerification ? "sm:col-span-12" : ""}`}>
                 <span className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-700">
-                  {isRevision || isPendingMortality ? <span className="grid size-7 place-items-center rounded-full bg-sky-500 text-sm text-white">1</span> : null}
-                  <span>{isRevision || isPendingMortality ? "Farmer & Animal Information" : "1. Livestock & Raiser Profile"}{isPendingMortality ? <small className="mt-0.5 block font-medium normal-case tracking-normal text-slate-500">Review the farmer&apos;s reported details.</small> : null}</span>
+                  {isRevision || isPendingVerification ? <span className="grid size-7 place-items-center rounded-full bg-sky-500 text-sm text-white">1</span> : null}
+                  <span>{isRevision || isPendingVerification ? "Farmer & Animal Information" : "1. Livestock & Raiser Profile"}{isPendingVerification ? <small className="mt-0.5 block font-medium normal-case tracking-normal text-slate-500">Review the farmer&apos;s reported details.</small> : null}</span>
                 </span>
                 <span className="flex items-center gap-1 text-xs font-bold text-slate-600">
                   <Calendar className="size-3.5 text-slate-400" />
@@ -877,7 +962,7 @@ function SibatInspectionDialogContent({
                 </span>
               </div>
 
-              <div className={`grid grid-cols-2 gap-2.5 text-xs ${isRevision ? "xl:grid-cols-4" : isPendingMortality ? "sm:col-span-8" : ""}`}>
+              <div className={`grid grid-cols-2 gap-2.5 text-xs ${isRevision ? "xl:grid-cols-4" : isPendingVerification ? "sm:col-span-8" : ""}`}>
                 <div className="p-3 bg-white rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-400 font-bold block uppercase">Tag Number</span>
                   <span className="font-black text-slate-900 text-sm sm:text-base">
@@ -910,7 +995,7 @@ function SibatInspectionDialogContent({
               </div>
 
               {/* Condition / Incident details */}
-              <div className={`flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3.5 text-xs ${isPendingMortality ? "sm:col-span-8" : ""}`}>
+              <div className={`flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3.5 text-xs ${isPendingVerification ? "sm:col-span-8" : ""}`}>
                 <div>
                   <span className="text-[10px] text-slate-400 font-bold uppercase block">
                     {isMortality ? "Reported Mortality Cause" : "Reported Health Condition"}
@@ -933,7 +1018,7 @@ function SibatInspectionDialogContent({
               </div>
 
               {/* Farmer Initial Statement */}
-              <div className={`space-y-1 rounded-xl border border-slate-200 bg-white p-3.5 text-xs ${isPendingMortality ? "sm:col-span-8" : ""}`}>
+              <div className={`space-y-1 rounded-xl border border-slate-200 bg-white p-3.5 text-xs ${isPendingVerification ? "sm:col-span-8" : ""}`}>
                 <span className="text-[10px] font-black text-slate-400 uppercase block">
                   Farmer&apos;s Initial Statement:
                 </span>
@@ -944,7 +1029,7 @@ function SibatInspectionDialogContent({
 
               {/* Farmer Reported Symptoms */}
               {record.farmerSymptoms && record.farmerSymptoms.length > 0 && (
-                <div className={`min-w-0 space-y-1.5 rounded-xl border border-slate-200 bg-white p-3.5 text-xs ${isPendingMortality ? "sm:col-span-8" : ""}`}>
+                <div className={`min-w-0 space-y-1.5 rounded-xl border border-slate-200 bg-white p-3.5 text-xs ${isPendingVerification ? "sm:col-span-8" : ""}`}>
                   <span className="text-[10px] font-black text-slate-400 uppercase block">
                     Signs Reported by Farmer:
                   </span>
@@ -975,7 +1060,7 @@ function SibatInspectionDialogContent({
 
                 if (!activePhotoUrl) {
                   return (
-                    <div className={`space-y-2.5 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-center ${isPendingMortality ? "sm:col-start-9 sm:col-span-4 sm:row-start-2 sm:row-span-4" : ""}`}>
+                    <div className={`space-y-2.5 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-center ${isPendingVerification ? "sm:col-start-9 sm:col-span-4 sm:row-start-2 sm:row-span-4" : ""}`}>
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2">
                           <div className="p-2 rounded-xl bg-slate-100 text-slate-500">
@@ -1047,7 +1132,7 @@ function SibatInspectionDialogContent({
                 }
 
                 return (
-                  <div className={`space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs ${isPendingMortality ? "sm:col-start-9 sm:col-span-4 sm:row-start-2 sm:row-span-4" : ""}`}>
+                  <div className={`space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs ${isPendingVerification ? "sm:col-start-9 sm:col-span-4 sm:row-start-2 sm:row-span-4" : ""}`}>
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
                         <div className="p-2 rounded-xl bg-emerald-50 text-[#1E4D2B]">
@@ -1055,10 +1140,10 @@ function SibatInspectionDialogContent({
                         </div>
                         <div>
                           <span className="text-xs sm:text-sm font-black text-slate-900 block leading-tight">
-                            {isFarmerUpload ? isPendingMortality ? "Farmer's Attached Photo" : "Farmer Attached Photo Evidence" : "SIBAT Inspection Photo"}
+                            {isFarmerUpload ? isPendingVerification ? "Farmer's Attached Photo" : "Farmer Attached Photo Evidence" : "SIBAT Inspection Photo"}
                           </span>
                           <span className="text-[10px] text-slate-400 font-medium">
-                            {isFarmerUpload ? isPendingMortality ? "Photo submitted by the farmer." : "Visual documentation submitted with the alert" : "Captured during on-farm verification visit"}
+                            {isFarmerUpload ? isPendingVerification ? "Photo submitted by the farmer." : "Visual documentation submitted with the alert" : "Captured during on-farm verification visit"}
                           </span>
                         </div>
                       </div>
@@ -1142,14 +1227,28 @@ function SibatInspectionDialogContent({
             </div>
           </div>
 
+          {/* ─── FULL-WIDTH FMD DIFFERENTIAL ALERT CARD (Pulsing trigger with elongating accordion) ─── */}
+          {isDisease && fmdEvaluation.hasPossibleFmd && (
+            <div className="lg:col-span-12">
+              <FmdSuspicionAlertCard
+                evaluation={fmdEvaluation}
+                fmdAssessment={fmdAssessment}
+                onToggleFmdAssessment={handleToggleFmdAssessment}
+                onApplyFmdProtocol={applyFmdPresetAndProtocol}
+                isReadOnly={isReadOnly}
+                isPending={isPendingDisease || isRevision}
+              />
+            </div>
+          )}
+
           {/* ── RIGHT COLUMN (6 COLS): SIBAT CLINICAL FORM & ACTIONS ── */}
-          <div className={`min-w-0 space-y-3 ${isRevision || isPendingMortality ? "lg:col-span-12" : "lg:col-span-6"}`}>
-            <div className={`space-y-3.5 rounded-2xl border p-3.5 sm:p-4 ${isRevision || isPendingMortality ? "grid grid-cols-1 gap-2.5 border-blue-100 bg-white sm:grid-cols-2 sm:space-y-0" : "border-sky-200 bg-sky-50/70 sm:p-5"}`}>
-              <div className={`flex items-center justify-between ${isRevision || isPendingMortality ? "border-b border-blue-100 pb-2 sm:col-span-2" : ""}`}>
+          <div className={`min-w-0 space-y-3 ${isRevision || isPendingVerification ? "lg:col-span-12" : "lg:col-span-6"}`}>
+            <div className={`space-y-3.5 rounded-2xl border p-3.5 sm:p-4 ${isRevision || isPendingVerification ? "grid grid-cols-1 gap-2.5 border-blue-100 bg-white sm:grid-cols-2 sm:space-y-0" : "border-sky-200 bg-sky-50/70 sm:p-5"}`}>
+              <div className={`flex items-center justify-between ${isRevision || isPendingVerification ? "border-b border-blue-100 pb-2 sm:col-span-2" : ""}`}>
                 <div className="flex items-center gap-2">
-                  {isRevision || isPendingMortality ? <span className="grid size-7 place-items-center rounded-full bg-sky-500 text-sm font-black text-white">2</span> : <Stethoscope className="size-5 text-sky-800" />}
+                  {isRevision || isPendingVerification ? <span className="grid size-7 place-items-center rounded-full bg-sky-500 text-sm font-black text-white">2</span> : <Stethoscope className="size-5 text-sky-800" />}
                   <span className="text-xs font-black uppercase tracking-wider text-sky-950 sm:text-sm">
-                    {isRevision ? "Update Field Examination Details" : isPendingMortality ? "Field Verification" : isReadOnly ? "2. Field Inspection Record" : "2. Physical On-Farm Examination (Step 2)"}
+                    {isRevision ? "Update Field Examination Details" : isPendingVerification ? "Field Verification" : isReadOnly ? "2. Field Inspection Record" : "2. Physical On-Farm Examination (Step 2)"}
                   </span>
                 </div>
                 <Badge className={`${isApproved ? "bg-emerald-200 text-emerald-900" : isVerified ? "bg-sky-200 text-sky-900" : "bg-slate-200 text-slate-800"} border-none font-black text-[10px] uppercase`}>
@@ -1157,10 +1256,10 @@ function SibatInspectionDialogContent({
                 </Badge>
               </div>
 
-              {isRevision || isPendingMortality ? <p className="-mt-2 text-[11px] text-slate-500 sm:col-span-2">{isRevision ? "Edit or add the missing information requested by the MAO." : isMortality ? "Record signs reported before death and actions taken to secure or handle the carcass." : "Record your on-farm findings. Select only what you personally observed."}</p> : null}
+              {isRevision || isPendingVerification ? <p className="-mt-2 text-[11px] text-slate-500 sm:col-span-2">{isRevision ? "Edit or add the missing information requested by the MAO." : isMortality ? "Record signs reported before death and actions taken to secure or handle the carcass." : "Record clinically observed signs, body temperature, and actions taken to isolate or treat the animal."}</p> : null}
 
               {/* Revision uses the compact two-column examination layout from the field form. */}
-              <div className={isRevision || isPendingMortality ? "space-y-2 sm:col-start-1 sm:row-start-3" : "contents"}>
+              <div className={isRevision || isPendingVerification ? "space-y-2 sm:col-start-1 sm:row-start-3" : "contents"}>
               {/* Ear Tag Verification Checkbox */}
               <label className={`flex items-center gap-3 rounded-xl border border-sky-200 bg-white p-2.5 transition-all sm:p-3 ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50/40"}`}>
                 <input
@@ -1202,42 +1301,68 @@ function SibatInspectionDialogContent({
               </label>
               </div>
 
-              <div className={isRevision ? "space-y-2.5 sm:col-start-2 sm:row-start-3" : isPendingMortality ? "space-y-2.5 sm:col-start-2 sm:row-start-3" : "contents"}>
-                {/* Body Temperature */}
-                {!isMortality && <div className="space-y-1">
-                  <label className="text-xs font-black text-slate-800 flex items-center justify-between">
-                    <span>
-                      Body Temp (°C) {selectedHeadTag !== "ALL" ? `for Tag #${selectedHeadTag}` : isReadOnly ? "" : "(Optional)"}:
-                    </span>
-                    {selectedHeadTag !== "ALL" && (
-                      <span className="text-[10px] text-sky-700 font-bold bg-sky-100/70 px-2 py-0.5 rounded-full">
-                        Head: {selectedHeadTag}
-                      </span>
-                    )}
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    placeholder={isReadOnly ? "Not recorded" : "e.g. 39.5"}
-                    value={activeTemperature}
-                    disabled={isReadOnly}
-                    onChange={(e) => handleTemperatureChange(e.target.value)}
-                    className="bg-white border-sky-200 rounded-xl text-xs font-bold disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
-                  />
-                </div>}
+              <div className={isRevision || isPendingVerification ? "space-y-2.5 sm:col-start-2 sm:row-start-3" : "contents"}>
+                {isRevision || isPendingVerification ? (
+                  <>
+                    {!isMortality ? (
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                        {/* Body Temperature */}
+                        <div className="space-y-1">
+                          <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                            <span>
+                              Body Temp (°C) {isReadOnly ? "" : "(Optional)"}:
+                            </span>
+                            {selectedHeadTag !== "ALL" && (
+                              <span className="text-[10px] text-sky-700 font-bold bg-sky-100/70 px-2 py-0.5 rounded-full">
+                                #{selectedHeadTag}
+                              </span>
+                            )}
+                          </label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            placeholder={isReadOnly ? "Not recorded" : "e.g. 39.5"}
+                            value={activeTemperature}
+                            disabled={isReadOnly}
+                            onChange={(e) => handleTemperatureChange(e.target.value)}
+                            className="h-10 bg-white border-sky-200 rounded-xl text-xs font-bold disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
+                          />
+                        </div>
 
-                {isRevision || isPendingMortality ? (
-                  <div className={`grid grid-cols-1 gap-2.5 ${isMortality ? "" : "sm:grid-cols-2"}`}>
-                    {!isMortality && <div className="space-y-1">
-                      <label className="text-xs font-black text-slate-800">Severity Rating:</label>
-                      <select value={severity} disabled={isReadOnly} onChange={(e) => { if (!isReadOnly) setSeverity(e.target.value as SeverityLevel | ""); }} className="h-10 w-full rounded-xl border border-sky-200 bg-white px-3 text-xs font-bold text-slate-800 outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-800">
-                        <option value="">Not assessed</option><option value="MILD">Mild (Monitoring Required)</option><option value="MODERATE">Moderate (Treatment Needed)</option><option value="SEVERE">Severe (Urgent Intervention)</option><option value="CRITICAL">Critical / Fatal</option>
-                      </select>
-                    </div>}
+                        {/* Severity Rating */}
+                        <div className="space-y-1">
+                          <label className="text-xs font-black text-slate-800">Severity Rating:</label>
+                          <Select
+                            value={severity || "NONE_SELECTED"}
+                            onValueChange={(val) => setSeverity(val === "NONE_SELECTED" ? "" : (val as SeverityLevel))}
+                            disabled={isReadOnly}
+                          >
+                            <SelectTrigger className="h-10 w-full rounded-xl border-sky-200 bg-white text-xs font-bold text-slate-800">
+                              <SelectValue placeholder="Choose severity" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="NONE_SELECTED">Not assessed</SelectItem>
+                              <SelectItem value="MILD">Mild (Monitoring Required)</SelectItem>
+                              <SelectItem value="MODERATE">Moderate (Treatment Needed)</SelectItem>
+                              <SelectItem value="SEVERE">Severe (Urgent Intervention)</SelectItem>
+                              <SelectItem value="CRITICAL">Critical / Fatal</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Biosecurity Action */}
                     <div className="space-y-1">
-                      <label className="text-xs font-black text-slate-800">Biosecurity Action:</label>
+                      <label className="text-xs font-black text-slate-800">
+                        {isMortality ? "Carcass Biosecurity Action:" : "Biosecurity Action:"}
+                      </label>
                       {isMortality ? (
-                        <Select value={biosecurityAction || "NONE_SELECTED"} onValueChange={(value) => setBiosecurityAction(value === "NONE_SELECTED" ? "" : value as BiosecurityAction)} disabled={isReadOnly}>
+                        <Select
+                          value={biosecurityAction || "NONE_SELECTED"}
+                          onValueChange={(value) => setBiosecurityAction(value === "NONE_SELECTED" ? "" : (value as BiosecurityAction))}
+                          disabled={isReadOnly}
+                        >
                           <SelectTrigger className="h-10 w-full rounded-xl border-sky-200 bg-white text-xs font-bold text-slate-800">
                             <SelectValue placeholder="Choose a carcass biosecurity action" />
                           </SelectTrigger>
@@ -1251,19 +1376,46 @@ function SibatInspectionDialogContent({
                           </SelectContent>
                         </Select>
                       ) : (
-                        <select value={biosecurityAction} disabled={isReadOnly} onChange={(e) => { if (!isReadOnly) setBiosecurityAction(e.target.value as BiosecurityAction | ""); }} className="h-10 w-full rounded-xl border border-sky-200 bg-white px-3 text-xs font-bold text-slate-800 outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-800">
-                          <option value="">No action recorded</option>
-                          <option value="NONE">None / General Advisory</option><option value="PEN_ISOLATION">Temporary Pen Isolation (7 Days)</option><option value="TREATMENT_PRESCRIBED">Supportive Treatment Prescribed</option><option value="BIOSECURE_BURIAL">Biosecure Deep Pit Burial &amp; Lime</option><option value="LAB_SAMPLE_SENT">Blood/Tissue Sample Sent to Lab</option>
-                        </select>
+                        <Select
+                          value={biosecurityAction || "NONE_SELECTED"}
+                          onValueChange={(value) => setBiosecurityAction(value === "NONE_SELECTED" ? "" : (value as BiosecurityAction))}
+                          disabled={isReadOnly}
+                        >
+                          <SelectTrigger className="h-10 w-full rounded-xl border-sky-200 bg-white text-xs font-bold text-slate-800">
+                            <SelectValue placeholder="Choose a biosecurity action" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="NONE_SELECTED">No action recorded</SelectItem>
+                            <SelectItem value="NONE">None / General Advisory</SelectItem>
+                            <SelectItem value="PEN_ISOLATION">Temporary Pen Isolation (7 Days)</SelectItem>
+                            <SelectItem value="TREATMENT_PRESCRIBED">Supportive Treatment Prescribed</SelectItem>
+                            <SelectItem value="BIOSECURE_BURIAL">Biosecure Deep Pit Burial & Lime</SelectItem>
+                            <SelectItem value="LAB_SAMPLE_SENT">Blood/Tissue Sample Sent to Lab</SelectItem>
+                          </SelectContent>
+                        </Select>
                       )}
                     </div>
+                  </>
+                ) : (
+                  <div className="space-y-1">
+                    <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                      <span>Body Temp (°C):</span>
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="Not recorded"
+                      value={activeTemperature}
+                      disabled
+                      className="bg-white border-sky-200 rounded-xl text-xs font-bold disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
+                    />
                   </div>
-                ) : null}
+                )}
               </div>
 
               {/* Multi-head Selector & Sync Controls */}
               {heads.length >= 2 && (
-                <div className={`space-y-2.5 rounded-xl border border-sky-200 bg-white p-3.5 shadow-2xs ${isRevision || isPendingMortality ? "sm:col-span-2" : ""}`}>
+                <div className={`space-y-2.5 rounded-xl border border-sky-200 bg-white p-3.5 shadow-2xs ${isRevision || isPendingVerification ? "sm:col-span-2" : ""}`}>
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
                       <Tag className="size-3.5 text-sky-700" />
@@ -1340,7 +1492,7 @@ function SibatInspectionDialogContent({
               )}
 
               {/* Interactive Symptoms Checklist */}
-              <div className={`space-y-1.5 ${isRevision || isPendingMortality ? "sm:col-start-1" : ""}`}>
+              <div className={`space-y-1.5 ${isRevision || isPendingVerification ? "sm:col-start-1" : ""}`}>
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-black text-slate-800 block">
                     {isMortality ? "Signs Observed Before Death" : "Clinically Observed Signs"} {selectedHeadTag !== "ALL" ? `for Tag #${selectedHeadTag}` : isReadOnly ? "(Recorded)" : "(Click to toggle)"}:
@@ -1387,10 +1539,46 @@ function SibatInspectionDialogContent({
                     );
                   })}
                 </div>
+                {isDisease && hasAnyFmdSigns && (
+                  <div
+                    className={`rounded-xl border p-2.5 text-xs transition-all flex items-center justify-between gap-2 flex-wrap ${
+                      fmdAssessment === "SUSPECTED"
+                        ? "border-rose-300 bg-rose-50/90 text-rose-950"
+                        : "border-amber-300 bg-amber-50/80 text-amber-950"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {fmdAssessment === "SUSPECTED" ? (
+                        <ShieldAlert className="size-4 text-rose-700 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="size-4 text-amber-700 shrink-0" />
+                      )}
+                      <span className="font-bold text-[11px]">
+                        {fmdAssessment === "SUSPECTED"
+                          ? "Kaso minarkahan bilang Suspected FMD (Aktibo ang Pen Isolation protocol para sa MAO review)"
+                          : "Natukoy ang posibleng FMD pattern — Tingnan ang advisory sa itaas para sa buong checklist"}
+                      </span>
+                    </div>
+
+                    {!isReadOnly && isPendingDisease && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleFmdAssessment(fmdAssessment !== "SUSPECTED")}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer shadow-2xs ${
+                          fmdAssessment === "SUSPECTED"
+                            ? "bg-rose-700 hover:bg-rose-800 text-white"
+                            : "bg-amber-600 hover:bg-amber-700 text-white"
+                        }`}
+                      >
+                        {fmdAssessment === "SUSPECTED" ? "Suspected FMD Active (Click to Unset)" : "Verify as Suspected FMD"}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Severity & Biosecurity Protocol */}
-              {!isRevision && !isPendingMortality ? <div className="grid grid-cols-1 gap-2.5 pt-1 sm:grid-cols-2">
+              {!isRevision && !isPendingVerification ? <div className="grid grid-cols-1 gap-2.5 pt-1 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-black text-slate-800">
                     Severity Rating:
@@ -1437,7 +1625,7 @@ function SibatInspectionDialogContent({
 
               {/* SIBAT Inspection Photo preview / upload */}
               {!isReadOnly ? (
-                <div className={`space-y-1.5 pt-1 ${isRevision ? heads.length >= 2 ? "sm:col-start-2 sm:row-start-6" : "sm:col-start-2 sm:row-start-5" : isPendingMortality ? heads.length >= 2 ? "sm:col-start-2 sm:row-start-6" : "sm:col-start-2 sm:row-start-5" : ""}`}>
+                <div className={`space-y-1.5 pt-1 ${isRevision ? heads.length >= 2 ? "sm:col-start-2 sm:row-start-6" : "sm:col-start-2 sm:row-start-5" : isPendingVerification ? heads.length >= 2 ? "sm:col-start-2 sm:row-start-6" : "sm:col-start-2 sm:row-start-5" : ""}`}>
                   <label className="text-xs font-black text-slate-800 block">
                     SIBAT Field Inspection Photo (Optional):
                   </label>
@@ -1506,7 +1694,7 @@ function SibatInspectionDialogContent({
               ) : null}
 
               {/* Inspector Remarks & Presets */}
-              <div className={`space-y-1.5 pt-1 ${isRevision ? heads.length >= 2 ? "sm:col-start-2 sm:row-start-5" : "sm:col-start-2 sm:row-start-4" : isPendingMortality ? heads.length >= 2 ? "sm:col-start-2 sm:row-start-5" : "sm:col-start-2 sm:row-start-4" : ""}`}>
+              <div className={`space-y-1.5 pt-1 ${isRevision ? heads.length >= 2 ? "sm:col-start-2 sm:row-start-5" : "sm:col-start-2 sm:row-start-4" : isPendingVerification ? heads.length >= 2 ? "sm:col-start-2 sm:row-start-5" : "sm:col-start-2 sm:row-start-4" : ""}`}>
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-black text-slate-800">
                     SIBAT Field Audit Remarks:
@@ -1532,12 +1720,8 @@ function SibatInspectionDialogContent({
                 {!isReadOnly && (
                   <div className="flex flex-wrap gap-1.5 pt-0.5">
                     {(isMortality
-                      ? [
-                        "Mortality verified on site. Carcass disinfected with lime and deep pit burial (2m) completed under SIBAT supervision.",
-                        "Death caused by severe birth complications. No signs of transmissible infectious disease.",
-                        "Discrepancy in recorded ear tag or animal identity. Requires re-audit.",
-                      ]
-                      : SIBAT_VERIFIED_PRESETS
+                      ? SIBAT_MORTALITY_PRESETS
+                      : SIBAT_DISEASE_PRESETS
                     ).map((preset, idx) => (
                       <button
                         key={idx}
@@ -1553,7 +1737,7 @@ function SibatInspectionDialogContent({
               </div>
 
               {/* Inspector Stamp */}
-              {!isPendingMortality ? <div className={`flex flex-wrap items-center justify-between gap-1 rounded-xl border border-sky-200 bg-white p-2.5 text-xs text-slate-600 ${isRevision ? "sm:col-span-2" : ""}`}>
+              {!isPendingVerification ? <div className={`flex flex-wrap items-center justify-between gap-1 rounded-xl border border-sky-200 bg-white p-2.5 text-xs text-slate-600 ${isRevision ? "sm:col-span-2" : ""}`}>
                 <span className="font-bold flex items-center gap-1.5">
                   <User className="size-3.5 text-sky-700" />
                   {record.inspection?.verifiedBy ? `Inspected by: ${record.inspection.verifiedBy}` : "Review recorded under SIBAT field account"}
@@ -1565,14 +1749,20 @@ function SibatInspectionDialogContent({
             </div>
 
             {/* Decision Actions / Read-Only Status Notice */}
-            <div className={`space-y-2 pt-1 ${isRevision || isPendingMortality ? "rounded-2xl border border-blue-100 bg-white p-3.5 sm:p-4" : ""}`}>
-              {isRevision || isPendingMortality ? (
+            <div className={`space-y-2 pt-1 ${isRevision || isPendingVerification ? "rounded-2xl border border-blue-100 bg-white p-3.5 sm:p-4" : ""}`}>
+              {isRevision || isPendingVerification ? (
                 <div className="mb-3">
                   <div className="mb-2 flex items-center gap-2"><span className="grid size-7 place-items-center rounded-full bg-sky-500 text-sm font-black text-white">3</span><div><h3 className="text-sm font-extrabold text-slate-900">{isRevision ? "Review & Resubmit" : "Review & Submit"}</h3><p className="text-[11px] text-slate-500">{isRevision ? "Make sure all required information is complete before sending to MAO." : "Check your recorded information before sending to the MAO."}</p></div></div>
                   <div className={`flex items-start gap-2 rounded-lg border p-2.5 text-xs ${tagConfirmed && countConfirmed ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
                     <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
                     <div><p className="font-bold">{tagConfirmed && countConfirmed ? isRevision ? "Ready to resubmit" : "Ready to submit" : "Complete the field checklist"}</p><p>{tagConfirmed && countConfirmed ? `Required field checks are complete. You can send ${isRevision ? "the updated " : "this "}report to the MAO for review.` : "Confirm the physical ear tag and animal count above before submitting."}</p></div>
                   </div>
+                  {fmdAssessment === "SUSPECTED" && (
+                    <div className="mt-2 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-xs font-bold text-rose-900">
+                      <ShieldAlert className="size-4 shrink-0 text-rose-700" />
+                      <span>Notice: Submitting with explicit &quot;Suspected FMD&quot; assessment for MAO review and GIS tracking.</span>
+                    </div>
+                  )}
                 </div>
               ) : null}
               {isReadOnly ? (
@@ -1654,17 +1844,17 @@ function SibatInspectionDialogContent({
                       </div>
                     </div>
                   ) : (
-                    <div className={isPendingMortality ? "grid grid-cols-1 gap-2 sm:grid-cols-12" : "space-y-2"}>
+                    <div className={isPendingVerification ? "grid grid-cols-1 gap-2 sm:grid-cols-12" : "space-y-2"}>
                       <Button
                         type="button"
                         onClick={() => handleAction("VERIFIED")}
                         disabled={isSubmitting}
-                        className={`min-h-11 w-full rounded-xl font-bold ${isPendingMortality ? "sm:col-span-6" : ""} bg-[#1A365D] text-white hover:bg-[#152c4d]`}
+                        className={`min-h-11 w-full rounded-xl font-bold ${isPendingVerification ? "sm:col-span-6" : ""} bg-[#1A365D] text-white hover:bg-[#152c4d]`}
                       >
                         <ShieldCheck className="mr-2 size-5 text-emerald-300" />
                         {isRevision ? "Confirm updates and send to MAO" : "Confirm details and send to MAO"}
                       </Button>
-                      <div className={`grid grid-cols-1 gap-2 sm:grid-cols-2 ${isPendingMortality ? "sm:col-span-6" : ""}`}>
+                      <div className={`grid grid-cols-1 gap-2 sm:grid-cols-2 ${isPendingVerification ? "sm:col-span-6" : ""}`}>
                         <Button
                           type="button"
                           variant="outline"

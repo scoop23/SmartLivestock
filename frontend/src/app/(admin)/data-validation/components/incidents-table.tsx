@@ -31,6 +31,7 @@ getIncidentTypeBadge,
 getStatusPill,
 } from "../validation-analytics";
 import { ReviewTargetItem } from "../validation-review-dialog";
+import { hasPossibleFmdSigns } from "@/lib/fmd-signs";
 
 function getIncidentStatusPill(incident: ValidationIncidentItem) {
   const pill = getStatusPill(incident.status);
@@ -86,6 +87,8 @@ export function IncidentsTable({
     photoName: inc.photoName,
     inspectorPhotoUrl: inc.inspectorPhotoUrl,
     inspectorPhotoName: inc.inspectorPhotoName,
+    fmdAssessment: inc.fmdAssessment || inc.sibatInspection?.fmdAssessment,
+    sibatInspection: inc.sibatInspection,
   });
 
   const getIncidentIcon = (type: string) => {
@@ -180,6 +183,15 @@ export function IncidentsTable({
                   const canReview = (inc.status || "PENDING").toUpperCase() === "VERIFIED" ||
                     (inc.type === "inspection" && inc.status === "PENDING");
 
+                  const isFmdSuspected = inc.type === "disease" && (inc.sibatInspection?.fmdAssessment === "SUSPECTED" || inc.fmdAssessment === "SUSPECTED");
+                  const hasFmdPattern = inc.type === "disease" && hasPossibleFmdSigns([
+                    inc.conditionName,
+                    inc.details,
+                    ...(inc.symptoms || []),
+                    ...(inc.farmerSymptoms || []),
+                    ...(inc.sibatInspection?.confirmedSymptoms || []),
+                  ].filter(Boolean) as string[]);
+
                   return (
                     <TableRow
                       key={inc.id}
@@ -204,7 +216,18 @@ export function IncidentsTable({
                             {iconStyle.icon}
                           </div>
                           <div>
-                            <p className="font-bold text-gray-900 text-sm capitalize">{inc.type}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-bold text-gray-900 text-sm capitalize">{inc.type}</p>
+                              {isFmdSuspected ? (
+                                <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[9px] font-black uppercase">
+                                  Suspected FMD
+                                </Badge>
+                              ) : hasFmdPattern ? (
+                                <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[9px] font-black uppercase">
+                                  Possible FMD
+                                </Badge>
+                              ) : null}
+                            </div>
                             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                               {typeBadge.label}
                             </span>
@@ -370,6 +393,15 @@ export function IncidentsTable({
             const canReview = (inc.status || "PENDING").toUpperCase() === "VERIFIED" ||
                     (inc.type === "inspection" && inc.status === "PENDING");
 
+            const isFmdSuspected = inc.type === "disease" && (inc.sibatInspection?.fmdAssessment === "SUSPECTED" || inc.fmdAssessment === "SUSPECTED");
+            const hasFmdPattern = inc.type === "disease" && hasPossibleFmdSigns([
+              inc.conditionName,
+              inc.details,
+              ...(inc.symptoms || []),
+              ...(inc.farmerSymptoms || []),
+              ...(inc.sibatInspection?.confirmedSymptoms || []),
+            ].filter(Boolean) as string[]);
+
             return (
               <div
                 key={inc.id}
@@ -402,7 +434,18 @@ export function IncidentsTable({
                       {iconStyle.icon}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-gray-800 text-sm truncate">{inc.farmerName}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-bold text-gray-800 text-sm truncate">{inc.farmerName}</p>
+                        {isFmdSuspected ? (
+                          <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[9px] font-black uppercase">
+                            Suspected FMD
+                          </Badge>
+                        ) : hasFmdPattern ? (
+                          <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[9px] font-black uppercase">
+                            Possible FMD
+                          </Badge>
+                        ) : null}
+                      </div>
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate">
                         {typeBadge.label} • {inc.barangayName}
                       </p>

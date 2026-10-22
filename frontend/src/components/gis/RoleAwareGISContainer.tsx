@@ -362,7 +362,7 @@ export function RoleAwareGISContainer({
     return ['Cattle'];
   }, [gisData]);
 
-  const canUseSimulation = gisData?.user_scope?.can_use_simulation ?? true;
+  const canUseSimulation = gisData?.user_scope?.can_use_simulation ?? false;
 
   return (
     <div className="relative w-full h-full max-h-full min-h-0 overflow-hidden flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white">
@@ -450,6 +450,8 @@ export function RoleAwareGISContainer({
               parameters={simulationParams}
               onParametersChange={setSimulationParams}
               trajectory={simulationTrajectory}
+              unsupportedActiveDiseaseCases={gisData?.summary?.unsupported_active_disease_cases ?? 0}
+              unmappedFmdCases={gisData?.summary?.unmapped_recent_fmd_cases ?? 0}
             />
           </div>
         )}

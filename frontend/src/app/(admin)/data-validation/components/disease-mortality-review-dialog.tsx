@@ -1,6 +1,5 @@
 "use client";
 
-import { DiseaseCaseFollowUp } from "@/components/disease-case-follow-up";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,20 +12,25 @@ DialogTitle,
 import { Textarea } from "@/components/ui/textarea";
 import { getAttachedPhoto } from "@/lib/photo-storage";
 import {
+AlertTriangle,
 Calendar,
 Camera,
 CheckCircle2,
 ClipboardCheck,
 Clock,
+Flame,
 RotateCcw,
+ShieldAlert,
 ShieldCheck,
 Skull,
 Sparkles,
 Stethoscope,
+Thermometer,
 User,
 ZoomIn
 } from "lucide-react";
 import { useState } from "react";
+import { hasPossibleFmdSigns } from "@/lib/fmd-signs";
 import {
 ValidationIncidentItem,
 getStatusPill,
@@ -43,7 +47,19 @@ interface DiseaseMortalityReviewDialogProps {
   ) => void;
 }
 
+const BIOSECURITY_LABELS: Record<string, string> = {
+  NONE: "None / General Advisory",
+  PEN_ISOLATION: "Temporary Pen Isolation (7 Days)",
+  TREATMENT_PRESCRIBED: "Supportive Treatment Prescribed",
+  BIOSECURE_BURIAL: "Biosecure Deep Pit Burial & Lime",
+  LAB_SAMPLE_SENT: "Blood/Tissue Sample Sent to Lab",
+  CARCASS_SECURED: "Carcass Secured Pending MAO",
+  AREA_DISINFECTED: "Area and Equipment Disinfected",
+  VETERINARY_ESCALATION: "Referred to Municipal Veterinarian",
+};
+
 const MAO_DISEASE_APPROVAL_PRESETS = [
+  "Municipal Veterinary Directive: Confirmed suspected FMD protocol. Enforced 7-day pen isolation and barangay livestock movement hold; notified Provincial Veterinary Office for confirmatory serology.",
   "Official MAO Animal Health Certificate issued; supportive treatment & quarantine verified.",
   "Clinical signs match SIBAT field report; issued prescription under Municipal Veterinary supervision.",
   "Pen isolation protocol confirmed; scheduled 72-hour SIBAT health follow-up.",
@@ -85,6 +101,21 @@ export function DiseaseMortalityReviewDialog({
           ? "This declaration has already received MAO approval."
           : "MAO review is available only after SIBAT verifies the declaration.";
   const statusPill = getStatusPill(record.status);
+
+  const isFmdSuspected =
+    isDisease &&
+    (record.sibatInspection?.fmdAssessment === "SUSPECTED" || record.fmdAssessment === "SUSPECTED");
+  const combinedSigns = [
+    ...(record.symptoms || []),
+    ...(record.farmerSymptoms || []),
+    record.conditionName,
+    record.details,
+    ...(record.sibatInspection?.confirmedSymptoms || []),
+  ].filter(Boolean) as string[];
+  const hasFmdPattern = isDisease && hasPossibleFmdSigns(combinedSigns);
+  const biosecurityLabel = record.sibatInspection?.biosecurityAction
+    ? BIOSECURITY_LABELS[record.sibatInspection.biosecurityAction] || record.sibatInspection.biosecurityAction
+    : "Not recorded";
 
   const handleAction = (status: "APPROVED" | "SUBJECT_TO_REVISION") => {
     onConfirmAction(status, remarks.trim(), record.id);
@@ -128,6 +159,17 @@ export function DiseaseMortalityReviewDialog({
                       Step 2 Complete: SIBAT Verified
                     </Badge>
                   )}
+                  {isFmdSuspected ? (
+                    <Badge className="bg-rose-100 text-rose-800 border-rose-300 font-black text-[10px] uppercase flex items-center gap-1 shadow-2xs">
+                      <ShieldAlert className="size-3.5 text-rose-700" />
+                      Suspected FMD Flagged
+                    </Badge>
+                  ) : hasFmdPattern ? (
+                    <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-black text-[10px] uppercase flex items-center gap-1 shadow-2xs">
+                      <AlertTriangle className="size-3.5 text-amber-700" />
+                      Possible FMD Pattern
+                    </Badge>
+                  ) : null}
                 </div>
                 <DialogTitle className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 leading-tight mt-1">
                   {isMortality
@@ -152,8 +194,63 @@ export function DiseaseMortalityReviewDialog({
           </div>
         </DialogHeader>
 
+        {/* ══ EPIDEMIOLOGICAL SUSPECTED FMD CALLOUT (MAO Municipal Context) ══ */}
+        {isDisease && (isFmdSuspected || hasFmdPattern) && (
+          <div
+            className={`mb-5 rounded-2xl border p-4 sm:p-5 shadow-xs transition-all ${
+              isFmdSuspected
+                ? "border-rose-300 bg-gradient-to-r from-rose-50 via-white to-rose-50 text-rose-950"
+                : "border-amber-300 bg-gradient-to-r from-amber-50 via-white to-amber-50 text-amber-950"
+            }`}
+          >
+            <div className="flex items-start gap-3.5">
+              <div
+                className={`size-10 sm:size-11 rounded-xl flex items-center justify-center shrink-0 text-white shadow-xs ${
+                  isFmdSuspected ? "bg-rose-600" : "bg-amber-500"
+                }`}
+              >
+                <ShieldAlert className="size-6" />
+              </div>
+
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h3 className="text-sm sm:text-base font-black text-slate-900">
+                    {isFmdSuspected
+                      ? "Municipal Epidemiology Alert: Suspected Foot and Mouth Disease (FMD)"
+                      : "Surveillance Alert: Possible Foot and Mouth Disease (FMD) Signs"}
+                  </h3>
+                  <Badge
+                    className={`text-[10px] font-black uppercase ${
+                      isFmdSuspected ? "bg-rose-700 text-white" : "bg-amber-500 text-white"
+                    }`}
+                  >
+                    {isFmdSuspected ? "Verified by CBAT as Suspected FMD" : "Review Recommended"}
+                  </Badge>
+                </div>
+
+                <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                  {isFmdSuspected
+                    ? "The SIBAT/CBAT field reviewer conducted on-farm examination and explicitly verified this report as Suspected Foot and Mouth Disease. Pen isolation and biosecurity containment have been recorded on-site."
+                    : "Reported symptoms match vesicular and systemic disease indicators (fever, salivation, lameness, or blisters). Review clinical observations carefully before issuing approval."}
+                </p>
+
+                <div className="pt-2 border-t border-rose-200/60 flex items-center justify-between gap-3 flex-wrap text-xs">
+                  <div className="flex items-center gap-1.5 text-rose-900 font-bold">
+                    <ShieldCheck className="size-4 text-rose-700" />
+                    <span>
+                      GIS Epidemic Model Impact: Approving this record will officially seed the Padre Garcia GIS Epidemic Spread Simulation.
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-600">
+                    Cluster: Brgy. {record.barangayName}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ══ 2-COLUMN EXPANDED LAYOUT ══ */}
-        {isDisease && <div className="mb-5"><DiseaseCaseFollowUp key={record.id} caseId={record.id} /></div>}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
           {/* ── LEFT COLUMN (7 COLS): ANIMAL & SIBAT FINDINGS ── */}
           <div className="lg:col-span-7 space-y-4">
@@ -227,6 +324,25 @@ export function DiseaseMortalityReviewDialog({
                 </span>
                 <p className="text-slate-700 italic leading-relaxed">&quot;{record.details}&quot;</p>
               </div>
+
+              {/* Farmer Reported Symptoms */}
+              {record.farmerSymptoms && record.farmerSymptoms.length > 0 && (
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-xs space-y-1.5">
+                  <span className="text-[10px] font-black text-slate-400 uppercase block">
+                    Signs Reported by Farmer:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {record.farmerSymptoms.map((sym, idx) => (
+                      <Badge
+                        key={idx}
+                        className="bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs py-0.5 px-2 rounded-lg"
+                      >
+                        {sym}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Attached Photo Evidence Card */}
               {(() => {
@@ -340,7 +456,7 @@ export function DiseaseMortalityReviewDialog({
                 </div>
 
                 {/* Clinical Verification Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 text-xs">
                   <div className="p-3 bg-white rounded-xl border border-sky-200">
                     <span className="text-[10px] text-slate-400 font-bold block uppercase">Ear Tag Match</span>
                     <span className="font-black text-emerald-700 flex items-center gap-1 mt-0.5 text-xs sm:text-sm">
@@ -357,18 +473,46 @@ export function DiseaseMortalityReviewDialog({
                   <div className="p-3 bg-white rounded-xl border border-sky-200">
                     <span className="text-[10px] text-slate-400 font-bold block uppercase">Severity Rating</span>
                     <span className="font-black text-amber-700 uppercase mt-0.5 block text-xs sm:text-sm">
-                      {record.sibatInspection.severity}
+                      {record.sibatInspection.severity || "Not Assessed"}
                     </span>
                   </div>
                   <div className="p-3 bg-white rounded-xl border border-sky-200">
                     <span className="text-[10px] text-slate-400 font-bold block uppercase">Body Temperature</span>
-                    <span className="font-black text-slate-900 mt-0.5 block text-xs sm:text-sm">
-                      {record.sibatInspection.temperatureCelsius
-                        ? `${record.sibatInspection.temperatureCelsius} °C`
-                        : "Normal"}
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="font-black text-slate-900 text-xs sm:text-sm">
+                        {record.sibatInspection.temperatureCelsius
+                          ? `${record.sibatInspection.temperatureCelsius} °C`
+                          : "Not recorded"}
+                      </span>
+                      {record.sibatInspection.temperatureCelsius && record.sibatInspection.temperatureCelsius >= 39.5 && (
+                        <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[9px] font-bold px-1.5 py-0">
+                          High Fever
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-sky-200 sm:col-span-2 xl:col-span-2">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Biosecurity Action Taken</span>
+                    <span className="font-black text-slate-900 mt-0.5 block text-xs sm:text-sm truncate">
+                      {biosecurityLabel}
                     </span>
                   </div>
                 </div>
+
+                {/* SIBAT Suspected FMD Flag Banner */}
+                {isFmdSuspected && (
+                  <div className="p-3 bg-rose-100/80 border border-rose-300 rounded-xl text-xs text-rose-950 flex items-center justify-between gap-2 flex-wrap shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="size-4.5 text-rose-700 shrink-0" />
+                      <span className="font-black">
+                        On-Site Field Finding: Verified as Suspected Foot and Mouth Disease (FMD)
+                      </span>
+                    </div>
+                    <Badge className="bg-rose-700 text-white text-[9.5px] font-black uppercase">
+                      CBAT Flagged
+                    </Badge>
+                  </div>
+                )}
 
                 {/* Symptoms Observed by SIBAT */}
                 {record.sibatInspection.confirmedSymptoms &&

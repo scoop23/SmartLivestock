@@ -28,6 +28,7 @@ import Link from "next/link";
 import { usePathname,useRouter,useSearchParams } from "next/navigation";
 import { Suspense,startTransition,useEffect,useMemo,useState } from "react";
 import { toast } from "sonner";
+import { hasPossibleFmdSigns } from "@/lib/fmd-signs";
 import {
 SibatInspectionDialog,
 type SibatInspectionData,
@@ -392,6 +393,13 @@ function SibatAlertsContent() {
           <div className="space-y-2">
             {filtered.map((d) => {
               const isDisease = d.reportType === "DISEASE";
+              const isFmdSuspected = d.inspection?.fmdAssessment === "SUSPECTED";
+              const hasPossibleFmd = isDisease && hasPossibleFmdSigns([
+                ...(d.farmerSymptoms || []),
+                d.name,
+                d.farmerDescription,
+                ...(d.inspection?.confirmedSymptoms || []),
+              ].filter(Boolean));
               const reportedSigns =
                 d.farmerSymptoms && d.farmerSymptoms.length > 0
                   ? d.farmerSymptoms.join(", ")
@@ -444,6 +452,15 @@ function SibatAlertsContent() {
                             >
                               {isDisease ? "Disease Report" : "Mortality Report"}
                             </Badge>
+                            {isFmdSuspected ? (
+                              <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[10px] font-bold">
+                                Suspected FMD
+                              </Badge>
+                            ) : hasPossibleFmd ? (
+                              <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold">
+                                Possible FMD Pattern
+                              </Badge>
+                            ) : null}
                           </div>
 
                           {/* Row 2: Farmer Name */}

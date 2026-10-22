@@ -82,6 +82,8 @@ interface GISTimelineProps {
   parameters: SimulationParameters;
   onParametersChange: (params: SimulationParameters) => void;
   trajectory?: MonthlySimulationResult[];
+  unsupportedActiveDiseaseCases?: number;
+  unmappedFmdCases?: number;
 }
 
 export function GISTimeline({
@@ -96,6 +98,8 @@ export function GISTimeline({
   parameters,
   onParametersChange,
   trajectory = [],
+  unsupportedActiveDiseaseCases = 0,
+  unmappedFmdCases = 0,
 }: GISTimelineProps) {
   const [paramsOpen, setParamsOpen] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
@@ -165,9 +169,24 @@ export function GISTimeline({
             Epidemic Player
           </Badge>
           {trajectory[0]?.isDemoScenario && (
-            <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[9px] font-bold">
-              Hypothetical Demo
-            </Badge>
+            <>
+              <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[9px] font-bold">
+                Hypothetical FMD Demo
+              </Badge>
+              <span role="status" className="text-[9px] font-semibold text-amber-900">
+                No MAO-approved field-assessed suspected FMD reports; demo seeds are synthetic.
+              </span>
+            </>
+          )}
+          {unmappedFmdCases > 0 && (
+            <span role="alert" className="text-[9px] font-semibold text-rose-800">
+              {unmappedFmdCases} approved FMD report(s) could not be mapped to an official barangay and were excluded.
+            </span>
+          )}
+          {unsupportedActiveDiseaseCases > 0 && trajectory[0] && !trajectory[0].isDemoScenario && (
+            <span className="text-[9px] font-semibold text-slate-700">
+              {unsupportedActiveDiseaseCases} recent approved non-FMD/symptom report(s) are not simulated as FMD.
+            </span>
           )}
           <span className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1">
             <Calendar className="size-3.5 text-emerald-700" />
