@@ -163,7 +163,7 @@ def inspection_livestock_lookup(request):
     )
     if user_role == FARMER:
         inventory_queryset = inventory_queryset.filter(farmer=farmer_profile)
-    elif user_role == SIBAT:
+    elif user_role in {SIBAT, "CBAT"}:
         inventory_queryset = scope_reviewer_queryset(inventory_queryset, user)
 
     if canonical_id is not None:
@@ -303,7 +303,7 @@ def inspection_list_create(request):
             queryset = queryset.filter(shipper=farmer_profile)
         else:
             queryset = queryset.none()
-    elif user_role == SIBAT:
+    elif user_role in {SIBAT, "CBAT"}:
         queryset = queryset.none()
     elif user_role in (AUCTION, MAO, ADMIN):
         # Full operational inspection visibility
@@ -355,8 +355,8 @@ def inspection_detail(request, pk):
     if user_role == FARMER:
         if not inspection.shipper or inspection.shipper.user_id != user.id:
             return Response({"detail": "Not authorized to access this inspection."}, status=status.HTTP_403_FORBIDDEN)
-    elif user_role == SIBAT:
-        raise PermissionDenied("SIBAT does not review Auction Office inspection clearances.")
+    elif user_role in {SIBAT, "CBAT"}:
+        raise PermissionDenied("Field reviewers do not review Auction Office inspection clearances.")
     elif user_role not in (AUCTION, MAO, ADMIN):
         raise PermissionDenied("This role cannot access auction movement records.")
 

@@ -621,7 +621,7 @@ def batch_add_notes(request, pk):
     timestamp_str = timezone.localtime().strftime("%Y-%m-%d %H:%M")
     reviewer_title = (
         f"SIBAT Verification ({user.get_full_name() or user.username})"
-        if user_role == "SIBAT"
+        if user_role in {"SIBAT", "CBAT"}
         else f"MAO Approval ({user.get_full_name() or user.username})"
     )
     audit_entry = f"\n[{timestamp_str}] {reviewer_title} - Note: {text}"

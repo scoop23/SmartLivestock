@@ -214,7 +214,7 @@ export function AskSmartLivestock() {
         <span className="mr-1 text-[11px] font-semibold text-slate-500">Try:</span>
         {EXAMPLES.filter((example) => {
           if (!canAskAboutIndividualFarmers && example.includes("Farmer ")) return false;
-          return user?.role?.toUpperCase() !== "SIBAT" || !example.includes("MAO approval");
+          return !["SIBAT", "CBAT"].includes(user?.role?.toUpperCase() || "") || !example.includes("MAO approval");
         }).map((example) => <Button key={example} type="button" variant="outline" size="sm" onClick={() => setQuestion(example)} disabled={loading} className="h-auto max-w-full whitespace-normal rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-600">{example}</Button>)}
       </div>
       {loading ? <p role="status" className="mt-3 flex items-center gap-2 text-sm text-slate-600"><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />Checking authorized records…</p> : null}

@@ -499,7 +499,7 @@ def assess_milk_production_record(
             f"Reported milk yield of {submitted_qty:.2f} L on {record_date.isoformat()} for {tag_label} "
             f"is {abs_pct:.1f}% ({sign_str} L, {pct_str}) {direction_word} this cow's approved rolling median "
             f"baseline of {baseline_median:.2f} L/day (mean {baseline_mean:.2f} L/day across "
-            f"{len(window_values)} recent approved days). Routed to CBAT field verification to {context_note}."
+            f"{len(window_values)} recent approved days). Routed to field verification to {context_note}."
         )
         return {
             "assessment_status": "ANOMALY_DETECTED",

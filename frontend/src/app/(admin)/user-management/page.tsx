@@ -87,7 +87,7 @@ export default function UserManagementPage() {
   // Municipal tab counts use the complete directory, never a filtered subset.
   const directory = useUsersDirectory();
   const filters = {
-    role: activeFilter === "farmer" ? "FARMER" : activeFilter === "sibat" ? "SIBAT" : undefined,
+    role: activeFilter === "farmer" ? "FARMER" : undefined,
     account_status: activeFilter === "pending" ? "PENDING" : statusFilter === "ALL" ? undefined : statusFilter,
     barangay_id: barangayFilter === "ALL" ? undefined : barangayFilter,
     search: debouncedSearch || undefined,
@@ -96,6 +96,9 @@ export default function UserManagementPage() {
   const filteredDirectory = useUsersDirectory({ enabled: hasFilters }, filters);
   const query = hasFilters ? filteredDirectory : directory;
   const { data: filteredUsers = [], isLoading, isFetching, isError, refetch } = query;
+  const matchingUsers = activeFilter === "sibat"
+    ? filteredUsers.filter((user) => user.role === "SIBAT" || user.role === "CBAT")
+    : filteredUsers;
   const users = directory.data || [];
   const barangaysQuery = useAdminBarangays();
   const updateStatusMutation = useUpdateUserStatus();
@@ -249,7 +252,7 @@ export default function UserManagementPage() {
     <>
       <PageHeader
         title="Personnel & Farmer Directory"
-        subtitle="Manage registered Farmers, SIBAT Audit Officers, and approve pending accounts"
+        subtitle="Manage registered farmers and field reviewers, and approve pending accounts"
         variant="admin"
         maxWidthClass="w-full"
         icon={<Users className="size-5 text-slate-800" />}
@@ -303,7 +306,7 @@ export default function UserManagementPage() {
                   value="sibat"
                   className="px-3.5 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-2xs text-slate-400"
                 >
-                  SIBAT
+                  Field Reviewers
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -326,7 +329,7 @@ export default function UserManagementPage() {
             <SelectTrigger className="w-full sm:w-56" aria-label="Filter by barangay"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Barangays</SelectItem>
-              <SelectItem value="unassigned">Unassigned Farmer / SIBAT</SelectItem>
+              <SelectItem value="unassigned">Unassigned Farmer / Field Reviewer</SelectItem>
               {(barangaysQuery.data || []).map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.barangay_name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -340,7 +343,7 @@ export default function UserManagementPage() {
               <SelectItem value="SUSPENDED">Suspended</SelectItem>
             </SelectContent>
           </Select>
-          <span className="text-xs text-slate-500">{filteredUsers.length} matching users</span>
+          <span className="text-xs text-slate-500">{matchingUsers.length} matching users</span>
           {barangaysQuery.isError && <p role="alert" className="text-xs text-rose-700">Barangays could not be loaded. <button className="underline" onClick={() => barangaysQuery.refetch()}>Retry</button></p>}
         </div>
         {isError && <p role="alert" className="text-sm text-rose-700">Could not load the directory. Check your access or try refreshing.</p>}
@@ -378,7 +381,7 @@ export default function UserManagementPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : filteredUsers.length === 0 ? (
+              ) : matchingUsers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-1">
@@ -393,7 +396,7 @@ export default function UserManagementPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredUsers.map((user) => {
+                matchingUsers.map((user) => {
                   const isPending = user.account_status === "PENDING" || user.account_status === "SUBJECT_TO_REVISION";
                   const isUnderRevision =
                     user.account_status === "SUBJECT_TO_REVISION" ||
@@ -695,7 +698,7 @@ export default function UserManagementPage() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        {selectedUser.role === "SIBAT" ? "Assigned Barangay" : "Barangay"}
+                        {selectedUser.role === "SIBAT" || selectedUser.role === "CBAT" ? "Assigned Barangay" : "Barangay"}
                       </p>
                       <p className="mt-0.5 text-xs sm:text-sm font-bold text-slate-900">{userBarangayLabel(selectedUser)}</p>
                     </div>
@@ -716,12 +719,12 @@ export default function UserManagementPage() {
               </Card>
 
               {/* SIBAT Assignment Matrix */}
-              {selectedUser.role === "SIBAT" && (
+              {(selectedUser.role === "SIBAT" || selectedUser.role === "CBAT") && (
                 <Card className="gap-0 overflow-hidden rounded-2xl border-blue-200/80 bg-gradient-to-br from-blue-50/40 via-white to-white shadow-2xs">
                   <CardHeader className="border-b border-blue-100/80 bg-blue-50/40 px-4 py-3">
                     <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-blue-950">
                       <ShieldCheck className="size-4 text-blue-700" />
-                      <span>SIBAT Jurisdiction & Scope</span>
+                      <span>Field Reviewer Jurisdiction & Scope</span>
                     </CardTitle>
                     <CardDescription className="text-[11px]">Set the field barangay and record visibility scope</CardDescription>
                   </CardHeader>
@@ -769,7 +772,7 @@ export default function UserManagementPage() {
                       </div>
                     </div>
                     <p className="text-xs leading-relaxed text-slate-500">
-                      Assigned scope requires a barangay. All Barangays expands visibility and verification while retaining the primary barangay and SIBAT role. Final approval remains with MAO/Admin.
+                      Assigned scope requires a barangay. All Barangays expands visibility and verification while retaining the primary barangay and field reviewer role. Final approval remains with MAO/Admin.
                     </p>
                     <Button
                       size="sm"

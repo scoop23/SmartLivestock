@@ -93,7 +93,7 @@ def census_detail(request, pk):
     if request.method in ["PUT", "PATCH"]:
         require_action(request.user, "census", "edit_own")
         if census.submitted_by_id != request.user.id:
-            raise PermissionDenied("SIBAT users may only revise census submissions they created.")
+            raise PermissionDenied("Field reviewers may only revise census submissions they created.")
         if census.status not in {
             CensusSubmission.StatusType.PENDING,
             CensusSubmission.StatusType.VERIFIED,

@@ -561,7 +561,7 @@ function SibatPortalContent() {
       />
 
       <div className="mx-auto w-full max-w-[1600px] space-y-4 sm:space-y-6 px-3.5 py-4 sm:p-6 lg:px-8 lg:py-7 2xl:px-10">
-        {!isLoadingAccount && user?.role === "SIBAT" && user.accessScope !== "ALL_BARANGAYS" && !user.assignedBarangayId && (
+        {!isLoadingAccount && (user?.role === "SIBAT" || user?.role === "CBAT") && user.accessScope !== "ALL_BARANGAYS" && !user.assignedBarangayId && (
           <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 sm:p-4 text-amber-950 text-xs sm:text-sm">
             <p className="font-semibold">Barangay assignment required</p>
             <p className="mt-1">Private farmer records and review queues are unavailable until MAO/Admin assigns a barangay or access scope.</p>
@@ -776,7 +776,7 @@ function SibatPortalContent() {
             </div>
           </section>
 
-          {user?.role === "SIBAT" && (user.accessScope === "ALL_BARANGAYS" || user.assignedBarangayId) && (
+          {(user?.role === "SIBAT" || user?.role === "CBAT") && (user.accessScope === "ALL_BARANGAYS" || user.assignedBarangayId) && (
             <ReviewWorkloadPanel scopeLabel={user.accessScope === "ALL_BARANGAYS" ? "All authorized barangays" : `Assigned: ${user.assignedBarangayName || "Assigned barangay"}`} hideMaoQueue />
           )}
 

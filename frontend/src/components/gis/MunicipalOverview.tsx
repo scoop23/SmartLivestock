@@ -100,7 +100,7 @@ export function MunicipalOverview({
   const isFarmer = userScope?.role === 'FARMER';
   const isAuction = userScope?.role === 'AUCTION';
   const isSlaughter = userScope?.role === 'SLAUGHTERHOUSESTAFF';
-  const isSibat = userScope?.role === 'SIBAT';
+  const isSibat = userScope?.role === 'SIBAT' || userScope?.role === 'CBAT';
 
   const showFarmerMeat = !userScope || userScope.allowed_layers.includes('farmer_meat');
   const showSlaughterYield =

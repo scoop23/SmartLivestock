@@ -14,7 +14,6 @@ import {
   type ProductionReviewQueue,
 } from "@/app/(farmer)/production-dashboard/production-analytics";
 import type { BiosecurityAction,SeverityLevel,SibatInspectionData,SibatStatus,SibatValidationRecord } from "@/app/(sibat)/sibat-validation/sibat-inspection-dialog";
-import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { getAttachedPhoto } from "@/lib/photo-storage";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
@@ -402,7 +401,7 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
     inspection: dc.inspection_details || dc.reviewed_by_name || dc.inspector_photo_url || dc.inspector_photo
       ? {
           ...dc.inspection_details,
-          verifiedBy: dc.reviewed_by_name || "SIBAT field officer",
+          verifiedBy: dc.reviewed_by_name || "Field reviewer",
           verifiedAt: dc.reviewed_at ? dc.reviewed_at.replace("T", " ").slice(0, 16) : "",
           tagConfirmed: dc.inspection_details?.tagConfirmed ?? true,
           countConfirmed: dc.inspection_details?.countConfirmed ?? true,
@@ -456,7 +455,7 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
     inspection: m.inspection_details || m.reviewed_by_name || m.inspector_photo_url || m.inspector_photo
       ? {
           ...m.inspection_details,
-          verifiedBy: m.reviewed_by_name || "SIBAT field officer",
+          verifiedBy: m.reviewed_by_name || "Field reviewer",
           verifiedAt: m.reviewed_at ? m.reviewed_at.replace("T", " ").slice(0, 16) : "",
           tagConfirmed: m.inspection_details?.tagConfirmed ?? true,
           countConfirmed: m.inspection_details?.countConfirmed ?? true,
@@ -677,12 +676,9 @@ export async function fetchSalesFromFarmers(): Promise<UnifiedSubmissionItem[]> 
 // ── Hooks ──
 
 export function useCensusSubmission() {
-  const { user } = useAuth();
-  const isCbat = user?.role?.toUpperCase() === "CBAT";
   return useQuery({
     queryKey: ["census-submissions"],
     queryFn: fetchCensusSubmissions,
-    enabled: !isCbat,
     staleTime: 60_000,
   });
 }
@@ -723,12 +719,9 @@ export async function fetchCalvingRecords(): Promise<RawCalvingRecord[]> {
 }
 
 export function useCalvingFromFarmers() {
-  const { user } = useAuth();
-  const isCbat = user?.role?.toUpperCase() === "CBAT";
   return useQuery({
     queryKey: ["sibat-calving-records"],
     queryFn: fetchCalvingRecords,
-    enabled: !isCbat,
     staleTime: 30_000,
   });
 }
@@ -777,13 +770,10 @@ export function useClinicalHealthRecords() {
 }
 
 export function useSibatSubmissions() {
-  const { user } = useAuth();
-  const isCbat = user?.role?.toUpperCase() === "CBAT";
   const prodQuery = useProductionFromFarmers();
   const salesQuery = useQuery({
     queryKey: ["sibat-sales-records"],
     queryFn: fetchSalesFromFarmers,
-    enabled: !isCbat,
     staleTime: 30_000,
   });
   const invQuery = useInventoryFromFarmers();
@@ -794,18 +784,18 @@ export function useSibatSubmissions() {
     prodQuery.isLoading ||
     invQuery.isLoading ||
     batchQuery.isLoading ||
-    (!isCbat && (calvingQuery.isLoading || salesQuery.isLoading));
+    calvingQuery.isLoading || salesQuery.isLoading;
   const isError =
     prodQuery.isError ||
     invQuery.isError ||
     batchQuery.isError ||
-    (!isCbat && (calvingQuery.isError || salesQuery.isError));
+    calvingQuery.isError || salesQuery.isError;
   const refetch = () =>
     Promise.all([
       prodQuery.refetch(),
       invQuery.refetch(),
       batchQuery.refetch(),
-      ...(isCbat ? [] : [calvingQuery.refetch(), salesQuery.refetch()]),
+      calvingQuery.refetch(), salesQuery.refetch(),
     ]);
 
   const productionUnified = (prodQuery.data || []).map(mapProductionToUnified);

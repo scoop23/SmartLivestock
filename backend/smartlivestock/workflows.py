@@ -7,6 +7,8 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 
 FARMER = "FARMER"
 SIBAT = "SIBAT"
+CBAT = "CBAT"
+FIELD_REVIEWERS = frozenset({SIBAT, CBAT})
 MAO = "MAO"
 AUCTION = "AUCTION"
 ADMIN = "ADMIN"
@@ -14,17 +16,14 @@ SLAUGHTERHOUSESTAFF = "SLAUGHTERHOUSESTAFF"
 
 
 ROLE_MATRIX = {
-    # CBAT can view scoped health reports to identify affected animals, but
-    # SIBAT remains responsible for field verification and MAO for approval.
-    "disease": {"create": {FARMER}, "read_all": {SIBAT, "CBAT", MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, MAO, ADMIN}},
-    "mortality": {"create": {FARMER}, "read_all": {SIBAT, "CBAT", MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, MAO, ADMIN}},
-    "production": {"create": {FARMER}, "read_all": {SIBAT, "CBAT", MAO, ADMIN}, "review": {SIBAT, "CBAT", MAO, ADMIN}},
-    # CBAT officers use the same barangay-scoped field verification step as SIBAT.
-    "inventory": {"create": {FARMER}, "read_all": {SIBAT, "CBAT", MAO, ADMIN}, "review": {SIBAT, "CBAT", MAO, ADMIN}, "edit_own": {FARMER}},
-    "sales": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN, AUCTION}, "review": {SIBAT, MAO, ADMIN}, "delete_own": {FARMER}},
-    "calving": {"create": {FARMER}, "read_all": {SIBAT, MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}},
-    "batches": {"create": {FARMER}, "read_all": {SIBAT, "CBAT", MAO, ADMIN}, "review": {SIBAT, MAO, ADMIN}, "edit_own": {FARMER}},
-    "census": {"create": {SIBAT}, "read_all": {SIBAT, MAO, ADMIN}, "review": {MAO, ADMIN}, "edit_own": {SIBAT}},
+    "disease": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, CBAT, MAO, ADMIN}},
+    "mortality": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, CBAT, MAO, ADMIN}},
+    "production": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}},
+    "inventory": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}},
+    "sales": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN, AUCTION}, "review": {SIBAT, CBAT, MAO, ADMIN}, "delete_own": {FARMER}},
+    "calving": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}},
+    "batches": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}},
+    "census": {"create": {SIBAT, CBAT}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {MAO, ADMIN}, "edit_own": {SIBAT, CBAT}},
     "inspections": {"create": {AUCTION}, "read_all": {AUCTION, MAO, ADMIN}, "edit_own": {AUCTION}, "review": {MAO, ADMIN}, "delete_own": {AUCTION, MAO, ADMIN}},
     # Auction encodes the certificate; farmers and reviewers retain access to their own or scoped records.
     "ownership_transfers": {"create": {AUCTION}, "read_all": {MAO, ADMIN}, "read_own": {AUCTION}, "review": {MAO, ADMIN}},
@@ -44,16 +43,12 @@ class TransitionRule:
 REVIEW_TRANSITIONS: dict[str, tuple[TransitionRule, ...]] = {
     domain: (
         TransitionRule(SIBAT, "PENDING", frozenset({"VERIFIED", "SUBJECT_TO_REVISION"})),
+        TransitionRule(CBAT, "PENDING", frozenset({"VERIFIED", "SUBJECT_TO_REVISION"})),
         TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
         TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     )
     for domain in ("inventory", "sales", "calving", "batches", "disease", "mortality")
 }
-
-# CBAT may verify livestock inventory within its existing reviewer scope.
-REVIEW_TRANSITIONS["inventory"] = REVIEW_TRANSITIONS["inventory"] + (
-    TransitionRule("CBAT", "PENDING", frozenset({"VERIFIED", "SUBJECT_TO_REVISION"})),
-)
 
 # Auction encodes the completed transfer certificate; MAO is the sole reviewer.
 REVIEW_TRANSITIONS["ownership_transfers"] = (
@@ -142,11 +137,7 @@ def validate_production_review_transition(*, record, role: str, target: str, rem
     is_milk = prod_type == "MILK"
 
     if not is_milk:
-        # Non-milk production records (MEAT, EGGS, WOOL) strictly retain SIBAT -> MAO workflow.
-        if role == "CBAT":
-            raise ValidationError(
-                {"status": "The CBAT role can only review milk production records routed for anomaly verification."}
-            )
+        # Non-milk records use the same field reviewer then MAO workflow.
         validate_review_transition(domain="production", role=role, current=current, target=target, remarks=remarks)
         return
 
@@ -156,7 +147,7 @@ def validate_production_review_transition(*, record, role: str, target: str, rem
             # Path A: Clean milk record routed directly to MAO.
             allowed_targets = {"APPROVED", "SUBJECT_TO_REVISION"} if role in {MAO, ADMIN} else set()
             if target not in allowed_targets:
-                if role in {"CBAT", SIBAT}:
+                if role in FIELD_REVIEWERS:
                     raise ValidationError(
                         {"status": f"This clean milk record had no anomaly detected and is routed directly to MAO; {role} verification is not required."}
                     )
@@ -165,16 +156,12 @@ def validate_production_review_transition(*, record, role: str, target: str, rem
                     {"status": f"The {role} role cannot move this clean milk record from {current} to {target}. Allowed next statuses: {allowed_str}."}
                 )
         elif requires_cbat or assessment_status == "ANOMALY_DETECTED" or next_queue == "CBAT":
-            # Path B: Flagged milk record requires CBAT field verification before MAO approval.
-            allowed_targets = {"VERIFIED", "SUBJECT_TO_REVISION"} if role == "CBAT" else set()
+            # Path B: Flagged milk record requires field verification before MAO approval.
+            allowed_targets = {"VERIFIED", "SUBJECT_TO_REVISION"} if role in FIELD_REVIEWERS else set()
             if target not in allowed_targets:
                 if role in {MAO, ADMIN}:
                     raise ValidationError(
-                        {"status": "Flagged milk records with a detected anomaly must be field-verified by CBAT before MAO can approve or review them."}
-                    )
-                if role == SIBAT:
-                    raise ValidationError(
-                        {"status": "Flagged milk anomaly records are routed to the CBAT verification queue and cannot be verified by SIBAT."}
+                        {"status": "Flagged milk records with a detected anomaly must be field-verified before MAO can approve or review them."}
                     )
                 allowed_str = ", ".join(sorted(allowed_targets)) or "none"
                 raise ValidationError(
@@ -182,7 +169,7 @@ def validate_production_review_transition(*, record, role: str, target: str, rem
                 )
         else:
             # Inconclusive / insufficient history fallback: requires field verification (SIBAT or CBAT) before MAO approval.
-            allowed_targets = {"VERIFIED", "SUBJECT_TO_REVISION"} if role in {SIBAT, "CBAT"} else set()
+            allowed_targets = {"VERIFIED", "SUBJECT_TO_REVISION"} if role in FIELD_REVIEWERS else set()
             if target not in allowed_targets:
                 allowed_str = ", ".join(sorted(allowed_targets)) or "none"
                 raise ValidationError(

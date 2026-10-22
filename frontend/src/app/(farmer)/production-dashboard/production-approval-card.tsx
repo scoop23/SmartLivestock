@@ -308,14 +308,14 @@ export default function ProductionApprovalCard({
                   {record.nextReviewQueue === "MAO" && !record.requiresCbatVerification
                     ? "Awaiting MAO Final Approval"
                     : record.nextReviewQueue === "CBAT" || record.requiresCbatVerification
-                      ? "Awaiting CBAT Field Verification"
+                      ? "Awaiting Field Verification"
                       : "Awaiting Validation"}
                 </h4>
                 <p className="text-xs text-amber-800 mt-1 leading-relaxed">
                   {record.nextReviewQueue === "MAO" && !record.requiresCbatVerification
                     ? "Your milk yield passed automated historical baseline assessment and is queued directly for MAO final approval."
                     : record.nextReviewQueue === "CBAT" || record.requiresCbatVerification
-                      ? "Your milk entry showed an unusual change relative to this cow's approved baseline and is queued for CBAT field verification before MAO approval."
+                      ? "Your milk entry showed an unusual change relative to this cow's approved baseline and is queued for field verification before MAO approval."
                       : "Your submitted entry is currently queued for review by the barangay SIBAT officer."}
                 </p>
               </div>

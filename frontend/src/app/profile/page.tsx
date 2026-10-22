@@ -34,7 +34,7 @@ export default function ProfilePage() {
   const sidebarRole =
     role === "FARMER"
       ? "farmer"
-      : role === "SIBAT"
+      : role === "SIBAT" || role === "CBAT"
       ? "sibat"
       : role === "AUCTION"
       ? "auction"

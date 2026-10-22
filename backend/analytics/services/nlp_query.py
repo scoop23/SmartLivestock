@@ -917,7 +917,7 @@ def _farmer_livestock_count(question, parameters):
 def execute_question(question, *, user, today=None):
     """Parse one question, then execute only fixed, permission-scoped analytics."""
     # Defense in depth: the service is also safe when called without its view.
-    if role_name(user) not in ("MAO", "ADMIN", "SIBAT"):
+    if role_name(user) not in ("MAO", "ADMIN", "SIBAT", "CBAT"):
         raise PermissionDenied("Your role cannot access this analytics assistant.")
     today = today or timezone.localdate()
     visible_barangays = list(

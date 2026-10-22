@@ -36,17 +36,8 @@ def _field_officer_notification_queryset(user, queryset):
         "ownership_transfer": scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user).values("pk"),
         "inspection": scope_reviewer_queryset(LivestockInspection.objects.all(), user).values("pk"),
     }
-    # CBAT's role matrix grants field access to inventory, production, health,
-    # mortality, and batch records; SIBAT's current scope includes the full map.
-    allowed_types = set(scoped_record_ids)
-    if role_name == "CBAT":
-        allowed_types &= {
-            "production_record", "livestock_inventory", "livestock_batch",
-            "disease_case", "mortality_record",
-        }
-
     allowed_records = Q()
-    for entity_type in allowed_types:
+    for entity_type in scoped_record_ids:
         allowed_records |= Q(related_entity_type=entity_type, related_entity_id__in=scoped_record_ids[entity_type])
 
     return queryset.filter(
@@ -62,20 +53,14 @@ def reviewer_recipients_for_barangay(barangay_id, *, include_cbat=False):
     if barangay_id is not None:
         scope |= Q(assigned_barangay_id=barangay_id)
     return User.objects.filter(
-        scope, role__role_name__in=["SIBAT", "CBAT"] if include_cbat else ["SIBAT"], is_active=True,
+        scope, role__role_name__in=["SIBAT", "CBAT"], is_active=True,
         account_status=User.AccountStatus.APPROVED,
     ).distinct()
 
 
 def cbat_recipients_for_barangay(barangay_id):
-    """Current authorized CBAT officers for a barangay or with all-barangays scope."""
-    scope = Q(access_scope=User.AccessScope.ALL_BARANGAYS)
-    if barangay_id is not None:
-        scope |= Q(assigned_barangay_id=barangay_id)
-    return User.objects.filter(
-        scope, role__role_name="CBAT", is_active=True,
-        account_status=User.AccountStatus.APPROVED,
-    ).distinct()
+    """Compatibility alias for the shared field reviewer recipient list."""
+    return reviewer_recipients_for_barangay(barangay_id)
 
 
 def get_notification_recipients_for_farmer(farmer):
@@ -139,14 +124,12 @@ def notify_role(
 ) -> int:
     """Create the same in-app notification for every approved user in a role."""
     recipients = User.objects.filter(
-        role__role_name__in=["MAO", "ADMIN"] if role_name == "MAO" else [role_name],
+        role__role_name__in=["MAO", "ADMIN"] if role_name == "MAO" else ["SIBAT", "CBAT"] if role_name in {"SIBAT", "CBAT"} else [role_name],
         account_status=User.AccountStatus.APPROVED, is_active=True,
     )
-    if role_name == "SIBAT" and not municipal_broadcast:
+    if role_name in {"SIBAT", "CBAT"} and not municipal_broadcast:
         # Missing farmer location must never accidentally broadcast to all officers.
         recipients = reviewer_recipients_for_barangay(barangay_id, include_cbat=include_cbat)
-    elif role_name == "CBAT" and not municipal_broadcast:
-        recipients = cbat_recipients_for_barangay(barangay_id)
     notifications = [
         Notification(
             user=user,

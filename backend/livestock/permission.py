@@ -26,14 +26,14 @@ class IsFarmer(BasePermission):
 
 
 class IsSibat(BasePermission):
-    """Allows access for SIBAT cooperative inspector role."""
+    """Allows either barangay field reviewer role."""
 
     def has_permission(self, request, view):
         return bool(
             request.user
             and request.user.is_authenticated
             and getattr(request.user, "role", None)
-            and request.user.role.role_name == "SIBAT"
+            and request.user.role.role_name in {"SIBAT", "CBAT"}
         )
 
 

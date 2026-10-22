@@ -231,7 +231,7 @@ export function useUpdateSibatAssignment() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: USER_MANAGEMENT_QUERY_KEYS.all });
-      toast.success("SIBAT barangay and access scope saved.");
+      toast.success("Field reviewer barangay and access scope saved.");
     },
     onError: (error: unknown) => {
       const data = (error as { response?: { data?: Record<string, unknown> } }).response?.data;
@@ -293,7 +293,7 @@ export function useDeletePendingUser() {
 }
 
 export function userBarangayLabel(user: ApiUser): string {
-  if (user.role === "SIBAT") return user.assigned_barangay_name || "Unassigned";
+  if (user.role === "SIBAT" || user.role === "CBAT") return user.assigned_barangay_name || "Unassigned";
   if (user.role === "FARMER") return user.barangay || "Unassigned";
   return "Municipal / no barangay assignment";
 }

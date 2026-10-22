@@ -1,7 +1,6 @@
 import logging
 import uuid
 
-from smartlivestock.workflows import scope_reviewer_queryset
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db import transaction
@@ -28,6 +27,7 @@ from .serializer import (
     CalvingRecordSerializer,
 )
 from smartlivestock.workflows import (
+    FIELD_REVIEWERS,
     require_action,
     role_name,
     scope_reviewer_queryset,
@@ -68,10 +68,10 @@ def _notify_production_route(record: ProductionRecord, actor: User, *, is_resubm
             role_name="CBAT",
             notification_type=Notification.NotificationType.PRODUCTION,
             priority=Notification.Priority.HIGH,
-            title="Milk Anomaly Flagged for CBAT Verification" if not is_resubmission else "Resubmitted Milk Record Flagged for CBAT Verification",
+            title="Milk Anomaly Flagged for Field Verification" if not is_resubmission else "Resubmitted Milk Record Flagged for Field Verification",
             message=(
                 f"{farmer_name} {action_word} {record.quantity} {record.unit} of {prod_display}. "
-                f"{record.anomaly_reason or 'Milk yield anomaly detected; CBAT field verification required.'}"
+                f"{record.anomaly_reason or 'Milk yield anomaly detected; field verification required.'}"
             ),
             link=f"/sibat/production-records?reviewType=PRODUCTION&reviewId={record.pk}",
             related_entity_type="production_record",
@@ -158,22 +158,10 @@ def production_record_list_create(request):
     else:
         require_action(user, "production", "read_all")
         records = scope_reviewer_queryset(ProductionRecord.objects.all(), request.user)
-        if user_role == "CBAT":
-            records = records.filter(
-                production_type=ProductionRecord.ProductionType.MILK,
-            ).filter(
-                Q(requires_cbat_verification=True)
-                | Q(anomaly_detected=True)
-                | Q(next_review_queue=ProductionRecord.ReviewQueue.CBAT)
-                | Q(reviewed_by__role__role_name="CBAT")
-            )
-        elif user_role == "SIBAT":
+        if user_role in FIELD_REVIEWERS:
             records = records.exclude(
                 status=ProductionRecord.ProductionStatus.PENDING,
-                next_review_queue__in=[
-                    ProductionRecord.ReviewQueue.CBAT,
-                    ProductionRecord.ReviewQueue.MAO,
-                ],
+                next_review_queue=ProductionRecord.ReviewQueue.MAO,
             )
 
     records = records.select_related(
@@ -214,14 +202,10 @@ def production_record_detail(request, pk):
     else:
         require_action(user, "production", "read_all")
         scoped_qs = scope_reviewer_queryset(ProductionRecord.objects.select_for_update(of=("self",)), request.user)
-        if user_role == "CBAT":
-            scoped_qs = scoped_qs.filter(
-                production_type=ProductionRecord.ProductionType.MILK,
-            ).filter(
-                Q(requires_cbat_verification=True)
-                | Q(anomaly_detected=True)
-                | Q(next_review_queue=ProductionRecord.ReviewQueue.CBAT)
-                | Q(reviewed_by__role__role_name="CBAT")
+        if user_role in FIELD_REVIEWERS:
+            scoped_qs = scoped_qs.exclude(
+                status=ProductionRecord.ProductionStatus.PENDING,
+                next_review_queue=ProductionRecord.ReviewQueue.MAO,
             )
         record = get_object_or_404(scoped_qs, pk=pk)
 
@@ -286,8 +270,7 @@ def review_production_record(request, pk):
     """
     POST /production/records/<pk>/review/
     Review and verify production records:
-    - CBAT: Field verification of flagged milk anomaly records (status = VERIFIED or SUBJECT_TO_REVISION)
-    - SIBAT: Field verification of standard production records (status = VERIFIED or SUBJECT_TO_REVISION)
+    - SIBAT/CBAT: Field verification of standard and flagged records (status = VERIFIED or SUBJECT_TO_REVISION)
     - MAO/ADMIN: Official municipal certification (status = APPROVED or SUBJECT_TO_REVISION)
     """
     # Scope joins optional animal/herd sources; PostgreSQL must lock only the event row.
@@ -334,7 +317,7 @@ def review_production_record(request, pk):
             "reviewed_at": reviewed_at_now.isoformat(),
         })
         assessment_copy["review_events"] = review_events
-        if reviewer_role == "CBAT":
+        if reviewer_role in FIELD_REVIEWERS and record.requires_cbat_verification:
             assessment_copy["cbat_verification"] = {
                 "verified_by_id": user.pk,
                 "verified_by_name": reviewer_display,
@@ -593,7 +576,7 @@ def review_live_animal_sale(request, pk):
         link="/production-dashboard")
     if new_status == "VERIFIED":
         notify_role(role_name="MAO", notification_type=Notification.NotificationType.PRODUCTION,
-            title="Verified Sale Awaiting MAO Approval", message=f"Sale #{sale.pk} was verified by SIBAT.",
+            title="Verified Sale Awaiting MAO Approval", message=f"Sale #{sale.pk} was verified by {user_role}.",
             link=f"/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
             related_entity_type="livestock_sale", related_entity_id=sale.pk)
     serializer = LiveAnimalSaleSerializer(sale)
@@ -746,8 +729,8 @@ def review_calving_record(request, pk):
                 user=target_farmer,
                 notification_type=Notification.NotificationType.PRODUCTION,
                 priority=Notification.Priority.MEDIUM,
-                title="Calving Record Verified by SIBAT",
-                message=f"Your birth declaration for {calf_info} was verified on-farm by SIBAT.{f' Remarks: {remarks}' if remarks else ''}",
+                title=f"Calving Record Verified by {user_role}",
+                message=f"Your birth declaration for {calf_info} was verified on-farm by {user_role}.{f' Remarks: {remarks}' if remarks else ''}",
                 link="/production-dashboard",
             )
         elif new_status == CalvingRecord.StatusType.APPROVED:
@@ -771,7 +754,7 @@ def review_calving_record(request, pk):
 
     if new_status == "VERIFIED":
         notify_role(role_name="MAO", notification_type=Notification.NotificationType.PRODUCTION,
-            title="Verified Calving Awaiting MAO Approval", message=f"Calving #{calving.pk} was verified by SIBAT.",
+            title="Verified Calving Awaiting MAO Approval", message=f"Calving #{calving.pk} was verified by {user_role}.",
             link=f"/data-validation?domain=incidents&recordType=CALVING&recordId={calving.pk}",
             related_entity_type="calving_record", related_entity_id=calving.pk)
     serializer = CalvingRecordSerializer(calving)

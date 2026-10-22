@@ -473,7 +473,7 @@ function SibatReviewDialogContent({
               </div>
               <span className="text-[10px] sm:text-xs font-bold text-slate-900 mt-1 truncate max-w-full">
                 <span className="hidden sm:inline">
-                  2. {submission.requiresCbatVerification || submission.nextReviewQueue === "CBAT" || submission.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"} Field Check
+                  2. Field Reviewer Check
                 </span>
                 <span className="sm:hidden">2. Field Check</span>
               </span>
@@ -941,9 +941,7 @@ function SibatReviewDialogContent({
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                      {submission.requiresCbatVerification || submission.nextReviewQueue === "CBAT"
-                        ? "CBAT Field Verification"
-                        : "Field Verification"}
+                      Field Verification
                     </h3>
                     <p className="text-[10.5px] sm:text-[11px] text-slate-500 truncate sm:whitespace-normal">
                       Validate the information through in-person assessment.
@@ -953,7 +951,7 @@ function SibatReviewDialogContent({
                 <div className="self-start sm:self-auto shrink-0">
                   {isPending ? (
                     <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#fef3c7] text-[#92400e] text-[10.5px] sm:text-[11px] font-semibold border border-amber-200/60 whitespace-nowrap">
-                      Pending {submission.requiresCbatVerification || submission.nextReviewQueue === "CBAT" ? "CBAT" : "SIBAT"} review
+                      Pending field review
                     </span>
                   ) : isVerified ? (
                     <span className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10.5px] sm:text-[11px] font-semibold border border-emerald-200 whitespace-nowrap">

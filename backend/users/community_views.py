@@ -128,6 +128,7 @@ def announcements(request):
             "ADMIN",
             Role.UserRoles.FARMER,
             Role.UserRoles.SIBAT,
+            Role.UserRoles.CBAT,
             Role.UserRoles.AUCTION,
             Role.UserRoles.SLAUGHTERHOUSESTAFF,
         ):
@@ -150,7 +151,7 @@ def announcements(request):
                 is_published=True,
                 audience=Announcement.Audience.ALL,
             )
-        elif role == Role.UserRoles.SIBAT:
+        elif role in (Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
             sibat_audience_filter = Q(
                 audience__in=[
                     Announcement.Audience.ALL,
@@ -170,7 +171,7 @@ def announcements(request):
                 (Q(is_published=True) & sibat_audience_filter) | Q(posted_by=request.user)
             )
         return Response(AnnouncementSerializer(qs, many=True, context={"request": request}).data)
-    denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT)
+    denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT, Role.UserRoles.CBAT)
     if denied:
         return denied
     serializer = AnnouncementSerializer(data=request.data, context={"request": request})
@@ -198,7 +199,7 @@ def public_announcement_share(request, pk):
 @api_view(["PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
 def announcement_detail(request, pk):
-    denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT)
+    denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT, Role.UserRoles.CBAT)
     if denied:
         return denied
     announcement = get_object_or_404(Announcement.objects.prefetch_related("photos"), pk=pk)

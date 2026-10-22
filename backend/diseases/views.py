@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
-from smartlivestock.workflows import require_action, validate_review_transition
+from smartlivestock.workflows import FIELD_REVIEWERS, require_action, validate_review_transition
 
 from users.models import User, Notification
 from users.notification_views import create_notification, health_notification_recipients, notify_review_revision, notify_role
@@ -41,7 +41,7 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
 
         condition_name = record.name or "Health Observation"
 
-        if role_name == "SIBAT":
+        if role_name in FIELD_REVIEWERS:
             if new_status == DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION:
                 for farmer_user in target_farmers:
                     create_notification(
@@ -49,7 +49,7 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
                         notification_type=Notification.NotificationType.DISEASE,
                         priority=Notification.Priority.HIGH,
                         title=f"Alert DIS-{record.id}: Flagged for Emergency Vet Review",
-                        message=f"SIBAT on-farm examination flagged {animal_desc} ({condition_name}) for emergency veterinary review and lab sampling.{f' Remarks: {remarks}' if remarks else ''}",
+                        message=f"{role_name} on-farm examination flagged {animal_desc} ({condition_name}) for emergency veterinary review and lab sampling.{f' Remarks: {remarks}' if remarks else ''}",
                         link="/report-observation",
                     )
                 for mao in User.objects.filter(role__role_name__in=["MAO", "ADMIN"], account_status=User.AccountStatus.APPROVED, is_active=True):
@@ -58,7 +58,7 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
                         notification_type=Notification.NotificationType.DISEASE,
                         priority=Notification.Priority.HIGH,
                         title=f"Urgent: Alert DIS-{record.id} Flagged for Emergency Vet Review",
-                        message=f"SIBAT field inspection flagged {animal_desc} ({condition_name}) for emergency veterinary review & lab sampling.{f' Remarks: {remarks}' if remarks else ''}",
+                        message=f"{role_name} field inspection flagged {animal_desc} ({condition_name}) for emergency veterinary review & lab sampling.{f' Remarks: {remarks}' if remarks else ''}",
                         link=f"/data-validation?domain=incidents&recordType=DISEASE&recordId={record.pk}",
                         related_entity_type="disease_case", related_entity_id=record.pk,
                     )
@@ -69,7 +69,7 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
                         notification_type=Notification.NotificationType.SIBAT,
                         priority=Notification.Priority.MEDIUM,
                         title=f"Disease Observation DIS-{record.id} Verified",
-                        message=f"SIBAT field examination completed for {animal_desc}. Record certified and forwarded to MAO.{f' Remarks: {remarks}' if remarks else ''}",
+                        message=f"{role_name} field examination completed for {animal_desc}. Record certified and forwarded to MAO.{f' Remarks: {remarks}' if remarks else ''}",
                         link="/report-observation",
                     )
                 for mao in User.objects.filter(role__role_name__in=["MAO", "ADMIN"], account_status=User.AccountStatus.APPROVED, is_active=True):
@@ -78,7 +78,7 @@ def _notify_disease_case_review(record, new_status, remarks, reviewer_user, role
                         notification_type=Notification.NotificationType.SIBAT,
                         priority=Notification.Priority.MEDIUM,
                         title=f"Verified Disease Report: DIS-{record.id}",
-                        message=f"SIBAT field inspection certified for {animal_desc} ({condition_name}). Awaiting MAO final approval.",
+                        message=f"{role_name} field inspection certified for {animal_desc} ({condition_name}). Awaiting MAO final approval.",
                         link=f"/data-validation?domain=incidents&recordType=DISEASE&recordId={record.pk}",
                         related_entity_type="disease_case", related_entity_id=record.pk,
                     )
@@ -182,7 +182,7 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
         else:
             animal_desc = "Livestock"
 
-        if role_name == "SIBAT":
+        if role_name in FIELD_REVIEWERS:
             if new_status == MortalityRecord.MortalityRecordStatus.SUBJECT_TO_REVISION:
                 for farmer_user in target_farmers:
                     create_notification(
@@ -190,7 +190,7 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
                         notification_type=Notification.NotificationType.DISEASE,
                         priority=Notification.Priority.HIGH,
                         title=f"Mortality Record MOR-{record.id} Flagged for Review",
-                        message=f"SIBAT on-site inspection flagged mortality report for {animal_desc}.{f' Remarks: {remarks}' if remarks else ''}",
+                        message=f"{role_name} on-site inspection flagged mortality report for {animal_desc}.{f' Remarks: {remarks}' if remarks else ''}",
                         link="/report-observation",
                     )
                 for mao in User.objects.filter(role__role_name__in=["MAO", "ADMIN"], account_status=User.AccountStatus.APPROVED, is_active=True):
@@ -198,7 +198,7 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
                         user=mao,
                         notification_type=Notification.NotificationType.DISEASE,
                         priority=Notification.Priority.HIGH,
-                        title=f"Urgent: Mortality MOR-{record.id} Flagged by SIBAT",
+                        title=f"Urgent: Mortality MOR-{record.id} Flagged by {role_name}",
                         message=f"Mortality report for {animal_desc} returned for veterinary review.{f' Remarks: {remarks}' if remarks else ''}",
                         link=f"/data-validation?domain=incidents&recordType=MORTALITY&recordId={record.pk}",
                         related_entity_type="mortality_record", related_entity_id=record.pk,
@@ -210,7 +210,7 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
                         notification_type=Notification.NotificationType.SIBAT,
                         priority=Notification.Priority.MEDIUM,
                         title=f"Mortality Record MOR-{record.id} Verified",
-                        message=f"SIBAT on-farm carcass and disposal verification completed for {animal_desc}. Forwarded to MAO.{f' Remarks: {remarks}' if remarks else ''}",
+                        message=f"{role_name} on-farm carcass and disposal verification completed for {animal_desc}. Forwarded to MAO.{f' Remarks: {remarks}' if remarks else ''}",
                         link="/report-observation",
                     )
                 for mao in User.objects.filter(role__role_name__in=["MAO", "ADMIN"], account_status=User.AccountStatus.APPROVED, is_active=True):
@@ -219,7 +219,7 @@ def _notify_mortality_record_review(record, new_status, remarks, reviewer_user, 
                         notification_type=Notification.NotificationType.SIBAT,
                         priority=Notification.Priority.MEDIUM,
                         title=f"Verified Mortality Record: MOR-{record.id}",
-                        message=f"SIBAT field inspection certified carcass disposal for {animal_desc}. Awaiting MAO certification.",
+                        message=f"{role_name} field inspection certified carcass disposal for {animal_desc}. Awaiting MAO certification.",
                         link=f"/data-validation?domain=incidents&recordType=MORTALITY&recordId={record.pk}",
                         related_entity_type="mortality_record", related_entity_id=record.pk,
                     )
@@ -486,20 +486,20 @@ def review_disease_case(request, pk):
     if role_name == "FARMER":
         raise PermissionDenied("Farmers are not authorized to review disease cases.")
 
-    if role_name == "SIBAT":
+    if role_name in FIELD_REVIEWERS:
         if new_status == DiseaseCase.DiseaseStatus.APPROVED:
             raise PermissionDenied(
-                "SIBAT cooperative officers can only verify (status=VERIFIED). Final approval is reserved for MAO."
+                "Field reviewers can only verify (status=VERIFIED). Final approval is reserved for MAO."
             )
         if new_status not in [DiseaseCase.DiseaseStatus.VERIFIED, DiseaseCase.DiseaseStatus.SUBJECT_TO_REVISION]:
             return Response(
-                {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
+                {"error": "Invalid status for field review. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
     elif role_name in {"MAO", "ADMIN"}:
         if record.status != DiseaseCase.DiseaseStatus.VERIFIED:
             return Response(
-                {"error": "MAO can review a disease case only after SIBAT verifies it."},
+                {"error": "MAO can review a disease case only after field verification."},
                 status=status.HTTP_409_CONFLICT,
             )
         if new_status not in [
@@ -713,20 +713,20 @@ def review_mortality_record(request, pk):
     if role_name == "FARMER":
         raise PermissionDenied("Farmers are not authorized to review mortality records.")
 
-    if role_name == "SIBAT":
+    if role_name in FIELD_REVIEWERS:
         if new_status == MortalityRecord.MortalityRecordStatus.APPROVED:
             raise PermissionDenied(
-                "SIBAT cooperative officers can only verify (status=VERIFIED). Final approval is reserved for MAO."
+                "Field reviewers can only verify (status=VERIFIED). Final approval is reserved for MAO."
             )
         if new_status not in [MortalityRecord.MortalityRecordStatus.VERIFIED, MortalityRecord.MortalityRecordStatus.SUBJECT_TO_REVISION]:
             return Response(
-                {"error": "Invalid status for SIBAT review. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
+                {"error": "Invalid status for field review. Valid choices are VERIFIED or SUBJECT_TO_REVISION."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
     elif role_name in {"MAO", "ADMIN"}:
         if record.status != MortalityRecord.MortalityRecordStatus.VERIFIED:
             return Response(
-                {"error": "MAO can review a mortality record only after SIBAT verifies it."},
+                {"error": "MAO can review a mortality record only after field verification."},
                 status=status.HTTP_409_CONFLICT,
             )
         if new_status not in [

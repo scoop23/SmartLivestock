@@ -330,7 +330,7 @@ def review_inventory(request, pk):
             priority=Notification.Priority.MEDIUM,
             title="Livestock Entry Awaiting MAO Approval",
             message=(
-                f"SIBAT verified {inventory.tag_number or inventory.livestock_type.name} "
+                f"{user_role} verified {inventory.tag_number or inventory.livestock_type.name} "
                 f"from {inventory.farmer.user.get_full_name() or inventory.farmer.user.username}."
             ),
             link=f"/data-validation?domain=inventory&recordType=INVENTORY&recordId={inventory.pk}",
@@ -355,8 +355,8 @@ def review_inventory(request, pk):
                 user=target_user,
                 notification_type=Notification.NotificationType.SIBAT,
                 priority=Notification.Priority.MEDIUM,
-                title="Verified by SIBAT Inspector",
-                message=f"Your {species_name} [{tag_info}] has been verified on-farm by SIBAT.{f' Officer Remarks: {remarks}' if remarks else ''}",
+                title=f"Verified by {user_role} Inspector",
+                message=f"Your {species_name} [{tag_info}] has been verified on-farm by {user_role}.{f' Officer Remarks: {remarks}' if remarks else ''}",
                 link=inventory_detail_link,
             )
         elif new_status == LivestockInventory.StatusType.APPROVED:

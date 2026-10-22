@@ -535,7 +535,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
         return str(obj.phone_number) if obj.phone_number else ""
 
     def get_barangay(self, obj):
-        if obj.role.role_name == "SIBAT":
+        if obj.role.role_name in {"SIBAT", "CBAT"}:
             return obj.assigned_barangay.barangay_name if obj.assigned_barangay_id else ""
         if obj.role.role_name != "FARMER":
             return ""
@@ -544,7 +544,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
         return ""
 
     def get_barangay_id(self, obj):
-        if obj.role.role_name == "SIBAT":
+        if obj.role.role_name in {"SIBAT", "CBAT"}:
             return obj.assigned_barangay_id
         if obj.role.role_name != "FARMER":
             return None

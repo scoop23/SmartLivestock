@@ -102,7 +102,6 @@ function SibatAlertsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const isCbat = user?.role?.toUpperCase() === "CBAT";
 
   // Filter States matching DiseasesPage design basis
   const [query, setQuery] = useState("");
@@ -553,7 +552,6 @@ function SibatAlertsContent() {
           }}
           onConfirmInspection={handleConfirmInspection}
           isSubmitting={reviewMutation.isPending}
-          readOnly={isCbat}
         />
       )}
     </div>

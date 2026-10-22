@@ -7,7 +7,7 @@ export interface AttachedPhotoData {
   photoUrl: string;
   photoName: string;
   timestamp?: string;
-  uploaderRole?: "FARMER" | "SIBAT";
+  uploaderRole?: "FARMER" | "SIBAT" | "CBAT";
   uploaderName?: string;
 }
 

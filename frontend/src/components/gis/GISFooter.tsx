@@ -43,7 +43,7 @@ export function GISFooter({ userScope }: GISFooterProps) {
 
   const role = userScope?.role?.toUpperCase();
   const isFarmer = role === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
-  const isSibat = role === 'SIBAT';
+  const isSibat = role === 'SIBAT' || role === 'CBAT';
   const isAuction = role === 'AUCTION';
   const isSlaughter = role === 'SLAUGHTERHOUSESTAFF';
   const isAdmin = !isFarmer && !isSibat && !isAuction && !isSlaughter;
@@ -54,7 +54,7 @@ export function GISFooter({ userScope }: GISFooterProps) {
   const mobileTitle = isFarmer
     ? `SmartLivestock • Brgy. ${farmerBarangay}`
     : isSibat
-    ? 'Field Monitoring GIS • SIBAT'
+    ? 'Field Monitoring GIS • Field Reviewer'
     : isAuction
     ? 'Livestock Movement & Trade GIS'
     : isSlaughter
@@ -213,7 +213,7 @@ export function GISFooter({ userScope }: GISFooterProps) {
           ) : isSibat ? (
             <>
               <span className="text-emerald-300 font-medium">
-                Field Monitoring GIS — SIBAT Validation
+                Field Monitoring GIS — Field Review
               </span>
               <span className="text-white/40">•</span>
               <span className="text-sky-300 font-medium text-[9px] flex items-center gap-1 bg-sky-950/60 px-2 py-0.5 rounded-full border border-sky-500/30">

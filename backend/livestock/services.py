@@ -2,7 +2,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from .models import CensusSubmission, CensusSubmissionItem, Barangay
-from smartlivestock.workflows import role_name, validate_review_transition, has_all_barangay_access
+from smartlivestock.workflows import FIELD_REVIEWERS, role_name, validate_review_transition, has_all_barangay_access
 
 
 class CensusService:
@@ -24,7 +24,7 @@ class CensusService:
         3. Create all child CensusSubmissionItem in one atomic transaction
         """
 
-        if role_name(user) != "SIBAT" or (not has_all_barangay_access(user) and user.assigned_barangay_id != barangay.pk):
+        if role_name(user) not in FIELD_REVIEWERS or (not has_all_barangay_access(user) and user.assigned_barangay_id != barangay.pk):
             raise ValidationError({"barangay": "Submit census only for your assigned barangay."})
         if any(item["farmer"].barangay_id != barangay.pk for item in (items or [])):
             raise ValidationError({"items": "Every census farmer must belong to the submission barangay."})

@@ -51,7 +51,7 @@ def _case_payload(case, user):
         "report_date": case.record_date,
         "clinical_status": case.clinical_status,
         "can_submit_update": available and role_name(user) == "FARMER",
-        "can_resolve": available and role_name(user) in {"CBAT", "MAO", "ADMIN"},
+        "can_resolve": available and role_name(user) in {"SIBAT", "CBAT", "MAO", "ADMIN"},
         "events": FollowUpSerializer(case.follow_ups.select_related("created_by__role"), many=True).data,
     }
 
@@ -79,8 +79,8 @@ def disease_case_follow_ups(request, pk):
     farmer_update = event_type == DiseaseCaseFollowUp.EventType.FARMER_UPDATE
     if farmer_update and role != "FARMER":
         raise PermissionDenied("Only the Farmer can submit a farmer observation.")
-    if not farmer_update and role not in {"CBAT", "MAO", "ADMIN"}:
-        raise PermissionDenied("Only scoped CBAT or MAO/Admin can record official resolution.")
+    if not farmer_update and role not in {"SIBAT", "CBAT", "MAO", "ADMIN"}:
+        raise PermissionDenied("Only scoped field reviewers or MAO/Admin can record official resolution.")
     if case.status != DiseaseCase.DiseaseStatus.APPROVED:
         return Response({"detail": "Follow-up and resolution are available after MAO approval."}, status=409)
     if case.clinical_status in {DiseaseCase.ClinicalStatus.RECOVERED, DiseaseCase.ClinicalStatus.CLOSED}:

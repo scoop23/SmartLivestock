@@ -151,7 +151,7 @@ def all_users_list(request):
     if barangay_filter and barangay_filter.upper() != "ALL":
         if barangay_filter == "unassigned":
             users = users.filter(
-                Q(role__role_name="SIBAT", assigned_barangay__isnull=True)
+                Q(role__role_name__in=["SIBAT", "CBAT"], assigned_barangay__isnull=True)
                 | Q(role__role_name="FARMER", farmer_profile__isnull=True)
             )
         else:
@@ -161,7 +161,7 @@ def all_users_list(request):
                 return Response({"barangay_id": ["Use a barangay ID or unassigned."]}, status=400)
             # A staff jurisdiction and a farmer's address are different relationships.
             users = users.filter(
-                Q(role__role_name="SIBAT", assigned_barangay_id=barangay_id)
+                Q(role__role_name__in=["SIBAT", "CBAT"], assigned_barangay_id=barangay_id)
                 | Q(role__role_name="FARMER", farmer_profile__barangay_id=barangay_id)
             )
 
@@ -354,8 +354,8 @@ def view_user_document(request, pk):
 @transaction.atomic
 def update_sibat_assignment(request, pk):
     user = get_object_or_404(User.objects.select_for_update(of=("self",)).select_related("role"), pk=pk)
-    if user.role.role_name != "SIBAT":
-        return Response({"detail": "Barangay review assignment applies only to SIBAT accounts."}, status=400)
+    if user.role.role_name not in {"SIBAT", "CBAT"}:
+        return Response({"detail": "Barangay review assignment applies only to field reviewer accounts."}, status=400)
     serializer = SibatAssignmentSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     changed_fields = []

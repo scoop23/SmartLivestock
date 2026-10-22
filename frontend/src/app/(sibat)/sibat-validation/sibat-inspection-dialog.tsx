@@ -12,6 +12,7 @@ DialogTitle,
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/contexts/auth-context";
 import { getAttachedPhoto,saveAttachedPhoto } from "@/lib/photo-storage";
 import {
 AlertTriangle,
@@ -169,7 +170,7 @@ function DiseaseReadOnlyDetails({
 
       <section className={`flex items-center gap-3 rounded-xl border p-3.5 sm:px-5 ${isApproved ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-sky-200 bg-sky-50 text-sky-950"}`}>
         <span className={`grid size-12 shrink-0 place-items-center rounded-full ${isApproved ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700"}`}><ShieldCheck className="size-7" /></span>
-        <div><h3 className="font-bold">{isApproved ? "MAO Review Completed" : isForwarded ? "Field Inspection Completed" : "Field Inspection Pending"}</h3><p className={`text-sm ${isApproved ? "text-emerald-900" : "text-sky-900"}`}>{isApproved ? "The report was approved by MAO." : isForwarded ? "The CBAT has checked this report and sent it to the MAO for review." : "This report is awaiting an on-site field inspection."}</p></div>
+        <div><h3 className="font-bold">{isApproved ? "MAO Review Completed" : isForwarded ? "Field Inspection Completed" : "Field Inspection Pending"}</h3><p className={`text-sm ${isApproved ? "text-emerald-900" : "text-sky-900"}`}>{isApproved ? "The report was approved by MAO." : isForwarded ? "A field reviewer checked this report and sent it to the MAO for review." : "This report is awaiting an on-site field inspection."}</p></div>
       </section>
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
@@ -195,7 +196,7 @@ function DiseaseReadOnlyDetails({
       </section>
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
-        <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><ShieldCheck className="size-6 text-blue-700" />3. CBAT Field Inspection</h3>
+        <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><ShieldCheck className="size-6 text-blue-700" />3. Field Inspection</h3>
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2.5">
             <p className="flex items-center gap-2 text-sm text-slate-800"><CheckCircle2 className={`size-5 ${inspection?.tagConfirmed ? "text-emerald-600" : "text-slate-400"}`} />Ear tag {inspection?.tagConfirmed ? "checked and verified" : "not verified"}.</p>
@@ -203,7 +204,7 @@ function DiseaseReadOnlyDetails({
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-600">Body Temperature</p><p className="font-bold text-slate-900">{inspection?.temperatureCelsius ? `${inspection.temperatureCelsius} °C` : "Not recorded"}</p></div>
           </div>
           <div className="space-y-2.5 border-slate-200 lg:border-l lg:pl-4">
-            <h4 className="font-bold text-slate-900">Field Observations (CBAT)</h4>
+            <h4 className="font-bold text-slate-900">Field Observations</h4>
             <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800">{inspection?.remarks || "No field observations recorded."}</p>
             <div className="flex flex-wrap gap-2 text-xs font-bold">
               <span className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950"><AlertTriangle className="mr-1 inline size-4" />Severity: {severity}</span>
@@ -301,7 +302,7 @@ function MortalityReadOnlyDetails({
 
       <section className={`flex items-center gap-3 rounded-xl border p-3.5 sm:px-5 ${isApproved ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-sky-200 bg-sky-50 text-sky-950"}`}>
         <span className={`grid size-12 shrink-0 place-items-center rounded-full ${isApproved ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700"}`}><ShieldCheck className="size-7" /></span>
-        <div><h3 className="font-bold">{isApproved ? "MAO Review Completed" : "Field Inspection Completed"}</h3><p className={`text-sm ${isApproved ? "text-emerald-900" : "text-sky-900"}`}>{isApproved ? "The mortality report was approved by MAO." : "The CBAT checked this mortality report and sent it to the MAO for review."}</p></div>
+        <div><h3 className="font-bold">{isApproved ? "MAO Review Completed" : "Field Inspection Completed"}</h3><p className={`text-sm ${isApproved ? "text-emerald-900" : "text-sky-900"}`}>{isApproved ? "The mortality report was approved by MAO." : "A field reviewer checked this mortality report and sent it to the MAO for review."}</p></div>
       </section>
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
@@ -331,14 +332,14 @@ function MortalityReadOnlyDetails({
       </section>
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
-        <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><ShieldCheck className="size-6 text-blue-700" />3. CBAT Field Inspection</h3>
+        <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><ShieldCheck className="size-6 text-blue-700" />3. Field Inspection</h3>
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2.5">
             <p className="flex items-center gap-2 text-sm text-slate-800"><CheckCircle2 className={`size-5 ${inspection?.tagConfirmed ? "text-emerald-600" : "text-slate-400"}`} />Ear tag {inspection?.tagConfirmed ? "checked and verified" : "not verified"}.</p>
             <p className="flex items-center gap-2 text-sm text-slate-800"><CheckCircle2 className={`size-5 ${inspection?.countConfirmed ? "text-emerald-600" : "text-slate-400"}`} />Physical count {inspection?.countConfirmed ? `checked (${inspection.confirmedCount} head${inspection.confirmedCount === 1 ? "" : "s"})` : "not verified"}.</p>
           </div>
           <div className="space-y-2.5 border-slate-200 lg:border-l lg:pl-4">
-            <h4 className="font-bold text-slate-900">Field Observations (CBAT)</h4>
+            <h4 className="font-bold text-slate-900">Field Observations</h4>
             <div>
               <p className="mb-1 text-xs font-semibold text-slate-600">Signs observed before death</p>
               <p className="text-sm text-slate-800">{inspection?.confirmedSymptoms?.length ? inspection.confirmedSymptoms.join(", ") : "None recorded"}</p>
@@ -406,7 +407,7 @@ interface SibatInspectionDialogProps {
     inspectionData: SibatInspectionData
   ) => void;
   isSubmitting?: boolean;
-  /** Lets CBAT open report details without receiving SIBAT review controls. */
+  /** Optional read-only presentation for callers without review controls. */
   readOnly?: boolean;
 }
 
@@ -422,6 +423,7 @@ function SibatInspectionDialogContent({
   isSubmitting = false,
   readOnly = false,
 }: SibatInspectionDialogProps) {
+  const { user } = useAuth();
   const [tagConfirmed, setTagConfirmed] = useState<boolean>(record?.inspection?.tagConfirmed ?? false);
   const [countConfirmed, setCountConfirmed] = useState<boolean>(record?.inspection?.countConfirmed ?? false);
   const [confirmedSymptoms, setConfirmedSymptoms] = useState<string[]>(record?.inspection?.confirmedSymptoms ?? []);
@@ -508,7 +510,7 @@ function SibatInspectionDialogContent({
             photoUrl: dataUrl,
             photoName: file.name,
             timestamp: new Date().toISOString(),
-            uploaderRole: "SIBAT",
+            uploaderRole: user?.role === "CBAT" ? "CBAT" : "SIBAT",
           });
         }
       };
