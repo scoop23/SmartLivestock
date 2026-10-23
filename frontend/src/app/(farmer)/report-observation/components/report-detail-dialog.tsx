@@ -29,6 +29,7 @@ import {
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Skull,
   Stethoscope,
   Thermometer,
@@ -36,6 +37,9 @@ import {
   X,
 } from "lucide-react";
 import React from "react";
+import { type DriveStep } from "driver.js";
+import "driver.js/dist/driver.css";
+import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import { FarmerReport } from "../report-observation-types";
 
 const BIOSECURITY_LABELS: Record<string, string> = {
@@ -62,6 +66,38 @@ export default function ReportDetailDialog({
   onOpenChange,
   onEditReport,
 }: ReportDetailDialogProps) {
+  const startDetailsTour = React.useCallback(() => {
+    const isMortalityReport = report?.reportType === "MORTALITY";
+    const steps: DriveStep[] = [
+      { element: '[data-tour="report-detail-header"]', popover: { title: "Report reference", description: "This heading identifies whether the record is a disease or mortality report. The reference number helps you and staff find the same case.", side: "bottom", align: "start" } },
+      { element: '[data-tour="report-detail-progress"]', popover: { title: "Review progress", description: "Follow the workflow from farmer submission through SIBAT field review and MAO review. The status shows the current stage.", side: "bottom", align: "center" } },
+      { element: '[data-tour="report-detail-history"]', popover: { title: "Case history", description: "This section shows the affected headcount, barangay when available, report date, and overall review status or revision feedback.", side: "bottom", align: "start" } },
+      { element: '[data-tour="report-detail-official-notes"]', popover: { title: "Field and municipal notes", description: "CBAT / SIBAT findings and MAO remarks appear separately here. A pending message means that review step has not been completed yet.", side: "top", align: "center" } },
+      { element: '[data-tour="report-detail-summary"]', popover: { title: "Animal and case summary", description: "Check the livestock type, breed, tag, affected count, and date connected to this report.", side: "top", align: "start" } },
+      { element: '[data-tour="report-detail-concern"]', popover: { title: isMortalityReport ? "Reported cause" : "Reported symptoms", description: "These are the concern reported by the farmer. They are observations and do not by themselves confirm a diagnosis.", side: "top", align: "start" } },
+      { element: '[data-tour="report-detail-observations"]', popover: { title: "Farmer observations", description: "Read the farmer’s description and context for the incident.", side: "top", align: "start" } },
+      { element: '[data-tour="report-detail-photo"]', popover: { title: "Photo evidence", description: "If a photo was attached to the report, view it here. An absent section means no photo is available.", side: "top", align: "center" } },
+      { element: '[data-tour="report-detail-qr"]', popover: { title: "QR report pass", description: "Staff can scan this QR pass to open the linked report in SmartLivestock.", side: "top", align: "center" } },
+      { element: '[data-tour="report-detail-actions"]', popover: { title: "Print, revise, or close", description: "Print the details for reference. If revision was requested, use Edit & Resubmit to correct the report.", side: "top", align: "center" } },
+    ];
+    startGuidedTutorial({
+      showProgress: true,
+      animate: true,
+      allowClose: true,
+      nextBtnText: "Next",
+      prevBtnText: "Back",
+      doneBtnText: "Finish",
+      progressText: "{{current}} of {{total}}",
+      steps: steps.filter((step) => typeof step.element !== "string" || document.querySelector(step.element)),
+    });
+  }, [report?.reportType]);
+
+  React.useEffect(() => {
+    if (!open || !report || !getAutomaticTutorialsEnabled()) return;
+    const timer = window.setTimeout(startDetailsTour, 500);
+    return () => window.clearTimeout(timer);
+  }, [open, report, startDetailsTour]);
+
   if (!report) return null;
 
   const isMortality = report.reportType === "MORTALITY";
@@ -173,7 +209,7 @@ export default function ReportDetailDialog({
         className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-3xl border border-slate-200/90 bg-white shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:max-h-[92dvh]"
       >
         {/* Header - Clean white style with icon container and Close button */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-white sticky top-0 z-10">
+        <div data-tour="report-detail-header" className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-white sticky top-0 z-10">
           <div className="flex items-center gap-3 min-w-0">
             <div
               className={`size-10 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs border ${
@@ -204,6 +240,10 @@ export default function ReportDetailDialog({
             </div>
           </div>
 
+          <Button type="button" variant="ghost" size="icon" onClick={startDetailsTour} aria-label="Start report details tutorial" className="size-9 shrink-0 rounded-full text-slate-500 hover:bg-emerald-50 hover:text-emerald-800">
+            <Sparkles className="size-4" aria-hidden="true" />
+          </Button>
+
           <DialogClose asChild>
             <Button
               type="button"
@@ -220,7 +260,7 @@ export default function ReportDetailDialog({
         {/* Modal Body */}
         <div className="p-4 sm:p-6 space-y-5">
           {/* 1. Review progress - 4-step horizontal stepper */}
-          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 sm:p-5">
+          <div data-tour="report-detail-progress" className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 sm:p-5">
             <div className="flex items-center gap-2 text-sm font-extrabold text-slate-900 mb-4">
               <BarChart3 className="size-4 text-[#2D5A27]" />
               <span>Review progress</span>
@@ -344,7 +384,7 @@ export default function ReportDetailDialog({
           <hr className="border-slate-200/80 my-5" />
 
           {/* 3. Case history section */}
-          <div className="space-y-4">
+          <div data-tour="report-detail-history" className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-extrabold text-slate-900">
               <History className="size-4 text-slate-800" />
               <span>Case history</span>
@@ -396,7 +436,7 @@ export default function ReportDetailDialog({
             )}
 
             {/* ══ MULTI-TIER OFFICIAL REVIEW NOTES: CBAT & MAO ══ */}
-            <div className="space-y-3 pt-1">
+            <div data-tour="report-detail-official-notes" className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                   <ShieldCheck className="size-3.5 text-[#1A365D]" />
@@ -637,7 +677,7 @@ export default function ReportDetailDialog({
             </div>
 
             {/* Case Summary Card */}
-            <div className="space-y-1.5">
+            <div data-tour="report-detail-summary" className="space-y-1.5">
               <p className="text-xs font-bold text-slate-500">Case summary</p>
               <div className="rounded-2xl border border-slate-200/90 bg-slate-50/50 p-4 flex items-center gap-3.5 shadow-2xs">
                 <div className="size-11 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
@@ -666,7 +706,7 @@ export default function ReportDetailDialog({
             </div>
 
             {/* Reported Symptoms / Cause */}
-            <div className="space-y-1.5">
+            <div data-tour="report-detail-concern" className="space-y-1.5">
               <p className="text-xs font-bold text-slate-500">
                 {isMortality ? "Reported cause of mortality" : "Reported symptoms"}
               </p>
@@ -690,7 +730,7 @@ export default function ReportDetailDialog({
 
             {/* Farmer Observations */}
             {report.description && (
-              <div className="space-y-1.5">
+              <div data-tour="report-detail-observations" className="space-y-1.5">
                 <p className="text-xs font-bold text-slate-500">Farmer observations</p>
                 <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 text-xs text-slate-700 leading-relaxed flex items-start gap-2.5">
                   <FileText className="size-4 text-slate-400 shrink-0 mt-0.5" />
@@ -701,7 +741,7 @@ export default function ReportDetailDialog({
 
             {/* Photo Evidence */}
             {report.photoUrl && (
-              <div className="space-y-1.5">
+              <div data-tour="report-detail-photo" className="space-y-1.5">
                 <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
                   <Camera className="size-3.5 text-[#2D5A27]" />
                   Attached Photo Evidence
@@ -729,7 +769,7 @@ export default function ReportDetailDialog({
               </div>
             )}
 
-            <section aria-label="Report QR pass" className="rounded-2xl border border-cyan-100 bg-gradient-to-br from-slate-50 via-white to-cyan-50/60 p-3 sm:p-4">
+            <section data-tour="report-detail-qr" aria-label="Report QR pass" className="rounded-2xl border border-cyan-100 bg-gradient-to-br from-slate-50 via-white to-cyan-50/60 p-3 sm:p-4">
               <div className="mb-3 flex items-center gap-2 text-slate-800">
                 <ShieldCheck className="size-4 text-cyan-700" />
                 <div>
@@ -753,7 +793,7 @@ export default function ReportDetailDialog({
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-center gap-2.5">
+          <div data-tour="report-detail-actions" className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-center gap-2.5">
             {report.status === "SUBJECT_TO_REVISION" && onEditReport && (
               <Button
                 type="button"

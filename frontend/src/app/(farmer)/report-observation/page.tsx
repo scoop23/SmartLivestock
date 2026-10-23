@@ -18,17 +18,22 @@ RefreshCw,
 RotateCcw,
 Search,
 ShieldCheck,
+Sparkles,
 Skull,
 Stethoscope
 } from "lucide-react";
 import React,{ Suspense,startTransition,useEffect,useMemo,useRef,useState } from "react";
 import { usePathname,useRouter,useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { type DriveStep } from "driver.js";
+import "driver.js/dist/driver.css";
+import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
 
 import api from "@/lib/axios";
 import { getAttachedPhoto } from "@/lib/photo-storage";
 import { useQuery } from "@tanstack/react-query";
 import ReportDetailDialog from "./components/report-detail-dialog";
+import ReportDetailsExampleDialog from "./components/report-details-example-dialog";
 import ReportIllnessDialog from "./components/report-illness-dialog";
 import {
 BackendStatus,
@@ -49,6 +54,7 @@ function ReportObservationContent() {
   const [reportIllnessDefaultType, setReportIllnessDefaultType] = useState<ReportType>("DISEASE");
   const [selectedReport, setSelectedReport] = useState<FarmerReport | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
+  const [isDetailsExampleOpen, setIsDetailsExampleOpen] = useState(false);
   const [editingReport, setEditingReport] = useState<FarmerReport | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
 
@@ -227,6 +233,58 @@ function ReportObservationContent() {
     });
   }, [reports, searchQuery, filterType]);
 
+  const startReportTour = React.useCallback(() => {
+    const candidates: DriveStep[] = [
+      { element: '[data-tour="report-action-banner"]', popover: { title: "Report an animal problem", description: "Use the disease or mortality button to tell the livestock office about an incident on your farm.", side: "bottom", align: "center" } },
+      { element: '[data-tour="report-disease-action"]', popover: { title: "Report a sick animal", description: "Choose this for symptoms or signs of illness. Report observations; do not guess a confirmed diagnosis.", side: "bottom", align: "center" } },
+      { element: '[data-tour="report-mortality-action"]', popover: { title: "Report an animal death", description: "Choose this to record a death and the known or suspected cause for review.", side: "bottom", align: "center" } },
+      { element: '[data-tour="report-kpis"]', popover: { title: "Report overview", description: "These counts summarize disease and mortality reports and show how many are pending, verified, or approved.", side: "bottom", align: "center" } },
+      { element: '[data-tour="report-filters"]', popover: { title: "Filter your reports", description: "Narrow the list by report type or review status. Filters change which report cards appear below.", side: "bottom", align: "start" } },
+      { element: '[data-tour="report-search"]', popover: { title: "Search reports", description: "Search by tag, symptoms or cause, breed, or report reference.", side: "bottom", align: "end" } },
+    ];
+    if (document.querySelector('[data-tour="report-card"]')) {
+      candidates.push({ element: '[data-tour="report-card"]', popover: { title: "Open a report", description: "Each card summarizes one report. Select Details to open the full report, review progress, staff notes, photo evidence, and its QR pass.", side: "top", align: "center" } });
+    } else if (document.querySelector('[data-tour="report-empty-state"]')) {
+      const hasPreview = Boolean(document.querySelector('[data-tour="report-details-preview"]'));
+      candidates.push({
+        element: '[data-tour="report-empty-state"]',
+        popover: {
+          title: hasPreview ? "No report details yet" : "No matching reports",
+          description: hasPreview
+            ? "A real detail dialog becomes available after you submit a report. Use the example preview button to see what information it will contain."
+            : "No report matches the current search or filter. Clear the search or return to All to see your reports again.",
+          side: "top",
+          align: "center",
+        },
+      });
+      if (document.querySelector('[data-tour="report-details-preview"]')) {
+        candidates.push({ element: '[data-tour="report-details-preview"]', popover: { title: "Preview report details", description: "This opens a clearly labeled mockup. It explains report information without creating or changing a real report.", side: "top", align: "center" } });
+      }
+    }
+
+    startGuidedTutorial({
+      showProgress: true,
+      animate: true,
+      allowClose: true,
+      nextBtnText: "Next",
+      prevBtnText: "Back",
+      doneBtnText: "Finish",
+      progressText: "{{current}} of {{total}}",
+      steps: candidates.filter((step) => typeof step.element !== "string" || document.querySelector(step.element)),
+    });
+  }, []);
+
+  const newReportParam = searchParams.get("newReport");
+  useEffect(() => {
+    if (
+      isLoadingDiseases || isLoadingMortality || isDiseaseError || isMortalityError ||
+      requestedReportId || newReportParam || isReportIllnessOpen || isDetailOpen ||
+      !getAutomaticTutorialsEnabled()
+    ) return;
+    const timer = window.setTimeout(startReportTour, 600);
+    return () => window.clearTimeout(timer);
+  }, [isLoadingDiseases, isLoadingMortality, isDiseaseError, isMortalityError, requestedReportId, newReportParam, isReportIllnessOpen, isDetailOpen, startReportTour]);
+
   const handledReportLinkRef = useRef<string | null>(null);
   const missingReportLinkRef = useRef<string | null>(null);
   useEffect(() => {
@@ -314,6 +372,15 @@ function ReportObservationContent() {
         action={
           <div className="flex items-center gap-2">
             <Button
+              type="button"
+              variant="ghost"
+              onClick={startReportTour}
+              className="h-11 gap-1.5 rounded-xl bg-white/15 px-3 text-xs font-bold text-white hover:bg-white/25 hover:text-white"
+              aria-label="Start report observation tutorial"
+            >
+              <Sparkles className="size-4" aria-hidden="true" /> Tutorial
+            </Button>
+            <Button
               variant="ghost"
               size="icon"
               onClick={handleRefresh}
@@ -328,7 +395,7 @@ function ReportObservationContent() {
 
       <div className="p-4 md:p-8 w-full space-y-6">
         {/* ── TOP KPI STATS ── */}
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+        <div data-tour="report-kpis" className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
           {kpis.map((kpi) => (
             <KpiCard
               key={kpi.label}
@@ -342,7 +409,7 @@ function ReportObservationContent() {
         </div>
 
         {/* ── ACTION BANNER ── */}
-        <div className="rounded-3xl bg-gradient-to-br from-[#1E3D1A] via-[#2D5A27] to-emerald-800 p-5 sm:p-6 text-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-emerald-700/30">
+        <div data-tour="report-action-banner" className="rounded-3xl bg-gradient-to-br from-[#1E3D1A] via-[#2D5A27] to-emerald-800 p-5 sm:p-6 text-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-emerald-700/30">
           <div className="space-y-1">
             <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
               <Activity className="size-5 text-emerald-200" />
@@ -355,6 +422,7 @@ function ReportObservationContent() {
 
           <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto shrink-0">
             <Button
+              data-tour="report-mortality-action"
               onClick={() => handleOpenReportIllness("MORTALITY")}
               className="flex-1 sm:flex-none rounded-xl bg-rose-600/25 hover:bg-rose-600/40 text-rose-100 text-xs font-bold h-10 px-4 gap-1.5 border border-rose-400/30 cursor-pointer"
             >
@@ -363,6 +431,7 @@ function ReportObservationContent() {
             </Button>
 
             <Button
+              data-tour="report-disease-action"
               onClick={() => handleOpenReportIllness("DISEASE")}
               className="flex-1 sm:flex-none rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs font-black h-10 px-4 gap-1.5 shadow-sm cursor-pointer"
             >
@@ -373,7 +442,7 @@ function ReportObservationContent() {
         </div>
 
         {/* ── INTERACTIVE REPORTS SURVEILLANCE LEDGER ── */}
-        <Card className="border-2 border-emerald-900/10 bg-white shadow-xs rounded-3xl overflow-hidden">
+        <Card data-tour="report-ledger" className="border-2 border-emerald-900/10 bg-white shadow-xs rounded-3xl overflow-hidden">
           <CardContent className="p-5 sm:p-6 space-y-4">
             {/* Header with Title & Live Stats */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
@@ -393,7 +462,7 @@ function ReportObservationContent() {
             </div>
 
             {/* Filter Pills & Live Search */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+            <div data-tour="report-filters" className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
               {/* Filter Pills */}
               <div className="flex flex-wrap gap-1.5">
                 {([
@@ -422,7 +491,7 @@ function ReportObservationContent() {
               </div>
 
               {/* Search Bar */}
-              <div className="relative w-full md:w-72">
+              <div data-tour="report-search" className="relative w-full md:w-72">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   value={searchQuery}
@@ -444,7 +513,7 @@ function ReportObservationContent() {
                   </div>
                 ))
               ) : filteredReports.length === 0 ? (
-                <div className="col-span-full py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl">
+                <div data-tour="report-empty-state" className="col-span-full py-16 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl">
                   <HeartPulse className="size-10 mx-auto mb-2.5 text-slate-300" />
                   <p className="text-sm font-black text-slate-700">No reports found</p>
                   <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
@@ -452,14 +521,26 @@ function ReportObservationContent() {
                       ? "No records match your active search or filter criteria."
                       : "You haven't submitted any disease or mortality reports yet."}
                   </p>
-                  <div className="mt-4 flex justify-center gap-2">
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
                     <Button
                       size="sm"
-                      onClick={() => setIsReportIllnessOpen(true)}
+                      onClick={() => handleOpenReportIllness()}
                       className="bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-bold rounded-xl h-8 px-3.5"
                     >
                       + File Incident Report
                     </Button>
+                    {reports.length === 0 && (
+                      <Button
+                        data-tour="report-details-preview"
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsDetailsExampleOpen(true)}
+                        className="rounded-xl text-xs font-bold"
+                      >
+                        Preview report details
+                      </Button>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -507,6 +588,7 @@ function ReportObservationContent() {
                   return (
                     <div
                       key={rep.id}
+                      data-tour={rep.id === filteredReports[0]?.id ? "report-card" : undefined}
                       onClick={() => {
                         setSelectedReport(rep);
                         setIsDetailOpen(true);
@@ -619,6 +701,8 @@ function ReportObservationContent() {
         }}
         onEditReport={handleEditReport}
       />
+
+      <ReportDetailsExampleDialog open={isDetailsExampleOpen} onOpenChange={setIsDetailsExampleOpen} />
     </>
   );
 }
