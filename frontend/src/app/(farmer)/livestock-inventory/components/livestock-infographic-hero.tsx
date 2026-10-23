@@ -26,6 +26,7 @@ ShieldCheck,
 Sparkles
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import React,{ useEffect,useState } from "react";
 import type { LivestockInventoryItem } from "../livestock-inventory";
 import { OperationalStatusBadge } from "../operational-status-badge";
@@ -58,6 +59,7 @@ interface LivestockInfographicHeroProps {
   onSelectTab: (tab: string) => void;
   photoSlot?: React.ReactNode;
   photoUrl?: string | null;
+  speciesImageUrl?: string | null;
   avatar?: { emoji: string; bgGradient: string };
 }
 
@@ -84,6 +86,7 @@ function LivestockInfographicHeroContent({
   onSelectTab,
   photoSlot,
   photoUrl,
+  speciesImageUrl,
   avatar,
 }: LivestockInfographicHeroProps) {
   const speciesKey = resolveSpeciesKey(activeItem.livestockTypeName);
@@ -573,8 +576,10 @@ function LivestockInfographicHeroContent({
                 </div>
               ) : (
                 <div className="w-full max-w-md h-[400px] rounded-3xl border border-dashed border-emerald-500/30 bg-black/40 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center space-y-4">
-                  <div className={`size-24 rounded-3xl flex items-center justify-center text-5xl shadow-xl border border-white/10 ${avatar?.bgGradient || "bg-emerald-800"}`}>
-                    {avatar?.emoji || "🐄"}
+                  <div className={`relative size-24 rounded-3xl flex items-center justify-center overflow-hidden text-5xl shadow-xl border border-white/10 ${avatar?.bgGradient || "bg-emerald-800"}`}>
+                    {speciesImageUrl ? (
+                      <Image src={speciesImageUrl} alt={`${activeItem.livestockTypeName} illustration`} fill sizes="96px" className="object-cover" />
+                    ) : avatar?.emoji || "🐄"}
                   </div>
                   <div>
                     <h4 className="text-lg font-bold text-white">No Photo Registered</h4>
@@ -804,8 +809,10 @@ function LivestockInfographicHeroContent({
                 </div>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
-                  <div className={`size-16 rounded-2xl flex items-center justify-center text-3xl shadow mb-2 ${avatar?.bgGradient || "bg-emerald-800"}`}>
-                    {avatar?.emoji || "🐄"}
+                  <div className={`relative size-16 rounded-2xl flex items-center justify-center overflow-hidden text-3xl shadow mb-2 ${avatar?.bgGradient || "bg-emerald-800"}`}>
+                    {speciesImageUrl ? (
+                      <Image src={speciesImageUrl} alt={`${activeItem.livestockTypeName} illustration`} fill sizes="64px" className="object-cover" />
+                    ) : avatar?.emoji || "🐄"}
                   </div>
                   <p className="text-xs font-bold text-white">No Photo Uploaded</p>
                   <p className="text-[10px] text-emerald-200/70">Tap &apos;Silhouette&apos; to view anatomy blueprint</p>
@@ -948,8 +955,10 @@ function LivestockInfographicHeroContent({
               </div>
             ) : (
               <div className="text-center py-12 px-6 max-w-md space-y-4">
-                <div className={`size-24 rounded-3xl border border-white/10 flex items-center justify-center mx-auto text-5xl shadow-xl ${avatar?.bgGradient || "bg-emerald-800"}`}>
-                  {avatar?.emoji || "🐄"}
+                <div className={`relative size-24 rounded-3xl border border-white/10 flex items-center justify-center overflow-hidden mx-auto text-5xl shadow-xl ${avatar?.bgGradient || "bg-emerald-800"}`}>
+                  {speciesImageUrl ? (
+                    <Image src={speciesImageUrl} alt={`${activeItem.livestockTypeName} illustration`} fill sizes="96px" className="object-cover" />
+                  ) : avatar?.emoji || "🐄"}
                 </div>
                 <div>
                   <h4 className="text-lg font-bold text-white">No Photo Registered</h4>

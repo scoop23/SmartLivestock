@@ -686,17 +686,26 @@ export default function LivestockDetailPage() {
   const localAvatar = typeof window !== "undefined" ? localStorage.getItem(`livestock_avatar_${activeItem?.id || activeItem?.tagNumber}`) : null;
   const photoUrl = activeItem?.photoUrl || localPhoto;
   const avatar = getAvatarById(activeItem?.avatarKey || localAvatar, activeItem?.livestockTypeName);
+  const speciesImageUrl = /carabao|buffalo/i.test(activeItem?.livestockTypeName || "")
+    ? "/images/species-carabao.jpg"
+    : null;
   const normalizedLivestockType = activeItem?.livestockTypeName?.toLowerCase() || "";
-  // The profile tab is offered to every individually identified female bovine.
+  // Milk forecasting is currently supported for individually identified female cattle and carabao.
   // The backend still decides whether its status, age, and approved history
   // are sufficient to return a forecast.
   const canShowMilkPredictionTab = Boolean(
     activeItem
-      && ["cattle", "cow", "bovine", "baka", "carabao", "buffalo"].some((term) => normalizedLivestockType.includes(term))
+      && ["cattle", "cow", "baka", "carabao", "buffalo"].some((term) => normalizedLivestockType.includes(term))
       && activeItem.entryType === "INDIVIDUAL"
       && activeItem.quantity === 1
       && ["FEMALE", "F"].includes(activeItem.sex.trim().toUpperCase())
   );
+
+  useEffect(() => {
+    if (!canShowMilkPredictionTab && activeProfileTab === "milk-prediction") {
+      setActiveProfileTab("growth");
+    }
+  }, [activeProfileTab, canShowMilkPredictionTab]);
 
   // Calving stats
   const totalCalves = animalCalvingRecords.length;
@@ -888,6 +897,7 @@ export default function LivestockDetailPage() {
           onSelectTab={(tabKey) => setActiveProfileTab(tabKey)}
           photoUrl={photoUrl}
           avatar={avatar}
+          speciesImageUrl={speciesImageUrl}
           photoSlot={
             <LivestockPhotoManager
               title="Livestock Photo"
@@ -901,8 +911,10 @@ export default function LivestockDetailPage() {
               currentAvatarKey={activeItem.avatarKey || localAvatar}
               species={activeItem.livestockTypeName}
               fallback={
-                <div className={`flex size-9 sm:size-10 items-center justify-center rounded-xl text-xl ${avatar.bgGradient}`}>
-                  {avatar.emoji}
+                <div className={`relative flex size-9 sm:size-10 items-center justify-center overflow-hidden rounded-xl text-xl ${avatar.bgGradient}`}>
+                  {speciesImageUrl ? (
+                    <Image src={speciesImageUrl} alt="Carabao" fill sizes="40px" className="object-cover" />
+                  ) : avatar.emoji}
                 </div>
               }
               onSave={async ({ file, removePhoto, avatarKey }) => {
@@ -1890,9 +1902,11 @@ export default function LivestockDetailPage() {
                   />
                 ) : (
                   <div
-                    className={`size-16 rounded-2xl flex items-center justify-center text-3xl bg-gradient-to-br border-2 border-emerald-300 shadow-md mx-auto ${avatar.bgGradient}`}
+                    className={`relative size-16 rounded-2xl flex items-center justify-center overflow-hidden text-3xl bg-gradient-to-br border-2 border-emerald-300 shadow-md mx-auto ${avatar.bgGradient}`}
                   >
-                    {avatar.emoji}
+                    {speciesImageUrl ? (
+                      <Image src={speciesImageUrl} alt="Carabao" fill sizes="64px" className="object-cover" />
+                    ) : avatar.emoji}
                   </div>
                 )}
               </div>
