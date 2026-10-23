@@ -35,7 +35,7 @@ class AccessScopeTests(APITestCase):
         cls.local_animal = LivestockInventory.objects.create(farmer=cls.farmer, livestock_type=cls.species,
             quantity=1, created_by=cls.owner, status="APPROVED")
         cls.remote_animal = LivestockInventory.objects.create(farmer=cls.other_farmer, livestock_type=cls.species,
-            quantity=1, created_by=cls.other, status="PENDING")
+            quantity=1, created_by=cls.other, status="PENDING", sex="FEMALE")
         cls.schedule = ProgramSchedule.objects.create(date=date(2099,1,1), capacity=4, program="Scope program", barangay=cls.local, created_by=cls.mao)
         cls.local_booking = ProgramBooking.objects.create(schedule=cls.schedule, farmer=cls.owner, time=time(8))
         cls.remote_booking = ProgramBooking.objects.create(schedule=cls.schedule, farmer=cls.other, time=time(9,30))
