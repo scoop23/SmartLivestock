@@ -232,6 +232,24 @@ class Notification(models.Model):
         return f"{self.user.email} - {self.title} ({'Read' if self.is_read else 'Unread'})"
 
 
+class PushSubscription(models.Model):
+    """A browser push endpoint registered by one authenticated user."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="push_subscriptions",
+    )
+    endpoint = models.URLField(max_length=2048, unique=True)
+    p256dh = models.CharField(max_length=256)
+    auth = models.CharField(max_length=128)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+
 
 PROGRAM_TIME_SLOTS = ("08:00", "09:30", "11:00", "13:30")
 

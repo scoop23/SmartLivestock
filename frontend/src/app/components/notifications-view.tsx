@@ -30,7 +30,7 @@ Inbox,
 Trash2,
 } from "lucide-react";
 import { usePathname,useRouter } from "next/navigation";
-import { useMemo,useState } from "react";
+import { useEffect,useMemo,useState } from "react";
 import { toast } from "sonner";
 import {
 BackendNotification,
@@ -100,6 +100,55 @@ export function NotificationsView({
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [selectedNotification, setSelectedNotification] = useState<BackendNotification | null>(null);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    navigator.serviceWorker.getRegistration("/").then(async (registration) => {
+      setPushEnabled(Boolean(await registration?.pushManager.getSubscription()));
+    }).catch(() => setPushEnabled(false));
+  }, []);
+
+  const togglePushNotifications = async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+      toast.error("This browser does not support push notifications.");
+      return;
+    }
+    setPushBusy(true);
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      const current = await registration.pushManager.getSubscription();
+      if (current) {
+        await api.delete("/api/notifications/push/subscription/", { data: { endpoint: current.endpoint } });
+        await current.unsubscribe();
+        setPushEnabled(false);
+        toast.success("Browser notifications disabled.");
+        return;
+      }
+      const config = await api.get("/api/notifications/push/public-key/");
+      if (!config.data.enabled || !config.data.public_key) {
+        toast.error("Browser push is not configured for this server yet.");
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        toast.info("Allow notifications in your browser to enable push alerts.");
+        return;
+      }
+      const padding = "=".repeat((4 - (config.data.public_key.length % 4)) % 4);
+      const rawKey = window.atob((config.data.public_key + padding).replace(/-/g, "+").replace(/_/g, "/"));
+      const applicationServerKey = Uint8Array.from(rawKey, (character) => character.charCodeAt(0));
+      const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
+      await api.post("/api/notifications/push/subscription/", subscription.toJSON());
+      setPushEnabled(true);
+      toast.success("Browser notifications enabled.");
+    } catch {
+      toast.error("Could not update browser notification settings.");
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   // Fetch notifications
   const { data, isLoading } = useQuery<BackendNotificationsResponse>({
@@ -306,6 +355,13 @@ export function NotificationsView({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <Button type="button" variant="outline" size="sm" disabled={pushBusy}
+            onClick={togglePushNotifications} aria-label={pushEnabled ? "Disable push notifications" : "Enable push notifications"}
+            className="shrink-0 rounded-lg">
+            <Bell className="mr-1.5 size-4" />
+            <span className="hidden sm:inline">{pushBusy ? "Updating…" : pushEnabled ? "Disable push" : "Enable push"}</span>
+          </Button>
 
           {/* Top Right Status Filter Dropdown */}
           <DropdownMenu>

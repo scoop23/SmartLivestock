@@ -28,6 +28,7 @@ openpyxl = "*"
 reportlab = "==5.0.1"
 boto3 = "*"
 django-storages = "*"
+pywebpush = "==2.4.0"
 
 [dev-packages]
 mypy = "*"

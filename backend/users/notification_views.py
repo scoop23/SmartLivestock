@@ -2,10 +2,15 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from django.conf import settings as django_settings
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from users.models import Notification, User
 from users.serializer import NotificationSerializer
 from django.db.models import Q
+from rest_framework.exceptions import ValidationError
+from .models import PushSubscription
+from .push_notifications import create_user_push_notification, is_supported_push_endpoint, send_push_for_notification
 
 
 def _field_officer_notification_queryset(user, queryset):
@@ -97,8 +102,8 @@ def create_notification(
     Utility helper to trigger an in-app notification for a given user.
     Can be imported across views (livestock, movements, diseases, production, etc.).
     """
-    return Notification.objects.create(
-        user=user,
+    return create_user_push_notification(
+        user,
         notification_type=notification_type,
         priority=priority,
         title=title,
@@ -144,7 +149,52 @@ def notify_role(
         for user in recipients
     ]
     Notification.objects.bulk_create(notifications)
+    for notification in notifications:
+        transaction.on_commit(lambda item=notification: send_push_for_notification(item))
     return len(notifications)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def push_public_key(request):
+    public_key = getattr(django_settings, "WEB_PUSH_VAPID_PUBLIC_KEY", "")
+    if not public_key:
+        return Response({"enabled": False, "public_key": None})
+    return Response({"enabled": True, "public_key": public_key})
+
+
+@api_view(["POST", "DELETE"])
+@permission_classes([IsAuthenticated])
+def push_subscription(request):
+    endpoint = request.data.get("endpoint")
+    if not isinstance(endpoint, str) or len(endpoint) > 2048 or not is_supported_push_endpoint(endpoint):
+        raise ValidationError({"endpoint": "Use a supported HTTPS browser push endpoint."})
+
+    if request.method == "DELETE":
+        PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    keys = request.data.get("keys")
+    if not isinstance(keys, dict):
+        raise ValidationError({"keys": "Push subscription keys are required."})
+    p256dh, auth = keys.get("p256dh"), keys.get("auth")
+    if not isinstance(p256dh, str) or not p256dh or len(p256dh) > 256:
+        raise ValidationError({"keys": {"p256dh": "A valid browser public key is required."}})
+    if not isinstance(auth, str) or not auth or len(auth) > 128:
+        raise ValidationError({"keys": {"auth": "A valid browser authentication key is required."}})
+
+    subscription, created = PushSubscription.objects.get_or_create(
+        endpoint=endpoint,
+        defaults={"user": request.user, "p256dh": p256dh, "auth": auth},
+    )
+    if not created and subscription.user_id != request.user.pk:
+        return Response({"detail": "This push endpoint is already registered to another account."},
+                        status=status.HTTP_409_CONFLICT)
+    if not created:
+        subscription.p256dh = p256dh
+        subscription.auth = auth
+        subscription.save(update_fields=["p256dh", "auth", "updated_at"])
+    return Response({"registered": True}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
 @api_view(["GET"])

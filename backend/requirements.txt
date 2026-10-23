@@ -46,3 +46,4 @@ reportlab==5.0.1
 et-xmlfile==2.0.0
 django-storages==1.14.6
 boto3==1.43.108
+pywebpush==2.4.0
