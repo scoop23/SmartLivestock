@@ -107,7 +107,7 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
         call_command("seed_milk_anomaly_demo", "--dry-run", verbosity=0)
         self.assertEqual(before, MilkAnomalyDemoOwnership.objects.count())
 
-    def test_clean_recreates_demo_and_preserves_unrelated_records_and_shared_reference_data(self):
+    def test_clean_removes_demo_and_preserves_unrelated_records_and_shared_reference_data(self):
         unrelated_user = User.objects.create_user(
             username="unrelated_farmer", email="unrelated@example.test", password="x",
             role=self.roles["FARMER"], account_status=User.AccountStatus.APPROVED,
@@ -129,8 +129,10 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
         self.assertTrue(ProductionRecord.objects.filter(pk=unrelated_record.pk).exists())
         self.assertTrue(Barangay.objects.filter(pk=self.tangob.pk).exists())
         self.assertTrue(LivestockType.objects.filter(pk=self.cattle.pk).exists())
-        self.assertEqual(MilkAnomalyDemoOwnership.objects.count(), 130)
-        self.assertEqual(ProductionRecord.objects.filter(livestock__farmer__user__email="demo.milk.farmer@smartlivestock-demo.invalid").count(), 122)
+        self.assertEqual(MilkAnomalyDemoOwnership.objects.count(), 0)
+        self.assertFalse(User.objects.filter(email__endswith="@smartlivestock-demo.invalid").exists())
+        self.assertFalse(LivestockInventory.objects.filter(tag_number__startswith="DEMO-MILK-").exists())
+        self.assertFalse(ProductionRecord.objects.filter(notes__startswith="DEMO synthetic").exists())
 
     def test_clean_refuses_to_delete_untracked_activity_linked_to_demo_user(self):
         self.seed()

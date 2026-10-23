@@ -19,6 +19,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections, transaction
 from django.utils import timezone
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 
 from livestock.models import Barangay, Farmer, LivestockInventory, LivestockType
 from production.models import MilkAnomalyDemoOwnership, ProductionRecord
@@ -41,10 +42,10 @@ RECORD_TYPES = {
 
 
 class Command(BaseCommand):
-    help = "Seed a synthetic Tangob milk-anomaly demo. Use only local development or explicitly opted-in staging; --clean safely recreates only ledger-owned demo data."
+    help = "Seed a synthetic Tangob milk-anomaly demo in local development or opted-in staging; --clean removes only ledger-owned demo data."
 
     def add_arguments(self, parser):
-        parser.add_argument("--clean", action="store_true", help="Delete only explicitly ledger-owned demo data, then recreate it.")
+        parser.add_argument("--clean", action="store_true", help="Delete only explicitly ledger-owned demo data and stop without recreating it.")
         parser.add_argument("--dry-run", action="store_true", help="Report the requested action without creating or deleting data.")
 
     def handle(self, *args, **options):
@@ -54,17 +55,21 @@ class Command(BaseCommand):
 
         if dry_run:
             markers = MilkAnomalyDemoOwnership.objects.filter(identifier__startswith=PREFIX)
-            action = "would clean and recreate" if clean else "would create or reuse"
-            self.stdout.write(f"Dry run: {action} the milk anomaly demo; {markers.count()} demo-owned objects are currently tracked.")
-            self.stdout.write("Required reference data: exactly one Barangay named Tangob and a Cattle livestock type.")
+            if clean:
+                self.stdout.write(f"Dry run: would remove the milk anomaly demo; {markers.count()} demo-owned objects are currently tracked.")
+            else:
+                self.stdout.write(f"Dry run: would create or reuse the milk anomaly demo; {markers.count()} demo-owned objects are currently tracked.")
+                self.stdout.write("Required reference data: exactly one Barangay named Tangob and a Cattle livestock type.")
             self.stdout.write("No database changes were made.")
+            return
+
+        if clean:
+            with transaction.atomic():
+                self._clean_owned_objects()
             return
 
         password = os.environ.get("SMARTLIVESTOCK_DEMO_PASSWORD", "")
         with transaction.atomic():
-            if clean:
-                self._clean_owned_objects()
-
             barangay = self._get_reference(Barangay, "barangay_name__iexact", "Tangob", "Tangob barangay")
             cattle = self._get_reference(LivestockType, "name__iexact", "Cattle", "Cattle livestock type")
             roles = {
@@ -308,6 +313,23 @@ class Command(BaseCommand):
                 raise CommandError(f"Marker {marker.identifier} points to missing {model.__name__} #{marker.object_id}; refusing cleanup.") from exc
             owned_ids.setdefault(model, set()).add(obj.pk)
             objects.append((marker, obj))
+
+        # Refresh-token rows are generated automatically for demo accounts and
+        # are not part of the fixture ownership ledger. They belong to the
+        # ledger-owned users and are removed by the user's normal cascade.
+        demo_user_ids = owned_ids.get(User, set())
+        if demo_user_ids:
+            owned_ids[OutstandingToken] = set(
+                OutstandingToken.objects.filter(user_id__in=demo_user_ids)
+                .values_list("pk", flat=True)
+            )
+            # Notifications belong to their recipient's inbox. A notification
+            # for a demo account may reference a real domain record, but
+            # deleting the inbox row does not delete that referenced record.
+            owned_ids[Notification] = set(
+                Notification.objects.filter(user_id__in=demo_user_ids)
+                .values_list("pk", flat=True)
+            )
 
         # Refuse before deleting if any protected/cascading related data is not
         # positively present in the same ownership ledger.
