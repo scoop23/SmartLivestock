@@ -76,6 +76,7 @@ class DiseaseAndMortalityAPITests(APITestCase):
             tag_number="TAG-001",
             breed="Brahman",
             created_by=self.farmer1_user,
+            status=LivestockInventory.StatusType.APPROVED,
         )
 
         # Farmer 2 Livestock
