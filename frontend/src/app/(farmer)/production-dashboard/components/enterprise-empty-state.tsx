@@ -7,7 +7,7 @@ import Link from "next/link";
 
 export default function EnterpriseEmptyState() {
   return (
-    <Card className="border-dashed border-2 border-slate-200 bg-white/80 backdrop-blur-sm rounded-3xl p-8 sm:p-12 text-center max-w-2xl mx-auto shadow-xs">
+    <Card data-tour="production-no-livestock" className="border-dashed border-2 border-slate-200 bg-white/80 backdrop-blur-sm rounded-3xl p-8 sm:p-12 text-center max-w-2xl mx-auto shadow-xs">
       <CardContent className="p-0 flex flex-col items-center space-y-4">
         <div className="size-16 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shadow-inner">
           <Sparkles className="size-8" />

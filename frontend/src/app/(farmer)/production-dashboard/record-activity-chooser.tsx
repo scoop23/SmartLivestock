@@ -79,7 +79,7 @@ export default function RecordActivityChooser({
 
   return (
     <section aria-labelledby="record-activity-title" className="space-y-5">
-      <div className="relative isolate overflow-hidden rounded-[28px] bg-[linear-gradient(120deg,#123b2c_0%,#1f593e_52%,#39734a_100%)] p-5 text-white shadow-[0_18px_50px_rgba(20,83,45,0.16)] sm:p-7 lg:p-8">
+      <div data-tour="production-activity-hero" className="relative isolate overflow-hidden rounded-[28px] bg-[linear-gradient(120deg,#123b2c_0%,#1f593e_52%,#39734a_100%)] p-5 text-white shadow-[0_18px_50px_rgba(20,83,45,0.16)] sm:p-7 lg:p-8">
         <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-28 -z-10 size-80 rounded-full border-[36px] border-white/[0.06]" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 right-1/4 -z-10 size-64 rounded-full bg-lime-200/[0.08] blur-2xl" />
         <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
@@ -102,7 +102,7 @@ export default function RecordActivityChooser({
           <Link href="/livestock-inventory" className="ml-1 font-semibold text-emerald-800 underline underline-offset-4">Go to My Livestock</Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div data-tour="production-activity-list" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {activities.map((activity) => {
             const Icon = activity.icon;
             return (
@@ -129,7 +129,7 @@ export default function RecordActivityChooser({
           })}
         </div>
       )}
-      <p className="text-xs text-slate-500">Only activities supported for your approved, active livestock are shown. Forecasts and combined history remain available from the records page.</p>
+      <p data-tour="production-activity-guidance" className="text-xs text-slate-500">Only activities supported for your approved, active livestock are shown. Forecasts and combined history remain available from the records page.</p>
     </section>
   );
 }

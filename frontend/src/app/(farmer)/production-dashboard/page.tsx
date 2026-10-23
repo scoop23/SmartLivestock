@@ -1,11 +1,15 @@
 "use client";
 
 import { PageHeader } from "@/app/components/page-header";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Info } from "lucide-react";
+import { Info, Sparkles } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useMemo,useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { type DriveStep } from "driver.js";
+import "driver.js/dist/driver.css";
+import { markTutorialSeen, shouldAutoStartTutorial, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import { useUserInventory } from "../livestock-inventory/livestock-inventory";
 import EnterpriseEmptyState from "./components/enterprise-empty-state";
 import type { ProductionType } from "./production-analytics";
@@ -23,6 +27,7 @@ type SelectedRecordActivity = {
 
 export default function ProductionDashboardPage() {
   const [selectedActivity, setSelectedActivity] = useState<SelectedRecordActivity | null>(null);
+  const [recordDialogInstance, setRecordDialogInstance] = useState(0);
   const { data: inventories = [], isLoading } = useUserInventory();
   const approvedInventories = useMemo(
     () => inventories.filter((item) => item.status === "APPROVED" && (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0),
@@ -40,9 +45,95 @@ export default function ProductionDashboardPage() {
       .filter((name) => name && !available.has(name.toLowerCase()))));
   }, [approvedInventories, inventories]);
 
+  const startProductionTour = useCallback(() => {
+    const hasActivities = approvedInventories.length > 0 || activeIntentInventories.length > 0;
+    const steps: DriveStep[] = [
+      {
+        element: '[data-tour="production-page-header"]',
+        popover: {
+          title: "Your farm activity log",
+          description: "Record farm activities here. The available options depend on your active livestock and its approval status.",
+          side: "bottom",
+          align: "center",
+        },
+      },
+      ...(hasActivities
+        ? [
+            {
+              element: '[data-tour="production-activity-hero"]',
+              popover: {
+                title: "Choose where to go",
+                description: "Use All production records to review your submitted activities, history, and forecasts.",
+                side: "bottom" as const,
+                align: "center" as const,
+              },
+            },
+            {
+              element: '[data-tour="production-activity-list"]',
+              popover: {
+                title: "Available activities",
+                description: "Each card shows what you can record for your livestock. Select Record to open the form, or View records to open that activity’s history.",
+                side: "top" as const,
+                align: "center" as const,
+              },
+            },
+            {
+              element: '[data-tour="production-activity-guidance"]',
+              popover: {
+                title: "Why some activities may be missing",
+                description: "Only activities supported by active livestock are listed. Most activities require the livestock to be approved first.",
+                side: "top" as const,
+                align: "start" as const,
+              },
+            },
+          ]
+        : [
+            {
+              element: '[data-tour="production-no-livestock"]',
+              popover: {
+                title: "Add approved livestock first",
+                description: "Production activities appear after you add livestock and the livestock office approves it. Use this link to open your inventory.",
+                side: "bottom" as const,
+                align: "center" as const,
+              },
+            },
+          ]),
+    ];
+
+    startGuidedTutorial({
+      showProgress: true,
+      animate: true,
+      allowClose: true,
+      nextBtnText: "Next",
+      prevBtnText: "Back",
+      doneBtnText: "Finish",
+      progressText: "{{current}} of {{total}}",
+      steps,
+    });
+  }, [activeIntentInventories.length, approvedInventories.length]);
+
+  useEffect(() => {
+    if (isLoading || !shouldAutoStartTutorial("smartlivestock-production-dashboard-tour")) return;
+    const timer = window.setTimeout(() => {
+      markTutorialSeen("smartlivestock-production-dashboard-tour");
+      startProductionTour();
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [isLoading, startProductionTour]);
+
   return (
     <>
-      <PageHeader title="Record" variant="farmer" maxWidthClass="w-full" />
+      <PageHeader
+        title={<span data-tour="production-page-header">Record</span>}
+        variant="farmer"
+        maxWidthClass="w-full"
+        mobileActionsRow
+        action={
+          <Button type="button" onClick={startProductionTour} disabled={isLoading} variant="outline" className="min-h-11 gap-2 rounded-xl border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white">
+            <Sparkles className="size-4" aria-hidden="true" /> Tutorial
+          </Button>
+        }
+      />
       <div className="w-full space-y-5 p-4 md:p-8">
         {!isLoading && awaitingSpecies.length > 0 && (
           <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
@@ -72,11 +163,18 @@ export default function ProductionDashboardPage() {
           <EnterpriseEmptyState />
         ) : (
           <>
-            <RecordActivityChooser inventories={approvedInventories} intentInventories={activeIntentInventories} onRecord={setSelectedActivity} />
+            <RecordActivityChooser
+              inventories={approvedInventories}
+              intentInventories={activeIntentInventories}
+              onRecord={(activity) => {
+                setRecordDialogInstance((instance) => instance + 1);
+                setSelectedActivity(activity);
+              }}
+            />
             {selectedActivity && (
               <div className="hidden">
                 <ProductionDashboardView
-                  key={`${selectedActivity.id}-${selectedActivity.species.join("-")}`}
+                  key={`${recordDialogInstance}-${selectedActivity.id}-${selectedActivity.species.join("-")}`}
                   selectedSpecies={selectedActivity.species.length === 1 ? selectedActivity.species[0] : "ALL"}
                   showEnterpriseSwitch={false}
                   initialActivity={selectedActivity.id}
