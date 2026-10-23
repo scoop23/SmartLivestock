@@ -171,6 +171,14 @@ export default function ProductionDashboardView({
         (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0,
     );
   }, [inventories]);
+  const activeIntentInventories = useMemo(() => {
+    const active = inventories.filter(
+      (item) => (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0 && item.status !== "REJECTED",
+    );
+    if (!focusedActivity || initialEligibleSpecies.length === 0) return active;
+    const eligible = new Set(initialEligibleSpecies.map((name) => name.toLowerCase()));
+    return active.filter((item) => eligible.has(item.livestockTypeName?.toLowerCase() ?? ""));
+  }, [inventories, focusedActivity, initialEligibleSpecies]);
   const activityInventories = useMemo(() => {
     if (!focusedActivity || initialEligibleSpecies.length === 0) return approvedInventories;
     const eligible = new Set(initialEligibleSpecies.map((name) => name.toLowerCase()));
@@ -846,9 +854,8 @@ export default function ProductionDashboardView({
       {/* Tab 4: Live Animal Sales & Commercial Outlets */}
       {activeMainTab === "sales" && (
         <ProductionSalesTab
-          approvedInventories={focusedActivity ? activityInventories : approvedInventories}
-          autoOpen={focusedActivity === "sales" && focusedMode === "record"}
-          autoOpenIntent={focusedActivity === "intent" && focusedMode === "record"}
+          intentInventories={activeIntentInventories}
+          autoOpenIntent={(["sales", "intent"].includes(focusedActivity ?? "")) && focusedMode === "record"}
         />
       )}
 

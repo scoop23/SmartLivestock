@@ -20,7 +20,11 @@ import { toast } from "sonner";
 
 type OwnerType = "REGISTERED_FARMER" | "EXTERNAL_INDIVIDUAL" | "COMPANY" | "TRADER" | "OTHER";
 type FarmerLookup = { id: number; name: string; username: string; email: string; rsbsa_number: string; address: string; barangay: string };
-type FarmerAnimal = { id: number; tag_number: string; livestock_type_name: string; sex: string; breed: string; ownership_certificate_number: string };
+type FarmerAnimal = {
+  id: number; tag_number: string; livestock_type_name: string; sex: string; breed: string;
+  ownership_certificate_number: string; registration_status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
+  transfer_eligible: boolean; sale_intent: { target_date: string | null; target_destination: string; notes: string } | null;
+};
 type Transfer = {
   id: number; livestock: number; previous_owner: number; livestock_tag: string; livestock_type_name: string;
   new_owner: number | null;
@@ -75,12 +79,13 @@ export default function AuctionOwnershipTransfersPage() {
     try {
       const response = await api.get<FarmerAnimal[]>(`livestock/ownership-transfer-farmers/${seller.id}/livestock/`);
       setFarmerAnimals(response.data);
-      setSelectedAnimalIds(selectedAnimalId ? [selectedAnimalId] : []);
+      const selectedAnimal = response.data.find((animal) => animal.id === selectedAnimalId);
+      setSelectedAnimalIds(selectedAnimal?.transfer_eligible ? [selectedAnimal.id] : []);
       setOriginalCertificates(Object.fromEntries(response.data.map((animal) => [
         animal.id,
         animal.id === selectedAnimalId ? originalCertificate || animal.ownership_certificate_number : animal.ownership_certificate_number,
       ])));
-      if (!response.data.length) setLookupError("This Farmer has no approved, active individual livestock available for transfer.");
+      if (!response.data.length) setLookupError("This Farmer has no active individual livestock available to review.");
     } catch {
       setLookupError("Could not load this Farmer’s eligible livestock.");
     } finally {
@@ -261,11 +266,11 @@ export default function AuctionOwnershipTransfersPage() {
                 <div className="space-y-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">Seller: {farmer.name}</h3><Badge variant="secondary">Farmer ID {farmer.id}</Badge></div><p className="text-sm text-muted-foreground">{farmer.username} · {farmer.email || "No email"} · {farmer.barangay}</p>{farmer.rsbsa_number ? <p className="text-xs text-muted-foreground">RSBSA: {farmer.rsbsa_number}</p> : null}</div>
                 {!editing ? <Button type="button" variant="ghost" onClick={() => { setFarmer(null); setFarmerAnimals([]); setSelectedAnimalIds([]); setFarmerResults([]); }}>Choose another Farmer</Button> : null}
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">Select livestock this Farmer is selling</h3>{farmerAnimals.length ? <Button type="button" variant="outline" size="sm" onClick={() => setSelectedAnimalIds(farmerAnimals.map((animal) => animal.id))}>Select all eligible</Button> : null}</div>
+              <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">Farmer livestock and sale intent</h3>{farmerAnimals.some((animal) => animal.transfer_eligible) ? <Button type="button" variant="outline" size="sm" onClick={() => setSelectedAnimalIds(farmerAnimals.filter((animal) => animal.transfer_eligible).map((animal) => animal.id))}>Select all eligible</Button> : null}</div>
               {isLoadingAnimals ? <p className="rounded-lg border p-4 text-sm text-muted-foreground">Loading this Farmer’s eligible livestock…</p> : null}
-              {!isLoadingAnimals && farmerAnimals.length ? <div className="divide-y rounded-lg border">{farmerAnimals.map((animal) => <label key={animal.id} className="flex cursor-pointer items-start gap-3 p-3 hover:bg-muted/40">
-                <Checkbox checked={selectedAnimalIds.includes(animal.id)} onCheckedChange={(checked) => toggleAnimal(animal.id, checked === true)} className="mt-1" />
-                <span className="min-w-0 flex-1"><span className="block font-medium">{animal.livestock_type_name} · {animal.tag_number || `#${animal.id}`}</span><span className="mt-1 block text-xs text-muted-foreground">{animal.sex || "Sex not recorded"}{animal.breed ? ` · ${animal.breed}` : ""} · Ownership certificate: {originalCertificates[animal.id] || "Enter below"}</span></span>
+              {!isLoadingAnimals && farmerAnimals.length ? <div className="divide-y rounded-lg border">{farmerAnimals.map((animal) => <label key={animal.id} className={`flex items-start gap-3 p-3 ${animal.transfer_eligible ? "cursor-pointer hover:bg-muted/40" : "cursor-not-allowed bg-muted/20"}`}>
+                <Checkbox checked={selectedAnimalIds.includes(animal.id)} disabled={!animal.transfer_eligible} onCheckedChange={(checked) => toggleAnimal(animal.id, checked === true)} className="mt-1" />
+                <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-2 font-medium">{animal.livestock_type_name} · {animal.tag_number || `#${animal.id}`}<Badge variant={animal.transfer_eligible ? "secondary" : "outline"}>{animal.registration_status.replaceAll("_", " ")}</Badge></span><span className="mt-1 block text-xs text-muted-foreground">{animal.sex || "Sex not recorded"}{animal.breed ? ` · ${animal.breed}` : ""} · Ownership certificate: {originalCertificates[animal.id] || "Not recorded"}</span>{animal.sale_intent ? <span className="mt-1 block text-xs text-emerald-800">Sale intent declared{animal.sale_intent.target_date ? ` for ${animal.sale_intent.target_date}` : ""}{animal.sale_intent.target_destination ? ` · ${animal.sale_intent.target_destination}` : ""}{animal.sale_intent.notes ? ` · ${animal.sale_intent.notes}` : ""}</span> : null}{!animal.transfer_eligible ? <span className="mt-1 block text-xs text-amber-800">{animal.registration_status === "REJECTED" ? "Resolve the rejected registration before recording a transfer." : "Transfer can be recorded after inventory approval."}</span> : null}</span>
                 {selectedAnimalIds.includes(animal.id) ? <Badge variant="secondary">Selected</Badge> : null}
               </label>)}</div> : null}
               {selectedAnimalIds.length ? <p className="text-sm text-muted-foreground">{selectedAnimalIds.length} animal{selectedAnimalIds.length === 1 ? "" : "s"} selected. Enter or confirm each original ownership certificate below.</p> : null}

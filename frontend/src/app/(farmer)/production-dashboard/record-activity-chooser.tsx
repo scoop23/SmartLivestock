@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Baby,Beef,Egg,Milk,Scale,Scissors,ShoppingBag,Truck } from "lucide-react";
+import { Baby,Beef,Egg,Milk,Scale,Scissors,ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
@@ -27,15 +27,21 @@ const PRODUCTION_META: Record<ProductionType, { title: string; description: stri
 
 export default function RecordActivityChooser({
   inventories,
+  intentInventories,
   onRecord,
 }: {
   inventories: LivestockInventoryItem[];
+  intentInventories: LivestockInventoryItem[];
   onRecord: (activity: { id: string; species: string[]; productionType?: ProductionType }) => void;
 }) {
   const router = useRouter();
   const species = useMemo(
     () => Array.from(new Set(inventories.map((item) => item.livestockTypeName?.trim()).filter((value): value is string => Boolean(value)))),
     [inventories],
+  );
+  const intentSpecies = useMemo(
+    () => Array.from(new Set(intentInventories.map((item) => item.livestockTypeName?.trim()).filter((value): value is string => Boolean(value)))),
+    [intentInventories],
   );
   const activities = useMemo(() => {
     const items: Activity[] = [];
@@ -52,11 +58,12 @@ export default function RecordActivityChooser({
     }
     if (species.length) {
       items.push({ id: "weights", title: "Weight / growth", description: "Record an animal’s current weight.", icon: Scale, species });
-      items.push({ id: "sales", title: "Animal sale", description: "Record a completed livestock sale.", icon: ShoppingBag, species });
-      items.push({ id: "intent", title: "Plan a sale or movement", description: "Share a planned sale, slaughter, or livestock movement.", icon: Truck, species });
+    }
+    if (intentSpecies.length) {
+      items.push({ id: "sales", title: "Declare sale intent", description: "Tell Auction you plan to sell; Auction records the completed sale and movement.", icon: ShoppingBag, species: intentSpecies });
     }
     return items;
-  }, [species]);
+  }, [species, intentSpecies]);
 
   const open = (activity: Activity, mode: "record" | "history") => {
     if (mode === "record") {

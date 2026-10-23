@@ -541,6 +541,8 @@ class WeightRecordSerializer(serializers.ModelSerializer):
             raise ValidationError("Select your own livestock.")
         if value.operational_status != "ACTIVE":
             raise ValidationError("Select active livestock.")
+        if value.status == LivestockInventory.StatusType.REJECTED:
+            raise ValidationError("Rejected livestock cannot be declared for sale or movement.")
         return value
 
     def create(self, validated_data):

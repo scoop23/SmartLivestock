@@ -20,7 +20,8 @@ ROLE_MATRIX = {
     "mortality": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, CBAT, MAO, ADMIN}},
     "production": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}},
     "inventory": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}},
-    "sales": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN, AUCTION}, "review": {SIBAT, CBAT, MAO, ADMIN}, "delete_own": {FARMER}},
+    # Farmers may declare sale intent; completed market sales are recorded by Auction as ownership transfers.
+    "sales": {"create": set(), "read_all": {SIBAT, CBAT, MAO, ADMIN, AUCTION}, "review": {SIBAT, CBAT, MAO, ADMIN}, "delete_own": {FARMER}},
     "calving": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}},
     "batches": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}},
     "census": {"create": {SIBAT, CBAT}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {MAO, ADMIN}, "edit_own": {SIBAT, CBAT}},

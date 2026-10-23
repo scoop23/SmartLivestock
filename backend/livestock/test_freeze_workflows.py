@@ -76,28 +76,21 @@ class FreezeWorkflowTests(APITestCase):
         for role in self.actors:
             self.assertTrue(Notification.objects.filter(user=self.actors[role]).exists(),role)
 
-    def test_sale_revision_and_approved_exit(self):
+    def test_farmer_cannot_submit_a_completed_sale_record(self):
         pk=self.animal()
-        data=self.submit("/production/sales/",{"livestock":pk,"quantity":1,"sale_date":"2026-09-01","destination":"Synthetic destination"})
-        self.review("/production/sales/",data["id"],"SIBAT","SUBJECT_TO_REVISION")
         self.as_role("FARMER")
-        r=self.client.patch(f"/production/sales/{data['id']}/",{"destination":"Corrected synthetic destination"},format="json")
-        self.assertEqual(r.status_code,200,r.data)
-        self.assertEqual(r.data["status"],"PENDING")
-        self.approve("/production/sales/",data["id"])
-        self.assertEqual(LivestockInventory.objects.get(pk=pk).operational_status,"SOLD")
+        response=self.client.post("/production/sales/",{"livestock":pk,"quantity":1,"sale_date":"2026-09-01","destination":"Synthetic destination"},format="json")
+        self.assertEqual(response.status_code,403,response.data)
+        self.assertEqual(LivestockInventory.objects.get(pk=pk).operational_status,"ACTIVE")
 
     def test_full_herd_sale_api_and_partial_sale_rejection(self):
         herd=self.herd(3)
         self.as_role("FARMER")
         payload={"batch":herd.pk,"quantity":1,"sale_date":"2026-09-01"}
-        self.assertEqual(self.client.post("/production/sales/",payload,format="json").status_code,400)
+        self.assertEqual(self.client.post("/production/sales/",payload,format="json").status_code,403)
         payload["quantity"]=3
-        data=self.submit("/production/sales/",payload)
-        self.assertEqual(data["batch"],herd.pk)
-        self.assertEqual(data["barangay_name"],self.barangay.barangay_name)
-        self.approve("/production/sales/",data["id"])
-        self.assertEqual(herd.animals.filter(operational_status="SOLD").count(),3)
+        self.assertEqual(self.client.post("/production/sales/",payload,format="json").status_code,403)
+        self.assertEqual(herd.animals.filter(operational_status="ACTIVE").count(),3)
 
     def test_partial_slaughter_one_projection_and_no_mortality(self):
         herd=self.herd(10)
@@ -143,15 +136,14 @@ class FreezeWorkflowTests(APITestCase):
         event.refresh_from_db()
         self.assertEqual(event.batch_id,herd["id"])
 
-    def test_negative_sale_prices_are_rejected_and_zero_is_preserved(self):
+    def test_farmer_cannot_create_completed_sale_for_any_price(self):
         animal=self.animal()
         self.as_role("FARMER")
         for field in ("price_per_head","price_per_kg","total_price"):
             response=self.client.post("/production/sales/",{"livestock":animal,"quantity":1,"sale_date":"2026-09-01",field:-10},format="json")
-            self.assertEqual(response.status_code,400,(field,response.data))
+            self.assertEqual(response.status_code,403,(field,response.data))
         response=self.client.post("/production/sales/",{"livestock":animal,"quantity":1,"sale_date":"2026-09-01","total_price":0},format="json")
-        self.assertEqual(response.status_code,201,response.data)
-        self.assertEqual(float(response.data["total_price"]),0)
+        self.assertEqual(response.status_code,403,response.data)
 
     def test_public_registration_pending_gate_then_mao_approval(self):
         self.client.credentials()

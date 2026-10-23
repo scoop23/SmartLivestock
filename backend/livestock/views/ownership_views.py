@@ -1,5 +1,5 @@
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from livestock.models import Farmer, LivestockInventory, LivestockOwnershipTransfer
+from production.models import AnimalDisposition
 from livestock.serializer import LivestockOwnershipTransferSerializer
 from smartlivestock.workflows import require_action, role_name, scope_reviewer_queryset, validate_review_transition
 from users.models import Notification, User
@@ -77,18 +78,22 @@ def ownership_transfer_farmer_livestock(request, farmer_id):
     farmer = _auction_farmer_queryset().filter(pk=farmer_id).first()
     if farmer is None:
         return Response({"detail": "No approved Farmer profile matches this ID."}, status=status.HTTP_404_NOT_FOUND)
+    sale_intents = AnimalDisposition.objects.filter(
+        intent=AnimalDisposition.IntentType.FOR_SALE,
+    ).order_by("-created_at")
     animals = LivestockInventory.objects.filter(
         farmer=farmer,
         entry_type=LivestockInventory.EntryType.INDIVIDUAL,
         quantity=1,
-        status=LivestockInventory.StatusType.APPROVED,
         operational_status=LivestockInventory.OperationalStatus.ACTIVE,
     ).exclude(
         ownership_transfers__status__in=[
             LivestockOwnershipTransfer.Status.PENDING,
             LivestockOwnershipTransfer.Status.VERIFIED,
         ]
-    ).select_related("livestock_type").order_by("livestock_type__name", "tag_number", "pk")
+    ).select_related("livestock_type").prefetch_related(
+        Prefetch("dispositions", queryset=sale_intents, to_attr="auction_sale_intents")
+    ).order_by("livestock_type__name", "tag_number", "pk")
     return Response([{
         "id": animal.pk,
         "tag_number": animal.tag_number,
@@ -96,6 +101,13 @@ def ownership_transfer_farmer_livestock(request, farmer_id):
         "sex": animal.sex,
         "breed": animal.breed,
         "ownership_certificate_number": animal.ownership_certificate_number,
+        "registration_status": animal.status,
+        "transfer_eligible": animal.status == LivestockInventory.StatusType.APPROVED,
+        "sale_intent": ({
+            "target_date": animal.auction_sale_intents[0].target_date,
+            "target_destination": animal.auction_sale_intents[0].target_destination,
+            "notes": animal.auction_sale_intents[0].notes,
+        } if animal.auction_sale_intents else None),
     } for animal in animals])
 
 

@@ -34,7 +34,7 @@ from smartlivestock.workflows import (
     validate_production_review_transition,
     validate_review_transition,
 )
-from livestock.reconciliation import reconcile_approved_calving, reconcile_approved_sale
+from livestock.reconciliation import reconcile_approved_calving
 
 
 logger = logging.getLogger(__name__)
@@ -558,6 +558,12 @@ def review_live_animal_sale(request, pk):
             status=400,
         )
 
+    if new_status == LiveAnimalSale.StatusType.APPROVED:
+        return Response(
+            {"error": "Completed market sales are finalized through Auction ownership transfers."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     user = request.user
     user_role = require_action(user, "sales", "review")
     validate_review_transition(
@@ -577,9 +583,6 @@ def review_live_animal_sale(request, pk):
         notify_review_revision((sale.livestock or sale.batch).farmer, request.user,
             title="Revision required: sale #" + str(sale.pk), message=remarks,
             link=f"/sibat?tab=production&reviewType=SALE&reviewId={sale.pk}")
-
-    if new_status == LiveAnimalSale.StatusType.APPROVED:
-        sale = reconcile_approved_sale(sale)
 
     owner = (sale.livestock or sale.batch).farmer.user
     create_notification(user=owner, notification_type=Notification.NotificationType.PRODUCTION,

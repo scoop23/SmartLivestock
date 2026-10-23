@@ -6,7 +6,7 @@ from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.db import transaction, IntegrityError
 from django.utils import timezone
-from django.db.models import Q, Prefetch
+from django.db.models import F, Q, Prefetch
 from urllib.parse import urlparse, parse_qs
 from livestock.models import Farmer, LivestockInventory, LivestockOwnershipTransfer
 
@@ -80,9 +80,15 @@ def inspection_shipper_options(request):
         return Response([])
     eligible_animals = LivestockInventory.objects.filter(
         status=LivestockInventory.StatusType.APPROVED,
-        operational_status=LivestockInventory.OperationalStatus.ACTIVE,
         quantity=1,
-    ).select_related("livestock_type")
+    ).filter(
+        Q(operational_status=LivestockInventory.OperationalStatus.ACTIVE)
+        | Q(
+            operational_status=LivestockInventory.OperationalStatus.SOLD,
+            ownership_transfers__status=LivestockOwnershipTransfer.Status.APPROVED,
+            ownership_transfers__previous_owner_id=F("farmer_id"),
+        )
+    ).distinct().select_related("livestock_type")
     farmers = Farmer.objects.select_related("user").prefetch_related(
         Prefetch("inventories", queryset=eligible_animals, to_attr="eligible_animals")
     ).filter(
@@ -193,16 +199,23 @@ def inspection_livestock_lookup(request):
             photo_url = None
     # Identity can still be traced when inactive; action eligibility is checked
     # separately from existence using the current approval and lifecycle fields.
+    sold_after_approved_transfer = (
+        inventory.operational_status == LivestockInventory.OperationalStatus.SOLD
+        and inventory.ownership_transfers.filter(
+            previous_owner_id=inventory.farmer_id,
+            status=LivestockOwnershipTransfer.Status.APPROVED,
+        ).exists()
+    )
     eligible = (
         inventory.status == LivestockInventory.StatusType.APPROVED
-        and inventory.operational_status == LivestockInventory.OperationalStatus.ACTIVE
+        and (inventory.operational_status == LivestockInventory.OperationalStatus.ACTIVE or sold_after_approved_transfer)
     )
     ineligibility_reason = ""
     if not eligible:
         ineligibility_reason = (
             f"This livestock cannot be added as registered livestock "
             f"(registration: {inventory.status}; operational status: {inventory.operational_status}). "
-            "Only approved, active individual livestock can be linked."
+            "Only approved active livestock, or livestock sold through an approved ownership transfer, can be linked."
         )
     return Response({
         "id": inventory.id,
@@ -239,6 +252,8 @@ def inspection_list_create(request):
 
     # POST validates and persists intake; GET returns records scoped to the caller's role.
     if request.method == "POST":
+        if user_role != AUCTION:
+            raise PermissionDenied("Only Auction staff can create livestock movement forms.")
         require_action(user, "inspections", "create")
 
         data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)

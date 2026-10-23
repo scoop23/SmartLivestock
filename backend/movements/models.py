@@ -103,8 +103,16 @@ class LivestockInspectionItem(models.Model):
                 raise ValidationError({"inventory": "Select inventory belonging to the registered shipper."})
             if self.livestock_type_id != animal.livestock_type_id or self.quantity != 1:
                 raise ValidationError({"inventory": "Internal items must match the animal species and represent one head."})
-            if animal.status != "APPROVED" or animal.operational_status != "ACTIVE" or animal.quantity != 1:
-                raise ValidationError({"inventory": "Select an approved, active individual animal."})
+            sold_after_approved_transfer = (
+                animal.operational_status == "SOLD"
+                and animal.ownership_transfers.filter(
+                    previous_owner_id=animal.farmer_id,
+                    status="APPROVED",
+                ).exists()
+            )
+            if (animal.status != "APPROVED" or animal.quantity != 1
+                    or (animal.operational_status != "ACTIVE" and not sold_after_approved_transfer)):
+                raise ValidationError({"inventory": "Select approved active livestock, or livestock sold through an approved ownership transfer."})
 
     def save(self, *args, **kwargs):
         self.clean()

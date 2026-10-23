@@ -28,6 +28,10 @@ export default function ProductionDashboardPage() {
     () => inventories.filter((item) => item.status === "APPROVED" && (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0),
     [inventories],
   );
+  const activeIntentInventories = useMemo(
+    () => inventories.filter((item) => (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0 && item.status !== "REJECTED"),
+    [inventories],
+  );
   const awaitingSpecies = useMemo(() => {
     const available = new Set(approvedInventories.map((item) => item.livestockTypeName.trim().toLowerCase()));
     return Array.from(new Set(inventories
@@ -45,7 +49,7 @@ export default function ProductionDashboardPage() {
             <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <div className="space-y-1">
               <p className="font-medium">Livestock awaiting approval: {awaitingSpecies.join(", ")}</p>
-              <p className="text-xs leading-relaxed">You can record activities after the livestock is approved.</p>
+              <p className="text-xs leading-relaxed">You can declare sale intent while active livestock awaits review. Other production activities are available after approval.</p>
               <div className="flex flex-wrap gap-x-4">
                 {awaitingSpecies.map((species) => (
                   <Link
@@ -64,11 +68,11 @@ export default function ProductionDashboardPage() {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Loading livestock activities">
             {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-40 rounded-2xl" />)}
           </div>
-        ) : approvedInventories.length === 0 ? (
+        ) : approvedInventories.length === 0 && activeIntentInventories.length === 0 ? (
           <EnterpriseEmptyState />
         ) : (
           <>
-            <RecordActivityChooser inventories={approvedInventories} onRecord={setSelectedActivity} />
+            <RecordActivityChooser inventories={approvedInventories} intentInventories={activeIntentInventories} onRecord={setSelectedActivity} />
             {selectedActivity && (
               <div className="hidden">
                 <ProductionDashboardView

@@ -21,13 +21,13 @@ SelectValue,
 } from "@/components/ui/select";
 import api from "@/lib/axios";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import {
 BadgeDollarSign,
 Calendar,
 Compass,
 MapPin,
 PhilippinePeso,
-Plus,
 ShoppingBag,
 Truck
 } from "lucide-react";
@@ -70,30 +70,14 @@ export interface DispositionItem {
 }
 
 export default function ProductionSalesTab({
-  approvedInventories,
-  autoOpen = false,
+  intentInventories,
   autoOpenIntent = false,
 }: {
-  approvedInventories: LivestockInventoryItem[];
-  autoOpen?: boolean;
+  intentInventories: LivestockInventoryItem[];
   autoOpenIntent?: boolean;
 }) {
   const queryClient = useQueryClient();
-  const [isSaleOpen, setIsSaleOpen] = useState(autoOpen);
-  const [editingSale, setEditingSale] = useState<LiveSaleItem | null>(null);
   const [isIntentOpen, setIsIntentOpen] = useState(autoOpenIntent);
-  // Sale form state
-  const [saleLivestockId, setSaleLivestockId] = useState("");
-  const [saleQty, setSaleQty] = useState(1);
-  const [saleMethod, setSaleMethod] = useState<"MATA-MATA" | "WEIGHING" | "OTHER">("MATA-MATA");
-  const [totalLiveWeight, setTotalLiveWeight] = useState("");
-  const [pricePerHead, setPricePerHead] = useState("");
-  const [pricePerKg, setPricePerKg] = useState("");
-  const [totalPrice, setTotalPrice] = useState("");
-  const [destination, setDestination] = useState("Padre Garcia Auction Market");
-  const [saleDate, setSaleDate] = useState(new Date().toISOString().split("T")[0]);
-  const [salePurpose, setSalePurpose] = useState<"BREEDING" | "FATTENING" | "SLAUGHTER" | "UNKNOWN">("SLAUGHTER");
-
   // Intent form state
   const [intentLivestockId, setIntentLivestockId] = useState("");
   const [intentType, setIntentType] = useState<"FOR_SALE" | "FOR_SLAUGHTER" | "FOR_MOVEMENT">("FOR_SALE");
@@ -117,27 +101,6 @@ export default function ProductionSalesTab({
     },
   });
 
-  const recordSaleMutation = useMutation({
-    mutationFn: async (payload: Record<string, unknown>) => {
-      const res = editingSale
-        ? await api.patch(`production/sales/${editingSale.id}/`, payload)
-        : await api.post("production/sales/", payload);
-      return res.data;
-    },
-    onSuccess: () => {
-      toast.success(editingSale ? "Corrected sale resubmitted to SIBAT." : "Live animal sale record submitted!");
-      setEditingSale(null);
-      setIsSaleOpen(false);
-      setSaleLivestockId("");
-      setPricePerHead("");
-      setTotalPrice("");
-      queryClient.invalidateQueries({ queryKey: ["live_animal_sales"] });
-    },
-    onError: () => {
-      toast.error("Failed to record cattle sale.");
-    },
-  });
-
   const recordIntentMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       const res = await api.post("production/dispositions/", payload);
@@ -156,48 +119,6 @@ export default function ProductionSalesTab({
       toast.error("Failed to declare animal intent.");
     },
   });
-
-  const reviseSale = (sale: LiveSaleItem) => {
-    setEditingSale(sale);
-    setSaleLivestockId(sale.livestock ? String(sale.livestock) : "");
-    setSaleQty(sale.quantity);
-    setSaleMethod(sale.sale_method);
-    setTotalLiveWeight(sale.total_live_weight == null ? "" : String(sale.total_live_weight));
-    setPricePerHead(sale.price_per_head == null ? "" : String(sale.price_per_head));
-    setPricePerKg(sale.price_per_kg == null ? "" : String(sale.price_per_kg));
-    setTotalPrice(sale.total_price == null ? "" : String(sale.total_price));
-    setDestination(sale.destination);
-    setSaleDate(sale.sale_date);
-    setSalePurpose(sale.purpose);
-    setIsSaleOpen(true);
-  };
-
-  const handleSaleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!saleLivestockId && !editingSale) {
-      toast.error("Please select an animal.");
-      return;
-    }
-
-    const computedTotal =
-      totalPrice ||
-      (pricePerHead ? Number(pricePerHead) * Number(saleQty) : 0) ||
-      (pricePerKg && totalLiveWeight ? Number(pricePerKg) * Number(totalLiveWeight) : 0);
-
-    recordSaleMutation.mutate({
-      // Revisions keep the authoritative source; only the declaration details change.
-      ...(editingSale ? {} : { livestock: Number(saleLivestockId) }),
-      quantity: Number(saleQty),
-      sale_method: saleMethod,
-      total_live_weight: totalLiveWeight ? Number(totalLiveWeight) : null,
-      price_per_head: pricePerHead ? Number(pricePerHead) : null,
-      price_per_kg: pricePerKg ? Number(pricePerKg) : null,
-      total_price: computedTotal || null,
-      destination: destination.trim(),
-      sale_date: saleDate,
-      purpose: salePurpose,
-    });
-  };
 
   const handleIntentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,7 +140,9 @@ export default function ProductionSalesTab({
   const totalRevenue = sales.reduce((acc, s) => acc + (Number(s.total_price) || 0), 0);
   const avgSalePrice =
     totalSoldHeads > 0 ? (totalRevenue / totalSoldHeads).toFixed(0) : "—";
-  const forSaleCount = dispositions.filter((d) => d.intent === "FOR_SALE").length;
+  const activeIntentIds = new Set(intentInventories.map((item) => Number(item.id)));
+  const visibleDispositions = dispositions.filter((item) => activeIntentIds.has(item.livestock));
+  const forSaleCount = visibleDispositions.filter((d) => d.intent === "FOR_SALE").length;
 
   return (
     <div className="space-y-6">
@@ -262,7 +185,7 @@ export default function ProductionSalesTab({
             Live Animal Sales & Market Disposition
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Log cattle sold, auction prices, mata-mata vs. scale weighing, and declare animals for sale/slaughter.
+            Farmers can declare sale intent here. Auction staff records completed sales and movement paperwork.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -272,12 +195,6 @@ export default function ProductionSalesTab({
             className="border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold gap-1.5"
           >
             <Compass className="size-4 text-slate-500" /> Declare Intent / Movement
-          </Button>
-          <Button
-            onClick={() => { setEditingSale(null); setSaleLivestockId(""); setSaleQty(1); setIsSaleOpen(true); }}
-            className="bg-emerald-700 hover:bg-[#2D5A27] text-white shadow-sm font-semibold gap-2"
-          >
-            <Plus className="size-4" /> Record Livestock Sold
           </Button>
         </div>
       </div>
@@ -291,7 +208,7 @@ export default function ProductionSalesTab({
               <ShoppingBag className="size-4 text-emerald-700" /> Live Animal Sales History
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
-              Transaction records of live livestock sold with verified market prices
+              Auction transfer certificates are the official record of completed market sales. See <Link href="/livestock-inventory/ownership-history" className="font-semibold text-emerald-800 underline underline-offset-2">ownership history</Link>.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -301,7 +218,7 @@ export default function ProductionSalesTab({
               <div className="p-10 text-center">
                 <p className="text-sm font-semibold text-slate-600">No sales recorded yet</p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Record animal sales and the price received.
+                  Auction records completed sales in <Link href="/livestock-inventory/ownership-history" className="font-semibold text-emerald-800 underline underline-offset-2">ownership history</Link>.
                 </p>
               </div>
             ) : (
@@ -341,12 +258,7 @@ export default function ProductionSalesTab({
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs text-slate-600">{sale.status.replaceAll("_", " ")}</p>
-                      {sale.status === "SUBJECT_TO_REVISION" && (
-                        <div className="mb-2">
-                          {sale.review_remarks && <p className="text-xs text-rose-700 max-w-48">{sale.review_remarks}</p>}
-                          <Button type="button" size="sm" variant="outline" onClick={() => reviseSale(sale)}>Revise sale</Button>
-                        </div>
-                      )}
+                      {sale.status === "SUBJECT_TO_REVISION" && sale.review_remarks ? <p className="mb-2 max-w-48 text-xs text-rose-700">{sale.review_remarks}</p> : null}
                       <span className="text-base font-black text-emerald-800">
                         {sale.total_price != null ? `₱${Number(sale.total_price).toLocaleString()}` : "—"}
                       </span>
@@ -369,13 +281,13 @@ export default function ProductionSalesTab({
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            {dispositions.length === 0 ? (
+            {visibleDispositions.length === 0 ? (
               <p className="p-8 text-center text-xs text-slate-400">
                 No active intent declarations.
               </p>
             ) : (
               <div className="divide-y divide-slate-100 max-h-[350px] overflow-y-auto">
-                {dispositions.map((d) => (
+                {visibleDispositions.map((d) => (
                   <div key={d.id} className="p-3.5 px-4 text-xs space-y-1 hover:bg-slate-50/70">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-slate-900">
@@ -411,143 +323,6 @@ export default function ProductionSalesTab({
         </Card>
       </div>
 
-      {/* Record Sale Dialog */}
-      <Dialog open={isSaleOpen} onOpenChange={setIsSaleOpen}>
-        <DialogContent className="sm:max-w-xl p-6 rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <ShoppingBag className="size-5 text-emerald-700" /> {editingSale ? "Revise Sale Declaration" : "Record Livestock Sold"}
-            </DialogTitle>
-            <DialogDescription>
-              Record sale details, auction proceeds, and pricing methods.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSaleSubmit} className="space-y-4 mt-2">
-            <LivestockPickerField
-              id="sale-animal"
-              label="Select Animal / Tag *"
-              placeholder={editingSale?.batch ? "Original herd retained" : "Choose livestock sold"}
-              items={approvedInventories}
-              selectedId={saleLivestockId}
-              onSelect={(item) => setSaleLivestockId(item.id)}
-              dialogTitle="Choose Livestock for Sale"
-              dialogDescription="Choose the approved animal or herd included in this sale."
-              emptyStateText="No approved livestock is available for sale recording."
-              disabled={!!editingSale}
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="sale-method">Sale Pricing Method *</Label>
-                <Select
-                  value={saleMethod}
-                  onValueChange={(val) => setSaleMethod(val as "MATA-MATA" | "WEIGHING" | "OTHER")}
-                >
-                  <SelectTrigger id="sale-method" className="bg-slate-50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MATA-MATA">Mata-mata (Visual Estimate)</SelectItem>
-                    <SelectItem value="WEIGHING">Weighing Scale (Per kg)</SelectItem>
-                    <SelectItem value="OTHER">Other Agreement</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="sale-purpose">Sale Purpose</Label>
-                <Select
-                  value={salePurpose}
-                  onValueChange={(val) => { if (val === "BREEDING" || val === "FATTENING" || val === "SLAUGHTER" || val === "UNKNOWN") setSalePurpose(val); }}
-                >
-                  <SelectTrigger id="sale-purpose" className="bg-slate-50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SLAUGHTER">Slaughter / Katay</SelectItem>
-                    <SelectItem value="FATTENING">Fattening / Feedlot</SelectItem>
-                    <SelectItem value="BREEDING">Breeding / Dairy</SelectItem>
-                    <SelectItem value="UNKNOWN">General Trade</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="price-head">Price per Head (₱)</Label>
-                <Input
-                  id="price-head"
-                  type="number"
-                  placeholder="e.g. 45000"
-                  value={pricePerHead}
-                  onChange={(e) => setPricePerHead(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="price-kg">Price per kg (₱)</Label>
-                <Input
-                  id="price-kg"
-                  type="number"
-                  placeholder="e.g. 180"
-                  value={pricePerKg}
-                  onChange={(e) => setPricePerKg(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="total-price">Total Proceeds (₱) *</Label>
-                <Input
-                  id="total-price"
-                  type="number"
-                  placeholder="e.g. 45000"
-                  value={totalPrice}
-                  onChange={(e) => setTotalPrice(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="sale-dest">Buyer / Market Destination</Label>
-                <Input
-                  id="sale-dest"
-                  placeholder="e.g. Padre Garcia Auction Market / Buyer Name"
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="sale-date">Sale Date *</Label>
-                <Input
-                  id="sale-date"
-                  type="date"
-                  max={new Date().toISOString().split("T")[0]}
-                  value={saleDate}
-                  onChange={(e) => setSaleDate(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsSaleOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={recordSaleMutation.isPending}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold"
-              >
-                {recordSaleMutation.isPending ? "Saving..." : editingSale ? "Resubmit to SIBAT" : "Save Sale Record"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
       {/* Declare Intent Dialog */}
       <Dialog open={isIntentOpen} onOpenChange={setIsIntentOpen}>
         <DialogContent className="sm:max-w-md p-6 rounded-2xl">
@@ -556,7 +331,7 @@ export default function ProductionSalesTab({
               <Compass className="size-5 text-emerald-700" /> Declare Commercial Intent
             </DialogTitle>
             <DialogDescription>
-              Flag livestock intended for upcoming auction sale, slaughter, or movement.
+              Tell Auction or your reviewer what you plan to do. This declaration does not mark the animal sold or change its inventory status.
             </DialogDescription>
           </DialogHeader>
 
@@ -565,12 +340,12 @@ export default function ProductionSalesTab({
               id="intent-animal"
               label="Select Livestock *"
               placeholder="Choose livestock"
-              items={approvedInventories}
+              items={intentInventories}
               selectedId={intentLivestockId}
               onSelect={(item) => setIntentLivestockId(item.id)}
               dialogTitle="Choose Livestock for Sale or Movement"
               dialogDescription="Choose the approved animal or herd for this commercial intent."
-              emptyStateText="No approved livestock is available for sale or movement planning."
+              emptyStateText="No active livestock is available for sale or movement planning."
             />
 
             <div className="space-y-1.5">

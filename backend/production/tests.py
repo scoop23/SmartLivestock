@@ -214,7 +214,7 @@ class ProductionRecordAPITests(APITestCase):
         self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(review_response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_sale_requires_sibat_then_mao(self):
+    def test_legacy_sale_cannot_finalize_inventory_without_auction_transfer(self):
         sale = LiveAnimalSale.objects.create(
             livestock=self.animal,
             quantity=1,
@@ -226,7 +226,7 @@ class ProductionRecordAPITests(APITestCase):
             f"/production/sales/{sale.pk}/review/",
             {"status": "APPROVED"},
         )
-        self.assertEqual(skipped.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(skipped.status_code, status.HTTP_403_FORBIDDEN)
 
         self.client.force_authenticate(user=self.sibat_user)
         verified = self.client.post(
@@ -240,7 +240,9 @@ class ProductionRecordAPITests(APITestCase):
             f"/production/sales/{sale.pk}/review/",
             {"status": "APPROVED"},
         )
-        self.assertEqual(approved.status_code, status.HTTP_200_OK)
+        self.assertEqual(approved.status_code, status.HTTP_403_FORBIDDEN)
+        self.animal.refresh_from_db()
+        self.assertEqual(self.animal.operational_status, "ACTIVE")
 
     def test_calving_requires_owned_approved_female_dam(self):
         self.animal.sex = "MALE"
