@@ -124,8 +124,8 @@ export default function ProductionForecastsTab({
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 pt-2">
-            <div className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-[250px] min-w-0 w-full">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={forecastData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={11} />
@@ -151,8 +151,8 @@ export default function ProductionForecastsTab({
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 pt-2">
-            <div className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-[250px] min-w-0 w-full">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={forecastData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={11} />

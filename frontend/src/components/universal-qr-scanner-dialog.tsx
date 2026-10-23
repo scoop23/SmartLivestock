@@ -25,9 +25,10 @@ Info,
 QrCode,
 Search,
 ShieldCheck,
+Upload,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback,useEffect,useRef,useState } from "react";
+import { useCallback,useEffect,useRef,useState,type ChangeEvent } from "react";
 import { toast } from "sonner";
 
 export interface UniversalQrScannerDialogProps {
@@ -92,7 +93,10 @@ export function UniversalQrScannerDialog({
   const [isSearching, setIsSearching] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraMessage, setCameraMessage] = useState("");
+  const [isDecodingImage, setIsDecodingImage] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const imageDecodeRequestId = useRef(0);
   const lookupRequestId = useRef(0);
   const lookupInFlight = useRef(false);
   const scannerControls = useRef<IScannerControls | null>(null);
@@ -107,7 +111,7 @@ export function UniversalQrScannerDialog({
         accent: "bg-[#7C3AED] hover:bg-[#6D28D9]",
         border: "border-purple-200",
         badge: "bg-purple-100 text-purple-800",
-        title: "Padre Garcia Livestock Trading Center Ã¢â‚¬Â¢ Gate Scanner",
+        title: "Padre Garcia Livestock Trading Center - Gate Scanner",
         sub: "Resolve registered livestock identities and supported batch records against the registry.",
       }
     : isSibat
@@ -124,15 +128,17 @@ export function UniversalQrScannerDialog({
         accent: "bg-[#2D5A27] hover:bg-[#23461f]",
         border: "border-emerald-200",
         badge: "bg-emerald-100 text-emerald-800",
-        title: "Municipal Agriculture Office Ã¢â‚¬Â¢ Universal QR Scanner",
+        title: "Municipal Agriculture Office - Universal QR Scanner",
         sub: "Resolve current livestock registry records and review their eligibility status.",
       };
 
   const handleDialogOpenChange = useCallback((open: boolean) => {
     if (!open) {
       lookupRequestId.current += 1;
+      imageDecodeRequestId.current += 1;
       lookupInFlight.current = false;
       setCameraActive(false);
+      setIsDecodingImage(false);
       setIsSearching(false);
       setActiveResult(null);
       setScanInput("");
@@ -259,6 +265,40 @@ export function UniversalQrScannerDialog({
       }
     }
   }, [handleDialogOpenChange, isAuction, isSibat, onSelectFarmer, role]);
+
+  const handleQrImageUpload = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file containing a QR code.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("The QR image must be 10 MB or smaller.");
+      return;
+    }
+
+    const requestId = ++imageDecodeRequestId.current;
+    const imageUrl = URL.createObjectURL(file);
+    setCameraActive(false);
+    setCameraMessage("");
+    setIsDecodingImage(true);
+    try {
+      const result = await new BrowserQRCodeReader().decodeFromImageUrl(imageUrl);
+      if (requestId !== imageDecodeRequestId.current) return;
+      const code = result.getText();
+      setScanInput(code);
+      await handleLookup(code);
+    } catch {
+      if (requestId === imageDecodeRequestId.current) {
+        toast.error("No readable QR code was found in that image. Try a clearer photo.");
+      }
+    } finally {
+      URL.revokeObjectURL(imageUrl);
+      if (requestId === imageDecodeRequestId.current) setIsDecodingImage(false);
+    }
+  }, [handleLookup]);
 
   const enableCamera = () => {
     if (!window.isSecureContext) {
@@ -393,6 +433,31 @@ export function UniversalQrScannerDialog({
             </div>
             {cameraMessage && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">{cameraMessage}</p>}
 
+            <div className="flex justify-center">
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleQrImageUpload}
+                className="sr-only"
+                tabIndex={-1}
+                aria-label="Choose an image containing a QR code"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSearching || isDecodingImage}
+                onClick={() => {
+                  setCameraActive(false);
+                  imageInputRef.current?.click();
+                }}
+                className="min-h-11 gap-2 rounded-xl border-slate-300 text-xs font-bold"
+              >
+                <Upload className="size-3.5" />
+                {isDecodingImage ? "Reading QR image…" : "Upload QR image"}
+              </Button>
+            </div>
+
             {/* Manual Code Input Bar */}
             <div className="space-y-1.5">
               <label className="text-xs font-black uppercase text-slate-600">
@@ -413,7 +478,7 @@ export function UniversalQrScannerDialog({
                   className={`${themeColors.accent} text-white font-bold text-xs rounded-xl gap-1.5 px-4 min-h-11 cursor-pointer shadow-xs`}
                 >
                   <Search className="size-3.5" />
-                  <span>{isSearching ? "SearchingÃ¢â‚¬Â¦" : "Search"}</span>
+                  <span>{isSearching ? "Searching..." : "Search"}</span>
                 </Button>
               </div>
             </div>
@@ -522,7 +587,7 @@ export function UniversalQrScannerDialog({
                     </div>
                     <div className="bg-white/80 p-2 rounded-xl border border-emerald-100">
                       <span className="text-[10px] font-bold text-slate-400 block uppercase">Age / Class</span>
-                      <p className="font-bold text-slate-900">{formatLivestockAge(activeResult.age)} Ã‚Â· {formatAgeClassification(activeResult.ageClassification)}</p>
+                      <p className="font-bold text-slate-900">{formatLivestockAge(activeResult.age)} - {formatAgeClassification(activeResult.ageClassification)}</p>
                     </div>
                   </>
                 )}

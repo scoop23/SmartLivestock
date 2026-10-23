@@ -39,6 +39,8 @@ export type MapLayer =
 
 export type ViewMode = '2D' | '3D';
 
+export type Movement3DDisplayMode = 'lines' | 'density' | 'both';
+
 export type DiseaseSubMode = 'reported' | 'simulation' | 'trend';
 
 export interface SpeciesCount {

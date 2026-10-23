@@ -62,7 +62,7 @@ TrendingUp,
 Zap,
 } from 'lucide-react';
 import { useEffect,useRef,useState } from 'react';
-import { DiseaseSubMode,GISUserScope,MapLayer,ViewMode } from './types';
+import { DiseaseSubMode,GISUserScope,MapLayer,Movement3DDisplayMode,ViewMode } from './types';
 
 interface GISControlsProps {
   currentLayer: MapLayer;
@@ -79,6 +79,8 @@ interface GISControlsProps {
   onLivestockTypeChange?: (type: string) => void;
   defaultExpanded?: boolean;
   userScope?: GISUserScope;
+  movementDisplayMode?: Movement3DDisplayMode;
+  onMovementDisplayModeChange?: (mode: Movement3DDisplayMode) => void;
 }
 
 export function GISControls({
@@ -96,6 +98,8 @@ export function GISControls({
   onLivestockTypeChange,
   defaultExpanded = false,
   userScope,
+  movementDisplayMode = 'both',
+  onMovementDisplayModeChange,
 }: GISControlsProps) {
   // Collapsible control panel state (collapsed by default for map-first view)
   const [isExpanded, setIsExpanded] = useState<boolean>(defaultExpanded);
@@ -283,6 +287,59 @@ export function GISControls({
           </Button>
         </div>
       </div>
+
+      {/* 3D Volumetric Extrusion vs. Movement Lines Toggle Switch (Only for Movement map layer) */}
+      {viewMode === '3D' && currentLayer === 'movement' && (
+        <div className="bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-slate-200/90 shadow-md flex items-center gap-2 max-w-fit animate-in fade-in slide-in-from-top-1 duration-150">
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider pl-1 hidden sm:inline whitespace-nowrap">
+            3D Display:
+          </span>
+          <div className="bg-slate-100 p-0.5 rounded-lg flex items-center border border-slate-200/80 gap-0.5">
+            <button
+              type="button"
+              onClick={() => onMovementDisplayModeChange?.('lines')}
+              title="Lines -> Destination: View livestock movement flow lines to destinations"
+              aria-label="Switch to 3D movement lines to destination"
+              className={`min-h-[28px] sm:min-h-[24px] px-2.5 sm:px-2 py-0.5 rounded-md text-[11px] sm:text-xs font-bold transition-all cursor-pointer flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
+                movementDisplayMode === 'lines'
+                  ? 'bg-sky-600 text-white shadow-2xs font-black'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <span>🚛</span>
+              <span>Lines -&gt; Destination</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onMovementDisplayModeChange?.('density')}
+              title="Height Density Only: View 3D volumetric extrusion columns without transit lines"
+              aria-label="Switch to 3D height density only"
+              className={`min-h-[28px] sm:min-h-[24px] px-2.5 sm:px-2 py-0.5 rounded-md text-[11px] sm:text-xs font-bold transition-all cursor-pointer flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
+                movementDisplayMode === 'density'
+                  ? 'bg-emerald-800 text-white shadow-2xs font-black'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <span>📊</span>
+              <span>Height Density</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onMovementDisplayModeChange?.('both')}
+              title="Both: View 3D height density columns with livestock movement lines"
+              aria-label="Switch to 3D height density with movement lines"
+              className={`min-h-[28px] sm:min-h-[24px] px-2.5 sm:px-2 py-0.5 rounded-md text-[11px] sm:text-xs font-bold transition-all cursor-pointer flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
+                movementDisplayMode === 'both'
+                  ? 'bg-slate-900 text-white shadow-2xs font-black'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <span>🌐</span>
+              <span>Both</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Collapsible Layer & Filter Panel (Drops down when expanded, leaving map 100% visible when closed) */}
       {isExpanded && (

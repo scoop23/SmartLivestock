@@ -33,7 +33,6 @@ import {
 CartesianGrid,
 Line,
 LineChart,
-ResponsiveContainer,
 XAxis,
 YAxis,
 } from "recharts";
@@ -256,8 +255,7 @@ export default function ProductionWeightTab({
                 </div>
               </div>
             ) : (
-              <ChartContainer config={chartConfig} className="h-[240px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+              <ChartContainer config={chartConfig} className="h-[240px] min-w-0 w-full">
                   <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} />
@@ -272,7 +270,6 @@ export default function ProductionWeightTab({
                       activeDot={{ r: 6 }}
                     />
                   </LineChart>
-                </ResponsiveContainer>
               </ChartContainer>
             )}
           </CardContent>

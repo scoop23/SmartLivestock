@@ -222,6 +222,7 @@ export function GISSidebar({
       onClose={onClose}
       onBack={onClearSelectedBarangay}
       selectedLivestockType={selectedLivestockType}
+      userScope={userScope}
     />
   ) : (
     <MunicipalOverview

@@ -59,8 +59,20 @@ if not "%PREFLIGHT_EXIT%"=="0" (
 )
 echo.
 echo Starting local Django and Next.js. Close any previous SmartLivestock server windows before switching modes.
+where wezterm >nul 2>nul
+if not errorlevel 1 if defined WEZTERM_PANE goto local_wezterm
 start "SmartLivestock Local Django" "%ComSpec%" /k ""%~dp0scripts\smartlivestock-local-backend.cmd""
 start "SmartLivestock Local Website" "%ComSpec%" /k ""%~dp0scripts\smartlivestock-frontend-local.cmd""
+goto done
+
+:local_wezterm
+wezterm cli spawn --cwd "%~dp0" -- cmd.exe /k call scripts\smartlivestock-local-backend.cmd
+if errorlevel 1 (
+    echo Could not open the Django tab in WezTerm. Run scripts\smartlivestock-local-backend.cmd manually.
+    goto done
+)
+wezterm cli spawn --cwd "%~dp0" -- cmd.exe /k call scripts\smartlivestock-frontend-local.cmd
+if errorlevel 1 echo Could not open the website tab in WezTerm. Run scripts\smartlivestock-frontend-local.cmd manually.
 goto done
 
 :render
@@ -68,7 +80,14 @@ echo.
 echo Starting the local website against the deployed Render backend.
 echo Render's backend uses its own Render database; this does not expose or change its DATABASE_URL.
 echo Close any previous SmartLivestock server windows before switching modes.
+where wezterm >nul 2>nul
+if not errorlevel 1 if defined WEZTERM_PANE goto render_wezterm
 start "SmartLivestock Render Website" "%ComSpec%" /k ""%~dp0scripts\smartlivestock-frontend-render.cmd""
+goto done
+
+:render_wezterm
+wezterm cli spawn --cwd "%~dp0" -- cmd.exe /k call scripts\smartlivestock-frontend-render.cmd
+if errorlevel 1 echo Could not open the website tab in WezTerm. Run scripts\smartlivestock-frontend-render.cmd manually.
 goto done
 
 :done

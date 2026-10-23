@@ -604,49 +604,59 @@ export function MunicipalOverview({
           />
         ) : (
           /* Live Cow Movement Flows Summary for other layers */
-          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
-                <Truck className="size-3.5 text-blue-600" />
-                Live Transport Flows
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2 min-w-0 overflow-hidden">
+            <div className="flex items-center justify-between gap-1.5 min-w-0">
+              <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide min-w-0 truncate">
+                <Truck className="size-3.5 text-blue-600 shrink-0" />
+                <span className="truncate">Live Transport Flows</span>
               </span>
-              <Badge variant="outline" className="border-blue-200 text-blue-800 text-[10px] font-bold">
-                {movements.length} Active Shipments
+              <Badge variant="outline" className="border-blue-200 text-blue-800 text-[10px] font-bold shrink-0 px-1.5 py-0">
+                {movements.length} Active
               </Badge>
             </div>
 
             {movements.length > 0 ? (
-              <div className="space-y-2 pt-1">
+              <div className="space-y-1.5 pt-0.5 max-h-[300px] overflow-y-auto overscroll-contain pr-0.5">
                 {movements.map((m) => (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => onSelectMovement?.(m)}
-                    className="w-full text-left p-2.5 rounded-lg bg-blue-50/50 hover:bg-blue-100/60 border border-blue-100 transition-colors text-xs space-y-1 cursor-pointer"
+                    className="w-full text-left p-2.5 rounded-lg bg-blue-50/50 hover:bg-blue-100/60 border border-blue-100 transition-colors text-xs space-y-1.5 cursor-pointer block min-w-0 overflow-hidden group"
                   >
-                    <div className="flex justify-between items-start">
-                      <div className="font-bold text-blue-950">
+                    <div className="flex items-center justify-between gap-1.5 min-w-0">
+                      <div className="font-black text-blue-950 truncate min-w-0">
                         {m.heads} {m.species}
                       </div>
                       <Badge
-                        className={
+                        className={`text-[9px] px-1.5 py-0 shrink-0 font-mono ${
                           m.clearance_status === 'APPROVED'
-                            ? 'bg-emerald-600 text-white text-[9px] px-1 py-0'
-                            : 'bg-amber-500 text-white text-[9px] px-1 py-0'
-                        }
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-amber-500 text-white'
+                        }`}
                       >
                         {m.clearance_status}
                       </Badge>
                     </div>
-                    <div className="text-[11px] text-slate-600 flex items-center gap-1">
-                      <MapPin className="size-3 text-slate-400" />
-                      <span>{m.origin}</span>
-                      <span className="text-slate-400">→</span>
-                      <span className="font-semibold text-slate-800 truncate">{m.destination}</span>
+
+                    <div className="text-[11px] text-slate-600 flex items-center gap-1 min-w-0 overflow-hidden">
+                      <MapPin className="size-3 text-slate-400 shrink-0" />
+                      <span className="truncate min-w-0 flex-1 font-medium" title={m.origin}>
+                        {m.origin}
+                      </span>
+                      <span className="text-slate-400 shrink-0 font-bold">→</span>
+                      <span className="font-bold text-slate-800 truncate min-w-0 flex-1 text-right" title={m.destination}>
+                        {m.destination}
+                      </span>
                     </div>
-                    <div className="flex justify-between text-[10px] text-slate-500 pt-0.5">
-                      <span>Shipper: {m.shipper_name}</span>
-                      <span>{m.purpose}</span>
+
+                    <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500 pt-1 border-t border-blue-100/60 min-w-0 overflow-hidden">
+                      <span className="truncate min-w-0 flex-1" title={m.shipper_name ? `Shipper: ${m.shipper_name}` : undefined}>
+                        Shipper: <span className="font-medium text-slate-700">{m.shipper_name || 'N/A'}</span>
+                      </span>
+                      <span className="font-medium text-slate-600 shrink-0 text-right max-w-[45%] truncate" title={m.purpose || undefined}>
+                        {m.purpose || 'Transport'}
+                      </span>
                     </div>
                   </button>
                 ))}

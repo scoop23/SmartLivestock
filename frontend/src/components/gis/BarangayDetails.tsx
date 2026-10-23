@@ -43,6 +43,7 @@ Beef,
 Box,
 CheckCircle2,
 ChevronLeft,
+ChevronRight,
 Milk,
 Skull,
 TrendingUp,
@@ -53,7 +54,10 @@ X,
 Zap
 } from 'lucide-react';
 import React from 'react';
-import { BarangayGISData,DiseaseSubMode,SimulatedBarangayState,ViewMode } from './types';
+import { useAuth } from '@/contexts/auth-context';
+import { BarangayFarmersDialog } from './BarangayFarmersDialog';
+import { BarangayHerdsDialog } from './BarangayHerdsDialog';
+import { BarangayGISData,DiseaseSubMode,GISUserScope,SimulatedBarangayState,ViewMode } from './types';
 
 interface BarangayDetailsProps {
   data: BarangayGISData;
@@ -63,6 +67,7 @@ interface BarangayDetailsProps {
   onClose: () => void;
   onBack?: () => void;
   selectedLivestockType?: string;
+  userScope?: GISUserScope;
 }
 
 export function BarangayDetails({
@@ -73,7 +78,15 @@ export function BarangayDetails({
   onClose,
   onBack,
   selectedLivestockType = 'Cattle',
+  userScope,
 }: BarangayDetailsProps) {
+  const { user } = useAuth();
+  const userRole = (user?.role || userScope?.role || '').toUpperCase();
+  const isAuthorized = ['CBAT', 'SIBAT', 'MAO', 'ADMIN'].includes(userRole);
+
+  const [isFarmersDialogOpen, setIsFarmersDialogOpen] = React.useState(false);
+  const [isHerdsDialogOpen, setIsHerdsDialogOpen] = React.useState(false);
+
   const isHighRisk = data.disease_risk === 'high';
   const isMedRisk = data.disease_risk === 'medium';
   const isSim = diseaseSubMode === 'simulation';
@@ -212,29 +225,71 @@ export function BarangayDetails({
         </div>
 
         {/* Demographics & Herds */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-slate-700 flex items-center gap-1.5">
-              <Users className="size-3.5 text-emerald-700" />
-              Registered Farmers
-            </span>
-            <span className="font-mono font-bold text-slate-900">
-              {data.farmers_count > 0 ? `${data.farmers_count} farmers` : 'None registered'}
-            </span>
-          </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-2xs divide-y divide-slate-100 text-xs">
+          {/* Registered Farmers */}
+          {isAuthorized ? (
+            <button
+              type="button"
+              onClick={() => setIsFarmersDialogOpen(true)}
+              className="w-full flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-emerald-50/70 active:bg-emerald-100/50 transition-colors cursor-pointer group text-left"
+              title="Click to view all registered farmers in this barangay"
+            >
+              <span className="font-medium text-slate-700 flex items-center gap-1.5 min-w-0 truncate group-hover:text-emerald-900">
+                <Users className="size-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">Registered Farmers</span>
+              </span>
+              <span className="font-mono font-bold text-slate-900 flex items-center gap-1 shrink-0 ml-2 group-hover:text-emerald-800">
+                <span>{data.farmers_count}</span>
+                <span className="text-[11px] font-normal text-slate-500">farmers</span>
+                <ChevronRight className="size-3.5 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-transform shrink-0" />
+              </span>
+            </button>
+          ) : (
+            <div className="flex items-center justify-between py-1.5 px-2">
+              <span className="font-medium text-slate-700 flex items-center gap-1.5 min-w-0 truncate">
+                <Users className="size-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">Registered Farmers</span>
+              </span>
+              <span className="font-mono font-bold text-slate-900 shrink-0 ml-2">
+                <span>{data.farmers_count}</span>{' '}
+                <span className="text-[11px] font-normal text-slate-500">farmers</span>
+              </span>
+            </div>
+          )}
 
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-slate-700 flex items-center gap-1.5">
-              <TrendingUp className="size-3.5 text-emerald-700" />
-              Active Herds / Batches
-            </span>
-            <span className="font-mono font-bold text-slate-900">
-              {data.batches_count} active
-            </span>
-          </div>
+          {/* Active Herds / Batches */}
+          {isAuthorized ? (
+            <button
+              type="button"
+              onClick={() => setIsHerdsDialogOpen(true)}
+              className="w-full flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-emerald-50/70 active:bg-emerald-100/50 transition-colors cursor-pointer group text-left"
+              title="Click to view all active herds & batches in this barangay"
+            >
+              <span className="font-medium text-slate-700 flex items-center gap-1.5 min-w-0 truncate group-hover:text-emerald-900">
+                <TrendingUp className="size-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">Active Herds / Batches</span>
+              </span>
+              <span className="font-mono font-bold text-slate-900 flex items-center gap-1 shrink-0 ml-2 group-hover:text-emerald-800">
+                <span>{data.batches_count}</span>
+                <span className="text-[11px] font-normal text-slate-500">active</span>
+                <ChevronRight className="size-3.5 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-transform shrink-0" />
+              </span>
+            </button>
+          ) : (
+            <div className="flex items-center justify-between py-1.5 px-2">
+              <span className="font-medium text-slate-700 flex items-center gap-1.5 min-w-0 truncate">
+                <TrendingUp className="size-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">Active Herds / Batches</span>
+              </span>
+              <span className="font-mono font-bold text-slate-900 shrink-0 ml-2">
+                <span>{data.batches_count}</span>{' '}
+                <span className="text-[11px] font-normal text-slate-500">active</span>
+              </span>
+            </div>
+          )}
 
-          <div className="pt-2 border-t border-slate-100">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+          <div className="pt-2 px-1">
+            <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
               Species Breakdown
             </span>
             {data.species_breakdown.length > 0 ? (
@@ -481,6 +536,22 @@ export function BarangayDetails({
           </div>
         </div>
       </div>
+
+      {/* Registered Farmers Dialog (For CBAT, SIBAT, MAO, Admin) */}
+      <BarangayFarmersDialog
+        open={isFarmersDialogOpen}
+        onOpenChange={setIsFarmersDialogOpen}
+        barangayName={data.db_name || data.name}
+        barangayId={data.barangay_id}
+      />
+
+      {/* Active Herds & Batches Dialog (For CBAT, SIBAT, MAO, Admin) */}
+      <BarangayHerdsDialog
+        open={isHerdsDialogOpen}
+        onOpenChange={setIsHerdsDialogOpen}
+        barangayName={data.db_name || data.name}
+        barangayId={data.barangay_id}
+      />
     </div>
   );
 }

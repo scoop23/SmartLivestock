@@ -27,7 +27,6 @@ AreaChart,
 Bar,
 BarChart,
 CartesianGrid,
-ResponsiveContainer,
 XAxis,
 YAxis
 } from "recharts";
@@ -400,8 +399,7 @@ export default function ProductionCharts({
         {mergedData.length === 0 ? (
           <ChartEmpty label={`No ${label.toLowerCase()} records logged yet`} />
         ) : currentView === "volume" ? (
-          <ChartContainer config={dynamicChartConfig} className="aspect-auto h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <ChartContainer config={dynamicChartConfig} className="aspect-auto h-[280px] min-w-0 w-full">
               <AreaChart
                 data={mergedData}
                 margin={{ top: 12, right: 12, bottom: 0, left: -10 }}
@@ -571,11 +569,9 @@ export default function ProductionCharts({
                   }}
                 />
               </AreaChart>
-            </ResponsiveContainer>
           </ChartContainer>
         ) : (
-          <ChartContainer config={dynamicChartConfig} className="aspect-auto h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <ChartContainer config={dynamicChartConfig} className="aspect-auto h-[280px] min-w-0 w-full">
               <BarChart
                 data={mergedData}
                 margin={{ top: 12, right: 12, bottom: 0, left: -6 }}
@@ -646,7 +642,6 @@ export default function ProductionCharts({
                   maxBarSize={44}
                 />
               </BarChart>
-            </ResponsiveContainer>
           </ChartContainer>
         )}
       </CardContent>

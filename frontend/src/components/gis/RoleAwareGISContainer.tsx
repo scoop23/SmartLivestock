@@ -64,6 +64,7 @@ GISTelemetryResponse,
 MapLayer,
 MonthlyWindData,
 MovementRecord,
+Movement3DDisplayMode,
 MunicipalSummary,
 SimulationParameters,
 ViewMode,
@@ -130,6 +131,7 @@ export function RoleAwareGISContainer({
   }, [scopeKey]);
   const [selectedMovement, setSelectedMovement] = useState<MovementRecord | null>(null);
   const [showMovementOverlay, setShowMovementOverlay] = useState<boolean>(false);
+  const [movementDisplayMode, setMovementDisplayMode] = useState<Movement3DDisplayMode>('both');
   const [sidebarChoice, setSidebarOpen] = useState<boolean | null>(null);
   const sidebarOpen = sidebarChoice ?? !isMobile;
   const [resetTrigger, setResetTrigger] = useState<number>(0);
@@ -281,14 +283,14 @@ export function RoleAwareGISContainer({
   }, [periodMovements]);
 
   const activeDisplayMovements = useMemo(() => {
-    const allMoves = periodMovements;
-    if (isMovementAllDatesMode || uniqueMovementDates.length <= 1) {
+    const allMoves = periodMovements.length > 0 ? periodMovements : (gisData?.movements || []);
+    if (viewMode === '3D' || isMovementAllDatesMode || uniqueMovementDates.length <= 1) {
       return allMoves;
     }
     const targetDate = uniqueMovementDates[movementDateIndex];
     if (!targetDate) return allMoves;
     return allMoves.filter((m) => m.date === targetDate);
-  }, [periodMovements, isMovementAllDatesMode, uniqueMovementDates, movementDateIndex]);
+  }, [periodMovements, gisData?.movements, viewMode, isMovementAllDatesMode, uniqueMovementDates, movementDateIndex]);
 
   const handleMovementYearChange = useCallback((year: string) => {
     setSelectedMovementYear(year);
@@ -346,6 +348,8 @@ export function RoleAwareGISContainer({
 
   const handleViewModeChange = useCallback((mode: ViewMode) => {
     setViewMode(mode);
+    setIsMovementAllDatesMode(true);
+    setSelectedMovementYear('ALL');
   }, []);
 
   const handleDiseaseSubModeChange = useCallback((subMode: DiseaseSubMode) => {
@@ -395,6 +399,7 @@ export function RoleAwareGISContainer({
           selectedMovement={selectedMovement}
           onSelectMovement={handleSelectMovement}
           showMovementOverlay={showMovementOverlay}
+          movementDisplayMode={movementDisplayMode}
         />
 
         {/* 2. Floating Controls */}
@@ -404,6 +409,10 @@ export function RoleAwareGISContainer({
             onLayerChange={(layer) => {
               setActiveLayer(layer);
               setSelectedMovement(null);
+              if (layer === 'movement') {
+                setIsMovementAllDatesMode(true);
+                setSelectedMovementYear('ALL');
+              }
             }}
             viewMode={viewMode}
             onViewModeChange={handleViewModeChange}
@@ -422,6 +431,8 @@ export function RoleAwareGISContainer({
             selectedLivestockType={selectedLivestockType}
             onLivestockTypeChange={setSelectedLivestockType}
             userScope={gisData?.user_scope}
+            movementDisplayMode={movementDisplayMode}
+            onMovementDisplayModeChange={setMovementDisplayMode}
           />
         </div>
 

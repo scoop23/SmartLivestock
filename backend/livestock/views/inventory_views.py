@@ -2,7 +2,7 @@ from livestock.list_queries import LivestockListPagination, filter_livestock_lis
 from smartlivestock.workflows import scope_reviewer_queryset
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.exceptions import AuthenticationFailed
@@ -414,8 +414,23 @@ def get_barangays(request):
 def get_farmer_by_barangays(request, barangay_id):
     """
     GET /api/livestock/farmers/<barangay_id>/
+    Supports lookup by integer barangay_id and optional ?barangay_name=...
     """
     require_action(request.user, "census", "read_all")
-    farmers = scope_reviewer_queryset(Farmer.objects.filter(barangay_id=barangay_id).select_related("user"), request.user)
+    qs = Farmer.objects.all()
+    barangay_name = request.query_params.get("barangay_name") or request.query_params.get("name")
+    if barangay_id and int(barangay_id) > 0:
+        qs = qs.filter(barangay_id=barangay_id)
+    elif barangay_name:
+        qs = qs.filter(barangay__barangay_name__iexact=barangay_name.strip())
+
+    farmers = (
+        scope_reviewer_queryset(qs.select_related("user", "barangay"), request.user)
+        .annotate(
+            active_herds_count=Count("batches", filter=Q(batches__status="ACTIVE"), distinct=True),
+            animals_count=Count("inventories", filter=Q(inventories__operational_status="ACTIVE"), distinct=True),
+        )
+        .order_by("user__last_name", "user__first_name")
+    )
     serializer = FarmerOptionsSerializer(farmers, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)

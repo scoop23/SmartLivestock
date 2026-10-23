@@ -11,10 +11,19 @@ import type Polygon from 'ol/geom/Polygon.js';
 import { useEffect,useRef,useState } from 'react';
 import type { Object3D } from 'three';
 import type { MapControls } from 'three/examples/jsm/controls/MapControls.js';
-import type { BarangayGISData,DiseaseSubMode,GISUserScope,MapLayer,SimulatedBarangayState } from './types';
+import type { BarangayGISData,DiseaseSubMode,GISUserScope,MapLayer,Movement3DDisplayMode,MovementRecord,SimulatedBarangayState } from './types';
 
 // Shared camera coordinates keep the first 3D view and the Reset button consistent.
 const DEFAULT_3D_CAMERA_POSITION = { x: 13_492_381.19, y: 1_541_389.26, z: 14_328.31 };
+
+// Official geographic bounding extent of the Philippine archipelago in EPSG:3857 (Web Mercator)
+// Spans latitude 4.5° N to 21.5° N and longitude 116.0° E to 127.0° E (Luzon, Visayas, Mindanao, Palawan)
+const PHILIPPINES_EXTENT_3857 = {
+  minX: 12_913_000,
+  maxX: 14_138_000,
+  minY: 501_000,
+  maxY: 2_452_000,
+};
 
 interface Giro3DBarangayViewProps {
   barangaysByName: Record<string, BarangayGISData>;
@@ -28,6 +37,35 @@ interface Giro3DBarangayViewProps {
   userScope?: GISUserScope;
   heightScale: number;
   suppressClickUntilRef: { current: number };
+  movements?: MovementRecord[];
+  selectedMovement?: MovementRecord | null;
+  onSelectMovement?: (movement: MovementRecord | null) => void;
+  showMovementOverlay?: boolean;
+  movementDisplayMode?: Movement3DDisplayMode;
+}
+
+interface AnimatedPulse {
+  headMesh: import('three').Mesh;
+  trailMeshes: import('three').Mesh[];
+  curve: import('three').CatmullRomCurve3;
+  speed: number;
+  offset: number;
+  isSelected?: boolean;
+}
+
+interface AnimatedRing {
+  mesh: import('three').Mesh;
+  speed: number;
+  phase: number;
+  maxScale: number;
+}
+
+// Convert latitude/longitude (EPSG:4326) into Web Mercator meters (EPSG:3857)
+function latLngToWebMercator(lat: number, lng: number): [number, number] {
+  const x = (lng * 20037508.34) / 180;
+  const clampedLat = Math.max(-85.05112878, Math.min(85.05112878, lat));
+  const y = (Math.log(Math.tan(((90 + clampedLat) * Math.PI) / 360)) / (Math.PI / 180) * 20037508.34) / 180;
+  return [x, y];
 }
 
 // One shared metric lookup keeps each barangay's extrusion height tied to the active GIS layer.
@@ -77,7 +115,7 @@ function getLayerColor(layer: MapLayer, ratio: number): string {
     slaughter_yield: ['#fef3c7', '#fbbf24', '#ea580c', '#7c2d12'],
     meat: ['#fef3c7', '#fbbf24', '#ea580c', '#7c2d12'],
     mortality: ['#fee2e2', '#fca5a5', '#ef4444', '#7f1d1d'],
-    movement: ['#f1f5f9', '#cbd5e1', '#64748b', '#1e293b'],
+    movement: ['#e0f2fe', '#38bdf8', '#0284c7', '#0c4a6e'],
   };
   const palette = palettes[layer];
   return palette[Math.min(3, Math.floor(Math.min(0.999, ratio) * palette.length))];
@@ -132,6 +170,12 @@ function getBorderPositions(geometry: Geometry, height: number): number[] {
 function setVerticalScale(object: Object3D, scale: number): void {
   object.scale.setZ(scale);
   object.updateMatrix();
+  object.matrixWorldNeedsUpdate = true;
+  object.updateMatrixWorld(true);
+  if (object.parent) {
+    object.parent.matrixWorldNeedsUpdate = true;
+    object.parent.updateMatrixWorld(true);
+  }
 }
 
 export function Giro3DBarangayView({
@@ -146,6 +190,11 @@ export function Giro3DBarangayView({
   userScope,
   heightScale,
   suppressClickUntilRef,
+  movements = [],
+  selectedMovement,
+  onSelectMovement,
+  showMovementOverlay = false,
+  movementDisplayMode = 'both',
 }: Giro3DBarangayViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<Instance | null>(null);
@@ -153,10 +202,23 @@ export function Giro3DBarangayView({
   const sceneExtentRef = useRef<Extent | null>(null);
   const controlsRef = useRef<MapControls | null>(null);
   const featuresByNameRef = useRef(new Map<string, Feature<Geometry>>());
+  const threeModuleRef = useRef<typeof import('three') | null>(null);
+  const movementGroupRef = useRef<import('three').Group | null>(null);
+  const onSelectMovementRef = useRef(onSelectMovement);
+  const movementDisplayModeRef = useRef<Movement3DDisplayMode>(movementDisplayMode);
+
+  useEffect(() => {
+    movementDisplayModeRef.current = movementDisplayMode;
+  }, [movementDisplayMode]);
+
+  useEffect(() => {
+    onSelectMovementRef.current = onSelectMovement;
+  }, [onSelectMovement]);
   // Refs let the long-lived Giro3D scene read current slider values without being recreated.
   const heightScaleRef = useRef(heightScale);
   const appliedHeightScaleRef = useRef(heightScale);
   const borderLinesRef = useRef(new Map<Feature<Geometry>, import('three').LineSegments>());
+  const borderLinesByNameRef = useRef(new Map<string, import('three').LineSegments>());
   const labelElementsRef = useRef(new Map<Feature<Geometry>, HTMLDivElement>());
   const labelAnchorsRef = useRef(new Map<Feature<Geometry>, [number, number]>());
   const syncLabelPositionsRef = useRef<(() => void) | null>(null);
@@ -164,12 +226,102 @@ export function Giro3DBarangayView({
   const largestMetricRef = useRef(0);
   const surfaceMeshesRef = useRef(new Map<Feature<Geometry>, Object3D[]>());
   const displayedHeightsRef = useRef(new Map<Feature<Geometry>, number>());
+  const fullExtrusionHeightsRef = useRef(new Map<Feature<Geometry>, number>());
   const simulationAnimationFrameRef = useRef<number | null>(null);
+  const cameraAnimRef = useRef<number | null>(null);
   const hoveredFeatureRef = useRef<Feature<Geometry> | null>(null);
   const onSelectRef = useRef(onSelectBarangay);
   const selectedBarangayRef = useRef(selectedBarangay);
+  const destinationLabelsRef = useRef(new Map<string, HTMLDivElement>());
+  const destinationAnchorsRef = useRef(new Map<string, [number, number, number]>());
+  const animatedPulsesRef = useRef<AnimatedPulse[]>([]);
+  const animatedRingsRef = useRef<AnimatedRing[]>([]);
+  const pulseAnimFrameRef = useRef<number | null>(null);
+  const destinationBeaconsRef = useRef<import('three').Mesh[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [hoverInfo, setHoverInfo] = useState<{ name: string; x: number; y: number } | null>(null);
+  const [isSceneReady, setIsSceneReady] = useState(false);
+  const selectedMovementRef = useRef<MovementRecord | null | undefined>(selectedMovement);
+  const flyToDestinationRef = useRef<((move: MovementRecord) => void) | null>(null);
+
+  const flyToDestination = (move: MovementRecord) => {
+    const instance = instanceRef.current;
+    const controls = controlsRef.current;
+    if (!instance || !controls || !move.to) return;
+
+    const [destLat, destLng] = move.to;
+    if (!Number.isFinite(destLat) || !Number.isFinite(destLng)) return;
+
+    const [destX, destY] = latLngToWebMercator(destLat, destLng);
+
+    const startTargetX = controls.target.x;
+    const startTargetY = controls.target.y;
+    const startTargetZ = controls.target.z;
+
+    const startCamX = instance.view.camera.position.x;
+    const startCamY = instance.view.camera.position.y;
+    const startCamZ = instance.view.camera.position.z;
+
+    const targetTargetX = destX;
+    const targetTargetY = destY;
+    const targetTargetZ = 0;
+
+    // Generous view distance framing the destination terminal beacon and regional context
+    const viewDistance = 9000;
+    const targetCamX = destX - viewDistance * 0.45;
+    const targetCamY = destY - viewDistance * 0.55;
+    const targetCamZ = viewDistance * 1.5;
+
+    if (cameraAnimRef.current) {
+      cancelAnimationFrame(cameraAnimRef.current);
+    }
+
+    const startTime = performance.now();
+    const duration = 800; // ms
+
+    const animateCamera = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      // Smooth cubic ease-out
+      const ease = 1 - Math.pow(1 - progress, 3);
+
+      controls.target.set(
+        startTargetX + (targetTargetX - startTargetX) * ease,
+        startTargetY + (targetTargetY - startTargetY) * ease,
+        startTargetZ + (targetTargetZ - startTargetZ) * ease,
+      );
+
+      instance.view.camera.position.set(
+        startCamX + (targetCamX - startCamX) * ease,
+        startCamY + (targetCamY - startCamY) * ease,
+        startCamZ + (targetCamZ - startCamZ) * ease,
+      );
+
+      controls.update();
+      syncLabelPositionsRef.current?.();
+      instance.notifyChange();
+
+      if (progress < 1) {
+        cameraAnimRef.current = requestAnimationFrame(animateCamera);
+      } else {
+        cameraAnimRef.current = null;
+      }
+    };
+
+    cameraAnimRef.current = requestAnimationFrame(animateCamera);
+  };
+
+  useEffect(() => {
+    flyToDestinationRef.current = flyToDestination;
+  });
+
+  useEffect(() => {
+    selectedMovementRef.current = selectedMovement;
+    if (selectedMovement && selectedMovement.to) {
+      flyToDestination(selectedMovement);
+    }
+    syncLabelPositionsRef.current?.();
+  }, [selectedMovement]);
 
   useEffect(() => {
     onSelectRef.current = onSelectBarangay;
@@ -242,10 +394,19 @@ export function Giro3DBarangayView({
         }
         const [minX, minY, maxX, maxY] = sourceExtent;
 
-        // Add breathing room around the municipal bounds for the camera and basemap tiles.
+        // Municipal extent for Padre Garcia 3D polygon meshes and local focus
         const margin = Math.max(maxX - minX, maxY - minY) * 0.08;
-        const extent = new extentModule.default(crs, minX - margin, maxX + margin, minY - margin, maxY + margin);
-        sceneExtentRef.current = extent;
+        const municipalExtent = new extentModule.default(crs, minX - margin, maxX + margin, minY - margin, maxY + margin);
+        sceneExtentRef.current = municipalExtent;
+
+        // Expanded 3D basemap extent encompassing the whole Philippine archipelago
+        const mapExtent = new extentModule.default(
+          crs,
+          PHILIPPINES_EXTENT_3857.minX,
+          PHILIPPINES_EXTENT_3857.maxX,
+          PHILIPPINES_EXTENT_3857.minY,
+          PHILIPPINES_EXTENT_3857.maxY,
+        );
         const largestMetric = Math.max(
           0,
           ...Object.values(barangaysByName).map((data) =>
@@ -262,8 +423,9 @@ export function Giro3DBarangayView({
 
         // Giro3D owns the scene/canvas; Three.js supplies the renderer, camera, and 3D objects underneath it.
         instance = new instanceModule.default({ target: host, crs, backgroundColor: '#07111f' });
+        instance.scene.matrixWorldAutoUpdate = true;
         const map = new mapModule.default({
-          extent,
+          extent: mapExtent,
           backgroundColor: '#0f172a',
           terrain: false,
           lighting: { enabled: true },
@@ -273,7 +435,7 @@ export function Giro3DBarangayView({
         if (cancelled) return;
         await map.addLayer(new colorLayerModule.default({
           name: 'OpenStreetMap',
-          extent,
+          extent: mapExtent,
           source: new tiledImageSourceModule.default({ source: new osmModule.OSM() }),
         }));
         if (cancelled) return;
@@ -282,7 +444,7 @@ export function Giro3DBarangayView({
         featureCollection = new featureCollectionModule.default({
           name: 'Padre Garcia barangays',
           source,
-          extent,
+          extent: municipalExtent,
           dataProjection: crs,
           ignoreZ: true,
           minLevel: 0,
@@ -329,26 +491,59 @@ export function Giro3DBarangayView({
           surfaceMeshesRef.current.set(feature, surfaces);
         });
 
-        // Draw the roof perimeter and vertical corners at the same extrusion height as each 3D barangay.
+        // Draw the roof perimeter and vertical corners at full extrusion height for each 3D barangay.
         // These lines depth-test against the meshes, so hidden edges stay hidden instead of creating x-ray lines.
+        borderLinesByNameRef.current.clear();
         for (const feature of features) {
           const geometry = feature.getGeometry();
           if (!geometry) continue;
           const name = String(feature.get('name') ?? '');
-          const data = barangaysByName[name];
+          const lowerName = name.toLowerCase();
+          const data = barangaysByName[name] || barangaysByName[lowerName];
+          const isFlat = activeLayer === 'movement' && movementDisplayModeRef.current === 'lines';
           const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
-          const height = getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
-          const positions = getBorderPositions(geometry, height);
+          const fullHeight = getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
+          const positions = getBorderPositions(geometry, fullHeight);
 
           const lineGeometry = new three.BufferGeometry();
           lineGeometry.setAttribute('position', new three.Float32BufferAttribute(positions, 3));
           const material = new three.LineBasicMaterial({ color: '#000000', depthTest: true });
           const lines = new three.LineSegments(lineGeometry, material);
           lines.renderOrder = 2;
+
           instance.threeObjects.add(lines);
           borderLines.set(feature as Feature<Geometry>, lines);
-          displayedHeightsRef.current.set(feature as Feature<Geometry>, height);
+          borderLinesByNameRef.current.set(lowerName, lines);
+
+          const initialHeight = isFlat ? 2 : fullHeight;
+          const initialScaleZ = isFlat && fullHeight > 0 ? 2 / fullHeight : 1.0;
+          if (isFlat) {
+            setVerticalScale(lines, initialScaleZ);
+          }
+          displayedHeightsRef.current.set(feature as Feature<Geometry>, initialHeight);
         }
+
+        // If starting in flat lines mode on movement layer, scale roof meshes to flat height (2)
+        if (activeLayer === 'movement' && movementDisplayModeRef.current === 'lines') {
+          for (const feature of features) {
+            const typedFeature = feature as Feature<Geometry>;
+            const name = String(feature.get('name') ?? '');
+            const data = barangaysByName[name];
+            const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
+            const fullHeight = getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
+            const initialScaleZ = fullHeight > 0 ? 2 / fullHeight : 0.001;
+            for (const surface of surfaceMeshesRef.current.get(typedFeature) ?? []) {
+              setVerticalScale(surface, initialScaleZ);
+            }
+          }
+        }
+
+        // Dedicated Group for 3D Movement Flows across the Philippine archipelago
+        threeModuleRef.current = three;
+        const movementGroup = new three.Group();
+        movementGroup.name = '3D Livestock Movement Flows';
+        movementGroupRef.current = movementGroup;
+        instance.threeObjects.add(movementGroup);
 
         // HTML labels are projected over the WebGL canvas, so text remains readable and sits above every polygon.
         for (const feature of features) {
@@ -402,6 +597,10 @@ export function Giro3DBarangayView({
         const initialCenterY = (initialExtent[1] + initialExtent[3]) / 2;
         const center = new three.Vector3(initialCenterX, initialCenterY, 0);
         instance.view.camera.up.set(0, 0, 1);
+        // Extend camera far plane to view the full Philippine archipelago when orbiting or zooming out
+        instance.view.camera.far = 15_000_000;
+        instance.view.camera.updateProjectionMatrix();
+
         // Start at the saved camera position while aiming at the selected barangay or municipal center.
         instance.view.camera.position.set(
           DEFAULT_3D_CAMERA_POSITION.x,
@@ -414,6 +613,7 @@ export function Giro3DBarangayView({
         controls.enableDamping = true;
         controls.dampingFactor = 0.12;
         controls.maxPolarAngle = Math.PI / 2.15;
+        controls.maxDistance = 6_000_000;
         controls.target.copy(center);
         controls.update();
         controls.saveState();
@@ -432,6 +632,27 @@ export function Giro3DBarangayView({
             projectedLabelPoint.set(anchor[0], anchor[1], height + 30).project(instance.view.camera);
             const inFrontOfCamera = projectedLabelPoint.z >= -1 && projectedLabelPoint.z <= 1;
             label.style.display = inFrontOfCamera ? 'block' : 'none';
+            label.style.left = `${((projectedLabelPoint.x + 1) / 2) * bounds.width}px`;
+            label.style.top = `${((1 - projectedLabelPoint.y) / 2) * bounds.height}px`;
+          }
+
+          // Project 3D movement destination label above terminal beacon ONLY when that movement line is selected/clicked
+          const activeMovement = selectedMovementRef.current;
+          for (const [key, label] of destinationLabelsRef.current) {
+            const moveId = Number(label.dataset.movementId);
+            const isTarget = activeMovement != null && moveId === activeMovement.id;
+            if (!isTarget) {
+              label.style.display = 'none';
+              continue;
+            }
+            const anchor = destinationAnchorsRef.current.get(key);
+            if (!anchor) {
+              label.style.display = 'none';
+              continue;
+            }
+            projectedLabelPoint.set(anchor[0], anchor[1], anchor[2]).project(instance.view.camera);
+            const inFrontOfCamera = projectedLabelPoint.z >= -1 && projectedLabelPoint.z <= 1;
+            label.style.display = inFrontOfCamera ? 'flex' : 'none';
             label.style.left = `${((projectedLabelPoint.x + 1) / 2) * bounds.width}px`;
             label.style.top = `${((1 - projectedLabelPoint.y) / 2) * bounds.height}px`;
           }
@@ -463,7 +684,45 @@ export function Giro3DBarangayView({
         clickHandler = (event) => {
           // Use the same drag guard as Leaflet so ending a pan over a polygon does not select it.
           if (performance.now() < suppressClickUntilRef.current) return;
-          if (!instance || !featureCollection) return;
+          if (!instance) return;
+
+          // Ray-pick 3D movement arcs / beacon markers / rings across the Philippines
+          const movementGroup = movementGroupRef.current;
+          const three = threeModuleRef.current;
+          if (movementGroup && movementGroup.children.length > 0 && three) {
+            const bounds = host.getBoundingClientRect();
+            const mouse = new three.Vector2(
+              ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+              -((event.clientY - bounds.top) / bounds.height) * 2 + 1
+            );
+            const raycaster = new three.Raycaster();
+            raycaster.params.Line = { threshold: 40 };
+            raycaster.setFromCamera(mouse, instance.view.camera);
+            const intersects = raycaster.intersectObjects(movementGroup.children, true);
+            if (intersects.length > 0) {
+              let hitObj: import('three').Object3D | null = intersects[0].object;
+              let pickedMove: MovementRecord | undefined;
+              while (hitObj) {
+                if (hitObj.userData?.movement) {
+                  pickedMove = hitObj.userData.movement as MovementRecord;
+                  break;
+                }
+                hitObj = hitObj.parent;
+              }
+              if (pickedMove) {
+                onSelectMovementRef.current?.(pickedMove);
+                syncLabelPositionsRef.current?.();
+                flyToDestinationRef.current?.(pickedMove);
+                return;
+              }
+            }
+          }
+
+          // Clicking outside dismisses movement selection and hides destination labels
+          onSelectMovementRef.current?.(null);
+          syncLabelPositionsRef.current?.();
+
+          if (!featureCollection) return;
           // Giro3D ray-picks the feature under the pointer; React receives the selected barangay data.
           const picked = instance.pickObjectsAt(event, { where: [featureCollection] })[0];
           const pickedFeature = picked?.object.userData.feature as Feature<Geometry> | undefined;
@@ -484,7 +743,29 @@ export function Giro3DBarangayView({
           onSelectRef.current(data);
         };
         pointerMoveHandler = (event) => {
-          if (!instance || !featureCollection) return;
+          if (!instance) return;
+
+          // Check if hovering over 3D movement flight lines/beacons to set pointer cursor
+          const movementGroup = movementGroupRef.current;
+          const three = threeModuleRef.current;
+          let hoveringMovement = false;
+          if (movementGroup && movementGroup.children.length > 0 && three) {
+            const bounds = host.getBoundingClientRect();
+            const mouse = new three.Vector2(
+              ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+              -((event.clientY - bounds.top) / bounds.height) * 2 + 1
+            );
+            const raycaster = new three.Raycaster();
+            raycaster.params.Line = { threshold: 30 };
+            raycaster.setFromCamera(mouse, instance.view.camera);
+            const hits = raycaster.intersectObjects(movementGroup.children, true);
+            if (hits.length > 0) {
+              hoveringMovement = true;
+            }
+          }
+          host.style.cursor = hoveringMovement ? 'pointer' : 'default';
+
+          if (!featureCollection) return;
           const picked = instance.pickObjectsAt(event, { where: [featureCollection] })[0];
           const pickedFeature = picked?.object.userData.feature as Feature<Geometry> | undefined;
           const name = String(pickedFeature?.get('name') ?? '');
@@ -527,6 +808,7 @@ export function Giro3DBarangayView({
         instanceRef.current = instance;
         collectionRef.current = featureCollection;
         controlsRef.current = controls;
+        setIsSceneReady(true);
         setError(null);
       } catch (cause) {
         if (!cancelled) setError(cause instanceof Error ? cause.message : 'Giro3D could not initialize.');
@@ -546,6 +828,12 @@ export function Giro3DBarangayView({
         cancelAnimationFrame(simulationAnimationFrameRef.current);
         simulationAnimationFrameRef.current = null;
       }
+      if (pulseAnimFrameRef.current != null) {
+        cancelAnimationFrame(pulseAnimFrameRef.current);
+        pulseAnimFrameRef.current = null;
+      }
+      animatedPulsesRef.current = [];
+      destinationBeaconsRef.current = [];
       for (const [feature, lines] of borderLines) {
         instance?.threeObjects.remove(lines);
         lines.geometry.dispose();
@@ -556,8 +844,28 @@ export function Giro3DBarangayView({
         label.remove();
         labelElements.delete(feature);
       }
+      for (const [, label] of destinationLabelsRef.current) {
+        label.remove();
+      }
+      destinationLabelsRef.current.clear();
+      destinationAnchorsRef.current.clear();
       labelAnchors.clear();
       syncLabelPositionsRef.current = null;
+      if (movementGroupRef.current && instance) {
+        instance.threeObjects.remove(movementGroupRef.current);
+        while (movementGroupRef.current.children.length > 0) {
+          const child = movementGroupRef.current.children[0] as import('three').Mesh;
+          movementGroupRef.current.remove(child);
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            if (Array.isArray(child.material)) child.material.forEach((m) => m.dispose());
+            else child.material.dispose();
+          }
+        }
+        movementGroupRef.current = null;
+      }
+      threeModuleRef.current = null;
+      setIsSceneReady(false);
       controls?.dispose();
       instance?.dispose();
       instanceRef.current = null;
@@ -690,26 +998,26 @@ export function Giro3DBarangayView({
     };
   }, [activeLayer, barangaysByName, diseaseSubMode, selectedLivestockType, simulatedStates]);
 
-  // When the slider changes, update the existing polygon meshes and their raised border lines in place.
+  // When the slider changes, update the polygon meshes and their raised border lines in lockstep.
   useEffect(() => {
     const collection = collectionRef.current;
     const instance = instanceRef.current;
     const previousScale = appliedHeightScaleRef.current;
     if (!collection || !instance || previousScale === heightScale) return;
 
-    // Stop the current ease before changing its height scale; the next simulation step will use the new scale.
+    // Stop active animation before applying new height scale
     if (simulationAnimationFrameRef.current != null) {
       cancelAnimationFrame(simulationAnimationFrameRef.current);
       simulationAnimationFrameRef.current = null;
     }
-    const currentMeshScales = new Map<Feature<Geometry>, number>();
-    for (const [feature, surfaces] of surfaceMeshesRef.current) {
-      currentMeshScales.set(feature, surfaces[0]?.scale.z ?? 1);
-    }
 
-    // updateStyles rebuilds an extruded polygon only when its extrusion height changed.
+    heightScaleRef.current = heightScale;
+    appliedHeightScaleRef.current = heightScale;
+
+    // Rebuild Giro3D polygon meshes at new extrusion height
     collection.updateStyles();
-    // updateStyles may replace SurfaceMesh objects, so find the new objects before rendering again.
+
+    // Re-cache active surface meshes created by updateStyles
     surfaceMeshesRef.current.clear();
     collection.traverse((object) => {
       if (object.type !== 'SurfaceMesh') return;
@@ -720,30 +1028,461 @@ export function Giro3DBarangayView({
       surfaceMeshesRef.current.set(feature, surfaces);
     });
 
-    // Borders are separate Three.js lines, so scale each line vertex's Z coordinate by the same ratio.
-    const scaleRatio = heightScale / previousScale;
-    for (const lines of borderLinesRef.current.values()) {
-      const positions = lines.geometry.getAttribute('position');
-      for (let vertex = 0; vertex < positions.count; vertex += 1) {
-        positions.setZ(vertex, positions.getZ(vertex) * scaleRatio);
+    // Rebuild border lines at the exact matching height
+    const isFlat = activeLayer === 'movement' && movementDisplayModeRef.current === 'lines';
+    for (const [feature, lines] of borderLinesRef.current) {
+      const geometry = feature.getGeometry();
+      if (!geometry) continue;
+      const name = String(feature.get('name') ?? '');
+      const data = barangaysByName[name];
+      const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
+      const fullHeight = getExtrusionHeight(value, largestMetricRef.current, heightScale);
+      const borderPositions = getBorderPositions(geometry, fullHeight);
+      const position = lines.geometry.getAttribute('position');
+      if (position && position.count * 3 === borderPositions.length) {
+        for (let vertex = 0; vertex < position.count; vertex += 1) {
+          position.setXYZ(vertex, borderPositions[vertex * 3], borderPositions[vertex * 3 + 1], borderPositions[vertex * 3 + 2]);
+        }
+        position.needsUpdate = true;
+        lines.geometry.computeBoundingSphere();
       }
-      positions.needsUpdate = true;
-      lines.geometry.computeBoundingSphere();
-    }
-    // Preserve any partial simulation animation on the new mesh and scale the tracked height by the slider ratio.
-    for (const [feature, surfaces] of surfaceMeshesRef.current) {
-      for (const surface of surfaces) {
-        setVerticalScale(surface, currentMeshScales.get(feature) ?? 1);
+
+      const scaleZ = isFlat && fullHeight > 0 ? 2 / fullHeight : 1.0;
+      for (const surface of surfaceMeshesRef.current.get(feature) ?? []) {
+        setVerticalScale(surface, scaleZ);
       }
-    }
-    for (const [feature, displayedHeight] of displayedHeightsRef.current) {
-      displayedHeightsRef.current.set(feature, displayedHeight * scaleRatio);
+      setVerticalScale(lines, scaleZ);
+      displayedHeightsRef.current.set(feature, isFlat ? 2 : fullHeight);
     }
 
-    appliedHeightScaleRef.current = heightScale;
     syncLabelPositionsRef.current?.();
     instance.notifyChange();
-  }, [heightScale]);
+  }, [heightScale, activeLayer, barangaysByName, diseaseSubMode, selectedLivestockType]);
+
+  // Render dynamic 3D parabolic movement arcs across the Philippine archipelago with forward animation
+  useEffect(() => {
+    if (!isSceneReady) return;
+    const instance = instanceRef.current;
+    const movementGroup = movementGroupRef.current;
+    const three = threeModuleRef.current;
+    const host = hostRef.current;
+    if (!instance || !movementGroup || !three || !host) return;
+
+    // Stop active pulse animation loop
+    if (pulseAnimFrameRef.current != null) {
+      cancelAnimationFrame(pulseAnimFrameRef.current);
+      pulseAnimFrameRef.current = null;
+    }
+    animatedPulsesRef.current = [];
+    destinationBeaconsRef.current = [];
+
+    // Clear previous 3D movement meshes
+    while (movementGroup.children.length > 0) {
+      const child = movementGroup.children[0] as import('three').Mesh;
+      movementGroup.remove(child);
+      if (child.geometry) child.geometry.dispose();
+      if (Array.isArray(child.material)) {
+        child.material.forEach((m) => m.dispose());
+      } else if (child.material) {
+        child.material.dispose();
+      }
+    }
+
+    // Remove previous destination labels from DOM
+    for (const [, label] of destinationLabelsRef.current) {
+      label.remove();
+    }
+    destinationLabelsRef.current.clear();
+    destinationAnchorsRef.current.clear();
+
+    const shouldShow = (activeLayer === 'movement' || Boolean(showMovementOverlay)) && (activeLayer !== 'movement' || movementDisplayMode !== 'density');
+    if (!shouldShow || !movements || movements.length === 0) {
+      instance.notifyChange();
+      return;
+    }
+
+    // Render 3D parabolic arcs, destination beacons, origin anchors, and animated flow pulses
+    for (const move of movements) {
+      if (!move.from || !move.to) continue;
+      const [fromLat, fromLng] = move.from;
+      const [toLat, toLng] = move.to;
+      if (!Number.isFinite(fromLat) || !Number.isFinite(fromLng) || !Number.isFinite(toLat) || !Number.isFinite(toLng)) {
+        continue;
+      }
+
+      const [startX, startY] = latLngToWebMercator(fromLat, fromLng);
+      const [endX, endY] = latLngToWebMercator(toLat, toLng);
+
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 1) continue;
+
+      const isSelected = selectedMovement?.id === move.id;
+      const isApproved = move.clearance_status === 'APPROVED';
+
+      // Directional & status color coding matching 2D transport flow styling
+      let hexColor = '#f59e0b'; // Amber for pending/other
+      if (isSelected) {
+        hexColor = '#facc15'; // Bright Gold for selected
+      } else if (isApproved) {
+        if (move.direction === 'INBOUND') hexColor = '#38bdf8'; // Electric Sky Blue
+        else if (move.direction === 'INTERNAL') hexColor = '#10b981'; // Emerald Green
+        else hexColor = '#f43f5e'; // Vibrant Rose / Red for outbound
+      }
+
+      // Parabolic apex altitude in 3D WebGL space: higher arc for long-range transport across the Philippines
+      const apexHeight = Math.min(Math.max(dist * 0.16, 2200), 85000);
+
+      // Construct smooth parabolic curve points
+      const sampleCount = 32;
+      const curvePoints: import('three').Vector3[] = [];
+      for (let i = 0; i <= sampleCount; i++) {
+        const t = i / sampleCount;
+        const px = startX + dx * t;
+        const py = startY + dy * t;
+        const pz = 4 * apexHeight * t * (1 - t) + 25;
+        curvePoints.push(new three.Vector3(px, py, pz));
+      }
+
+      const curve = new three.CatmullRomCurve3(curvePoints);
+      const tubeRadius = isSelected
+        ? Math.min(Math.max(dist * 0.004, 50), 2200)
+        : Math.min(Math.max(dist * 0.0022, 28), 1200);
+
+      // Base atmospheric flight corridor tube
+      const tubeGeom = new three.TubeGeometry(curve, 32, tubeRadius, 6, false);
+      const tubeMat = new three.MeshBasicMaterial({
+        color: hexColor,
+        opacity: isSelected ? 0.95 : 0.45,
+        transparent: true,
+      });
+
+      const tubeMesh = new three.Mesh(tubeGeom, tubeMat);
+      tubeMesh.userData = { movement: move };
+      movementGroup.add(tubeMesh);
+
+      // Destination terminal beacon (cone pointing down toward target municipality/barangay)
+      const beaconHeight = Math.min(Math.max(dist * 0.04, 300), 9000);
+      const beaconRadius = beaconHeight * 0.35;
+      const coneGeom = new three.ConeGeometry(beaconRadius, beaconHeight, 8);
+      coneGeom.rotateX(Math.PI); // Point downward to ground
+      const coneMat = new three.MeshBasicMaterial({
+        color: hexColor,
+        opacity: isSelected ? 1 : 0.85,
+        transparent: true,
+      });
+      const coneMesh = new three.Mesh(coneGeom, coneMat);
+      coneMesh.position.set(endX, endY, beaconHeight / 2 + 10);
+      coneMesh.userData = { movement: move };
+      movementGroup.add(coneMesh);
+      destinationBeaconsRef.current.push(coneMesh);
+
+      // Ground anchor ring at origin
+      const ringRadius = beaconRadius * 0.9;
+      const ringGeom = new three.RingGeometry(ringRadius * 0.6, ringRadius, 16);
+      const ringMat = new three.MeshBasicMaterial({
+        color: '#10b981',
+        side: three.DoubleSide,
+        opacity: 0.8,
+        transparent: true,
+      });
+      const ringMesh = new three.Mesh(ringGeom, ringMat);
+      ringMesh.position.set(startX, startY, 15);
+      ringMesh.userData = { movement: move };
+      movementGroup.add(ringMesh);
+
+      // Origin polygon launch ripple ring
+      const originRippleGeom = new three.RingGeometry(ringRadius * 0.65, ringRadius * 1.05, 24);
+      const originRippleMat = new three.MeshBasicMaterial({
+        color: isSelected ? '#facc15' : '#38bdf8',
+        side: three.DoubleSide,
+        opacity: 0.85,
+        transparent: true,
+      });
+      const originRippleMesh = new three.Mesh(originRippleGeom, originRippleMat);
+      originRippleMesh.position.set(startX, startY, 18);
+      movementGroup.add(originRippleMesh);
+      animatedRingsRef.current.push({
+        mesh: originRippleMesh,
+        speed: isSelected ? 1.8 : 1.2,
+        phase: 0,
+        maxScale: 2.4,
+      });
+
+      // Destination arrival landing ripple ring
+      const destRippleGeom = new three.RingGeometry(beaconRadius * 0.45, beaconRadius * 0.85, 24);
+      const destRippleMat = new three.MeshBasicMaterial({
+        color: hexColor,
+        side: three.DoubleSide,
+        opacity: 0.85,
+        transparent: true,
+      });
+      const destRippleMesh = new three.Mesh(destRippleGeom, destRippleMat);
+      destRippleMesh.position.set(endX, endY, 18);
+      movementGroup.add(destRippleMesh);
+      animatedRingsRef.current.push({
+        mesh: destRippleMesh,
+        speed: isSelected ? 2.0 : 1.4,
+        phase: 0.5,
+        maxScale: 2.6,
+      });
+
+      // Animated streaming transport pulses flying along the curve toward the destination
+      const pulseCount = isSelected ? 3 : 2;
+      for (let pIdx = 0; pIdx < pulseCount; pIdx++) {
+        const offset = pIdx / pulseCount;
+        // Travel duration scaled so short trips are quick and long cross-archipelago flights remain visible
+        const travelDuration = Math.min(Math.max(Math.sqrt(dist) * 0.01, 2.0), 4.8);
+        const speed = (isSelected ? 1.35 : 1.0) / travelDuration;
+
+        // Leading glowing pulse head
+        const headRadius = isSelected ? tubeRadius * 3.2 : tubeRadius * 2.4;
+        const headGeom = new three.SphereGeometry(headRadius, 12, 12);
+        const headMat = new three.MeshBasicMaterial({
+          color: isSelected ? '#ffffff' : (move.direction === 'INBOUND' ? '#bae6fd' : '#ffffff'),
+          transparent: true,
+          opacity: 0.95,
+        });
+        const headMesh = new three.Mesh(headGeom, headMat);
+        headMesh.userData = { movement: move };
+        movementGroup.add(headMesh);
+
+        // Multiple trailing comet segments
+        const trailMeshes: import('three').Mesh[] = [];
+        const trailScales = [0.8, 0.55, 0.35];
+        const trailOpacities = [0.8, 0.55, 0.3];
+
+        for (let tIdx = 0; tIdx < 3; tIdx++) {
+          const tGeom = new three.SphereGeometry(headRadius * trailScales[tIdx], 10, 10);
+          const tMat = new three.MeshBasicMaterial({
+            color: hexColor,
+            transparent: true,
+            opacity: trailOpacities[tIdx],
+          });
+          const tMesh = new three.Mesh(tGeom, tMat);
+          tMesh.userData = { movement: move };
+          movementGroup.add(tMesh);
+          trailMeshes.push(tMesh);
+        }
+
+        animatedPulsesRef.current.push({
+          headMesh,
+          trailMeshes,
+          curve,
+          speed,
+          offset,
+          isSelected,
+        });
+      }
+
+      // Floating 3D destination label badge (hidden until this line is clicked/selected)
+      const cleanDest = (move.destination || 'Destination').split(',')[0].trim();
+      const destKey = `dest-${move.id}-${cleanDest}`;
+      const destLabel = document.createElement('div');
+      destLabel.dataset.movementId = String(move.id);
+      destLabel.setAttribute('aria-label', `Destination: ${cleanDest}`);
+      destLabel.className = 'movement-dest-badge';
+      Object.assign(destLabel.style, {
+        position: 'absolute',
+        left: '0',
+        top: '0',
+        zIndex: '30',
+        display: 'none', // Only shown when line is clicked/selected
+        transform: 'translate(-50%, -130%)',
+        padding: '3px 8px',
+        borderRadius: '9999px',
+        background: 'rgba(15, 23, 42, 0.98)',
+        border: '2px solid #facc15',
+        color: '#fef08a',
+        font: '700 11px/1.2 system-ui, sans-serif',
+        whiteSpace: 'nowrap',
+        cursor: 'pointer',
+        pointerEvents: 'auto',
+        boxShadow: '0 0 16px rgba(250, 204, 21, 0.65)',
+        transition: 'transform 0.15s ease',
+      });
+
+      destLabel.innerHTML = `
+        <span style="color: #facc15; margin-right: 3px;">📍</span>
+        <span>${cleanDest}</span>
+        <span style="margin-left: 4px; padding: 1px 4px; border-radius: 4px; background: rgba(250, 204, 21, 0.25); font-family: monospace; font-size: 10px; color: #fef08a;">${move.heads}</span>
+      `;
+
+      destLabel.addEventListener('mouseenter', () => {
+        destLabel.style.transform = 'translate(-50%, -135%) scale(1.08)';
+      });
+      destLabel.addEventListener('mouseleave', () => {
+        destLabel.style.transform = 'translate(-50%, -130%) scale(1)';
+      });
+      destLabel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onSelectMovementRef.current?.(move);
+        syncLabelPositionsRef.current?.();
+        flyToDestinationRef.current?.(move);
+      });
+
+      host.appendChild(destLabel);
+      destinationLabelsRef.current.set(destKey, destLabel);
+      destinationAnchorsRef.current.set(destKey, [endX, endY, beaconHeight + 40]);
+    }
+
+    // Start forward pulse transport animation loop
+    if (animatedPulsesRef.current.length > 0 || animatedRingsRef.current.length > 0) {
+      const animatePulses = () => {
+        const now = performance.now() * 0.001; // seconds
+        for (const pulse of animatedPulsesRef.current) {
+          // Progress parameter t advances towards destination (0 to 1)
+          const t = (now * pulse.speed + pulse.offset) % 1.0;
+
+          const headPt = pulse.curve.getPointAt(t);
+          pulse.headMesh.position.copy(headPt);
+
+          for (let i = 0; i < pulse.trailMeshes.length; i++) {
+            const trailT = Math.max(0, t - (0.02 + i * 0.025));
+            const trailPt = pulse.curve.getPointAt(trailT);
+            pulse.trailMeshes[i].position.copy(trailPt);
+          }
+
+          // Fade smoothly at departure from origin polygon and arrival at destination
+          const fade = t < 0.06 ? t / 0.06 : t > 0.94 ? (1 - t) / 0.06 : 1;
+          (pulse.headMesh.material as import('three').MeshBasicMaterial).opacity = (pulse.isSelected ? 1.0 : 0.92) * fade;
+          pulse.trailMeshes.forEach((tm, i) => {
+            (tm.material as import('three').MeshBasicMaterial).opacity = (0.75 - i * 0.2) * fade;
+          });
+        }
+
+        // Pulse the destination terminal beacons gently
+        const beaconPulse = 1 + 0.14 * Math.sin(now * 3.8);
+        for (const beacon of destinationBeaconsRef.current) {
+          beacon.scale.set(beaconPulse, beaconPulse, beaconPulse);
+        }
+
+        // Pulse and expand ripple rings at origin polygon and destination landing
+        for (const ring of animatedRingsRef.current) {
+          const cycle = (now * ring.speed + ring.phase) % 1.0;
+          const scale = 1 + cycle * (ring.maxScale - 1);
+          ring.mesh.scale.set(scale, scale, 1);
+          (ring.mesh.material as import('three').MeshBasicMaterial).opacity = 0.85 * (1 - cycle);
+        }
+
+        // Continuously notify Giro3D to render the animated frame at 60fps
+        instance.notifyChange();
+        pulseAnimFrameRef.current = requestAnimationFrame(animatePulses);
+      };
+
+      pulseAnimFrameRef.current = requestAnimationFrame(animatePulses);
+    }
+
+    syncLabelPositionsRef.current?.();
+    instance.notifyChange();
+
+    return () => {
+      if (pulseAnimFrameRef.current != null) {
+        cancelAnimationFrame(pulseAnimFrameRef.current);
+        pulseAnimFrameRef.current = null;
+      }
+      animatedPulsesRef.current = [];
+      animatedRingsRef.current = [];
+      destinationBeaconsRef.current = [];
+    };
+  }, [isSceneReady, activeLayer, showMovementOverlay, movements, selectedMovement, movementDisplayMode]);
+
+  // Animate the shrink / rise of polygon columns when 3D display mode changes
+  useEffect(() => {
+    if (!isSceneReady) return;
+    const collection = collectionRef.current;
+    const instance = instanceRef.current;
+    if (!collection || !instance) return;
+
+    if (simulationAnimationFrameRef.current != null) {
+      cancelAnimationFrame(simulationAnimationFrameRef.current);
+      simulationAnimationFrameRef.current = null;
+    }
+
+    movementDisplayModeRef.current = movementDisplayMode;
+
+    const isFlat = activeLayer === 'movement' && movementDisplayMode === 'lines';
+    const durationMs = 500;
+    const startTime = performance.now();
+
+    // Query live SurfaceMesh objects directly from collection hierarchy
+    const getSurfacesByName = () => {
+      const map = new Map<string, Object3D[]>();
+      collection.traverse((object) => {
+        if (object.type !== 'SurfaceMesh') return;
+        const feat = object.userData.feature as Feature<Geometry> | undefined;
+        const bName = String(feat?.get('name') ?? '').toLowerCase();
+        if (bName) {
+          const arr = map.get(bName) ?? [];
+          arr.push(object);
+          map.set(bName, arr);
+        }
+      });
+      return map;
+    };
+    let surfacesByName = getSurfacesByName();
+
+    const targets = new Map<Feature<Geometry>, { name: string; startH: number; targetH: number; fullH: number }>();
+    for (const [lowerName, feature] of featuresByNameRef.current) {
+      const name = String(feature.get('name') ?? lowerName);
+      const data = barangaysByName[name] || barangaysByName[lowerName];
+      const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
+      const fullH = getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
+      const currentH = displayedHeightsRef.current.get(feature) ?? (isFlat ? fullH : 2);
+      const targetH = isFlat ? 2 : fullH;
+      targets.set(feature, {
+        name: lowerName,
+        startH: currentH,
+        targetH,
+        fullH: Math.max(10, fullH),
+      });
+    }
+
+    const animateTransition = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / durationMs);
+      const ease = 1 - Math.pow(1 - progress, 3); // Smooth cubic ease-out
+
+      if (surfacesByName.size === 0) {
+        surfacesByName = getSurfacesByName();
+      }
+
+      for (const [feature, { name, startH, targetH, fullH }] of targets) {
+        const currentH = startH + (targetH - startH) * ease;
+        displayedHeightsRef.current.set(feature, currentH);
+
+        const scaleZ = fullH > 0 ? Math.max(0.001, currentH / fullH) : 0.001;
+
+        // Scale live SurfaceMesh geometry
+        for (const surface of surfacesByName.get(name) ?? surfaceMeshesRef.current.get(feature) ?? []) {
+          setVerticalScale(surface, scaleZ);
+        }
+        // Scale wireframe borders
+        const lines = borderLinesByNameRef.current.get(name) || borderLinesRef.current.get(feature);
+        if (lines) {
+          setVerticalScale(lines, scaleZ);
+        }
+      }
+
+      syncLabelPositionsRef.current?.();
+      instance.notifyChange(instance.view.camera);
+
+      if (progress < 1) {
+        simulationAnimationFrameRef.current = requestAnimationFrame(animateTransition);
+      } else {
+        simulationAnimationFrameRef.current = null;
+      }
+    };
+
+    simulationAnimationFrameRef.current = requestAnimationFrame(animateTransition);
+    return () => {
+      if (simulationAnimationFrameRef.current != null) {
+        cancelAnimationFrame(simulationAnimationFrameRef.current);
+        simulationAnimationFrameRef.current = null;
+      }
+    };
+  }, [movementDisplayMode, isSceneReady, activeLayer, barangaysByName, diseaseSubMode, selectedLivestockType]);
 
   const previousResetTrigger = useRef(resetTrigger);
   useEffect(() => {
@@ -770,27 +1509,75 @@ export function Giro3DBarangayView({
     const [minX, minY, maxX, maxY] = targetExtent;
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
-    controls.target.set(centerX, centerY, 0);
-    if (resetRequested) {
-      // Reset restores the same saved position used when the 3D scene first opens.
-      instance.view.camera.position.set(
-        DEFAULT_3D_CAMERA_POSITION.x,
-        DEFAULT_3D_CAMERA_POSITION.y,
-        DEFAULT_3D_CAMERA_POSITION.z,
-      );
-    } else {
-      // Selecting a barangay still frames that polygon using its own bounds.
-      const distance = Math.max(maxX - minX, maxY - minY) * 1.6;
-      instance.view.camera.position.set(
-        centerX - distance * 0.4,
-        centerY - distance * 0.4,
-        distance * 1.5,
-      );
+
+    const startTargetX = controls.target.x;
+    const startTargetY = controls.target.y;
+    const startTargetZ = controls.target.z;
+
+    const startCamX = instance.view.camera.position.x;
+    const startCamY = instance.view.camera.position.y;
+    const startCamZ = instance.view.camera.position.z;
+
+    const targetTargetX = centerX;
+    const targetTargetY = centerY;
+    const targetTargetZ = 0;
+
+    let targetCamX = DEFAULT_3D_CAMERA_POSITION.x;
+    let targetCamY = DEFAULT_3D_CAMERA_POSITION.y;
+    let targetCamZ = DEFAULT_3D_CAMERA_POSITION.z;
+
+    if (!resetRequested) {
+      // Selecting a barangay frames that polygon with wider regional context and comfortable breathing room
+      const distance = Math.max(maxX - minX, maxY - minY) * 2.8;
+      targetCamX = centerX - distance * 0.45;
+      targetCamY = centerY - distance * 0.55;
+      targetCamZ = distance * 1.75;
     }
-    controls.update();
-    syncLabelPositionsRef.current?.();
-    instance.notifyChange(instance.view.camera);
+
+    if (cameraAnimRef.current) {
+      cancelAnimationFrame(cameraAnimRef.current);
+    }
+
+    const startTime = performance.now();
+    const duration = 750; // ms
+
+    const animateCamera = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      // Smooth cubic ease-out
+      const ease = 1 - Math.pow(1 - progress, 3);
+
+      controls.target.set(
+        startTargetX + (targetTargetX - startTargetX) * ease,
+        startTargetY + (targetTargetY - startTargetY) * ease,
+        startTargetZ + (targetTargetZ - startTargetZ) * ease,
+      );
+
+      instance.view.camera.position.set(
+        startCamX + (targetCamX - startCamX) * ease,
+        startCamY + (targetCamY - startCamY) * ease,
+        startCamZ + (targetCamZ - startCamZ) * ease,
+      );
+
+      controls.update();
+      syncLabelPositionsRef.current?.();
+      instance.notifyChange(instance.view.camera);
+
+      if (progress < 1) {
+        cameraAnimRef.current = requestAnimationFrame(animateCamera);
+      } else {
+        cameraAnimRef.current = null;
+      }
+    };
+
+    cameraAnimRef.current = requestAnimationFrame(animateCamera);
   }, [resetTrigger, selectedBarangay]);
+
+  useEffect(() => {
+    return () => {
+      if (cameraAnimRef.current) cancelAnimationFrame(cameraAnimRef.current);
+    };
+  }, []);
 
   return (
     <div className="absolute inset-0 overflow-hidden" aria-label="3D barangay data map">

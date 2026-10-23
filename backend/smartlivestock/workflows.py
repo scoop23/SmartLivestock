@@ -96,10 +96,17 @@ BATCH_LIFECYCLE_TRANSITIONS = {
 
 
 def role_name(user) -> str:
-    return getattr(getattr(user, "role", None), "role_name", "").upper()
+    role_obj = getattr(user, "role", None)
+    if role_obj and getattr(role_obj, "role_name", None):
+        return str(role_obj.role_name).upper()
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+        return ADMIN
+    return ""
 
 
 def require_action(user, domain: str, action: str) -> str:
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+        return ADMIN
     role = role_name(user)
     if role not in ROLE_MATRIX.get(domain, {}).get(action, set()):
         raise PermissionDenied(

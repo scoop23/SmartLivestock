@@ -129,42 +129,42 @@ export function MovementDetailsModal({
       {/* Scrollable Content */}
       <div className="p-4 space-y-4 overflow-y-auto flex-1 text-slate-800 overscroll-contain">
         {/* Origin to Destination Flow Card */}
-        <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3.5 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${directionColor}`}>
+        <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3.5 space-y-3 min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between gap-1.5 flex-wrap">
+            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${directionColor}`}>
               {directionLabel}
             </span>
-            <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+            <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1 shrink-0">
               <Calendar className="size-3.5 text-slate-400" />
               {formattedDate}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
             {/* Origin */}
-            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-lg p-2.5 space-y-0.5">
+            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-lg p-2.5 space-y-0.5 min-w-0 overflow-hidden">
               <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
-                <span className="size-2 rounded-full bg-emerald-600 inline-block" />
+                <span className="size-2 rounded-full bg-emerald-600 inline-block shrink-0" />
                 Origin Hub
               </div>
-              <div className="font-black text-sm text-emerald-950 truncate">
+              <div className="font-black text-sm text-emerald-950 truncate" title={movement.origin}>
                 {movement.origin}
               </div>
-              <div className="text-[10px] text-emerald-700">
+              <div className="text-[10px] text-emerald-700 font-mono truncate">
                 Coords: [{movement.from[0].toFixed(4)}, {movement.from[1].toFixed(4)}]
               </div>
             </div>
 
             {/* Destination */}
-            <div className="bg-blue-50/70 border border-blue-200/80 rounded-lg p-2.5 space-y-0.5">
+            <div className="bg-blue-50/70 border border-blue-200/80 rounded-lg p-2.5 space-y-0.5 min-w-0 overflow-hidden">
               <div className="text-[10px] font-bold uppercase tracking-wider text-blue-800 flex items-center gap-1">
-                <span className="size-2 rounded-full bg-blue-600 inline-block" />
+                <span className="size-2 rounded-full bg-blue-600 inline-block shrink-0" />
                 Destination Terminal
               </div>
-              <div className="font-black text-sm text-blue-950 truncate">
+              <div className="font-black text-sm text-blue-950 truncate" title={movement.destination}>
                 {movement.destination}
               </div>
-              <div className="text-[10px] text-blue-700">
+              <div className="text-[10px] text-blue-700 font-mono truncate">
                 Coords: [{movement.to[0].toFixed(4)}, {movement.to[1].toFixed(4)}]
               </div>
             </div>
@@ -200,31 +200,37 @@ export function MovementDetailsModal({
           </h4>
 
           <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500 font-medium">Shipper / Handler:</span>
-              <span className="font-bold text-slate-900">{movement.shipper_name || 'Registered Handler'}</span>
+            <div className="flex justify-between items-center py-1 border-b border-slate-100 gap-2 min-w-0">
+              <span className="text-slate-500 font-medium shrink-0">Shipper / Handler:</span>
+              <span className="font-bold text-slate-900 truncate text-right min-w-0 max-w-[60%]" title={movement.shipper_name || undefined}>
+                {movement.shipper_name || 'Registered Handler'}
+              </span>
             </div>
 
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500 font-medium">Transport Purpose:</span>
-              <span className="font-bold text-slate-900">{movement.purpose || 'Livestock Movement'}</span>
+            <div className="flex justify-between items-center py-1 border-b border-slate-100 gap-2 min-w-0">
+              <span className="text-slate-500 font-medium shrink-0">Transport Purpose:</span>
+              <span className="font-bold text-slate-900 truncate text-right min-w-0 max-w-[60%]" title={movement.purpose || undefined}>
+                {movement.purpose || 'Livestock Movement'}
+              </span>
             </div>
 
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500 font-medium">Clearance Certificate:</span>
-              <span className="font-bold font-mono text-emerald-900">{movement.control_number || 'N/A'}</span>
+            <div className="flex justify-between items-center py-1 border-b border-slate-100 gap-2 min-w-0">
+              <span className="text-slate-500 font-medium shrink-0">Clearance Certificate:</span>
+              <span className="font-bold font-mono text-emerald-900 truncate text-right min-w-0 max-w-[60%]">
+                {movement.control_number || 'N/A'}
+              </span>
             </div>
 
-            <div className="flex justify-between py-1">
-              <span className="text-slate-500 font-medium">Official Status:</span>
-              <span className="font-bold">
+            <div className="flex justify-between items-center py-1 gap-2 min-w-0">
+              <span className="text-slate-500 font-medium shrink-0">Official Status:</span>
+              <span className="font-bold shrink-0">
                 {isApproved ? (
                   <span className="text-emerald-700 flex items-center gap-1">
                     <ShieldCheck className="size-3.5" /> MAO Approved
                   </span>
                 ) : (
                   <span className="text-amber-700 flex items-center gap-1">
-                    <Clock className="size-3.5" /> Under Inspection / Review
+                    <Clock className="size-3.5" /> Under Inspection
                   </span>
                 )}
               </span>

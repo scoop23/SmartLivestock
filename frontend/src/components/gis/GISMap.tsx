@@ -56,6 +56,7 @@ BarangayGISData,
 DiseaseSubMode,
 GISUserScope,
 MapLayer,
+Movement3DDisplayMode,
 MovementRecord,
 SimulatedBarangayState,
 ViewMode,
@@ -125,7 +126,7 @@ function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps
           const featureLayer = L.geoJSON(feature);
           const fBounds = featureLayer.getBounds();
           if (fBounds.isValid()) {
-            map.fitBounds(fBounds, { padding: isSmallScreen ? [24, 24] : [48, 48], maxZoom: 15 });
+            map.fitBounds(fBounds, { padding: isSmallScreen ? [24, 24] : [48, 48], maxZoom: 15, animate: false });
             return;
           }
         }
@@ -135,7 +136,7 @@ function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps
       const geoJsonLayer = L.geoJSON(padreGarciaGeojson as FeatureCollection);
       const bounds = geoJsonLayer.getBounds();
       if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: defaultPadding });
+        map.fitBounds(bounds, { padding: defaultPadding, animate: false });
       }
     });
   }, [map, resetTrigger, userScope, selectedBarangay]);
@@ -239,6 +240,7 @@ interface GISMapProps {
   selectedMovement?: MovementRecord | null;
   onSelectMovement?: (m: MovementRecord | null) => void;
   showMovementOverlay?: boolean;
+  movementDisplayMode?: Movement3DDisplayMode;
 }
 
 export function GISMap({
@@ -256,6 +258,7 @@ export function GISMap({
   selectedMovement,
   onSelectMovement,
   showMovementOverlay = false,
+  movementDisplayMode = 'both',
 }: GISMapProps) {
   const centerPosition: [number, number] = [13.8741, 121.2529];
   const [leafletLib, setLeafletLib] = useState<typeof import('leaflet') | null>(null);
@@ -887,6 +890,22 @@ export function GISMap({
           border-color: #38bdf8;
         }
 
+        @keyframes lineFlowDash {
+          from {
+            stroke-dashoffset: 40px;
+          }
+          to {
+            stroke-dashoffset: 0px;
+          }
+        }
+        .movement-polyline-flow {
+          animation: lineFlowDash 1.4s linear infinite;
+        }
+        .movement-polyline-flow-selected {
+          animation: lineFlowDash 0.75s linear infinite;
+          filter: drop-shadow(0 0 6px #facc15);
+        }
+
         .leaflet-container {
           background-color: #0f172a !important;
           font-family: inherit !important;
@@ -909,6 +928,11 @@ export function GISMap({
           userScope={userScope}
           heightScale={heightScale}
           suppressClickUntilRef={suppressClickUntilRef}
+          movements={movements}
+          selectedMovement={selectedMovement}
+          onSelectMovement={onSelectMovement}
+          showMovementOverlay={showMovementOverlay}
+          movementDisplayMode={movementDisplayMode}
         />
       ) : (
       <div className="w-full h-full">
@@ -945,7 +969,7 @@ export function GISMap({
           ))}
 
           {/* Movement Layer Polyline Arcs & External Destination Pins */}
-          {(activeLayer === 'movement' || showMovementOverlay) &&
+          {(activeLayer === 'movement' || showMovementOverlay) && (activeLayer !== 'movement' || movementDisplayMode !== 'density') &&
             movements.map((move, moveIdx) => {
               const isSelected = selectedMovement?.id === move.id;
               const isApproved = move.clearance_status?.toUpperCase() === 'APPROVED';
@@ -984,8 +1008,9 @@ export function GISMap({
                     pathOptions={{
                       color: pathColor,
                       weight: isSelected ? 5.5 : 3.5,
-                      dashArray: isApproved ? '7, 7' : '3, 6',
+                      dashArray: isApproved ? '10, 10' : '6, 8',
                       opacity: isSelected ? 1 : 0.85,
+                      className: isSelected ? 'movement-polyline-flow-selected' : 'movement-polyline-flow',
                     }}
                     eventHandlers={{
                       click: () => {

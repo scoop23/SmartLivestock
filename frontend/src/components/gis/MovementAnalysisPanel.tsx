@@ -222,7 +222,7 @@ export function MovementAnalysisPanel({
                 key={p.id}
                 type="button"
                 onClick={() => setDatePreset(p.id as MovementDatePreset)}
-                className={`text-[11px] font-bold py-1.5 px-2 rounded-lg transition-all cursor-pointer text-center truncate ${
+                className={`text-[10px] sm:text-[11px] font-bold py-1.5 px-1 sm:px-2 rounded-lg transition-all cursor-pointer text-center truncate ${
                   datePreset === p.id
                     ? 'bg-blue-600 text-white shadow-xs'
                     : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -331,11 +331,11 @@ export function MovementAnalysisPanel({
             <div className="space-y-1.5 pt-0.5">
               {summaryStats.topOrigins.map((o, i) => (
                 <div key={o.name} className="text-xs">
-                  <div className="flex justify-between items-center mb-0.5">
-                    <span className="font-bold text-slate-700 truncate max-w-[120px]">
+                  <div className="flex justify-between items-center mb-0.5 gap-2 min-w-0">
+                    <span className="font-bold text-slate-700 truncate min-w-0 flex-1" title={o.name}>
                       {i + 1}. {o.name}
                     </span>
-                    <span className="font-mono font-bold text-emerald-900">
+                    <span className="font-mono font-bold text-emerald-900 shrink-0">
                       {o.heads} heads
                     </span>
                   </div>
@@ -362,11 +362,11 @@ export function MovementAnalysisPanel({
             <div className="space-y-1.5 pt-0.5">
               {summaryStats.topDestinations.map((d, i) => (
                 <div key={d.name} className="text-xs">
-                  <div className="flex justify-between items-center mb-0.5">
-                    <span className="font-bold text-slate-700 truncate max-w-[120px]">
+                  <div className="flex justify-between items-center mb-0.5 gap-2 min-w-0">
+                    <span className="font-bold text-slate-700 truncate min-w-0 flex-1" title={d.name}>
                       {i + 1}. {d.name}
                     </span>
-                    <span className="font-mono font-bold text-blue-900">
+                    <span className="font-mono font-bold text-blue-900 shrink-0">
                       {d.heads} heads
                     </span>
                   </div>
@@ -384,19 +384,19 @@ export function MovementAnalysisPanel({
       </div>
 
       {/* 4. Movement Permits Interactive Feed */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2.5">
-        <div className="flex items-center justify-between">
-          <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
-            <Truck className="size-3.5 text-blue-600" />
-            Permit Inspection Records ({filteredMovements.length})
+      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2.5 min-w-0 overflow-hidden">
+        <div className="flex items-center justify-between gap-1.5 min-w-0">
+          <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide min-w-0 truncate">
+            <Truck className="size-3.5 text-blue-600 shrink-0" />
+            <span className="truncate">Permit Records ({filteredMovements.length})</span>
           </span>
-          <span className="text-[10px] text-slate-400 font-bold uppercase">
-            Click to inspect route
+          <span className="text-[10px] text-slate-400 font-bold uppercase shrink-0">
+            Click to inspect
           </span>
         </div>
 
         {filteredMovements.length > 0 ? (
-          <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+          <div className="space-y-1.5 max-h-[340px] overflow-y-auto overscroll-contain pr-0.5">
             {filteredMovements.map((m) => {
               const isSelected = selectedMovement?.id === m.id;
               const isAppr = m.clearance_status?.toUpperCase() === 'APPROVED';
@@ -406,37 +406,43 @@ export function MovementAnalysisPanel({
                   key={m.id}
                   type="button"
                   onClick={() => onSelectMovement(m)}
-                  className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
+                  className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer block min-w-0 overflow-hidden space-y-1.5 ${
                     isSelected
                       ? 'bg-blue-50/90 border-blue-500 shadow-md ring-1 ring-blue-500'
                       : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
                   }`}
                 >
-                  <div className="flex justify-between items-start gap-1">
-                    <div className="font-black text-xs text-slate-900">
+                  <div className="flex items-center justify-between gap-1.5 min-w-0">
+                    <div className="font-black text-xs text-slate-900 truncate min-w-0">
                       {m.heads} {m.species || 'Cattle'}
                     </div>
                     <Badge
-                      className={
+                      className={`shrink-0 font-mono text-[9px] px-1.5 py-0 ${
                         isAppr
-                          ? 'bg-emerald-600 text-white text-[9px] px-1.5 py-0 font-mono'
-                          : 'bg-amber-500 text-white text-[9px] px-1.5 py-0 font-mono'
-                      }
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-amber-500 text-white'
+                      }`}
                     >
                       {m.clearance_status || 'RECORDED'}
                     </Badge>
                   </div>
 
-                  <div className="text-[11px] text-slate-600 flex items-center gap-1 py-1">
+                  <div className="text-[11px] text-slate-600 flex items-center gap-1 min-w-0 overflow-hidden">
                     <MapPin className="size-3 text-emerald-700 shrink-0" />
-                    <span className="truncate max-w-[100px]">{m.origin}</span>
-                    <span className="text-slate-400 font-bold">→</span>
-                    <span className="font-bold text-slate-800 truncate max-w-[110px]">{m.destination}</span>
+                    <span className="truncate min-w-0 flex-1 font-medium" title={m.origin}>
+                      {m.origin}
+                    </span>
+                    <span className="text-slate-400 font-bold shrink-0">→</span>
+                    <span className="font-bold text-slate-800 truncate min-w-0 flex-1 text-right" title={m.destination}>
+                      {m.destination}
+                    </span>
                   </div>
 
-                  <div className="flex justify-between text-[10px] text-slate-500 pt-0.5 border-t border-slate-200/50">
-                    <span className="truncate max-w-[130px]">Shipper: {m.shipper_name || 'N/A'}</span>
-                    <span className="font-mono text-slate-400">{m.date}</span>
+                  <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500 pt-1 border-t border-slate-200/50 min-w-0 overflow-hidden">
+                    <span className="truncate min-w-0 flex-1" title={m.shipper_name ? `Shipper: ${m.shipper_name}` : undefined}>
+                      Shipper: <span className="font-medium text-slate-700">{m.shipper_name || 'N/A'}</span>
+                    </span>
+                    <span className="font-mono text-slate-400 shrink-0">{m.date}</span>
                   </div>
                 </button>
               );

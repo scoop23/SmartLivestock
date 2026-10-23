@@ -279,6 +279,15 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
                 )
             })
 
+        if (
+            production_type == ProductionRecord.ProductionType.MILK
+            and livestock
+            and (livestock.sex or "").strip().upper() not in {"FEMALE", "F"}
+        ):
+            raise ValidationError({
+                "livestock": "Milk production can only be logged for an individual female animal."
+            })
+
         expected_unit = PRODUCTION_UNITS.get(production_type)
         if unit != expected_unit:
             raise ValidationError({

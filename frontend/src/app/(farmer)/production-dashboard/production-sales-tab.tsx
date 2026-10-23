@@ -277,7 +277,7 @@ export default function ProductionSalesTab({
             onClick={() => { setEditingSale(null); setSaleLivestockId(""); setSaleQty(1); setIsSaleOpen(true); }}
             className="bg-emerald-700 hover:bg-[#2D5A27] text-white shadow-sm font-semibold gap-2"
           >
-            <Plus className="size-4" /> Record Cattle Sold
+            <Plus className="size-4" /> Record Livestock Sold
           </Button>
         </div>
       </div>
@@ -416,7 +416,7 @@ export default function ProductionSalesTab({
         <DialogContent className="sm:max-w-xl p-6 rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <ShoppingBag className="size-5 text-emerald-700" /> {editingSale ? "Revise Sale Declaration" : "Record Live Cattle Sale"}
+              <ShoppingBag className="size-5 text-emerald-700" /> {editingSale ? "Revise Sale Declaration" : "Record Livestock Sold"}
             </DialogTitle>
             <DialogDescription>
               Record sale details, auction proceeds, and pricing methods.

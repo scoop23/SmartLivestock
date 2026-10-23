@@ -3,13 +3,17 @@
 import { PageHeader } from "@/app/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Info } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo,useState } from "react";
 import { useUserInventory } from "../livestock-inventory/livestock-inventory";
 import EnterpriseEmptyState from "./components/enterprise-empty-state";
 import type { ProductionType } from "./production-analytics";
-import ProductionDashboardView from "./production-dashboard-view";
 import RecordActivityChooser from "./record-activity-chooser";
+
+const ProductionDashboardView = dynamic(() => import("./production-dashboard-view"), {
+  loading: () => <Skeleton className="h-48 w-full rounded-2xl" />,
+});
 
 type SelectedRecordActivity = {
   id: string;

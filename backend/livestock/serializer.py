@@ -749,15 +749,19 @@ class FarmerOptionsSerializer(serializers.ModelSerializer):
         - id: Farmer profile ID
         - Location: barangay (ID), barangay_name, address
         - Identity: farmer_name (resolved full name or username)
-        - Profile: farm_size, registered_at
+        - Profile: farm_size, registered_at, rsbsa_number, contact_number, active_herds_count, animals_count
     Used in:
-        Census farmer pickers, livestock registration farmer selectors, and SIBAT assignment tools.
+        Census farmer pickers, livestock registration farmer selectors, GIS barangay details, and SIBAT assignment tools.
     """
     farmer_name = serializers.SerializerMethodField()
     barangay_name = serializers.CharField(
         source="barangay.barangay_name",
         read_only=True,
     )
+    rsbsa_number = serializers.CharField(read_only=True)
+    contact_number = serializers.SerializerMethodField()
+    active_herds_count = serializers.SerializerMethodField()
+    animals_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
@@ -769,6 +773,10 @@ class FarmerOptionsSerializer(serializers.ModelSerializer):
             "farm_size",
             "address",
             "registered_at",
+            "rsbsa_number",
+            "contact_number",
+            "active_herds_count",
+            "animals_count",
         ]
 
         read_only_fields = ["id", "registered_at"]
@@ -779,6 +787,23 @@ class FarmerOptionsSerializer(serializers.ModelSerializer):
         if full_name:
             return full_name
         return user.username if user.username else user.email
+
+    def get_contact_number(self, obj):
+        user = getattr(obj, "user", None)
+        phone = getattr(user, "phone_number", None)
+        return str(phone) if phone else ""
+
+    def get_active_herds_count(self, obj):
+        annotated = getattr(obj, "active_herds_count", None)
+        if annotated is not None:
+            return annotated
+        return obj.batches.filter(status="ACTIVE").count()
+
+    def get_animals_count(self, obj):
+        annotated = getattr(obj, "animals_count", None)
+        if annotated is not None:
+            return annotated
+        return obj.inventories.filter(operational_status="ACTIVE").count()
 
 
 class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
