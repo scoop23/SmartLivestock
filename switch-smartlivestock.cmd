@@ -6,12 +6,12 @@ cd /d "%~dp0"
 echo.
 echo SmartLivestock environment switch
 echo   L - Local Django + local PostgreSQL database
-echo   R - Local website + Render backend/database
+echo   A - Local website + Render Django backend connected to Aiven PostgreSQL
 echo   Q - Quit
 echo.
-choice /c LRQ /n /m "Choose environment [L/R/Q]: "
+choice /c LAQ /n /m "Choose environment [L/A/Q]: "
 if errorlevel 3 goto done
-if errorlevel 2 goto render
+if errorlevel 2 goto aiven
 if errorlevel 1 goto local
 
 :local
@@ -75,17 +75,18 @@ wezterm cli spawn --cwd "%~dp0" -- cmd.exe /k call scripts\smartlivestock-fronte
 if errorlevel 1 echo Could not open the website tab in WezTerm. Run scripts\smartlivestock-frontend-local.cmd manually.
 goto done
 
-:render
+:aiven
 echo.
-echo Starting the local website against the deployed Render backend.
-echo Render's backend uses its own Render database; this does not expose or change its DATABASE_URL.
+echo Starting the local website against the deployed Render Django backend.
+echo The Render backend should have DATABASE_URL set to your Aiven PostgreSQL service.
+echo This starts only the local frontend; Django connects to Aiven through its backend configuration.
 echo Close any previous SmartLivestock server windows before switching modes.
 where wezterm >nul 2>nul
-if not errorlevel 1 if defined WEZTERM_PANE goto render_wezterm
-start "SmartLivestock Render Website" "%ComSpec%" /k ""%~dp0scripts\smartlivestock-frontend-render.cmd""
+if not errorlevel 1 if defined WEZTERM_PANE goto aiven_wezterm
+start "SmartLivestock Aiven-backed Website" "%ComSpec%" /k ""%~dp0scripts\smartlivestock-frontend-render.cmd""
 goto done
 
-:render_wezterm
+:aiven_wezterm
 wezterm cli spawn --cwd "%~dp0" -- cmd.exe /k call scripts\smartlivestock-frontend-render.cmd
 if errorlevel 1 echo Could not open the website tab in WezTerm. Run scripts\smartlivestock-frontend-render.cmd manually.
 goto done
