@@ -35,8 +35,10 @@ interface MovementTimelinePlayerProps {
   years: string[];
   selectedYear: string;
   onYearChange: (year: string) => void;
-  isAllDatesMode: boolean;
-  onToggleAllDatesMode: () => void;
+  timelineMode?: 'single' | 'cumulative' | 'all';
+  onTimelineModeChange?: (mode: 'single' | 'cumulative' | 'all') => void;
+  isAllDatesMode?: boolean;
+  onToggleAllDatesMode?: () => void;
   onClose?: () => void;
 }
 
@@ -48,6 +50,8 @@ export function MovementTimelinePlayer({
   years,
   selectedYear,
   onYearChange,
+  timelineMode,
+  onTimelineModeChange,
   isAllDatesMode,
   onToggleAllDatesMode,
   onClose,
@@ -55,52 +59,97 @@ export function MovementTimelinePlayer({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const mode = timelineMode ?? (isAllDatesMode ? 'all' : 'single');
   const currentDate = uniqueDates[activeDateIndex] || '';
 
+  const activeIndexRef = useRef(activeDateIndex);
+  activeIndexRef.current = activeDateIndex;
+  const datesLengthRef = useRef(uniqueDates.length);
+  datesLengthRef.current = uniqueDates.length;
+
   const activeMovementsCount = useMemo(() => {
-    if (isAllDatesMode) return movements.length;
+    if (mode === 'all') return movements.length;
+    if (mode === 'cumulative') {
+      return movements.filter((m) => m.date && m.date <= currentDate).length;
+    }
     return movements.filter((m) => m.date === currentDate).length;
-  }, [movements, isAllDatesMode, currentDate]);
+  }, [movements, mode, currentDate]);
 
   const activeHeadsCount = useMemo(() => {
-    if (isAllDatesMode) {
+    if (mode === 'all') {
       return movements.reduce((acc, m) => acc + m.heads, 0);
+    }
+    if (mode === 'cumulative') {
+      return movements
+        .filter((m) => m.date && m.date <= currentDate)
+        .reduce((acc, m) => acc + m.heads, 0);
     }
     return movements
       .filter((m) => m.date === currentDate)
       .reduce((acc, m) => acc + m.heads, 0);
-  }, [movements, isAllDatesMode, currentDate]);
+  }, [movements, mode, currentDate]);
 
-  // Playback timer
+  // Playback timer loop
   useEffect(() => {
-    if (isPlaying && !isAllDatesMode && uniqueDates.length > 1) {
-      timerRef.current = setInterval(() => {
-        onDateIndexChange((prev: number) => {
-          if (prev >= uniqueDates.length - 1) {
-            setIsPlaying(false);
-            return prev;
-          }
-          return prev + 1;
-        });
-      }, 1500);
-    } else {
+    if (!isPlaying || uniqueDates.length <= 1) {
       if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
+      return;
     }
+
+    timerRef.current = setInterval(() => {
+      const maxIndex = datesLengthRef.current - 1;
+      const current = activeIndexRef.current;
+      if (current >= maxIndex) {
+        setIsPlaying(false);
+      } else {
+        onDateIndexChange(current + 1);
+      }
+    }, 1200);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
     };
-  }, [isPlaying, isAllDatesMode, uniqueDates.length, onDateIndexChange]);
+  }, [isPlaying, uniqueDates.length, onDateIndexChange]);
+
+  const handleTogglePlay = () => {
+    if (mode === 'all') {
+      onTimelineModeChange?.('single');
+    }
+    if (!isPlaying && activeDateIndex >= uniqueDates.length - 1) {
+      onDateIndexChange(0);
+    }
+    setIsPlaying((prev) => !prev);
+  };
 
   const handlePrev = () => {
+    setIsPlaying(false);
+    if (mode === 'all') {
+      onTimelineModeChange?.('single');
+    }
     if (activeDateIndex > 0) {
       onDateIndexChange(activeDateIndex - 1);
     }
   };
 
   const handleNext = () => {
+    setIsPlaying(false);
+    if (mode === 'all') {
+      onTimelineModeChange?.('single');
+    }
     if (activeDateIndex < uniqueDates.length - 1) {
       onDateIndexChange(activeDateIndex + 1);
+    }
+  };
+
+  const handleToggleMode = () => {
+    if (onTimelineModeChange) {
+      if (mode === 'single') onTimelineModeChange('cumulative');
+      else if (mode === 'cumulative') onTimelineModeChange('all');
+      else onTimelineModeChange('single');
+    } else if (onToggleAllDatesMode) {
+      onToggleAllDatesMode();
     }
   };
 
@@ -109,27 +158,49 @@ export function MovementTimelinePlayer({
   }
 
   const formattedCurrentDate = (() => {
-    if (isAllDatesMode) return selectedYear === 'ALL' ? 'All-time permits' : `${selectedYear} permits`;
+    if (mode === 'all') return selectedYear === 'ALL' ? 'All-time permits' : `${selectedYear} all permits`;
     try {
       const d = new Date(currentDate);
-      return d.toLocaleDateString('en-US', {
+      const str = d.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
       });
+      return mode === 'cumulative' ? `Up to ${str}` : str;
     } catch {
-      return currentDate;
+      return mode === 'cumulative' ? `Up to ${currentDate}` : currentDate;
     }
   })();
 
   return (
     <div className="bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-2xl p-3 sm:p-4 text-slate-800 space-y-2 pointer-events-auto">
       <div className="flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Filter permits by year">
-        <Button type="button" size="sm" variant={selectedYear === 'ALL' ? 'default' : 'outline'} aria-pressed={selectedYear === 'ALL'} onClick={() => onYearChange('ALL')} className="h-7 shrink-0 px-2.5 text-[10px]">
+        <Button
+          type="button"
+          size="sm"
+          variant={selectedYear === 'ALL' ? 'default' : 'outline'}
+          aria-pressed={selectedYear === 'ALL'}
+          onClick={() => {
+            setIsPlaying(false);
+            onYearChange('ALL');
+          }}
+          className="h-7 shrink-0 px-2.5 text-[10px]"
+        >
           All time
         </Button>
         {years.map((year) => (
-          <Button key={year} type="button" size="sm" variant={selectedYear === year ? 'default' : 'outline'} aria-pressed={selectedYear === year} onClick={() => onYearChange(year)} className="h-7 shrink-0 px-2.5 text-[10px]">
+          <Button
+            key={year}
+            type="button"
+            size="sm"
+            variant={selectedYear === year ? 'default' : 'outline'}
+            aria-pressed={selectedYear === year}
+            onClick={() => {
+              setIsPlaying(false);
+              onYearChange(year);
+            }}
+            className="h-7 shrink-0 px-2.5 text-[10px]"
+          >
             {year}
           </Button>
         ))}
@@ -156,14 +227,28 @@ export function MovementTimelinePlayer({
         <div className="flex items-center gap-1 shrink-0">
           <Button
             type="button"
-            variant={isAllDatesMode ? 'default' : 'outline'}
+            variant="outline"
             size="sm"
-            onClick={onToggleAllDatesMode}
-            className={`text-[10px] font-bold h-7 px-2 cursor-pointer ${
-              isAllDatesMode ? 'bg-blue-600 text-white' : 'text-slate-700'
-            }`}
+            onClick={handleToggleMode}
+            className="text-[10px] font-bold h-7 px-2.5 cursor-pointer bg-white border-slate-200 hover:bg-slate-50 flex items-center gap-1.5 text-slate-800 shadow-2xs"
+            title="Switch between Single date, Cumulative (growth over time), and All permits"
           >
-            {isAllDatesMode ? 'Cumulative' : 'Single date'}
+            {mode === 'single' ? (
+              <>
+                <span className="size-1.5 rounded-full bg-blue-600 inline-block" />
+                <span>Single date</span>
+              </>
+            ) : mode === 'cumulative' ? (
+              <>
+                <span className="size-1.5 rounded-full bg-emerald-600 inline-block" />
+                <span>Cumulative</span>
+              </>
+            ) : (
+              <>
+                <span className="size-1.5 rounded-full bg-slate-500 inline-block" />
+                <span>All permits</span>
+              </>
+            )}
           </Button>
           {onClose && (
             <button
@@ -178,7 +263,7 @@ export function MovementTimelinePlayer({
       </div>
 
       {/* Scrubber Controls */}
-      {!isAllDatesMode && uniqueDates.length > 1 && (
+      {uniqueDates.length > 1 && (
         <div className="space-y-1.5 pt-1">
           <div className="flex items-center gap-2">
             <Button
@@ -197,7 +282,7 @@ export function MovementTimelinePlayer({
               type="button"
               variant="default"
               size="sm"
-              onClick={() => setIsPlaying(!isPlaying)}
+              onClick={handleTogglePlay}
               className="size-7 p-0 rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
               aria-label={isPlaying ? 'Pause' : 'Play timeline'}
             >
@@ -223,6 +308,9 @@ export function MovementTimelinePlayer({
               value={activeDateIndex}
               onChange={(e) => {
                 setIsPlaying(false);
+                if (mode === 'all') {
+                  onTimelineModeChange?.('single');
+                }
                 onDateIndexChange(Number(e.target.value));
               }}
               className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"

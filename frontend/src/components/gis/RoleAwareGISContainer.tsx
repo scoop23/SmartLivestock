@@ -139,8 +139,9 @@ export function RoleAwareGISContainer({
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
 
   // Movement timeline player states
+  const [showMovementTimeline, setShowMovementTimeline] = useState<boolean>(false);
   const [movementDateIndex, setMovementDateIndex] = useState<number>(0);
-  const [isMovementAllDatesMode, setIsMovementAllDatesMode] = useState<boolean>(true);
+  const [movementTimelineMode, setMovementTimelineMode] = useState<'single' | 'cumulative' | 'all'>('single');
   const [selectedMovementYear, setSelectedMovementYear] = useState<string>('ALL');
 
   // Simulation timeline & environmental states (12-month Jan-Dec 2026 player)
@@ -284,18 +285,30 @@ export function RoleAwareGISContainer({
 
   const activeDisplayMovements = useMemo(() => {
     const allMoves = periodMovements.length > 0 ? periodMovements : (gisData?.movements || []);
-    if (viewMode === '3D' || isMovementAllDatesMode || uniqueMovementDates.length <= 1) {
+    if (!showMovementTimeline || uniqueMovementDates.length === 0 || movementTimelineMode === 'all') {
       return allMoves;
     }
     const targetDate = uniqueMovementDates[movementDateIndex];
     if (!targetDate) return allMoves;
+
+    if (movementTimelineMode === 'cumulative') {
+      return allMoves.filter((m) => m.date && m.date <= targetDate);
+    }
     return allMoves.filter((m) => m.date === targetDate);
-  }, [periodMovements, gisData?.movements, viewMode, isMovementAllDatesMode, uniqueMovementDates, movementDateIndex]);
+  }, [periodMovements, gisData?.movements, showMovementTimeline, uniqueMovementDates, movementDateIndex, movementTimelineMode]);
+
+  // Clear selected movement permit if it leaves the visible timeline date window
+  useEffect(() => {
+    if (!selectedMovement) return;
+    const isStillVisible = activeDisplayMovements.some((m) => m.id === selectedMovement.id);
+    if (!isStillVisible) {
+      setSelectedMovement(null);
+    }
+  }, [activeDisplayMovements, selectedMovement]);
 
   const handleMovementYearChange = useCallback((year: string) => {
     setSelectedMovementYear(year);
     setMovementDateIndex(0);
-    setIsMovementAllDatesMode(true);
   }, []);
 
   const handleSelectBarangay = useCallback((b: BarangayGISData) => {
@@ -348,8 +361,6 @@ export function RoleAwareGISContainer({
 
   const handleViewModeChange = useCallback((mode: ViewMode) => {
     setViewMode(mode);
-    setIsMovementAllDatesMode(true);
-    setSelectedMovementYear('ALL');
   }, []);
 
   const handleDiseaseSubModeChange = useCallback((subMode: DiseaseSubMode) => {
@@ -400,6 +411,7 @@ export function RoleAwareGISContainer({
           onSelectMovement={handleSelectMovement}
           showMovementOverlay={showMovementOverlay}
           movementDisplayMode={movementDisplayMode}
+          isTimelineActive={showMovementTimeline && movementTimelineMode !== 'all'}
         />
 
         {/* 2. Floating Controls */}
@@ -409,9 +421,10 @@ export function RoleAwareGISContainer({
             onLayerChange={(layer) => {
               setActiveLayer(layer);
               setSelectedMovement(null);
-              if (layer === 'movement') {
-                setIsMovementAllDatesMode(true);
-                setSelectedMovementYear('ALL');
+              if (layer !== 'movement') {
+                setShowMovementTimeline(false);
+              } else {
+                setMovementDateIndex(0);
               }
             }}
             viewMode={viewMode}
@@ -433,6 +446,8 @@ export function RoleAwareGISContainer({
             userScope={gisData?.user_scope}
             movementDisplayMode={movementDisplayMode}
             onMovementDisplayModeChange={setMovementDisplayMode}
+            showMovementTimeline={showMovementTimeline}
+            onToggleMovementTimeline={() => setShowMovementTimeline((prev) => !prev)}
           />
         </div>
 
@@ -467,9 +482,9 @@ export function RoleAwareGISContainer({
           </div>
         )}
 
-        {/* 4b. Movement Historical Timeline Scrubber (When in Movement Layer) */}
-        {activeLayer === 'movement' && movementYears.length > 0 && (
-          <div className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] px-2 sm:px-4 w-full max-w-lg">
+        {/* 4b. Movement Historical Timeline Scrubber (When in Movement Layer AND timeline opened) */}
+        {activeLayer === 'movement' && showMovementTimeline && movementYears.length > 0 && (
+          <div className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] px-2 sm:px-4 w-full max-w-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
             <MovementTimelinePlayer
               movements={periodMovements}
               activeDateIndex={movementDateIndex}
@@ -478,8 +493,15 @@ export function RoleAwareGISContainer({
               years={movementYears}
               selectedYear={activeMovementYear}
               onYearChange={handleMovementYearChange}
-              isAllDatesMode={isMovementAllDatesMode}
-              onToggleAllDatesMode={() => setIsMovementAllDatesMode((prev) => !prev)}
+              timelineMode={movementTimelineMode}
+              onTimelineModeChange={setMovementTimelineMode}
+              isAllDatesMode={movementTimelineMode === 'all'}
+              onToggleAllDatesMode={() => {
+                setMovementTimelineMode((prev) =>
+                  prev === 'single' ? 'cumulative' : prev === 'cumulative' ? 'all' : 'single'
+                );
+              }}
+              onClose={() => setShowMovementTimeline(false)}
             />
           </div>
         )}

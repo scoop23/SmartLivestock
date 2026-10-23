@@ -241,6 +241,7 @@ interface GISMapProps {
   onSelectMovement?: (m: MovementRecord | null) => void;
   showMovementOverlay?: boolean;
   movementDisplayMode?: Movement3DDisplayMode;
+  isTimelineActive?: boolean;
 }
 
 export function GISMap({
@@ -259,6 +260,7 @@ export function GISMap({
   onSelectMovement,
   showMovementOverlay = false,
   movementDisplayMode = 'both',
+  isTimelineActive = false,
 }: GISMapProps) {
   const centerPosition: [number, number] = [13.8741, 121.2529];
   const [leafletLib, setLeafletLib] = useState<typeof import('leaflet') | null>(null);
@@ -933,6 +935,7 @@ export function GISMap({
           onSelectMovement={onSelectMovement}
           showMovementOverlay={showMovementOverlay}
           movementDisplayMode={movementDisplayMode}
+          isTimelineActive={isTimelineActive}
         />
       ) : (
       <div className="w-full h-full">

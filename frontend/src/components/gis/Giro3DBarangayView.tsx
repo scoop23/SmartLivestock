@@ -42,6 +42,7 @@ interface Giro3DBarangayViewProps {
   onSelectMovement?: (movement: MovementRecord | null) => void;
   showMovementOverlay?: boolean;
   movementDisplayMode?: Movement3DDisplayMode;
+  isTimelineActive?: boolean;
 }
 
 interface AnimatedPulse {
@@ -178,6 +179,41 @@ function setVerticalScale(object: Object3D, scale: number): void {
   }
 }
 
+// Match a movement shipment's origin string or coordinates to an official Padre Garcia barangay name key
+function getMovementOriginKey(
+  move: MovementRecord,
+  barangayKeys: string[],
+  barangaysByName: Record<string, BarangayGISData>,
+): string | null {
+  const origin = (move.origin || '').toLowerCase().trim();
+  if (origin) {
+    const firstPart = origin.split(',')[0].trim();
+    // 1. Exact match with first comma segment or full origin string
+    for (const key of barangayKeys) {
+      if (firstPart === key || origin === key) return key;
+    }
+    // 2. Substring match (keys sorted by length descending)
+    for (const key of barangayKeys) {
+      if (origin.includes(key)) return key;
+    }
+  }
+
+  // 3. Proximity fallback: match coordinate origin to barangay position
+  if (move.from && Number.isFinite(move.from[0]) && Number.isFinite(move.from[1])) {
+    const [fromLat, fromLng] = move.from;
+    for (const [name, bData] of Object.entries(barangaysByName)) {
+      if (bData?.position) {
+        const [bLat, bLng] = bData.position;
+        if (Math.abs(fromLat - bLat) < 0.005 && Math.abs(fromLng - bLng) < 0.005) {
+          return name.toLowerCase();
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 export function Giro3DBarangayView({
   barangaysByName,
   activeLayer,
@@ -195,6 +231,7 @@ export function Giro3DBarangayView({
   onSelectMovement,
   showMovementOverlay = false,
   movementDisplayMode = 'both',
+  isTimelineActive = false,
 }: Giro3DBarangayViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<Instance | null>(null);
@@ -214,7 +251,11 @@ export function Giro3DBarangayView({
   useEffect(() => {
     onSelectMovementRef.current = onSelectMovement;
   }, [onSelectMovement]);
-  // Refs let the long-lived Giro3D scene read current slider values without being recreated.
+  // Refs let the long-lived Giro3D scene read current slider and data values without being recreated.
+  const barangaysByNameRef = useRef(barangaysByName);
+  useEffect(() => {
+    barangaysByNameRef.current = barangaysByName;
+  }, [barangaysByName]);
   const heightScaleRef = useRef(heightScale);
   const appliedHeightScaleRef = useRef(heightScale);
   const borderLinesRef = useRef(new Map<Feature<Geometry>, import('three').LineSegments>());
@@ -228,6 +269,7 @@ export function Giro3DBarangayView({
   const displayedHeightsRef = useRef(new Map<Feature<Geometry>, number>());
   const fullExtrusionHeightsRef = useRef(new Map<Feature<Geometry>, number>());
   const simulationAnimationFrameRef = useRef<number | null>(null);
+  const heightAnimFrameRef = useRef<number | null>(null);
   const cameraAnimRef = useRef<number | null>(null);
   const hoveredFeatureRef = useRef<Feature<Geometry> | null>(null);
   const onSelectRef = useRef(onSelectBarangay);
@@ -409,7 +451,7 @@ export function Giro3DBarangayView({
         );
         const largestMetric = Math.max(
           0,
-          ...Object.values(barangaysByName).map((data) =>
+          ...Object.values(barangaysByNameRef.current).map((data) =>
             getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[data.name], selectedLivestockType)
           ),
         );
@@ -451,7 +493,7 @@ export function Giro3DBarangayView({
           maxLevel: 0,
           extrusionOffset: (feature) => {
             const name = String(feature.get('name') ?? '');
-            const data = barangaysByName[name];
+            const data = barangaysByNameRef.current[name];
             const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
             // Every polygon gets a small base height; its metric controls up to 2,200 additional scene units.
             return getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
@@ -459,7 +501,7 @@ export function Giro3DBarangayView({
           style: (feature) => {
             // Giro3D calls this for each feature; feature properties drive selection and hover appearance.
             const name = String(feature.get('name') ?? '');
-            const data = barangaysByName[name];
+            const data = barangaysByNameRef.current[name];
             const inScope = data?.is_in_scope ?? (
               !userScope || userScope.can_view_all_barangays || userScope.allowed_barangays.includes(name)
             );
@@ -499,7 +541,7 @@ export function Giro3DBarangayView({
           if (!geometry) continue;
           const name = String(feature.get('name') ?? '');
           const lowerName = name.toLowerCase();
-          const data = barangaysByName[name] || barangaysByName[lowerName];
+          const data = barangaysByNameRef.current[name] || barangaysByNameRef.current[lowerName];
           const isFlat = activeLayer === 'movement' && movementDisplayModeRef.current === 'lines';
           const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
           const fullHeight = getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
@@ -514,6 +556,7 @@ export function Giro3DBarangayView({
           instance.threeObjects.add(lines);
           borderLines.set(feature as Feature<Geometry>, lines);
           borderLinesByNameRef.current.set(lowerName, lines);
+          fullExtrusionHeightsRef.current.set(feature as Feature<Geometry>, Math.max(10, fullHeight));
 
           const initialHeight = isFlat ? 2 : fullHeight;
           const initialScaleZ = isFlat && fullHeight > 0 ? 2 / fullHeight : 1.0;
@@ -528,7 +571,7 @@ export function Giro3DBarangayView({
           for (const feature of features) {
             const typedFeature = feature as Feature<Geometry>;
             const name = String(feature.get('name') ?? '');
-            const data = barangaysByName[name];
+            const data = barangaysByNameRef.current[name];
             const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
             const fullHeight = getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
             const initialScaleZ = fullHeight > 0 ? 2 / fullHeight : 0.001;
@@ -729,7 +772,7 @@ export function Giro3DBarangayView({
           if (!pickedFeature) return;
 
           const name = String(pickedFeature.get('name') ?? '');
-          const data = barangaysByName[name];
+          const data = barangaysByNameRef.current[name];
           if (!data) return;
 
           const inScope = data.is_in_scope ?? (
@@ -828,6 +871,10 @@ export function Giro3DBarangayView({
         cancelAnimationFrame(simulationAnimationFrameRef.current);
         simulationAnimationFrameRef.current = null;
       }
+      if (heightAnimFrameRef.current != null) {
+        cancelAnimationFrame(heightAnimFrameRef.current);
+        heightAnimFrameRef.current = null;
+      }
       if (pulseAnimFrameRef.current != null) {
         cancelAnimationFrame(pulseAnimFrameRef.current);
         pulseAnimFrameRef.current = null;
@@ -880,7 +927,6 @@ export function Giro3DBarangayView({
     };
   }, [
     activeLayer,
-    barangaysByName,
     diseaseSubMode,
     selectedLivestockType,
     suppressClickUntilRef,
@@ -1037,6 +1083,7 @@ export function Giro3DBarangayView({
       const data = barangaysByName[name];
       const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
       const fullHeight = getExtrusionHeight(value, largestMetricRef.current, heightScale);
+      fullExtrusionHeightsRef.current.set(feature, Math.max(10, fullHeight));
       const borderPositions = getBorderPositions(geometry, fullHeight);
       const position = lines.geometry.getAttribute('position');
       if (position && position.count * 3 === borderPositions.length) {
@@ -1388,22 +1435,24 @@ export function Giro3DBarangayView({
     };
   }, [isSceneReady, activeLayer, showMovementOverlay, movements, selectedMovement, movementDisplayMode]);
 
-  // Animate the shrink / rise of polygon columns when 3D display mode changes
+  // Animate the polygon column extrusion heights in response to movementDisplayMode,
+  // timeline scrubber date changes, and timeline activation
   useEffect(() => {
     if (!isSceneReady) return;
     const collection = collectionRef.current;
     const instance = instanceRef.current;
     if (!collection || !instance) return;
 
-    if (simulationAnimationFrameRef.current != null) {
-      cancelAnimationFrame(simulationAnimationFrameRef.current);
-      simulationAnimationFrameRef.current = null;
+    if (heightAnimFrameRef.current != null) {
+      cancelAnimationFrame(heightAnimFrameRef.current);
+      heightAnimFrameRef.current = null;
     }
 
     movementDisplayModeRef.current = movementDisplayMode;
 
-    const isFlat = activeLayer === 'movement' && movementDisplayMode === 'lines';
-    const durationMs = 500;
+    const isMovementLayer = activeLayer === 'movement';
+    const isFlat = isMovementLayer && movementDisplayMode === 'lines';
+    const durationMs = 450;
     const startTime = performance.now();
 
     // Query live SurfaceMesh objects directly from collection hierarchy
@@ -1423,19 +1472,56 @@ export function Giro3DBarangayView({
     };
     let surfacesByName = getSurfacesByName();
 
+    // Aggregate active movement volume (heads) per origin barangay from active timeline movements
+    const activeHeadsByBarangay = new Map<string, number>();
+    if (isMovementLayer && isTimelineActive && movements && movements.length > 0) {
+      const sortedKeys = Array.from(featuresByNameRef.current.keys()).sort((a, b) => b.length - a.length);
+      for (const move of movements) {
+        const originKey = getMovementOriginKey(move, sortedKeys, barangaysByNameRef.current);
+        if (originKey) {
+          const heads = Math.max(1, move.heads || 1);
+          activeHeadsByBarangay.set(originKey, (activeHeadsByBarangay.get(originKey) ?? 0) + heads);
+        }
+      }
+    }
+
+    const maxMovementMetric = Math.max(
+      largestMetricRef.current,
+      ...(movements || []).map((m) => m.heads || 0),
+      1,
+    );
+
     const targets = new Map<Feature<Geometry>, { name: string; startH: number; targetH: number; fullH: number }>();
     for (const [lowerName, feature] of featuresByNameRef.current) {
       const name = String(feature.get('name') ?? lowerName);
       const data = barangaysByName[name] || barangaysByName[lowerName];
       const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
-      const fullH = getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
-      const currentH = displayedHeightsRef.current.get(feature) ?? (isFlat ? fullH : 2);
-      const targetH = isFlat ? 2 : fullH;
+      const baseFullH = fullExtrusionHeightsRef.current.get(feature) ?? Math.max(10, getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current));
+      const currentH = displayedHeightsRef.current.get(feature) ?? (isFlat ? 2 : baseFullH);
+
+      let targetH = isFlat ? 2 : baseFullH;
+      if (isMovementLayer) {
+        if (isFlat) {
+          targetH = 2;
+        } else if (isTimelineActive) {
+          const heads = activeHeadsByBarangay.get(lowerName) ?? 0;
+          targetH = heads > 0
+            ? getExtrusionHeight(heads, maxMovementMetric, heightScaleRef.current)
+            : 2;
+        } else {
+          // Timeline not active -> use municipal baseline movement_out
+          const heads = data?.movement_out ?? 0;
+          targetH = heads > 0
+            ? getExtrusionHeight(heads, largestMetricRef.current, heightScaleRef.current)
+            : 2;
+        }
+      }
+
       targets.set(feature, {
         name: lowerName,
         startH: currentH,
         targetH,
-        fullH: Math.max(10, fullH),
+        fullH: baseFullH,
       });
     }
 
@@ -1469,20 +1555,29 @@ export function Giro3DBarangayView({
       instance.notifyChange(instance.view.camera);
 
       if (progress < 1) {
-        simulationAnimationFrameRef.current = requestAnimationFrame(animateTransition);
+        heightAnimFrameRef.current = requestAnimationFrame(animateTransition);
       } else {
-        simulationAnimationFrameRef.current = null;
+        heightAnimFrameRef.current = null;
       }
     };
 
-    simulationAnimationFrameRef.current = requestAnimationFrame(animateTransition);
+    heightAnimFrameRef.current = requestAnimationFrame(animateTransition);
     return () => {
-      if (simulationAnimationFrameRef.current != null) {
-        cancelAnimationFrame(simulationAnimationFrameRef.current);
-        simulationAnimationFrameRef.current = null;
+      if (heightAnimFrameRef.current != null) {
+        cancelAnimationFrame(heightAnimFrameRef.current);
+        heightAnimFrameRef.current = null;
       }
     };
-  }, [movementDisplayMode, isSceneReady, activeLayer, barangaysByName, diseaseSubMode, selectedLivestockType]);
+  }, [
+    movementDisplayMode,
+    isSceneReady,
+    activeLayer,
+    isTimelineActive,
+    movements,
+    barangaysByName,
+    diseaseSubMode,
+    selectedLivestockType,
+  ]);
 
   const previousResetTrigger = useRef(resetTrigger);
   useEffect(() => {

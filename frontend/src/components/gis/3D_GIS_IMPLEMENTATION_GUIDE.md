@@ -241,4 +241,84 @@ User clicks 3D Arc / 2D Line
 
 ---
 
+## 8. On-Demand Movement Timeline Scrubber (`View Timeline`)
+
+Livestock movement tracking supports both **Macro Overview** (all recorded permits across all dates) and **Micro Inspection** (scrubbing historical inspection dates).
+
+### User Experience Design
+- **Default State**: Opening the Movement layer displays **all movements** without date filtering. The timeline player stays hidden so the screen remains clean and uncluttered.
+- **On-Demand Activation**: A dedicated **`View Timeline`** button appears in the floating controls bar beneath the layer selector.
+- **Timeline Interaction**: Clicking `View Timeline` opens the scrubber widget at the bottom and switches to chronological slicing:
+  - **`Single date`**: Displays only the permits registered on the active date (`m.date === targetDate`).
+  - **`Cumulative`**: Displays all permits registered up to the active date (`m.date <= targetDate`), letting users observe movement expansion over time.
+  - **`All permits`**: Re-expands all movements while keeping the player accessible.
+- **Closing & Restoring**: Clicking `Hide Timeline` or the `X` button closes the timeline player and immediately restores all movements on the map.
+
+---
+
+## 9. Dynamic Height Density on Timeline Scrubber & Color Preservation
+
+When inspecting livestock movements chronologically on the timeline, agricultural officers need the 3D polygon columns to dynamically reflect the **volume of livestock shipped** on each active date (or cumulative date) when operating in **Height Density** or **Both** mode.
+
+### The Two Critical Hazards We Avoided
+
+1. **The "Black Screen Flash" Hazard**:
+   - *Mistake*: Putting `barangaysByName` or `movements` in the primary WebGL `initialize()` dependency array.
+   - *Result*: Every time the user scrubbed the timeline slider or stepped dates, `instance.dispose()` was called, tearing down the entire Three.js WebGL canvas and causing a distracting black screen flash on every frame.
+   - *Fix*: Backed `barangaysByName` with `barangaysByNameRef` and decoupled scene setup from dynamic timeline animations.
+
+2. **The "Color Density Loss" Hazard**:
+   - *Mistake*: Overwriting `barangaysByName` with zeroed-out numbers for barangays with no shipments on the active date.
+   - *Result*: `FeatureCollection.style` recolored all quiet barangays to the lowest palette color (`#e0f2fe`), completely destroying the choropleth color density across the municipality.
+   - *Fix*: **Decoupled Color Density from Height Density**. `FeatureCollection.style` reads authentic municipal baseline data to preserve the 4-step blue choropleth palette (`#e0f2fe` → `#38bdf8` → `#0284c7` → `#0c4a6e`). The timeline scrubber strictly drives the vertical matrix scale (`scale.z`), animating heights without altering surface fill colors!
+
+### Architecture & Data Flow
+
+```text
+Timeline date advances (Scrubber slider or Play timer)
+                      │
+                      ▼
+RoleAwareGISContainer filters `activeDisplayMovements`
+                      │
+                      ▼
+GISMap passes `movements` and `isTimelineActive={true}`
+                      │
+                      ▼
+Giro3DBarangayView triggered via `useEffect([movements, isTimelineActive, movementDisplayMode])`
+                      │
+                      ├─► 1. Origin Barangay Resolution:
+                      │      For each movement, resolve origin:
+                      │        a. Exact match on first comma segment (e.g. "Banaba, Padre Garcia" -> "banaba")
+                      │        b. Substring match across sorted barangay names
+                      │        c. Coordinate proximity fallback (matches `move.from` to barangay centroid)
+                      │      Sum `heads` into `activeHeadsByBarangay`
+                      │
+                      ├─► 2. Target Height Determination:
+                      │      • If `movementDisplayMode === 'lines'`: targetH = 2 (flat ground plate)
+                      │      • If `movementDisplayMode === 'density' || 'both'`:
+                      │          - If `isTimelineActive`:
+                      │              heads > 0 ? getExtrusionHeight(heads, maxMetric, heightScale) : 2
+                      │          - If `!isTimelineActive` (timeline closed):
+                      │              total_out > 0 ? getExtrusionHeight(total_out, maxMetric, heightScale) : 2
+                      │
+                      ├─► 3. 450ms Cubic Ease-Out Animation Loop:
+                      │      elapsed = now - startTime
+                      │      progress = Math.min(1, elapsed / 450)
+                      │      ease = 1 - Math.pow(1 - progress, 3)
+                      │      currentH = startH + (targetH - startH) * ease
+                      │      scaleZ = currentH / fullH
+                      │
+                      │      For each barangay:
+                      │        • setVerticalScale(surfaceMesh, scaleZ)
+                      │        • setVerticalScale(borderLines, scaleZ)
+                      │        • syncLabelPositions() (keeps 3D labels glued to column roofs)
+                      │      instance.notifyChange(camera)
+                      │
+                      ▼
+Result: Columns smoothly rise and shrink like a 3D bar equalizer across timeline dates,
+        while all barangays maintain 100% of their municipal choropleth color density!
+```
+
+---
+
 *Authored for SmartLivestock GIS Developer Reference • Padre Garcia, Batangas*
