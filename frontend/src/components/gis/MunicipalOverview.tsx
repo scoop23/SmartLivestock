@@ -617,13 +617,24 @@ export function MunicipalOverview({
 
             {movements.length > 0 ? (
               <div className="space-y-1.5 pt-0.5 max-h-[300px] overflow-y-auto overscroll-contain pr-0.5">
-                {movements.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => onSelectMovement?.(m)}
-                    className="w-full text-left p-2.5 rounded-lg bg-blue-50/50 hover:bg-blue-100/60 border border-blue-100 transition-colors text-xs space-y-1.5 cursor-pointer block min-w-0 overflow-hidden group"
-                  >
+                {movements.map((m) => {
+                  const isSelected = selectedMovement?.id === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      ref={(el) => {
+                        if (isSelected && el) {
+                          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                      }}
+                      onClick={() => onSelectMovement?.(m)}
+                      className={`w-full text-left p-2.5 rounded-lg border transition-all text-xs space-y-1.5 cursor-pointer block min-w-0 overflow-hidden group ${
+                        isSelected
+                          ? 'bg-blue-100/90 border-blue-500 ring-2 ring-blue-500/80 shadow-md animate-line-highlight'
+                          : 'bg-blue-50/50 hover:bg-blue-100/60 border-blue-100'
+                      }`}
+                    >
                     <div className="flex items-center justify-between gap-1.5 min-w-0">
                       <div className="font-black text-blue-950 truncate min-w-0">
                         {m.heads} {m.species}
@@ -659,7 +670,8 @@ export function MunicipalOverview({
                       </span>
                     </div>
                   </button>
-                ))}
+                );
+              })}
               </div>
             ) : (
               <p className="text-xs text-slate-400 italic">No movement inspections recorded</p>

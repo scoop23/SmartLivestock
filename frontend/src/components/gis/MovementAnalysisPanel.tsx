@@ -405,10 +405,15 @@ export function MovementAnalysisPanel({
                 <button
                   key={m.id}
                   type="button"
+                  ref={(el) => {
+                    if (isSelected && el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                  }}
                   onClick={() => onSelectMovement(m)}
                   className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer block min-w-0 overflow-hidden space-y-1.5 ${
                     isSelected
-                      ? 'bg-blue-50/90 border-blue-500 shadow-md ring-1 ring-blue-500'
+                      ? 'bg-blue-50/95 border-blue-500 shadow-lg ring-2 ring-blue-500/80 animate-line-highlight'
                       : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
                   }`}
                 >

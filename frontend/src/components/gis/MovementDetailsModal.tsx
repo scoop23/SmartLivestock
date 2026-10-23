@@ -33,6 +33,7 @@ Truck,
 User,
 X
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { MovementRecord } from './types';
 
 interface MovementDetailsModalProps {
@@ -48,6 +49,15 @@ export function MovementDetailsModal({
   onFocusOnMap,
   isMobileDrawer = false,
 }: MovementDetailsModalProps) {
+  const [isHighlighted, setIsHighlighted] = useState(true);
+
+  // Trigger highlight animation on mount or whenever the clicked line/movement changes
+  useEffect(() => {
+    setIsHighlighted(true);
+    const timer = setTimeout(() => setIsHighlighted(false), 2200);
+    return () => clearTimeout(timer);
+  }, [movement.id]);
+
   const isApproved = movement.clearance_status?.toUpperCase() === 'APPROVED';
   const isPending = movement.clearance_status?.toUpperCase() === 'PENDING';
   const isVerified = movement.clearance_status?.toUpperCase() === 'VERIFIED';
@@ -84,11 +94,17 @@ export function MovementDetailsModal({
   })();
 
   return (
-    <div className="bg-white rounded-2xl flex flex-col h-full overflow-hidden text-slate-800">
+    <div className="bg-white rounded-2xl flex flex-col h-full overflow-hidden text-slate-800 transition-all duration-500 animate-in fade-in zoom-in-[0.98]">
       {/* Header Bar */}
-      <div className="bg-slate-900 text-white p-3.5 sm:p-4 shrink-0 flex items-center justify-between">
+      <div className="bg-slate-900 text-white p-3.5 sm:p-4 shrink-0 flex items-center justify-between relative overflow-hidden">
+        {/* Animated Top Sweep Glow */}
+        {isHighlighted && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 animate-shimmer-sweep" />
+        )}
         <div className="flex items-center gap-2 min-w-0">
-          <div className="size-9 rounded-xl bg-emerald-700 flex items-center justify-center text-white shrink-0 shadow-sm">
+          <div className={`size-9 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm transition-all duration-500 ${
+            isHighlighted ? 'bg-blue-600 ring-2 ring-blue-400/60 scale-105' : 'bg-emerald-700'
+          }`}>
             <Truck className="size-5" />
           </div>
           <div className="min-w-0">
@@ -128,8 +144,47 @@ export function MovementDetailsModal({
 
       {/* Scrollable Content */}
       <div className="p-4 space-y-4 overflow-y-auto flex-1 text-slate-800 overscroll-contain">
-        {/* Origin to Destination Flow Card */}
-        <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3.5 space-y-3 min-w-0 overflow-hidden">
+        {/* Active Map Line Indicator Banner */}
+        <div
+          className={`p-2.5 rounded-xl border transition-all duration-500 flex items-center justify-between gap-2 ${
+            isHighlighted
+              ? 'bg-gradient-to-r from-blue-50 via-sky-50 to-indigo-50 border-blue-400/80 shadow-md ring-2 ring-blue-400/40'
+              : 'bg-slate-50 border-slate-200'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="relative flex size-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full size-2.5 bg-blue-600"></span>
+            </span>
+            <div className="min-w-0">
+              <div className="text-[11px] font-black text-blue-950 flex items-center gap-1.5 truncate">
+                <span>Map Line Selected</span>
+                <span className="text-[10px] text-blue-700 font-mono bg-blue-100/80 px-1.5 py-0.2 rounded font-bold">
+                  Permit #{movement.id}
+                </span>
+              </div>
+              <div className="text-[10px] text-blue-700 font-medium truncate">
+                Route: {movement.origin} → {movement.destination}
+              </div>
+            </div>
+          </div>
+          <Badge
+            variant="outline"
+            className="border-blue-300 text-blue-800 bg-white/90 text-[9px] font-mono shrink-0 px-1.5 py-0 shadow-2xs"
+          >
+            Transit Flow
+          </Badge>
+        </div>
+
+        {/* Origin to Destination Flow Card (Counterpart to the Map Line) */}
+        <div
+          className={`rounded-xl p-3.5 space-y-3 min-w-0 overflow-hidden transition-all duration-500 border ${
+            isHighlighted
+              ? 'bg-gradient-to-b from-blue-50/90 to-white border-blue-400 ring-2 ring-blue-400/50 shadow-md animate-line-highlight'
+              : 'bg-slate-50 border-slate-200/90 shadow-2xs'
+          }`}
+        >
           <div className="flex items-center justify-between gap-1.5 flex-wrap">
             <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${directionColor}`}>
               {directionLabel}
@@ -142,7 +197,9 @@ export function MovementDetailsModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
             {/* Origin */}
-            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-lg p-2.5 space-y-0.5 min-w-0 overflow-hidden">
+            <div className={`border rounded-lg p-2.5 space-y-0.5 min-w-0 overflow-hidden transition-all duration-500 ${
+              isHighlighted ? 'bg-emerald-50/90 border-emerald-300 shadow-2xs' : 'bg-emerald-50/70 border-emerald-200/80'
+            }`}>
               <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
                 <span className="size-2 rounded-full bg-emerald-600 inline-block shrink-0" />
                 Origin Hub
@@ -156,7 +213,9 @@ export function MovementDetailsModal({
             </div>
 
             {/* Destination */}
-            <div className="bg-blue-50/70 border border-blue-200/80 rounded-lg p-2.5 space-y-0.5 min-w-0 overflow-hidden">
+            <div className={`border rounded-lg p-2.5 space-y-0.5 min-w-0 overflow-hidden transition-all duration-500 ${
+              isHighlighted ? 'bg-blue-50/90 border-blue-300 shadow-2xs' : 'bg-blue-50/70 border-blue-200/80'
+            }`}>
               <div className="text-[10px] font-bold uppercase tracking-wider text-blue-800 flex items-center gap-1">
                 <span className="size-2 rounded-full bg-blue-600 inline-block shrink-0" />
                 Destination Terminal
@@ -169,11 +228,23 @@ export function MovementDetailsModal({
               </div>
             </div>
           </div>
+
+          {/* Animated Transit Flow Indicator */}
+          <div className="flex items-center justify-between gap-2 px-1 pt-1">
+            <div className="h-0.5 flex-1 bg-gradient-to-r from-emerald-500 to-blue-500" />
+            <div className="flex items-center gap-1 text-[10px] font-black text-blue-700 px-2.5 py-0.5 rounded-full bg-blue-100/70 border border-blue-200 shrink-0">
+              <Truck className={`size-3 text-blue-600 ${isHighlighted ? 'animate-bounce' : ''}`} />
+              <span>Transit Line Arc</span>
+            </div>
+            <div className="h-0.5 flex-1 bg-gradient-to-r from-blue-500 to-blue-600" />
+          </div>
         </div>
 
         {/* Livestock Head Count & Species Summary */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
+          <div className={`bg-white border rounded-xl p-3 shadow-2xs transition-all duration-500 ${
+            isHighlighted ? 'border-emerald-400/80 ring-1 ring-emerald-300/50 shadow-sm' : 'border-slate-200'
+          }`}>
             <div className="text-2xl font-black font-mono text-emerald-950">
               {movement.heads}
             </div>
@@ -182,7 +253,9 @@ export function MovementDetailsModal({
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
+          <div className={`bg-white border rounded-xl p-3 shadow-2xs transition-all duration-500 ${
+            isHighlighted ? 'border-blue-400/80 ring-1 ring-blue-300/50 shadow-sm' : 'border-slate-200'
+          }`}>
             <div className="text-base font-black text-slate-900 truncate">
               {movement.species || 'Cattle'}
             </div>

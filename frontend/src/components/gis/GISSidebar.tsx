@@ -204,6 +204,7 @@ export function GISSidebar({
   // 3. Else -> show municipal telemetry / movement analysis overview
   const content = selectedMovement ? (
     <MovementDetailsModal
+      key={selectedMovement.id}
       movement={selectedMovement}
       onClose={() => {
         if (onClearSelectedMovement) {
@@ -251,7 +252,9 @@ export function GISSidebar({
           side="bottom"
           ref={mobilePanelRef}
           style={mobileDragHeight === null ? undefined : { height: `${mobileDragHeight}px` }}
-          className={`${mobileHeightClass} max-h-[89dvh] gap-0 rounded-t-3xl p-0 bg-white border-t border-slate-200 flex flex-col overflow-hidden shadow-2xl z-[var(--z-dialog)] transition-[height] duration-300 data-[state=open]:duration-300 [&>button]:hidden ${mobileDragHeight === null ? '' : '!transition-none'}`}
+          className={`${mobileHeightClass} max-h-[89dvh] gap-0 rounded-t-3xl p-0 bg-white ${
+            selectedMovement ? 'border-t-2 border-t-blue-500 ring-2 ring-blue-400/40 animate-sidebar-glow' : 'border-t border-slate-200'
+          } flex flex-col overflow-hidden shadow-2xl z-[var(--z-dialog)] transition-[height] duration-300 data-[state=open]:duration-300 [&>button]:hidden ${mobileDragHeight === null ? '' : '!transition-none'}`}
         >
           <SheetTitle className="sr-only">
             {selectedBarangay ? `Barangay ${selectedBarangay.name} Telemetry` : 'Municipal Telemetry Overview'}
@@ -301,7 +304,11 @@ export function GISSidebar({
     <aside
       aria-label="GIS Telemetry Sidebar"
       style={{ width: desktopWidth, minWidth: 320, maxWidth: 'min(45rem, calc(100vw - 2rem))' }}
-      className="hidden lg:flex absolute right-4 top-4 bottom-4 max-h-[calc(100dvh-2rem)] z-[1000] rounded-2xl bg-white/95 backdrop-blur-md shadow-2xl border border-slate-200/90 flex-col overflow-hidden pointer-events-auto animate-in fade-in slide-in-from-right duration-200"
+      className={`hidden lg:flex absolute right-4 top-4 bottom-4 max-h-[calc(100dvh-2rem)] z-[1000] rounded-2xl bg-white/95 backdrop-blur-md shadow-2xl border flex-col overflow-hidden pointer-events-auto transition-all duration-300 animate-in fade-in slide-in-from-right duration-200 ${
+        selectedMovement
+          ? 'border-blue-400/90 ring-2 ring-blue-400/40 shadow-[0_0_35px_rgba(59,130,246,0.25)] animate-sidebar-glow'
+          : 'border-slate-200/90'
+      }`}
     >
       <div
         role="separator"
