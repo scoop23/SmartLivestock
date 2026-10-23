@@ -54,6 +54,13 @@ export function DataOverviewDetailModal({
 }: DataOverviewDetailModalProps) {
   const [activeSubTab, setActiveSubTab] = useState<"overview" | "origin" | "qr" | "roster">("overview");
   const [copied, setCopied] = useState(false);
+  const clinicalRecordType = domain === "disease" ? "DISEASE" : domain === "mortality" ? "MORTALITY" : null;
+  const clinicalRecordId = clinicalRecordType
+    ? String(record?.id ?? "").match(/^(?:DIS|MOR)-(\d+)$/i)?.[1]
+    : null;
+  const clinicalQrPayload = clinicalRecordType && clinicalRecordId
+    ? `/health-report-qr?recordType=${clinicalRecordType}&recordId=${clinicalRecordId}`
+    : "";
 
   if (!record) return null;
 
@@ -763,11 +770,18 @@ export function DataOverviewDetailModal({
             <div className="space-y-4 animate-in fade-in-50 duration-200 flex flex-col items-center">
               <QrCodePass
                 code={identifierCode}
-                qrPayload={livestockQrPayload || batchQrPayload || ""}
-                title={livestockQrPayload
+                qrPayload={livestockQrPayload || batchQrPayload || clinicalQrPayload}
+                variant={clinicalRecordType ? "clinical" : "standard"}
+                title={clinicalRecordType
+                  ? `${clinicalRecordType === "DISEASE" ? "Disease" : "Mortality"} Report Pass`
+                  : livestockQrPayload
                   ? `${record.specie || "Livestock"} Identity QR`
                   : isBatch ? `Batch ${record.batchName || record.batchCode}` : `${record.specie || "Livestock"} Passport`}
-                subtitle={livestockQrPayload
+                subtitle={clinicalRecordType
+                  ? clinicalQrPayload
+                    ? "Scan to open this report in SmartLivestock"
+                    : "This report has no supported database record ID"
+                  : livestockQrPayload
                   ? "Resolves this animal through the authorized livestock registry"
                   : isBatch
                     ? "Livestock batch identity · check current status in SmartLivestock"

@@ -77,6 +77,12 @@
     padding: 1.25rem !important;
   }
 
+  .clinical-qr-pass.qr-code-pass-print-active,
+  .app-print-target-active.clinical-qr-pass {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   /* Screen cards use Tailwind's truncate/line-clamp utilities to fit small
      dialog columns. Printed reports need the complete values instead. */
   .app-print-target-active .truncate {

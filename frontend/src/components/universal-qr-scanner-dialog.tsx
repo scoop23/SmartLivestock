@@ -28,6 +28,7 @@ ShieldCheck,
 Upload,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback,useEffect,useRef,useState,type ChangeEvent } from "react";
 import { toast } from "sonner";
 
@@ -88,6 +89,7 @@ export function UniversalQrScannerDialog({
   role = "admin",
   onSelectFarmer,
 }: UniversalQrScannerDialogProps) {
+  const router = useRouter();
   const [scanInput, setScanInput] = useState("");
   const [activeResult, setActiveResult] = useState<ScannedRecord | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -121,7 +123,7 @@ export function UniversalQrScannerDialog({
         border: "border-amber-200",
         badge: "bg-amber-100 text-amber-800",
         title: "SIBAT Field Biosecurity & Checkpoint Scanner",
-        sub: "Resolve livestock identities within your assigned barangay scope.",
+        sub: "Resolve livestock and health reports within your authorized barangay scope.",
       }
     : {
         bannerBg: "bg-emerald-100 text-emerald-900",
@@ -129,7 +131,7 @@ export function UniversalQrScannerDialog({
         border: "border-emerald-200",
         badge: "bg-emerald-100 text-emerald-800",
         title: "Municipal Agriculture Office - Universal QR Scanner",
-        sub: "Resolve current livestock registry records and review their eligibility status.",
+        sub: "Resolve livestock, disease, and mortality records in your authorized scope.",
       };
 
   const handleDialogOpenChange = useCallback((open: boolean) => {
@@ -150,7 +152,7 @@ export function UniversalQrScannerDialog({
   const handleLookup = useCallback(async (codeToSearch: string) => {
     const input = codeToSearch.trim();
     if (!input) {
-      toast.error("Please enter or scan a livestock or batch identifier.");
+      toast.error("Please scan a livestock, disease, or mortality record QR.");
       return;
     }
     if (lookupInFlight.current) return;
@@ -163,9 +165,41 @@ export function UniversalQrScannerDialog({
       return;
     }
 
+    // Normalize current and older report links to the current role-aware route.
+    // Ignore the scanned host: printed passes may come from another deployment
+    // (for example, a Render QR scanned while using the local app).
+    try {
+      const reportUrl = new URL(input, window.location.origin);
+      let reportType = reportUrl.searchParams.get("recordType")?.toUpperCase();
+      let reportId = reportUrl.searchParams.get("recordId");
+
+      if (reportUrl.pathname === "/report-observation") {
+        const farmerReportId = reportUrl.searchParams.get("reportId")?.match(/^(DIS|MOR)-(\d+)$/i);
+        if (farmerReportId) {
+          reportType = farmerReportId[1].toUpperCase() === "DIS" ? "DISEASE" : "MORTALITY";
+          reportId = farmerReportId[2];
+        }
+      }
+
+      const supportedReportPath = [
+        "/health-report-qr",
+        "/sibat-alerts",
+        "/data-validation",
+        "/report-observation",
+      ].includes(reportUrl.pathname);
+      const supportedRecordType = reportType === "DISEASE" || reportType === "MORTALITY";
+      if (supportedReportPath && supportedRecordType && reportId && /^\d+$/.test(reportId)) {
+        handleDialogOpenChange(false);
+        router.push(`/health-report-qr?recordType=${reportType}&recordId=${reportId}`);
+        return;
+      }
+    } catch {
+      // Continue to the livestock QR parser for non-URL QR payloads.
+    }
+
     const target = parseLivestockQrPayload(input);
     if (target.kind === "UNSUPPORTED") {
-      toast.error("This QR belongs to a different record type. Scan an individual livestock or batch QR.");
+      toast.error("This QR belongs to a different record type. Scan a supported livestock or health report QR.");
       return;
     }
 
@@ -264,7 +298,7 @@ export function UniversalQrScannerDialog({
         setIsSearching(false);
       }
     }
-  }, [handleDialogOpenChange, isAuction, isSibat, onSelectFarmer, role]);
+  }, [handleDialogOpenChange, isAuction, isSibat, onSelectFarmer, role, router]);
 
   const handleQrImageUpload = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
@@ -416,7 +450,7 @@ export function UniversalQrScannerDialog({
                   <p className="text-[11px] text-slate-400 mt-1 max-w-xs leading-relaxed">
                     {onSelectFarmer
                       ? "Center the Farmer profile QR in the frame. This identifies the seller so you can choose their livestock; it does not approve an ownership transfer."
-                      : "Center the livestock QR in the frame, or enter its tag or code below. The lookup does not approve ownership, movement, or clearance."}
+                      : "Scan a livestock, disease, or mortality QR to open its authorized record. QR identity does not approve a workflow action."}
                   </p>
                   <Button
                     type="button"
@@ -468,7 +502,7 @@ export function UniversalQrScannerDialog({
                   value={scanInput}
                   onChange={(e) => setScanInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleLookup(scanInput)}
-                  placeholder={onSelectFarmer ? "e.g. SL-FARMER:123" : "e.g. BATCH-2026-001 or PG-CAT-0941"}
+                  placeholder={onSelectFarmer ? "e.g. SL-FARMER:123" : "Livestock tag or health report QR link"}
                   disabled={isSearching}
                   className="min-h-11 min-w-0 rounded-xl font-bold font-mono text-xs border-slate-300"
                 />

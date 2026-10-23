@@ -1,6 +1,7 @@
 "use client";
 
 import { DiseaseCaseFollowUp } from "@/components/disease-case-follow-up";
+import { QrCodePass } from "@/components/qr-code-pass";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -64,6 +65,10 @@ export default function ReportDetailDialog({
   if (!report) return null;
 
   const isMortality = report.reportType === "MORTALITY";
+  const qrRecordId = report.id.match(/^(?:DIS|MOR)-(\d+)$/i)?.[1];
+  const qrPayload = qrRecordId
+    ? `/health-report-qr?recordType=${report.reportType}&recordId=${qrRecordId}`
+    : "";
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -723,6 +728,28 @@ export default function ReportDetailDialog({
                 </div>
               </div>
             )}
+
+            <section aria-label="Report QR pass" className="rounded-2xl border border-cyan-100 bg-gradient-to-br from-slate-50 via-white to-cyan-50/60 p-3 sm:p-4">
+              <div className="mb-3 flex items-center gap-2 text-slate-800">
+                <ShieldCheck className="size-4 text-cyan-700" />
+                <div>
+                  <p className="text-xs font-black">Share this report with field staff</p>
+                  <p className="text-[10px] text-slate-500">The QR opens this report in SmartLivestock.</p>
+                </div>
+              </div>
+              <QrCodePass
+                code={report.id}
+                qrPayload={qrPayload}
+                variant="clinical"
+                title={`${isMortality ? "Mortality" : "Disease"} Report Pass`}
+                subtitle={qrPayload ? "Scan to open this report in SmartLivestock" : "This report has no supported database record ID"}
+                ownerName={report.farmerName || "Registered Farmer"}
+                barangay={report.barangayName}
+                specie={report.cattleType}
+                headCount={report.affectedCount}
+                status={report.status}
+              />
+            </section>
           </div>
 
           {/* Footer Actions */}

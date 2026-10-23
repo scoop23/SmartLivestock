@@ -7,6 +7,7 @@ import { Card,CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog,DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
 import {
 ArrowRight,
@@ -108,7 +109,7 @@ function SibatAlertsContent() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilterOption>("All Reports");
 
-  const { records, isLoading } = useClinicalHealthRecords();
+  const { records, isLoading, isError } = useClinicalHealthRecords();
   const reviewMutation = useReviewClinicalHealth();
 
   const [selectedRecord, setSelectedRecord] = useState<SibatValidationRecord | null>(null);
@@ -123,7 +124,7 @@ function SibatAlertsContent() {
     : normalizedRecordType === "MORTALITY"
       ? "MOR"
       : null;
-  const notificationKey = recordTypeParam && recordIdParam
+  const notificationKey = notificationPrefix && recordIdParam && /^\d+$/.test(recordIdParam)
     ? `${normalizedRecordType}:${recordIdParam}`
     : null;
   useEffect(() => {
@@ -140,6 +141,14 @@ function SibatAlertsContent() {
             item.id === `${notificationPrefix}-${recordIdParam}`
         ) ?? null
       : null;
+  const reportLookupFailed = !!(
+    notificationKey && !isLoading && !notificationRecord &&
+    dismissedNotificationKey !== notificationKey && isError
+  );
+  const reportNotInScope = !!(
+    notificationKey && !isLoading && !notificationRecord &&
+    dismissedNotificationKey !== notificationKey && !isError
+  );
 
   const activeRecord = selectedRecord ?? notificationRecord;
   const highlightedRecordId = selectedRecord?.id ?? notificationRecord?.id ?? focusedRecordId;
@@ -551,6 +560,32 @@ function SibatAlertsContent() {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={reportNotInScope || reportLookupFailed}
+        onOpenChange={(open) => {
+          if (!open && notificationKey) clearRecordLink();
+        }}
+      >
+        <DialogContent className="max-w-md rounded-2xl border-rose-200 bg-white">
+          <DialogHeader>
+            <DialogTitle className={`flex items-center gap-2 ${reportLookupFailed ? "text-amber-950" : "text-rose-950"}`}>
+              <ShieldAlert className={`size-5 ${reportLookupFailed ? "text-amber-700" : "text-rose-700"}`} />
+              {reportLookupFailed ? "Could not check this report" : "Report not found in your authorized scope"}
+            </DialogTitle>
+            <DialogDescription className="text-left leading-relaxed">
+              {reportLookupFailed
+                ? "SmartLivestock could not load the authorized report list. Check your connection and try again."
+                : "No matching report is available for this account or assigned barangay. Check the QR code, or ask MAO to confirm your barangay access."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" onClick={clearRecordLink} className="w-full rounded-xl bg-[#1A365D] text-white hover:bg-[#132742] sm:w-auto">
+              Back to Health Reports
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Inspection & Review Dialog ── */}
       {activeRecord && (
