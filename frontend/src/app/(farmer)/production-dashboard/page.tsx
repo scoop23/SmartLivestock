@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
-import { markTutorialSeen, shouldAutoStartTutorial, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import { useUserInventory } from "../livestock-inventory/livestock-inventory";
 import EnterpriseEmptyState from "./components/enterprise-empty-state";
 import type { ProductionType } from "./production-analytics";
@@ -47,6 +47,28 @@ export default function ProductionDashboardPage() {
 
   const startProductionTour = useCallback(() => {
     const hasActivities = approvedInventories.length > 0 || activeIntentInventories.length > 0;
+    const activityCardStep: DriveStep | null = document.querySelector('[data-tour="production-activity-card"]')
+      ? {
+          element: '[data-tour="production-activity-card"]',
+          popover: {
+            title: "Use an activity card",
+            description: "This card identifies the activity and eligible livestock. Choose Record to start a new entry, or View records to open this activity’s records.",
+            side: "top",
+            align: "center",
+          },
+        }
+      : null;
+    const activityEligibilityStep: DriveStep | null = document.querySelector('[data-tour="production-activity-eligibility"]')
+      ? {
+          element: '[data-tour="production-activity-eligibility"]',
+          popover: {
+            title: "Check which livestock can use this activity",
+            description: "The Available for badges list the livestock types eligible for this activity. For example, a card showing Cattle and Sheep applies to those two types.",
+            side: "top",
+            align: "center",
+          },
+        }
+      : null;
     const steps: DriveStep[] = [
       {
         element: '[data-tour="production-page-header"]',
@@ -77,6 +99,8 @@ export default function ProductionDashboardPage() {
                 align: "center" as const,
               },
             },
+            ...(activityCardStep ? [activityCardStep] : []),
+            ...(activityEligibilityStep ? [activityEligibilityStep] : []),
             {
               element: '[data-tour="production-activity-guidance"]',
               popover: {
@@ -113,9 +137,8 @@ export default function ProductionDashboardPage() {
   }, [activeIntentInventories.length, approvedInventories.length]);
 
   useEffect(() => {
-    if (isLoading || !shouldAutoStartTutorial("smartlivestock-production-dashboard-tour")) return;
+    if (isLoading || !getAutomaticTutorialsEnabled()) return;
     const timer = window.setTimeout(() => {
-      markTutorialSeen("smartlivestock-production-dashboard-tour");
       startProductionTour();
     }, 600);
     return () => window.clearTimeout(timer);

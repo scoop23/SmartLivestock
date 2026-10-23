@@ -20,8 +20,11 @@ SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { localCalendarDateToday } from "@/lib/livestock-age";
-import { Baby,Calendar,Check,Dna,Scale,Tag } from "lucide-react";
-import { useState } from "react";
+import { Baby,Calendar,Check,Dna,Scale,Sparkles,Tag } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { type DriveStep } from "driver.js";
+import "driver.js/dist/driver.css";
+import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import type { LivestockInventoryItem } from "../../livestock-inventory/page";
 import { LivestockPickerField } from "../select-livestock-dialog";
 import type { BirthingSpeciesTerminology } from "../production-calving-tab";
@@ -66,6 +69,24 @@ export default function BirthingRegistrationDialog({
   const [notes, setNotes] = useState("");
   const selectedDam = femaleLivestock.find((item) => String(item.id) === damId);
 
+  const startBirthTutorial = useCallback(() => {
+    const steps: DriveStep[] = [
+      { element: '[data-tour="birth-record-dam"]', popover: { title: `Choose the ${terms.damName.toLowerCase()}`, description: "Select the mother from your active female livestock inventory.", side: "bottom", align: "center" } },
+      { element: '[data-tour="birth-record-offspring"]', popover: { title: "Enter the newborn details", description: "Add an identifier if available and choose the newborn’s sex. The identifier can be generated automatically when left blank.", side: "bottom", align: "center" } },
+      { element: '[data-tour="birth-record-birth-details"]', popover: { title: "Record birth information", description: "Add the birth weight when known and enter the birth date. The date is required.", side: "bottom", align: "center" } },
+      { element: '[data-tour="birth-record-care"]', popover: { title: "Record lineage and delivery", description: "Add the sire details and select how difficult or assisted the delivery was.", side: "bottom", align: "center" } },
+      { element: '[data-tour="birth-record-breed-notes"]', popover: { title: "Add breed and observations", description: "Set the offspring’s breed and add optional clinical, vitality, or care notes.", side: "top", align: "center" } },
+      { element: '[data-tour="birth-record-save"]', popover: { title: "Save the birth record", description: "Save the newborn and its birth details for review.", side: "top", align: "end" } },
+    ];
+    startGuidedTutorial({ showProgress: true, animate: true, allowClose: true, nextBtnText: "Next", prevBtnText: "Back", doneBtnText: "Finish", progressText: "{{current}} of {{total}}", steps });
+  }, [terms.damName]);
+
+  useEffect(() => {
+    if (!open || !getAutomaticTutorialsEnabled()) return;
+    const timer = window.setTimeout(startBirthTutorial, 500);
+    return () => window.clearTimeout(timer);
+  }, [open, startBirthTutorial]);
+
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!damId) return;
@@ -96,6 +117,7 @@ export default function BirthingRegistrationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-xl max-h-[calc(100dvh-1rem)] overflow-y-auto">
         <DialogHeader>
+          <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800">
               <Baby className="size-5" />
@@ -109,11 +131,15 @@ export default function BirthingRegistrationDialog({
               </DialogDescription>
             </div>
           </div>
+          <Button type="button" variant="outline" onClick={startBirthTutorial} className="shrink-0 gap-1.5 rounded-xl">
+            <Sparkles className="size-4" aria-hidden="true" /> Tutorial
+          </Button>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleFormSubmit} className="space-y-4 pt-2">
           {/* Mother Selection */}
-          <div className="space-y-1.5">
+          <div data-tour="birth-record-dam" className="space-y-1.5">
             <LivestockPickerField
               items={femaleLivestock}
               id="calving-dam"
@@ -132,7 +158,7 @@ export default function BirthingRegistrationDialog({
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div data-tour="birth-record-offspring" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Offspring Ear Tag */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
@@ -167,7 +193,7 @@ export default function BirthingRegistrationDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div data-tour="birth-record-birth-details" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Birth Weight */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
@@ -201,7 +227,7 @@ export default function BirthingRegistrationDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div data-tour="birth-record-care" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Sire / Father Tag */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
@@ -236,6 +262,7 @@ export default function BirthingRegistrationDialog({
           </div>
 
           {/* Breed */}
+          <div data-tour="birth-record-breed-notes">
           <LivestockBreedField
               id="offspring-breed"
               species={selectedDam?.livestockTypeName}
@@ -259,6 +286,7 @@ export default function BirthingRegistrationDialog({
               className="text-xs min-h-[60px]"
             />
           </div>
+          </div>
 
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
             <Button
@@ -270,6 +298,7 @@ export default function BirthingRegistrationDialog({
               Cancel
             </Button>
             <Button
+              data-tour="birth-record-save"
               type="submit"
               disabled={isSubmitting || !damId}
               className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5"

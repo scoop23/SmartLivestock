@@ -106,7 +106,7 @@ export default function RecordActivityChooser({
           {activities.map((activity) => {
             const Icon = activity.icon;
             return (
-              <article key={activity.id} className="group flex min-h-56 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_5px_18px_rgba(15,23,42,0.035)] transition duration-200 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]">
+              <article key={activity.id} data-tour={activity.id === activities[0]?.id ? "production-activity-card" : undefined} className="group flex min-h-56 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_5px_18px_rgba(15,23,42,0.035)] transition duration-200 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]">
                 <div className="flex items-start gap-3 p-4 sm:p-5">
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100 transition group-hover:bg-emerald-100"><Icon className="size-5" aria-hidden="true" /></span>
                   <div className="min-w-0 flex-1">
@@ -114,7 +114,7 @@ export default function RecordActivityChooser({
                     <p className="mt-1 text-sm leading-relaxed text-slate-600">{activity.description}</p>
                   </div>
                 </div>
-                <div className="px-4 pb-4 sm:px-5">
+                <div data-tour={activity.id === activities[0]?.id ? "production-activity-eligibility" : undefined} className="px-4 pb-4 sm:px-5">
                   <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Available for</p>
                   <div className="flex flex-wrap gap-1.5">
                     {activity.species.map((name) => <span key={name} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">{name}</span>)}

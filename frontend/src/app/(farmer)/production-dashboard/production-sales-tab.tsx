@@ -28,10 +28,14 @@ Calendar,
 Compass,
 MapPin,
 PhilippinePeso,
+Sparkles,
 ShoppingBag,
 Truck
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { type DriveStep } from "driver.js";
+import "driver.js/dist/driver.css";
+import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import { toast } from "sonner";
 import type { LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
 import { LivestockPickerField } from "./select-livestock-dialog";
@@ -84,6 +88,24 @@ export default function ProductionSalesTab({
   const [targetDate, setTargetDate] = useState("");
   const [targetDestination, setTargetDestination] = useState("");
   const [intentNotes, setIntentNotes] = useState("");
+
+  const startIntentTutorial = useCallback(() => {
+    const steps: DriveStep[] = [
+      { element: '[data-tour="intent-record-livestock"]', popover: { title: "Choose the livestock", description: "Select the active animal or herd this plan is about.", side: "bottom", align: "center" } },
+      { element: '[data-tour="intent-record-type"]', popover: { title: "Choose your plan", description: "Declare whether the livestock is intended for sale, slaughter, or movement.", side: "bottom", align: "center" } },
+      { element: '[data-tour="intent-record-date"]', popover: { title: "Choose a target date", description: "Add an optional date for the planned sale, slaughter, or movement.", side: "bottom", align: "center" } },
+      { element: '[data-tour="intent-record-destination"]', popover: { title: "Add a destination", description: "Add the intended buyer, market, slaughterhouse, or receiving location when known.", side: "bottom", align: "center" } },
+      { element: '[data-tour="intent-record-notes"]', popover: { title: "Add optional notes", description: "Include scheduling or other context for the reviewer.", side: "top", align: "start" } },
+      { element: '[data-tour="intent-record-save"]', popover: { title: "Save the declaration", description: "This records your plan for review. It does not mark the animal sold or change its inventory status.", side: "top", align: "end" } },
+    ];
+    startGuidedTutorial({ showProgress: true, animate: true, allowClose: true, nextBtnText: "Next", prevBtnText: "Back", doneBtnText: "Finish", progressText: "{{current}} of {{total}}", steps });
+  }, []);
+
+  useEffect(() => {
+    if (!isIntentOpen || !getAutomaticTutorialsEnabled()) return;
+    const timer = window.setTimeout(startIntentTutorial, 500);
+    return () => window.clearTimeout(timer);
+  }, [isIntentOpen, startIntentTutorial]);
 
   const { data: sales = [], isLoading: isSalesLoading } = useQuery<LiveSaleItem[]>({
     queryKey: ["live_animal_sales"],
@@ -326,16 +348,22 @@ export default function ProductionSalesTab({
       {/* Declare Intent Dialog */}
       <Dialog open={isIntentOpen} onOpenChange={setIsIntentOpen}>
         <DialogContent className="sm:max-w-md p-6 rounded-2xl">
-          <DialogHeader>
+          <DialogHeader className="flex-row items-start justify-between gap-3">
+            <div className="space-y-1.5">
             <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <Compass className="size-5 text-emerald-700" /> Declare Commercial Intent
             </DialogTitle>
             <DialogDescription>
               Tell Auction or your reviewer what you plan to do. This declaration does not mark the animal sold or change its inventory status.
             </DialogDescription>
+            </div>
+            <Button type="button" variant="outline" onClick={startIntentTutorial} className="shrink-0 gap-1.5 rounded-xl">
+              <Sparkles className="size-4" aria-hidden="true" /> Tutorial
+            </Button>
           </DialogHeader>
 
           <form onSubmit={handleIntentSubmit} className="space-y-4 mt-2">
+            <div data-tour="intent-record-livestock">
             <LivestockPickerField
               id="intent-animal"
               label="Select Livestock *"
@@ -347,8 +375,9 @@ export default function ProductionSalesTab({
               dialogDescription="Choose the approved animal or herd for this commercial intent."
               emptyStateText="No active livestock is available for sale or movement planning."
             />
+            </div>
 
-            <div className="space-y-1.5">
+            <div data-tour="intent-record-type" className="space-y-1.5">
               <Label htmlFor="intent-type">Commercial Intent *</Label>
               <Select
                 value={intentType}
@@ -365,7 +394,7 @@ export default function ProductionSalesTab({
               </Select>
             </div>
 
-            <div className="space-y-1.5">
+            <div data-tour="intent-record-date" className="space-y-1.5">
               <Label htmlFor="intent-target-date">Target date (optional)</Label>
               <Input
                 id="intent-target-date"
@@ -375,7 +404,7 @@ export default function ProductionSalesTab({
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div data-tour="intent-record-destination" className="space-y-1.5">
               <Label htmlFor="intent-dest">Target Destination / Buyer</Label>
               <Input
                 id="intent-dest"
@@ -385,7 +414,7 @@ export default function ProductionSalesTab({
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div data-tour="intent-record-notes" className="space-y-1.5">
               <Label htmlFor="intent-notes">Notes / Scheduling</Label>
               <Input
                 id="intent-notes"
@@ -404,6 +433,7 @@ export default function ProductionSalesTab({
                 Cancel
               </Button>
               <Button
+                data-tour="intent-record-save"
                 type="submit"
                 disabled={recordIntentMutation.isPending}
                 className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold"

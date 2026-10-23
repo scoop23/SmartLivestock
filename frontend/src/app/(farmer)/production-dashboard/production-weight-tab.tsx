@@ -25,10 +25,14 @@ Calculator,
 LineChart as LineChartIcon,
 Plus,
 Scale,
+Sparkles,
 TrendingUp,
 Weight
 } from "lucide-react";
-import { useMemo,useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { type DriveStep } from "driver.js";
+import "driver.js/dist/driver.css";
+import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import {
 CartesianGrid,
 Line,
@@ -71,6 +75,22 @@ export default function ProductionWeightTab({
     new Date().toISOString().split("T")[0]
   );
   const [notes, setNotes] = useState("");
+
+  const startWeightTutorial = useCallback(() => {
+    const steps: DriveStep[] = [
+      { element: '[data-tour="weight-record-animal"]', popover: { title: "Choose the animal", description: "Select the approved animal or herd whose current weight you measured.", side: "bottom", align: "center" } },
+      { element: '[data-tour="weight-record-measurements"]', popover: { title: "Enter weight and date", description: "Add the measured weight in kilograms and the date you took the measurement. Previous logs are used to calculate growth.", side: "bottom", align: "center" } },
+      { element: '[data-tour="weight-record-notes"]', popover: { title: "Add optional notes", description: "You can add feeding stage or other context for this measurement.", side: "top", align: "start" } },
+      { element: '[data-tour="weight-record-save"]', popover: { title: "Save the weight log", description: "Save the measurement to add it to the animal’s growth history.", side: "top", align: "end" } },
+    ];
+    startGuidedTutorial({ showProgress: true, animate: true, allowClose: true, nextBtnText: "Next", prevBtnText: "Back", doneBtnText: "Finish", progressText: "{{current}} of {{total}}", steps });
+  }, []);
+
+  useEffect(() => {
+    if (!isLogOpen || !getAutomaticTutorialsEnabled()) return;
+    const timer = window.setTimeout(startWeightTutorial, 500);
+    return () => window.clearTimeout(timer);
+  }, [isLogOpen, startWeightTutorial]);
 
   const { data: weightRecords = [], isLoading } = useQuery<WeightRecordItem[]>({
     queryKey: ["weight_records"],
@@ -333,16 +353,22 @@ export default function ProductionWeightTab({
       {/* Log Weight Dialog */}
       <Dialog open={isLogOpen} onOpenChange={setIsLogOpen}>
         <DialogContent className="sm:max-w-md p-6 rounded-2xl">
-          <DialogHeader>
+          <DialogHeader className="flex-row items-start justify-between gap-3">
+            <div className="space-y-1.5">
             <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <Scale className="size-5 text-emerald-700" /> Log Cattle Weight
             </DialogTitle>
             <DialogDescription>
               Record current scale weight. The system will automatically compute weight gain and ADG from previous logs.
             </DialogDescription>
+            </div>
+            <Button type="button" variant="outline" onClick={startWeightTutorial} className="shrink-0 gap-1.5 rounded-xl">
+              <Sparkles className="size-4" aria-hidden="true" /> Tutorial
+            </Button>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+            <div data-tour="weight-record-animal">
             <LivestockPickerField
               id="weight-animal"
               label="Select Animal / Tag *"
@@ -354,8 +380,9 @@ export default function ProductionWeightTab({
               dialogDescription="Choose an approved animal or herd from your inventory. Current weights are shown on each card."
               emptyStateText="No approved livestock is available for weight logging."
             />
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div data-tour="weight-record-measurements" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="weight-input">New Weight (kg) *</Label>
                 <Input
@@ -379,7 +406,7 @@ export default function ProductionWeightTab({
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div data-tour="weight-record-notes" className="space-y-1.5">
               <Label htmlFor="weight-notes">Notes / Feeding Stage</Label>
               <Input
                 id="weight-notes"
@@ -398,6 +425,7 @@ export default function ProductionWeightTab({
                 Cancel
               </Button>
               <Button
+                data-tour="weight-record-save"
                 type="submit"
                 disabled={logWeightMutation.isPending}
                 className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold"

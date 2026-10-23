@@ -29,7 +29,10 @@ ShieldCheck,
 Sparkles,
 Tag,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { type DriveStep } from "driver.js";
+import "driver.js/dist/driver.css";
+import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
 import type { WizardMode } from "./production-dashboard-view";
 import ProductionFormFields,{
@@ -194,10 +197,76 @@ function ProductionWizardContent({
   const firstStep = profileMode || mode === "edit" ? 2 : 0;
   const minimumStep = profileMode ? 2 : 0;
   const [step, setStep] = useState(firstStep);
+  const autoTutorialStarted = useRef(false);
   const [selectOpen, setSelectOpen] = useState(false);
   const [isCertified, setIsCertified] = useState(false);
   const [selectedAnimalIds, setSelectedAnimalIds] = useState<number[]>(() =>
     editingRecord?.slaughterDetails?.animals.map(animal => animal.id) ?? (clickedInventory ? [Number(clickedInventory.id)] : []));
+
+  const startWizardTour = useCallback(() => {
+    const steps: DriveStep[] = [
+      {
+        element: '[data-tour="production-wizard-progress"]',
+        popover: {
+          title: "Your production entry steps",
+          description: "The form guides you from livestock selection through production details to a final review before anything is submitted.",
+          side: "bottom",
+          align: "center",
+        },
+      },
+      ...(step === 0
+        ? [{
+            element: '[data-tour="production-wizard-livestock"]',
+            popover: { title: "Choose the livestock", description: "Select an MAO-approved, active animal or batch as the source of this production record.", side: "bottom" as const, align: "center" as const },
+          }]
+        : step === 1
+          ? [{
+              element: '[data-tour="production-wizard-types"]',
+              popover: { title: "Choose the production type", description: "Pick the type that matches what you are reporting. Options depend on the selected livestock.", side: "bottom" as const, align: "center" as const },
+            }]
+          : step === 2
+            ? [
+                { element: '[data-tour="production-wizard-date"]', popover: { title: "Set the record date", description: "Choose when the production was collected or the slaughter happened.", side: "bottom" as const, align: "start" as const } },
+                { element: '[data-tour="production-wizard-fields"]', popover: { title: "Enter production details", description: "Fill in the quantity and activity-specific details. Meat entries also require selecting the individual animals.", side: "top" as const, align: "center" as const } },
+                { element: '[data-tour="production-wizard-notes"]', popover: { title: "Add optional notes", description: "Share context that may help SIBAT and MAO review the record.", side: "top" as const, align: "start" as const } },
+              ]
+            : [
+                { element: '[data-tour="production-wizard-review"]', popover: { title: "Review the entry", description: "Check the livestock, date, and production values before sending the record for review.", side: "top" as const, align: "center" as const } },
+                { element: '[data-tour="production-wizard-certification"]', popover: { title: "Confirm the declaration", description: "Check this confirmation only when the information reflects what you are reporting.", side: "top" as const, align: "center" as const } },
+                { element: '[data-tour="production-wizard-submit"]', popover: { title: "Submit for review", description: "Submitting sends this record to the SIBAT and MAO review workflow. It is not approved immediately.", side: "top" as const, align: "center" as const } },
+              ]),
+      ...(step < 3
+        ? [{
+            element: '[data-tour="production-wizard-continue"]',
+            popover: { title: "Continue when ready", description: "Complete the required fields to move forward. Your record is saved only after final submission.", side: "top" as const, align: "end" as const },
+          }]
+        : []),
+    ];
+
+    startGuidedTutorial({
+      showProgress: true,
+      animate: true,
+      allowClose: true,
+      nextBtnText: "Next",
+      prevBtnText: "Back",
+      doneBtnText: "Finish",
+      progressText: "{{current}} of {{total}}",
+      steps,
+    });
+  }, [step]);
+
+  useEffect(() => {
+    if (!open) {
+      autoTutorialStarted.current = false;
+      return;
+    }
+    if (mode !== "create" || !getAutomaticTutorialsEnabled() || autoTutorialStarted.current) return;
+    const timer = window.setTimeout(() => {
+      autoTutorialStarted.current = true;
+      startWizardTour();
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [mode, open, startWizardTour]);
   const slaughterCandidates = approvedInventories.filter(item => item.quantity === 1 &&
     (clickedInventory?.batchId ? item.batchId === clickedInventory.batchId : item.id === clickedInventory?.id));
 
@@ -359,7 +428,8 @@ function ProductionWizardContent({
       <DialogContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] sm:w-full sm:max-w-4xl sm:max-h-[90dvh] flex flex-col overflow-hidden p-0 gap-0 rounded-2xl sm:rounded-3xl border-0 shadow-2xl bg-slate-50">
         <DialogHeader className="relative overflow-hidden shrink-0 px-4 py-4 sm:px-6 sm:py-5 md:px-7 md:py-6 pr-12 sm:pr-14 md:pr-16 text-left bg-gradient-to-r from-[#244a20] via-[#2D5A27] to-[#3E7A36] text-white">
           <div className="absolute -right-12 -top-16 size-44 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-          <div className="relative flex items-start gap-3 sm:gap-3.5 min-w-0">
+          <div className="relative flex items-start justify-between gap-3 sm:gap-3.5 min-w-0">
+          <div className="flex items-start gap-3 sm:gap-3.5 min-w-0">
             <div className="size-9 sm:size-11 rounded-xl sm:rounded-2xl bg-white/15 flex items-center justify-center shrink-0 border border-white/15">
               <Sparkles className="size-4 sm:size-5" />
             </div>
@@ -378,10 +448,14 @@ function ProductionWizardContent({
               </DialogDescription>
             </div>
           </div>
+          <Button type="button" variant="outline" onClick={startWizardTour} className="min-h-10 shrink-0 gap-1.5 rounded-xl border-white/30 bg-white/10 px-2.5 text-white hover:bg-white/20 hover:text-white sm:px-3">
+            <Sparkles className="size-4" aria-hidden="true" /> <span className="hidden xs:inline">Tutorial</span>
+          </Button>
+          </div>
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-5 md:p-7">
-          <div className={cn("grid gap-1 sm:gap-2.5 mb-4 sm:mb-5", profileMode ? "grid-cols-2" : "grid-cols-4")}>
+          <div data-tour="production-wizard-progress" className={cn("grid gap-1 sm:gap-2.5 mb-4 sm:mb-5", profileMode ? "grid-cols-2" : "grid-cols-4")}>
             {(profileMode ? ["Details", "Review"] : STEP_LABELS).map((label, visibleIndex) => {
               const i = profileMode ? visibleIndex + 2 : visibleIndex;
               const isActive = i === step;
@@ -467,6 +541,7 @@ function ProductionWizardContent({
               ) : (
                 <>
                   <button
+                    data-tour="production-wizard-livestock"
                     type="button"
                     onClick={() => setSelectOpen(true)}
                     className={cn(
@@ -533,6 +608,7 @@ function ProductionWizardContent({
 
           {step === 1 && (
             <div
+              data-tour="production-wizard-types"
               className={cn(
                 "grid gap-3 sm:gap-3.5",
                 availableTypes.length === 1
@@ -588,7 +664,7 @@ function ProductionWizardContent({
                 if (canContinue) handleNext();
               }}
             >
-              <div className="space-y-2">
+              <div data-tour="production-wizard-date" className="space-y-2">
                 <Label htmlFor="prodDate" className="text-xs font-bold text-slate-700">{productionType === "meat" ? "Slaughter date" : "Date"}</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
@@ -657,13 +733,15 @@ function ProductionWizardContent({
                   {slaughterCandidates.length === 0 && <p className="text-sm text-amber-700">No eligible individual animals are available. Aggregate head counts cannot identify slaughtered animals.</p>}
                 </div>
               )}
-              <ProductionFormFields
-                type={productionType}
-                value={formState}
-                onChange={onFieldChange}
-              />
+              <div data-tour="production-wizard-fields">
+                <ProductionFormFields
+                  type={productionType}
+                  value={formState}
+                  onChange={onFieldChange}
+                />
+              </div>
 
-              <div className="space-y-2">
+              <div data-tour="production-wizard-notes" className="space-y-2">
                 <Label htmlFor="notes" className="text-xs font-bold text-slate-700">Notes</Label>
                 <Textarea
                   id="notes"
@@ -687,7 +765,7 @@ function ProductionWizardContent({
 
           {step === 3 && (
             <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden shadow-xs">
+              <div data-tour="production-wizard-review" className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden shadow-xs">
                 <ReviewRow label="Livestock" value={
                   clickedInventory
                     ? clickedInventory.entryType === "INDIVIDUAL"
@@ -733,7 +811,7 @@ function ProductionWizardContent({
               </div>
 
               {/* Farmer Production Declaration Banner */}
-              <div className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-emerald-50 border border-emerald-200">
+              <div data-tour="production-wizard-certification" className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-emerald-50 border border-emerald-200">
                 <Checkbox
                   id="certify-production"
                   checked={isCertified}
@@ -749,6 +827,7 @@ function ProductionWizardContent({
               </div>
 
               <Button
+                data-tour="production-wizard-submit"
                 onClick={handleSubmit}
                 disabled={isSubmitting || !isCertified}
                 className="w-full h-12 min-h-[48px] rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white gap-2 font-bold shadow-sm cursor-pointer disabled:opacity-50 text-sm sm:text-base"
@@ -794,6 +873,7 @@ function ProductionWizardContent({
               </div>
               <Button
                 type="button"
+                data-tour="production-wizard-continue"
                 onClick={handleNext}
                 disabled={!canContinue}
                 className="h-10 sm:h-11 min-h-[40px] sm:min-h-[44px] px-4 sm:px-6 rounded-xl bg-[#2D5A27] hover:bg-[#244a20] text-white gap-1.5 sm:gap-2 font-bold text-xs sm:text-sm shadow-xs min-w-[96px] sm:min-w-[112px]"
