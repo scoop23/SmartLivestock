@@ -8,7 +8,7 @@ import { usePathname,useRouter,useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
-import { markTutorialSeen, shouldAutoStartTutorial, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
 
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -156,14 +156,9 @@ function LivestockInventoryContent() {
   }, [highlightTypeParam, isLoading, isError]);
 
   useEffect(() => {
-    if (isLoading || isError || livestockTypeParam || activityLivestockId) return;
-    const tutorialKey = "smartlivestock-inventory-tour";
-    if (!shouldAutoStartTutorial(tutorialKey)) return;
+    if (isLoading || isError || livestockTypeParam || activityLivestockId || !getAutomaticTutorialsEnabled()) return;
 
-    const timer = window.setTimeout(() => {
-      markTutorialSeen(tutorialKey);
-      startInventoryTour();
-    }, 600);
+    const timer = window.setTimeout(startInventoryTour, 600);
 
     return () => window.clearTimeout(timer);
   }, [isLoading, isError, livestockTypeParam, activityLivestockId, startInventoryTour]);

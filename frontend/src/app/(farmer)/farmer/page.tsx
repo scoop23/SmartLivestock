@@ -17,7 +17,7 @@ Stethoscope,
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import "driver.js/dist/driver.css";
-import { markTutorialSeen, shouldAutoStartTutorial, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import FarmerReportsListDialog from "../components/farmer-reports-list-dialog";
 import ReportDetailDialog from "../report-observation/components/report-detail-dialog";
 import ReportIllnessDialog from "../report-observation/components/report-illness-dialog";
@@ -42,7 +42,28 @@ export default function FarmerDashboard() {
   const keepLoadingScreenMounted = useLoadingScreenTransition(isLoading);
 
   const startDashboardTour = useCallback(() => {
-    startGuidedTutorial({
+    const hasDesktopSidebar = window.matchMedia("(min-width: 1024px)").matches;
+    const shouldPinSidebar = hasDesktopSidebar && getAutomaticTutorialsEnabled();
+    if (shouldPinSidebar) {
+      window.dispatchEvent(new CustomEvent("smartlivestock:farmer-dashboard-tour-sidebar", { detail: { active: true } }));
+    }
+
+    const sidebarSteps = hasDesktopSidebar
+      ? [
+          { element: '[data-tour="farmer-sidebar-pin"]', popover: { title: "Sidebar pinned for this guide", description: "The sidebar is expanded during the walkthrough so each navigation label is visible. Its previous pinned state will be restored when the guide ends.", side: "right" as const, align: "center" as const } },
+          { element: '[data-tour="farmer-sidebar-farmer"]', popover: { title: "Home", description: "Return to the Farmer dashboard for a summary of your farm and recent updates.", side: "right" as const, align: "center" as const } },
+          { element: '[data-tour="farmer-sidebar-livestock-inventory"]', popover: { title: "Livestock", description: "Open your inventory to view animals, check review status, or manage livestock details.", side: "right" as const, align: "center" as const } },
+          { element: '[data-tour="farmer-sidebar-production-dashboard"]', popover: { title: "Production", description: "Record farm activities and review production, birth, weight, and sale-intent records.", side: "right" as const, align: "center" as const } },
+          { element: '[data-tour="farmer-sidebar-report-observation"]', popover: { title: "Report", description: "Submit a disease or mortality observation to the livestock office.", side: "right" as const, align: "center" as const } },
+          { element: '[data-tour="farmer-sidebar-gis-user-map"]', popover: { title: "GIS Mapping", description: "Open the farm map and its available livestock and location information.", side: "right" as const, align: "center" as const } },
+          { element: '[data-tour="farmer-sidebar-farmer-scheduling"]', popover: { title: "Programs", description: "View agriculture programs and scheduled farm visits.", side: "right" as const, align: "center" as const } },
+          { element: '[data-tour="farmer-sidebar-farmer-announcement"]', popover: { title: "Announcement", description: "Read updates and notices from the agriculture office.", side: "right" as const, align: "center" as const } },
+          { element: '[data-tour="farmer-sidebar-help"]', popover: { title: "Help & Support", description: "Find contact information and quick guidance for using SmartLivestock.", side: "right" as const, align: "center" as const } },
+          { element: '[data-tour="farmer-sidebar-profile"]', popover: { title: "Your account", description: "Open your account options and view your profile information.", side: "right" as const, align: "center" as const } },
+        ]
+      : [];
+
+    const runTour = () => startGuidedTutorial({
       showProgress: true,
       animate: true,
       allowClose: true,
@@ -50,7 +71,13 @@ export default function FarmerDashboard() {
       prevBtnText: "Back",
       doneBtnText: "Finish",
       progressText: "{{current}} of {{total}}",
+      onDestroyed: () => {
+        if (shouldPinSidebar) {
+          window.dispatchEvent(new CustomEvent("smartlivestock:farmer-dashboard-tour-sidebar", { detail: { active: false } }));
+        }
+      },
       steps: [
+        ...sidebarSteps,
         {
           element: '[data-tour="record-activity"]',
           popover: {
@@ -152,17 +179,16 @@ export default function FarmerDashboard() {
         },
       ],
     });
+
+    if (shouldPinSidebar) window.setTimeout(runTour, 250);
+    else runTour();
   }, []);
 
   useEffect(() => {
     if (isLoading || keepLoadingScreenMounted || isError) return;
-    const tutorialKey = "smartlivestock-farmer-dashboard-tour";
-    if (!shouldAutoStartTutorial(tutorialKey)) return;
+    if (!getAutomaticTutorialsEnabled()) return;
 
-    const timer = window.setTimeout(() => {
-      markTutorialSeen(tutorialKey);
-      startDashboardTour();
-    }, 600);
+    const timer = window.setTimeout(startDashboardTour, 600);
 
     return () => window.clearTimeout(timer);
   }, [isLoading, keepLoadingScreenMounted, isError, startDashboardTour]);

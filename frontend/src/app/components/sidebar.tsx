@@ -46,7 +46,7 @@ Users
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect,useState } from 'react';
+import { useEffect,useRef,useState } from 'react';
 import { MOBILE_NAV_EVENT } from './mobile-nav-open';
 
 const CowHeadIcon = ({ className }: { className?: string }) => (
@@ -280,6 +280,7 @@ function SidebarNav({
         {onTogglePin && !collapsed && (
           <button
             type="button"
+            data-tour={role === 'farmer' ? 'farmer-sidebar-pin' : undefined}
             onClick={onTogglePin}
             title={isPinned ? "Unpin sidebar (hover preview mode)" : "Pin sidebar (stay expanded)"}
             className="p-1.5 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
@@ -390,6 +391,7 @@ function SidebarNav({
           return (
             <Link
               key={link.path}
+              data-tour={role === 'farmer' ? `farmer-sidebar-${link.path.slice(1)}` : undefined}
               href={link.path}
               title={collapsed ? link.label : undefined}
               onClick={() => onNavigate?.()}
@@ -453,6 +455,7 @@ function SidebarNav({
         {/* Help & Support Button */}
         <button
           type="button"
+          data-tour={role === 'farmer' ? 'farmer-sidebar-help' : undefined}
           onClick={onOpenHelp}
           title={collapsed ? "Help & Support" : undefined}
           className={`flex items-center w-full ${collapsed ? "justify-center gap-0 p-1.5" : "gap-3 px-2 py-2"} rounded-xl text-sm font-semibold text-emerald-100 hover:bg-white/10 hover:text-white transition-all cursor-pointer group`}
@@ -476,6 +479,7 @@ function SidebarNav({
           <PopoverTrigger asChild>
             <button
               type="button"
+              data-tour={role === 'farmer' ? 'farmer-sidebar-profile' : undefined}
               className={cn(
                 "group w-full h-12 min-h-12 shrink-0 flex items-center justify-between p-2 rounded-xl bg-white/5 hover:bg-white/12 border border-white/10 transition-all cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-emerald-400/40",
                 collapsed ? "justify-center p-1.5" : "gap-2"
@@ -664,6 +668,34 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
   const [helpDialogOpen, setHelpDialogOpen] = useState<boolean>(false);
   const [scannerOpen, setScannerOpen] = useState<boolean>(false);
   const [mobileSheetContent, setMobileSheetContent] = useState<HTMLDivElement | null>(null);
+  const pinnedBeforeFarmerTour = useRef<boolean | null>(null);
+  const isPinnedRef = useRef(isPinned);
+
+  useEffect(() => {
+    isPinnedRef.current = isPinned;
+  }, [isPinned]);
+
+  useEffect(() => {
+    const syncTourPin = (event: Event) => {
+      if (role !== 'farmer') return;
+      const active = (event as CustomEvent<{ active: boolean }>).detail?.active;
+      if (active) {
+        if (pinnedBeforeFarmerTour.current === null) {
+          pinnedBeforeFarmerTour.current = isPinnedRef.current;
+        }
+        setIsPinned(true);
+        return;
+      }
+
+      if (pinnedBeforeFarmerTour.current !== null) {
+        setIsPinned(pinnedBeforeFarmerTour.current);
+        pinnedBeforeFarmerTour.current = null;
+      }
+    };
+
+    window.addEventListener('smartlivestock:farmer-dashboard-tour-sidebar', syncTourPin);
+    return () => window.removeEventListener('smartlivestock:farmer-dashboard-tour-sidebar', syncTourPin);
+  }, [role]);
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar_pinned");
