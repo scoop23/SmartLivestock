@@ -15,6 +15,7 @@ AlertTriangle,
 Award,
 Calendar,
 CheckCircle2,
+CloudSun,
 Database,
 HelpCircle,
 Info,
@@ -26,7 +27,7 @@ Sparkles,
 TrendingDown,
 TrendingUp
 } from "lucide-react";
-import { useEffect,useMemo,useState } from "react";
+import { useMemo,useState } from "react";
 import {
 Bar,
 BarChart,
@@ -179,6 +180,27 @@ interface ChartTimelinePoint {
   month_label: string;
   actual: number | null;
   forecast: number | null;
+}
+
+interface MortalityWeatherContext {
+  available: boolean;
+  provider?: string;
+  scope?: string;
+  observed_days?: number;
+  forecast_days?: number;
+  observed_30d?: {
+    mean_temperature_c: number | null;
+    mean_daily_max_temperature_c: number | null;
+    mean_humidity_pct: number | null;
+    precipitation_total_mm: number | null;
+  };
+  forecast_7d?: {
+    mean_temperature_c: number | null;
+    mean_daily_max_temperature_c: number | null;
+    mean_humidity_pct: number | null;
+    precipitation_total_mm: number | null;
+  };
+  message?: string;
 }
 
 interface ForecastResponse {
@@ -381,9 +403,9 @@ const DOMAINS: Array<{
   },
   {
     id: "mortality",
-    label: "Mortality Risk",
+    label: "Mortality Trend & Risk",
     icon: "⚠️",
-    description: "Mortality records, causes, & empirical surveillance velocity",
+    description: "Monthly death-count forecasts and an empirical municipal surveillance indicator",
   },
   {
     id: "slaughter",
@@ -508,6 +530,12 @@ export default function PredictiveAnalyticsView() {
     queryFn: async ({ signal }) => (await api.get<DescriptiveData>("analytics/dashboard/", { signal })).data,
   });
   const descriptiveData = descriptive.data ?? null;
+  const mortalityWeather = useQuery({
+    queryKey: ["mortality-weather-context", ...scope],
+    queryFn: async ({ signal }) => (await api.get<MortalityWeatherContext>("analytics/mortality-weather/", { signal })).data,
+    enabled: activeDomain === "mortality",
+    staleTime: 6 * 60 * 60 * 1000,
+  });
   const projection = useQuery({
     queryKey: ["predictive-projection", ...scope, params, selectedModel, refreshTrigger],
     enabled: evalData?.status === "ready",
@@ -1410,6 +1438,46 @@ export default function PredictiveAnalyticsView() {
                   <span className="font-semibold block mb-0.5">Epidemiological Disclosure:</span>
                   {descriptiveData.descriptive.mortality.risk_indicator.methodology_note}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeDomain === "mortality" && (
+            <Card className="rounded-2xl border-slate-200 shadow-xs">
+              <CardHeader className="pb-3 border-b border-slate-100">
+                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <CloudSun className="size-5 text-sky-700" /> Open-Meteo Weather Context
+                </CardTitle>
+                <p className="text-xs text-slate-500">
+                  {mortalityWeather.data?.scope || "Loading authorized location scope…"}. Weather is contextual information, not a cause or individual mortality probability.
+                </p>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {mortalityWeather.isPending ? (
+                  <p className="text-sm text-slate-500">Loading recent and forecast weather…</p>
+                ) : !mortalityWeather.data?.available ? (
+                  <p className="text-sm text-slate-600">{mortalityWeather.data?.message || "Weather context is unavailable."}</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {([
+                      ["Observed · last 30 days", mortalityWeather.data.observed_30d],
+                      ["Forecast · next 7 days", mortalityWeather.data.forecast_7d],
+                    ] as const).map(([periodLabel, values]) => (
+                      <div key={periodLabel} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <h4 className="mb-3 text-xs font-bold text-slate-800">{periodLabel}</h4>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <p>Mean temperature <strong>{values?.mean_temperature_c ?? "—"}°C</strong></p>
+                          <p>Mean daily max <strong>{values?.mean_daily_max_temperature_c ?? "—"}°C</strong></p>
+                          <p>Mean humidity <strong>{values?.mean_humidity_pct ?? "—"}%</strong></p>
+                          <p>Total rain <strong>{values?.precipitation_total_mm ?? "—"} mm</strong></p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-3 text-[11px] text-slate-500">
+                  Barangay-centroid weather from Open-Meteo. It is displayed alongside the approved mortality trend and is not used to calculate the monthly forecast or risk level.
+                </p>
               </CardContent>
             </Card>
           )}

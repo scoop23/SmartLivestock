@@ -6,6 +6,7 @@ urlpatterns = [
     path("reports/preview/", views.reports_preview, name="reports-preview"),
     path("reports/export/", views.reports_export, name="reports-export"),
     path("dashboard/", views.dashboard_summary, name="dashboard-summary"),
+    path("mortality-weather/", views.mortality_weather_context, name="mortality-weather-context"),
     path("nlp-evaluation/", views.nlp_evaluation, name="nlp-evaluation"),
     path("nlp-query/", views.nlp_query, name="nlp-query"),
     path("review-workload/", views.review_workload, name="review-workload"),

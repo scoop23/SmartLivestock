@@ -1,4 +1,4 @@
-"""Retrieve cached Open-Meteo weather context for an individual milk forecast."""
+"""Retrieve cached Open-Meteo context for milk forecasting and mortality surveillance."""
 
 import json
 from datetime import timedelta
@@ -10,6 +10,7 @@ from django.core.cache import cache
 
 WEATHER_FIELDS = (
     "temperature_2m_mean",
+    "temperature_2m_max",
     "relative_humidity_2m_mean",
     "precipitation_sum",
 )
@@ -38,6 +39,8 @@ def _daily_rows(payload):
         rows[day] = {
             "temperature_c": values["temperature_2m_mean"][index]
             if index < len(values["temperature_2m_mean"]) else None,
+            "temperature_max_c": values["temperature_2m_max"][index]
+            if index < len(values["temperature_2m_max"]) else None,
             "humidity_pct": values["relative_humidity_2m_mean"][index]
             if index < len(values["relative_humidity_2m_mean"]) else None,
             "precipitation_mm": values["precipitation_sum"][index]
@@ -122,3 +125,71 @@ def get_weather_context(latitude, longitude, first_milk_date, today):
     result = {"rows": rows, "available": available, "message": message}
     cache.set(cache_key, result, CACHE_SECONDS)
     return rows, available, message
+
+
+def get_mortality_weather_context(latitude, longitude, today):
+    """Return observed 30-day and forecast 7-day weather summaries for context only."""
+    if latitude is None or longitude is None:
+        return {"available": False, "message": "Location coordinates are unavailable."}
+
+    start_date = (today - timedelta(days=30)).isoformat()
+    yesterday = (today - timedelta(days=1)).isoformat()
+    lat, lon = round(float(latitude), 4), round(float(longitude), 4)
+    cache_key = f"mortality-weather-v1:{lat}:{lon}:{today.isoformat()}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        archive = _request_daily_weather(
+            "https://archive-api.open-meteo.com/v1/archive",
+            {"latitude": lat, "longitude": lon, "start_date": start_date,
+             "end_date": yesterday, "daily": ",".join(WEATHER_FIELDS), "timezone": "auto"},
+        )
+        forecast = _request_daily_weather(
+            "https://api.open-meteo.com/v1/forecast",
+            {"latitude": lat, "longitude": lon, "forecast_days": 7,
+             "daily": ",".join(WEATHER_FIELDS), "timezone": "auto"},
+        )
+        observed_rows = list(_daily_rows(archive).values())
+        forecast_rows = list(_daily_rows(forecast).values())
+        observed_rows = [row for row in observed_rows if row["temperature_c"] is not None]
+        if not observed_rows or not forecast_rows:
+            raise ValueError("Weather API returned no daily values.")
+
+        def mean(rows, key):
+            values = [row[key] for row in rows if row.get(key) is not None]
+            return round(sum(values) / len(values), 1) if values else None
+
+        def total(rows, key):
+            values = [row[key] for row in rows if row.get(key) is not None]
+            return round(sum(values), 1) if values else None
+
+        result = {
+            "available": True,
+            "provider": "Open-Meteo",
+            "observed_days": len(observed_rows),
+            "forecast_days": len(forecast_rows),
+            "observed_30d": {
+                "mean_temperature_c": mean(observed_rows, "temperature_c"),
+                "mean_daily_max_temperature_c": mean(observed_rows, "temperature_max_c"),
+                "mean_humidity_pct": mean(observed_rows, "humidity_pct"),
+                "precipitation_total_mm": total(observed_rows, "precipitation_mm"),
+            },
+            "forecast_7d": {
+                "mean_temperature_c": mean(forecast_rows, "temperature_c"),
+                "mean_daily_max_temperature_c": mean(forecast_rows, "temperature_max_c"),
+                "mean_humidity_pct": mean(forecast_rows, "humidity_pct"),
+                "precipitation_total_mm": total(forecast_rows, "precipitation_mm"),
+            },
+            "message": "Weather is contextual information only. It is not used as a causal or individual mortality prediction.",
+        }
+    except (OSError, ValueError, KeyError, TypeError):
+        result = {
+            "available": False,
+            "provider": "Open-Meteo",
+            "message": "Weather context is temporarily unavailable; mortality analytics do not depend on this service.",
+        }
+
+    cache.set(cache_key, result, CACHE_SECONDS)
+    return result

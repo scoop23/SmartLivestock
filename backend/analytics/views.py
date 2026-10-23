@@ -15,7 +15,7 @@ from livestock.permission import isMAO, isSibat
 from .services.descriptive import descriptive_summary
 from .services.overview import overview_summary
 from .services.population import official_inventory
-from smartlivestock.workflows import scope_reviewer_queryset
+from smartlivestock.workflows import has_all_barangay_access, role_name, scope_reviewer_queryset
 from .services.reports import build_report
 from .services.report_exports import excel_report, pdf_report
 from .services.review_workload import review_workload_summary
@@ -95,6 +95,31 @@ def dashboard_summary(request):
     # The service owns the DB -> ORM calculations. This view only publishes
     # approved municipal aggregates to authorized dashboard users.
     return Response(descriptive_summary(user=request.user))
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def mortality_weather_context(request):
+    """Provide recent and near-term weather context for mortality surveillance."""
+    from .services.gis import BARANGAY_CENTROIDS
+    from .services.predictive.weather import get_mortality_weather_context
+
+    role = role_name(request.user)
+    if role in {"SIBAT", "CBAT"} and not has_all_barangay_access(request.user):
+        barangay = getattr(request.user, "assigned_barangay", None)
+        if barangay is None:
+            return Response({"detail": "Assign this field account a barangay before viewing weather context."}, status=403)
+        location = BARANGAY_CENTROIDS.get(barangay.barangay_name)
+        scope = barangay.barangay_name
+    else:
+        points = list(BARANGAY_CENTROIDS.values())
+        location = [sum(point[index] for point in points) / len(points) for index in range(2)]
+        scope = "Padre Garcia municipality (barangay-centroid average)"
+
+    result = get_mortality_weather_context(*location, today=timezone.localdate()) if location else {
+        "available": False, "provider": "Open-Meteo", "message": "Coordinates are unavailable for this scope."
+    }
+    return Response({**result, "scope": scope})
 
 
 class AskSmartLivestockSerializer(serializers.Serializer):
