@@ -40,3 +40,23 @@ class IndividualMilkDemoObservation(models.Model):
                 name="uniq_demo_cow_milk_observation_day",
             )
         ]
+
+
+class MonthlyReportDelivery(models.Model):
+    """Idempotency record for the monthly MAO report email."""
+
+    class Status(models.TextChoices):
+        GENERATING = "GENERATING", "Generating"
+        SENT = "SENT", "Sent"
+        FAILED = "FAILED", "Failed"
+
+    period_start = models.DateField(unique=True)
+    period_end = models.DateField()
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.GENERATING)
+    recipients = models.JSONField(default=list, blank=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    error_summary = models.CharField(max_length=500, blank=True, default="")
+
+    class Meta:
+        ordering = ["-period_start"]
