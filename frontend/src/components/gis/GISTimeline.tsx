@@ -13,7 +13,7 @@
  * 
  * CORE CAPABILITIES:
  * ----------------------------------------------------------------------------
- * 1. 12-Month Scrubbing Slider (Jan to Dec 2026):
+ * 1. Rolling Scrubbing Slider (current baseline plus the next 12 months):
  *    - Allows instantaneous scrubbing across time. Because the full 12-month
  *      trajectory is precomputed in memory (`trajectory`), scrubbing is O(1)
  *      with zero lag or network requests.
@@ -110,17 +110,17 @@ export function GISTimeline({
   const hasBaselineSeeds = baselineSeedCount > 0;
   const isDemoScenario = trajectory[0]?.isDemoScenario === true;
 
-  // Prepare chart series from precomputed 12-month trajectory
+  // Prepare chart series from the current baseline and 12 projected months.
   const chartData = useMemo(() => {
     if (!trajectory || trajectory.length === 0) return [];
     return trajectory.map((res) => ({
-      month: res.month.label.split(' ')[0],
+      month: res.month.label,
       pressure: res.totalPressure,
       infected: res.totalInfected,
     }));
   }, [trajectory]);
 
-  const activeMonthAbbr = currentMonth.label.split(' ')[0];
+  const activeMonthLabel = currentMonth.label;
 
   if (isMinimized) {
     return (
@@ -244,7 +244,9 @@ export function GISTimeline({
               <Activity className="size-3" />
               Total Municipal Transmission Pressure
             </span>
-            <span className="text-slate-400">Jan – Dec 2026</span>
+            <span className="text-slate-400">
+              {trajectory[0]?.month.label} – {trajectory[trajectory.length - 1]?.month.label}
+            </span>
           </div>
           <div className="h-16 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -261,7 +263,7 @@ export function GISTimeline({
                     if (active && payload && payload.length) {
                       return (
                         <div className="bg-slate-900 text-white text-[10px] px-2 py-1 rounded shadow-md border border-slate-700">
-                          <p className="font-bold">{payload[0].payload.month} 2026</p>
+                          <p className="font-bold">{payload[0].payload.month}</p>
                           <p className="text-amber-400 font-mono">
                             Pressure: {Number(payload[0].value).toFixed(2)}
                           </p>
@@ -279,14 +281,14 @@ export function GISTimeline({
                   fillOpacity={1}
                   fill="url(#pressureGradient)"
                 />
-                <ReferenceLine x={activeMonthAbbr} stroke="#ef4444" strokeWidth={2} strokeDasharray="3 3" />
+                <ReferenceLine x={activeMonthLabel} stroke="#ef4444" strokeWidth={2} strokeDasharray="3 3" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
 
-      {/* 12-Month Scrubbing Slider */}
+      {/* Current baseline plus 12 future projection months */}
       <div className="space-y-1">
         <div className="relative flex items-center">
           <input
@@ -299,13 +301,15 @@ export function GISTimeline({
           />
         </div>
 
-        {/* 12 Month Ticks */}
+        {/* Month labels */}
         <div className="flex justify-between text-[9.5px] sm:text-[10px] font-bold text-slate-400 px-0.5">
           {TIMELINE_MONTHS.map((m, idx) => (
             <button
               key={m.label}
               type="button"
               onClick={() => onMonthChange(idx)}
+              aria-label={`Show simulation for ${m.label}`}
+              title={m.label}
               className={`hover:text-emerald-800 transition-colors cursor-pointer py-1 min-w-[20px] ${
                 idx === currentMonthIndex ? 'text-emerald-800 font-black scale-110' : ''
               }`}

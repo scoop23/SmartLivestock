@@ -52,21 +52,24 @@ export const BARANGAY_AREAS_KM2: Record<string, number> = {
   Tangob: 1.34,
 };
 
-// Full 12-Month Simulation Timeline (2026)
-export const TIMELINE_MONTHS: TimelineMonth[] = [
-  { index: 0, monthName: 'January', label: 'Jan 2026', year: 2026 },
-  { index: 1, monthName: 'February', label: 'Feb 2026', year: 2026 },
-  { index: 2, monthName: 'March', label: 'Mar 2026', year: 2026 },
-  { index: 3, monthName: 'April', label: 'Apr 2026', year: 2026 },
-  { index: 4, monthName: 'May', label: 'May 2026', year: 2026 },
-  { index: 5, monthName: 'June', label: 'Jun 2026', year: 2026 },
-  { index: 6, monthName: 'July', label: 'Jul 2026', year: 2026 },
-  { index: 7, monthName: 'August', label: 'Aug 2026', year: 2026 },
-  { index: 8, monthName: 'September', label: 'Sep 2026', year: 2026 },
-  { index: 9, monthName: 'October', label: 'Oct 2026', year: 2026 },
-  { index: 10, monthName: 'November', label: 'Nov 2026', year: 2026 },
-  { index: 11, monthName: 'December', label: 'Dec 2026', year: 2026 },
-];
+// Show the current month as the baseline, followed by 12 projection months.
+function buildRollingTimeline(today = new Date()): TimelineMonth[] {
+  return Array.from({ length: 13 }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth() + index, 1);
+    const monthName = date.toLocaleString('en-US', { month: 'long' });
+    const shortMonthName = date.toLocaleString('en-US', { month: 'short' });
+    const year = date.getFullYear();
+    return {
+      index,
+      calendarMonth: date.getMonth() + 1,
+      monthName,
+      label: `${shortMonthName} ${year}`,
+      year,
+    };
+  });
+}
+
+export const TIMELINE_MONTHS: TimelineMonth[] = buildRollingTimeline();
 
 /**
  * Converts meteorological heading degrees (0-360) into compass cardinal string
@@ -352,7 +355,10 @@ export function computeAnnualSimulationTrajectory(
 
   for (let mIdx = 0; mIdx < TIMELINE_MONTHS.length; mIdx++) {
     const month = TIMELINE_MONTHS[mIdx];
-    const wind = monthlyWind[mIdx] || STATIC_MONTHLY_WIND[mIdx] || STATIC_MONTHLY_WIND[0];
+    const calendarMonthIndex = month.calendarMonth - 1;
+    const wind = monthlyWind.find((item) => item.month === month.calendarMonth)
+      || STATIC_MONTHLY_WIND[calendarMonthIndex]
+      || STATIC_MONTHLY_WIND[0];
     const windSpeed = wind.speedKmH;
     const windToDegrees = wind.windToDegrees;
 
@@ -472,7 +478,7 @@ export function computeAnnualSimulationTrajectory(
  */
 export function computeSimulatedSpread(
   barangays: BarangayGISData[],
-  monthIndex: number = 3,
+  monthIndex: number = 0,
   windInput: EnvironmentalWindInput = DEFAULT_PAGASA_WIND
 ): Record<string, SimulatedBarangayState> {
   const matrices = precomputeSpatialMatrices(barangays);

@@ -144,8 +144,8 @@ export function RoleAwareGISContainer({
   const [movementTimelineMode, setMovementTimelineMode] = useState<'single' | 'cumulative' | 'all'>('single');
   const [selectedMovementYear, setSelectedMovementYear] = useState<string>('ALL');
 
-  // Simulation timeline & environmental states (12-month Jan-Dec 2026 player)
-  const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(3); // April 2026 baseline
+  // Baseline on the current month, then show 12 months of scenario projections.
+  const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<1 | 2 | 4>(1);
   const [simulationParams, setSimulationParams] = useState<SimulationParameters>(
@@ -232,7 +232,10 @@ export function RoleAwareGISContainer({
 
   // Active wind data for the current month
   const currentMonthWind = useMemo(() => {
-    return monthlyWindData[currentMonthIndex] || STATIC_MONTHLY_WIND[currentMonthIndex] || STATIC_MONTHLY_WIND[0];
+    const calendarMonth = TIMELINE_MONTHS[currentMonthIndex]?.calendarMonth;
+    return monthlyWindData.find((wind) => wind.month === calendarMonth)
+      || STATIC_MONTHLY_WIND[(calendarMonth ?? 1) - 1]
+      || STATIC_MONTHLY_WIND[0];
   }, [monthlyWindData, currentMonthIndex]);
 
   // Simulation Player Playback Loop

@@ -252,6 +252,7 @@ export interface MonthlySimulationResult {
 
 export interface TimelineMonth {
   index: number;
+  calendarMonth: number;
   monthName: string;
   label: string;
   year: number;
