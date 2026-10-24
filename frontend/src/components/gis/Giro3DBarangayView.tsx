@@ -640,8 +640,9 @@ export function Giro3DBarangayView({
             borderRadius: '5px',
             background: 'rgba(15,23,42,0.92)',
             color: '#fff',
-            font: '600 12px/1.2 sans-serif',
-            whiteSpace: 'nowrap',
+            font: '600 11px/1.25 sans-serif',
+            whiteSpace: 'pre-line',
+            textAlign: 'center',
             pointerEvents: 'none',
             textShadow: '0 1px 2px rgba(0,0,0,0.8)',
           });
@@ -699,6 +700,11 @@ export function Giro3DBarangayView({
           const bounds = host.getBoundingClientRect();
           instance.view.camera.updateMatrixWorld(true);
           for (const [feature, label] of labelElements) {
+            const name = String(feature.get('name') ?? '');
+            const simState = simulatedStatesRef.current?.[name];
+            label.textContent = activeLayer === 'disease' && diseaseSubMode === 'simulation' && simState
+              ? `${name}\n${simState.cases} case${simState.cases === 1 ? '' : 's'} | ${(simState.transmissionPressure * 100).toFixed(0)}% pressure`
+              : name;
             const anchor = labelAnchors.get(feature);
             if (!anchor) continue;
             const height = displayedHeightsRef.current.get(feature) ?? 50;
