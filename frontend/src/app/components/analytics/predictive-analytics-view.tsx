@@ -8,6 +8,7 @@ import { Card,CardContent,CardHeader,CardTitle } from "@/components/ui/card";
 import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table,TableBody,TableCell,TableHead,TableHeader,TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import api from "@/lib/axios";
 import {
 Activity,
@@ -499,6 +500,7 @@ export default function PredictiveAnalyticsView() {
   const [horizon, setHorizon] = useState<number>(6);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showMethodology, setShowMethodology] = useState(false);
+  const [modelBenchOpen, setModelBenchOpen] = useState(false);
   const setActiveDomain = (domain: AnalyticsDomain) => {
     updateActiveDomain(domain);
     setProductionType("MILK");
@@ -1184,6 +1186,74 @@ export default function PredictiveAnalyticsView() {
         </div>
       )}
 
+      {!loading && !error && evalData && (
+        <Dialog open={modelBenchOpen} onOpenChange={setModelBenchOpen}>
+          <DialogTrigger asChild>
+            <Button type="button" variant="outline" className="flex h-auto w-full flex-wrap items-center justify-between gap-3 rounded-2xl border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-cyan-50 p-4 text-left shadow-sm hover:border-indigo-300 hover:bg-indigo-50 sm:p-5">
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="rounded-xl border border-indigo-200 bg-white p-3 text-indigo-700"><Sparkles className="size-5" /></span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold uppercase tracking-[.16em] text-indigo-700">Predictive model bench</span>
+                  <span className="mt-1 block truncate text-base font-bold text-slate-950">Current method: {selectedModel || "None selected"}</span>
+                  <span className="mt-0.5 block text-sm text-slate-600">{activeDomain} · {normalized.readinessStatus.replaceAll("_", " ")} · choose a model</span>
+                </span>
+              </span>
+              <span className="rounded-lg bg-indigo-700 px-4 py-2 text-sm font-bold text-white">Open model bench</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[88vh] w-[min(96vw,90rem)] max-w-[96vw] overflow-y-auto border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-cyan-50 p-0 sm:max-w-[90rem]">
+            <DialogHeader className="border-b border-indigo-100 bg-white/80 p-5 pr-12 text-left sm:p-6">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[.16em] text-indigo-700"><Sparkles className="size-4" /> Predictive model bench</div>
+              <DialogTitle className="text-xl font-bold text-slate-950">Choose a forecasting method</DialogTitle>
+              <DialogDescription className="max-w-3xl text-sm leading-relaxed text-slate-600">
+                Select an evaluated method to use for the current forecast. Methods that failed or were not evaluated are shown for transparency but cannot be selected. Selection updates the forecast below.
+              </DialogDescription>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Badge variant="outline" className="border-indigo-200 bg-white text-indigo-900">{activeDomain.toUpperCase()}</Badge>
+                <Badge className={normalized.readinessStatus === "QUALITY_READY" ? "bg-emerald-700 text-white" : normalized.readinessStatus === "READY" ? "bg-cyan-800 text-white" : "bg-amber-600 text-white"}>{normalized.readinessStatus.replaceAll("_", " ")}</Badge>
+                <Badge variant="outline" className="border-slate-200 bg-white text-slate-700">{normalized.availableObservations} monthly observations</Badge>
+              </div>
+            </DialogHeader>
+            <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 sm:p-6">
+              {evalData.models?.length ? evalData.models.map((model, index) => {
+                const evaluated = model.status === "EVALUATED";
+                const failed = model.status.startsWith("FAILED");
+                const isCurrent = selectedModel === model.name;
+                const statusLabel = isCurrent ? "SELECTED" : evaluated ? "EVALUATED" : failed ? "FAILED" : "NOT EVALUATED";
+                const statusDescription = isCurrent
+                  ? "This is currently used for the forecast."
+                  : evaluated
+                    ? "Tested against later historical records. Select to use it below."
+                    : failed
+                      ? "This method could not complete its evaluation."
+                      : "No successful evaluation result is available.";
+                const sourceLabel = evalData.data?.is_seeded === undefined ? "Unavailable" : evalData.data.is_seeded ? "Demo data" : "Approved records";
+                const trainingRecords = evalData.data?.training_observations ?? evalData.data_provenance?.train_period?.observations;
+                const ModelIcon = [Activity, Calendar, Scale, CloudSun, Database, Sparkles][index % 6];
+                return (
+                  <button key={model.name} type="button" disabled={!evaluated} aria-pressed={isCurrent} onClick={() => { setSelectedModel(model.name); setModelBenchOpen(false); }} className={`relative flex min-w-0 flex-col rounded-xl border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-75 ${isCurrent ? "border-emerald-400 ring-2 ring-emerald-100" : failed ? "border-rose-200" : "border-indigo-100 hover:border-indigo-300"}`}>
+                    <span className="flex w-full items-center justify-between gap-2">
+                      <span className={`rounded-xl p-2.5 ${isCurrent ? "bg-emerald-100 text-emerald-800" : failed ? "bg-rose-100 text-rose-800" : "bg-indigo-100 text-indigo-800"}`}><ModelIcon className="size-5" /></span>
+                      <Badge variant="outline" className={isCurrent ? "shrink-0 border-emerald-300 bg-emerald-50 text-emerald-900" : failed ? "shrink-0 border-rose-200 bg-rose-50 text-rose-800" : evaluated ? "shrink-0 border-indigo-200 bg-indigo-50 text-indigo-800" : "shrink-0 border-slate-200 bg-slate-50 text-slate-700"}>{statusLabel}</Badge>
+                    </span>
+                    <span className="mt-4 text-xs font-bold uppercase tracking-wide text-indigo-700">#{index + 1}</span>
+                    <span className="mt-1 font-bold leading-snug text-slate-950">{model.name}</span>
+                    <span className="mt-0.5 text-sm text-slate-500">{model.model_type}</span>
+                    <span className="mt-4 grid w-full grid-cols-2 gap-2 text-xs">
+                      <span className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-2.5"><span className="block font-semibold uppercase tracking-wide text-slate-500">Training source</span><span className="mt-1 block break-words font-bold text-slate-900">{sourceLabel}</span></span>
+                      <span className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-2.5"><span className="block font-semibold uppercase tracking-wide text-slate-500">Training months</span><span className="mt-1 block font-bold tabular-nums text-slate-900">{trainingRecords ?? "Unavailable"}</span></span>
+                    </span>
+                    <span className="mt-3 min-h-10 text-sm leading-relaxed text-slate-600">{statusDescription}</span>
+                    <span className={`mt-3 block w-full rounded-lg px-3 py-2 text-center text-sm font-bold ${isCurrent ? "bg-emerald-100 text-emerald-900" : evaluated ? "bg-indigo-700 text-white" : "bg-slate-100 text-slate-500"}`}>{isCurrent ? "Currently selected" : evaluated ? "Use this model" : "Unavailable to select"}</span>
+                  </button>
+                );
+              }) : <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:col-span-2 lg:col-span-3"><p className="font-bold">No candidate models were evaluated for this data yet.</p><p className="mt-1">Available history: {normalized.availableObservations} of {normalized.requiredObservations} required monthly observations. {normalized.readinessDetails}</p></div>}
+            </div>
+            <p className="px-4 pb-4 text-sm leading-relaxed text-slate-500 sm:px-6 sm:pb-6">A selected method is chosen from historical evaluation results. Past performance does not guarantee future accuracy.</p>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* ------------------------------------------------------------------ */}
       {/* 4. INSUFFICIENT DATA STATE (ACADEMIC INTEGRITY GUARANTEE) */}
       {/* ------------------------------------------------------------------ */}
@@ -1859,17 +1929,21 @@ export default function PredictiveAnalyticsView() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-slate-500 font-medium">Model:</span>
-                  <select
+                  <Select
                     value={selectedModel || winningModel?.name || ""}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="text-xs border border-slate-300 rounded-lg px-2.5 py-1 font-semibold text-slate-700 bg-white"
+                    onValueChange={setSelectedModel}
                   >
+                    <SelectTrigger aria-label="Choose the forecast model" className="h-9 w-[220px] rounded-lg border-slate-300 bg-white text-sm font-semibold text-slate-700">
+                      <SelectValue placeholder="Choose a model" />
+                    </SelectTrigger>
+                    <SelectContent align="end">
                     {evalData.models?.filter((m) => m.status === "EVALUATED").map((m) => (
-                      <option key={m.name} value={m.name}>
+                      <SelectItem key={m.name} value={m.name}>
                         {m.name} {m.is_selected ? "★ (Best MAE)" : ""}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardHeader>
