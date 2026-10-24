@@ -21,7 +21,7 @@ import api from "@/lib/axios";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import { saveAttachedPhoto } from "@/lib/photo-storage";
 import { cowHead } from "@lucide/lab";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 Calendar,
 Camera,
@@ -31,7 +31,7 @@ Skull,
 Stethoscope,
 X,
 } from "lucide-react";
-import React,{ useMemo,useState } from "react";
+import React,{ useEffect,useMemo,useState } from "react";
 import { toast } from "sonner";
 import { useUserInventory } from "../../livestock-inventory/livestock-inventory";
 import { FarmerReport,ReportType } from "../report-observation-types";
@@ -43,7 +43,16 @@ interface ReportIllnessDialogProps {
   defaultInventoryId?: string;
   existingReport?: FarmerReport | null;
   mode?: "create" | "edit";
-  onSuccess?: () => void;
+  onSuccess?: (createdReportIds?: string[]) => void;
+}
+
+interface LinkableDiseaseCase {
+  id: number;
+  livestock: number | null;
+  batch: number | null;
+  name: string;
+  record_date: string | null;
+  status: string;
 }
 
 const EASY_SIGNS = [
@@ -69,6 +78,7 @@ export const EASY_MORTALITY_CAUSES = [
 ];
 
 function ReportIllnessDialogContent({
+  open,
   onOpenChange,
   defaultType = "DISEASE",
   defaultInventoryId,
@@ -81,6 +91,14 @@ function ReportIllnessDialogContent({
   const isEditMode = mode === "edit" && !!existingReport;
 
   const reportType = isEditMode && existingReport ? (existingReport.reportType || defaultType) : defaultType;
+  const { data: diseaseCases = [], isLoading: isLoadingDiseaseCases } = useQuery({
+    queryKey: ["farmer-disease-cases"],
+    queryFn: async () => {
+      const response = await api.get("diseases/cases/");
+      return (Array.isArray(response.data) ? response.data : []) as LinkableDiseaseCase[];
+    },
+    enabled: open && reportType === "MORTALITY",
+  });
   const [selectedInventoryId, setSelectedInventoryId] = useState<string>(() => {
     if (isEditMode && existingReport) {
       return String(existingReport.inventoryId || existingReport.rawItem?.livestock || defaultInventoryId || "");
@@ -109,6 +127,7 @@ function ReportIllnessDialogContent({
   const [recordDate, setRecordDate] = useState<string>(() =>
     isEditMode && existingReport ? (existingReport.recordDate || localCalendarDateToday()) : localCalendarDateToday()
   );
+  const [sourceDiseaseCaseId, setSourceDiseaseCaseId] = useState<string>("");
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>(() =>
     isEditMode && existingReport && Array.isArray(existingReport.symptoms) ? existingReport.symptoms : []
   );
@@ -170,6 +189,31 @@ function ReportIllnessDialogContent({
     () => selectableAnimals.filter((inventory) => selectedInventoryIds.includes(String(inventory.id))),
     [selectableAnimals, selectedInventoryIds],
   );
+  const relatedDiseaseCases = useMemo(() => {
+    if (selectedAnimals.length === 0) return [];
+    return diseaseCases.filter((diseaseCase) =>
+      selectedAnimals.every((animal) =>
+        diseaseCase.livestock === Number(animal.id) ||
+        (diseaseCase.livestock == null && diseaseCase.batch != null && diseaseCase.batch === animal.batchId),
+      ),
+    );
+  }, [diseaseCases, selectedAnimals]);
+  const linkableDiseaseCases = useMemo(() => {
+    if (!recordDate) return [];
+    const mortalityTime = Date.parse(`${recordDate}T00:00:00Z`);
+    return relatedDiseaseCases.filter((diseaseCase) => {
+      if (!diseaseCase.record_date || diseaseCase.record_date >= recordDate) return false;
+      const ageInDays = (mortalityTime - Date.parse(`${diseaseCase.record_date}T00:00:00Z`)) / 86_400_000;
+      if (ageInDays < 1 || ageInDays > 30) return false;
+      return true;
+    });
+  }, [relatedDiseaseCases, recordDate]);
+
+  useEffect(() => {
+    if (sourceDiseaseCaseId && !linkableDiseaseCases.some((diseaseCase) => String(diseaseCase.id) === sourceDiseaseCaseId)) {
+      setSourceDiseaseCaseId("");
+    }
+  }, [linkableDiseaseCases, sourceDiseaseCaseId]);
 
   const toggleAnimal = (id: string) => {
     setSelectedInventoryIds((current) =>
@@ -242,6 +286,7 @@ function ReportIllnessDialogContent({
     setIsSubmitting(true);
     let submittedCount = 0;
     const submittedInventoryIds: string[] = [];
+    const submittedReportIds: string[] = [];
 
     try {
       // A shared death event is one reviewable report; disease cases retain
@@ -253,6 +298,9 @@ function ReportIllnessDialogContent({
         const requestData = new FormData();
         if (reportType === "MORTALITY") {
           inventoryGroup.forEach((inventoryId) => requestData.append("livestocks", inventoryId));
+          if (!isEditMode && sourceDiseaseCaseId) {
+            requestData.append("source_disease_case", sourceDiseaseCaseId);
+          }
         } else {
           requestData.append("livestock", inventoryGroup[0]);
         }
@@ -284,6 +332,11 @@ function ReportIllnessDialogContent({
         }
         submittedCount += reportType === "MORTALITY" ? inventoryGroup.length : 1;
         submittedInventoryIds.push(...inventoryGroup);
+        if (!isEditMode && response.data?.id) {
+          submittedReportIds.push(
+            `${reportType === "DISEASE" ? "DIS" : "MOR"}-${response.data.id}`,
+          );
+        }
 
         const activeUrl = response.data?.photo_url || response.data?.photo || photoDataUrl;
         if (activeUrl && response.data?.id) {
@@ -324,7 +377,7 @@ function ReportIllnessDialogContent({
       setPhotoName("");
       setPhotoDataUrl("");
       setPhotoFile(null);
-      onSuccess?.();
+      onSuccess?.(submittedReportIds);
       onOpenChange(false);
     } catch (err: unknown) {
       console.error("Failed to submit observation:", err);
@@ -365,7 +418,7 @@ function ReportIllnessDialogContent({
         setSelectedInventoryIds((current) =>
           current.filter((id) => !submittedInventoryIds.includes(id)),
         );
-        onSuccess?.();
+        onSuccess?.(submittedReportIds);
         toast.error(
           `${submittedCount} animal${submittedCount === 1 ? "" : "s"} saved before a submission failed. Review the message and retry only animals not yet submitted. ${msg}`,
         );
@@ -567,27 +620,70 @@ function ReportIllnessDialogContent({
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
-              <Label className="text-xs font-black uppercase tracking-wider text-slate-700">
-                2. Suspected Cause of Death
-              </Label>
-              <Select value={conditionName} onValueChange={setConditionName}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-rose-700">
-                  <SelectValue placeholder="Choose primary cause or circumstance..." />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  {EASY_MORTALITY_CAUSES.map((cause) => (
-                    <SelectItem key={cause} value={cause} className="text-xs font-semibold py-2">
-                      {cause}
-                    </SelectItem>
-                  ))}
-                  {conditionName && !EASY_MORTALITY_CAUSES.includes(conditionName) && (
-                    <SelectItem value={conditionName} className="text-xs font-semibold py-2">
-                      {conditionName}
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+            <div className="space-y-4">
+              {!isEditMode && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-black uppercase tracking-wider text-slate-700">
+                    Link an earlier disease report (optional)
+                  </Label>
+                  <Select
+                    value={sourceDiseaseCaseId || "none"}
+                    onValueChange={(value) => setSourceDiseaseCaseId(value === "none" ? "" : value)}
+                    disabled={isSubmitting || isLoadingDiseaseCases || linkableDiseaseCases.length === 0}
+                  >
+                    <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-rose-700">
+                      <SelectValue placeholder="No disease report linked" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="none" className="text-xs font-semibold py-2">
+                        No disease report linked
+                      </SelectItem>
+                      {linkableDiseaseCases.map((diseaseCase) => (
+                        <SelectItem key={diseaseCase.id} value={String(diseaseCase.id)} className="text-xs font-semibold py-2">
+                          DIS-{diseaseCase.id} · {diseaseCase.name} · {diseaseCase.record_date}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs leading-relaxed text-slate-500">
+                    {isLoadingDiseaseCases
+                      ? "Loading your disease reports..."
+                      : linkableDiseaseCases.length
+                        ? "Choose a report for the selected animal dated within the 30 days before this death. The link records a reference; it does not confirm the cause of death."
+                        : relatedDiseaseCases.length > 0
+                          ? (() => {
+                              const missingDate = relatedDiseaseCases.find((diseaseCase) => !diseaseCase.record_date);
+                              if (missingDate) return `DIS-${missingDate.id} has no event date, so it cannot be ordered before this death.`;
+                              const laterCase = relatedDiseaseCases.find((diseaseCase) => diseaseCase.record_date! >= recordDate);
+                              if (laterCase) return `DIS-${laterCase.id} is dated ${laterCase.record_date}, which is the same day as or after this death date (${recordDate}). For this link, the disease report must be dated before the death.`;
+                              return "Your related disease report is more than 30 days before this death, outside the surveillance window.";
+                            })()
+                          : "No disease report matches the selected animal or common herd. You can still submit without a link."}
+                  </p>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase tracking-wider text-slate-700">
+                  2. Suspected Cause of Death
+                </Label>
+                <Select value={conditionName} onValueChange={setConditionName}>
+                  <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-rose-700">
+                    <SelectValue placeholder="Choose primary cause or circumstance..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {EASY_MORTALITY_CAUSES.map((cause) => (
+                      <SelectItem key={cause} value={cause} className="text-xs font-semibold py-2">
+                        {cause}
+                      </SelectItem>
+                    ))}
+                    {conditionName && !EASY_MORTALITY_CAUSES.includes(conditionName) && (
+                      <SelectItem value={conditionName} className="text-xs font-semibold py-2">
+                        {conditionName}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
 

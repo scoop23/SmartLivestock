@@ -9,6 +9,7 @@ import { KpiCard,type KpiVariant } from "@/components/ui/kpi-card";
 import { cowHead } from "@lucide/lab";
 import {
 Activity,
+AlertTriangle,
 CheckCircle2,
 ChevronRight,
 Clock,
@@ -202,9 +203,57 @@ function ReportObservationContent() {
     return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [diseaseCases, mortalityRecords]);
 
+  const chronologyConflicts = useMemo(() => {
+    const conflicts = new Map<string, Array<{ counterpartId: string; eventDate: string }>>();
+    const deaths = reports.filter(
+      (report) =>
+        report.reportType === "MORTALITY" &&
+        (report.status === "VERIFIED" || report.status === "APPROVED") &&
+        Boolean(report.recordDate),
+    );
+    const diseases = reports.filter(
+      (report) => report.reportType === "DISEASE" && Boolean(report.recordDate),
+    );
+
+    const animalIds = (report: FarmerReport) => {
+      const ids = new Set<string>();
+      if (report.inventoryId && !["null", "undefined"].includes(report.inventoryId)) {
+        ids.add(report.inventoryId);
+      }
+      if (report.reportType === "MORTALITY") {
+        const affectedAnimals = (
+          report.rawItem as { affected_animals?: Array<{ id: number }> } | undefined
+        )?.affected_animals;
+        affectedAnimals?.forEach((animal) => ids.add(String(animal.id)));
+      }
+      return ids;
+    };
+
+    diseases.forEach((disease) => {
+      const diseaseAnimalIds = animalIds(disease);
+      deaths.forEach((death) => {
+        const sharesAnimal = [...animalIds(death)].some((id) => diseaseAnimalIds.has(id));
+        if (!sharesAnimal || death.recordDate >= disease.recordDate) return;
+
+        conflicts.set(disease.id, [
+          ...(conflicts.get(disease.id) || []),
+          { counterpartId: death.id, eventDate: death.recordDate },
+        ]);
+        conflicts.set(death.id, [
+          ...(conflicts.get(death.id) || []),
+          { counterpartId: disease.id, eventDate: disease.recordDate },
+        ]);
+      });
+    });
+
+    return conflicts;
+  }, [reports]);
+
   // ── Filter State ──
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filterType, setFilterType] = useState<HealthReportFilter>("ALL");
+  const [pendingNewReportIds, setPendingNewReportIds] = useState<string[]>([]);
+  const [highlightedReportIds, setHighlightedReportIds] = useState<string[]>([]);
 
   // Filtered reports
   const filteredReports = useMemo(() => {
@@ -232,6 +281,55 @@ function ReportObservationContent() {
       return true;
     });
   }, [reports, searchQuery, filterType]);
+
+  const handleReportDialogSuccess = async (createdReportIds?: string[]) => {
+    if (!createdReportIds?.length) {
+      handleRefresh();
+      return;
+    }
+
+    setSearchQuery("");
+    setFilterType("ALL");
+    await Promise.all([refetchDiseases(), refetchMortality()]);
+    setPendingNewReportIds(createdReportIds);
+  };
+
+  useEffect(() => {
+    if (
+      pendingNewReportIds.length === 0 ||
+      isLoadingDiseases || isLoadingMortality ||
+      isFetchingDiseases || isFetchingMortality
+    ) return;
+
+    const targetId = pendingNewReportIds[0];
+    if (!filteredReports.some((report) => report.id === targetId)) return;
+
+    const targetCard = document.getElementById(`report-card-${targetId}`);
+    if (!targetCard) return;
+
+    setPendingNewReportIds([]);
+    setHighlightedReportIds(pendingNewReportIds);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.requestAnimationFrame(() => {
+      targetCard.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "center",
+      });
+    });
+  }, [
+    pendingNewReportIds,
+    filteredReports,
+    isLoadingDiseases,
+    isLoadingMortality,
+    isFetchingDiseases,
+    isFetchingMortality,
+  ]);
+
+  useEffect(() => {
+    if (highlightedReportIds.length === 0) return;
+    const timeout = window.setTimeout(() => setHighlightedReportIds([]), 6500);
+    return () => window.clearTimeout(timeout);
+  }, [highlightedReportIds]);
 
   const startReportTour = React.useCallback(() => {
     const candidates: DriveStep[] = [
@@ -588,12 +686,17 @@ function ReportObservationContent() {
                   return (
                     <div
                       key={rep.id}
+                      id={`report-card-${rep.id}`}
                       data-tour={rep.id === filteredReports[0]?.id ? "report-card" : undefined}
                       onClick={() => {
                         setSelectedReport(rep);
                         setIsDetailOpen(true);
                       }}
-                      className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-[#2D5A27] hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group space-y-3"
+                      className={`p-4 rounded-2xl border bg-white hover:border-[#2D5A27] hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group space-y-3 ${
+                        highlightedReportIds.includes(rep.id)
+                          ? "border-emerald-400 bg-emerald-50/70 ring-4 ring-emerald-300/70 shadow-lg shadow-emerald-200/60"
+                          : "border-slate-200"
+                      }`}
                     >
                       {/* Top Row: Animal Info & Date */}
                       <div>
@@ -637,6 +740,25 @@ function ReportObservationContent() {
                           </p>
                         </div>
 
+                        {chronologyConflicts.get(rep.id)?.map((conflict) => (
+                          <div
+                            key={`${rep.id}-${conflict.counterpartId}`}
+                            role="status"
+                            className="mt-2 rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-950"
+                          >
+                            <p className="flex items-center gap-1.5 font-bold">
+                              <AlertTriangle className="size-3.5 shrink-0" />
+                              Timeline needs review
+                            </p>
+                            <p className="mt-1">
+                              {rep.reportType === "DISEASE"
+                                ? `This disease report (${rep.id}, ${rep.recordDate}) is dated after verified/approved death ${conflict.counterpartId} (${conflict.eventDate}) for the same animal.`
+                                : `Disease report ${conflict.counterpartId} (${conflict.eventDate}) is dated after this verified/approved death report (${rep.id}, ${rep.recordDate}) for the same animal.`}
+                              {" "}Check the animal and event dates with field staff. This date match does not show that the disease caused the death.
+                            </p>
+                          </div>
+                        ))}
+
                         {/* Revision Callout if Subject to Revision */}
                         {rep.status === "SUBJECT_TO_REVISION" && rep.reviewRemarks && (
                           <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-[10px] text-amber-900 font-medium line-clamp-2">
@@ -647,10 +769,17 @@ function ReportObservationContent() {
 
                       {/* Bottom Row: Status Badge & Details Button */}
                       <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <Badge className={`text-[10px] font-extrabold px-2 py-0.5 gap-1 ${statusInfo.badgeClass}`}>
-                          {statusInfo.icon}
-                          <span>{statusInfo.label}</span>
-                        </Badge>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge className={`text-[10px] font-extrabold px-2 py-0.5 gap-1 ${statusInfo.badgeClass}`}>
+                            {statusInfo.icon}
+                            <span>{statusInfo.label}</span>
+                          </Badge>
+                          {highlightedReportIds.includes(rep.id) && (
+                            <Badge className="border border-emerald-300 bg-emerald-100 text-[10px] font-extrabold text-emerald-900">
+                              Just submitted
+                            </Badge>
+                          )}
+                        </div>
 
                         <span className="text-xs font-black text-[#2D5A27] group-hover:underline flex items-center gap-0.5">
                           <span>Details</span>
@@ -671,7 +800,7 @@ function ReportObservationContent() {
         open={isReportIllnessOpen}
         onOpenChange={setIsReportIllnessOpen}
         defaultType={reportIllnessDefaultType}
-        onSuccess={handleRefresh}
+        onSuccess={handleReportDialogSuccess}
       />
 
       <ReportIllnessDialog
@@ -683,7 +812,7 @@ function ReportObservationContent() {
         defaultType={editingReport?.reportType ?? "DISEASE"}
         existingReport={editingReport}
         mode={editingReport ? "edit" : "create"}
-        onSuccess={handleRefresh}
+        onSuccess={handleReportDialogSuccess}
       />
 
       <ReportDetailDialog

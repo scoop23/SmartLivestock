@@ -1,9 +1,37 @@
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
+from django.utils.dateformat import format as format_date
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from .models import DiseaseCase, MortalityRecord
 from livestock.models import LivestockInventory, LivestockBatch
+
+
+def find_prior_verified_mortality(livestock, disease_date):
+    """Return an earlier field-verified/approved death report for this animal."""
+    if not livestock or not disease_date:
+        return None
+    return (
+        MortalityRecord.objects.filter(
+            status__in=(
+                MortalityRecord.MortalityRecordStatus.VERIFIED,
+                MortalityRecord.MortalityRecordStatus.APPROVED,
+            ),
+            record_date__lt=disease_date,
+        )
+        .filter(Q(livestock_id=livestock.pk) | Q(affected_livestock__pk=livestock.pk))
+        .distinct()
+        .order_by("record_date", "pk")
+        .first()
+    )
+
+
+def mortality_chronology_message(mortality):
+    return (
+        f"This disease event is dated after mortality report MOR-{mortality.pk} "
+        f"({format_date(mortality.record_date, 'M j, Y')}, {mortality.get_status_display()}). "
+        "Check the animal and event dates with field staff before submitting or approving."
+    )
 
 
 class DiseaseCaseSerializer(serializers.ModelSerializer):
@@ -205,6 +233,16 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             available = batch.animals.filter(operational_status="ACTIVE").aggregate(heads=Sum("quantity"))["heads"] or 0
             if batch.status != "ACTIVE" or affected_count > available:
                 raise ValidationError({"affected_count": "Affected heads cannot exceed the active herd population."})
+
+        event_date = attrs.get(
+            "record_date", self.instance.record_date if self.instance else None
+        )
+        if livestock and event_date:
+            prior_mortality = find_prior_verified_mortality(livestock, event_date)
+            if prior_mortality:
+                raise ValidationError(
+                    {"record_date": mortality_chronology_message(prior_mortality)}
+                )
         return attrs
 
     def create(self, validated_data):

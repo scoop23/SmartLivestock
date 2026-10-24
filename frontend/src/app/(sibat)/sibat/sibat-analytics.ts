@@ -152,6 +152,7 @@ export interface RawCalvingRecord {
 export interface RawDiseaseCase {
   id: number;
   livestock: number;
+  batch?: number | null;
   farmer_name?: string;
   tag_number?: string;
   livestock_type_name?: string;
@@ -190,6 +191,8 @@ export interface RawMortalityRecord {
   barangay_name?: string;
   barangay_id?: number;
   cause: string;
+  source_disease_case?: number | null;
+  source_disease_name?: string | null;
   death_count: number;
   record_date: string;
   photo?: string | null;

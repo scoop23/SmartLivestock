@@ -14,7 +14,12 @@ from smartlivestock.workflows import FIELD_REVIEWERS, require_action, validate_r
 from users.models import User, Notification
 from users.notification_views import create_notification, health_notification_recipients, notify_review_revision, notify_role
 from .models import DiseaseCase, MortalityRecord
-from .serializer import DiseaseCaseSerializer, MortalityRecordSerializer
+from .serializer import (
+    DiseaseCaseSerializer,
+    MortalityRecordSerializer,
+    find_prior_verified_mortality,
+    mortality_chronology_message,
+)
 from livestock.reconciliation import reconcile_approved_mortality
 
 
@@ -514,6 +519,27 @@ def review_disease_case(request, pk):
         raise PermissionDenied("You do not have permission to review disease cases.")
 
     validate_review_transition(domain="disease", role=role_name, current=record.status, target=new_status, remarks=remarks)
+
+    if (
+        new_status == DiseaseCase.DiseaseStatus.APPROVED
+        and record.livestock_id
+        and record.record_date
+    ):
+        prior_mortality = find_prior_verified_mortality(
+            record.livestock, record.record_date
+        )
+        if prior_mortality:
+            return Response(
+                {
+                    "error": mortality_chronology_message(prior_mortality),
+                    "chronology_conflict": {
+                        "mortality_record": f"MOR-{prior_mortality.pk}",
+                        "record_date": prior_mortality.record_date.isoformat(),
+                        "status": prior_mortality.status,
+                    },
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
 
     if "inspector_photo" in request.FILES:
         record.inspector_photo = request.FILES["inspector_photo"]

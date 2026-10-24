@@ -101,6 +101,12 @@ export default function ReportDetailDialog({
   if (!report) return null;
 
   const isMortality = report.reportType === "MORTALITY";
+  const linkedDisease = isMortality && report.rawItem && "source_disease_case" in report.rawItem
+    ? report.rawItem.source_disease_case
+    : null;
+  const linkedDiseaseName = isMortality && report.rawItem && "source_disease_name" in report.rawItem
+    ? report.rawItem.source_disease_name
+    : null;
   const qrRecordId = report.id.match(/^(?:DIS|MOR)-(\d+)$/i)?.[1];
   const qrPayload = qrRecordId
     ? `/health-report-qr?recordType=${report.reportType}&recordId=${qrRecordId}`
@@ -727,6 +733,18 @@ export default function ReportDetailDialog({
                 )}
               </div>
             </div>
+
+            {isMortality && linkedDisease && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-bold text-slate-500">Linked disease report</p>
+                <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3 text-xs text-slate-800">
+                  <p className="font-bold">DIS-{linkedDisease}{linkedDiseaseName ? ` · ${linkedDiseaseName}` : ""}</p>
+                  <p className="mt-1 leading-relaxed text-slate-600">
+                    This is a report reference and does not confirm that the disease caused the death.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Farmer Observations */}
             {report.description && (
