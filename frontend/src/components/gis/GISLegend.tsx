@@ -17,7 +17,7 @@
  * - layer = 'cattle'   -> Shows green stepped scale (0 to 35+ heads).
  * - layer = 'disease'  -> 
  *     * SubMode = 'reported'   -> Standard traffic-light triage (Red: Outbreak, Orange: Suspect, Green: Clear).
- *     * SubMode = 'simulation' -> Normalized Haversine/wind epidemic pressure (Critical 70%+, High 40-69%, Moderate, Low).
+ *     * SubMode = 'simulation' -> Modeled case-count categories, colored from zero to 6+ cases.
  *     * SubMode = 'trend'      -> Current surveillance status (Purple: Elevated activity, Blue: Reported activity, Green: No reported activity).
  * - layer = 'milk'     -> Blue graduated scale in Liters/month.
  * - layer = 'meat'     -> Red/Crimson scale in kg yield from slaughter records.
@@ -37,12 +37,13 @@
 import { Badge } from '@/components/ui/badge';
 import { Box,TrendingUp,Zap } from 'lucide-react';
 import React from 'react';
-import { DiseaseSubMode,MapLayer,ViewMode } from './types';
+import { DiseaseSubMode,MapLayer,SimulationColorMode,ViewMode } from './types';
 
 interface GISLegendProps {
   layer: MapLayer;
   viewMode: ViewMode;
   diseaseSubMode: DiseaseSubMode;
+  simulationColorMode: SimulationColorMode;
   selectedLivestockType?: string;
 }
 
@@ -50,16 +51,25 @@ export function GISLegend({
   layer,
   viewMode,
   diseaseSubMode,
+  simulationColorMode,
   selectedLivestockType = 'Cattle',
 }: GISLegendProps) {
   const getLegendItems = () => {
     if (layer === 'disease') {
       if (diseaseSubMode === 'simulation') {
+        if (simulationColorMode === 'pressure') {
+          return [
+            { color: '#991b1b', label: '70%+ transmission pressure' },
+            { color: '#ea580c', label: '40-69% transmission pressure' },
+            { color: '#f59e0b', label: '20-39% transmission pressure' },
+            { color: '#10b981', label: 'Below 20% transmission pressure' },
+          ];
+        }
         return [
-          { color: '#991b1b', label: 'Critical (70%+ Epidemic Pressure)' },
-          { color: '#ea580c', label: 'High (40%–69% Pressure)' },
-          { color: '#f59e0b', label: 'Moderate (20%–39% Pressure)' },
-          { color: '#10b981', label: 'Low (<20% Baseline)' },
+          { color: '#991b1b', label: '6+ modeled cases' },
+          { color: '#ea580c', label: '3-5 modeled cases' },
+          { color: '#f59e0b', label: '1-2 modeled cases' },
+          { color: '#10b981', label: '0 modeled cases' },
         ];
       }
       if (diseaseSubMode === 'trend') {
@@ -155,7 +165,7 @@ export function GISLegend({
     disease: {
       title:
         diseaseSubMode === 'simulation'
-          ? 'Simulated Disease Pressure'
+          ? simulationColorMode === 'pressure' ? 'Simulated Transmission Pressure' : 'Simulated FMD Case Count'
           : diseaseSubMode === 'trend'
           ? 'Disease Surveillance Trend'
           : 'Reported Disease Heat Map',

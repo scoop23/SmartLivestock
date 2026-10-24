@@ -58,6 +58,7 @@ GISUserScope,
 MapLayer,
 Movement3DDisplayMode,
 MovementRecord,
+SimulationColorMode,
 SimulatedBarangayState,
 ViewMode,
 } from './types';
@@ -231,6 +232,7 @@ interface GISMapProps {
   activeLayer: MapLayer;
   viewMode: ViewMode;
   diseaseSubMode: DiseaseSubMode;
+  simulationColorMode: SimulationColorMode;
   selectedBarangay: BarangayGISData | null;
   onSelectBarangay: (b: BarangayGISData) => void;
   resetTrigger: number;
@@ -250,6 +252,7 @@ export function GISMap({
   activeLayer,
   viewMode,
   diseaseSubMode,
+  simulationColorMode = 'cases',
   selectedBarangay,
   onSelectBarangay,
   resetTrigger,
@@ -379,11 +382,17 @@ export function GISMap({
     return '#EAF3E4';
   };
 
-  const getPressureColor = (pressure: number): string => {
-    if (pressure >= 0.70) return '#991b1b'; // Critical
-    if (pressure >= 0.40) return '#ea580c'; // High
-    if (pressure >= 0.20) return '#f59e0b'; // Moderate
-    return '#10b981'; // Low baseline
+  const getSimulationColor = (cases: number, pressure: number): string => {
+    if (simulationColorMode === 'pressure') {
+      if (pressure >= 0.70) return '#991b1b';
+      if (pressure >= 0.40) return '#ea580c';
+      if (pressure >= 0.20) return '#f59e0b';
+      return '#10b981';
+    }
+    if (cases >= 6) return '#991b1b';
+    if (cases >= 3) return '#ea580c';
+    if (cases >= 1) return '#f59e0b';
+    return '#10b981';
   };
 
   const getDiseaseColor = (
@@ -391,7 +400,8 @@ export function GISMap({
     risk: 'low' | 'medium' | 'high'
   ): string => {
     if (diseaseSubMode === 'simulation' && simulatedStates?.[bName]) {
-      return getPressureColor(simulatedStates[bName].transmissionPressure);
+      const state = simulatedStates[bName];
+      return getSimulationColor(state.cases, state.transmissionPressure);
     }
     if (diseaseSubMode === 'trend') {
       const data = barangaysByName[bName];
@@ -544,7 +554,8 @@ export function GISMap({
         : `${lHeads} ${lType.toLowerCase()}`;
     if (layer === 'disease') {
       if (subMode === 'simulation' && simState) {
-        tooltipMetric = `Pressure: ${(simState.transmissionPressure * 100).toFixed(0)}% • ${simState.cases} cases (${simState.risk.toUpperCase()})`;
+        const caseLabel = simState.cases === 1 ? 'case' : 'cases';
+        tooltipMetric = `${simState.cases} ${caseLabel} \u2022 modeled pressure: ${(simState.transmissionPressure * 100).toFixed(0)}% (${simState.risk.toUpperCase()})`;
       } else if (subMode === 'trend') {
         const trendStatus =
           data.active_cases > 0
@@ -732,7 +743,10 @@ export function GISMap({
         statText = '—';
       } else if (activeLayer === 'disease') {
         if (diseaseSubMode === 'simulation' && simulatedStates?.[b.name]) {
-          statText = `⚡${(simulatedStates[b.name].transmissionPressure * 100).toFixed(0)}%`;
+          const simState = simulatedStates[b.name];
+          statText = simulationColorMode === 'pressure'
+            ? `⚡${(simState.transmissionPressure * 100).toFixed(0)}%`
+            : `${simState.cases} case${simState.cases === 1 ? '' : 's'}`;
         } else {
           statText = b.active_cases > 0 ? `⚠️${b.active_cases}` : '✅';
         }
@@ -785,7 +799,7 @@ export function GISMap({
         icon: customIcon,
       };
     });
-  }, [leafletLib, barangaysByName, activeLayer, diseaseSubMode, simulatedStates, viewMode, selectedLivestockType, userScope]);
+  }, [leafletLib, barangaysByName, activeLayer, diseaseSubMode, simulatedStates, simulationColorMode, viewMode, selectedLivestockType, userScope]);
 
   const dataCount = Object.keys(barangaysByName).length;
 
@@ -919,6 +933,7 @@ export function GISMap({
 
       {viewMode === '3D' ? (
         <Giro3DBarangayView
+          key={`gis-3d-${simulationColorMode}`}
           barangaysByName={barangaysByName}
           activeLayer={activeLayer}
           diseaseSubMode={diseaseSubMode}
@@ -926,6 +941,7 @@ export function GISMap({
           onSelectBarangay={onSelectBarangay}
           resetTrigger={resetTrigger}
           simulatedStates={simulatedStates}
+          simulationColorMode={simulationColorMode}
           selectedLivestockType={selectedLivestockType}
           userScope={userScope}
           heightScale={heightScale}
@@ -955,7 +971,7 @@ export function GISMap({
 
           {/* Choropleth Polygon Boundaries: Key includes dataCount so layer remounts immediately when data arrives */}
           <GeoJSON
-            key={`geojson-${activeLayer}-${selectedLivestockType || 'all'}-${diseaseSubMode}-${viewMode}-${selectedBarangay?.name || 'none'}-${dataCount}`}
+            key={`geojson-${activeLayer}-${selectedLivestockType || 'all'}-${diseaseSubMode}-${simulationColorMode}-${viewMode}-${selectedBarangay?.name || 'none'}-${dataCount}`}
             data={padreGarciaGeojson as unknown as FeatureCollection}
             style={getGeoJSONStyle}
             onEachFeature={onEachFeature}

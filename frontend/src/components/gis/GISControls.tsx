@@ -63,7 +63,7 @@ TrendingUp,
 Zap,
 } from 'lucide-react';
 import { useEffect,useRef,useState } from 'react';
-import { DiseaseSubMode,GISUserScope,MapLayer,Movement3DDisplayMode,ViewMode } from './types';
+import { DiseaseSubMode,GISUserScope,MapLayer,Movement3DDisplayMode,SimulationColorMode,ViewMode } from './types';
 
 interface GISControlsProps {
   currentLayer: MapLayer;
@@ -72,6 +72,8 @@ interface GISControlsProps {
   onViewModeChange: (mode: ViewMode) => void;
   diseaseSubMode: DiseaseSubMode;
   onDiseaseSubModeChange: (subMode: DiseaseSubMode) => void;
+  simulationColorMode: SimulationColorMode;
+  onSimulationColorModeChange: (mode: SimulationColorMode) => void;
   onResetBounds: () => void;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
@@ -93,6 +95,8 @@ export function GISControls({
   onViewModeChange,
   diseaseSubMode,
   onDiseaseSubModeChange,
+  simulationColorMode,
+  onSimulationColorModeChange,
   onResetBounds,
   sidebarOpen,
   onToggleSidebar,
@@ -585,6 +589,29 @@ export function GISControls({
                       <span>Trend</span>
                     </button>
                   </div>
+
+                  {diseaseSubMode === 'simulation' && (
+                    <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-1.5 border border-slate-200">
+                      <span className="pl-1 text-[10px] font-black uppercase tracking-wide text-slate-500">Color by</span>
+                      <div className="flex rounded-md bg-slate-200/70 p-0.5" role="group" aria-label="Simulation map color mode">
+                        {(['cases', 'pressure'] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => onSimulationColorModeChange(mode)}
+                            aria-pressed={simulationColorMode === mode}
+                            className={`min-h-[30px] px-3 py-1 rounded text-[11px] font-bold capitalize transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
+                              simulationColorMode === mode
+                                ? 'bg-white text-slate-900 shadow-sm'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            {mode}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {diseaseSubMode === 'trend' && (
                     <div className="bg-purple-50/80 px-2.5 py-1.5 rounded-lg border border-purple-200 text-[10.5px] text-purple-900 leading-tight">

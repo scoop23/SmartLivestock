@@ -66,6 +66,7 @@ MonthlyWindData,
 MovementRecord,
 Movement3DDisplayMode,
 MunicipalSummary,
+SimulationColorMode,
 SimulationParameters,
 ViewMode,
 } from './types';
@@ -117,6 +118,7 @@ export function RoleAwareGISContainer({
 
   // Active layer & perspective states
   const [requestedLayer, setActiveLayer] = useState<MapLayer>('cattle');
+  const [simulationColorMode, setSimulationColorMode] = useState<SimulationColorMode>('cases');
   const allowedLayers = gisData?.user_scope?.allowed_layers;
   const activeLayer = allowedLayers?.length && !allowedLayers.includes(requestedLayer) ? allowedLayers[0] : requestedLayer;
   const [selectedLivestockType, setSelectedLivestockType] = useState<string>('Cattle');
@@ -404,6 +406,7 @@ export function RoleAwareGISContainer({
           activeLayer={activeLayer}
           viewMode={viewMode}
           diseaseSubMode={diseaseSubMode}
+          simulationColorMode={simulationColorMode}
           selectedBarangay={selectedBarangay}
           onSelectBarangay={handleSelectBarangay}
           resetTrigger={resetTrigger}
@@ -434,6 +437,8 @@ export function RoleAwareGISContainer({
             onViewModeChange={handleViewModeChange}
             diseaseSubMode={diseaseSubMode}
             onDiseaseSubModeChange={handleDiseaseSubModeChange}
+            simulationColorMode={simulationColorMode}
+            onSimulationColorModeChange={setSimulationColorMode}
             onResetBounds={handleResetBounds}
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => {
@@ -460,6 +465,7 @@ export function RoleAwareGISContainer({
             layer={activeLayer}
             viewMode={viewMode}
             diseaseSubMode={diseaseSubMode}
+            simulationColorMode={simulationColorMode}
             selectedLivestockType={selectedLivestockType}
           />
         </div>

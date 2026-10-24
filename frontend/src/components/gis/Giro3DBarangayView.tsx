@@ -11,7 +11,7 @@ import type Polygon from 'ol/geom/Polygon.js';
 import { useEffect,useRef,useState } from 'react';
 import type { Object3D } from 'three';
 import type { MapControls } from 'three/examples/jsm/controls/MapControls.js';
-import type { BarangayGISData,DiseaseSubMode,GISUserScope,MapLayer,Movement3DDisplayMode,MovementRecord,SimulatedBarangayState } from './types';
+import type { BarangayGISData,DiseaseSubMode,GISUserScope,MapLayer,Movement3DDisplayMode,MovementRecord,SimulationColorMode,SimulatedBarangayState } from './types';
 
 // Shared camera coordinates keep the first 3D view and the Reset button consistent.
 const DEFAULT_3D_CAMERA_POSITION = { x: 13_492_381.19, y: 1_541_389.26, z: 14_328.31 };
@@ -29,6 +29,7 @@ interface Giro3DBarangayViewProps {
   barangaysByName: Record<string, BarangayGISData>;
   activeLayer: MapLayer;
   diseaseSubMode: DiseaseSubMode;
+  simulationColorMode: SimulationColorMode;
   selectedBarangay: BarangayGISData | null;
   onSelectBarangay: (barangay: BarangayGISData) => void;
   resetTrigger: number;
@@ -76,6 +77,7 @@ function getMetricValue(
   diseaseSubMode: DiseaseSubMode,
   simulation: SimulatedBarangayState | undefined,
   livestockType: string,
+  simulationColorMode: SimulationColorMode,
 ): number {
   if (!data) return 0;
 
@@ -87,7 +89,7 @@ function getMetricValue(
     }
     case 'disease':
       return diseaseSubMode === 'simulation' && simulation
-        ? simulation.transmissionPressure
+        ? simulationColorMode === 'pressure' ? simulation.transmissionPressure : simulation.cases
         : data.active_cases;
     case 'milk':
       return data.milk;
@@ -107,7 +109,28 @@ function getMetricValue(
 }
 
 // Each map layer has its own four-step palette; ratio is the feature's value relative to the layer maximum.
-function getLayerColor(layer: MapLayer, ratio: number): string {
+function getLayerColor(
+  layer: MapLayer,
+  ratio: number,
+  diseaseSubMode: DiseaseSubMode,
+  simulationColorMode: SimulationColorMode,
+  simulation: SimulatedBarangayState | undefined,
+): string {
+  if (layer === 'disease' && diseaseSubMode === 'simulation') {
+    if (simulationColorMode === 'pressure') {
+      const pressure = simulation?.transmissionPressure ?? 0;
+      if (pressure >= 0.70) return '#991b1b';
+      if (pressure >= 0.40) return '#ea580c';
+      if (pressure >= 0.20) return '#f59e0b';
+      return '#10b981';
+    }
+    const cases = simulation?.cases ?? 0;
+    if (cases >= 6) return '#991b1b';
+    if (cases >= 3) return '#ea580c';
+    if (cases >= 1) return '#f59e0b';
+    return '#10b981';
+  }
+
   const palettes: Record<MapLayer, [string, string, string, string]> = {
     cattle: ['#eaf3e4', '#c5e0a8', '#5a8f4f', '#1a3d15'],
     disease: ['#dcfce7', '#fde68a', '#fb923c', '#991b1b'],
@@ -218,6 +241,7 @@ export function Giro3DBarangayView({
   barangaysByName,
   activeLayer,
   diseaseSubMode,
+  simulationColorMode,
   selectedBarangay,
   onSelectBarangay,
   resetTrigger,
@@ -452,7 +476,7 @@ export function Giro3DBarangayView({
         const largestMetric = Math.max(
           0,
           ...Object.values(barangaysByNameRef.current).map((data) =>
-            getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[data.name], selectedLivestockType)
+            getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[data.name], selectedLivestockType, simulationColorMode)
           ),
         );
         largestMetricRef.current = largestMetric;
@@ -494,7 +518,7 @@ export function Giro3DBarangayView({
           extrusionOffset: (feature) => {
             const name = String(feature.get('name') ?? '');
             const data = barangaysByNameRef.current[name];
-            const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
+            const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType, simulationColorMode);
             // Every polygon gets a small base height; its metric controls up to 2,200 additional scene units.
             return getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
           },
@@ -505,13 +529,19 @@ export function Giro3DBarangayView({
             const inScope = data?.is_in_scope ?? (
               !userScope || userScope.can_view_all_barangays || userScope.allowed_barangays.includes(name)
             );
-            const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
+            const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType, simulationColorMode);
             const ratio = largestMetricRef.current > 0 ? value / largestMetricRef.current : 0;
             const hovered = Boolean(feature.get('hovered'));
 
             return {
               fill: {
-                color: hovered ? '#facc15' : inScope ? getLayerColor(activeLayer, ratio) : '#475569',
+                color: hovered ? '#facc15' : inScope ? getLayerColor(
+                  activeLayer,
+                  ratio,
+                  diseaseSubMode,
+                  simulationColorMode,
+                  simulatedStatesRef.current?.[name],
+                ) : '#475569',
                 opacity: hovered ? 1 : inScope ? 0.94 : 0.48,
                 // The GIS choropleth should keep its data colors without depending on scene lights.
                 shading: false,
@@ -543,7 +573,7 @@ export function Giro3DBarangayView({
           const lowerName = name.toLowerCase();
           const data = barangaysByNameRef.current[name] || barangaysByNameRef.current[lowerName];
           const isFlat = activeLayer === 'movement' && movementDisplayModeRef.current === 'lines';
-          const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
+          const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType, simulationColorMode);
           const fullHeight = getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
           const positions = getBorderPositions(geometry, fullHeight);
 
@@ -572,7 +602,7 @@ export function Giro3DBarangayView({
             const typedFeature = feature as Feature<Geometry>;
             const name = String(feature.get('name') ?? '');
             const data = barangaysByNameRef.current[name];
-            const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
+            const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType, simulationColorMode);
             const fullHeight = getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current);
             const initialScaleZ = fullHeight > 0 ? 2 / fullHeight : 0.001;
             for (const surface of surfaceMeshesRef.current.get(typedFeature) ?? []) {
@@ -928,6 +958,7 @@ export function Giro3DBarangayView({
   }, [
     activeLayer,
     diseaseSubMode,
+    simulationColorMode,
     selectedLivestockType,
     suppressClickUntilRef,
     userScope,
@@ -951,7 +982,7 @@ export function Giro3DBarangayView({
     const largestMetric = Math.max(
       0,
       ...Object.values(barangaysByName).map((data) =>
-        getMetricValue(data, activeLayer, diseaseSubMode, simulatedStates?.[data.name], selectedLivestockType)
+        getMetricValue(data, activeLayer, diseaseSubMode, simulatedStates?.[data.name], selectedLivestockType, simulationColorMode)
       ),
     );
     largestMetricRef.current = largestMetric;
@@ -965,8 +996,7 @@ export function Giro3DBarangayView({
         activeLayer,
         diseaseSubMode,
         simulatedStates?.[name],
-        selectedLivestockType,
-      );
+        selectedLivestockType, simulationColorMode);
       targetHeights.set(feature, getExtrusionHeight(value, largestMetric, heightScaleRef.current));
     }
 
@@ -1042,7 +1072,7 @@ export function Giro3DBarangayView({
         simulationAnimationFrameRef.current = null;
       }
     };
-  }, [activeLayer, barangaysByName, diseaseSubMode, selectedLivestockType, simulatedStates]);
+  }, [activeLayer, barangaysByName, diseaseSubMode, selectedLivestockType, simulatedStates, simulationColorMode]);
 
   // When the slider changes, update the polygon meshes and their raised border lines in lockstep.
   useEffect(() => {
@@ -1081,7 +1111,7 @@ export function Giro3DBarangayView({
       if (!geometry) continue;
       const name = String(feature.get('name') ?? '');
       const data = barangaysByName[name];
-      const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
+      const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType, simulationColorMode);
       const fullHeight = getExtrusionHeight(value, largestMetricRef.current, heightScale);
       fullExtrusionHeightsRef.current.set(feature, Math.max(10, fullHeight));
       const borderPositions = getBorderPositions(geometry, fullHeight);
@@ -1104,7 +1134,7 @@ export function Giro3DBarangayView({
 
     syncLabelPositionsRef.current?.();
     instance.notifyChange();
-  }, [heightScale, activeLayer, barangaysByName, diseaseSubMode, selectedLivestockType]);
+  }, [heightScale, activeLayer, barangaysByName, diseaseSubMode, selectedLivestockType, simulationColorMode]);
 
   // Render dynamic 3D parabolic movement arcs across the Philippine archipelago with forward animation
   useEffect(() => {
@@ -1495,7 +1525,7 @@ export function Giro3DBarangayView({
     for (const [lowerName, feature] of featuresByNameRef.current) {
       const name = String(feature.get('name') ?? lowerName);
       const data = barangaysByName[name] || barangaysByName[lowerName];
-      const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType);
+      const value = getMetricValue(data, activeLayer, diseaseSubMode, simulatedStatesRef.current?.[name], selectedLivestockType, simulationColorMode);
       const baseFullH = fullExtrusionHeightsRef.current.get(feature) ?? Math.max(10, getExtrusionHeight(value, largestMetricRef.current, heightScaleRef.current));
       const currentH = displayedHeightsRef.current.get(feature) ?? (isFlat ? 2 : baseFullH);
 
@@ -1577,6 +1607,7 @@ export function Giro3DBarangayView({
     barangaysByName,
     diseaseSubMode,
     selectedLivestockType,
+    simulationColorMode,
   ]);
 
   const previousResetTrigger = useRef(resetTrigger);
