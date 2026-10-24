@@ -131,6 +131,7 @@ const sibatLinks: SidebarLink[] = [
   },
   { path: '/sibat-monitoring', label: 'Map', icon: Map },
   { path: '/sibat-alerts', label: 'Health Reports', icon: Bell },
+  { path: '/sibat/analytics', label: 'Surveillance', icon: BarChart3 },
   { path: '/sibat/reports', label: 'Reports', icon: FileText },
   { path: '/sibat-scheduling', label: 'Programs', icon: CalendarDays },
   { path: '/sibat-announcement', label: 'Announcements', icon: Megaphone },

@@ -3,15 +3,18 @@
 import DescriptiveAnalytics from '@/app/components/analytics/descriptive-analytics';
 import PredictiveAnalyticsView from '@/app/components/analytics/predictive-analytics-view';
 import PrescriptiveAnalyticsView from '@/app/components/analytics/prescriptive-analytics-view';
+import SurveillanceAnalytics from '@/app/components/analytics/surveillance-analytics';
 import { AskSmartLivestock } from '@/app/components/ask-smartlivestock';
 import { PageHeader } from '@/app/components/page-header';
 import { Button } from '@/components/ui/button';
+import { useAccessibilitySettings } from '@/contexts/accessibility-settings-context';
 import { BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
 export default function AnalyticsPage() {
-  const [analyticsView, setAnalyticsView] = useState<'descriptive' | 'predictive' | 'prescriptive'>('descriptive');
+  const { fontScale } = useAccessibilitySettings();
+  const [analyticsView, setAnalyticsView] = useState<'descriptive' | 'predictive' | 'prescriptive' | 'surveillance'>('descriptive');
 
   return (
     <>
@@ -43,11 +46,12 @@ export default function AnalyticsPage() {
               { value: 'descriptive', label: '📊 Descriptive Analytics (Historical Records)' },
               { value: 'predictive', label: '🔮 Predictive Analytics (Evaluated Forecasts)' },
               { value: 'prescriptive', label: '💡 Prescriptive Analytics (Decision Support)' },
+              { value: 'surveillance', label: 'Disease & Mortality Surveillance' },
             ] as const).map(({ value, label }) => (
               <button
                 key={value}
                 onClick={() => setAnalyticsView(value)}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                   analyticsView === value
                     ? 'bg-[#2D5A27] text-white shadow-2xs'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -67,6 +71,7 @@ export default function AnalyticsPage() {
 
         {/* 3. Real Prescriptive Analytics View (Transparent Rule Recommendations) */}
         {analyticsView === 'prescriptive' && <PrescriptiveAnalyticsView />}
+        {analyticsView === 'surveillance' && <SurveillanceAnalytics />}
       </div>
     </>
   );

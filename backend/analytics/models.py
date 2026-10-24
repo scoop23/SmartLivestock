@@ -60,3 +60,24 @@ class MonthlyReportDelivery(models.Model):
 
     class Meta:
         ordering = ["-period_start"]
+
+
+class SurveillanceDemoOwnership(models.Model):
+    """Explicit ownership ledger for rows created by the surveillance demo seed."""
+
+    identifier = models.CharField(max_length=180, unique=True)
+    object_type = models.CharField(max_length=24)
+    object_id = models.PositiveBigIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["object_type", "object_id"],
+                name="unique_surveillance_demo_owned_object",
+            ),
+        ]
+        ordering = ["identifier"]
+
+    def __str__(self):
+        return f"Surveillance demo {self.identifier} ({self.object_type}:{self.object_id})"

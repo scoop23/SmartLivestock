@@ -303,6 +303,11 @@ html[data-font-scale="standard"] {
   --fixed-font-scale: 1;
 }
 
+html[data-font-scale="comfortable"] {
+  font-size: 112.5%;
+  --fixed-font-scale: 1.125;
+}
+
 html[data-font-scale="extra-large"] {
   font-size: 125%;
   --fixed-font-scale: 1.25;
@@ -333,8 +338,42 @@ html[data-font-scale] [class*="text-[11px]"] {
   font-size: calc(11px * var(--fixed-font-scale)) !important;
 }
 
+html[data-font-scale] [class*="text-[11.5px]"] {
+  font-size: calc(11.5px * var(--fixed-font-scale)) !important;
+}
+
+html[data-font-scale] [class*="text-[12px]"] {
+  font-size: calc(12px * var(--fixed-font-scale)) !important;
+}
+
 html[data-font-scale] [class*="text-[13px]"] {
   font-size: calc(13px * var(--fixed-font-scale)) !important;
+}
+
+html[data-font-scale] [class*="text-[14px]"] {
+  font-size: calc(14px * var(--fixed-font-scale)) !important;
+}
+
+html[data-font-scale] [class*="text-[15px]"] {
+  font-size: calc(15px * var(--fixed-font-scale)) !important;
+}
+
+/* Recharts and SVG charts accessibility scaling */
+html[data-font-scale] .recharts-text,
+html[data-font-scale] .recharts-cartesian-axis-tick text,
+html[data-font-scale] .recharts-polar-angle-axis-tick text,
+html[data-font-scale] .recharts-polar-radius-axis-tick text,
+html[data-font-scale] .recharts-label {
+  font-size: calc(11px * var(--fixed-font-scale)) !important;
+}
+
+html[data-font-scale] .recharts-legend-item-text {
+  font-size: calc(12px * var(--fixed-font-scale)) !important;
+}
+
+html[data-font-scale] .recharts-tooltip-wrapper,
+html[data-font-scale] .recharts-default-tooltip {
+  font-size: calc(12px * var(--fixed-font-scale)) !important;
 }
 
 /* Notifications remain visible above the shared dialog and popover layers. */

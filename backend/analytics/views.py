@@ -19,6 +19,8 @@ from smartlivestock.workflows import has_all_barangay_access, role_name, scope_r
 from .services.reports import build_report
 from .services.report_exports import excel_report, pdf_report
 from .services.review_workload import review_workload_summary
+from .services.surveillance import surveillance_summary
+from .services.predictive.surveillance_experiment import evaluate_surveillance_forecast_experiment
 from .services.nlp_query import execute_question
 
 logger = logging.getLogger(__name__)
@@ -95,6 +97,20 @@ def dashboard_summary(request):
     # The service owns the DB -> ORM calculations. This view only publishes
     # approved municipal aggregates to authorized dashboard users.
     return Response(descriptive_summary(user=request.user))
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def disease_mortality_surveillance(request):
+    """Return scoped, approved-record surveillance indicators for authorized reviewers."""
+    return Response(surveillance_summary(user=request.user))
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def surveillance_forecast_experiment(request):
+    """Run the on-demand, scoped experimental forecast comparison."""
+    return Response(evaluate_surveillance_forecast_experiment(user=request.user))
 
 
 @api_view(["GET"])
