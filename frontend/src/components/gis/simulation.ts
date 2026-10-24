@@ -340,16 +340,12 @@ export function computeAnnualSimulationTrajectory(
     currentInfected[b.name] = liveCases;
   }
 
-  // Activate the explicitly labeled hypothetical scenario only when there are no eligible FMD seeds.
-  const totalSeeds = Object.values(currentInfected).reduce((sum, v) => sum + v, 0);
-  const isDemoScenario = totalSeeds === 0;
-
+  // Use the previous hypothetical seed only when no eligible real FMD reports exist.
+  const hasRealFmdSeeds = Object.values(currentInfected).some((count) => count > 0);
+  const isDemoScenario = !hasRealFmdSeeds;
   if (isDemoScenario) {
-    // Explicit Demonstration Scenario: When the municipality has 0 active reported outbreaks,
-    // we activate an explicitly labeled hypothetical scenario (Manggas = 2, Bawi = 1).
-    // This is explicitly tagged so the UI never misrepresents synthetic seeds as actual field outbreaks.
-    currentInfected['Manggas'] = 2;
-    currentInfected['Bawi'] = 1;
+    currentInfected.Manggas = 2;
+    currentInfected.Bawi = 1;
   }
 
   const results: MonthlySimulationResult[] = [];

@@ -106,6 +106,9 @@ export function GISTimeline({
   const [isMinimized, setIsMinimized] = useState(false);
 
   const currentMonth = TIMELINE_MONTHS[currentMonthIndex] || TIMELINE_MONTHS[0];
+  const baselineSeedCount = trajectory[0]?.totalInfected ?? 0;
+  const hasBaselineSeeds = baselineSeedCount > 0;
+  const isDemoScenario = trajectory[0]?.isDemoScenario === true;
 
   // Prepare chart series from precomputed 12-month trajectory
   const chartData = useMemo(() => {
@@ -136,6 +139,7 @@ export function GISTimeline({
           <Button
             size="sm"
             onClick={onTogglePlay}
+            disabled={!hasBaselineSeeds}
             aria-label={isPlaying ? "Pause simulation" : "Play simulation"}
             className={`min-h-[36px] min-w-[36px] p-0 rounded-lg text-xs font-bold flex items-center justify-center cursor-pointer ${
               isPlaying
@@ -168,13 +172,31 @@ export function GISTimeline({
             <Zap className="size-3 fill-white" />
             Epidemic Player
           </Badge>
-          {trajectory[0]?.isDemoScenario && (
+          {isDemoScenario ? (
             <>
               <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[9px] font-bold">
                 Hypothetical FMD Demo
               </Badge>
               <span role="status" className="text-[9px] font-semibold text-amber-900">
-                No MAO-approved field-assessed suspected FMD reports; demo seeds are synthetic.
+                No eligible approved, field-assessed suspected FMD reports; Manggas and Bawi demo seeds are synthetic.
+              </span>
+            </>
+          ) : hasBaselineSeeds ? (
+            <>
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[9px] font-bold">
+                Approved FMD report seeds: {baselineSeedCount}
+              </Badge>
+              <span role="status" className="text-[9px] font-semibold text-slate-700">
+                Seeds are field-assessed suspected FMD reports; later months are model projections, not confirmed diagnoses.
+              </span>
+            </>
+          ) : (
+            <>
+              <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-300 text-[9px] font-bold">
+                No eligible FMD seed reports
+              </Badge>
+              <span role="status" className="text-[9px] font-semibold text-slate-700">
+                No synthetic outbreak seeds are added; the projection stays at zero until an approved, field-assessed suspected FMD report is available.
               </span>
             </>
           )}
@@ -183,7 +205,7 @@ export function GISTimeline({
               {unmappedFmdCases} approved FMD report(s) could not be mapped to an official barangay and were excluded.
             </span>
           )}
-          {unsupportedActiveDiseaseCases > 0 && trajectory[0] && !trajectory[0].isDemoScenario && (
+          {unsupportedActiveDiseaseCases > 0 && trajectory[0] && !isDemoScenario && (
             <span className="text-[9px] font-semibold text-slate-700">
               {unsupportedActiveDiseaseCases} recent approved non-FMD/symptom report(s) are not simulated as FMD.
             </span>
@@ -301,7 +323,8 @@ export function GISTimeline({
           <Button
             size="sm"
             onClick={onTogglePlay}
-            className={`min-h-[44px] px-3.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer ${
+            disabled={!hasBaselineSeeds}
+            className={`min-h-[44px] px-3.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
               isPlaying
                 ? 'bg-amber-600 hover:bg-amber-700 text-white ring-2 ring-amber-400/50'
                 : 'bg-emerald-800 hover:bg-emerald-900 text-white'

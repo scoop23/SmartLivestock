@@ -247,7 +247,7 @@ export interface MonthlySimulationResult {
   states: Record<string, SimulatedBarangayState>;
   totalPressure: number;
   totalInfected: number;
-  isDemoScenario?: boolean; // True when baseline DB cases are 0 and explicit demonstration seeds are activated
+  isDemoScenario?: boolean;
 }
 
 export interface TimelineMonth {
