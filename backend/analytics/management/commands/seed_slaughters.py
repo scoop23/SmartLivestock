@@ -27,12 +27,17 @@ from decimal import Decimal
 import numpy as np
 
 from django.core.management.base import BaseCommand
+from django.db.models import Q
 from django.utils import timezone
 
 from production.models import SlaughterRecord
 from livestock.models import LivestockType, Barangay
 from users.models import User
-from analytics.seed_markers import SEED_MARKER_SLAUGHTER
+from analytics.seed_markers import (
+    SEED_MARKER_SLAUGHTER,
+    SEED_MARKER_FORECAST_QUALITY_IDEAL,
+    SEED_MARKER_FORECAST_QUALITY_POOR,
+)
 
 
 class Command(BaseCommand):
@@ -68,7 +73,10 @@ class Command(BaseCommand):
         self._handle_seed(months=months)
 
     def _handle_clean(self):
-        seed_qs = SlaughterRecord.objects.filter(review_remarks__contains=SEED_MARKER_SLAUGHTER)
+        seed_qs = SlaughterRecord.objects.filter(review_remarks__contains=SEED_MARKER_SLAUGHTER).exclude(
+            Q(review_remarks__contains=SEED_MARKER_FORECAST_QUALITY_IDEAL)
+            | Q(review_remarks__contains=SEED_MARKER_FORECAST_QUALITY_POOR)
+        )
         count = seed_qs.count()
 
         if count == 0:

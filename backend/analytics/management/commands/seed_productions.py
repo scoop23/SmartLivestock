@@ -43,7 +43,12 @@ from django.utils import timezone
 from production.models import ProductionRecord
 from livestock.models import LivestockInventory
 from users.models import User
-from analytics.seed_markers import SEED_MARKER_PRODUCTION_V2, SEED_MARKER_PRODUCTION_LEGACY
+from analytics.seed_markers import (
+    SEED_MARKER_PRODUCTION_V2,
+    SEED_MARKER_PRODUCTION_LEGACY,
+    SEED_MARKER_FORECAST_QUALITY_IDEAL,
+    SEED_MARKER_FORECAST_QUALITY_POOR,
+)
 
 # Default target specifications: (production_type, unit, base_level, trend_slope, seasonal_amp, noise_sigma)
 COMMODITY_CONFIGS = {
@@ -155,6 +160,9 @@ class Command(BaseCommand):
         seed_qs = ProductionRecord.objects.filter(
             Q(notes__contains=SEED_MARKER_PRODUCTION_V2)
             | Q(notes__contains=SEED_MARKER_PRODUCTION_LEGACY)
+        ).exclude(
+            Q(notes__contains=SEED_MARKER_FORECAST_QUALITY_IDEAL)
+            | Q(notes__contains=SEED_MARKER_FORECAST_QUALITY_POOR)
         )
         count = seed_qs.count()
 
