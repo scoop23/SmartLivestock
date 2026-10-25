@@ -1838,7 +1838,7 @@ function SibatInspectionDialogContent({
                       </p>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <Button type="button" onClick={confirmAction} disabled={isSubmitting} className="min-h-11 bg-[#1A365D] text-white hover:bg-[#152c4d]">
-                          {isSubmitting ? "Sending to MAO..." : isRevision ? "Confirm updates and send to MAO" : "Confirm and send"}
+                          {isSubmitting ? "Saving decision..." : confirmationAction === "FLAGGED" ? "Confirm concern" : isRevision ? "Confirm updates and send to MAO" : "Confirm and send"}
                         </Button>
                         <Button type="button" variant="outline" onClick={() => setConfirmationAction(null)} disabled={isSubmitting} className="min-h-11">Go back</Button>
                       </div>

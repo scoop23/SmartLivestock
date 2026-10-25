@@ -371,7 +371,7 @@ function SibatPortalContent() {
   const openSubmissionReviewRoute = (item: UnifiedSubmissionItem) => {
     setIsReviewRecordsOpen(false);
     if (item.sourceType === "INVENTORY") {
-      router.push(`/sibat/livestock-registry?reviewType=INVENTORY&reviewId=${item.rawId}`);
+      router.push(`/sibat/livestock-registry?focusId=${encodeURIComponent(String(item.rawId))}`);
       return;
     }
     if (item.sourceType === "BATCH") {

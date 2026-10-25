@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertCircle,
   ArrowRight,
@@ -20,7 +21,6 @@ import {
   MapPin,
   MessageSquare,
   Milk,
-  MoreHorizontal,
   RotateCcw,
   Scissors,
   Search,
@@ -30,6 +30,8 @@ import {
   User,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { PADRE_GARCIA_BARANGAYS } from "@/app/(admin)/admin/admin-charts";
+import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
 import type { UnifiedSubmissionItem } from "../sibat-analytics";
 
 export type SibatProdStatusFilter = "all" | "pending" | "verified" | "approved" | "needs_correction" | "decided";
@@ -44,6 +46,8 @@ interface SibatProductionQueueProps {
   onSearchChange: (q: string) => void;
   prodTypeFilter: string;
   onProdTypeFilterChange: (type: string) => void;
+  canSelectBarangay: boolean;
+  assignedBarangayName: string;
   focusRecordId?: string | null;
   scrollFocusKey?: string;
   onExport?: () => void;
@@ -133,7 +137,13 @@ function getLogCardVisuals(item: UnifiedSubmissionItem) {
 }
 
 export default function SibatProductionQueue(props: SibatProductionQueueProps) {
-  return <SibatProductionQueueContent key={JSON.stringify([props.searchQuery, props.statusFilter, props.prodTypeFilter])} {...props} />;
+  return <SibatProductionQueueContent key={JSON.stringify([
+    props.searchQuery,
+    props.statusFilter,
+    props.prodTypeFilter,
+    props.canSelectBarangay,
+    props.assignedBarangayName,
+  ])} {...props} />;
 }
 
 function SibatProductionQueueContent({
@@ -146,28 +156,21 @@ function SibatProductionQueueContent({
   onSearchChange,
   prodTypeFilter,
   onProdTypeFilterChange,
+  canSelectBarangay,
+  assignedBarangayName,
   focusRecordId,
   scrollFocusKey,
 }: SibatProductionQueueProps) {
   const [barangayFilter, setBarangayFilter] = useState("ALL");
+  const activeBarangayFilter = canSelectBarangay ? barangayFilter : "ALL";
   const [dateFilter, setDateFilter] = useState("ALL");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "highest_quantity">("newest");
-  const [showMoreTypes, setShowMoreTypes] = useState(false);
 
   const prodSubmissions = useMemo(() => {
     return submissions.filter(
       (s) => s.sourceType === "PRODUCTION" || s.sourceType === "CALVING" || s.sourceType === "SALE"
     );
   }, [submissions]);
-
-  // Unique barangays for dropdown
-  const uniqueBarangays = useMemo(() => {
-    const set = new Set<string>();
-    prodSubmissions.forEach((s) => {
-      if (s.barangayName) set.add(s.barangayName.trim());
-    });
-    return Array.from(set).sort();
-  }, [prodSubmissions]);
 
   // Counts by status
   const counts = useMemo(() => {
@@ -181,6 +184,21 @@ function SibatProductionQueueContent({
       ).length,
     };
   }, [prodSubmissions]);
+
+  const statusCards: Array<{
+    status: SibatProdStatusFilter;
+    title: string;
+    value: number;
+    badge: string;
+    icon: typeof FileText;
+    variant: KpiVariant;
+  }> = [
+    { status: "all", title: "All logs", value: counts.all, badge: "All", icon: FileText, variant: "default" },
+    { status: "pending", title: "Waiting for review", value: counts.pending, badge: "Pending", icon: Clock, variant: "amber" },
+    { status: "verified", title: "Sent to MAO", value: counts.verified, badge: "Forwarded", icon: Send, variant: "sky" },
+    { status: "approved", title: "Approved by MAO", value: counts.approved, badge: "Approved", icon: CheckCircle2, variant: "emerald" },
+    { status: "needs_correction", title: "Needs correction", value: counts.needs_correction, badge: "Returned", icon: AlertCircle, variant: "rose" },
+  ];
 
   // Filtered
   const filteredSubmissions = useMemo(() => {
@@ -202,22 +220,18 @@ function SibatProductionQueueContent({
         const pType = (item.productionType || item.submissionTypeLabel || "").toLowerCase();
         if (prodTypeFilter === "Milk") {
           matchesProdType = pType.includes("milk");
-        } else if (prodTypeFilter === "Egg") {
-          matchesProdType = pType.includes("egg");
         } else if (prodTypeFilter === "Meat") {
           matchesProdType = pType.includes("meat") || pType.includes("carcass") || pType.includes("slaughter");
         } else if (prodTypeFilter === "Calving") {
           matchesProdType = item.sourceType === "CALVING" || pType.includes("calving") || pType.includes("birth");
         } else if (prodTypeFilter === "Sale") {
           matchesProdType = item.sourceType === "SALE" || pType.includes("sale");
-        } else if (prodTypeFilter === "Wool") {
-          matchesProdType = pType.includes("wool");
         }
       }
 
       // 3. Barangay Filter
       const matchesBarangay =
-        barangayFilter === "ALL" || item.barangayName.trim().toLowerCase() === barangayFilter.toLowerCase();
+        activeBarangayFilter === "ALL" || item.barangayName.trim().toLowerCase() === activeBarangayFilter.toLowerCase();
 
       // 4. Date Filter
       let matchesDate = true;
@@ -250,7 +264,7 @@ function SibatProductionQueueContent({
 
       return matchesStatus && matchesProdType && matchesBarangay && matchesDate && matchesSearch;
     });
-  }, [prodSubmissions, statusFilter, prodTypeFilter, barangayFilter, dateFilter, searchQuery]);
+  }, [prodSubmissions, statusFilter, prodTypeFilter, activeBarangayFilter, dateFilter, searchQuery]);
 
   // Sort
   const sortedSubmissions = useMemo(() => {
@@ -273,7 +287,7 @@ function SibatProductionQueueContent({
     searchQuery.trim() !== "" ||
     statusFilter !== "all" ||
     prodTypeFilter !== "ALL" ||
-    barangayFilter !== "ALL" ||
+    activeBarangayFilter !== "ALL" ||
     dateFilter !== "ALL";
 
   const PAGE_SIZE = 10;
@@ -300,112 +314,23 @@ function SibatProductionQueueContent({
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      {/* ═══ 1. Five Status KPI Cards (From Mockup) ═══ */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-3.5">
-        {/* Card 1: All logs */}
-        <button
-          type="button"
-          onClick={() => onStatusFilterChange("all")}
-          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex flex-col justify-between shadow-2xs ${
-            statusFilter === "all"
-              ? "border-[#1b4332] bg-emerald-50/25 ring-1 ring-[#1b4332]"
-              : "bg-white border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/50"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
-              <FileText className="size-4.5" />
-            </div>
-            <span className="text-xs font-semibold text-slate-500">All logs</span>
-          </div>
-          <span className="text-2xl sm:text-3xl font-black text-slate-900 mt-2 block">
-            {counts.all}
-          </span>
-        </button>
-
-        {/* Card 2: Waiting for review */}
-        <button
-          type="button"
-          onClick={() => onStatusFilterChange("pending")}
-          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex flex-col justify-between shadow-2xs ${
-            statusFilter === "pending"
-              ? "border-amber-400 bg-amber-50/40 ring-1 ring-amber-400"
-              : "bg-white border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/50"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl bg-amber-100/80 text-amber-700 flex items-center justify-center shrink-0">
-              <Clock className="size-4.5" />
-            </div>
-            <span className="text-xs font-semibold text-slate-500">Waiting for review</span>
-          </div>
-          <span className="text-2xl sm:text-3xl font-black text-amber-900 mt-2 block">
-            {counts.pending}
-          </span>
-        </button>
-
-        {/* Card 3: Sent to MAO */}
-        <button
-          type="button"
-          onClick={() => onStatusFilterChange("verified")}
-          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex flex-col justify-between shadow-2xs ${
-            statusFilter === "verified"
-              ? "border-blue-400 bg-blue-50/40 ring-1 ring-blue-400"
-              : "bg-white border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/50"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl bg-blue-100/80 text-blue-700 flex items-center justify-center shrink-0">
-              <Send className="size-4.5" />
-            </div>
-            <span className="text-xs font-semibold text-slate-500">Sent to MAO</span>
-          </div>
-          <span className="text-2xl sm:text-3xl font-black text-blue-700 mt-2 block">
-            {counts.verified}
-          </span>
-        </button>
-
-        {/* Card 4: Approved by MAO */}
-        <button
-          type="button"
-          onClick={() => onStatusFilterChange("approved")}
-          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex flex-col justify-between shadow-2xs ${
-            statusFilter === "approved"
-              ? "border-emerald-500 bg-emerald-50/40 ring-1 ring-emerald-500"
-              : "bg-white border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/50"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="size-4.5" />
-            </div>
-            <span className="text-xs font-semibold text-slate-500">Approved by MAO</span>
-          </div>
-          <span className="text-2xl sm:text-3xl font-black text-emerald-800 mt-2 block">
-            {counts.approved}
-          </span>
-        </button>
-
-        {/* Card 5: Needs correction */}
-        <button
-          type="button"
-          onClick={() => onStatusFilterChange("needs_correction")}
-          className={`p-4 rounded-2xl border transition-all text-left cursor-pointer flex flex-col justify-between shadow-2xs col-span-2 sm:col-span-1 ${
-            statusFilter === "needs_correction"
-              ? "border-rose-400 bg-rose-50/40 ring-1 ring-rose-400"
-              : "bg-white border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/50"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl bg-rose-100/80 text-rose-700 flex items-center justify-center shrink-0">
-              <AlertCircle className="size-4.5" />
-            </div>
-            <span className="text-xs font-semibold text-slate-500">Needs correction</span>
-          </div>
-          <span className="text-2xl sm:text-3xl font-black text-rose-800 mt-2 block">
-            {counts.needs_correction}
-          </span>
-        </button>
+      {/* Status KPIs use the shared SmartLivestock card design and reflow for mobile. */}
+      <div className="grid grid-cols-2 gap-2.5 min-[480px]:grid-cols-3 sm:gap-3 lg:grid-cols-5">
+        {statusCards.map(({ status, title, value, badge, icon: Icon, variant }) => (
+          <KpiCard
+            key={status}
+            title={title}
+            value={value}
+            badge={badge}
+            icon={<Icon />}
+            variant={variant}
+            size="sm"
+            wrapText
+            isLoading={isLoading}
+            onClick={() => onStatusFilterChange(status)}
+            className="min-h-[112px] min-w-0 transition-all duration-500 ease-out hover:-translate-y-0.5"
+          />
+        ))}
       </div>
 
       {/* ═══ 2. Filter Toolbar (Search + Dropdowns + Type Pills) ═══ */}
@@ -433,22 +358,29 @@ function SibatProductionQueueContent({
           </div>
 
           {/* Barangay Dropdown */}
-          <div className="relative min-w-[170px]">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-500 pointer-events-none" />
-            <select
-              value={barangayFilter}
-              onChange={(e) => setBarangayFilter(e.target.value)}
-              className="h-10 w-full pl-8 pr-8 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-[#1b4332] cursor-pointer appearance-none truncate"
-            >
-              <option value="ALL">All Barangays</option>
-              {uniqueBarangays.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
-          </div>
+          {canSelectBarangay ? (
+            <div className="relative min-w-[170px]">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-500 pointer-events-none" />
+              <select
+                value={barangayFilter}
+                onChange={(e) => setBarangayFilter(e.target.value)}
+                className="h-10 w-full pl-8 pr-8 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-[#1b4332] cursor-pointer appearance-none truncate"
+              >
+                <option value="ALL">All Barangays</option>
+                {PADRE_GARCIA_BARANGAYS.map((barangay) => (
+                  <option key={barangay} value={barangay}>
+                    {barangay}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
+            </div>
+          ) : (
+            <div className="flex h-10 min-w-[170px] items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700">
+              <MapPin className="mr-2 size-3.5 shrink-0 text-slate-500" />
+              <span className="truncate">Barangay: {assignedBarangayName}</span>
+            </div>
+          )}
 
           {/* Date Dropdown */}
           <div className="relative min-w-[150px]">
@@ -497,20 +429,6 @@ function SibatProductionQueueContent({
             Milk
           </button>
 
-          {/* Eggs */}
-          <button
-            type="button"
-            onClick={() => onProdTypeFilterChange("Egg")}
-            className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-              prodTypeFilter === "Egg"
-                ? "bg-[#1b4332] text-white shadow-2xs"
-                : "border border-slate-200 text-slate-700 hover:bg-slate-50 bg-white"
-            }`}
-          >
-            <Egg className="size-3.5 text-amber-600" />
-            Eggs
-          </button>
-
           {/* Meat */}
           <button
             type="button"
@@ -553,36 +471,6 @@ function SibatProductionQueueContent({
             Sales
           </button>
 
-          {/* More options button (...) */}
-          <button
-            type="button"
-            onClick={() => setShowMoreTypes(!showMoreTypes)}
-            className={`h-9 px-3 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1 shrink-0 cursor-pointer ${
-              showMoreTypes || prodTypeFilter === "Wool"
-                ? "bg-slate-100 border-slate-300 text-slate-900"
-                : "border-slate-200 text-slate-500 hover:bg-slate-50 bg-white"
-            }`}
-            title="More types"
-          >
-            <MoreHorizontal className="size-4" />
-          </button>
-
-          {/* Wool (revealed if more clicked or selected) */}
-          {(showMoreTypes || prodTypeFilter === "Wool") && (
-            <button
-              type="button"
-              onClick={() => onProdTypeFilterChange("Wool")}
-              className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer animate-in fade-in duration-200 ${
-                prodTypeFilter === "Wool"
-                  ? "bg-[#1b4332] text-white shadow-2xs"
-                  : "border border-slate-200 text-slate-700 hover:bg-slate-50 bg-white"
-              }`}
-            >
-              <Scissors className="size-3.5 text-slate-600" />
-              Wool
-            </button>
-          )}
-
           {hasActiveFilters && (
             <button
               type="button"
@@ -618,18 +506,16 @@ function SibatProductionQueueContent({
 
         <div className="flex items-center gap-1.5 self-end sm:self-auto">
           <span className="text-xs text-slate-500 font-medium">Sort:</span>
-          <div className="relative">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "newest" | "oldest" | "highest_quantity")}
-              className="text-xs font-semibold text-slate-800 bg-transparent hover:text-slate-900 pr-5 py-1 focus:outline-none cursor-pointer appearance-none"
-            >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="highest_quantity">Highest quantity</option>
-            </select>
-            <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 size-3.5 text-slate-500 pointer-events-none" />
-          </div>
+          <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+            <SelectTrigger className="h-9 w-[150px] rounded-xl border-slate-200 bg-white text-xs font-semibold text-slate-800">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest first</SelectItem>
+              <SelectItem value="oldest">Oldest first</SelectItem>
+              <SelectItem value="highest_quantity">Highest quantity</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -757,7 +643,7 @@ function SibatProductionQueueContent({
                     </div>
 
                     {/* Right: Status Pill & Action Button */}
-                    <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-center gap-2.5 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+                    <div className="flex w-full flex-col items-center justify-center gap-2.5 border-t border-slate-100 pt-3 lg:w-auto lg:items-end lg:border-t-0 lg:pt-0">
                       {/* Status Badge */}
                       {isPending ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#fef3c7] text-[#92400e] text-xs font-semibold border border-amber-200/60 whitespace-nowrap shadow-2xs">
@@ -789,7 +675,7 @@ function SibatProductionQueueContent({
                       {isPending ? (
                         <Button
                           onClick={() => onReview(item)}
-                          className="h-9 px-4 rounded-xl bg-[#1b4332] hover:bg-[#143326] text-white font-semibold text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all"
+                          className="h-10 w-full max-w-xs justify-center rounded-xl bg-[#1b4332] px-4 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-[#143326] lg:w-auto"
                         >
                           <span>Review & Verify</span>
                           <ArrowRight className="size-3.5" />
@@ -798,7 +684,7 @@ function SibatProductionQueueContent({
                         <Button
                           variant="outline"
                           onClick={() => onReview(item)}
-                          className="h-9 px-4 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-xs cursor-pointer transition-all"
+                          className="h-10 w-full max-w-xs justify-center rounded-xl border border-slate-300 px-4 text-xs font-semibold text-slate-700 transition-all hover:bg-slate-50 lg:w-auto"
                         >
                           View verification
                         </Button>

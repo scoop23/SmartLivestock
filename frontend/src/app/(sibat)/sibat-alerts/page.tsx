@@ -25,7 +25,6 @@ Stethoscope,
 Tag,
 X
 } from "lucide-react";
-import Link from "next/link";
 import { usePathname,useRouter,useSearchParams } from "next/navigation";
 import { Suspense,startTransition,useEffect,useMemo,useState } from "react";
 import { toast } from "sonner";
@@ -41,7 +40,7 @@ useClinicalHealthRecords,
 useReviewClinicalHealth,
 } from "../sibat/sibat-analytics";
 
-type StatusFilterOption = "All Reports" | "Needs Review" | "Reviewed" | "Forwarded to MAO";
+type StatusFilterOption = "Needs Review" | "Forwarded to MAO" | "MAO Approved";
 
 function StatusBadge({ status }: { status: SibatStatus }) {
   const s = (status || "PENDING").toUpperCase();
@@ -107,7 +106,7 @@ function SibatAlertsContent() {
 
   // Filter States matching DiseasesPage design basis
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilterOption>("All Reports");
+  const [status, setStatus] = useState<StatusFilterOption>("Needs Review");
 
   const { records, isLoading, isError } = useClinicalHealthRecords();
   const reviewMutation = useReviewClinicalHealth();
@@ -188,7 +187,9 @@ function SibatAlertsContent() {
               description: "Status updated to VERIFIED. Forwarded to MAO queue.",
             });
           } else if (action === "FLAGGED") {
-            toast.warning(`Alert ${recordId} flagged for emergency vet review.`);
+            toast.warning(`Alert ${recordId} returned for revision.`, {
+              description: "MAO was notified of the concern for veterinary follow-up.",
+            });
           } else {
             toast.info(`Alert ${recordId} marked as discrepancy / false alarm.`);
           }
@@ -221,29 +222,15 @@ function SibatAlertsContent() {
 
       if (!matchSearch) return false;
 
-      if (status === "All Reports") return true;
-
       if (status === "Needs Review") {
-        return d.status === "PENDING";
-      }
-
-      if (status === "Reviewed") {
-        return (
-          d.status === "VERIFIED" ||
-          d.status === "APPROVED" ||
-          d.status === "FLAGGED" ||
-          d.status === "FALSE_ALARM" ||
-          d.status === "SUBJECT_TO_REVISION" ||
-          d.status === "SUBJECT_FOR_REVISION" ||
-          d.status === "REJECTED"
-        );
+        return d.status === "PENDING" || d.status === "SUBJECT_TO_REVISION" || d.status === "SUBJECT_FOR_REVISION";
       }
 
       if (status === "Forwarded to MAO") {
-        return d.status === "VERIFIED" || d.status === "APPROVED";
+        return d.status === "VERIFIED";
       }
 
-      return true;
+      return d.status === "APPROVED";
     });
   }, [records, query, status]);
 
@@ -251,7 +238,9 @@ function SibatAlertsContent() {
     user?.accessScope === "ALL_BARANGAYS"
       ? "All Barangays"
       : user?.assignedBarangayName || "your assigned barangays";
-  const needsReviewCount = records.filter((record) => record.status === "PENDING").length;
+  const needsReviewCount = records.filter((record) =>
+    record.status === "PENDING" || record.status === "SUBJECT_TO_REVISION" || record.status === "SUBJECT_FOR_REVISION"
+  ).length;
   const forwardedCount = records.filter((record) => record.status === "VERIFIED").length;
 
   useEffect(() => {
@@ -297,7 +286,7 @@ function SibatAlertsContent() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex items-center gap-3 rounded-xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white p-3.5 sm:p-4">
             <span className="grid size-12 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-600"><Clock className="size-6" /></span>
-            <div><p className="text-xs font-bold text-rose-800">Needs Review</p><p className="mt-0.5 text-2xl font-black leading-none text-slate-900">{isLoading ? "—" : needsReviewCount}</p><p className="mt-1 text-xs text-slate-500">Awaiting action</p></div>
+            <div><p className="text-xs font-bold text-rose-800">Needs Review</p><p className="mt-0.5 text-2xl font-black leading-none text-slate-900">{isLoading ? "—" : needsReviewCount}</p><p className="mt-1 text-xs text-slate-500">Awaiting review or correction</p></div>
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-white p-3.5 sm:p-4">
             <span className="grid size-12 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-600"><ShieldCheck className="size-6" /></span>
@@ -342,22 +331,21 @@ function SibatAlertsContent() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="All Reports">All Reports</SelectItem>
                   <SelectItem value="Needs Review">Needs Review</SelectItem>
-                  <SelectItem value="Reviewed">Reviewed</SelectItem>
                   <SelectItem value="Forwarded to MAO">Forwarded to MAO</SelectItem>
+                  <SelectItem value="MAO Approved">MAO Approved</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Secondary actions / reset */}
-            {(query || status !== "All Reports") && (
+            {(query || status !== "Needs Review") && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
                   setQuery("");
-                  setStatus("All Reports");
+                  setStatus("Needs Review");
                 }}
                 className="h-10 rounded-lg text-xs font-bold text-slate-600 gap-1.5 shrink-0"
               >
@@ -373,7 +361,7 @@ function SibatAlertsContent() {
         {/* ── Results Summary Counter ── */}
         <div className="flex items-center justify-between px-1">
           <div><h2 className="text-base font-bold text-slate-900">Reports</h2><p className="mt-0.5 text-xs text-slate-500">Showing {filtered.length} reports</p></div>
-          {status !== "All Reports" && (
+          {status !== "Needs Review" && (
             <Badge variant="outline" className="text-[10px] font-bold text-slate-500 bg-white">
               Filter: {status}
             </Badge>
@@ -540,13 +528,13 @@ function SibatAlertsContent() {
                   <p className="text-xs text-slate-500 max-w-sm font-medium">
                     Try changing your search or status filter.
                   </p>
-                  {(query || status !== "All Reports") && (
+                  {(query || status !== "Needs Review") && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => {
                         setQuery("");
-                        setStatus("All Reports");
+                        setStatus("Needs Review");
                       }}
                       className="rounded-xl text-xs font-bold gap-1.5 mt-1"
                     >

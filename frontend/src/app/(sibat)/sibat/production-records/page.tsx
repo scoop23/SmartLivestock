@@ -49,6 +49,7 @@ function ProductionRecordReviewContent() {
   const hasBarangayAssignment = hasAllBarangayAccess || assignedBarangay.length > 0;
   const productionSubmissions = submissions.filter((item) =>
     allowedTypes.includes(item.sourceType) &&
+    (item.sourceType !== "PRODUCTION" || !["EGGS", "WOOL"].includes((item.productionType || "").toUpperCase())) &&
     (hasAllBarangayAccess || (
       assignedBarangay.length > 0 &&
       item.barangayName.trim().toLocaleLowerCase() === assignedBarangay
@@ -120,14 +121,8 @@ function ProductionRecordReviewContent() {
       />
 
       <main className="mx-auto w-full min-w-0 space-y-4 px-3.5 py-4 sm:p-6 lg:px-8">
-        {/* Navigation Breadcrumb / Back Link */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-            <Link href="/sibat" className="hover:text-slate-900 transition-colors">SmartLivestock</Link>
-            <span>/</span>
-            <span className="text-slate-900 font-semibold">Data validation</span>
-          </div>
-
+        {/* Back Link */}
+        <div className="flex justify-start">
           <Link
             href="/sibat"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
@@ -168,6 +163,8 @@ function ProductionRecordReviewContent() {
           onSearchChange={setSearchQuery}
           prodTypeFilter={prodTypeFilter}
           onProdTypeFilterChange={setProdTypeFilter}
+          canSelectBarangay={hasAllBarangayAccess}
+          assignedBarangayName={user?.assignedBarangayName || user?.barangay || "No barangay assigned"}
           onExport={handleExport}
         />
 

@@ -61,6 +61,7 @@ function SibatLivestockRegistryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const batchId = searchParams.get("batchId");
+  const focusId = searchParams.get("focusId");
   const reviewId = searchParams.get("reviewId");
   const reviewType = searchParams.get("reviewType");
 
@@ -164,7 +165,10 @@ function SibatLivestockRegistryContent() {
   }, [inventoryQuery.isLoading, registryRecords, reviewId, reviewType]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const focusRecordKey = focusedRecordId || (reviewId ? `inv-${reviewId}` : null);
+  const linkedRecord = focusId
+    ? registryRecords.find((record) => record.sourceType === "INVENTORY" && String(record.rawId) === focusId)
+    : null;
+  const focusRecordKey = focusedRecordId || linkedRecord?.id || (reviewId ? `inv-${reviewId}` : null);
 
   // Unique barangays in loaded data
   const availableBarangays = useMemo(() => {
@@ -601,7 +605,6 @@ function SibatLivestockRegistryContent() {
                           onClick={() => {
                             if (isIndividual) {
                               setFocusedRecordId(r.id);
-                              setSelectedSubmission(r);
                             }
                           }}
                         >
@@ -703,7 +706,6 @@ function SibatLivestockRegistryContent() {
             {/* MOBILE CARDS VIEW (visible on mobile < md, hidden on md+) */}
             <div className="grid grid-cols-1 gap-3 md:hidden">
               {pageRecords.map((r) => {
-                const isIndividual = r.entryType === "INDIVIDUAL";
                 const isBatch = r.entryType === "BATCH" || r.sourceType === "BATCH";
                 const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—";
 

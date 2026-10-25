@@ -62,6 +62,7 @@ interface SibatReviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onReviewSuccess?: () => void;
+  hideFooterClose?: boolean;
 }
 
 function getReviewErrorMessage(error: unknown): string | null {
@@ -191,6 +192,7 @@ function SibatReviewDialogContent({
   open,
   onOpenChange,
   onReviewSuccess,
+  hideFooterClose = false,
 }: SibatReviewDialogProps) {
   const [remarks, setRemarks] = useState(submission?.reviewRemarks || "");
   const [isEditing, setIsEditing] = useState(false);
@@ -219,6 +221,7 @@ function SibatReviewDialogContent({
   const isReturned = submission.status === "SUBJECT_TO_REVISION" || submission.status === "SUBJECT_FOR_REVISION";
   const isRejected = submission.status === "REJECTED";
   const isBatch = submission.sourceType === "BATCH" || submission.entryType === "BATCH";
+  const isCattleInventory = submission.sourceType === "INVENTORY" && resolveSpeciesKey(submission.livestockTypeName) === "cattle";
 
   // The source type determines whether this record changes inventory. A milk
   // quantity is production volume, never an animal count or disposition.
@@ -372,7 +375,7 @@ function SibatReviewDialogContent({
           <div className="flex items-start justify-between gap-2.5 pr-8 sm:pr-6">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
               <div className={`size-9 sm:size-11 rounded-xl flex items-center justify-center shrink-0 ${headerIconMeta.containerClass}`}>
-                <HeaderIcon className="size-5 sm:size-5.5" />
+                {isCattleInventory ? <Icon iconNode={cowHead} className="size-5 sm:size-5.5" /> : <HeaderIcon className="size-5 sm:size-5.5" />}
               </div>
               <div className="min-w-0">
                 <DialogTitle className="text-base sm:text-xl font-bold tracking-tight text-slate-900 leading-snug truncate">
@@ -914,17 +917,19 @@ function SibatReviewDialogContent({
           )}
 
         {/* ═══ Footer ═══ */}
-        <DialogFooter className="border-t border-slate-100 pt-2.5 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={reviewMutation.isPending}
-            className="h-8.5 px-3.5 rounded-xl border-slate-300 text-slate-700 hover:bg-slate-50 font-medium text-xs flex items-center justify-center gap-1.5 w-full sm:w-auto"
-          >
-            <X className="size-3.5" />
-            Close
-          </Button>
+        <DialogFooter className={`border-t border-slate-100 pt-2.5 flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 ${hideFooterClose ? "justify-end" : "justify-between"}`}>
+          {!hideFooterClose && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={reviewMutation.isPending}
+              className="h-8.5 px-3.5 rounded-xl border-slate-300 text-slate-700 hover:bg-slate-50 font-medium text-xs flex items-center justify-center gap-1.5 w-full sm:w-auto"
+            >
+              <X className="size-3.5" />
+              Close
+            </Button>
+          )}
 
           {isPending && !isCleanMilkForMao ? (
             <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">

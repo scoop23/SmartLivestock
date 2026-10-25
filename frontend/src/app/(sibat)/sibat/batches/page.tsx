@@ -908,10 +908,11 @@ function SibatBatchesVerificationContent() {
   const [speciesFilter, setSpeciesFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [barangayFilter, setBarangayFilter] = useState<string>("ALL");
+  const activeBarangayFilter = user?.accessScope === "ALL_BARANGAYS" ? barangayFilter : "ALL";
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   const BATCH_PAGE_SIZE = 10;
-  const batchFilterKey = JSON.stringify([searchQuery, speciesFilter, statusFilter, barangayFilter]);
+  const batchFilterKey = JSON.stringify([searchQuery, speciesFilter, statusFilter, activeBarangayFilter]);
   const [batchPageState, setBatchPageState] = useState({ filterKey: batchFilterKey, page: 1 });
   const batchPage = batchPageState.filterKey === batchFilterKey ? batchPageState.page : 1;
   const setBatchPage = (nextPage: number | ((currentPage: number) => number)) =>
@@ -967,8 +968,9 @@ function SibatBatchesVerificationContent() {
     isError,
     refetch,
   } = useQuery<BatchSummaryPage>({
-    queryKey: ["sibat-batches-drilldown"],
+    queryKey: ["sibat-batches-drilldown", user?.email, user?.accessScope, user?.assignedBarangayId],
     queryFn: fetchAllHerdSummaries,
+    enabled: Boolean(user?.email),
     // Herds may be created or reviewed by another user while this page is open.
     // Refresh on entry so a cached empty list does not hide newly available herds.
     staleTime: 30_000,
@@ -982,7 +984,7 @@ function SibatBatchesVerificationContent() {
 
   // Load the individual roster only after a reviewer opens a herd.
   const detailQuery = useQuery<BatchItem>({
-    queryKey: ["sibat-batch-detail", selectedBatch?.id],
+    queryKey: ["sibat-batch-detail", user?.email, selectedBatch?.id],
     enabled: isDrilldownOpen && Boolean(selectedBatch?.id),
     queryFn: async ({ signal }) => (await api.get(`livestock/batches/${selectedBatch?.id}/`, { signal })).data,
     staleTime: 30_000,
@@ -1078,12 +1080,12 @@ function SibatBatchesVerificationContent() {
       );
 
       const matchBarangay =
-        barangayFilter === "ALL" ||
-        b.barangay_name?.trim().toLowerCase() === barangayFilter.trim().toLowerCase();
+        activeBarangayFilter === "ALL" ||
+        b.barangay_name?.trim().toLowerCase() === activeBarangayFilter.trim().toLowerCase();
 
       return matchSearch && matchSpecies && matchStatus && matchBarangay;
     });
-  }, [batches, searchQuery, speciesFilter, statusFilter, barangayFilter]);
+  }, [batches, searchQuery, speciesFilter, statusFilter, activeBarangayFilter]);
 
   const filteredChildAnimals = useMemo(() => {
     if (!selectedBatch || !selectedBatch.animals) return [];
@@ -1678,7 +1680,7 @@ function SibatBatchesVerificationContent() {
                   <SelectValue placeholder="Animal type" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="ALL">All animal types ({batches.length})</SelectItem>
+                  <SelectItem value="ALL">All animal types ({speciesList.length})</SelectItem>
                   {speciesList.map((sp) => (
                     <SelectItem key={sp} value={sp}>
                       {sp}
@@ -1704,23 +1706,29 @@ function SibatBatchesVerificationContent() {
             </div>
 
             <div className="lg:col-span-2">
-              <Select value={barangayFilter} onValueChange={setBarangayFilter}>
-                <SelectTrigger className="min-h-11 rounded-xl border-slate-200 text-base font-medium truncate">
-                  <SelectValue placeholder="Barangay" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl max-h-56">
-                  <SelectItem value="ALL">All Barangays</SelectItem>
-                  {PADRE_GARCIA_BARANGAYS.map((brgy) => (
-                    <SelectItem key={brgy} value={brgy}>
-                      {brgy}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {user?.accessScope === "ALL_BARANGAYS" ? (
+                <Select value={barangayFilter} onValueChange={setBarangayFilter}>
+                  <SelectTrigger className="min-h-11 rounded-xl border-slate-200 text-base font-medium truncate">
+                    <SelectValue placeholder="Barangay" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl max-h-56">
+                    <SelectItem value="ALL">All Barangays</SelectItem>
+                    {PADRE_GARCIA_BARANGAYS.map((brgy) => (
+                      <SelectItem key={brgy} value={brgy}>
+                        {brgy}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-base font-medium text-slate-700">
+                  Barangay: {user?.assignedBarangayName || "No barangay assigned"}
+                </div>
+              )}
             </div>
           </div>
 
-          {(searchQuery || speciesFilter !== "ALL" || statusFilter !== "ALL" || barangayFilter !== "ALL") && (
+          {(searchQuery || speciesFilter !== "ALL" || statusFilter !== "ALL" || activeBarangayFilter !== "ALL") && (
             <div className="flex items-center gap-2 pt-1 border-t border-slate-100 flex-wrap text-xs">
               <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
                 Filters:
@@ -1743,9 +1751,9 @@ function SibatBatchesVerificationContent() {
                   <button type="button" onClick={() => setStatusFilter("ALL")} className="hover:text-red-500">×</button>
                 </Badge>
               )}
-              {barangayFilter !== "ALL" && (
+              {activeBarangayFilter !== "ALL" && (
                 <Badge variant="secondary" className="rounded-lg text-[10px] font-medium gap-1 bg-slate-100">
-                  Barangay: {barangayFilter}
+                  Barangay: {activeBarangayFilter}
                   <button type="button" onClick={() => setBarangayFilter("ALL")} className="hover:text-red-500">×</button>
                 </Badge>
               )}
@@ -2673,6 +2681,7 @@ function SibatBatchesVerificationContent() {
         <SibatReviewDialog
           submission={selectedAnimalReview}
           open={selectedAnimalReview !== null}
+          hideFooterClose
           onOpenChange={(open) => { if (!open) setSelectedAnimalReview(null); }}
           onReviewSuccess={() => {
             void queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
