@@ -1,5 +1,7 @@
 "use client";
 
+import { ForecastReadinessDashboard } from "./forecast-readiness-dashboard";
+
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +19,7 @@ Award,
 Calendar,
 CheckCircle2,
 CloudSun,
+Compass,
 Database,
 HelpCircle,
 Info,
@@ -77,7 +80,7 @@ interface HistoricalTrendPoint {
 // EvaluationResponse is the backend contract for rolling forecast comparisons,
 // baseline checks, data coverage warnings, and provenance.
 interface EvaluationResponse {
-  status: "ready" | "insufficient_data" | "error";
+  status: "ready" | "unvalidated" | "insufficient_data" | "error";
   readiness_status?: "NOT_READY" | "READY" | "QUALITY_READY";
   readiness_details?: string;
   quality_observations_threshold?: number;
@@ -104,6 +107,7 @@ interface EvaluationResponse {
   data?: {
     total_observations?: number;
     total_monthly_observations?: number;
+    total_weekly_observations?: number;
     available_observations?: number;
     required_observations?: number;
     training_observations?: number;
@@ -122,6 +126,7 @@ interface EvaluationResponse {
       dates?: string[];
       actual_values?: number[];
       months?: string[];
+      weeks?: string[];
     };
     future_period?: {
       start_month: string;
@@ -132,8 +137,11 @@ interface EvaluationResponse {
     };
     rolling_origin_windows?: number;
     evaluation_horizon_months?: number;
+    evaluation_horizon_weeks?: number;
+    minimum_required_windows?: number;
     missing_months?: string[];
     missing_month_count?: number;
+    missing_week_count?: number;
     is_monthly_series_contiguous?: boolean;
     excluded_incomplete_current_month?: boolean;
     coverage_warning?: string | null;
@@ -168,6 +176,15 @@ interface EvaluationResponse {
     rationale: string;
   };
   models?: ModelEvaluation[];
+  frequency?: "MONTHLY" | "WEEKLY";
+  weekday_activity?: Array<{
+    weekday: string;
+    transaction_count: number;
+    heads_sold: number;
+    sales_value_php: number;
+    synthetic_transactions: number;
+  }>;
+  weekday_pattern_note?: string;
 }
 
 interface ForecastPoint {
@@ -205,7 +222,7 @@ interface MortalityWeatherContext {
 }
 
 interface ForecastResponse {
-  status: "ready" | "insufficient_data" | "error";
+  status: "ready" | "unvalidated" | "insufficient_data" | "error";
   message?: string;
   readiness_status?: "NOT_READY" | "READY" | "QUALITY_READY";
   readiness_details?: string;
@@ -231,6 +248,7 @@ interface ForecastResponse {
   };
   metadata?: {
     horizon_months: number;
+    horizon_weeks?: number;
     is_seeded: boolean;
     seed_marker?: string;
     last_historical_date: string;
@@ -493,6 +511,7 @@ const ANALYTICS_TOOLTIP_CURSOR = {
 
 export default function PredictiveAnalyticsView() {
   const { user } = useAuth();
+  const [viewMode, setViewMode] = useState<"readiness_dashboard" | "deep_benchmarks">("readiness_dashboard");
   const [activeDomain, updateActiveDomain] = useState<AnalyticsDomain>("production");
   const [productionType, setProductionType] = useState<string>("MILK");
   const [unit, setUnit] = useState<string>("LITERS");
@@ -501,6 +520,17 @@ export default function PredictiveAnalyticsView() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showMethodology, setShowMethodology] = useState(false);
   const [modelBenchOpen, setModelBenchOpen] = useState(false);
+  const handleSelectTargetForDeepAnalysis = (domain: string, target: string, u: string) => {
+    updateActiveDomain(domain as AnalyticsDomain);
+    if (domain === "production") {
+      setProductionType(target);
+    } else {
+      setTargetMetric(target);
+    }
+    setUnit(u);
+    setViewMode("deep_benchmarks");
+  };
+
   const setActiveDomain = (domain: AnalyticsDomain) => {
     updateActiveDomain(domain);
     setProductionType("MILK");
@@ -525,7 +555,7 @@ export default function PredictiveAnalyticsView() {
   const modelScope = JSON.stringify([...scope, params, refreshTrigger]);
   const [modelChoice, setModelChoice] = useState<{ scope: string; value: string | null } | null>(null);
   const selectedModel = modelChoice?.scope === modelScope ? modelChoice.value
-    : evalData?.status === "ready" ? evalData.selection?.selected_model ?? null : null;
+    : evalData?.forecast_available ? evalData.selection?.selected_model ?? null : null;
   const setSelectedModel = (value: string | null) => setModelChoice({ scope: modelScope, value });
   const descriptive = useQuery({
     queryKey: ["predictive-descriptive", ...scope, refreshTrigger],
@@ -540,17 +570,18 @@ export default function PredictiveAnalyticsView() {
   });
   const projection = useQuery({
     queryKey: ["predictive-projection", ...scope, params, selectedModel, refreshTrigger],
-    enabled: evalData?.status === "ready",
+    enabled: Boolean(evalData?.forecast_available),
     queryFn: async ({ signal }) => {
       const { data } = await api.get<ForecastResponse>("analytics/predictive/forecast/", {
         params: { ...params, ...(selectedModel ? { model: selectedModel } : {}) }, signal,
       });
-      if (data.status !== "ready" || !data.forecast_available || !data.forecast?.length)
+      if (!data.forecast_available || !data.forecast?.length)
         throw new Error(data.message || "The server did not return forecast values for this selection.");
       return data;
     },
   });
-  const forecastData = evalData?.status === "ready" ? projection.data ?? null : null;
+  const forecastData = evalData?.forecast_available ? projection.data ?? null : null;
+  const periodUnit = evalData?.target?.frequency === "WEEKLY" ? "week" : "month";
   const forecastLoading = projection.isFetching;
   const forecastError = projection.isError ? projection.error.message : null;
 
@@ -562,6 +593,7 @@ export default function PredictiveAnalyticsView() {
     if (unit === "CASES") return "Clinical Cases";
     if (unit === "HEADS") return "Animals (Heads)";
     if (unit === "PHP") return "Philippine Peso (₱)";
+    if (unit === "TRANSACTIONS") return "Completed sale transactions";
     return unit;
   }, [unit]);
 
@@ -772,7 +804,11 @@ export default function PredictiveAnalyticsView() {
     } else if (activeDomain === "slaughter") {
       metricName = unit === "KILOGRAMS" ? "Carcass Dressing Meat Yield" : "Abattoir Slaughter Throughput";
     } else if (activeDomain === "auction") {
-      metricName = unit === "PHP" ? "Commercial Trading Volume (PHP)" : "Live Animals Sold (Heads)";
+      metricName = unit === "PHP"
+        ? "Recorded Sale Value (PHP)"
+        : unit === "TRANSACTIONS"
+          ? "Completed Sale Transactions"
+          : "Live Animals Sold (Heads)";
     }
 
     // 9. Explicit Scope Labeling:
@@ -826,7 +862,7 @@ export default function PredictiveAnalyticsView() {
   const scatterSeries = useMemo(() => {
     const testPeriod = evalData?.data?.test_period;
     const actuals = testPeriod?.actual_values ?? [];
-    const months = testPeriod?.months ?? [];
+    const months = testPeriod?.months ?? testPeriod?.weeks ?? [];
     const models = evalData?.models ?? [];
     const selectedName = models.find((candidate) => candidate.name === selectedModel)?.name
       ?? models.find((candidate) => candidate.is_selected)?.name
@@ -871,6 +907,53 @@ export default function PredictiveAnalyticsView() {
 
   return (
     <div className="space-y-6">
+      {/* ------------------------------------------------------------------ */}
+      {/* 0. VIEW MODE SELECTOR: READINESS DASHBOARD VS BENCHMARKS */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+          <button
+            onClick={() => setViewMode("readiness_dashboard")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+              viewMode === "readiness_dashboard"
+                ? "bg-white text-emerald-800 shadow-xs ring-1 ring-slate-200"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Compass className="size-4 text-emerald-700" />
+            Forecast Readiness & Validation Dashboard
+            <Badge variant="outline" className="text-2xs bg-emerald-50 text-emerald-700 border-emerald-200">
+              Executive
+            </Badge>
+          </button>
+
+          <button
+            onClick={() => setViewMode("deep_benchmarks")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+              viewMode === "deep_benchmarks"
+                ? "bg-white text-slate-900 shadow-xs ring-1 ring-slate-200"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <LineChartIcon className="size-4 text-slate-700" />
+            Multi-Model Benchmarks & Holdouts
+            <Badge variant="outline" className="text-2xs bg-slate-50 text-slate-600 border-slate-200">
+              6 Models
+            </Badge>
+          </button>
+        </div>
+
+        <div className="text-2xs text-slate-500 px-2 font-medium">
+          {viewMode === "readiness_dashboard"
+            ? "Municipal Overview & Checklist Diagnostics for Leadership"
+            : `Deep Evaluation: ${activeDomain.toUpperCase()} (${unit})`}
+        </div>
+      </div>
+
+      {viewMode === "readiness_dashboard" ? (
+        <ForecastReadinessDashboard onSelectTargetForDeepAnalysis={handleSelectTargetForDeepAnalysis} />
+      ) : (
+        <>
       {/* ------------------------------------------------------------------ */}
       {/* 1. TOP HEADER & DOMAIN SELECTOR */}
       {/* ------------------------------------------------------------------ */}
@@ -1048,6 +1131,14 @@ export default function PredictiveAnalyticsView() {
                 Market Measure:
               </span>
               <button
+                onClick={() => setUnit("TRANSACTIONS")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                  unit === "TRANSACTIONS" ? "bg-emerald-700 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                Completed Sales (Count)
+              </button>
+              <button
                 onClick={() => setUnit("HEADS")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
                   unit === "HEADS" ? "bg-emerald-700 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -1067,7 +1158,7 @@ export default function PredictiveAnalyticsView() {
           )}
 
           {/* Forecast Horizon Selector (Only relevant when forecasting is active) */}
-          {evalData?.status === "ready" && (
+          {(evalData?.status === "ready" || evalData?.forecast_available) && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Projection Horizon:
@@ -1082,7 +1173,7 @@ export default function PredictiveAnalyticsView() {
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  +{h}m
+                  +{h}{periodUnit === "week" ? "w" : "m"}
                 </button>
               ))}
             </div>
@@ -1599,13 +1690,56 @@ export default function PredictiveAnalyticsView() {
               </Card>
             </div>
           )}
+
+          {activeDomain === "auction" && evalData?.weekday_activity && (
+            <Card className="rounded-2xl border-amber-200 bg-white shadow-xs">
+              <CardHeader className="pb-2 border-b border-amber-100">
+                <CardTitle className="text-sm font-bold text-slate-900">Captured approved sales by weekday</CardTitle>
+                <p className="text-xs text-slate-600">
+                  Friday and Thursday are highlighted as locally important market days. The bars count only approved SmartLivestock transactions.
+                </p>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {evalData.weekday_activity.reduce((sum, day) => sum + day.transaction_count, 0) === 0 ? (
+                  <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+                    No approved auction transactions are recorded in this dataset, so weekday activity and its forecast cannot be assessed.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                    {evalData.weekday_activity.map((day) => {
+                      const maxCount = Math.max(1, ...evalData.weekday_activity!.map((item) => item.transaction_count));
+                      const heightPct = Math.max(4, Math.round((day.transaction_count / maxCount) * 100));
+                      const emphasized = day.weekday === "Friday" || day.weekday === "Thursday";
+                      return (
+                        <div key={day.weekday} className={`rounded-xl border p-3 ${day.weekday === "Friday" ? "border-amber-400 bg-amber-50" : day.weekday === "Thursday" ? "border-orange-300 bg-orange-50" : "border-slate-200 bg-slate-50"}`}>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs font-bold text-slate-800">{day.weekday}</span>
+                            {emphasized && <Badge variant="outline" className="h-5 border-current bg-white px-1.5 text-[9px]">Market day</Badge>}
+                          </div>
+                          <div className="mt-3 flex h-20 items-end rounded-md bg-white/80 px-2 pb-1">
+                            <div className={`w-full rounded-t ${day.weekday === "Friday" ? "bg-amber-500" : day.weekday === "Thursday" ? "bg-orange-400" : "bg-slate-400"}`} style={{ height: `${heightPct}%` }} />
+                          </div>
+                          <p className="mt-2 text-sm font-bold text-slate-900">{day.transaction_count} transaction(s)</p>
+                          <p className="text-[11px] text-slate-600">{day.heads_sold} head(s) recorded</p>
+                          {day.synthetic_transactions > 0 && <p className="mt-1 text-[10px] font-semibold text-purple-700">Includes {day.synthetic_transactions} synthetic</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-950">
+                  {evalData.weekday_pattern_note || "Daily market reporting coverage is not recorded."} Raw counts have no denominator for market sessions or reporting completeness, so they are descriptive and are not used as a learned weekday effect.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
       {/* ------------------------------------------------------------------ */}
       {/* 5. READY PREDICTIVE ANALYTICS SUITE (7 CHARTS & EVALUATIONS) */}
       {/* ------------------------------------------------------------------ */}
-      {!loading && !error && evalData?.status === "ready" && (
+      {!loading && !error && (evalData?.status === "ready" || evalData?.forecast_available) && (
         <div className="space-y-6 animate-in fade-in duration-300">
           {forecastError && (
             <div role="alert" className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">
@@ -1666,14 +1800,14 @@ export default function PredictiveAnalyticsView() {
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
                 <span className="text-slate-500 font-medium">Past data available</span>
                 <p className="text-sm font-bold text-slate-900 font-mono">
-                  {normalized.availableObservations} months
+                  {normalized.availableObservations} {periodUnit}s
                 </p>
                 <p className="text-[11px] text-slate-500 truncate">
                   {normalized.historicalStartDate || "—"} to {normalized.historicalEndDate || "—"}
                 </p>
-                {(evalData?.data?.missing_month_count ?? 0) > 0 && (
+                {(evalData?.data?.missing_month_count ?? evalData?.data?.missing_week_count ?? 0) > 0 && (
                   <p className="text-[11px] font-medium text-amber-700">
-                    {evalData?.data?.missing_month_count} calendar month(s) have no approved records
+                    {evalData?.data?.missing_month_count ?? evalData?.data?.missing_week_count} {periodUnit}(s) have no approved records
                   </p>
                 )}
               </div>
@@ -1681,7 +1815,7 @@ export default function PredictiveAnalyticsView() {
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
                 <span className="text-slate-500 font-medium">How the test was split</span>
                 <p className="text-sm font-bold text-slate-900 font-mono">
-                  {evalData?.data?.training_observations ?? evalData?.data_provenance?.train_period?.observations ?? "—"} months to learn / {evalData?.data?.test_observations ?? evalData?.data_provenance?.test_period?.observations ?? "—"} months to check
+                  {evalData?.data?.training_observations ?? evalData?.data_provenance?.train_period?.observations ?? "—"} {periodUnit}s to learn / {evalData?.data?.test_observations ?? evalData?.data_provenance?.test_period?.observations ?? "—"} {periodUnit}s to check
                 </p>
                 <p className="text-[11px] text-slate-500">
                   Checked against later records in {evalData?.data?.rolling_origin_windows ?? 0} separate test period(s)
@@ -1696,7 +1830,7 @@ export default function PredictiveAnalyticsView() {
                     : `Machine Learning (${normalized.model})`}
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  Estimates the next {horizon} months
+                  Estimates the next {horizon} {periodUnit}s
                 </p>
               </div>
 
@@ -1746,7 +1880,7 @@ export default function PredictiveAnalyticsView() {
             <Card className="rounded-2xl border-slate-200 shadow-xs">
               <CardContent className="p-4 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500">Recent average (last 3 months)</span>
+                  <span className="text-xs font-semibold text-slate-500">Recent average (last 3 {periodUnit}s)</span>
                   <Calendar className="size-4 text-slate-400" />
                 </div>
                 <div className="text-lg font-bold text-slate-900">
@@ -1765,7 +1899,7 @@ export default function PredictiveAnalyticsView() {
                 <div className="text-lg font-bold text-slate-900">
                   {forecastData?.metadata?.forecast_period_avg ?? "—"} {unitLabel}
                 </div>
-                <div className="text-[11px] text-slate-500">Next {horizon} months projected</div>
+                <div className="text-[11px] text-slate-500">Next {horizon} {periodUnit}s projected</div>
               </CardContent>
             </Card>
 
@@ -1923,7 +2057,7 @@ export default function PredictiveAnalyticsView() {
                   </CardTitle>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Solid green line depicts recorded municipal observations up to {normalized.metadata?.last_historical_date || "present"}.
-                    Dashed purple line depicts the +{horizon}-month projection from{" "}
+                    Dashed purple line depicts the +{horizon}-{periodUnit} projection from{" "}
                     <span className="font-semibold text-slate-800">{normalized.model}</span> ({normalized.unitLabel}).
                   </p>
                 </div>
@@ -1958,7 +2092,7 @@ export default function PredictiveAnalyticsView() {
                     <Info className="size-6 text-slate-500" />
                     <p className="font-semibold text-slate-800">No forecast points to display</p>
                     <p className="max-w-md text-xs text-slate-600">
-                      {forecastError || "The projection has not returned any future months yet."}
+                    {forecastError || `The projection has not returned any future ${periodUnit}s yet.`}
                     </p>
                   </div>
                 ) : (
@@ -2392,7 +2526,7 @@ export default function PredictiveAnalyticsView() {
                     Compare prediction methods on past data
                   </CardTitle>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Tested against later records in {evalData.data?.rolling_origin_windows ?? 0} separate period(s), up to {evalData.data?.evaluation_horizon_months ?? horizon} months each. The latest check used {evalData.data?.training_observations ?? evalData.data_provenance?.train_period?.observations} months to learn and {evalData.data?.test_observations ?? evalData.data_provenance?.test_period?.observations} months to check.
+                    Tested against later records in {evalData.data?.rolling_origin_windows ?? 0} separate period(s), up to {evalData.data?.evaluation_horizon_weeks ?? evalData.data?.evaluation_horizon_months ?? horizon} {periodUnit}s each. The latest check used {evalData.data?.training_observations ?? evalData.data_provenance?.train_period?.observations} {periodUnit}s to learn and {evalData.data?.test_observations ?? evalData.data_provenance?.test_period?.observations} {periodUnit}s to check.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2533,6 +2667,8 @@ export default function PredictiveAnalyticsView() {
             </CardContent>
           </Card>
         </div>
+      )}
+        </>
       )}
     </div>
   );
