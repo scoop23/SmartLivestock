@@ -15,11 +15,13 @@ Users
 } from "lucide-react";
 import { useMemo } from "react";
 import type { LivestockInventoryItem } from "../../livestock-inventory/page";
-import type { ProductionRecordItem } from "../production-analytics";
+import type { ProductionRecordItem, ProductionType } from "../production-analytics";
 import type { CalvingRecordItem } from "../production-calving-tab";
 
 interface SpeciesKpiCardsProps {
   species?: string | null;
+  activity?: string | null;
+  productionType?: ProductionType | null;
   inventories: LivestockInventoryItem[];
   productionRecords: ProductionRecordItem[];
   calvingRecords: CalvingRecordItem[];
@@ -28,12 +30,15 @@ interface SpeciesKpiCardsProps {
 
 export default function SpeciesKpiCards({
   species,
+  activity,
+  productionType,
   inventories,
   productionRecords,
   calvingRecords,
   weightRecords = [],
 }: SpeciesKpiCardsProps) {
   const normSpecies = (species || "ALL").toUpperCase();
+  const effectiveType = (activity || productionType)?.toLowerCase();
 
   const metrics = useMemo(() => {
     const totalHeads = inventories.reduce(
@@ -69,6 +74,10 @@ export default function SpeciesKpiCards({
 
     const verifiedMeat = meatRecords.filter((r) => r.status === "APPROVED").reduce((sum, r) => sum + Number(r.quantity || 0), 0);
     const pendingMeat = meatRecords.filter((r) => r.status !== "APPROVED").reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+    const meatRecordCount = meatRecords.length;
+    const avgMeatPerRecord =
+      meatRecordCount > 0 ? (totalMeat / meatRecordCount).toFixed(1) : null;
+    const approvedMeatCount = meatRecords.filter((r) => r.status === "APPROVED").length;
 
     const verifiedEggs = eggRecords.filter((r) => r.status === "APPROVED").reduce((sum, r) => sum + Number(r.quantity || 0), 0);
     const pendingEggs = eggRecords.filter((r) => r.status !== "APPROVED").reduce((sum, r) => sum + Number(r.quantity || 0), 0);
@@ -117,6 +126,9 @@ export default function SpeciesKpiCards({
       pendingMilk,
       verifiedMeat,
       pendingMeat,
+      meatRecordCount,
+      avgMeatPerRecord,
+      approvedMeatCount,
       verifiedEggs,
       pendingEggs,
       verifiedWool,
@@ -130,10 +142,236 @@ export default function SpeciesKpiCards({
     };
   }, [inventories, productionRecords, calvingRecords, weightRecords]);
 
-  // Render cards according to species
+  // Responsive grid container class for KPI cards
+  const gridClassName = "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4";
+
+  // ── MEAT-SPECIFIC VIEWS ──
+  if (effectiveType === "meat") {
+    // Cattle / Carabao (Beef / Carabeef)
+    if (normSpecies.includes("CATTLE") || normSpecies.includes("CARABAO") || normSpecies.includes("BAKA") || normSpecies.includes("KALABAW")) {
+      const isCarabao = normSpecies.includes("CARABAO") || normSpecies.includes("KALABAW");
+      const meatTitle = isCarabao ? "Recorded Carabeef Output" : "Recorded Beef Output";
+      const herdTitle = isCarabao ? "Carabao Herd Inventory" : "Cattle Herd Inventory";
+
+      return (
+        <div className={gridClassName}>
+          <KpiCard
+            title={meatTitle}
+            value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
+            icon={<Beef className="size-4.5" />}
+            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg verified · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg verified`}
+            variant="rose"
+          />
+          <KpiCard
+            title="Average Yield / Entry"
+            value={metrics.avgMeatPerRecord ? `${metrics.avgMeatPerRecord} kg` : "—"}
+            icon={<TrendingUp className="size-4.5" />}
+            badge={`${metrics.meatRecordCount} recorded ${metrics.meatRecordCount === 1 ? "entry" : "entries"}`}
+            variant="emerald"
+          />
+          <KpiCard
+            title="Herd Finishing Weight"
+            value={metrics.avgWeight ? `${metrics.avgWeight} kg` : "—"}
+            icon={<Scale className="size-4.5" />}
+            badge="Liveweight tracking"
+            variant="amber"
+          />
+          <KpiCard
+            title={herdTitle}
+            value={`${metrics.totalHeads} Heads`}
+            icon={<Users className="size-4.5" />}
+            badge={`${species || "Cattle"} registered herd`}
+            variant="stone"
+          />
+        </div>
+      );
+    }
+
+    // Swine
+    if (normSpecies.includes("SWINE") || normSpecies.includes("PIG") || normSpecies.includes("BABOY")) {
+      return (
+        <div className={gridClassName}>
+          <KpiCard
+            title="Pork & Carcass Yield"
+            value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
+            icon={<Beef className="size-4.5" />}
+            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg verified · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg verified`}
+            variant="rose"
+          />
+          <KpiCard
+            title="Average Yield / Entry"
+            value={metrics.avgMeatPerRecord ? `${metrics.avgMeatPerRecord} kg` : "—"}
+            icon={<TrendingUp className="size-4.5" />}
+            badge={`${metrics.meatRecordCount} recorded ${metrics.meatRecordCount === 1 ? "entry" : "entries"}`}
+            variant="emerald"
+          />
+          <KpiCard
+            title="Avg Grower Weight"
+            value={metrics.avgWeight ? `${metrics.avgWeight} kg` : "—"}
+            icon={<Scale className="size-4.5" />}
+            badge="Fattening velocity"
+            variant="amber"
+          />
+          <KpiCard
+            title="Swine Inventory"
+            value={`${metrics.totalHeads} Heads`}
+            icon={<Users className="size-4.5" />}
+            badge="Total active swine"
+            variant="stone"
+          />
+        </div>
+      );
+    }
+
+    // Goat (Chevon)
+    if (normSpecies.includes("GOAT") || normSpecies.includes("KAMBING")) {
+      return (
+        <div className={gridClassName}>
+          <KpiCard
+            title="Chevon & Meat Output"
+            value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
+            icon={<Beef className="size-4.5" />}
+            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg verified · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg verified`}
+            variant="rose"
+          />
+          <KpiCard
+            title="Average Yield / Entry"
+            value={metrics.avgMeatPerRecord ? `${metrics.avgMeatPerRecord} kg` : "—"}
+            icon={<TrendingUp className="size-4.5" />}
+            badge={`${metrics.meatRecordCount} recorded ${metrics.meatRecordCount === 1 ? "entry" : "entries"}`}
+            variant="emerald"
+          />
+          <KpiCard
+            title="Average Herd Weight"
+            value={metrics.avgWeight ? `${metrics.avgWeight} kg` : "—"}
+            icon={<Scale className="size-4.5" />}
+            badge="Liveweight tracking"
+            variant="amber"
+          />
+          <KpiCard
+            title="Total Goat Herd"
+            value={`${metrics.totalHeads} Heads`}
+            icon={<Users className="size-4.5" />}
+            badge="Active goat herd"
+            variant="stone"
+          />
+        </div>
+      );
+    }
+
+    // Sheep (Mutton)
+    if (normSpecies.includes("SHEEP") || normSpecies.includes("TUPA")) {
+      return (
+        <div className={gridClassName}>
+          <KpiCard
+            title="Mutton & Meat Output"
+            value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
+            icon={<Beef className="size-4.5" />}
+            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg verified · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg verified`}
+            variant="rose"
+          />
+          <KpiCard
+            title="Average Yield / Entry"
+            value={metrics.avgMeatPerRecord ? `${metrics.avgMeatPerRecord} kg` : "—"}
+            icon={<TrendingUp className="size-4.5" />}
+            badge={`${metrics.meatRecordCount} recorded ${metrics.meatRecordCount === 1 ? "entry" : "entries"}`}
+            variant="emerald"
+          />
+          <KpiCard
+            title="Average Flock Weight"
+            value={metrics.avgWeight ? `${metrics.avgWeight} kg` : "—"}
+            icon={<Scale className="size-4.5" />}
+            badge="Liveweight tracking"
+            variant="amber"
+          />
+          <KpiCard
+            title="Total Flock Size"
+            value={`${metrics.totalHeads} Heads`}
+            icon={<Users className="size-4.5" />}
+            badge="Active sheep flock"
+            variant="stone"
+          />
+        </div>
+      );
+    }
+
+    // Poultry
+    if (normSpecies.includes("POULTRY") || normSpecies.includes("CHICKEN") || normSpecies.includes("MANOK") || normSpecies.includes("DUCK")) {
+      return (
+        <div className={gridClassName}>
+          <KpiCard
+            title="Broiler Meat Harvest"
+            value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
+            icon={<Beef className="size-4.5" />}
+            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg verified · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg verified`}
+            variant="rose"
+          />
+          <KpiCard
+            title="Average Yield / Entry"
+            value={metrics.avgMeatPerRecord ? `${metrics.avgMeatPerRecord} kg` : "—"}
+            icon={<TrendingUp className="size-4.5" />}
+            badge={`${metrics.meatRecordCount} recorded ${metrics.meatRecordCount === 1 ? "entry" : "entries"}`}
+            variant="emerald"
+          />
+          <KpiCard
+            title="Total Flock Size"
+            value={`${metrics.totalHeads} Birds`}
+            icon={<Users className="size-4.5" />}
+            badge="Active flock inventory"
+            variant="sky"
+          />
+          <KpiCard
+            title="Meat Output Logs"
+            value={`${metrics.meatRecordCount} Logs`}
+            icon={<ClipboardList className="size-4.5" />}
+            badge={`${metrics.approvedMeatCount} approved`}
+            variant="stone"
+          />
+        </div>
+      );
+    }
+
+    // Consolidated / ALL with activity=meat
+    return (
+      <div className={gridClassName}>
+        <KpiCard
+          title="Total Meat Output"
+          value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
+          icon={<Beef className="size-4.5" />}
+          badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg verified · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg verified`}
+          variant="rose"
+        />
+        <KpiCard
+          title="Average Yield / Entry"
+          value={metrics.avgMeatPerRecord ? `${metrics.avgMeatPerRecord} kg` : "—"}
+          icon={<TrendingUp className="size-4.5" />}
+          badge={`Across ${metrics.meatRecordCount} meat ${metrics.meatRecordCount === 1 ? "entry" : "entries"}`}
+          variant="emerald"
+        />
+        <KpiCard
+          title="Meat Output Logs"
+          value={`${metrics.meatRecordCount} Logs`}
+          icon={<ClipboardList className="size-4.5" />}
+          badge={`${metrics.approvedMeatCount} verified / approved`}
+          variant="amber"
+        />
+        <KpiCard
+          title="Total Farm Inventory"
+          value={`${metrics.totalHeads} Heads`}
+          icon={<Users className="size-4.5" />}
+          badge="Across active enterprises"
+          variant="stone"
+        />
+      </div>
+    );
+  }
+
+  // ── NON-MEAT SPECIES VIEWS ──
+
+  // GOAT
   if (normSpecies.includes("GOAT") || normSpecies.includes("KAMBING")) {
     return (
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+      <div className={gridClassName}>
         <KpiCard
           title="Goat Milk Yield"
           value={metrics.totalMilk > 0 ? `${metrics.totalMilk.toLocaleString()} L` : "0.0 L"}
@@ -166,9 +404,10 @@ export default function SpeciesKpiCards({
     );
   }
 
+  // SHEEP
   if (normSpecies.includes("SHEEP") || normSpecies.includes("TUPA")) {
     return (
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+      <div className={gridClassName}>
         <KpiCard
           title="Wool & Fleece Harvest"
           value={metrics.totalWool > 0 ? `${metrics.totalWool.toLocaleString()} kg` : "0.0 kg"}
@@ -201,9 +440,10 @@ export default function SpeciesKpiCards({
     );
   }
 
+  // SWINE
   if (normSpecies.includes("SWINE") || normSpecies.includes("PIG") || normSpecies.includes("BABOY")) {
     return (
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+      <div className={gridClassName}>
         <KpiCard
           title="Pork / Carcass Yield"
           value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
@@ -236,6 +476,7 @@ export default function SpeciesKpiCards({
     );
   }
 
+  // POULTRY
   if (normSpecies.includes("POULTRY") || normSpecies.includes("CHICKEN") || normSpecies.includes("MANOK") || normSpecies.includes("DUCK")) {
     const layingRate =
       metrics.breedingFemalesCount > 0
@@ -243,7 +484,7 @@ export default function SpeciesKpiCards({
         : 0;
 
     return (
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+      <div className={gridClassName}>
         <KpiCard
           title="Daily Egg Harvest"
           value={metrics.totalEggs > 0 ? `${metrics.totalEggs.toLocaleString()} pcs` : "0 pcs"}
@@ -276,7 +517,7 @@ export default function SpeciesKpiCards({
     );
   }
 
-  // Default CATTLE / CARABAO
+  // Default CATTLE / CARABAO (Dairy Yield)
   if (normSpecies.includes("CATTLE") || normSpecies.includes("CARABAO") || normSpecies.includes("BAKA") || normSpecies.includes("KALABAW")) {
     const perCowYield =
       metrics.breedingFemalesCount > 0 && metrics.totalMilk > 0
@@ -284,7 +525,7 @@ export default function SpeciesKpiCards({
         : "—";
 
     return (
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+      <div className={gridClassName}>
         <KpiCard
           title="Dairy Milk Output"
           value={metrics.totalMilk > 0 ? `${metrics.totalMilk.toLocaleString()} L` : "0.0 L"}
@@ -319,7 +560,7 @@ export default function SpeciesKpiCards({
 
   // Consolidated / ALL
   return (
-    <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+    <div className={gridClassName}>
       <KpiCard
         title="Total Output Logs"
         value={metrics.totalRecords.toString()}

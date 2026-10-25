@@ -282,14 +282,10 @@ export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecord
 });
 
 export async function fetchProductionRecords(): Promise<ProductionRecordItem[]> {
-  try {
-    const response = await api.get("production/records/");
-    const data = response.data as ApiProductionRecord[];
-    if (Array.isArray(data)) {
-      return data.map(mapProductionRecord);
-    }
-  } catch (err) {
-    console.error("Error fetching production records:", err);
+  const response = await api.get("production/records/");
+  const data = response.data as ApiProductionRecord[];
+  if (Array.isArray(data)) {
+    return data.map(mapProductionRecord);
   }
   return [];
 }

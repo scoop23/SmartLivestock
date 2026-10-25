@@ -12,8 +12,10 @@ export default function SpeciesProductionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedActivity = searchParams.get("activity");
-  const activity = requestedActivity && ["milk", "meat", "eggs", "wool", "calving", "weights", "sales", "intent"].includes(requestedActivity)
-    ? requestedActivity
+  const requestedType = searchParams.get("type");
+  const rawActivity = (requestedActivity || requestedType)?.toLowerCase();
+  const activity = rawActivity && ["milk", "meat", "eggs", "wool", "calving", "weights", "sales", "intent"].includes(rawActivity)
+    ? rawActivity
     : null;
   const requestedMode = searchParams.get("mode");
   const activityMode = requestedMode === "record" || requestedMode === "history" ? requestedMode : null;
@@ -21,6 +23,26 @@ export default function SpeciesProductionPage() {
   const rawSpecies = params?.species;
   const species =
     typeof rawSpecies === "string" ? decodeURIComponent(rawSpecies) : "Cattle";
+
+  const activityTitle = useMemo(() => {
+    const sName = species === "ALL" ? "Combined Herd" : species;
+    if (activity === "meat") return `${sName} Meat Records`;
+    if (activity === "milk") return `${sName} Dairy Milk Records`;
+    if (activity === "eggs") return `${sName} Egg Collection Logs`;
+    if (activity === "wool") return `${sName} Wool Shearing Logs`;
+    if (activity === "calving") return `${sName} Birthing & Calving Logs`;
+    if (activity === "weights") return `${sName} Weight & Growth Records`;
+    if (activity === "sales" || activity === "intent") return `${sName} Sale Intent Declarations`;
+    return `${sName} Production Logs`;
+  }, [activity, species]);
+
+  const activitySubtitle = useMemo(() => {
+    if (activity === "meat") return "Recorded meat output, yields in kilograms, and review status.";
+    if (activity === "milk") return "Daily milking session logs, yield in liters, and review status.";
+    if (activity === "eggs") return "Daily egg harvest logs and flock efficiency.";
+    if (activity === "wool") return "Wool shearing logs and harvest weights.";
+    return "Production records, animal births, and weight history";
+  }, [activity]);
 
   const { data: inventories = [], isLoading } = useUserInventory();
 
@@ -56,8 +78,8 @@ export default function SpeciesProductionPage() {
   return (
     <>
       <PageHeader
-        title={`${species === "ALL" ? "Combined Herd" : species} Production Logs`}
-        subtitle="Production records, animal births, and weight history"
+        title={activityTitle}
+        subtitle={activitySubtitle}
         variant="farmer"
         maxWidthClass="w-full"
       />

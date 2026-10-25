@@ -137,6 +137,8 @@ export default function ProductionDashboardView({
   const {
     data: productionRecords = [],
     isLoading: isRecordsLoading,
+    isError: isRecordsError,
+    error: recordsError,
     refetch,
     isRefetching,
   } = useQuery<ProductionRecordItem[]>({
@@ -463,8 +465,16 @@ export default function ProductionDashboardView({
           </Button>
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">{selectedSpecies === "ALL" ? "All livestock" : selectedSpecies}</p>
-            <h2 className="mt-1 text-lg font-bold text-slate-900">{focusedMode === "record" ? "Record activity" : "Activity records"}</h2>
-            <p className="mt-1 text-sm text-slate-600">{focusedMode === "record" ? "Complete the existing form. Choose the animal and review your entry before saving." : "Review the records and their review status for this activity."}</p>
+            <h2 className="mt-1 text-lg font-bold text-slate-900">
+              {focusedMode === "record"
+                ? `Record ${focusedActivity ?? "activity"} output`
+                : `${focusedActivity ? focusedActivity.charAt(0).toUpperCase() + focusedActivity.slice(1) : "Activity"} records`}
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              {focusedMode === "record"
+                ? `Complete the form to log ${focusedActivity ?? "production"} output. Choose the animal and review before saving.`
+                : `Review the ${focusedActivity ?? "production"} records and their verification status.`}
+            </p>
           </section>
         </div>
       ) : null}
@@ -695,6 +705,24 @@ export default function ProductionDashboardView({
                 </div>
                 <Skeleton className="h-[320px] w-full rounded-2xl" />
               </div>
+            ) : isRecordsError ? (
+              <div
+                role="alert"
+                className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center shadow-xs"
+              >
+                <p className="text-base font-bold text-red-900">Failed to load {focusedActivity} production records</p>
+                <p className="mt-1 text-xs text-red-700">
+                  {recordsError instanceof Error ? recordsError.message : "A network or server error occurred while retrieving production records."}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => refetch()}
+                  className="mt-4 rounded-xl border-red-300 bg-white text-xs font-bold text-red-900 hover:bg-red-100"
+                >
+                  <RefreshCw className="mr-2 size-3.5" /> Retry
+                </Button>
+              </div>
             ) : (
               <>
                 <SpeciesKpiCards
@@ -703,12 +731,25 @@ export default function ProductionDashboardView({
                   productionRecords={monthlyKpiProductionRecords}
                   calvingRecords={monthlyKpiCalvingRecords}
                   weightRecords={monthlyKpiWeightRecords}
+                  activity={focusedActivity}
+                  productionType={focusedActivity as ProductionType}
                 />
 
-                <ProductionCharts
-                  type={focusedActivity as ProductionType}
-                  data={analytics.by_type[focusedActivity as ProductionType] ?? EMPTY_TYPE_ANALYTICS}
-                />
+                {monthlyKpiProductionRecords.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
+                    <p className="text-sm font-bold text-slate-700">
+                      No {focusedActivity} production records are available for the selected period.
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Log a new entry or select a different month or date range to view history.
+                    </p>
+                  </div>
+                ) : (
+                  <ProductionCharts
+                    type={focusedActivity as ProductionType}
+                    data={analytics.by_type[focusedActivity as ProductionType] ?? EMPTY_TYPE_ANALYTICS}
+                  />
+                )}
               </>
             )}
           </section>
@@ -761,6 +802,8 @@ export default function ProductionDashboardView({
             productionRecords={monthlyKpiProductionRecords}
             calvingRecords={monthlyKpiCalvingRecords}
             weightRecords={monthlyKpiWeightRecords}
+            activity={activeProductionType}
+            productionType={activeProductionType}
           />
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
