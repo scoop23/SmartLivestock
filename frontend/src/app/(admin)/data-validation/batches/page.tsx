@@ -492,7 +492,7 @@ function AdminBatchesDrilldownContent() {
 
   // Selected batch for drilldown inspection
   const [selectedBatch, setSelectedBatch] = useState<BatchItem | null>(null);
-  const [isDrilldownOpen, setIsDrilldownOpen] = useState(false);
+  const [isDrilldownOpen, setIsDrilldownOpen] = useState(() => Boolean(batchIdParam));
   const [reviewAnimal, setReviewAnimal] = useState<DetailRecordData | null>(null);
   const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
   const [bulkApproving, setBulkApproving] = useState(false);
@@ -551,21 +551,33 @@ function AdminBatchesDrilldownContent() {
   const numericBatchId = batchIdParam
     ? (/^\d+$/.test(batchIdParam) ? Number(batchIdParam) : Number(String(batchIdParam).replace(/\D/g, "")) || null)
     : null;
-  const detailId = selectedBatch?.id || numericBatchId;
+  const activeBatchIdentifier = selectedBatch?.id || numericBatchId || (batchIdParam ? String(batchIdParam).trim() : null);
   const detailQuery = useQuery<BatchItem>({
-    queryKey: ["admin-batch-detail", detailId, batchIdParam],
-    enabled: isDrilldownOpen || isBatchCertificateOpen || Boolean(detailId) || Boolean(batchIdParam),
+    queryKey: ["admin-batch-detail", activeBatchIdentifier],
+    enabled: Boolean(activeBatchIdentifier) && (isDrilldownOpen || isBatchCertificateOpen || Boolean(batchIdParam)),
     queryFn: async ({ signal }) => {
-      if (detailId) {
-        return (await api.get(`livestock/batches/${detailId}/`, { signal })).data;
+      if (typeof activeBatchIdentifier === "number" || /^\d+$/.test(String(activeBatchIdentifier))) {
+        return (await api.get(`livestock/batches/${activeBatchIdentifier}/`, { signal })).data;
       }
-      if (batchIdParam) {
-        return (await api.get("livestock/batches/lookup/", { params: { code: batchIdParam }, signal })).data;
+      if (activeBatchIdentifier) {
+        return (await api.get("livestock/batches/lookup/", { params: { code: activeBatchIdentifier }, signal })).data;
       }
       throw new Error("No batch identifier provided");
     },
     staleTime: 30 * 1000,
   });
+
+  const activeBatch = useMemo(() => {
+    // If detail query loaded for this batch and contains animals, it is authoritative
+    if (detailQuery.data && (!selectedBatch || detailQuery.data.id === selectedBatch.id || (numericBatchId && detailQuery.data.id === numericBatchId))) {
+      return detailQuery.data;
+    }
+    if (selectedBatch?.animals && selectedBatch.animals.length > 0) {
+      return selectedBatch;
+    }
+    return detailQuery.data ?? selectedBatch;
+  }, [detailQuery.data, selectedBatch, numericBatchId]);
+
   // React Query owns the fetched detail; sync its refreshed data into the open editor.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -594,7 +606,13 @@ function AdminBatchesDrilldownContent() {
     });
 
     if (found) {
-      setSelectedBatch(found);
+      setSelectedBatch((prev) => {
+        // Never wipe out an already loaded roster with a roster-free list row!
+        if (prev?.id === found.id && prev.animals && prev.animals.length > 0) {
+          return prev;
+        }
+        return prev?.id === found.id ? { ...found, animals: prev.animals } : found;
+      });
       setIsDrilldownOpen(true);
     }
   }, [batchIdParam, batches]);
@@ -622,8 +640,8 @@ function AdminBatchesDrilldownContent() {
 
   // ── Filtered Animals inside Selected Batch ──────────────────────────────
   const filteredChildAnimals = useMemo(() => {
-    if (!selectedBatch || !selectedBatch.animals) return [];
-    return selectedBatch.animals.filter((a) => {
+    if (!activeBatch || !activeBatch.animals) return [];
+    return activeBatch.animals.filter((a) => {
       const matchSearch =
         !animalSearchQuery ||
         a.tag_number?.toLowerCase().includes(animalSearchQuery.toLowerCase()) ||
@@ -638,10 +656,10 @@ function AdminBatchesDrilldownContent() {
 
       return matchSearch && matchStatus;
     });
-  }, [selectedBatch, animalSearchQuery, animalStatusFilter]);
+  }, [activeBatch, animalSearchQuery, animalStatusFilter]);
 
   const pageCountAnimals = Math.max(1, Math.ceil(filteredChildAnimals.length / ANIMAL_PAGE_SIZE));
-  const animalPageFilterKey = JSON.stringify([selectedBatch?.id, animalSearchQuery, animalStatusFilter]);
+  const animalPageFilterKey = JSON.stringify([activeBatch?.id, animalSearchQuery, animalStatusFilter]);
   const [animalPageState, setAnimalPageState] = useState({ filterKey: animalPageFilterKey, page: 1 });
   const animalPage = animalPageState.filterKey === animalPageFilterKey ? animalPageState.page : 1;
   const setAnimalPage = (nextPage: number | ((currentPage: number) => number)) =>
@@ -657,7 +675,7 @@ function AdminBatchesDrilldownContent() {
   const visibleVerifiedAnimalIds = pagedChildAnimals
     .filter((animal) => animal.status === "VERIFIED")
     .map((animal) => animal.id);
-  const selectedVerifiedAnimals = (selectedBatch?.animals ?? []).filter(
+  const selectedVerifiedAnimals = (activeBatch?.animals ?? []).filter(
     (animal) => selectedAnimalIds.includes(animal.id) && animal.status === "VERIFIED",
   );
   const allVisibleVerifiedAnimalsSelected =
@@ -668,12 +686,12 @@ function AdminBatchesDrilldownContent() {
   // Deep-link parameters identify the roster row and require updating the drilldown controls.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!isDrilldownOpen || !selectedBatch?.animals || selectedBatch.animals.length === 0) {
+    if (!isDrilldownOpen || !activeBatch?.animals || activeBatch.animals.length === 0) {
       return;
     }
     if (!animalIdParam && !tagParam) return;
 
-    const animals = selectedBatch.animals;
+    const animals = activeBatch.animals;
     const cleanAnimalId = animalIdParam ? String(animalIdParam).replace(/\D/g, "") : null;
     const cleanTag = tagParam ? tagParam.trim().toLowerCase() : null;
 
@@ -755,7 +773,7 @@ function AdminBatchesDrilldownContent() {
   }
 
   function openAnimalDetail(animal: ChildAnimal) {
-    if (!selectedBatch) return;
+    if (!activeBatch) return;
     // Use the shared MAO record dialog so the herd roster and Data Validation
     // expose the same animal fields and review actions without route changes.
     setReviewAnimal({
@@ -763,9 +781,9 @@ function AdminBatchesDrilldownContent() {
       id: animal.id,
       rawId: animal.id,
       isBatch: false,
-      farmerName: selectedBatch.farmer_name,
-      barangayName: selectedBatch.barangay_name,
-      livestockType: selectedBatch.livestock_type_name,
+      farmerName: activeBatch.farmer_name,
+      barangayName: activeBatch.barangay_name,
+      livestockType: activeBatch.livestock_type_name,
       tagNumber: animal.tag_number || `#${animal.id}`,
       breed: animal.breed || "",
       sex: animal.sex || "Unspecified",
@@ -777,10 +795,10 @@ function AdminBatchesDrilldownContent() {
       reviewRemarks: animal.review_remarks || null,
       reviewedByName: animal.reviewed_by_name || null,
       reviewedAt: animal.reviewed_at || null,
-      createdAt: animal.created_at || selectedBatch.created_at,
-      batchId: selectedBatch.id,
-      batchCode: selectedBatch.batch_code,
-      batchName: selectedBatch.batch_name,
+      createdAt: animal.created_at || activeBatch.created_at,
+      batchId: activeBatch.id,
+      batchCode: activeBatch.batch_code,
+      batchName: activeBatch.batch_name,
       photoUrl: animal.photo_url || undefined,
     });
   }
@@ -796,7 +814,7 @@ function AdminBatchesDrilldownContent() {
       await api.post(`livestock/inventory/${animalId}/review/`, { status: action, remarks });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["admin-batches-drilldown"] }),
-        queryClient.invalidateQueries({ queryKey: ["admin-batch-detail", selectedBatch?.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-batch-detail", activeBatch?.id] }),
         queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] }),
         queryClient.invalidateQueries({ queryKey: ["inventory"] }),
         queryClient.invalidateQueries({ queryKey: ["livestock-batches"] }),
@@ -810,7 +828,7 @@ function AdminBatchesDrilldownContent() {
   }
 
   async function approveSelectedAnimals() {
-    if (!selectedBatch || selectedVerifiedAnimals.length === 0 || selectedVerifiedAnimals.length !== selectedAnimalIds.length) return;
+    if (!activeBatch || selectedVerifiedAnimals.length === 0 || selectedVerifiedAnimals.length !== selectedAnimalIds.length) return;
 
     setBulkApproving(true);
     try {
@@ -830,7 +848,7 @@ function AdminBatchesDrilldownContent() {
       setBulkApproveOpen(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["admin-batches-drilldown"] }),
-        queryClient.invalidateQueries({ queryKey: ["admin-batch-detail", selectedBatch.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-batch-detail", activeBatch.id] }),
         queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] }),
         queryClient.invalidateQueries({ queryKey: ["inventory"] }),
         queryClient.invalidateQueries({ queryKey: ["livestock-batches"] }),
@@ -1473,7 +1491,7 @@ function AdminBatchesDrilldownContent() {
         }}
       >
         <DialogContent className="w-full max-w-[98vw] sm:max-w-5xl md:max-w-6xl lg:max-w-7xl xl:max-w-[1440px] rounded-2xl sm:rounded-3xl bg-white p-0 overflow-hidden shadow-2xl border-slate-200 max-h-[94vh] flex flex-col">
-          {detailQuery.isLoading ? (
+          {(detailQuery.isLoading || (detailQuery.isFetching && !activeBatch?.animals)) ? (
             <div
               className="flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
               role="status"
@@ -1489,7 +1507,7 @@ function AdminBatchesDrilldownContent() {
                 </DialogDescription>
               </div>
             </div>
-          ) : detailQuery.isError ? (
+          ) : detailQuery.isError && !activeBatch ? (
             <div className="flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
               <AlertTriangle className="size-8 text-rose-600" />
               <div className="space-y-1">
@@ -1508,29 +1526,29 @@ function AdminBatchesDrilldownContent() {
                 Try again
               </Button>
             </div>
-          ) : selectedBatch && (
+          ) : activeBatch && (
             <div className="flex flex-col max-h-[94vh]">
               {/* Modal Header */}
               <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-900 text-white border-b border-emerald-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 pr-12 sm:pr-14">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      {selectedBatch.livestock_type_name} Herd
+                      {activeBatch.livestock_type_name} Herd
                     </span>
                     <span className="font-mono text-xs font-bold text-emerald-200">
-                      {selectedBatch.batch_code}
+                      {activeBatch.batch_code}
                     </span>
-                    {getStatusBadge(selectedBatch.review_status)}
+                    {getStatusBadge(activeBatch.review_status)}
                   </div>
                   <DialogTitle className="text-lg sm:text-xl font-black text-white">
-                    {selectedBatch.batch_name}
+                    {activeBatch.batch_name}
                   </DialogTitle>
                   <DialogDescription className="text-xs text-emerald-200/80 flex items-center gap-2 flex-wrap">
-                    <span>Farmer: <strong>{selectedBatch.farmer_name}</strong></span>
+                    <span>Farmer: <strong>{activeBatch.farmer_name}</strong></span>
                     <span>•</span>
-                    <span>Barangay: <strong>{selectedBatch.barangay_name}</strong></span>
+                    <span>Barangay: <strong>{activeBatch.barangay_name}</strong></span>
                     <span>•</span>
-                    <span>Enrolled: <strong>{selectedBatch.animals?.length || selectedBatch.total_animals} Heads</strong></span>
+                    <span>Enrolled: <strong>{activeBatch.animals?.length || activeBatch.total_animals} Heads</strong></span>
                   </DialogDescription>
                 </div>
 
@@ -1554,10 +1572,10 @@ function AdminBatchesDrilldownContent() {
                     Housing Facility
                   </span>
                   <p className="font-black text-slate-800 text-xs mt-0.5 truncate">
-                    {selectedBatch.housing_pen || "Standard Pen"}
+                    {activeBatch.housing_pen || "Standard Pen"}
                   </p>
                   <p className="text-[10px] text-slate-500 truncate">
-                    Feed: {selectedBatch.feed_type || "—"}
+                    Feed: {activeBatch.feed_type || "—"}
                   </p>
                 </div>
 
@@ -1566,10 +1584,10 @@ function AdminBatchesDrilldownContent() {
                     Average Weight
                   </span>
                   <p className="font-black text-emerald-800 text-xs mt-0.5">
-                    {selectedBatch.average_weight ? `${selectedBatch.average_weight} kg` : "N/A"}
+                    {activeBatch.average_weight ? `${activeBatch.average_weight} kg` : "N/A"}
                   </p>
                   <p className="text-[10px] text-slate-500">
-                    Target: {selectedBatch.target_weight ? `${selectedBatch.target_weight} kg` : "Unspecified"}
+                    Target: {activeBatch.target_weight ? `${activeBatch.target_weight} kg` : "Unspecified"}
                   </p>
                 </div>
 
@@ -1578,15 +1596,15 @@ function AdminBatchesDrilldownContent() {
                     Target Harvest Date
                   </span>
                   <p className="font-black text-slate-800 text-xs mt-0.5">
-                    {selectedBatch.target_harvest_date || "Open Schedule"}
+                    {activeBatch.target_harvest_date || "Open Schedule"}
                   </p>
-                  <p className="text-[10px] text-slate-500">Registered: {selectedBatch.created_at?.split("T")[0]}</p>
+                  <p className="text-[10px] text-slate-500">Registered: {activeBatch.created_at?.split("T")[0]}</p>
                 </div>
 
                 <div className="p-2.5 bg-white rounded-xl border border-slate-200/80">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Individual review</span>
                   <p className="mt-1 text-[10px] leading-relaxed text-slate-600">Each animal has its own SIBAT and MAO status. This herd is only a grouping container.</p>
-                  <Link href={`/data-validation?domain=inventory&batchId=${selectedBatch.id}`} className="mt-2 block">
+                  <Link href={`/data-validation?domain=inventory&batchId=${activeBatch.id}`} className="mt-2 block">
                     <Button type="button" size="sm" variant="outline" className="h-7 w-full rounded-lg text-[10px] font-bold">Open animal review records</Button>
                   </Link>
                 </div>
@@ -1603,9 +1621,9 @@ function AdminBatchesDrilldownContent() {
                   <span className="text-sm font-black text-slate-900 flex items-center gap-1.5">
                     <ClipboardList className="w-4 h-4 text-emerald-700 shrink-0" />
                     Reviewer Notes &amp; Audit Trail
-                    {selectedBatch.notes && (
+                    {activeBatch.notes && (
                       <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md">
-                        {selectedBatch.notes.split("\n").filter(Boolean).length}
+                        {activeBatch.notes.split("\n").filter(Boolean).length}
                       </span>
                     )}
                   </span>
@@ -1617,7 +1635,7 @@ function AdminBatchesDrilldownContent() {
                 {showBatchNotes && (
                   <div className="mt-2.5 space-y-2.5">
                     <pre className="text-[11px] text-slate-600 font-sans whitespace-pre-wrap leading-relaxed bg-white border border-slate-200 rounded-xl p-3 max-h-32 overflow-y-auto">
-                      {selectedBatch.notes || "No notes recorded for this batch yet."}
+                      {activeBatch.notes || "No notes recorded for this batch yet."}
                     </pre>
                     <div className="flex gap-2 items-start">
                       <Textarea
@@ -1630,9 +1648,9 @@ function AdminBatchesDrilldownContent() {
                         size="sm"
                         disabled={addBatchNoteMutation.isPending || !batchNoteText.trim()}
                         onClick={() => {
-                          if (!batchNoteText.trim() || !selectedBatch) return;
+                          if (!batchNoteText.trim() || !activeBatch) return;
                           addBatchNoteMutation.mutate({
-                            batchId: selectedBatch.id,
+                            batchId: activeBatch.id,
                             text: batchNoteText.trim(),
                           });
                         }}
@@ -1749,9 +1767,9 @@ function AdminBatchesDrilldownContent() {
                         </TableRow>
                       ) : (
                         pagedChildAnimals.map((animal) => {
-                          const avatar = getDefaultAvatarForSpecies(selectedBatch.livestock_type_name);
+                          const avatar = getDefaultAvatarForSpecies(activeBatch.livestock_type_name);
                           const animalWeight = animal.weight ? Number(animal.weight) : null;
-                          const batchAvg = selectedBatch.average_weight ? Number(selectedBatch.average_weight) : null;
+                          const batchAvg = activeBatch.average_weight ? Number(activeBatch.average_weight) : null;
                           const weightDiff = animalWeight && batchAvg ? (animalWeight - batchAvg).toFixed(1) : null;
 
                           const isTarget = highlightedAnimalId === animal.id;
@@ -1961,13 +1979,13 @@ function AdminBatchesDrilldownContent() {
       ────────────────────────────────────────────────────────────────────────── */}
       <Dialog open={isPassportOpen} onOpenChange={setIsPassportOpen}>
         <DialogContent className="w-full max-w-[95vw] sm:max-w-md md:max-w-lg rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border-slate-200 max-h-[92vh] overflow-y-auto">
-          {(!passportAnimal || !selectedBatch) && (
+          {(!passportAnimal || !activeBatch) && (
             <DialogHeader className="sr-only">
               <DialogTitle>Municipal Livestock Passport</DialogTitle>
               <DialogDescription>Republic of the Philippines • Municipality of Padre Garcia, Batangas</DialogDescription>
             </DialogHeader>
           )}
-          {passportAnimal && selectedBatch && (
+          {passportAnimal && activeBatch && (
             <>
               <DialogHeader className="text-center">
                 <div className="mx-auto size-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xl mb-1">
@@ -2027,7 +2045,7 @@ function AdminBatchesDrilldownContent() {
                     {passportAnimal.tag_number}
                   </p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Parent Batch: <strong className="font-mono text-emerald-800">{selectedBatch.batch_code}</strong>
+                    Parent Batch: <strong className="font-mono text-emerald-800">{activeBatch.batch_code}</strong>
                   </p>
                 </div>
 
@@ -2036,7 +2054,7 @@ function AdminBatchesDrilldownContent() {
                   <div className="flex justify-between">
                     <span className="text-slate-500">Species &amp; Breed:</span>
                     <span className="font-bold text-slate-900">
-                      {selectedBatch.livestock_type_name} • {passportAnimal.breed}
+                      {activeBatch.livestock_type_name} • {passportAnimal.breed}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -2047,11 +2065,11 @@ function AdminBatchesDrilldownContent() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Farm Owner:</span>
-                    <span className="font-bold text-slate-900">{selectedBatch.farmer_name}</span>
+                    <span className="font-bold text-slate-900">{activeBatch.farmer_name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Barangay:</span>
-                    <span className="font-bold text-slate-900">{selectedBatch.barangay_name}</span>
+                    <span className="font-bold text-slate-900">{activeBatch.barangay_name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Vaccination Status:</span>
@@ -2097,8 +2115,8 @@ function AdminBatchesDrilldownContent() {
         <DialogContent data-print-root className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl border-slate-200 max-h-[92vh] overflow-y-auto">
           <DialogHeader className="sr-only">
             <DialogTitle>
-              {selectedBatch
-                ? `Batch ${selectedBatch.batch_name} Biosecurity Certificate & Movement Clearance Pass`
+              {activeBatch
+                ? `Batch ${activeBatch.batch_name} Biosecurity Certificate & Movement Clearance Pass`
                 : "Batch Biosecurity Certificate & Movement Clearance Pass"}
             </DialogTitle>
             <DialogDescription>
@@ -2106,29 +2124,29 @@ function AdminBatchesDrilldownContent() {
             </DialogDescription>
           </DialogHeader>
 
-          {selectedBatch && (
+          {activeBatch && (
             <div className="space-y-4">
               <QrCodePass
-                code={selectedBatch.batch_code}
-                qrPayload={livestockBatchQrPayload(selectedBatch.id)}
-                title={`Batch ${selectedBatch.batch_name}`}
+                code={activeBatch.batch_code}
+                qrPayload={livestockBatchQrPayload(activeBatch.id)}
+                title={`Batch ${activeBatch.batch_name}`}
                 subtitle="Livestock batch identity · check current status in SmartLivestock"
-                ownerName={selectedBatch.farmer_name}
-                barangay={selectedBatch.barangay_name}
-                specie={selectedBatch.livestock_type_name}
-                headCount={selectedBatch.animals?.length || selectedBatch.total_animals}
-                status={selectedBatch.review_status || selectedBatch.status || "PENDING"}
-                verifiedAt={selectedBatch.reviewed_at ? selectedBatch.reviewed_at.slice(0, 10) : undefined}
+                ownerName={activeBatch.farmer_name}
+                barangay={activeBatch.barangay_name}
+                specie={activeBatch.livestock_type_name}
+                headCount={activeBatch.animals?.length || activeBatch.total_animals}
+                status={activeBatch.review_status || activeBatch.status || "PENDING"}
+                verifiedAt={activeBatch.reviewed_at ? activeBatch.reviewed_at.slice(0, 10) : undefined}
               />
 
               {/* Enrolled Animals in this Herd */}
-              {selectedBatch.animals && selectedBatch.animals.length > 0 && (
+              {activeBatch.animals && activeBatch.animals.length > 0 && (
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                    Enrolled Ear Tag Codes in this Herd ({selectedBatch.animals.length} heads):
+                    Enrolled Ear Tag Codes in this Herd ({activeBatch.animals.length} heads):
                   </span>
                   <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
-                    {selectedBatch.animals.map((a) => (
+                    {activeBatch.animals.map((a) => (
                       <span
                         key={a.id}
                         className="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono text-[10px] font-bold text-slate-800"
