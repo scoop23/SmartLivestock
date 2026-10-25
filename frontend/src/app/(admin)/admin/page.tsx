@@ -258,7 +258,7 @@ export default function AdminDashboard() {
             { path: '/user-management', icon: Users, label: 'User Accounts' },
             { path: '/data-validation', icon: CheckSquare, label: 'Record Validation' },
             { path: '/gis-map', icon: Map, label: 'GIS Mapping' },
-            { path: '/analytics', icon: TrendingUp, label: 'AI Analytics' },
+            { path: '/analysis', icon: TrendingUp, label: 'AI Analytics' },
           ].map(({ path, icon: IconComponent, label }) => (
             <button
               key={path}

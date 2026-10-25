@@ -617,7 +617,7 @@ export function GISControls({
                     <div className="bg-purple-50/80 px-2.5 py-1.5 rounded-lg border border-purple-200 text-[10.5px] text-purple-900 leading-tight">
                       Surveillance Trend shows approved reports from the last 90 days, not unresolved clinical cases. For statistical forecasts, see{' '}
                       <a
-                        href="/analytics"
+                        href="/analysis/predictive"
                         className="font-bold underline underline-offset-2 hover:text-purple-950"
                       >
                         Predictive Analytics &rarr;

@@ -116,6 +116,7 @@ export const getEffectiveRole = (
       currentPath.startsWith("/gis-map") ||
       currentPath.startsWith("/reports") ||
       currentPath.startsWith("/analytics") ||
+      currentPath.startsWith("/analysis") ||
       currentPath.startsWith("/user-management")
     ) {
       return "admin";

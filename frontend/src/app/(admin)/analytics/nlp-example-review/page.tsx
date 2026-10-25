@@ -66,7 +66,7 @@ export default function NLPExamplesPage() {
   return <>
     <PageHeader title="NLP examples & evaluation" subtitle="Check question interpretation, not livestock-record approval" variant="admin" maxWidthClass="w-full" icon={<BarChart3 className="size-5 text-slate-800" />} />
     <main className="min-w-0 space-y-4 p-3 sm:p-5">
-      <Button asChild variant="outline" size="sm"><Link href="/analytics">Back to Advanced Analytics</Link></Button>
+      <Button asChild variant="outline" size="sm"><Link href="/analysis">Back to Analytics Overview</Link></Button>
       {!authorized ? <Alert><AlertTitle>MAO/Admin access required</AlertTitle><AlertDescription>This page contains the developer-maintained evaluation examples.</AlertDescription></Alert> : null}
       {authorized && query.isPending ? <p role="status" className="flex items-center gap-2 text-sm text-slate-600"><LoaderCircle className="size-4 animate-spin" />Evaluating example questions…</p> : null}
       {query.isError ? <Alert variant="destructive"><AlertTitle>Could not load evaluation</AlertTitle><AlertDescription>Check your connection and that the backend includes the NLP evaluation endpoint.<Button variant="outline" size="sm" onClick={() => void query.refetch()} disabled={query.isFetching} className="ml-2">Retry</Button></AlertDescription></Alert> : null}
