@@ -173,6 +173,7 @@ export function GISControls({
   const activeOption = layerOptions.find((opt) => opt.id === currentLayer) || layerOptions[0] || allLayerOptions[0];
   const canUse3D = !userScope || userScope.allowed_modes?.includes('3D');
   const canUseSim = !userScope || userScope.can_use_simulation;
+  const canUseTrend = userScope?.role !== 'CBAT';
 
   return (
     <div ref={containerRef} className="flex flex-col gap-2 pointer-events-auto">
@@ -547,7 +548,7 @@ export function GISControls({
 
               {diseaseSectionOpen && (
                 <div className="flex flex-col gap-1.5 pt-0.5">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                  <div className={`grid grid-cols-1 gap-1.5 ${canUseSim || canUseTrend ? 'sm:grid-cols-3' : ''}`}>
                     <button
                       type="button"
                       onClick={() => onDiseaseSubModeChange('reported')}
@@ -576,18 +577,20 @@ export function GISControls({
                       </button>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => onDiseaseSubModeChange('trend')}
-                      className={`min-h-[40px] sm:min-h-[30px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
-                        diseaseSubMode === 'trend'
-                          ? 'bg-purple-700 text-white border-purple-800 shadow-2xs ring-2 ring-purple-400/50'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-purple-50 hover:text-purple-800'
-                      }`}
-                    >
-                      <TrendingUp className="size-3" />
-                      <span>Trend</span>
-                    </button>
+                    {canUseTrend && (
+                      <button
+                        type="button"
+                        onClick={() => onDiseaseSubModeChange('trend')}
+                        className={`min-h-[40px] sm:min-h-[30px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
+                          diseaseSubMode === 'trend'
+                            ? 'bg-purple-700 text-white border-purple-800 shadow-2xs ring-2 ring-purple-400/50'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-purple-50 hover:text-purple-800'
+                        }`}
+                      >
+                        <TrendingUp className="size-3" />
+                        <span>Trend</span>
+                      </button>
+                    )}
                   </div>
 
                   {diseaseSubMode === 'simulation' && (

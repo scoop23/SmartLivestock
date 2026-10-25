@@ -16,8 +16,9 @@
  *      modifying their approval authority.
  * 
  * 2. OPERATIONAL LAYERS:
- *    - Permitted: Livestock (Cattle), Reported Disease Cases, Dairy Milk, Meat Yield,
- *      Mortality Records, and Transport Movement.
+ *    - SIBAT can inspect field inventory, disease, production, mortality, and movement layers.
+ *      CBAT keeps the reported disease and production layers without movement,
+ *      mortality, or the disease trend view.
  *    - Restricted: Disease epidemic simulation and municipal decision-support tools
  *      are reserved strictly for MAO/Admin leadership.
  */

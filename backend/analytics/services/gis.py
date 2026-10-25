@@ -258,9 +258,11 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "scope": "MUNICIPAL" if can_view_all else "ASSIGNED_BARANGAYS",
             "allowed_barangays": allowed_b,
             "can_view_all_barangays": can_view_all,
-            # SIBAT/CBAT monitors field inventory, disease reports, production, mortality, and movement
-            # But CANNOT use predictive/scenario simulation or municipal decision-support tools
-            "allowed_layers": ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "mortality", "movement", "meat"],
+            # CBAT keeps field inventory, reported disease, and production layers.
+            # SIBAT additionally retains mortality and movement layers.
+            "allowed_layers": ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "meat"]
+            if u_role == "CBAT" else
+            ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "mortality", "movement", "meat"],
             "allowed_modes": ["2D"],
             "can_use_simulation": False,
             "can_use_advanced_analytics": False,

@@ -29,8 +29,8 @@ import { useClientReady } from "@/hooks/use-browser-state";
  * 
  * 3. GRACEFUL FEATURE DEGRADATION:
  *    - Admin / MAO: God's-Eye view, all 18 barangays, 2D/3D, epidemic simulation timeline.
- *    - SIBAT / CBAT: Field monitoring of assigned barangays, all production/disease/mortality
- *      layers, simulation disabled.
+ *    - SIBAT / CBAT: Field monitoring of assigned barangays. CBAT sees reported
+ *      disease and production without movement, mortality, or disease trend.
  *    - Farmer: Focused on their registered barangay with safe aggregate metrics and
  *      their own farm totals. Out-of-scope barangays rendered muted and non-clickable.
  *    - Auction / Slaughterhouse: Operational movement tracking and carcass yields.
@@ -124,6 +124,9 @@ export function RoleAwareGISContainer({
   const [selectedLivestockType, setSelectedLivestockType] = useState<string>('Cattle');
   const [viewMode, setViewMode] = useState<ViewMode>('2D');
   const [diseaseSubMode, setDiseaseSubMode] = useState<DiseaseSubMode>('reported');
+  const activeDiseaseSubMode: DiseaseSubMode = user?.role?.toUpperCase() === 'CBAT' && diseaseSubMode === 'trend'
+    ? 'reported'
+    : diseaseSubMode;
   const [barangaySelection, setBarangaySelection] = useState<{ scope: string; name: string | null } | null>(null);
   const initialName = gisData?.user_scope?.allowed_barangays?.length === 1 ? gisData.user_scope.allowed_barangays[0] : null;
   const selectedName = barangaySelection?.scope === scopeKey ? barangaySelection.name : initialName;
@@ -405,7 +408,7 @@ export function RoleAwareGISContainer({
           movements={activeDisplayMovements}
           activeLayer={activeLayer}
           viewMode={viewMode}
-          diseaseSubMode={diseaseSubMode}
+          diseaseSubMode={activeDiseaseSubMode}
           simulationColorMode={simulationColorMode}
           selectedBarangay={selectedBarangay}
           onSelectBarangay={handleSelectBarangay}
@@ -435,7 +438,7 @@ export function RoleAwareGISContainer({
             }}
             viewMode={viewMode}
             onViewModeChange={handleViewModeChange}
-            diseaseSubMode={diseaseSubMode}
+            diseaseSubMode={activeDiseaseSubMode}
             onDiseaseSubModeChange={handleDiseaseSubModeChange}
             simulationColorMode={simulationColorMode}
             onSimulationColorModeChange={setSimulationColorMode}
@@ -464,7 +467,7 @@ export function RoleAwareGISContainer({
           <GISLegend
             layer={activeLayer}
             viewMode={viewMode}
-            diseaseSubMode={diseaseSubMode}
+            diseaseSubMode={activeDiseaseSubMode}
             simulationColorMode={simulationColorMode}
             selectedLivestockType={selectedLivestockType}
           />
@@ -548,7 +551,7 @@ export function RoleAwareGISContainer({
           allBarangays={gisData?.barangays || []}
           onRefresh={() => fetchGISTelemetry(true)}
           isLoading={isLoading}
-          diseaseSubMode={diseaseSubMode}
+          diseaseSubMode={activeDiseaseSubMode}
           viewMode={viewMode}
           simulatedStates={activeSimulatedStates}
           selectedLivestockType={selectedLivestockType}
@@ -573,7 +576,7 @@ export function RoleAwareGISContainer({
           allBarangays={gisData?.barangays || []}
           onRefresh={() => fetchGISTelemetry(true)}
           isLoading={isLoading}
-          diseaseSubMode={diseaseSubMode}
+          diseaseSubMode={activeDiseaseSubMode}
           viewMode={viewMode}
           simulatedStates={activeSimulatedStates}
           selectedLivestockType={selectedLivestockType}
