@@ -9,8 +9,11 @@ deterministic rules to recognize a small set of analytics intents, dates,
 species, production types, and known barangays. Only fixed analytics handlers
 run. Their querysets continue to enforce approved-record and reviewer/barangay
 scope. Unrecognized and unsupported requests are rejected or returned for
-clarification. The TF-IDF classifier is an offline experiment; spaCy is also
-offline only. Neither model creates filters, SQL, ORM expressions, or authority.
+clarification. TF-IDF can now suggest editable starting questions for unrecognized requests;
+its predictions never execute queries. spaCy remains offline only. Neither model creates filters, SQL, ORM expressions, or authority.
+
+The historical measurements below predate the word-plus-character TF-IDF
+update; rerun the command for current classifier measurements.
 
 ## Synthetic corpus and method
 

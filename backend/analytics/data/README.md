@@ -76,12 +76,35 @@ explicitly show a last-12-calendar-months default. Population and queues are
 current snapshots. Unrecognized dates request clarification. Missing activity
 months are not filled with zero; unlike units are not merged into one chart.
 
-## Offline ML comparison only
+## ML-assisted draft suggestions and offline comparison
 
 `ask_smartlivestock_intent_training.json` has 88 manually labeled language
-examples. `nlp_intent_model.py` fits TF-IDF word unigrams/bigrams and logistic
-regression only when the offline evaluation command calls it. Live queries
-remain rule-based. There is no automatic storage, training, or model routing.
+examples. `nlp_intent_model.py` combines TF-IDF word unigrams/bigrams with
+character fragments of 3–5 characters, then fits logistic regression. The
+model is fitted once per process from the checked-in examples when needed.
+User questions are never stored or added to training.
+
+When the rules return `unrecognized_intent`, the service can return up to two
+`suggestions` containing a label and a fixed example question. A 0.20 score
+floor is a relevance heuristic, not a calibrated confidence claim. Unsupported
+and clarification predictions abstain; CBAT/SIBAT receive no MAO queue drafts.
+Recognized queries, invalid filters, and explicit unsupported requests retain
+their existing behavior. A classifier error returns the normal refusal.
+
+The UI copies a suggestion into the input for editing. It does not submit it:
+the user reviews species, location, and dates, then presses Ask. The new request
+passes through the same parser, permissions, and approved-record queries.
+Suggestions are starting examples and do not preserve the original filters.
+No model label can execute a database query.
+
+The fixed seed-42 validation split scored 7/18 for both the original word-only
+and combined-feature classifiers. On the separate 51-question regression set,
+raw label accuracy was 26/51 before and 27/51 after, with 19 and 20 respectively
+misclassified refusal examples labeled executable. This does not justify ML
+query execution. Rules still matched all 51 outcomes and their declared filters.
+These are small curated evaluations, not general language accuracy claims.
+The added rule vocabulary covers pakibilang, bilangin, rehistrado, nakarehistro,
+headcount, karamdaman, nagkasakit, pagkamatay, and produksyon.
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py evaluate_ask_smartlivestock_intents
@@ -98,7 +121,7 @@ validation and safe abstention. Model confidence is not proof of correctness.
 The previous pre-farmer-count baseline matched 40/40 expected outcomes and
 43/43 declared filters. Those historical metrics do not describe the expanded
 51-example corpus. Run the current parser evaluation command after changes;
-the offline classifier remains diagnostic only, not a production fallback.
+the classifier can suggest drafts but cannot execute a query.
 The classifier command lists misclassified questions and rejects exact
 normalized overlap between training and evaluation examples.
 

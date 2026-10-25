@@ -43,6 +43,7 @@ type AskResponse = {
   visualization?: Visualization | null;
   results: ResultRow[];
   coverage_note?: string;
+  suggestions?: { label: string; question: string }[];
 };
 
 const EXAMPLES = [
@@ -154,6 +155,8 @@ export function AskSmartLivestock() {
   const [response, setResponse] = useState<AskResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [draftNotice, setDraftNotice] = useState("");
+  const questionInput = useRef<HTMLInputElement>(null);
   // A ref changes immediately; React state alone cannot block same-tick clicks.
   const submitting = useRef(false);
 
@@ -163,6 +166,7 @@ export function AskSmartLivestock() {
     submitting.current = true;
     setLoading(true);
     setError("");
+    setDraftNotice("");
     setResponse(null);
     try {
       const result = await api.post<AskResponse>("analytics/nlp-query/", { question: trimmed });
@@ -191,6 +195,7 @@ export function AskSmartLivestock() {
         <div className="min-w-0 flex-1">
           <Label htmlFor="analytics-question" className="sr-only">Your analytics question</Label>
           <Input
+            ref={questionInput}
             id="analytics-question"
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
@@ -199,7 +204,7 @@ export function AskSmartLivestock() {
             aria-describedby="ask-help"
             placeholder={canAskAboutIndividualFarmers
               ? "Ask about livestock analytics or a farmer's current inventory…"
-              : "Ask about population, production, disease, mortality, or MAO queues…"}
+              : "Ask about population, production, disease, or mortality…"}
             className="h-11 rounded-xl"
             disabled={loading}
           />
@@ -209,6 +214,7 @@ export function AskSmartLivestock() {
           {loading ? "Checking records…" : "Ask"}
         </Button>
       </form>
+      {draftNotice ? <p role="status" className="mt-2 text-xs text-emerald-800">{draftNotice}</p> : null}
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label="Example questions">
         <span className="mr-1 text-[11px] font-semibold text-slate-500">Try:</span>
@@ -240,6 +246,7 @@ export function AskSmartLivestock() {
               {response.coverage_note ? <p className="text-xs leading-relaxed text-slate-500">{response.coverage_note}</p> : null}
             </>
           ) : (
+            <div className="space-y-3">
             <Alert variant={response.status === "clarification" ? "default" : "destructive"}>
               <AlertTitle>{response.status === "unsupported"
                 ? "Unsupported question"
@@ -250,6 +257,35 @@ export function AskSmartLivestock() {
                     : "Please clarify your question"}</AlertTitle>
               <AlertDescription>{response.answer}</AlertDescription>
             </Alert>
+            {response.suggestions?.length ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+                <p className="text-sm font-semibold text-emerald-950">Try a related question</p>
+                <p className="mt-1 text-xs leading-relaxed text-emerald-800">
+                  These are starting examples. Choose one, adjust its livestock type, barangay, and dates, then press Ask.
+                </p>
+                <div className="mt-3 flex flex-col gap-2">
+                  {response.suggestions.map((suggestion) => (
+                    <Button
+                      key={suggestion.question}
+                      type="button"
+                      variant="outline"
+                      disabled={loading}
+                      className="h-auto justify-start whitespace-normal rounded-lg bg-white p-3 text-left"
+                      onClick={() => {
+                        setQuestion(suggestion.question);
+                        setResponse(null);
+                        setDraftNotice("Example selected. Review its filters and press Ask when ready.");
+                        questionInput.current?.focus();
+                        questionInput.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                      }}
+                    >
+                      <span><span className="block text-xs font-semibold text-emerald-900">{suggestion.label}</span><span className="mt-1 block text-xs font-normal text-slate-600">{suggestion.question}</span></span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            </div>
           )}
         </div>
       ) : null}

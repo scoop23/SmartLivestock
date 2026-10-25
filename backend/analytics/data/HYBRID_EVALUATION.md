@@ -64,3 +64,9 @@ $env:DATABASE_URL = 'sqlite:///:memory:'
 The evaluation page offers an explicit Run comparison button and expandable normalization/tokenization steps. Comparison diagnostics are MAO/Admin-only. Reports are cached per process and contain no private farm records. Deploy frontend and backend together; restart the backend after changing versioned datasets. No generated pickle/model artifact is needed.
 
 Learning example: ILANG BAKA ang registered? becomes ilang baka ang registered, then [ilang, baka, ang, registered]. Rules select population_summary and resolve baka to the registered Cattle type. Authorization scopes the approved-active population query; the browser renders returned heads. TF-IDF instead assigns weights to words/phrases; logistic regression predicts a label. That label cannot resolve an owner, approve a record, or grant data access.
+
+Current implementation note: the TF-IDF model now includes character features
+and can suggest editable example questions after an unrecognized request.
+These suggestions require a separate user submission and never route a query.
+The historical word-only measurements above are unchanged; see README.md for
+the current comparison and suggestion behavior.

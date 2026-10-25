@@ -1,6 +1,7 @@
 """Rule-based, allowlisted questions over existing SmartLivestock analytics."""
 
 import calendar
+import logging
 import re
 import unicodedata
 from datetime import date, timedelta
@@ -450,16 +451,16 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
             "pending", "waiting", "awaiting", "review", "approval", "for mao", "ma approve", "hindi pa approved",
         )),
             "disease_by_barangay": any(_contains(normalized, phrase) for phrase in (
-            "disease", "diseases", "desease", "disese", "outbreak", "illness", "sakit", "may sakit",
+            "disease", "diseases", "desease", "disese", "outbreak", "illness", "sakit", "may sakit", "karamdaman", "nagkasakit",
         )),
         "mortality_comparison": any(_contains(normalized, phrase) for phrase in (
-            "mortality", "death", "deaths", "died", "namatay", "kamatayan",
+            "mortality", "death", "deaths", "died", "namatay", "kamatayan", "pagkamatay",
         )),
             "production": any(_contains(normalized, phrase) for phrase in (
-            "production", "prodution", "produccion", "yield", "output", "milk", "dairy", "gatas", "egg", "eggs", "itlog", "wool", "meat", "karne",
+            "production", "prodution", "produccion", "produksyon", "yield", "output", "milk", "dairy", "gatas", "egg", "eggs", "itlog", "wool", "meat", "karne",
         )),
         "population_summary": any(_contains(normalized, phrase) for phrase in (
-            "population", "inventory", "registered", "currently", "current herd", "heads", "how many", "ilang", "ilan", "active livestock", "livestock count", "herd size",
+            "population", "inventory", "registered", "currently", "current herd", "heads", "how many", "ilang", "ilan", "active livestock", "livestock count", "herd size", "headcount", "pakibilang", "bilangin", "rehistrado", "nakarehistro",
         )),
     }
 
@@ -483,7 +484,7 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         return {"status": "clarification", "message": "Analytics use approved records. For pending submissions, ask about the current MAO review queue."}
     if intent == "production":
         breakdown = any(_contains(normalized, phrase) for phrase in (
-            "breakdown", "break down", "by barangay", "per barangay", "by type", "by livestock type", "by species", "distribution", "composition",
+            "breakdown", "break down", "by barangay", "per barangay", "sa bawat barangay", "by type", "by livestock type", "by species", "distribution", "composition",
         ))
         intent = "production_breakdown" if breakdown else "production_trend"
 
@@ -928,11 +929,22 @@ def execute_question(question, *, user, today=None):
     parser_barangays = [{"id": row["id"], "name": row["barangay_name"]} for row in visible_barangays]
     species_names = list(LivestockType.objects.order_by("name").values_list("name", flat=True))
     # Import here to keep the parser independently testable and avoid a cycle.
-    # The production pipeline does not load scikit-learn or train a model.
+    # Rules remain authoritative; ML can only suggest editable draft questions.
     from .nlp_pipeline import interpret_question
     parsed = interpret_question(question, today=today, barangays=parser_barangays, species_names=species_names)
     if parsed["status"] != "parsed":
-        return {"status": parsed["status"], "question": question, "answer": parsed["message"], "results": []}
+        response = {"status": parsed["status"], "question": question, "answer": parsed["message"], "results": []}
+        if parsed.get("reason") == "unrecognized_intent":
+            try:
+                from .nlp_intent_model import suggest_questions
+                response["suggestions"] = suggest_questions(
+                    question, allow_mao_queue=role_name(user) in ("MAO", "ADMIN"),
+                )
+            except Exception:
+                # A missing dependency/model failure must not break normal Ask
+                # responses. Do not log potentially identifying question text.
+                logging.getLogger(__name__).warning("NLP question suggestions unavailable")
+        return response
 
     parameters = parsed["parameters"]
     intent = parsed["intent"]
