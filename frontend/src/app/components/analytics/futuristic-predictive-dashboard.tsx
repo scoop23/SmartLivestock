@@ -269,12 +269,12 @@ function MissionControlTooltip({ active, payload, label, unit }: any) {
         <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">{unit}</span>
       </div>
       <div className="space-y-1.5">
-        {payload.map((item: any) => {
+        {payload.map((item: any, index: number) => {
           if (item.value == null) return null;
           const isForecast = item.dataKey === "forecast";
           const isActual = item.dataKey === "actual";
           return (
-            <div key={item.dataKey} className="flex items-center justify-between gap-4">
+            <div key={`${item.dataKey}-${item.name}-${index}`} className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-1.5">
                 <span
                   className="size-2 rounded-full"
