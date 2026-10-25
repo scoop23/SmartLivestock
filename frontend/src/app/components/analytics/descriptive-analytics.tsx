@@ -116,7 +116,7 @@ const money = (value: number) => new Intl.NumberFormat("en-PH", { style: "curren
 const dateLabel = (value: string) =>
   new Date(`${value}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 const titleCase = (value: string) => value.charAt(0) + value.slice(1).toLowerCase();
-const axisStyle = { fontSize: 11, fill: "#64748b" };
+const axisStyle = { fontSize: 12, fill: "#64748b" };
 
 function barangayLines(name: string) {
   return name.split(" ").reduce<string[]>((lines, word) => {
@@ -516,6 +516,7 @@ export default function DescriptiveAnalytics() {
   // Executive Municipal Telemetry KPIs
   const kpiCards: {
     domain: string;
+    scopeType: "Current Snapshot" | "12-Month Period";
     label: string;
     value: string;
     description: string;
@@ -526,9 +527,10 @@ export default function DescriptiveAnalytics() {
   }[] = [
     {
       domain: "Inventory",
+      scopeType: "Current Snapshot",
       label: "Active Livestock",
       value: number(data.population.total_heads),
-      description: "Approved active heads",
+      description: "Approved active inventory",
       icon: Beef,
       accentColor: "#2D5A27",
       tagBg: "bg-emerald-50",
@@ -536,6 +538,7 @@ export default function DescriptiveAnalytics() {
     },
     {
       domain: "Output",
+      scopeType: "12-Month Period",
       label: "Production Records",
       value: number(data.production.records),
       description: "Approved records in period",
@@ -546,6 +549,7 @@ export default function DescriptiveAnalytics() {
     },
     {
       domain: "Surveillance",
+      scopeType: "12-Month Period",
       label: "Disease Cases",
       value: number(data.disease.cases),
       description: `${number(data.disease.affected_heads)} reported affected heads`,
@@ -556,6 +560,7 @@ export default function DescriptiveAnalytics() {
     },
     {
       domain: "Mortality",
+      scopeType: "12-Month Period",
       label: "Recorded Deaths",
       value: number(data.mortality.deaths),
       description: `${number(data.mortality.records)} approved death records`,
@@ -566,6 +571,7 @@ export default function DescriptiveAnalytics() {
     },
     {
       domain: "Vaccination",
+      scopeType: "Current Snapshot",
       label: "Recorded Coverage",
       value: `${number(data.vaccination.coverage_pct)}%`,
       description: `${number(data.vaccination.vaccinated)} of ${number(data.vaccination.total)} active heads`,
@@ -576,6 +582,7 @@ export default function DescriptiveAnalytics() {
     },
     {
       domain: "Commerce",
+      scopeType: "12-Month Period",
       label: "Animals Sold",
       value: number(data.sales.animals),
       description: `${number(data.sales.sales)} approved sale records`,
@@ -589,14 +596,14 @@ export default function DescriptiveAnalytics() {
   // Mathematically derived factual snapshot statements
   const validBarangaysCount = barangays.filter((b) => b.barangay_id !== null).length;
   const factualSnapshots: string[] = [
-    `${number(data.population.total_heads)} active approved heads are registered across ${validBarangaysCount} barangays in Padre Garcia.`,
+    `${number(data.population.total_heads)} active approved heads are registered across ${validBarangaysCount} barangays in Padre Garcia (Current Snapshot).`,
     ...(leadingSpecies
       ? [`${leadingSpecies.species} constitutes the largest share at ${number(share(leadingSpecies.heads))}% (${number(leadingSpecies.heads)} heads) of recorded livestock.`]
       : []),
     ...(product
       ? [`${titleCase(product.type)} output totals ${number(product.quantity)} ${product.unit.toLowerCase()} across ${number(product.records)} approved records during this reporting window.`]
       : []),
-    `${number(data.disease.cases)} approved disease cases were documented affecting ${number(data.disease.affected_heads)} heads, alongside ${number(data.mortality.deaths)} recorded deaths.`,
+    `${number(data.disease.cases)} approved disease cases were documented affecting ${number(data.disease.affected_heads)} heads, alongside ${number(data.mortality.deaths)} recorded deaths.`
   ];
 
   return (
@@ -608,19 +615,19 @@ export default function DescriptiveAnalytics() {
         <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-cyan-700/15 bg-white/80 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-900">
+              <span className="rounded-full border border-cyan-700/15 bg-white/80 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-cyan-900">
                 Municipal Agriculture Office · Padre Garcia
               </span>
               <Badge variant="outline" className="gap-1.5 border-emerald-700/20 bg-emerald-50 text-emerald-800 font-bold text-xs">
                 <ShieldCheck className="size-3.5 text-emerald-700" />
-                Approved records
+                Approved records only
               </Badge>
             </div>
             <h1 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
-              Descriptive Analytics
+              Descriptive Analytics & Municipal Inventory
             </h1>
             <p className="text-xs font-medium text-slate-600 sm:text-sm">
-              Overview of approved livestock population, production, animal health, vaccination, and sales records.
+              Authoritative overview of approved livestock counts, monthly production yields, health surveillance, and commercial sales.
             </p>
           </div>
 
@@ -630,7 +637,7 @@ export default function DescriptiveAnalytics() {
                 <CalendarDays className="size-3.5 text-cyan-700" />
                 <span>{dateLabel(data.period.start)} – {dateLabel(data.period.end)}</span>
               </div>
-              <p className="mt-0.5 text-[11px] font-medium text-slate-500">
+              <p className="mt-0.5 text-xs font-medium text-slate-500">
                 12-month rolling assessment window
               </p>
             </div>
@@ -655,17 +662,17 @@ export default function DescriptiveAnalytics() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex size-2 rounded-full bg-cyan-600" />
             </span>
-            <span className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-700">
-              Executive Telemetry · Municipal Livestock Metrics
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Executive Telemetry · Municipal Livestock Indicators
             </span>
           </div>
-          <span className="text-[11px] font-semibold text-slate-500">
+          <span className="text-xs font-semibold text-slate-500">
             Official Padre Garcia Records
           </span>
         </div>
 
         <div className="grid grid-cols-2 divide-y divide-sky-100 sm:divide-y-0 sm:divide-x md:grid-cols-3 xl:grid-cols-6 sm:divide-sky-100">
-          {kpiCards.map(({ domain, label, value, description, icon: Icon, accentColor }) => (
+          {kpiCards.map(({ domain, scopeType, label, value, description, icon: Icon, accentColor }) => (
             <div
               key={label}
               className="group relative flex flex-col justify-between p-3.5 transition-colors hover:bg-sky-50/70 sm:p-4.5"
@@ -677,9 +684,18 @@ export default function DescriptiveAnalytics() {
               />
 
               <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-600">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
+                  <span className="rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-slate-700">
                     {domain}
+                  </span>
+                  <span
+                    className={`rounded-md px-1.5 py-0.5 text-xs font-semibold border ${
+                      scopeType === "Current Snapshot"
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        : "bg-sky-50 text-sky-800 border-sky-200"
+                    }`}
+                  >
+                    {scopeType === "Current Snapshot" ? "Snapshot" : "12-Month"}
                   </span>
                   <div
                     className="flex size-6.5 shrink-0 items-center justify-center rounded-lg"
@@ -689,7 +705,7 @@ export default function DescriptiveAnalytics() {
                   </div>
                 </div>
 
-                <p className="truncate text-xs font-bold text-slate-600">
+                <p className="truncate text-xs font-bold text-slate-700">
                   {label}
                 </p>
 
@@ -698,7 +714,7 @@ export default function DescriptiveAnalytics() {
                 </p>
               </div>
 
-              <p className="mt-2.5 border-t border-slate-100 pt-1.5 text-[11px] font-medium leading-snug text-slate-500">
+              <p className="mt-2.5 border-t border-slate-100 pt-1.5 text-xs font-medium leading-snug text-slate-500">
                 {description}
               </p>
             </div>
@@ -765,7 +781,7 @@ export default function DescriptiveAnalytics() {
                     <span className="text-2xl font-black tracking-tight tabular-nums text-slate-900">
                       {number(data.population.total_heads)}
                     </span>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                       Active Heads
                     </span>
                   </div>
@@ -888,10 +904,10 @@ export default function DescriptiveAnalytics() {
       <section className="space-y-4 rounded-2xl border border-sky-200/80 bg-white p-4 shadow-[0_14px_38px_rgba(15,57,77,0.07)] sm:p-5" aria-label="Estimated value of recorded production">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-800">Production valuation</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-cyan-800">Production valuation</p>
             <h2 className="mt-1 text-base font-bold tracking-tight text-slate-900">Estimated Value of Recorded Production</h2>
           </div>
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">PSA reference based</span>
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-slate-500">PSA reference based</span>
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
@@ -900,7 +916,7 @@ export default function DescriptiveAnalytics() {
             <p className="mt-1 text-3xl font-black tabular-nums tracking-tight text-slate-900 sm:text-4xl">
               {data.production.valuation.estimated_value == null ? "Not available" : money(data.production.valuation.estimated_value)}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
+            <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
               <span className="rounded-full border border-emerald-200 bg-white/80 px-2.5 py-1 text-emerald-800">{number(data.production.valuation.valued_records)} records valued</span>
               <span className="rounded-full border border-slate-200 bg-white/80 px-2.5 py-1 text-slate-600">{number(data.production.valuation.unvalued_records)} without a reference</span>
             </div>
@@ -919,7 +935,7 @@ export default function DescriptiveAnalytics() {
             { title: "By reference commodity", rows: data.production.valuation.by_commodity.map((row) => ({ label: row.valuation_snapshot__commodity, value: row.value })) },
           ].map(({ title, rows }) => (
             <div key={title} className="min-w-0 rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-sm shadow-slate-900/[0.025]">
-              <h3 className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{title}</h3>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-600">{title}</h3>
               <div className="space-y-2">
                 {rows.length ? rows.map((row) => (
                   <p key={row.label} className="flex items-start justify-between gap-3 border-t border-slate-100 pt-2 text-xs">
@@ -990,7 +1006,7 @@ export default function DescriptiveAnalytics() {
                 {/* Supporting Summary Tiles */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 rounded-lg bg-slate-50/80 p-3.5 border border-slate-200/70">
                   <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                       Total Production
                     </span>
                     <p className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums mt-0.5">
@@ -1001,7 +1017,7 @@ export default function DescriptiveAnalytics() {
                     </p>
                   </div>
                   <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                       Approved Records
                     </span>
                     <p className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums mt-0.5">
@@ -1009,7 +1025,7 @@ export default function DescriptiveAnalytics() {
                     </p>
                   </div>
                   <div className="col-span-2 sm:col-span-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                       Measurement Unit
                     </span>
                     <p className="text-base sm:text-lg font-bold text-[#2D5A27] mt-1 capitalize">
@@ -1282,7 +1298,7 @@ export default function DescriptiveAnalytics() {
                     })}
                   </TableBody>
                 </Table>
-                <p className="text-[11px] text-slate-500 font-medium italic">
+                <p className="text-xs text-slate-500 font-medium italic">
                   * Note: Mortality causes reflect observational field records and do not establish pathogen causality.
                 </p>
               </div>
@@ -1314,7 +1330,7 @@ export default function DescriptiveAnalytics() {
                     <span className="text-xs font-bold text-slate-900 tabular-nums block">
                       {number(row.affected_heads)} heads
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">
+                    <span className="text-xs text-slate-500 font-medium">
                       {number(row.cases)} cases
                     </span>
                   </div>
@@ -1355,7 +1371,7 @@ export default function DescriptiveAnalytics() {
               <p className="text-xs font-bold text-teal-900">
                 {number(data.vaccination.vaccinated)} of {number(data.vaccination.total)} active approved heads
               </p>
-              <p className="text-[11px] text-teal-800/90 leading-relaxed font-medium">
+              <p className="text-xs text-teal-800/90 leading-relaxed font-medium">
                 Reflects animals with a recorded vaccination date. Future scheduled dates and unrecorded animals are excluded from the vaccinated count.
               </p>
             </div>
@@ -1380,7 +1396,7 @@ export default function DescriptiveAnalytics() {
                         </span>
                         <div className="tabular-nums text-right">
                           <strong className="font-bold text-slate-900">{number(row.coverage_pct)}%</strong>
-                          <span className="ml-2 text-slate-500 font-medium text-[11px]">
+                          <span className="ml-2 text-slate-500 font-medium text-xs">
                             ({number(row.vaccinated)} / {number(row.total)})
                           </span>
                         </div>
@@ -1423,28 +1439,28 @@ export default function DescriptiveAnalytics() {
         >
           <div className="grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Animals Sold
               </span>
               <p className="mt-1 text-2xl font-black tracking-tight text-slate-900 tabular-nums">
                 {number(data.sales.animals)}
                 <span className="text-xs font-semibold text-slate-500 ml-1">heads</span>
               </p>
-              <p className="text-[11px] text-slate-500 mt-1 font-medium">Approved sales count</p>
+              <p className="text-xs text-slate-500 mt-1 font-medium">Approved sales count</p>
             </div>
 
             <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Approved Sale Records
               </span>
               <p className="mt-1 text-2xl font-black tracking-tight text-slate-900 tabular-nums">
                 {number(data.sales.sales)}
               </p>
-              <p className="text-[11px] text-slate-500 mt-1 font-medium">Logged transactions</p>
+              <p className="text-xs text-slate-500 mt-1 font-medium">Logged transactions</p>
             </div>
 
             <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Recorded Sales Value
               </span>
               <div className="mt-1">
@@ -1458,11 +1474,11 @@ export default function DescriptiveAnalytics() {
                   </p>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 mt-1 font-medium">Gross reported value</p>
+              <p className="text-xs text-slate-500 mt-1 font-medium">Gross reported value</p>
             </div>
 
             <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Priced Transactions
               </span>
               <p className="mt-1 text-2xl font-black tracking-tight text-slate-900 tabular-nums">
@@ -1471,7 +1487,7 @@ export default function DescriptiveAnalytics() {
                   of {number(data.sales.sales)}
                 </span>
               </p>
-              <p className="text-[11px] text-slate-500 mt-1 font-medium">Transactions with price data</p>
+              <p className="text-xs text-slate-500 mt-1 font-medium">Transactions with price data</p>
             </div>
           </div>
 
@@ -1525,7 +1541,7 @@ export default function DescriptiveAnalytics() {
           {data.per_barangay_report.length ? (
             <div className="max-h-[36rem] overflow-auto rounded-xl border border-slate-200 bg-white shadow-inner shadow-slate-100/70">
               <Table className="min-w-[1450px] text-xs [&_td]:px-3 [&_td]:py-3 [&_th]:px-3">
-                <TableHeader className="sticky top-0 z-20 [&_tr]:border-slate-200 [&_th]:h-11 [&_th]:bg-slate-50 [&_th]:text-[10px] [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-slate-500">
+                <TableHeader className="sticky top-0 z-20 [&_tr]:border-slate-200 [&_th]:h-11 [&_th]:bg-slate-50 [&_th]:text-xs [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-slate-500">
                   <TableRow className="bg-slate-50 hover:bg-slate-50">
                     <TableHead className="sticky left-0 z-30 min-w-40 bg-slate-100">Barangay</TableHead><TableHead className="text-right">Farmers</TableHead>
                     <TableHead className="text-right">Current Heads</TableHead><TableHead>Production by Type</TableHead>
@@ -1549,7 +1565,7 @@ export default function DescriptiveAnalytics() {
                       <TableCell className="text-right tabular-nums">{row.sale_transactions === 0 ? "—" : row.recorded_sale_value_php === null ? "Not recorded" : money(row.recorded_sale_value_php)}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.disease_cases ? `${number(row.disease_cases)} (${number(row.affected_heads)} heads)` : "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.mortality_records ? number(row.deaths) : "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${row.vaccination_coverage_pct > 0 ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{number(row.vaccination_coverage_pct)}%</span> <span className="text-slate-500">({number(row.vaccinated_heads)})</span></TableCell>
+                      <TableCell className="text-right tabular-nums"><span className={`rounded-full px-2 py-1 text-xs font-bold ${row.vaccination_coverage_pct > 0 ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{number(row.vaccination_coverage_pct)}%</span> <span className="text-slate-500">({number(row.vaccinated_heads)})</span></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -1578,7 +1594,7 @@ export default function DescriptiveAnalytics() {
                 <span className="text-xs sm:text-sm font-bold tracking-tight">
                   Data Scope & Reporting Methodology
                 </span>
-                <p className="text-[11px] font-medium text-slate-500 mt-0.5">
+                <p className="text-xs font-medium text-slate-500 mt-0.5">
                   Definitions, data inclusion criteria, and municipal governance standards
                 </p>
               </div>

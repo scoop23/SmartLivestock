@@ -114,18 +114,23 @@ export default function PrescriptiveAnalyticsView() {
   return (
     <div className="space-y-6">
       {/* 1. Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-800 to-[#2D5A27] text-white p-6 rounded-2xl shadow-sm space-y-2">
+      <div className="bg-gradient-to-r from-emerald-800 to-[#2D5A27] text-white p-5 sm:p-6 rounded-2xl shadow-sm space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-white/10 p-2.5 backdrop-blur-xs">
               <Lightbulb className="size-6 text-amber-300" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">
-                Prescriptive Decision Support & Actionable Recommendations
-              </h2>
-              <p className="text-xs text-emerald-100 mt-0.5">
-                Rule-based operational guidance from forecasts, approved disease reports, and recorded vaccination dates.
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-xl font-bold text-white">
+                  Prescriptive Decision Support & Actionable Recommendations
+                </h2>
+                <Badge className="bg-white/20 text-white border-white/30 text-xs font-bold">
+                  Decision Support Only
+                </Badge>
+              </div>
+              <p className="text-xs text-emerald-100 mt-1">
+                Deterministic rule evaluation connecting approved records, evaluated forecasts, and disease surveillance to administrative municipal actions.
               </p>
             </div>
           </div>
@@ -134,33 +139,32 @@ export default function PrescriptiveAnalyticsView() {
             disabled={isFetching}
             variant="outline"
             size="sm"
-            className="border-white/20 text-white hover:bg-white/10 bg-transparent text-xs"
+            className="border-white/30 text-white hover:bg-white/15 bg-white/5 text-xs font-bold cursor-pointer"
           >
             <RefreshCw className="size-3.5 mr-1.5" /> Re-evaluate Rules
           </Button>
         </div>
       </div>
 
-      {/* 2. Transparency Disclaimer */}
+      {/* 2. Transparency & Governance Policy */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-900 flex items-start gap-3">
-        <Info className="size-4 text-blue-600 shrink-0 mt-0.5" />
-        <div>
-          <span className="font-bold text-blue-950 block mb-0.5">
-            Transparent Rule Evaluation Policy:
+        <Info className="size-4 text-blue-700 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <span className="font-bold text-blue-950 block">
+            Decision-Support Governance & Scope:
           </span>
-          <p className="text-blue-800 leading-relaxed">
-            SmartLivestock does not generate black-box diagnostic claims. Every recommendation below provides the explicit
-            mathematical trigger, quantitative evidence, and operational administrative action for Municipal Agriculture personnel.
+          <p className="text-blue-800 leading-relaxed font-medium">
+            SmartLivestock does not make black-box diagnostic assertions. Each recommendation specifies the exact trigger condition, quantitative data evidence, and recommended municipal administrative follow-up. These recommendations assist MAO personnel and do not replace statutory on-site livestock inspections or veterinary examinations.
           </p>
         </div>
       </div>
 
       {data?.status === "partial" && (
-        <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          <p className="font-semibold">Some indicators could not be evaluated</p>
-          {data.rule_readiness.production !== "ready" && <p>Production guidance needs sufficient approved history for a forecast.</p>}
-          {data.rule_readiness.vaccination_records !== "ready" && <p>Vaccination record coverage needs approved active inventory.</p>}
-          <p>Available rules are shown below. Missing information does not mean conditions are normal.</p>
+        <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-950 space-y-1">
+          <p className="font-bold text-sm">Some indicators could not be fully evaluated</p>
+          {data.rule_readiness.production !== "ready" && <p>• Production guidance requires sufficient approved history to generate an evaluated forecast.</p>}
+          {data.rule_readiness.vaccination_records !== "ready" && <p>• Vaccination record coverage requires approved active inventory records.</p>}
+          <p className="pt-1 text-slate-600 font-medium">Available rules are shown below. Missing data does not imply that conditions are normal.</p>
         </div>
       )}
 
@@ -169,8 +173,8 @@ export default function PrescriptiveAnalyticsView() {
         {recommendations.length === 0 ? (
           <Card className="border-slate-200 p-8 text-center text-slate-500">
             <CheckCircle2 className="size-8 mx-auto text-emerald-600 mb-2" />
-            <p className="font-semibold text-slate-700">No recommendations from the available indicators</p>
-            <p className="text-xs text-slate-400 mt-1">This is not a clinical assessment or confirmation that every indicator is normal.</p>
+            <p className="font-semibold text-slate-700 text-sm">No advisory triggers tripped for the selected municipal indicators</p>
+            <p className="text-xs text-slate-400 mt-1">This reflects current recorded metrics and does not replace on-site agricultural monitoring.</p>
           </Card>
         ) : (
           recommendations.map((rec, idx) => (
@@ -178,41 +182,41 @@ export default function PrescriptiveAnalyticsView() {
               key={`${rec.rule}-${idx}`}
               className={`border border-slate-200 border-l-4 ${severityBorder(rec.severity)} shadow-2xs overflow-hidden bg-white`}
             >
-              <CardContent className="p-5 sm:p-6 space-y-4">
+              <CardContent className="p-4 sm:p-5 space-y-3.5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       {severityBadge(rec.severity)}
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
                         {rec.category}
                       </span>
                     </div>
-                    <h3 className="text-base font-bold text-slate-900 pt-1">
+                    <h3 className="text-base font-bold text-slate-900 pt-0.5">
                       {rec.title}
                     </h3>
                   </div>
-                  <Badge variant="outline" className="font-mono text-[11px] text-slate-500 bg-slate-50">
+                  <Badge variant="outline" className="font-mono text-xs text-slate-600 bg-slate-50 border-slate-200">
                     Rule: {rec.rule}
                   </Badge>
                 </div>
 
-                <p className="text-sm text-slate-700 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
                   {rec.reason}
                 </p>
 
                 {/* Quantitative Evidence Box */}
                 <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200/80 space-y-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
                     <Eye className="size-3.5 text-indigo-600" />
                     Observed System Evidence:
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     {Object.entries(rec.evidence).map(([key, val]) => (
-                      <div key={key} className="bg-white p-2 rounded-lg border border-slate-200">
-                        <span className="text-[10px] text-slate-400 block font-mono capitalize">
+                      <div key={key} className="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <span className="text-xs text-slate-500 block font-mono capitalize">
                           {key.replace(/_/g, " ")}
                         </span>
-                        <span className="font-bold text-slate-800 text-xs font-mono">
+                        <span className="font-bold text-slate-900 text-xs font-mono">
                           {String(val)}
                         </span>
                       </div>
@@ -227,7 +231,7 @@ export default function PrescriptiveAnalyticsView() {
                   </div>
                   <div>
                     <span className="text-xs font-bold text-emerald-950 block">
-                      Recommended Administrative Action:
+                      Recommended Municipal Action:
                     </span>
                     <p className="text-xs text-emerald-900 mt-0.5 leading-relaxed font-medium">
                       {rec.recommendation}
