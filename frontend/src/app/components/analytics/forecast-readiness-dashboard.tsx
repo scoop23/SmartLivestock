@@ -5,20 +5,18 @@ import { useState, useMemo } from "react";
 import api from "@/lib/axios";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   AlertTriangle,
   ArrowRight,
   Award,
-  Calendar,
   CheckCircle2,
   Clock,
   Compass,
   Database,
   FileCheck2,
-  HelpCircle,
   History,
   Info,
   Layers,
@@ -27,21 +25,20 @@ import {
   Scale,
   ShieldAlert,
   Sparkles,
-  TrendingUp,
-  XCircle,
   Sliders,
 } from "lucide-react";
 import {
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
   ComposedChart,
   Line,
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
-  ReferenceLine,
 } from "recharts";
 
 // ---------------------------------------------------------------------------
@@ -95,7 +92,19 @@ export interface CutoffDiagnosticEntry {
   earliest_training_month?: string | null;
   latest_training_month?: string | null;
   status: "EVALUATED" | "SKIPPED" | "NOT_ENOUGH_APPROVED_HISTORY" | "GAPS_IN_APPROVED_HISTORY" | "INCOMPLETE_TEST_WINDOW" | "MODEL_FAILURE";
+  reason_code?: "EVALUATED" | "NOT_ENOUGH_APPROVED_HISTORY" | "GAPS_IN_APPROVED_HISTORY" | "INCOMPLETE_TEST_WINDOW" | "MISSING_AVAILABILITY_TIMESTAMPS" | "MODEL_FAILURE" | null;
   reason: string;
+  test_periods?: string[];
+  actual_values?: number[];
+  predictions_by_model?: Record<string, number[]>;
+}
+
+export interface ApprovalStatusBreakdown {
+  available: boolean;
+  source_model: string | null;
+  total_records: number | null;
+  statuses: Array<{ status: string; label: string; count: number }>;
+  scope_note: string;
 }
 
 export interface DiagnosticChartPoint {
@@ -161,14 +170,18 @@ export interface TargetDiagnosticDetail {
       session_completeness_note: string;
       monthly_completeness_note: string;
     } | null;
-    source_diagnostics?: Record<string, any> | null;
+    source_diagnostics?: (Record<string, number | string | boolean | null> & {
+      source_record_type?: string;
+      period_coverage_note?: string;
+      availability_note?: string;
+    }) | null;
     auction_diagnostics?: {
-      approved_transactions: number;
-      pending_transactions: number;
-      verified_transactions: number;
-      returned_transactions: number;
+      approved_transfers: number;
+      pending_transfers: number;
+      verified_transfers: number;
+      returned_transfers: number;
       approved_without_review_timestamp: number;
-      synthetic_transactions: number;
+      synthetic_transfers: number;
       weekday_activity: Array<{
         weekday: string;
         transaction_count: number;
@@ -183,6 +196,7 @@ export interface TargetDiagnosticDetail {
       coverage_note: string;
       duplicate_detection_note: string;
     } | null;
+    approval_status_breakdown?: ApprovalStatusBreakdown;
   };
   checklist: DiagnosticChecklistItem[];
   backtesting: {
@@ -195,7 +209,7 @@ export interface TargetDiagnosticDetail {
     winning_model?: string | null;
     baseline_mae?: number | null;
     selected_mae?: number | null;
-    models: Record<string, any>;
+    models: Record<string, unknown>;
   };
   forecast: {
     model_name: string | null;
@@ -209,7 +223,7 @@ export interface TargetDiagnosticDetail {
       confidence_upper?: number;
     }>;
     chart_data: DiagnosticChartPoint[];
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
   };
   last_evaluated_at: string;
 }
@@ -313,6 +327,22 @@ function StatusBadge({ status }: { status: string }) {
   }
 }
 
+const APPROVAL_COLORS: Record<string, string> = {
+  APPROVED: "#15803d",
+  PENDING: "#d97706",
+  VERIFIED: "#2563eb",
+  SUBJECT_TO_REVISION: "#e11d48",
+};
+
+const CUTOFF_LABELS: Record<string, string> = {
+  EVALUATED: "Evaluated",
+  NOT_ENOUGH_APPROVED_HISTORY: "Insufficient Approved History",
+  GAPS_IN_APPROVED_HISTORY: "Gaps in Approved History",
+  INCOMPLETE_TEST_WINDOW: "Incomplete Test Window",
+  MISSING_AVAILABILITY_TIMESTAMPS: "Missing Availability Timestamps",
+  MODEL_FAILURE: "Model Failure",
+};
+
 // ---------------------------------------------------------------------------
 // MAIN COMPONENT: ForecastReadinessDashboard
 // ---------------------------------------------------------------------------
@@ -344,6 +374,32 @@ export function ForecastReadinessDashboard({
   const summaryCards = data?.summary_cards || [];
   const selectedDiagnostic = data?.diagnostics?.[selectedTargetId];
   const observationLabel = selectedDiagnostic?.frequency === "WEEKLY" ? "week(s)" : "month(s)";
+  const approvalBreakdown = selectedDiagnostic?.progress.approval_status_breakdown;
+  const approvalRows = approvalBreakdown?.statuses || [];
+  const approvalCount = (code: string) => approvalRows.find((row) => row.status === code)?.count || 0;
+  const pendingCount = approvalCount("PENDING");
+  const verifiedCount = approvalCount("VERIFIED");
+  const returnedCount = approvalCount("SUBJECT_TO_REVISION");
+  const evaluatedCount = selectedDiagnostic?.backtesting.valid_cutoffs_count || 0;
+  const attemptedCount = selectedDiagnostic?.backtesting.total_attempted_cutoffs || 0;
+  const requiredWindows = selectedDiagnostic?.backtesting.minimum_required_windows || 0;
+  const readinessLabel = selectedDiagnostic?.forecast_status === "READY"
+    ? "Forecast Available and Evaluated"
+    : selectedDiagnostic?.forecast_available
+      ? "Forecast Available, Validation Limited"
+      : selectedDiagnostic?.forecast_status === "NEEDS_ATTENTION" || selectedDiagnostic?.forecast_status === "ERROR"
+        ? "Forecast Needs Attention"
+        : "Forecast Not Yet Available";
+
+  const nextAction = returnedCount > 0
+    ? "Review returned records, correct them, and resubmit where appropriate."
+    : pendingCount + verifiedCount > 0
+      ? selectedDiagnostic?.forecast_available
+        ? "Review pending submissions when appropriate; they are not included in approved forecasting history."
+        : "Review pending submissions and continue collecting approved history. Later approvals cannot change what was known at past cutoffs."
+      : evaluatedCount < requiredWindows
+        ? "Continue collecting complete, approved periods and inspect skipped cutoff reasons."
+        : selectedDiagnostic?.next_step || "Refresh diagnostics after relevant data changes.";
 
   // Filter checklist items
   const filteredChecklist = useMemo(() => {
@@ -379,6 +435,8 @@ export function ForecastReadinessDashboard({
                 Municipal Forecast Readiness & Validation Engine
               </h2>
             </div>
+
+
             <p className="text-xs md:text-sm text-emerald-100/80 max-w-3xl leading-relaxed">
               Provides transparent, evidence-based verification for Padre Garcia agricultural forecasts.
               Inspect observation coverage, backtesting progress, and operational blockers before relying on forward projections.
@@ -427,6 +485,8 @@ export function ForecastReadinessDashboard({
         </div>
       </div>
 
+
+
       {/* ------------------------------------------------------------------ */}
       {/* PHASE 2: 4 SUMMARY METRIC CARDS */}
       {/* ------------------------------------------------------------------ */}
@@ -473,8 +533,6 @@ export function ForecastReadinessDashboard({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {summaryCards.map((card) => {
               const isSelected = selectedTargetId === card.id;
-              const hasForecast = card.forecast_available;
-              const isValidated = card.validation_status === "VALIDATED";
               const progressPct = card.observations_progress_pct;
 
               return (
@@ -568,6 +626,79 @@ export function ForecastReadinessDashboard({
         )}
       </div>
 
+      {selectedDiagnostic && <section aria-label="Approval status and forecast readiness" className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,1fr)]">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h4 className="text-sm font-bold text-slate-900">Record approval status</h4>
+              <p className="mt-1 text-xs text-slate-600">Counts are source records in this target’s authorized scope, not forecast periods or quantities.</p>
+            </div>
+            {approvalBreakdown?.available && <Badge variant="outline">{approvalBreakdown.source_model}</Badge>}
+          </div>
+          {approvalBreakdown?.available ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-2">
+                {[
+                  ["Approved", approvalCount("APPROVED"), "APPROVED"],
+                  ["Pending review", pendingCount, "PENDING"],
+                  ["Verified", verifiedCount, "VERIFIED"],
+                  ["Returned for revision", returnedCount, "SUBJECT_TO_REVISION"],
+                  ["Total records", approvalBreakdown.total_records || 0, "TOTAL"],
+                ].map(([label, count, code]) => (
+                  <div key={String(code)} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2" title={code === "VERIFIED" ? "Field-verified; still not MAO-approved for forecasting." : `${label}: source record count`}>
+                    <p className="text-[11px] text-slate-600">{label}</p>
+                    <p className="text-lg font-bold text-slate-900">{Number(count).toLocaleString()}</p>
+                          {code !== "TOTAL" && <p className="text-[10px] text-slate-500">{approvalBreakdown.total_records ? `${Math.round(Number(count) / approvalBreakdown.total_records * 100)}% of records` : "0% of records"}</p>}
+                  </div>
+                ))}
+              </div>
+              <div className="relative mx-auto h-36 w-36" role="img" aria-label={`Approval status chart for ${approvalBreakdown.total_records || 0} total records`}>
+                {(approvalBreakdown.total_records || 0) > 0 ? <>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={approvalRows.filter((row) => row.count > 0)} dataKey="count" nameKey="label" innerRadius={43} outerRadius={65} paddingAngle={2}>
+                        {approvalRows.filter((row) => row.count > 0).map((row) => <Cell key={row.status} fill={APPROVAL_COLORS[row.status] || "#64748b"} />)}
+                      </Pie>
+                      <Tooltip formatter={(value, name) => {
+                        const count = Number(value || 0);
+                        const total = approvalBreakdown.total_records || 0;
+                        return [`${count} (${total ? Math.round(count / total * 100) : 0}%)`, name];
+                      }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xl font-bold text-slate-900">{approvalBreakdown.total_records}</span>
+                    <span className="text-[10px] text-slate-500">records</span>
+                  </div>
+                </> : <div className="flex h-full items-center justify-center rounded-full border-4 border-slate-100 text-xs text-slate-500">No records</div>}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">Approval-status counts are not available for this source.</p>
+          )}
+          {approvalBreakdown?.scope_note && <p className="mt-2 text-[11px] text-slate-500">{approvalBreakdown.scope_note}</p>}
+          {(pendingCount + verifiedCount + returnedCount > 0) && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+              {returnedCount > 0 && <p>There {returnedCount === 1 ? "is" : "are"} {returnedCount} record(s) returned for revision. Review the remarks, correct, and resubmit where appropriate.</p>}
+              {(pendingCount + verifiedCount > 0) && <p className={returnedCount ? "mt-1" : ""}>{pendingCount + verifiedCount} record(s) are pending final approval and are excluded from approved forecasting history. Their later approval will not retroactively make them available at past backtest cutoffs.</p>}
+            </div>
+          )}
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <h4 className="text-sm font-bold text-slate-900">{readinessLabel}</h4>
+          <p className="mt-2 text-xs leading-relaxed text-slate-700">
+            {selectedDiagnostic.forecast_available
+              ? `${selectedDiagnostic.progress.usable_observations} usable ${observationLabel} are available. ${selectedDiagnostic.validation_details}`
+              : selectedDiagnostic.readiness_details || selectedDiagnostic.blocker_summary}
+          </p>
+          <div className="mt-3 rounded-lg border border-white bg-white p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Next action</p>
+            <p className="mt-1 text-xs text-slate-800">{nextAction}</p>
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">Backtesting cutoffs: {evaluatedCount} evaluated of {attemptedCount} attempted · minimum {requiredWindows}. Validation criteria: {selectedDiagnostic.forecast_status === "READY" ? "satisfied" : "not yet satisfied"}. Approval counts are separate from cutoff counts.</p>
+        </div>
+      </section>}
+
       {/* ------------------------------------------------------------------ */}
       {/* DETAIL DIAGNOSTIC VIEW FOR SELECTED TARGET */}
       {/* ------------------------------------------------------------------ */}
@@ -626,8 +757,7 @@ export function ForecastReadinessDashboard({
                   </p>
                   <p className="text-amber-800 leading-relaxed">
                     This forward projection was fitted on all {selectedDiagnostic.progress.usable_observations} observed {selectedDiagnostic.frequency === "WEEKLY" ? "weekly" : "monthly"} periods.
-                    However, historical backtesting could not reconstruct past cutoff availability timestamps (0 qualifying cutoffs).
-                    Use as indicative decision support only until empirical holdout validation accumulates.
+                    Historical validation is limited: {selectedDiagnostic.backtesting.valid_cutoffs_count} of {selectedDiagnostic.backtesting.total_attempted_cutoffs} attempted cutoffs produced an evaluation. Use this projection as decision support, not a proven accuracy claim.
                   </p>
                 </div>
               </div>
@@ -666,6 +796,8 @@ export function ForecastReadinessDashboard({
               </div>
             )}
 
+            <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-slate-800">Detailed source diagnostics</summary>
             {selectedDiagnostic.progress.milk_diagnostics && (
               <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50/70 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -714,10 +846,10 @@ export function ForecastReadinessDashboard({
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   {[
-                    ["Approved transactions", selectedDiagnostic.progress.auction_diagnostics.approved_transactions],
-                    ["Pending review", selectedDiagnostic.progress.auction_diagnostics.pending_transactions],
-                    ["Returned for revision", selectedDiagnostic.progress.auction_diagnostics.returned_transactions],
-                    ["Synthetic rows", selectedDiagnostic.progress.auction_diagnostics.synthetic_transactions],
+                    ["Approved transfers", selectedDiagnostic.progress.auction_diagnostics.approved_transfers],
+                    ["Pending review", selectedDiagnostic.progress.auction_diagnostics.pending_transfers],
+                    ["Returned for revision", selectedDiagnostic.progress.auction_diagnostics.returned_transfers],
+                    ["Synthetic rows", selectedDiagnostic.progress.auction_diagnostics.synthetic_transfers],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-amber-100 bg-white px-3 py-2">
                       <p className="text-[11px] text-slate-600">{label}</p>
@@ -726,12 +858,12 @@ export function ForecastReadinessDashboard({
                   ))}
                 </div>
                 <div className="mt-4">
-                  <p className="text-xs font-semibold text-slate-800">Captured approved transactions by weekday</p>
+                  <p className="text-xs font-semibold text-slate-800">Recorded approved transfers by weekday</p>
                   <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
                     {selectedDiagnostic.progress.auction_diagnostics.weekday_activity.map((day) => (
                       <div key={day.weekday} className={`rounded-lg border px-2.5 py-2 ${day.weekday === "Friday" ? "border-amber-400 bg-amber-100" : day.weekday === "Thursday" ? "border-orange-300 bg-orange-50" : "border-amber-100 bg-white"}`}>
                         <p className="text-[11px] font-semibold text-slate-700">{day.weekday}</p>
-                        <p className="text-sm font-bold text-slate-900">{day.transaction_count} sale(s)</p>
+                        <p className="text-sm font-bold text-slate-900">{day.transaction_count} transfer(s)</p>
                         <p className="text-[10px] text-slate-600">{day.heads_sold} head(s)</p>
                       </div>
                     ))}
@@ -760,11 +892,12 @@ export function ForecastReadinessDashboard({
                 <p className="mt-1 text-xs text-slate-700">{selectedDiagnostic.progress.source_diagnostics.availability_note}</p>
               </div>
             )}
+            </details>
           </div>
 
           {/* DIAGNOSTIC DETAIL TABS */}
           <div className="p-6">
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
               <TabsList className="bg-slate-100 p-1 rounded-xl mb-6 flex flex-wrap">
                 <TabsTrigger value="overview" className="text-xs font-semibold px-4 py-2 rounded-lg">
                   <LineChartIcon className="size-3.5 mr-1.5" />
@@ -1009,29 +1142,32 @@ export function ForecastReadinessDashboard({
 
               {/* TAB 3: CUTOFF TIMELINE (PHASE 4) */}
               <TabsContent value="timeline" className="space-y-4">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[
+                    ["Evaluated", selectedDiagnostic.backtesting.valid_cutoffs_count],
+                    ["Attempted", selectedDiagnostic.backtesting.total_attempted_cutoffs],
+                    ["Minimum for validation", selectedDiagnostic.backtesting.minimum_required_windows],
+                  ].map(([label, count]) => <div key={String(label)} className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="text-xs text-slate-600">{label}</p><p className="text-lg font-bold text-slate-900">{count}</p>
+                  </div>)}
+                </div>
+                <p className="text-xs text-slate-600">Validation criteria: <strong>{selectedDiagnostic.forecast_status === "READY" ? "satisfied" : "not yet satisfied"}</strong>. These are historical forecast windows; they are not the count of records awaiting approval.</p>
+                <details className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <summary className="cursor-pointer text-sm font-bold text-slate-900">How backtesting works</summary>
                   <div className="flex items-start gap-2.5">
                     <Info className="size-4 text-emerald-700 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <p className="font-bold text-slate-900">
-                        How Chronological Backtesting Protects Municipal Accuracy
-                      </p>
-                      <p className="text-slate-600 leading-relaxed">
-                        To test how well models predict the future, SmartLivestock rewinds to past calendar cutoffs and trains models using
-                        only records that were actually approved before that cutoff date. If records were approved months later, they cannot be
-                        leaked into past training sets.
-                      </p>
-                    </div>
+                    <p className="text-xs leading-relaxed text-slate-700">Backtesting asks how a model would have performed in the past: it uses only information available by a simulated cutoff, predicts a later period, then compares that prediction with the actual result. A cutoff is the model&apos;s knowledge date, not the production date. Example only (not live results): cutoff June 30, 2026 → predict July 2026 → train on eligible information available before the cutoff → compare with July&apos;s actual value.</p>
                   </div>
-                </div>
+                </details>
 
-                {/* Cutoff Cards */}
+                <h4 className="text-sm font-bold text-slate-900">Historical cutoff results</h4>
                 {selectedDiagnostic.backtesting.cutoffs?.length > 0 ? (
                   <div className="space-y-3">
                     {selectedDiagnostic.backtesting.cutoffs.map((cutoff, cIdx) => {
-                      const isEvaluated = cutoff.status === "EVALUATED";
+                      const code = cutoff.reason_code || cutoff.status;
+                      const isEvaluated = code === "EVALUATED";
                       return (
-                        <div
+                        <details
                           key={cIdx}
                           className={`p-4 rounded-xl border transition-all ${
                             isEvaluated
@@ -1039,13 +1175,13 @@ export function ForecastReadinessDashboard({
                               : "bg-slate-50/60 border-slate-200"
                           }`}
                         >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <summary className="list-none cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-sm text-slate-900">
-                                Cutoff: {cutoff.forecast_week || cutoff.forecast_month}
+                                Predicting: {cutoff.forecast_week || cutoff.forecast_month || "period unavailable"}
                               </span>
                               <span className="text-2xs text-slate-500 font-medium">
-                                (Simulated on {formatReadableDate(cutoff.cutoff_date) || cutoff.cutoff_date})
+                                · Cutoff {formatReadableDate(cutoff.cutoff_date) || cutoff.cutoff_date}
                               </span>
                             </div>
                             <Badge
@@ -1055,13 +1191,13 @@ export function ForecastReadinessDashboard({
                                   : "bg-slate-200 text-slate-700 border-slate-300"
                               }`}
                             >
-                              {cutoff.status}
+                              {CUTOFF_LABELS[code] || cutoff.status}
                             </Badge>
-                          </div>
+                          </summary>
 
                           <div className="mt-2 text-xs text-slate-600 flex flex-wrap items-center gap-4">
                             <span>
-                              Available Training History:{" "}
+                              Eligible training history:{" "}
                               <strong className="text-slate-900">{selectedDiagnostic.frequency === "WEEKLY" ? cutoff.available_training_weeks : cutoff.available_training_months} {selectedDiagnostic.frequency === "WEEKLY" ? "week(s)" : "month(s)"}</strong>
                             </span>
                             {cutoff.earliest_training_month && cutoff.latest_training_month && (
@@ -1072,9 +1208,18 @@ export function ForecastReadinessDashboard({
                           </div>
 
                           <p className="text-xs text-slate-600 mt-2 bg-white/70 p-2 rounded-lg border border-slate-100">
-                            <strong>Reason / Assessment:</strong> {cutoff.reason}
+                            <strong>{isEvaluated ? "Result" : "Why it was skipped"}:</strong> {cutoff.reason}
                           </p>
-                        </div>
+                          <p className="mt-2 text-[11px] text-slate-500">Backend status: {cutoff.status}{cutoff.reason_code ? ` · reason code: ${cutoff.reason_code}` : ""}</p>
+                          {cutoff.actual_values && cutoff.test_periods && (
+                            <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                              <table className="w-full min-w-[420px] text-left text-xs">
+                                <thead className="bg-slate-50 text-slate-600"><tr><th className="p-2">Period</th><th className="p-2">Actual</th>{Object.keys(cutoff.predictions_by_model || {}).map((model) => <th key={model} className="p-2">{model}</th>)}</tr></thead>
+                                <tbody>{cutoff.test_periods.map((period, index) => <tr key={period} className="border-t"><td className="p-2">{period}</td><td className="p-2">{cutoff.actual_values?.[index] ?? "—"}</td>{Object.entries(cutoff.predictions_by_model || {}).map(([model, values]) => <td key={model} className="p-2">{values[index] ?? "—"}</td>)}</tr>)}</tbody>
+                              </table>
+                            </div>
+                          )}
+                        </details>
                       );
                     })}
                   </div>
@@ -1082,9 +1227,7 @@ export function ForecastReadinessDashboard({
                   <div className="text-center p-8 bg-slate-50 rounded-xl border border-slate-200 text-slate-500">
                     <History className="size-8 text-slate-400 mx-auto mb-2" />
                     <p className="font-semibold text-slate-700 text-sm">No historical cutoffs evaluated</p>
-                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                      At least {selectedDiagnostic.frequency === "WEEKLY" ? "8 approved weekly observations" : "8 approved monthly observations"} prior to a test window are required to establish an empirical backtesting cutoff.
-                    </p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">No cutoff results were returned. Forecast availability and validation are separate: a forward projection may be generated without historical evaluation evidence.</p>
                   </div>
                 )}
               </TabsContent>

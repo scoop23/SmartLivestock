@@ -12,18 +12,19 @@ Provides authoritative, evidence-based diagnostics for municipal livestock forec
    - Milk: Recurring monthly production.
    - Farmer Meat: Event-based farmer production (slaughter=None).
    - Slaughter Meat: Facility carcass weight events (missing weights not assumed zero).
-   - Livestock Sales: Transaction-based head counts (Friday and non-Friday sales included).
+   - Livestock Sales: Approved ownership transfer events and transferred heads (all weekdays included).
 """
 
 from typing import Dict, Any, List, Optional
-from datetime import date
+from datetime import date, timedelta
 from django.utils import timezone
 import pandas as pd
 import numpy as np
 from django.db.models import Count, Sum
 from django.utils.timezone import localdate
 
-from production.models import ProductionRecord, SlaughterRecord, LiveAnimalSale
+from livestock.models import LivestockOwnershipTransfer
+from production.models import ProductionRecord, SlaughterRecord
 from smartlivestock.workflows import scope_reviewer_queryset
 from .data import (
     extract_monthly_series,
@@ -80,9 +81,72 @@ CORE_DIAGNOSTIC_TARGETS = [
         "label": "Livestock Sales",
         "commodity_type": "LIVE_ANIMALS",
         "reporting_type": "TRANSACTION_BASED",
-        "description": "Commercial live animal sales (heads) across Friday auction and regular sales.",
+        "description": "Approved ownership transfers (one animal per transfer event), including transfers on all weekdays.",
     },
 ]
+
+
+def _approval_status_breakdown(domain: str, target: str, unit: str, user=None) -> Dict[str, Any]:
+    """Count target-source rows by their actual workflow status, within reviewer scope."""
+    current_month = localdate().replace(day=1)
+    domain = (domain or "").lower()
+    target = (target or "").upper()
+    unit = (unit or "").upper()
+
+    if domain == "production":
+        queryset = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
+            production_type=target,
+            unit=unit,
+            record_date__lt=current_month,
+        )
+        if target == ProductionRecord.ProductionType.MEAT:
+            queryset = queryset.filter(slaughter__isnull=True)
+        model = ProductionRecord
+        scope_note = (
+            "Current workflow status for production records dated before the current month; farmer meat excludes records linked to slaughter. "
+            "Status totals count source rows, not usable forecast months."
+        )
+    elif domain == "slaughter":
+        queryset = scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(
+            record_date__lt=current_month,
+        )
+        model = SlaughterRecord
+        scope_note = "Current workflow status for slaughter events dated before the current month; status totals count events, not measured yield."
+    elif domain == "auction":
+        today = localdate()
+        current_week = today - timedelta(days=today.weekday())
+        queryset = scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user).filter(
+            transfer_date__lt=current_week,
+        )
+        model = LivestockOwnershipTransfer
+        scope_note = "Current workflow status for ownership transfers dated before the current Monday; status totals count transfer events, not distinct animals or market coverage."
+    else:
+        return {
+            "available": False,
+            "source_model": None,
+            "total_records": None,
+            "statuses": [],
+            "scope_note": "This forecast source does not expose approval-status diagnostics.",
+        }
+
+    grouped = list(queryset.values("status").annotate(count=Count("pk", distinct=True)))
+    counts = {row["status"]: row["count"] for row in grouped}
+    choices = dict(model._meta.get_field("status").choices)
+    statuses = [
+        {"status": code, "label": label, "count": counts.pop(code, 0)}
+        for code, label in choices.items()
+    ]
+    statuses.extend(
+        {"status": code or "UNKNOWN", "label": code or "Unknown status", "count": count}
+        for code, count in counts.items()
+    )
+    return {
+        "available": True,
+        "source_model": model.__name__,
+        "total_records": sum(row["count"] for row in grouped),
+        "statuses": statuses,
+        "scope_note": scope_note,
+    }
 
 
 def _build_readiness_checklist(
@@ -304,48 +368,47 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
         else "AVAILABLE_UNVALIDATED" if evaluation.get("forecast_available")
         else "INSUFFICIENT_DATA"
     )
-    scoped_sales = scope_reviewer_queryset(LiveAnimalSale.objects.all(), user)
+    scoped_sales = scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user)
     target_clean = (target or "ALL").upper()
     if target_clean not in {"ALL", "HEADS", "TRANSACTIONS", "SALES", "PHP"}:
-        from django.db.models import Q
-        scoped_sales = scoped_sales.filter(Q(sale_method__icontains=target_clean) | Q(purpose__icontains=target_clean))
-    approved_qs = scoped_sales.filter(status=LiveAnimalSale.StatusType.APPROVED)
+        scoped_sales = scoped_sales.filter(livestock__livestock_type__name__icontains=target_clean)
+    approved_qs = scoped_sales.filter(status=LivestockOwnershipTransfer.Status.APPROVED)
     missing_review_count = approved_qs.filter(reviewed_at__isnull=True).count()
     synthetic_count = approved_qs.filter(review_remarks__contains="AI_SEED").count()
     source_diagnostics = {
-        "approved_transactions": approved_qs.count(),
-        "pending_transactions": scoped_sales.filter(status=LiveAnimalSale.StatusType.PENDING).count(),
-        "verified_transactions": scoped_sales.filter(status=LiveAnimalSale.StatusType.VERIFIED).count(),
-        "returned_transactions": scoped_sales.filter(status=LiveAnimalSale.StatusType.SUBJECT_TO_REVISION).count(),
+        "approved_transfers": approved_qs.count(),
+        "pending_transfers": scoped_sales.filter(status=LivestockOwnershipTransfer.Status.PENDING).count(),
+        "verified_transfers": scoped_sales.filter(status=LivestockOwnershipTransfer.Status.VERIFIED).count(),
+        "returned_transfers": scoped_sales.filter(status=LivestockOwnershipTransfer.Status.SUBJECT_TO_REVISION).count(),
         "approved_without_review_timestamp": missing_review_count,
-        "synthetic_transactions": synthetic_count,
+        "synthetic_transfers": synthetic_count,
         "weekday_activity": evaluation.get("weekday_activity", []),
         "weekday_pattern_estimable": False,
         "weekday_pattern_note": evaluation.get("weekday_pattern_note"),
         "coverage_status": "UNKNOWN",
         "coverage_note": data.get("coverage_note"),
-        "duplicate_detection_note": "The sales model has no unique transaction identifier, so possible duplicate approved rows cannot be safely deduplicated by analytics.",
+        "duplicate_detection_note": "Each transfer row represents one animal event; aggregations count distinct transfer IDs and distinct livestock IDs. A later approved resale is a separate event.",
     }
     missing_weeks = data.get("missing_weeks", [])
-    message = evaluation.get("message", "Weekly auction diagnostics are unavailable.")
+    message = evaluation.get("message", "Weekly transfer diagnostics are unavailable.")
     if missing_review_count:
-        message += f" {missing_review_count} approved transaction(s) have no review timestamp and cannot be placed at historical cutoffs."
+        message += f" {missing_review_count} approved transfer(s) have no review timestamp and cannot be placed at historical cutoffs."
     if synthetic_count:
         message += " The current dataset includes synthetic demonstration rows; they are excluded from claims about real market patterns."
     checklist = [
-        {"id": "approved_transactions", "title": "Approved sale transactions", "category": "DATA_COLLECTION",
-         "status": "PASSED" if approved_qs.exists() else "BLOCKED", "actual_value": f"{approved_qs.count()} approved record(s)",
-         "expected_requirement": "Only approved LiveAnimalSale transactions are counted",
-         "explanation": "Listings, movements, and pending or returned records are not treated as completed sales.",
-         "action_needed": None if approved_qs.exists() else "Record completed sales through the existing sale workflow.", "resolution_type": "DATA_COLLECTION"},
+        {"id": "approved_transfers", "title": "Approved ownership transfers", "category": "DATA_COLLECTION",
+         "status": "PASSED" if approved_qs.exists() else "BLOCKED", "actual_value": f"{approved_qs.count()} approved transfer event(s)",
+         "expected_requirement": "Only approved LivestockOwnershipTransfer rows count as completed sales",
+         "explanation": "Approval marks the seller's animal SOLD. Inventory status, buyer inventory registration, listings, and movements are not counted as additional sales.",
+         "action_needed": None if approved_qs.exists() else "Record completed ownership transfers through the existing transfer workflow.", "resolution_type": "DATA_COLLECTION"},
         {"id": "weekly_history", "title": "Contiguous complete weeks", "category": "DATA_QUALITY",
          "status": "PASSED" if evaluation.get("forecast_available") else "WARNING",
          "actual_value": f"{progress_count} observed week(s); {len(missing_weeks)} week(s) without complete totals",
          "expected_requirement": f"At least {required_count} contiguous complete weeks",
-         "explanation": "A week without an approved transaction is unknown because no reporting-completeness log exists; it is not converted to zero.",
+         "explanation": "A week without an approved transfer is unknown because no reporting-completeness log exists; it is not converted to zero.",
          "action_needed": evaluation.get("message") if not evaluation.get("forecast_available") else None, "resolution_type": "DATA_QUALITY"},
         {"id": "weekday_pattern", "title": "Thursday and Friday activity pattern", "category": "DATA_QUALITY",
-         "status": "WARNING", "actual_value": "Captured transaction counts only",
+         "status": "WARNING", "actual_value": "Recorded approved transfer counts only",
          "expected_requirement": "Market-day reporting coverage by weekday",
          "explanation": evaluation.get("weekday_pattern_note", "No weekday coverage is recorded."),
          "action_needed": "A market-session or daily reporting-coverage source is needed before interpreting the observed counts as weekday effects.",
@@ -365,9 +428,9 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
     return {
         "metric_id": f"auction_{target_clean.lower()}_{unit.lower()}",
         "domain": "auction", "target": target_clean, "unit": evaluation.get("target", {}).get("unit", unit),
-        "label": "Completed livestock sale transactions" if unit == "TRANSACTIONS" else "Live animal sales" if unit == "HEADS" else "Recorded sales value",
-        "source": "Approved LiveAnimalSale records", "frequency": "WEEKLY",
-        "reporting_type": "TRANSACTION_BASED", "expected_reporting": "Daily market operations are reported publicly, but SmartLivestock has no daily market coverage/session log.",
+        "label": "Completed transfer events" if unit == "TRANSACTIONS" else "Animals transferred" if unit == "HEADS" else "Recorded transfer value",
+        "source": "Approved LivestockOwnershipTransfer records", "frequency": "WEEKLY",
+        "reporting_type": "TRANSFER_EVENT_BASED", "expected_reporting": "SmartLivestock has no market reporting-coverage log; absent transfer records do not prove no sale occurred.",
         "minimum_rule": f"At least {required_count} contiguous complete recorded weeks; missing weeks are never treated as zero.",
         "forecast_status": forecast_status, "forecast_available": evaluation.get("forecast_available", False),
         "validation_status": validation_status,
@@ -379,9 +442,9 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
         "readiness_details": evaluation.get("readiness_details", message),
         "blocker_summary": message,
         "next_step": (
-            "Maintain complete approved weekly transaction reporting and retain review timestamps; collect market-session coverage to estimate weekday effects."
+            "Maintain complete approved weekly transfer reporting and retain review timestamps; collect market-session coverage before interpreting weekday activity."
             if evaluation.get("forecast_available") else
-            "Continue recording approved transactions and add a market-session or reporting-coverage log before treating missing weeks or weekday counts as complete activity."
+            "Continue recording ownership transfers through the approval workflow and add reporting-coverage data before treating missing weeks or weekday counts as complete activity."
         ),
         "progress": {
             "usable_observations": progress_count, "required_observations": required_count,
@@ -441,12 +504,16 @@ def get_forecast_readiness_diagnostics(
     )
 
     if domain == "auction":
-        return _get_auction_weekly_diagnostics(
+        diagnostic = _get_auction_weekly_diagnostics(
             target=target_clean,
             unit=unit_clean,
             user=user,
             horizon_weeks=horizon_months,
         )
+        diagnostic["progress"]["approval_status_breakdown"] = _approval_status_breakdown(
+            domain, target_clean, unit_clean, user
+        )
+        return diagnostic
 
     target_def = get_forecast_target_definition(domain, target_clean, unit_clean)
     min_required = target_def.get("minimum_monthly_observations", MIN_OBSERVATIONS_REQUIRED)
@@ -758,6 +825,9 @@ def get_forecast_readiness_diagnostics(
             "data_through_date": meta.get("data_through_date"),
             "milk_diagnostics": milk_diagnostics,
             "source_diagnostics": source_diagnostics,
+            "approval_status_breakdown": _approval_status_breakdown(
+                domain, target_clean, unit_clean, user
+            ),
         },
 
         # Detailed 12-item checklist

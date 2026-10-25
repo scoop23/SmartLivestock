@@ -158,6 +158,11 @@ def evaluate_rolling_origins(
         # first day of this test window. Unknown or later approvals are excluded.
         if len(history) < 8:
             diagnostic["status"] = "NOT_ENOUGH_APPROVED_HISTORY"
+            diagnostic["reason_code"] = (
+                "MISSING_AVAILABILITY_TIMESTAMPS"
+                if missing_availability_count and len(history) + missing_availability_count >= 8
+                else "NOT_ENOUGH_APPROVED_HISTORY"
+            )
             diagnostic["reason"] = (
                 f"Fewer than 8 approved training months were available by this cutoff. "
                 f"{missing_availability_count} prior month(s) have no reconstructable approval timestamp, "
@@ -169,11 +174,13 @@ def evaluate_rolling_origins(
         if len(months.unique()) != len(expected):
             # A cutoff with unreviewed months cannot support monthly lags.
             diagnostic["status"] = "GAPS_IN_APPROVED_HISTORY"
+            diagnostic["reason_code"] = "GAPS_IN_APPROVED_HISTORY"
             diagnostic["reason"] = "The approved training history had missing calendar months at this cutoff."
             continue
         window = df.iloc[origin:origin + horizon].copy()
         if len(window) != horizon:
             diagnostic["status"] = "INCOMPLETE_TEST_WINDOW"
+            diagnostic["reason_code"] = "INCOMPLETE_TEST_WINDOW"
             diagnostic["reason"] = "The complete forecast horizon is not yet observed."
             continue
         actual = window["quantity"].astype(float).to_numpy()
@@ -196,7 +203,11 @@ def evaluate_rolling_origins(
                 continue
         if window_results:
             diagnostic["status"] = "EVALUATED"
+            diagnostic["reason_code"] = "EVALUATED"
             diagnostic["reason"] = "Training history was available and the full forecast window is observed."
+            diagnostic["test_periods"] = window["month"].dt.strftime("%Y-%m").tolist()
+            diagnostic["actual_values"] = [round(float(value), 1) for value in actual]
+            diagnostic["predictions_by_model"] = window_results
             successful_windows += 1
             final_window = {
                 "train": history,
@@ -205,6 +216,7 @@ def evaluate_rolling_origins(
             }
         else:
             diagnostic["status"] = "MODEL_FAILURE"
+            diagnostic["reason_code"] = "MODEL_FAILURE"
             diagnostic["reason"] = "No candidate model produced a valid forecast for this cutoff."
 
     model_metrics = {}

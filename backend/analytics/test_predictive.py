@@ -575,37 +575,34 @@ class PredictiveAnalyticsTests(TestCase):
         self.assertIn("level", desc["mortality"]["risk_indicator"])
         self.assertIn("by_barangay", desc["mortality"])
         self.assertIn("sales", desc)
-        self.assertIn("by_method", desc["sales"])
+        self.assertEqual(desc["sales"]["source"], "LivestockOwnershipTransfer")
+        self.assertIn("completed_transfers", desc["sales"])
 
     def test_auction_seed_forecasting_and_clean(self):
         """
-        Verify end-to-end auction domain pipeline:
-        1. Seed 24 months of live animal sales with SEED_MARKER_AUCTION.
-        2. Evaluate models on HEADS and PHP (verifying lowest MAE winner selection).
-        3. Generate 6-month forecast with metrics and municipal scope.
-        4. Clean synthetic records safely using --clean without touching real data.
+        Legacy LiveAnimalSale auction rows must not leak into completed-transfer forecasts.
+        The ownership-transfer forecast has its own individual-animal source and tests.
         """
         from production.models import LiveAnimalSale
         from analytics.seed_markers import SEED_MARKER_AUCTION
 
-        # Step 1: Generate 24 months of synthetic live animal sales
+        # Seed the separate auction-record workflow, not ownership transfers.
         call_command("seed_auction", months=24)
         seeded_sales = LiveAnimalSale.objects.filter(review_remarks__contains=SEED_MARKER_AUCTION).count()
         self.assertGreaterEqual(seeded_sales, 24)
 
-        # The monthly seed is intentionally sparse by week, so it cannot stand in
-        # for a complete weekly sale history or validate the auction forecast.
+        # These rows are intentionally not treated as completed ownership transfers.
         eval_res = evaluate_all_models(domain="auction", target="ALL", unit="HEADS")
         self.assertEqual(eval_res["status"], "insufficient_data")
-        self.assertIn("recorded in SmartLivestock", eval_res["scope"])
+        self.assertIn("LivestockOwnershipTransfer", eval_res["scope"])
         self.assertEqual(eval_res["frequency"], "WEEKLY")
         self.assertFalse(eval_res["forecast_available"])
-        self.assertGreater(eval_res["data"]["missing_week_count"], 0)
+        self.assertEqual(eval_res["data"]["total_records"], 0)
 
-        # Neither projection target may zero-fill the weeks absent from the sparse seed.
+        # No ownership transfer history means no projection, even though legacy auction rows exist.
         fc_heads = generate_future_forecast(domain="auction", target="ALL", unit="HEADS", horizon_months=6)
         self.assertEqual(fc_heads["status"], "insufficient_data")
-        self.assertIn("recorded in SmartLivestock", fc_heads["scope"])
+        self.assertIn("LivestockOwnershipTransfer", fc_heads["scope"])
         self.assertEqual(fc_heads["forecast"], [])
 
         # Recorded value remains a separate target and also withholds across gaps.

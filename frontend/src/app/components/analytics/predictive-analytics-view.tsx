@@ -1,7 +1,6 @@
 "use client";
 
 import { ForecastReadinessDashboard } from "./forecast-readiness-dashboard";
-
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { Badge } from "@/components/ui/badge";
@@ -388,12 +387,17 @@ interface DescriptiveData {
     };
     sales?: {
       sales: number;
+      completed_transfers: number;
       animals: number;
       recorded_value: number | null;
       priced_sales: number;
-      by_method: Array<{ sale_method: string; count: number; animals: number; total_value: number | null }>;
-      by_purpose: Array<{ purpose: string; count: number; animals: number }>;
-      trend: Array<{ month: string; label: string; transactions: number; animals: number; total_value_php: number }>;
+      average_price: number | null;
+      missing_price_transfers: number;
+      source: string;
+      period_start: string;
+      period_end: string;
+      by_species: Array<{ species: string; animals: number; transactions: number; recorded_value_php: number | null; priced_transactions: number }>;
+      trend: Array<{ month: string; label: string; transactions: number | null; animals: number | null; total_value_php: number | null }>;
     };
   };
 }
@@ -1649,42 +1653,75 @@ export default function PredictiveAnalyticsView() {
               <Card className="rounded-2xl border-slate-200 shadow-xs">
                 <CardHeader className="pb-2 border-b border-slate-100">
                   <CardTitle className="text-sm font-bold text-slate-800">
-                    Trading Volume by Sale Method
+                    Approved ownership transfers
                   </CardTitle>
+                  <p className="text-xs text-slate-500">
+                    {descriptiveData.descriptive.sales.period_start} to {descriptiveData.descriptive.sales.period_end} · source: {descriptiveData.descriptive.sales.source}
+                  </p>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  <div className="space-y-2.5">
-                    {descriptiveData.descriptive.sales.by_method.map((m) => (
-                      <div key={m.sale_method} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 text-xs">
-                        <span className="font-semibold text-slate-800">{m.sale_method}</span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-slate-500">{m.count} sales</span>
-                          <Badge variant="outline" className="bg-white text-emerald-800 font-bold">
-                            {m.animals} heads
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <p className="text-xs text-slate-500">Completed transfers</p>
+                      <p className="text-xl font-bold text-slate-900">{descriptiveData.descriptive.sales.completed_transfers.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <p className="text-xs text-slate-500">Distinct animals</p>
+                      <p className="text-xl font-bold text-slate-900">{descriptiveData.descriptive.sales.animals.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <p className="text-xs text-slate-500">Recorded value</p>
+                      <p className="text-xl font-bold text-slate-900">
+                        {descriptiveData.descriptive.sales.recorded_value == null
+                          ? "Not available"
+                          : `₱${descriptiveData.descriptive.sales.recorded_value.toLocaleString("en-PH")}`}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <p className="text-xs text-slate-500">Average recorded price</p>
+                      <p className="text-xl font-bold text-slate-900">
+                        {descriptiveData.descriptive.sales.average_price == null
+                          ? "Not available"
+                          : `₱${descriptiveData.descriptive.sales.average_price.toLocaleString("en-PH")}`}
+                      </p>
+                    </div>
                   </div>
+                  {descriptiveData.descriptive.sales.missing_price_transfers > 0 && (
+                    <p className="mt-3 text-xs text-amber-800">
+                      {descriptiveData.descriptive.sales.missing_price_transfers} transfer(s) lack a recorded price and are excluded from value totals.
+                    </p>
+                  )}
+                  {descriptiveData.descriptive.sales.completed_transfers === 0 && (
+                    <p className="mt-3 text-xs text-slate-600">
+                    No approved transfers were recorded in this period. This does not confirm that no sales occurred outside SmartLivestock records.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
               <Card className="rounded-2xl border-slate-200 shadow-xs">
                 <CardHeader className="pb-2 border-b border-slate-100">
                   <CardTitle className="text-sm font-bold text-slate-800">
-                    Trading Volume by Purpose
+                    Transfers by livestock type
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4">
                   <div className="space-y-2.5">
-                    {descriptiveData.descriptive.sales.by_purpose.map((p) => (
-                      <div key={p.purpose} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 text-xs">
-                        <span className="font-semibold text-slate-800">{p.purpose}</span>
-                        <Badge variant="outline" className="bg-white text-emerald-800 font-bold">
-                          {p.animals} heads
-                        </Badge>
-                      </div>
-                    ))}
+                    {(descriptiveData.descriptive.sales.by_species ?? []).length ? (
+                      descriptiveData.descriptive.sales.by_species.map((row) => (
+                        <div key={row.species} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 text-xs">
+                          <span className="font-semibold text-slate-800">{row.species}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-slate-500">{row.transactions} transfer(s)</span>
+                            <Badge variant="outline" className="bg-white text-emerald-800 font-bold">
+                              {row.animals} animals
+                            </Badge>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-slate-500">No approved ownership transfers in this period.</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1694,15 +1731,15 @@ export default function PredictiveAnalyticsView() {
           {activeDomain === "auction" && evalData?.weekday_activity && (
             <Card className="rounded-2xl border-amber-200 bg-white shadow-xs">
               <CardHeader className="pb-2 border-b border-amber-100">
-                <CardTitle className="text-sm font-bold text-slate-900">Captured approved sales by weekday</CardTitle>
+                <CardTitle className="text-sm font-bold text-slate-900">Captured approved transfers by weekday</CardTitle>
                 <p className="text-xs text-slate-600">
-                  Friday and Thursday are highlighted as locally important market days. The bars count only approved SmartLivestock transactions.
+                  Friday and Thursday are highlighted as locally important market days. The bars count only approved ownership transfers captured in SmartLivestock.
                 </p>
               </CardHeader>
               <CardContent className="pt-4">
                 {evalData.weekday_activity.reduce((sum, day) => sum + day.transaction_count, 0) === 0 ? (
                   <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-                    No approved auction transactions are recorded in this dataset, so weekday activity and its forecast cannot be assessed.
+                    No approved ownership transfers are recorded in this dataset, so weekday activity and its forecast cannot be assessed.
                   </p>
                 ) : (
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
@@ -1719,7 +1756,7 @@ export default function PredictiveAnalyticsView() {
                           <div className="mt-3 flex h-20 items-end rounded-md bg-white/80 px-2 pb-1">
                             <div className={`w-full rounded-t ${day.weekday === "Friday" ? "bg-amber-500" : day.weekday === "Thursday" ? "bg-orange-400" : "bg-slate-400"}`} style={{ height: `${heightPct}%` }} />
                           </div>
-                          <p className="mt-2 text-sm font-bold text-slate-900">{day.transaction_count} transaction(s)</p>
+                          <p className="mt-2 text-sm font-bold text-slate-900">{day.transaction_count} transfer(s)</p>
                           <p className="text-[11px] text-slate-600">{day.heads_sold} head(s) recorded</p>
                           {day.synthetic_transactions > 0 && <p className="mt-1 text-[10px] font-semibold text-purple-700">Includes {day.synthetic_transactions} synthetic</p>}
                         </div>
