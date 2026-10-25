@@ -13,6 +13,7 @@ from users.models import User, Notification
 from users.notification_views import create_notification, notify_role, notify_review_revision
 from .models import (
     ProductionRecord,
+    ProductionRecordWorkflowEvent,
     LiveAnimalSale,
     SlaughterRecord,
     WeightRecord,
@@ -187,7 +188,9 @@ def production_record_list_create(request):
         "reviewed_by__role",
     ).order_by("-record_date", "-created_at")
 
-    records = records.select_related("slaughter").prefetch_related("slaughter__selected_animals")
+    records = records.select_related("slaughter").prefetch_related(
+        "slaughter__selected_animals", "workflow_events"
+    )
     serializer = ProductionRecordSerializer(records, many=True, context={"request": request})
     return Response(serializer.data, status=200)
 
@@ -344,7 +347,30 @@ def review_production_record(request, pk):
     record.reviewed_by = request.user
     record.review_remarks = remarks
     record.reviewed_at = reviewed_at_now
+    record.approved_at = (
+        reviewed_at_now
+        if new_status == ProductionRecord.ProductionStatus.APPROVED
+        else None
+    )
     record.save()
+    event_type = {
+        ProductionRecord.ProductionStatus.VERIFIED: ProductionRecordWorkflowEvent.EventType.VERIFIED,
+        ProductionRecord.ProductionStatus.APPROVED: ProductionRecordWorkflowEvent.EventType.APPROVED,
+        ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION: ProductionRecordWorkflowEvent.EventType.RETURNED,
+    }.get(new_status)
+    if event_type:
+        ProductionRecordWorkflowEvent.objects.create(
+            production_record=record,
+            event_type=event_type,
+            actor=user,
+            from_status=previous_status,
+            to_status=new_status,
+            remarks=remarks,
+            snapshot={"record_date": record.record_date.isoformat(), "production_type": record.production_type,
+                      "quantity": str(record.quantity), "unit": record.unit,
+                      "milking_session": record.milking_session,
+                      "livestock_id": record.livestock_id, "batch_id": record.batch_id},
+        )
 
     source_farmer = (record.livestock or record.batch).farmer
     if new_status == "SUBJECT_TO_REVISION":

@@ -49,6 +49,7 @@ export type ProductionPayload = {
   quantity: number;
   unit: "LITERS" | "PIECES" | "KILOGRAMS";
   record_date: string;
+  milking_session?: "MORNING" | "AFTERNOON" | "EVENING";
   notes: string;
 };
 
@@ -377,7 +378,7 @@ function ProductionWizardContent({
     if (productionType === "milk") {
       payload.quantity = Number(formState.milkQty) || 0;
       if (formState.milkTime) {
-        payload.notes = `[${formState.milkTime}] ${payload.notes}`.trim();
+        payload.milking_session = formState.milkTime.toUpperCase() as ProductionPayload["milking_session"];
       }
     } else if (productionType === "meat") {
       payload.quantity = Number(formState.meatQty) || 0;

@@ -336,12 +336,14 @@ export default function ProductionDashboardView({
     setClickedInventory(matchedInv);
 
     let rawNotes = record.notes || "";
-    let extractedMilkTime = "Morning";
+    let extractedMilkTime = record.milkingSession
+      ? record.milkingSession.charAt(0) + record.milkingSession.slice(1).toLowerCase()
+      : "Morning";
     let extractedMeatPurpose = "Auction / Market Sale";
 
     if (record.productionType === "milk") {
       const timeMatch = rawNotes.match(/\[(Morning|Afternoon|Evening)\]/i);
-      if (timeMatch) {
+      if (!record.milkingSession && timeMatch) {
         extractedMilkTime =
           timeMatch[1].charAt(0).toUpperCase() + timeMatch[1].slice(1).toLowerCase();
         rawNotes = rawNotes.replace(timeMatch[0], "").trim();

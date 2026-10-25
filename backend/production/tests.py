@@ -1,5 +1,6 @@
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.utils import timezone
 
 # TODO: Write tests for:
 #   - ProductionRecord creation (milk/eggs/wool with correct units)
@@ -1104,6 +1105,7 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
                     quantity=qty,
                     unit=ProductionRecord.UnitType.LITERS,
                     record_date=start_date + timedelta(days=idx),
+                    milking_session=ProductionRecord.MilkingSession.MORNING,
                     status=ProductionRecord.ProductionStatus.APPROVED,
                     anomaly_assessment_status=ProductionRecord.AnomalyAssessmentStatus.CLEAN,
                     next_review_queue=ProductionRecord.ReviewQueue.NONE,
@@ -1121,6 +1123,7 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
             "unit": "LITERS",
             "quantity": str(quantity),
             "record_date": str(record_date),
+            "milking_session": "MORNING",
         }
         if extra:
             payload.update(extra)
@@ -1466,34 +1469,19 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
         self.assertEqual(record.anomaly_assessment_status, ProductionRecord.AnomalyAssessmentStatus.CLEAN)
         forecast_cmp = record.anomaly_assessment["forecast_comparison"]
         self.assertFalse(forecast_cmp["available"])
-        self.assertEqual(forecast_cmp["status"], "NOT_READY")
-        self.assertIn("60", forecast_cmp["reason"])
+        self.assertEqual(forecast_cmp["status"], "INCOMPATIBLE_TARGET")
+        self.assertIn("daily totals", forecast_cmp["reason"])
 
-    def test_18_date_aligned_forecast_context_included_only_when_valid(self):
-        from unittest.mock import patch
-
-        # Seed 65 approved daily observations ending 2026-03-10 so 7-day forecast is READY for 2026-03-11..17
+    def test_18_daily_forecast_is_never_compared_with_one_session_yield(self):
         quantities = [12.0 + ((i % 5) - 2) * 0.25 for i in range(65)]
         self.seed_approved_milk_history(self.cow, quantities, end_date=date(2026, 3, 10))
-
-        with patch("analytics.services.predictive.livestock_milk.timezone.localdate", return_value=date(2026, 3, 10)):
-            # 1. Date-aligned submission (2026-03-11 is in the 7-day forecast window)
-            aligned_resp = self.submit_milk("12.1", record_date="2026-03-11")
-            self.assertEqual(aligned_resp.status_code, status.HTTP_201_CREATED)
-            aligned_record = ProductionRecord.objects.get(pk=aligned_resp.data["id"])
-            fc_aligned = aligned_record.anomaly_assessment["forecast_comparison"]
-            self.assertTrue(fc_aligned["available"])
-            self.assertEqual(fc_aligned["status"], "MATCHED")
-            self.assertIsNotNone(fc_aligned["expected_liters"])
-
-            # 2. Past backfilled date (2026-03-09 is before the 7-day future horizon) omits forecast comparison
-            backfill_resp = self.submit_milk("12.1", record_date="2026-03-09")
-            self.assertEqual(backfill_resp.status_code, status.HTTP_201_CREATED)
-            backfill_record = ProductionRecord.objects.get(pk=backfill_resp.data["id"])
-            fc_backfill = backfill_record.anomaly_assessment["forecast_comparison"]
-            self.assertFalse(fc_backfill["available"])
-            self.assertEqual(fc_backfill["status"], "DATE_NOT_IN_HORIZON")
-            self.assertIn("does not match", fc_backfill["reason"])
+        response = self.submit_milk("12.1", record_date="2026-03-11")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        record = ProductionRecord.objects.get(pk=response.data["id"])
+        comparison = record.anomaly_assessment["forecast_comparison"]
+        self.assertFalse(comparison["available"])
+        self.assertEqual(comparison["status"], "INCOMPATIBLE_TARGET")
+        self.assertIn("daily totals", comparison["reason"])
 
     def test_19_farmer_editing_and_resubmitting_returned_milk_record_reassesses_and_updates_routing(self):
         self.seed_approved_milk_history(self.cow, [10.0, 10.2, 9.8, 10.1, 9.9, 10.0])
@@ -1526,6 +1514,97 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
         # Prior assessment history is preserved
         self.assertEqual(len(record.anomaly_assessment.get("history", [])), 1)
         self.assertEqual(record.anomaly_assessment["history"][0]["assessment_status"], "ANOMALY_DETECTED")
+
+    def test_milk_session_is_structured_and_duplicate_session_is_rejected(self):
+        first = self.submit_milk("8.0")
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED, first.data)
+        self.assertEqual(first.data["milking_session"], "MORNING")
+
+        duplicate = self.submit_milk("7.5")
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("milking_session", duplicate.data)
+
+        other_session = self.submit_milk("4.0", extra={"milking_session": "AFTERNOON"})
+        self.assertEqual(other_session.status_code, status.HTTP_201_CREATED, other_session.data)
+
+    def test_anomaly_baseline_uses_same_session_not_daily_sum(self):
+        self.seed_approved_milk_history(self.cow, [4.0, 4.2, 3.9, 4.1, 4.0, 4.2])
+        # These afternoon yields must not inflate the morning session baseline.
+        for row in ProductionRecord.objects.filter(livestock=self.cow, production_type="MILK"):
+            row.milking_session = ProductionRecord.MilkingSession.AFTERNOON
+            row.save(update_fields=["milking_session"])
+
+        response = self.submit_milk("4.1", extra={"milking_session": "MORNING"})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data["anomaly_assessment_status"], "INSUFFICIENT_HISTORY")
+        self.assertIn("session-specific", response.data["anomaly_reason"])
+
+    def test_submission_and_approval_timestamps_are_distinct_and_audited(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.1, 9.9, 10.0, 10.2, 9.8])
+        response = self.submit_milk("10.0")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        record = ProductionRecord.objects.get(pk=response.data["id"])
+        submitted_at = record.created_at
+        self.assertEqual(response.data["submitted_at"], response.data["created_at"])
+        self.assertIsNone(record.approved_at)
+
+        self.client.force_authenticate(user=self.mao_user)
+        reviewed = self.client.post(
+            f"/production/records/{record.pk}/review/",
+            {"status": "APPROVED", "remarks": "Session entry reviewed."},
+            format="json",
+        )
+        self.assertEqual(reviewed.status_code, status.HTTP_200_OK, reviewed.data)
+        record.refresh_from_db()
+        self.assertEqual(record.created_at, submitted_at)
+        self.assertEqual(record.approved_at, record.reviewed_at)
+        self.assertEqual(
+            list(record.workflow_events.values_list("event_type", flat=True)),
+            ["SUBMITTED", "APPROVED"],
+        )
+
+    def test_returned_resubmission_keeps_original_submission_and_appends_event(self):
+        self.seed_approved_milk_history(self.cow, [10.0, 10.1, 9.9, 10.0, 10.2, 9.8])
+        response = self.submit_milk("10.0")
+        record = ProductionRecord.objects.get(pk=response.data["id"])
+        original_submitted_at = record.created_at
+        self.client.force_authenticate(user=self.mao_user)
+        self.client.post(
+            f"/production/records/{record.pk}/review/",
+            {"status": "SUBJECT_TO_REVISION", "remarks": "Please confirm amount."},
+            format="json",
+        )
+        self.client.force_authenticate(user=self.farmer_user)
+        resubmitted = self.client.patch(
+            f"/production/records/{record.pk}/",
+            {"quantity": "9.5", "milking_session": "MORNING"},
+            format="json",
+        )
+        self.assertEqual(resubmitted.status_code, status.HTTP_200_OK, resubmitted.data)
+        record.refresh_from_db()
+        self.assertEqual(record.created_at, original_submitted_at)
+        self.assertEqual(
+            list(record.workflow_events.values_list("event_type", flat=True)),
+            ["SUBMITTED", "RETURNED", "RESUBMITTED"],
+        )
+
+    def test_seven_day_forecast_does_not_treat_missing_calendar_days_as_adjacent_lags(self):
+        from analytics.services.predictive.livestock_milk import forecast_livestock_milk
+
+        today = timezone.localdate()
+        start = today - timedelta(days=64)
+        daily_records = [
+            {"date": start + timedelta(days=offset), "milk_liters": 10.0 + offset % 3,
+             "session_count": 1, "record_count": 1}
+            for offset in range(65) if offset != 31
+        ]
+        result = forecast_livestock_milk(
+            livestock=self.cow, daily_records=daily_records, calving_events=[],
+        )
+        self.assertEqual(result["status"], "NOT_READY")
+        self.assertEqual(result["missing_calendar_intervals"], 1)
+        self.assertIn("not filled with zero", result["reason"])
+        self.assertEqual(result["observation_unit"], "recorded daily total (sum of approved sessions on that date)")
 
     def test_20_non_milk_production_records_keep_existing_sibat_review_behavior(self):
         hen = LivestockInventory.objects.create(

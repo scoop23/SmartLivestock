@@ -23,6 +23,11 @@ class ProductionRecord(models.Model):
         APPROVED = "APPROVED", "Approved"
         SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
+    class MilkingSession(models.TextChoices):
+        MORNING = "MORNING", "Morning Session (6:00 AM)"
+        AFTERNOON = "AFTERNOON", "Afternoon Session (2:00 PM)"
+        EVENING = "EVENING", "Evening Session (6:00 PM)"
+
     class AnomalyAssessmentStatus(models.TextChoices):
         NOT_APPLICABLE = "NOT_APPLICABLE", "Not Applicable"
         UNAVAILABLE = "UNAVAILABLE", "Assessment Unavailable"
@@ -76,6 +81,16 @@ class ProductionRecord(models.Model):
 
     record_date = models.DateField()
 
+    # Milk is recorded per session. Null is retained for legacy records whose
+    # original session cannot be recovered safely from their notes.
+    milking_session = models.CharField(
+        max_length=12,
+        choices=MilkingSession.choices,
+        null=True,
+        blank=True,
+    )
+    session_conflict = models.BooleanField(default=False, db_index=True)
+
     status = models.CharField(
         max_length=25,
         choices=ProductionStatus.choices,
@@ -121,6 +136,9 @@ class ProductionRecord(models.Model):
 
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
+    # Approval is a distinct event from the most recent reviewer action.
+    approved_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
     review_remarks = models.TextField(blank=True)
 
     created_by = models.ForeignKey(
@@ -140,6 +158,16 @@ class ProductionRecord(models.Model):
                 self.farmer_at_record_id = self.batch.farmer_id
 
         update_fields = kwargs.get("update_fields")
+        if self.status == self.ProductionStatus.APPROVED and self.approved_at is None:
+            from django.utils import timezone
+
+            self.approved_at = timezone.now()
+            if update_fields is not None and "approved_at" not in update_fields:
+                kwargs["update_fields"] = [*update_fields, "approved_at"]
+        elif self.status != self.ProductionStatus.APPROVED and self.approved_at is not None:
+            self.approved_at = None
+            if update_fields is not None and "approved_at" not in update_fields:
+                kwargs["update_fields"] = [*update_fields, "approved_at"]
         if (
             self.status == self.ProductionStatus.PENDING
             and self.production_type == self.ProductionType.MILK
@@ -164,6 +192,51 @@ class ProductionRecord(models.Model):
                 kwargs["update_fields"] = [*update_fields, "next_review_queue"]
 
         super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("livestock", "record_date", "milking_session"),
+                condition=models.Q(
+                    production_type="MILK", milking_session__isnull=False, session_conflict=False,
+                    livestock__isnull=False,
+                ),
+                name="unique_milk_animal_date_session",
+            ),
+            models.UniqueConstraint(
+                fields=("batch", "record_date", "milking_session"),
+                condition=models.Q(
+                    production_type="MILK", milking_session__isnull=False, session_conflict=False,
+                    batch__isnull=False,
+                ),
+                name="unique_milk_batch_date_session",
+            ),
+        ]
+
+
+class ProductionRecordWorkflowEvent(models.Model):
+    """Append-only submission and review events for a production record."""
+
+    class EventType(models.TextChoices):
+        SUBMITTED = "SUBMITTED", "Submitted"
+        RESUBMITTED = "RESUBMITTED", "Resubmitted"
+        VERIFIED = "VERIFIED", "Verified"
+        APPROVED = "APPROVED", "Approved"
+        RETURNED = "RETURNED", "Returned for revision"
+
+    production_record = models.ForeignKey(
+        ProductionRecord, on_delete=models.CASCADE, related_name="workflow_events"
+    )
+    event_type = models.CharField(max_length=16, choices=EventType.choices)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    from_status = models.CharField(max_length=25, blank=True)
+    to_status = models.CharField(max_length=25)
+    remarks = models.TextField(blank=True)
+    snapshot = models.JSONField(default=dict, blank=True)
+    occurred_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("occurred_at", "pk")
 
 
 # "Katay" (butcher/slaughter) records.

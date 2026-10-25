@@ -3,6 +3,7 @@ from django.utils import timezone
 from rest_framework import serializers  # type: ignore
 from .models import (
     ProductionRecord,
+    ProductionRecordWorkflowEvent,
     LiveAnimalSale,
     SlaughterRecord,
     WeightRecord,
@@ -53,6 +54,16 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
     """
     selected_animals = serializers.PrimaryKeyRelatedField(many=True, queryset=LivestockInventory.objects.all(), required=False, write_only=True)
     slaughter_details = serializers.SerializerMethodField()
+    submitted_at = serializers.DateTimeField(source="created_at", read_only=True)
+    workflow_history = serializers.SerializerMethodField(read_only=True)
+
+    def get_workflow_history(self, obj):
+        return [
+            {"event_type": event.event_type, "from_status": event.from_status,
+             "to_status": event.to_status, "remarks": event.remarks,
+             "occurred_at": event.occurred_at}
+            for event in obj.workflow_events.all()
+        ]
 
     def get_slaughter_details(self, obj):
         if not obj.slaughter_id:
@@ -140,6 +151,8 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "selected_animals",
             "unit",
             "record_date",
+            "milking_session",
+            "session_conflict",
             "notes",
             "status",
             "anomaly_assessment_status",
@@ -150,6 +163,9 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "anomaly_assessment",
             "review_remarks",
             "reviewed_at",
+            "approved_at",
+            "submitted_at",
+            "workflow_history",
             "reviewed_by_name",
             "reviewed_by_role",
             "created_at",
@@ -164,6 +180,10 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "anomaly_assessment",
             "review_remarks",
             "reviewed_at",
+            "approved_at",
+            "session_conflict",
+            "submitted_at",
+            "workflow_history",
             "created_at",
             "valuation_snapshot",
             "farmer_at_record",
@@ -228,6 +248,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             batch = attrs.get("batch")
             production_type = attrs.get("production_type")
             unit = attrs.get("unit")
+            milking_session = attrs.get("milking_session")
         else:
             # for patch
             livestock = attrs.get("livestock", self.instance.livestock)
@@ -237,6 +258,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
                 self.instance.production_type,
             )
             unit = attrs.get("unit", self.instance.unit)
+            milking_session = attrs.get("milking_session", self.instance.milking_session)
 
         if bool(livestock) == bool(batch):
             raise ValidationError(
@@ -288,6 +310,24 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
                 "livestock": "Milk production can only be logged for an individual female animal."
             })
 
+        if production_type == ProductionRecord.ProductionType.MILK:
+            if milking_session not in ProductionRecord.MilkingSession.values:
+                raise ValidationError({"milking_session": "Choose the morning, afternoon, or evening milking session."})
+            record_date = attrs.get("record_date", self.instance.record_date if self.instance else None)
+            duplicate_qs = ProductionRecord.objects.filter(
+                production_type=ProductionRecord.ProductionType.MILK,
+                record_date=record_date,
+                milking_session=milking_session,
+                session_conflict=False,
+            )
+            duplicate_qs = duplicate_qs.filter(livestock=livestock) if livestock else duplicate_qs.filter(batch=batch)
+            if self.instance:
+                duplicate_qs = duplicate_qs.exclude(pk=self.instance.pk)
+            if duplicate_qs.exists():
+                raise ValidationError({"milking_session": "A milk record already exists for this animal, date, and session."})
+        elif milking_session:
+            raise ValidationError({"milking_session": "Milking sessions apply only to milk production records."})
+
         expected_unit = PRODUCTION_UNITS.get(production_type)
         if unit != expected_unit:
             raise ValidationError({
@@ -322,6 +362,16 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         record.valuation_snapshot = snapshot_for(record)
         apply_milk_anomaly_assessment(record)
         record.save()
+        ProductionRecordWorkflowEvent.objects.create(
+            production_record=record,
+            event_type=ProductionRecordWorkflowEvent.EventType.SUBMITTED,
+            actor=user,
+            to_status=record.status,
+            snapshot={"record_date": record.record_date.isoformat(), "production_type": record.production_type,
+                      "quantity": str(record.quantity), "unit": record.unit,
+                      "milking_session": record.milking_session,
+                      "livestock_id": record.livestock_id, "batch_id": record.batch_id},
+        )
         if record.production_type == "MEAT":
             from .services.slaughter import sync_slaughter
             sync_slaughter(record, animals)
@@ -329,6 +379,8 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
+        was_returned = instance.status == ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION
+        previous_status = instance.status
         allowed = [
             "livestock",
             "batch",
@@ -336,6 +388,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "quantity",
             "unit",
             "record_date",
+            "milking_session",
             "notes",
         ]
         for field in allowed:
@@ -344,7 +397,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         if "livestock" in validated_data or "batch" in validated_data:
             source = instance.livestock or instance.batch
             instance.farmer_at_record = source.farmer
-        if instance.status == ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION:
+        if was_returned:
             instance.status = ProductionRecord.ProductionStatus.PENDING
             instance.reviewed_by = None
             instance.reviewed_at = None
@@ -353,6 +406,18 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         instance.valuation_snapshot = snapshot_for(instance, instance.valuation_snapshot)
         apply_milk_anomaly_assessment(instance, previous_assessment=instance.anomaly_assessment)
         instance.save()
+        if was_returned:
+            ProductionRecordWorkflowEvent.objects.create(
+                production_record=instance,
+                event_type=ProductionRecordWorkflowEvent.EventType.RESUBMITTED,
+                actor=self.context["request"].user,
+                from_status=previous_status,
+                to_status=instance.status,
+                snapshot={"record_date": instance.record_date.isoformat(), "production_type": instance.production_type,
+                          "quantity": str(instance.quantity), "unit": instance.unit,
+                          "milking_session": instance.milking_session,
+                          "livestock_id": instance.livestock_id, "batch_id": instance.batch_id},
+            )
         if instance.production_type == "MEAT":
             from .services.slaughter import sync_slaughter
             sync_slaughter(instance, validated_data.get("selected_animals", []))

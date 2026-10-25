@@ -195,6 +195,11 @@ export default function ProductionApprovalCard({
               <CalendarDays className="size-3.5 text-slate-400" />
               {formatRecordDate(record.recordDate)}
             </p>
+            {record.productionType === "milk" && record.milkingSession && (
+              <p className="mt-1 text-[11px] font-semibold text-sky-700">
+                {record.milkingSession.charAt(0) + record.milkingSession.slice(1).toLowerCase()} session
+              </p>
+            )}
           </div>
         </div>
 

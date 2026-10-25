@@ -198,6 +198,8 @@ export interface ProductionRecordItem {
   quantity: number;
   unit: string; // "LITERS" | "PIECES" | "KILOGRAMS"
   recordDate: string; // "YYYY-MM-DD"
+  milkingSession?: "MORNING" | "AFTERNOON" | "EVENING" | null;
+  sessionConflict?: boolean;
   notes: string;
   status: ProductionStatus;
   anomalyAssessmentStatus?: AnomalyAssessmentStatus;
@@ -210,6 +212,8 @@ export interface ProductionRecordItem {
   reviewedByName?: string | null;
   reviewedByRole?: string | null;
   reviewedAt?: string | null;
+  approvedAt?: string | null;
+  submittedAt?: string | null;
   createdAt: string;
 }
 
@@ -226,6 +230,8 @@ export interface ApiProductionRecord {
   quantity: string | number;
   unit: string;
   record_date: string;
+  milking_session?: "MORNING" | "AFTERNOON" | "EVENING" | null;
+  session_conflict?: boolean;
   notes?: string;
   status: ProductionStatus;
   anomaly_assessment_status?: AnomalyAssessmentStatus;
@@ -238,6 +244,8 @@ export interface ApiProductionRecord {
   reviewed_by_name?: string | null;
   reviewed_by_role?: string | null;
   reviewed_at?: string | null;
+  approved_at?: string | null;
+  submitted_at?: string | null;
   created_at: string;
 }
 
@@ -254,6 +262,8 @@ export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecord
   quantity: Number(item.quantity) || 0,
   unit: item.unit,
   recordDate: item.record_date,
+  milkingSession: item.milking_session ?? null,
+  sessionConflict: Boolean(item.session_conflict),
   notes: item.notes ?? "",
   status: item.status,
   anomalyAssessmentStatus: item.anomaly_assessment_status ?? "NOT_APPLICABLE",
@@ -266,6 +276,8 @@ export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecord
   reviewedByName: item.reviewed_by_name ?? null,
   reviewedByRole: item.reviewed_by_role ?? null,
   reviewedAt: item.reviewed_at ?? null,
+  approvedAt: item.approved_at ?? null,
+  submittedAt: item.submitted_at ?? item.created_at,
   createdAt: item.created_at,
 });
 

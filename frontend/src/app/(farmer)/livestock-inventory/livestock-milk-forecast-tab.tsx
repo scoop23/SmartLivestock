@@ -41,6 +41,18 @@ type MilkForecastResponse = {
     days_since_calving: number | null;
   };
   observation_count: number;
+  observation_unit?: string;
+  missing_calendar_intervals?: number;
+  missing_calendar_days?: number;
+  missing_calendar_dates?: string[];
+  missing_calendar_dates_truncated?: boolean;
+  session_coverage?: {
+    days_with_one_session: number;
+    days_with_two_sessions: number;
+    days_with_three_sessions: number;
+    days_with_unknown_session: number;
+    completeness_note: string;
+  };
   minimum_history_required: number;
   horizon_days: number;
   history: Array<{ date: string; milk_liters: number }>;
@@ -183,6 +195,16 @@ export function LivestockMilkForecastTab({ livestockId }: { livestockId: number 
           <Info label={data.data_source === "synthetic_demo" ? "Demo observations" : "Approved daily records"} value={String(data.observation_count)} />
         </div>
 
+        {data.data_source === "approved_livestock_records" && data.session_coverage && (
+          <div className="rounded-xl border border-sky-100 bg-sky-50/70 p-3 text-xs text-slate-700">
+            <p className="font-semibold text-slate-900">Recorded milking sessions by day</p>
+            <p className="mt-1">
+              One session: {data.session_coverage.days_with_one_session} · Two: {data.session_coverage.days_with_two_sessions} · Three: {data.session_coverage.days_with_three_sessions} · Unknown: {data.session_coverage.days_with_unknown_session}
+            </p>
+            <p className="mt-1">{data.session_coverage.completeness_note}</p>
+          </div>
+        )}
+
         {data.status === "NOT_READY" ? (
           <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
             {data.data_source === "approved_livestock_records" && data.observation_count < data.minimum_history_required ? (
@@ -205,7 +227,16 @@ export function LivestockMilkForecastTab({ livestockId }: { livestockId: number 
                 <p className="mt-2 text-xs">Only this animal’s approved milk records count. Multiple records on one date count as one day.</p>
               </>
             ) : (
-              <p><strong>Prediction not ready.</strong> {data.reason}</p>
+              <>
+                <p><strong>Prediction not ready.</strong> {data.reason}</p>
+                {!!data.missing_calendar_days && (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-white/80 p-3">
+                    <p className="font-semibold">Dates without an approved milk record: {data.missing_calendar_days}</p>
+                    <p className="mt-1 text-xs">These dates are unknown, not zero-liter days. They are omitted so daily lag features are not shifted across gaps.</p>
+                    <p className="mt-1 text-xs">{data.missing_calendar_dates?.join(", ")}{data.missing_calendar_dates_truncated ? ", …" : ""}</p>
+                  </div>
+                )}
+              </>
             )}
             {data.demonstration_available && !showDemo && (
               <button

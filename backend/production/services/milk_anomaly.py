@@ -12,14 +12,14 @@ rejection or proof of inaccurate reporting.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from math import sqrt
 from statistics import mean, median
 from typing import Any
 
-from django.db.models import Sum
 from django.utils import timezone
+from django.db.models import Sum
 
 from analytics.services.predictive.livestock_milk import forecast_livestock_milk
 
@@ -225,6 +225,7 @@ def assess_milk_production_record(
     quantity: Decimal | float | int,
     unit: str,
     record_date: date,
+    milking_session: str | None = None,
     exclude_record_id: int | None = None,
     previous_assessment: dict[str, Any] | None = None,
     thresholds: dict[str, float | int] | None = None,
@@ -271,35 +272,50 @@ def assess_milk_production_record(
 
     tag_label = getattr(livestock, "tag_number", None) or f"Animal #{livestock.pk}"
 
+    if milking_session not in ProductionRecord.MilkingSession.values:
+        return {
+            "assessment_status": "INSUFFICIENT_HISTORY", "sufficient_history": False,
+            "anomaly_detected": False, "requires_cbat_verification": False,
+            "next_review_queue": "SIBAT",
+            "reason": "A valid milking session is required for a session-specific comparison. Standard field verification applies.",
+            "severity": "NONE", "anomaly_direction": "NONE", "submitted_quantity": round(submitted_qty, 2),
+            "unit": unit, "record_date": record_date.isoformat(), "historical_baseline": None,
+            "deviation": None,
+            "forecast_comparison": {"available": False, "status": "INCOMPATIBLE_TARGET",
+                "reason": "The seven-day forecast predicts daily totals and cannot be compared with one session's yield.",
+                "forecast_date": None, "expected_liters": None, "deviation_liters": None,
+                "deviation_pct": None, "model_used": None},
+            "detector_version": DETECTOR_VERSION, "thresholds": cfg,
+            "assessed_at": assessed_at, "history": history_trail,
+        }
+
     approved_qs = ProductionRecord.objects.filter(
         livestock_id=livestock.pk,
         production_type=ProductionRecord.ProductionType.MILK,
         status=ProductionRecord.ProductionStatus.APPROVED,
+        approved_at__isnull=False,
+        milking_session=milking_session,
+        session_conflict=False,
         record_date__lt=record_date,
     )
     if exclude_record_id is not None:
         approved_qs = approved_qs.exclude(pk=exclude_record_id)
 
-    prior_daily_rows = list(
-        approved_qs.values("record_date")
-        .annotate(total_liters=Sum("quantity"))
-        .order_by("record_date")
-    )
-
-    forecast_comparison = _build_forecast_comparison(
-        livestock=livestock,
-        submitted_date=record_date,
-        submitted_qty=submitted_qty,
-        exclude_record_id=exclude_record_id,
-    )
+    prior_session_rows = list(approved_qs.order_by("record_date").values("record_date", "quantity"))
+    forecast_comparison = {
+        "available": False, "status": "INCOMPATIBLE_TARGET",
+        "reason": "The seven-day forecast predicts daily totals and cannot be compared with one session's yield.",
+        "forecast_date": None, "expected_liters": None, "deviation_liters": None,
+        "deviation_pct": None, "model_used": None,
+    }
 
     min_days = int(cfg["min_history_days"])
     rolling_window = int(cfg["rolling_window_days"])
     max_gap_days = int(cfg["max_history_gap_days"])
 
-    if len(prior_daily_rows) < min_days:
+    if len(prior_session_rows) < min_days:
         latest_date_iso = (
-            prior_daily_rows[-1]["record_date"].isoformat() if prior_daily_rows else None
+            prior_session_rows[-1]["record_date"].isoformat() if prior_session_rows else None
         )
         return {
             "assessment_status": "INSUFFICIENT_HISTORY",
@@ -309,8 +325,8 @@ def assess_milk_production_record(
             "next_review_queue": "SIBAT",
             "reason": (
                 f"Insufficient approved milk history for {tag_label} to establish a reliable "
-                f"cow-specific baseline ({len(prior_daily_rows)} of {min_days} required approved "
-                f"daily observations prior to {record_date.isoformat()}). Standard field verification applies."
+                f"cow- and session-specific baseline ({len(prior_session_rows)} of {min_days} required approved "
+                f"{milking_session.lower()} session observations prior to {record_date.isoformat()}). Standard field verification applies."
             ),
             "severity": "NONE",
             "anomaly_direction": "NONE",
@@ -318,8 +334,8 @@ def assess_milk_production_record(
             "unit": unit,
             "record_date": record_date.isoformat(),
             "historical_baseline": {
-                "history_days_count": len(prior_daily_rows),
-                "window_days_used": len(prior_daily_rows),
+                "history_days_count": len(prior_session_rows),
+                "window_days_used": len(prior_session_rows),
                 "baseline_median_liters": None,
                 "baseline_mean_liters": None,
                 "mad_liters": None,
@@ -336,7 +352,7 @@ def assess_milk_production_record(
             "history": history_trail,
         }
 
-    latest_approved_date: date = prior_daily_rows[-1]["record_date"]
+    latest_approved_date: date = prior_session_rows[-1]["record_date"]
     gap_days = (record_date - latest_approved_date).days
     if gap_days > max_gap_days:
         return {
@@ -357,7 +373,7 @@ def assess_milk_production_record(
             "unit": unit,
             "record_date": record_date.isoformat(),
             "historical_baseline": {
-                "history_days_count": len(prior_daily_rows),
+                "history_days_count": len(prior_session_rows),
                 "window_days_used": 0,
                 "baseline_median_liters": None,
                 "baseline_mean_liters": None,
@@ -375,8 +391,9 @@ def assess_milk_production_record(
             "history": history_trail,
         }
 
-    window_rows = prior_daily_rows[-rolling_window:]
-    window_values = [float(row["total_liters"]) for row in window_rows if float(row["total_liters"]) > 0]
+    window_start = record_date - timedelta(days=rolling_window - 1)
+    window_rows = [row for row in prior_session_rows if row["record_date"] >= window_start][-rolling_window:]
+    window_values = [float(row["quantity"]) for row in window_rows if float(row["quantity"]) > 0]
 
     if len(window_values) < min_days:
         return {
@@ -395,7 +412,7 @@ def assess_milk_production_record(
             "unit": unit,
             "record_date": record_date.isoformat(),
             "historical_baseline": {
-                "history_days_count": len(prior_daily_rows),
+                "history_days_count": len(prior_session_rows),
                 "window_days_used": len(window_values),
                 "baseline_median_liters": None,
                 "baseline_mean_liters": None,
@@ -457,7 +474,9 @@ def assess_milk_production_record(
     anomaly_detected = bool(is_spike or is_decline)
 
     historical_baseline = {
-        "history_days_count": len(prior_daily_rows),
+        "history_days_count": len(prior_session_rows),
+        "history_sessions_count": len(prior_session_rows),
+        "milking_session": milking_session,
         "window_days_used": len(window_values),
         "baseline_median_liters": round(baseline_median, 2),
         "baseline_mean_liters": round(baseline_mean, 2),
@@ -469,7 +488,7 @@ def assess_milk_production_record(
         "recent_observations": [
             {
                 "record_date": row["record_date"].isoformat(),
-                "quantity_liters": round(float(row["total_liters"]), 2),
+                "quantity_liters": round(float(row["quantity"]), 2),
             }
             for row in window_rows[-7:]
         ],
@@ -497,9 +516,9 @@ def assess_milk_production_record(
         )
         reason = (
             f"Reported milk yield of {submitted_qty:.2f} L on {record_date.isoformat()} for {tag_label} "
-            f"is {abs_pct:.1f}% ({sign_str} L, {pct_str}) {direction_word} this cow's approved rolling median "
-            f"baseline of {baseline_median:.2f} L/day (mean {baseline_mean:.2f} L/day across "
-            f"{len(window_values)} recent approved days). Routed to field verification to {context_note}."
+        f"is {abs_pct:.1f}% ({sign_str} L, {pct_str}) {direction_word} this cow's approved rolling median "
+        f"{milking_session.lower()} session baseline of {baseline_median:.2f} L/session (mean {baseline_mean:.2f} L/session across "
+        f"{len(window_values)} recent approved sessions). Routed to field verification to {context_note}."
         )
         return {
             "assessment_status": "ANOMALY_DETECTED",
@@ -526,8 +545,8 @@ def assess_milk_production_record(
     pct_str = f"+{pct_change:.1f}%" if pct_change >= 0 else f"{pct_change:.1f}%"
     reason = (
         f"Reported milk yield of {submitted_qty:.2f} L on {record_date.isoformat()} for {tag_label} "
-        f"is consistent with this cow's approved rolling median baseline of {baseline_median:.2f} L/day "
-        f"({sign_str} L, {pct_str} across {len(window_values)} recent approved days). "
+        f"is consistent with this cow's approved rolling median {milking_session.lower()} session baseline of {baseline_median:.2f} L/session "
+        f"({sign_str} L, {pct_str} across {len(window_values)} recent approved sessions). "
         f"No anomaly detected; routed directly to the MAO approval queue."
     )
     return {
@@ -564,6 +583,7 @@ def apply_milk_anomaly_assessment(
         quantity=getattr(record, "quantity", 0),
         unit=getattr(record, "unit", ""),
         record_date=getattr(record, "record_date", timezone.localdate()),
+        milking_session=getattr(record, "milking_session", None),
         exclude_record_id=getattr(record, "pk", None),
         previous_assessment=previous_assessment if previous_assessment is not None else getattr(record, "anomaly_assessment", None),
     )

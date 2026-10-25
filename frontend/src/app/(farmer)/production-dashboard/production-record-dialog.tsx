@@ -154,6 +154,13 @@ export default function ProductionRecordDialog({
                   value={record.livestockTypeName ?? `ID ${record.livestockId}`}
                 />
                 <InfoCard label="Submitted" value={formatDateTime(record.createdAt)} />
+                {record.productionType === "milk" && record.milkingSession && (
+                  <InfoCard
+                    label="Milking session"
+                    value={`${record.milkingSession.charAt(0)}${record.milkingSession.slice(1).toLowerCase()}`}
+                  />
+                )}
+                {record.approvedAt && <InfoCard label="Approved" value={formatDateTime(record.approvedAt)} />}
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
