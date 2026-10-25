@@ -100,14 +100,14 @@ def dashboard_summary(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, isMAO | isSibat])
+@permission_classes([IsAuthenticated, isMAO])
 def disease_mortality_surveillance(request):
-    """Return scoped, approved-record surveillance indicators for authorized reviewers."""
+    """Return approved-record surveillance indicators for MAO/Admin."""
     return Response(surveillance_summary(user=request.user))
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, isMAO | isSibat])
+@permission_classes([IsAuthenticated, isMAO])
 def surveillance_forecast_experiment(request):
     """Run the on-demand, scoped experimental forecast comparison."""
     return Response(evaluate_surveillance_forecast_experiment(user=request.user))

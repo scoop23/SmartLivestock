@@ -169,48 +169,28 @@ class DiseaseMortalitySurveillanceTests(TestCase):
         self.assertEqual(summary["mortality"]["last_30_days"]["deaths"], 0)
         self.assertIn("not measured", summary["data_quality"]["reporting_completeness"])
 
-    def test_sibat_endpoint_only_returns_assigned_barangay_events(self):
-        assigned = User.objects.create_user(
-            username="surveillance-sibat", email="surveillance-sibat@example.test",
-            password="test-pass", role=self.sibat_role, assigned_barangay=self.barangay,
-        )
-        other_user = User.objects.create_user(
-            username="surveillance-farmer-other", email="surveillance-farmer-other@example.test",
-            password="test-pass", role=self.farmer_role,
-        )
-        other_farmer = Farmer.objects.create(user=other_user, barangay=self.other_barangay, address="Other address")
-        other_animal = self._animal(99, farmer=other_farmer)
-        today = django_timezone.localdate()
-        latest_week_start = today - timedelta(days=today.weekday() + 7)
-        self._disease(latest_week_start, animal=self.animals[0])
-        self._disease(latest_week_start, animal=other_animal)
+    def test_only_municipal_reviewers_can_access_surveillance_endpoints(self):
+        for role in (self.sibat_role, self.cbat_role):
+            reviewer = User.objects.create_user(
+                username=f"surveillance-{role.role_name.lower()}",
+                email=f"surveillance-{role.role_name.lower()}@example.test",
+                password="test-pass", role=role, assigned_barangay=self.barangay,
+            )
+            for path, view in (
+                ("/api/analytics/surveillance/", disease_mortality_surveillance),
+                ("/api/analytics/surveillance/forecast-experiment/", surveillance_forecast_experiment),
+            ):
+                request = APIRequestFactory().get(path)
+                force_authenticate(request, user=reviewer)
+                self.assertEqual(view(request).status_code, 403)
 
         request = APIRequestFactory().get("/api/analytics/surveillance/")
-        force_authenticate(request, user=assigned)
-        response = disease_mortality_surveillance(request)
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["disease"]["latest_complete_week"]["reports"], 1)
-        self.assertEqual(
-            [row["barangay"] for row in response.data["barangays_last_30_days"]],
-            ["Cawongan"],
-        )
+        force_authenticate(request, user=self.admin)
+        self.assertEqual(disease_mortality_surveillance(request).status_code, 200)
 
         experiment_request = APIRequestFactory().get("/api/analytics/surveillance/forecast-experiment/")
-        force_authenticate(experiment_request, user=assigned)
-        experiment_response = surveillance_forecast_experiment(experiment_request)
-        self.assertEqual(experiment_response.status_code, 200)
-        self.assertEqual(experiment_response.data["targets"]["disease_reports"]["current_partial_month_rows_excluded"], 1)
-
-        cbat = User.objects.create_user(
-            username="surveillance-cbat", email="surveillance-cbat@example.test",
-            password="test-pass", role=self.cbat_role, assigned_barangay=self.barangay,
-        )
-        cbat_request = APIRequestFactory().get("/api/analytics/surveillance/")
-        force_authenticate(cbat_request, user=cbat)
-        cbat_response = disease_mortality_surveillance(cbat_request)
-        self.assertEqual(cbat_response.status_code, 200)
-        self.assertEqual(cbat_response.data["disease"]["latest_complete_week"]["reports"], 1)
+        force_authenticate(experiment_request, user=self.admin)
+        self.assertEqual(surveillance_forecast_experiment(experiment_request).status_code, 200)
 
     def test_non_reviewer_is_denied_by_endpoint(self):
         request = APIRequestFactory().get("/api/analytics/surveillance/")

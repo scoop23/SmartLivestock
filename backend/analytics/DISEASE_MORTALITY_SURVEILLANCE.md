@@ -2,7 +2,7 @@
 
 ## Scope and data rules
 
-`GET /api/analytics/surveillance/` returns operational review indicators for authenticated MAO/Admin and SIBAT/CBAT users. Each queryset uses `scope_reviewer_queryset`; field reviewers see only the barangays allowed by their assigned scope. The endpoint is read-only.
+`GET /api/analytics/surveillance/` returns operational review indicators for authenticated MAO/Admin users only. The endpoint is read-only.
 
 Only final `APPROVED` disease and mortality records with an event `record_date` in the analysis window contribute to dated totals. Pending, verified-only, returned, undated, future-dated, and known analytics seed-marked rows do not contribute. Undated approved row counts are returned separately. A disease report is one report; `affected_count` is a reported head count and repeated disease reports are not deduplicated because the model has no episode identifier. Distinct identified livestock are counted separately from affected heads. Mortality `death_count` uses each linked individual animal once across repeated reports; any count not represented by animal IDs remains a reported aggregate count.
 
@@ -36,7 +36,7 @@ The service reports disease events dated strictly before an approved death repor
 
 ## Experimental monthly forecast comparison
 
-`GET /api/analytics/surveillance/forecast-experiment/` runs a separate, on-demand, role-scoped experiment for three distinct targets: disease report counts (`CASES`), disease affected heads (`HEADS`), and mortality deaths (`HEADS`). It forecasts one month ahead. It does not use current inventory as a historical population denominator or produce mortality rates.
+`GET /api/analytics/surveillance/forecast-experiment/` runs a separate, on-demand MAO/Admin-only experiment for three distinct targets: disease report counts (`CASES`), disease affected heads (`HEADS`), and mortality deaths (`HEADS`). It forecasts one month ahead. It does not use current inventory as a historical population denominator or produce mortality rates.
 
 ### Candidates and features
 
@@ -56,7 +56,7 @@ The endpoint returns readiness per target. `INSUFFICIENT_TRAINING_DATA` means fe
 
 Evaluation uses expanding chronological origins, one-month-ahead predictions, and the same eligible target months for the selected existing model and enhanced candidate. Each row includes cutoff, target month, actual, predictions, and absolute/squared errors. MAE is `mean(abs(actual - prediction))`; RMSE is `sqrt(mean((actual - prediction)^2))`. Metrics are null when there are no shared predictions; zero valid periods returns `INSUFFICIENT_EVALUATION_DATA`, not zero error. Fewer than 12 shared periods is labeled experimental/inconclusive. A directional comparison requires at least 12 periods, a 10% aggregate MAE difference, and a consistent per-period direction; this rule is an experiment heuristic, not a validated model-selection standard. Excluded periods and missing timestamp counts are returned.
 
-Run the comparison by requesting the endpoint from the existing authorized analytics dashboard or directly as an authorized MAO/Admin or scoped SIBAT/CBAT user. It is on demand; it is not triggered by unrelated dashboard requests. The enhanced candidate is never automatically promoted, and its fit or evaluation cannot change production forecasts, model selection, stored forecasts, or recommendation rules. Synthetic demo rows are excluded and are never evidence of model performance. An implemented enhanced model is not necessarily a validated or more accurate model. Establishing improvement requires years or sufficient months of consistent real approved observations, reliable approval history, and reporting-coverage data so that absent records can be interpreted.
+Run the comparison by requesting the endpoint from the MAO/Admin analytics dashboard or directly as an authorized MAO/Admin user. It is on demand; it is not triggered by unrelated dashboard requests. The enhanced candidate is never automatically promoted, and its fit or evaluation cannot change production forecasts, model selection, stored forecasts, or recommendation rules. Synthetic demo rows are excluded and are never evidence of model performance. An implemented enhanced model is not necessarily a validated or more accurate model. Establishing improvement requires years or sufficient months of consistent real approved observations, reliable approval history, and reporting-coverage data so that absent records can be interpreted.
 
 ## GIS and interpretation
 
@@ -93,7 +93,7 @@ The scenarios use the service's exact Monday-Sunday week boundaries:
 | Elevated | 2 reports / 3 affected heads | 5 reports / 8 affected heads | `ELEVATED` |
 | Insufficient data | no matching reports | no matching reports | `INSUFFICIENT_DATA` |
 
-The association fixture also demonstrates same-animal, same-herd, and same-current-barangay temporal matches, including a 30-day interval. Causes and disease labels are synthetic recorded values; no pair claims disease caused a death. Use a SIBAT/CBAT account assigned to each scenario barangay to see that scenario's alert in isolation. A municipality-wide MAO/Admin view combines records from all scenarios into one alert. Synthetic disease labels start with `DEMO ONLY`, and the ownership marker is retained in review remarks. Seed-owned animals are included in the current-inventory mortality denominator; any resulting rate remains the service's explicitly labeled estimate, not a historical population-at-risk rate.
+The association fixture also demonstrates same-animal, same-herd, and same-current-barangay temporal matches, including a 30-day interval. Causes and disease labels are synthetic recorded values; no pair claims disease caused a death. The MAO/Admin view combines records from all scenarios into one municipal alert. Synthetic disease labels start with `DEMO ONLY`, and the ownership marker is retained in review remarks. Seed-owned animals are included in the current-inventory mortality denominator; any resulting rate remains the service's explicitly labeled estimate, not a historical population-at-risk rate.
 
 The model has nullable animal/herd links for legacy aggregate mortality rows, but the current mortality serializer requires identified animals and `reconcile_approved_mortality()` refuses approval without them. The command therefore does not fabricate an approved linkless aggregate row. The existing surveillance tests exercise the zero-denominator behavior without corrupting inventory. Empty weeks still mean only that no matching reports were found; this seed creates no reporting-coverage history and does not prove zero disease or mortality.
 
