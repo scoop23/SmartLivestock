@@ -47,11 +47,12 @@ from datetime import date
 import pandas as pd
 import numpy as np
 from django.utils import timezone
+from livestock.models import LivestockOwnershipTransfer
 
-from django.db.models import Sum, Count, Q, Max
+from django.db.models import Sum, Count, Max
 from django.db.models.functions import TruncMonth
 
-from production.models import ProductionRecord, SlaughterRecord, LiveAnimalSale
+from production.models import ProductionRecord, SlaughterRecord
 from diseases.models import DiseaseCase, MortalityRecord
 from smartlivestock.workflows import scope_reviewer_queryset
 from analytics.seed_markers import (
@@ -61,6 +62,8 @@ from analytics.seed_markers import (
     SEED_MARKER_MORTALITY,
     SEED_MARKER_SLAUGHTER,
     SEED_MARKER_AUCTION,
+    SEED_MARKER_FORECAST_QUALITY_IDEAL,
+    SEED_MARKER_FORECAST_QUALITY_POOR,
 )
 
 SEED_MARKER_V2 = SEED_MARKER_PRODUCTION_V2
@@ -122,22 +125,22 @@ FORECAST_TARGETS = {
     ("auction", "ALL", "HEADS"): {
         "label": "Livestock sold",
         "unit": "HEADS",
-        "event_date_field": "LiveAnimalSale.sale_date",
+        "event_date_field": "LivestockOwnershipTransfer.transfer_date",
         "eligible_status": "APPROVED",
-        "source": "LiveAnimalSale.quantity (approved transactions)",
-        "expected_reporting": "Transaction-based; a missing month does not prove zero sales or a held auction.",
+        "source": "LivestockOwnershipTransfer (one animal per approved transfer)",
+        "expected_reporting": "Transfer-event based; a missing month does not prove zero sales or no transfers.",
         "minimum_monthly_observations": 18,
         "minimum_rule": "12 training months plus a 6-month out-of-sample window for this monthly event series.",
     },
     ("auction", "ALL", "TRANSACTIONS"): {
-        "label": "Completed livestock sale transactions",
+        "label": "Completed livestock transfer events",
         "unit": "TRANSACTIONS",
-        "event_date_field": "LiveAnimalSale.sale_date",
+        "event_date_field": "LivestockOwnershipTransfer.transfer_date",
         "eligible_status": "APPROVED",
-        "source": "LiveAnimalSale approved transaction records",
-        "expected_reporting": "Weekly transaction-based; missing weeks are unknown because no market coverage log exists.",
+        "source": "LivestockOwnershipTransfer approved events",
+        "expected_reporting": "Weekly transfer-event based; missing weeks are unknown because no reporting coverage log exists.",
         "minimum_monthly_observations": 12,
-        "minimum_rule": "The weekly auction service requires 12 contiguous complete weeks of recorded transactions; missing weeks are never zero-filled.",
+        "minimum_rule": "The weekly transfer service requires 12 contiguous complete weeks of approved transfer events; missing weeks are never zero-filled.",
     },
 }
 
@@ -212,7 +215,7 @@ def extract_monthly_series(
       - 'disease': Target is disease name or 'ALL'. Unit is 'CASES' or 'HEADS'.
       - 'mortality': Target is cause or 'ALL'. Unit is 'HEADS'.
       - 'slaughter': Target is species or 'ALL'. Unit is 'HEADS' (throughput) or 'KILOGRAMS' (carcass weight).
-      - 'auction': Target is purpose/method or 'ALL'. Unit is 'HEADS' or 'PHP'.
+      - 'auction': Target is livestock type or 'ALL'. Unit is 'HEADS', 'TRANSACTIONS', or 'PHP'.
 
     Returns:
         (df, metadata)
@@ -383,33 +386,33 @@ def extract_monthly_series(
 
     elif domain == "auction":
         # ---------------------------------------------------------------------
-        # DOMAIN: AUCTION / LIVE ANIMAL SALES
+        # DOMAIN: COMPLETED LIVE ANIMAL OWNERSHIP TRANSFERS
         # ---------------------------------------------------------------------
-        base_qs = scope_reviewer_queryset(LiveAnimalSale.objects.all(), user).filter(
-            status=LiveAnimalSale.StatusType.APPROVED
+        base_qs = scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user).filter(
+            status=LivestockOwnershipTransfer.Status.APPROVED
         )
-        event_date_field = "sale_date"
-        if target_clean not in ("ALL", "HEADS", "SALES", "PHP", ""):
-            base_qs = base_qs.filter(
-                Q(sale_method__icontains=target_clean) | Q(purpose__icontains=target_clean)
-            )
+        event_date_field = "transfer_date"
+        if target_clean not in ("ALL", "HEADS", "SALES", "TRANSACTIONS", "PHP", ""):
+            base_qs = base_qs.filter(livestock__livestock_type__name__icontains=target_clean)
 
         # Check for synthetic test seed markers so test datasets are clearly flagged
         # (This allows safe cleaning via python manage.py seed_auction --clean without touching real records)
-        seeded_record = (
-            base_qs.filter(review_remarks__contains="AI_SEED").first()
-            or (base_qs.filter(notes__contains="AI_SEED").first() if hasattr(LiveAnimalSale, "notes") else None)
-        )
+        seeded_record = base_qs.filter(review_remarks__contains="AI_SEED").first()
         if seeded_record:
             has_seed = True
-            active_marker = SEED_MARKER_AUCTION
+            active_marker = next((marker for marker in (
+                SEED_MARKER_FORECAST_QUALITY_IDEAL,
+                SEED_MARKER_FORECAST_QUALITY_POOR,
+                SEED_MARKER_AUCTION,
+            ) if marker in (seeded_record.review_remarks or "")), "AI_SEED")
 
         if unit_clean in ("PHP", "VALUE", "TOTAL_PRICE"):
             unit_clean = "PHP"
+            unmeasured_target_records = base_qs.filter(purchase_price__isnull=True).count()
             monthly_data = (
-                base_qs.annotate(month=TruncMonth("sale_date"))
+                base_qs.annotate(month=TruncMonth("transfer_date"))
                 .values("month")
-                .annotate(total_quantity=Sum("total_price"), latest_event_date=Max("sale_date"), latest_approval=Max("reviewed_at"),
+                .annotate(total_quantity=Sum("purchase_price"), latest_event_date=Max("transfer_date"), latest_approval=Max("reviewed_at"),
                           latest_creation=Max("created_at"), total_records=Count("pk"),
                           reviewed_records=Count("reviewed_at"), created_records=Count("created_at"))
                 .order_by("month")
@@ -417,9 +420,9 @@ def extract_monthly_series(
         else:
             unit_clean = "HEADS"
             monthly_data = (
-                base_qs.annotate(month=TruncMonth("sale_date"))
+                base_qs.annotate(month=TruncMonth("transfer_date"))
                 .values("month")
-                .annotate(total_quantity=Sum("quantity"), latest_event_date=Max("sale_date"), latest_approval=Max("reviewed_at"),
+                .annotate(total_quantity=Count("livestock_id", distinct=True), latest_event_date=Max("transfer_date"), latest_approval=Max("reviewed_at"),
                           latest_creation=Max("created_at"), total_records=Count("pk"),
                           reviewed_records=Count("reviewed_at"), created_records=Count("created_at"))
                 .order_by("month")
@@ -517,7 +520,7 @@ def extract_monthly_series(
         "disease": "Municipal-level disease forecast",
         "mortality": "Municipality-wide mortality totals",
         "slaughter": "Municipal slaughterhouse (abattoir) throughput",
-        "auction": "Municipal live animal commercial trade",
+        "auction": "Approved municipal live-animal ownership transfers",
     }
     domain_scope = domain_scopes.get(domain, f"Municipal {domain} aggregate")
 
@@ -599,10 +602,18 @@ def extract_monthly_series(
         metadata["status"] = "incomplete_target_measurements"
         metadata["forecast_available"] = False
         metadata["readiness_status"] = READINESS_NOT_READY
-        metadata["readiness_details"] = (
-            f"{unmeasured_target_records} approved slaughter event(s) have no carcass weight. "
-            "The monthly meat-yield totals may be partial, so the forecast is withheld."
-        )
+        if domain == "slaughter":
+            metadata["readiness_details"] = (
+                f"{unmeasured_target_records} approved slaughter event(s) have no carcass weight. "
+                "The monthly meat-yield totals may be partial, so the forecast is withheld."
+            )
+        elif domain == "auction" and unit_clean == "PHP":
+            metadata["readiness_details"] = (
+                f"{unmeasured_target_records} approved ownership transfer(s) have no recorded purchase price. "
+                "Monthly transfer values may be partial, so the forecast is withheld."
+            )
+        else:
+            metadata["readiness_details"] = "Some approved events are missing a required measurement, so the forecast is withheld."
         metadata["message"] = metadata["readiness_details"]
         return None, metadata
 

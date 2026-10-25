@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.renderers import JSONRenderer
 from rest_framework.test import APIRequestFactory, force_authenticate
 
@@ -21,6 +22,7 @@ from livestock.models import (
     Farmer,
     LivestockBatch,
     LivestockInventory,
+    LivestockOwnershipTransfer,
     LivestockType,
 )
 from production.models import LiveAnimalSale, ProductionRecord
@@ -51,12 +53,27 @@ class DescriptiveSummaryTests(TestCase):
         """Create count one-head records, matching the current inventory model."""
         return [self.animal(**kwargs) for _ in range(count)]
 
+    def transfer(self, animal, *, when=None, price=None, status="APPROVED", certificate=None):
+        return LivestockOwnershipTransfer.objects.create(
+            livestock=animal, previous_owner=self.farmer,
+            owner_type=LivestockOwnershipTransfer.OwnerType.EXTERNAL_INDIVIDUAL,
+            external_owner_name="Demo buyer", external_owner_address="Demo address",
+            transfer_certificate_number=certificate or f"CERT-{LivestockOwnershipTransfer.objects.count()}-{animal.pk}",
+            original_certificate_number=f"ORIG-{animal.pk}", transfer_date=when or self.today,
+            municipality="Padre Garcia", province="Batangas", purchase_price=price,
+            status=status, created_by=self.user,
+            reviewed_by=self.user if status == "APPROVED" else None,
+            reviewed_at=timezone.now() if status == "APPROVED" else None,
+        )
+
     def test_empty_data_has_zero_totals_and_no_division_error(self):
         result = descriptive_summary(self.today)["descriptive"]
         self.assertEqual(result["population"]["total_heads"], 0)
         self.assertEqual(result["vaccination"]["coverage_pct"], 0)
         self.assertEqual(result["production"]["by_type"], [])
         self.assertIsNone(result["sales"]["recorded_value"])
+        self.assertEqual(result["sales"]["completed_transfers"], 0)
+        self.assertIsNone(result["sales"]["trend"][-1]["transactions"])
 
     def test_population_uses_approved_active_individuals_and_herd_children(self):
         self.individual_animals(3, vaccination=date(2026, 9, 1))
@@ -90,7 +107,9 @@ class DescriptiveSummaryTests(TestCase):
         DiseaseCase.objects.create(livestock=animal, name="FMD", affected_count=9, record_date=date(2026, 9, 16), status="VERIFIED", created_by=self.user)
         DiseaseCase.objects.create(livestock=animal, name="FMD", affected_count=7, record_date=None, status="APPROVED", created_by=self.user)
         MortalityRecord.objects.create(livestock=animal, death_count=2, cause="Old age", record_date=date(2026, 9, 17), status="APPROVED", created_by=self.user)
-        LiveAnimalSale.objects.create(livestock=animal, quantity=2, sale_date=date(2026, 9, 18), status="APPROVED", total_price=Decimal("123.45"), created_by=self.user)
+        self.transfer(animal, when=date(2026, 9, 18), price=Decimal("123.45"))
+        # A separate auction-sale row is not the completed ownership-transfer source.
+        LiveAnimalSale.objects.create(livestock=animal, quantity=80, sale_date=date(2026, 9, 18), status="APPROVED", total_price=Decimal("99999"), created_by=self.user)
 
         result = descriptive_summary(self.today)
         data = result["descriptive"]
@@ -103,6 +122,9 @@ class DescriptiveSummaryTests(TestCase):
         self.assertEqual(data["disease"]["by_barangay"][0]["barangay_id"], self.barangay.id)
         self.assertEqual(data["mortality"]["deaths"], 2)
         self.assertEqual(data["sales"]["recorded_value"], 123.45)
+        self.assertEqual(data["sales"]["completed_transfers"], 1)
+        self.assertEqual(data["sales"]["animals"], 1)
+        self.assertEqual(overview_summary(today=self.today)["approved_transfer_value"], 123.45)
         self.assertEqual(len(result["surveillance_series"]), 12)
         september = next(point for point in result["surveillance_series"] if point["month"] == "2026-09-01")
         self.assertEqual(september["reported_heads"], 4)
@@ -195,21 +217,66 @@ class DescriptiveSummaryTests(TestCase):
         self.assertEqual({row["cause"]: row["deaths"] for row in data["mortality"]["by_cause"]}, {"Recorded cause A": 5, "Recorded cause B": 1})
 
     def test_sales_missing_prices_are_distinct_from_recorded_zero(self):
-        animal = self.animal()
-        def sale(quantity, price=None, status="APPROVED"):
-            return LiveAnimalSale.objects.create(livestock=animal, quantity=quantity, total_price=price,
-                                                 status=status, sale_date=self.today, created_by=self.user)
-        sale(2)
+        def sale(price=None, status="APPROVED"):
+            animal = self.animal(operational="SOLD" if status == "APPROVED" else "ACTIVE")
+            return self.transfer(animal, price=price, status=status)
+        sale()
         data = descriptive_summary(self.today)["descriptive"]["sales"]
         self.assertEqual({k: data[k] for k in ("sales", "animals", "recorded_value", "priced_sales")},
-                         {"sales": 1, "animals": 2, "recorded_value": None, "priced_sales": 0})
-        sale(3, Decimal("123.45"))
-        sale(1, Decimal("0"))
+                         {"sales": 1, "animals": 1, "recorded_value": None, "priced_sales": 0})
+        sale(Decimal("123.45"))
+        sale(Decimal("0"))
         for status in ("PENDING", "VERIFIED", "SUBJECT_TO_REVISION"):
-            sale(50, Decimal("999"), status)
+            sale(Decimal("999"), status)
         data = descriptive_summary(self.today)["descriptive"]["sales"]
         self.assertEqual({k: data[k] for k in ("sales", "animals", "recorded_value", "priced_sales")},
-                         {"sales": 3, "animals": 6, "recorded_value": 123.45, "priced_sales": 2})
+                         {"sales": 3, "animals": 3, "recorded_value": 123.45, "priced_sales": 2})
+        self.assertEqual(data["average_price"], 61.725)
+        self.assertEqual(data["missing_price_transfers"], 1)
+
+    def test_same_animal_multiple_approved_transfer_events_count_once_as_animal(self):
+        animal = self.animal(operational="SOLD")
+        self.transfer(animal, when=date(2026, 9, 10), price=Decimal("100"))
+        self.transfer(animal, when=date(2026, 9, 20), price=Decimal("200"))
+        data = descriptive_summary(self.today)["descriptive"]["sales"]
+        self.assertEqual(data["completed_transfers"], 2)
+        self.assertEqual(data["animals"], 1)
+        self.assertEqual(data["recorded_value"], 300.0)
+
+    def test_transfer_date_filters_trend_and_sales_metrics(self):
+        self.transfer(self.animal(), when=date(2026, 9, 30), price=Decimal("125"))
+        self.transfer(self.animal(), when=date(2026, 10, 2), price=Decimal("900"))
+        data = descriptive_summary(self.today)["descriptive"]["sales"]
+        self.assertEqual(data["completed_transfers"], 1)
+        self.assertEqual(data["recorded_value"], 125.0)
+        september = next(row for row in data["trend"] if row["month"] == "2026-09-01")
+        self.assertEqual(september["transactions"], 1)
+
+    def test_sibat_sales_are_scoped_to_assigned_barangay(self):
+        other_borough = Barangay.objects.create(barangay_name="Other Scope", latitude=13.9, longitude=121.3)
+        other_user = User.objects.create_user(username="other-farmer", email="other@example.test", role=self.user.role)
+        other_farmer = Farmer.objects.create(user=other_user, barangay=other_borough, address="Other")
+        for farmer in (self.farmer, other_farmer):
+            animal = LivestockInventory.objects.create(
+                farmer=farmer, livestock_type=self.cattle, entry_type="INDIVIDUAL", quantity=1,
+                status="APPROVED", operational_status="SOLD", created_by=farmer.user,
+            )
+            LivestockOwnershipTransfer.objects.create(
+                livestock=animal, previous_owner=farmer,
+                owner_type=LivestockOwnershipTransfer.OwnerType.EXTERNAL_INDIVIDUAL,
+                external_owner_name="Buyer", external_owner_address="Address",
+                transfer_certificate_number=f"SCOPE-{animal.pk}", original_certificate_number=f"ORIG-{animal.pk}",
+                transfer_date=self.today, municipality="Padre Garcia", province="Batangas",
+                purchase_price=Decimal("10"), status="APPROVED", created_by=farmer.user,
+            )
+        sibat_role = Role.objects.create(role_name="SIBAT")
+        sibat = User.objects.create_user(
+            username="scope-reviewer", email="scope-reviewer@example.test", role=sibat_role,
+            assigned_barangay=self.barangay, access_scope="ASSIGNED_ONLY",
+        )
+        data = descriptive_summary(self.today, user=sibat)["descriptive"]["sales"]
+        self.assertEqual(data["completed_transfers"], 1)
+        self.assertEqual(data["recorded_value"], 10.0)
 
     def test_dashboard_api_exposes_aggregates_only_to_reviewers(self):
         factory = APIRequestFactory()

@@ -23,14 +23,13 @@ from django.db import connections, transaction
 from django.utils import timezone
 
 from analytics.seed_markers import (
-    SEED_MARKER_AUCTION,
     SEED_MARKER_FORECAST_QUALITY_IDEAL,
     SEED_MARKER_FORECAST_QUALITY_POOR,
     SEED_MARKER_PRODUCTION_V2,
     SEED_MARKER_SLAUGHTER,
 )
-from livestock.models import LivestockType
-from production.models import LiveAnimalSale, ProductionRecord, SlaughterRecord
+from livestock.models import Farmer, LivestockInventory, LivestockOwnershipTransfer, LivestockType
+from production.models import ProductionRecord, SlaughterRecord
 from users.models import User
 
 
@@ -95,6 +94,9 @@ class Command(BaseCommand):
         )
         if not cattle_type:
             raise CommandError("A Cattle/Cow LivestockType is required for synthetic slaughter events.")
+        seller = Farmer.objects.select_related("user").first()
+        if not seller:
+            raise CommandError("At least one Farmer record is required as the seller for synthetic transfer events.")
 
         # Warn rather than silently overwrite or remove unrelated source rows.
         existing_counts = {
@@ -102,7 +104,7 @@ class Command(BaseCommand):
                 production_type__in=(ProductionRecord.ProductionType.MILK, ProductionRecord.ProductionType.MEAT)
             ).count(),
             "slaughter": SlaughterRecord.objects.count(),
-            "auction": LiveAnimalSale.objects.count(),
+            "ownership_transfers": LivestockOwnershipTransfer.objects.count(),
         }
         if any(existing_counts.values()):
             self.stdout.write(self.style.WARNING(
@@ -113,13 +115,13 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             if scenario == "ideal":
-                created = self._seed_ideal(marker, mao_user, cattle_type)
+                created = self._seed_ideal(marker, mao_user, seller, cattle_type)
             else:
-                created = self._seed_poor(marker, mao_user, cattle_type)
+                created = self._seed_poor(marker, mao_user, seller, cattle_type)
         self.stdout.write(self.style.SUCCESS(
             f"Seeded the synthetic '{scenario}' forecast-quality scenario: "
             f"{created['milk']} milk session rows, {created['farmer_meat']} farmer meat events, "
-            f"{created['slaughter']} slaughter events, and {created['sales']} sale transactions."
+            f"{created['slaughter']} slaughter events, and {created['sales']} approved/pending ownership transfer events."
         ))
         self.stdout.write(
             "This dataset is synthetic. Its simulated dates and approval timestamps demonstrate system behavior; "
@@ -161,21 +163,25 @@ class Command(BaseCommand):
             ProductionRecord.objects.filter(notes__contains=marker)
             .exists()
             or SlaughterRecord.objects.filter(review_remarks__contains=marker).exists()
-            or LiveAnimalSale.objects.filter(review_remarks__contains=marker).exists()
+            or LivestockOwnershipTransfer.objects.filter(review_remarks__contains=marker).exists()
+            or LivestockInventory.objects.filter(tag_number__startswith=f"{marker}-").exists()
         )
 
     def _clean(self, marker):
         with transaction.atomic():
             milk_meat = ProductionRecord.objects.filter(notes__contains=marker)
             slaughter = SlaughterRecord.objects.filter(review_remarks__contains=marker)
-            sales = LiveAnimalSale.objects.filter(review_remarks__contains=marker)
-            counts = {"production": milk_meat.count(), "slaughter": slaughter.count(), "sales": sales.count()}
+            sales = LivestockOwnershipTransfer.objects.filter(review_remarks__contains=marker)
+            animals = LivestockInventory.objects.filter(tag_number__startswith=f"{marker}-")
+            counts = {"production": milk_meat.count(), "slaughter": slaughter.count(),
+                      "transfers": sales.count(), "synthetic_animals": animals.count()}
             milk_meat.delete()
             slaughter.delete()
             sales.delete()
+            animals.delete()
         self.stdout.write(self.style.SUCCESS(
             f"Removed only forecast demo rows owned by {marker}: {counts}. "
-            "Farmers, livestock, users, and other seed records were not deleted."
+            "The reused Farmer, their account, and unrelated livestock or transfer records were not deleted."
         ))
 
     @staticmethod
@@ -236,29 +242,58 @@ class Command(BaseCommand):
         row._demo_created_at = aware_at(day, 8)
         return row
 
-    def _sale_row(self, *, marker, user, day, heads, price, status,
+    def _sale_row(self, *, marker, user, seller, cattle_type, day, heads, price, status,
                   review_time=None, note=""):
-        total_weight = Decimal(str(heads * 350)) if heads else None
-        total_price = Decimal(str(price)) if price is not None else None
-        row = LiveAnimalSale(
-            livestock=None, batch=None, quantity=heads,
-            sale_method=LiveAnimalSale.SaleMethod.WEIGHING,
-            total_live_weight=total_weight,
-            price_per_head=(total_price / Decimal(heads)) if total_price is not None else None,
-            price_per_kg=(total_price / total_weight) if total_price is not None and total_weight else None,
-            total_price=total_price,
-            destination="Synthetic demonstration only",
-            sale_date=day, status=status,
-            purpose=LiveAnimalSale.SalePurpose.FATTENING,
-            reviewed_by=user if review_time else None,
-            reviewed_at=review_time,
-            review_remarks=f"{SEED_MARKER_AUCTION} {marker} Synthetic fixture; {note}"[:1000],
-            created_by=user,
-        )
-        row._demo_created_at = aware_at(day, 8)
-        return row
+        """Create one marked inventory identity and transfer event per animal."""
+        animal_rows = []
+        transfer_rows = []
+        if price is not None and heads:
+            total_cents = int((Decimal(str(price)) * 100).quantize(Decimal("1")))
+            base_cents, remainder_cents = divmod(total_cents, heads)
+            per_animal_prices = [
+                Decimal(base_cents + (1 if index < remainder_cents else 0)) / 100
+                for index in range(heads)
+            ]
+        else:
+            per_animal_prices = [None] * heads
+        for index in range(heads):
+            serial = getattr(self, "_demo_animal_serial", 0) + 1
+            self._demo_animal_serial = serial
+            animal = LivestockInventory(
+                farmer=seller, livestock_type=cattle_type,
+                entry_type=LivestockInventory.EntryType.INDIVIDUAL, quantity=1,
+                tag_number=f"{marker}-{serial:06d}",
+                status=LivestockInventory.StatusType.APPROVED,
+                operational_status=(LivestockInventory.OperationalStatus.SOLD
+                                    if status == LivestockOwnershipTransfer.Status.APPROVED
+                                    else LivestockInventory.OperationalStatus.ACTIVE),
+                operational_status_changed_at=(review_time if status == LivestockOwnershipTransfer.Status.APPROVED else None),
+                reviewed_by=user, reviewed_at=review_time,
+                review_remarks=f"{marker} Synthetic forecast-quality inventory fixture.",
+                created_by=user,
+            )
+            animal._demo_created_at = aware_at(day, 7)
+            animal_rows.append(animal)
+            transfer = LivestockOwnershipTransfer(
+                livestock=animal, previous_owner=seller,
+                owner_type=LivestockOwnershipTransfer.OwnerType.EXTERNAL_INDIVIDUAL,
+                external_owner_name=f"Synthetic buyer {serial}",
+                external_owner_address="Demonstration data only",
+                transfer_certificate_number=f"DEMO-{serial:08d}",
+                original_certificate_number=f"ORIGINAL-DEMO-{serial:08d}",
+                transfer_date=day, municipality="Padre Garcia", province="Batangas",
+                animal_description=f"Synthetic {cattle_type.name} transfer; {note}"[:500],
+                purchase_price=per_animal_prices[index],
+                status=status, reviewed_by=user if review_time else None,
+                reviewed_at=review_time,
+                review_remarks=f"{marker} Synthetic fixture; {note}"[:1000],
+                created_by=user,
+            )
+            transfer._demo_created_at = aware_at(day, 8)
+            transfer_rows.append(transfer)
+        return animal_rows, transfer_rows
 
-    def _seed_ideal(self, marker, user, cattle_type):
+    def _seed_ideal(self, marker, user, seller, cattle_type):
         months = self._months_back(MONTHS)
         production_rows = []
         meat_rows = []
@@ -304,6 +339,7 @@ class Command(BaseCommand):
         today = timezone.localdate()
         current_week_start = today - timedelta(days=today.weekday())
         final_week_start = current_week_start - timedelta(weeks=AUCTION_WEEKS)
+        sale_animals = []
         sale_rows = []
         for week_index in range(AUCTION_WEEKS):
             week_start = final_week_start + timedelta(weeks=week_index)
@@ -312,17 +348,21 @@ class Command(BaseCommand):
                 heads = 2 + ((week_index * 3 + weekday) % 5)
                 for extra in range(2 if weekday == 4 else 1 if weekday == 3 else 0):
                     total_price = heads * (30000 + ((week_index + extra) % 9) * 850)
-                    sale_rows.append(self._sale_row(
-                        marker=marker, user=user, day=sale_day, heads=heads,
-                        price=total_price, status=LiveAnimalSale.StatusType.APPROVED,
+                    animals, transfers = self._sale_row(
+                        marker=marker, user=user, seller=seller, cattle_type=cattle_type,
+                        day=sale_day, heads=heads,
+                        price=total_price, status=LivestockOwnershipTransfer.Status.APPROVED,
                         review_time=aware_at(sale_day, 17),
                         note="all weekdays represented; Thursday/Friday pattern is synthetic only",
-                    ))
-        self._create_rows(LiveAnimalSale, sale_rows)
+                    )
+                    sale_animals.extend(animals)
+                    sale_rows.extend(transfers)
+        self._create_rows(LivestockInventory, sale_animals)
+        self._create_rows(LivestockOwnershipTransfer, sale_rows)
         return {"milk": len(production_rows), "farmer_meat": len(meat_rows),
                 "slaughter": len(slaughter_rows), "sales": len(sale_rows)}
 
-    def _seed_poor(self, marker, user, cattle_type):
+    def _seed_poor(self, marker, user, seller, cattle_type):
         months = self._months_back(MONTHS)
         observed_indexes = (0, 4, 8, 12, 16, 20, 24, 28, 32, 35)
         production_rows = []
@@ -379,6 +419,7 @@ class Command(BaseCommand):
         today = timezone.localdate()
         current_week_start = today - timedelta(days=today.weekday())
         last_complete_start = current_week_start - timedelta(weeks=1)
+        sale_animals = []
         sale_rows = []
         # Only eight nonconsecutive weeks have approved transactions. Captured
         # dates skew toward Friday; this is intentionally inadequate to estimate
@@ -388,19 +429,26 @@ class Command(BaseCommand):
             weekday = 1 if index in (3, 7) else 4
             sale_day = week_start + timedelta(days=weekday)
             reviewed = None if index in (1, 4, 7) else aware_at(sale_day + timedelta(days=35), 17)
-            sale_rows.append(self._sale_row(
-                marker=marker, user=user, day=sale_day, heads=1 + index,
+            animals, transfers = self._sale_row(
+                marker=marker, user=user, seller=seller, cattle_type=cattle_type,
+                day=sale_day, heads=1 + index,
                 price=None if index % 3 == 0 else (28000 + index * 1100) * (1 + index),
-                status=LiveAnimalSale.StatusType.APPROVED,
+                status=LivestockOwnershipTransfer.Status.APPROVED,
                 review_time=reviewed, note="intermittent capture; missing price or approval time is intentional",
-            ))
+            )
+            sale_animals.extend(animals)
+            sale_rows.extend(transfers)
         for offset in (5, 13, 20):
             sale_day = last_complete_start - timedelta(weeks=offset) + timedelta(days=4)
-            sale_rows.append(self._sale_row(
-                marker=marker, user=user, day=sale_day, heads=2, price=None,
-                status=LiveAnimalSale.StatusType.SUBJECT_TO_REVISION,
+            animals, transfers = self._sale_row(
+                marker=marker, user=user, seller=seller, cattle_type=cattle_type,
+                day=sale_day, heads=2, price=None,
+                status=LivestockOwnershipTransfer.Status.SUBJECT_TO_REVISION,
                 note="returned for revision; excluded from approved completed-sale totals",
-            ))
-        self._create_rows(LiveAnimalSale, sale_rows)
+            )
+            sale_animals.extend(animals)
+            sale_rows.extend(transfers)
+        self._create_rows(LivestockInventory, sale_animals)
+        self._create_rows(LivestockOwnershipTransfer, sale_rows)
         return {"milk": len(production_rows), "farmer_meat": len(meat_rows),
                 "slaughter": len(slaughter_rows), "sales": len(sale_rows)}

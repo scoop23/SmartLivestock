@@ -101,11 +101,18 @@ interface DescriptiveResponse {
     };
     sales: {
       sales: number;
+      completed_transfers: number;
       animals: number;
       recorded_value: number | null;
       priced_sales: number;
+      average_price: number | null;
+      missing_price_transfers: number;
+      source: string;
+      period_start: string;
+      period_end: string;
       by_species: { species: string; animals: number; transactions: number; recorded_value_php: number | null; priced_transactions: number }[];
       monthly_trend_by_species: { month: string; label: string; species: string; animals: number; transactions: number; recorded_value_php: number | null }[];
+      trend: { month: string; label: string; transactions: number | null; animals: number | null; total_value_php: number | null }[];
     };
     per_barangay_report: BarangayReportRow[];
   };
@@ -360,8 +367,8 @@ function csvCell(value: string | number | null) {
 function downloadBarangayReport(rows: BarangayReportRow[], period: { start: string; end: string }) {
   const headers = [
     "Barangay", "Registered Farmers", "Current Approved Active Heads", "Approved Production Outputs",
-    "Farmer Meat (kg)", "Slaughter Heads", "Slaughter Yield (kg)", "Animals Sold",
-    "Recorded Sale Value (PHP)", "Disease Cases", "Affected Heads", "Recorded Deaths",
+    "Farmer Meat (kg)", "Slaughter Heads", "Slaughter Yield (kg)", "Animals Transferred",
+    "Recorded Transfer Value (PHP)", "Disease Cases", "Affected Heads", "Recorded Deaths",
     "Vaccinated Active Heads", "Vaccination Coverage (%)",
   ];
   const records = rows.map((row) => [
@@ -398,6 +405,7 @@ export default function DescriptiveAnalytics() {
   const [attempt, setAttempt] = useState(0);
   const [productKey, setProductKey] = useState("");
   const [showMethodology, setShowMethodology] = useState(false);
+  const [showSalesDetails, setShowSalesDetails] = useState(false);
   const query = useQuery({
     queryKey: ["descriptive-analytics", user?.email, user?.accessScope, user?.assignedBarangayId, attempt],
     queryFn: async ({ signal }) => {
@@ -583,9 +591,9 @@ export default function DescriptiveAnalytics() {
     {
       domain: "Commerce",
       scopeType: "12-Month Period",
-      label: "Animals Sold",
+      label: "Animals Transferred",
       value: number(data.sales.animals),
-      description: `${number(data.sales.sales)} approved sale records`,
+      description: `${number(data.sales.completed_transfers)} approved transfer events`,
       icon: ShoppingBag,
       accentColor: "#475569",
       tagBg: "bg-slate-100",
@@ -1430,43 +1438,43 @@ export default function DescriptiveAnalytics() {
         <SectionHeader
           icon={ShoppingBag}
           title="Live Animal Sales"
-          description="Live animals sold through approved municipal sales transactions during the reporting period."
+          description="Completed ownership transfers approved during the reporting period, grouped by the recorded transfer date."
           accentColor="text-indigo-700 bg-indigo-50"
         />
         <Panel
-          title="Approved Live Animal Sales Summary"
-          subtitle="Monetary value reflects transactions where price was explicitly recorded"
+          title="Approved Ownership Transfer Summary"
+          subtitle={`Reporting period: ${dateLabel(data.sales.period_start)} – ${dateLabel(data.sales.period_end)} · source: ${data.sales.source}`}
         >
           <div className="grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Animals Sold
+                Completed Transfers
+              </span>
+              <p className="mt-1 text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+                {number(data.sales.completed_transfers)}
+              </p>
+              <p className="text-xs text-slate-500 mt-1 font-medium">One approved transfer event per animal</p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Unique Animals
               </span>
               <p className="mt-1 text-2xl font-black tracking-tight text-slate-900 tabular-nums">
                 {number(data.sales.animals)}
                 <span className="text-xs font-semibold text-slate-500 ml-1">heads</span>
               </p>
-              <p className="text-xs text-slate-500 mt-1 font-medium">Approved sales count</p>
+              <p className="text-xs text-slate-500 mt-1 font-medium">Distinct animals in approved transfers</p>
             </div>
 
             <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Approved Sale Records
-              </span>
-              <p className="mt-1 text-2xl font-black tracking-tight text-slate-900 tabular-nums">
-                {number(data.sales.sales)}
-              </p>
-              <p className="text-xs text-slate-500 mt-1 font-medium">Logged transactions</p>
-            </div>
-
-            <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Recorded Sales Value
+                Recorded Transfer Value
               </span>
               <div className="mt-1">
                 {data.sales.recorded_value === null ? (
                   <span className="inline-block rounded-md bg-slate-200/70 px-2 py-1 text-xs font-bold text-slate-700">
-                    No sale prices recorded
+                    No transfer prices recorded
                   </span>
                 ) : (
                   <p className="text-xl sm:text-2xl font-black tracking-tight text-[#2D5A27] tabular-nums">
@@ -1474,53 +1482,82 @@ export default function DescriptiveAnalytics() {
                   </p>
                 )}
               </div>
-              <p className="text-xs text-slate-500 mt-1 font-medium">Gross reported value</p>
+              <p className="text-xs text-slate-500 mt-1 font-medium">Sum of recorded purchase prices</p>
             </div>
 
             <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Priced Transactions
+                Average Recorded Price
               </span>
-              <p className="mt-1 text-2xl font-black tracking-tight text-slate-900 tabular-nums">
-                {number(data.sales.priced_sales)}
-                <span className="text-xs font-semibold text-slate-500 ml-1">
-                  of {number(data.sales.sales)}
-                </span>
-              </p>
-              <p className="text-xs text-slate-500 mt-1 font-medium">Transactions with price data</p>
+              {data.sales.average_price === null
+                ? <p className="mt-1 text-base font-bold text-slate-600">Unavailable</p>
+                : <p className="mt-1 text-xl font-black tracking-tight text-slate-900 tabular-nums">{money(data.sales.average_price)}</p>}
+              <p className="text-xs text-slate-500 mt-1 font-medium">Across {number(data.sales.priced_sales)} transfers with a recorded price</p>
             </div>
           </div>
 
-          <p className="mt-4 text-xs text-slate-500 font-medium">
-            Note: Recording transaction price is optional in certain livestock sale workflows; unpriced transactions are excluded from currency totals.
+          {data.sales.missing_price_transfers > 0 && (
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+              {number(data.sales.missing_price_transfers)} approved transfer(s) have no recorded purchase price. They count as transfers, but are excluded from the value and average.
+            </p>
+          )}
+          {data.sales.completed_transfers === 0 && (
+            <p role="status" className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
+              No approved ownership transfers were recorded in this period. Missing records do not prove that no livestock sales occurred in the community.
+            </p>
+          )}
+          <p className="mt-3 text-xs text-slate-500 font-medium">
+            Approval marks the seller&apos;s animal as SOLD. That status and a buyer&apos;s later inventory entry are not counted as additional sales.
           </p>
         </Panel>
-        <LivestockTypeBreakdown
-          title="Animals Sold by Livestock Type"
-          subtitle="Head counts from approved live-animal sale transactions"
-          rows={data.sales.by_species.map((row) => ({ species: row.species, quantity: row.animals }))}
-          unit="heads"
-          metricName="Animals sold"
-        />
-        <div className="grid gap-5 xl:grid-cols-2">
-          <MonthlySpeciesTrend
-            title="Monthly Live Animal Sales by Livestock Type"
-            subtitle="Approved head counts grouped by sale date and livestock type"
-            rows={salesSpeciesTrend}
-            months={response.surveillance_series.map(({ month, label }) => ({ month, label }))}
-            unit="heads"
-          />
-          <LivestockTypeBreakdown
-            title="Recorded Sales Value by Livestock Type"
-            subtitle="Sum of sale records with a saved price; transactions without a price are excluded"
-            rows={data.sales.by_species
-              .filter((row) => row.recorded_value_php !== null)
-              .map((row) => ({ species: row.species, quantity: row.recorded_value_php ?? 0 }))}
-            unit=""
-            metricName="Recorded value"
-            currency
-          />
-        </div>
+        <Panel title="Ownership transfer trend" subtitle="Approved transfer events by transfer date; this shows recorded events, not verified market-wide reporting coverage.">
+          {data.sales.trend.some((row) => (row.transactions ?? 0) > 0) ? (
+            <div className="h-64" role="img" aria-label="Monthly approved ownership transfer trend">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data.sales.trend} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="label" tick={axisStyle} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={axisStyle} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(value) => [number(Number(value ?? 0)), "Transfers"]} />
+                  <Line type="monotone" dataKey="transactions" name="Approved transfers" stroke="#4f46e5" strokeWidth={2.5} dot={{ r: 3 }} connectNulls={false} isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="py-10 text-center text-sm text-slate-500">No approved transfer events to plot for this period.</div>
+          )}
+          <div className="mt-3 border-t border-slate-100 pt-3">
+            <Button type="button" variant="ghost" size="sm" aria-expanded={showSalesDetails} onClick={() => setShowSalesDetails((shown) => !shown)}>
+              {showSalesDetails ? "Hide" : "Show"} species details {showSalesDetails ? <ChevronUp className="ml-1 size-4" /> : <ChevronDown className="ml-1 size-4" />}
+            </Button>
+            {showSalesDetails && (
+              <div className="mt-3 space-y-4">
+                <LivestockTypeBreakdown
+                  title="Animals transferred by livestock type"
+                  subtitle="Distinct animals represented by approved transfer events"
+                  rows={data.sales.by_species.map((row) => ({ species: row.species, quantity: row.animals }))}
+                  unit="heads"
+                  metricName="Animals transferred"
+                />
+                <MonthlySpeciesTrend
+                  title="Monthly transfers by livestock type"
+                  subtitle="Grouped by transfer date"
+                  rows={salesSpeciesTrend}
+                  months={data.sales.trend.map(({ month, label }) => ({ month, label }))}
+                  unit="heads"
+                />
+                <LivestockTypeBreakdown
+                  title="Recorded purchase value by livestock type"
+                  subtitle="Missing purchase prices are not included in the value"
+                  rows={data.sales.by_species.filter((row) => row.recorded_value_php !== null).map((row) => ({ species: row.species, quantity: row.recorded_value_php ?? 0 }))}
+                  unit=""
+                  metricName="Recorded value"
+                  currency
+                />
+              </div>
+            )}
+          </div>
+        </Panel>
       </section>
 
       <section className="space-y-4" aria-label="Per Barangay Report">
@@ -1547,7 +1584,7 @@ export default function DescriptiveAnalytics() {
                     <TableHead className="text-right">Current Heads</TableHead><TableHead>Production by Type</TableHead>
                     <TableHead className="text-right">Farmer Meat (kg)</TableHead><TableHead className="text-right">Slaughter Heads</TableHead>
                     <TableHead className="text-right">Carcass Yield (kg)</TableHead><TableHead className="text-right">Sold Heads</TableHead>
-                    <TableHead className="text-right">Recorded Sales Value</TableHead><TableHead className="text-right">Disease Cases</TableHead>
+                    <TableHead className="text-right">Recorded Transfer Value</TableHead><TableHead className="text-right">Disease Cases</TableHead>
                     <TableHead className="text-right">Deaths</TableHead><TableHead className="text-right">Vaccination</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1574,7 +1611,7 @@ export default function DescriptiveAnalytics() {
           ) : (
             <EmptyState message="No barangay data is available for this report scope." />
           )}
-          <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-500">A dash means no approved event records were found for that metric. “Not recorded” means sale records exist but no price was saved. Production commodities keep their original units instead of being combined.</p>
+          <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-500">A dash means no approved event records were found for that metric. “Not recorded” means approved ownership transfers exist but no purchase price was saved. Missing records do not establish that no real-world activity occurred. Production commodities keep their original units instead of being combined.</p>
         </Panel>
       </section>
 

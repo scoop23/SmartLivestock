@@ -3,7 +3,7 @@
 import calendar
 from datetime import date
 
-from django.db.models import Case, CharField, Count, DecimalField, F, Q, Sum, Value, When
+from django.db.models import Avg, Case, CharField, Count, DecimalField, F, Q, Sum, Value, When
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast, Coalesce, TruncMonth
 from django.utils import timezone
@@ -17,7 +17,7 @@ from movements.models import (
 )
 from .population import population_summary
 from smartlivestock.workflows import scope_reviewer_queryset
-from production.models import LiveAnimalSale, ProductionRecord, SlaughterRecord
+from production.models import ProductionRecord, SlaughterRecord
 
 
 WINDOW_MONTHS = 12
@@ -447,50 +447,48 @@ def descriptive_summary(today=None, *, user=None):
     }
 
     # -------------------------------------------------------------------------
-    # AUCTION / LIVE ANIMAL SALES ANALYTICS
+    # COMPLETED LIVE ANIMAL TRANSFERS
     # -------------------------------------------------------------------------
-    sales = scope_reviewer_queryset(LiveAnimalSale.objects.all(), user).filter(status=LiveAnimalSale.StatusType.APPROVED, sale_date__range=(start, today))
+    # Ownership transfer approval is the event that marks the seller's original
+    # animal SOLD. Count the approved transfer row once; do not count SOLD
+    # inventory or a buyer's later inventory submission as another sale.
+    sales = scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user).filter(
+        status=LivestockOwnershipTransfer.Status.APPROVED,
+        transfer_date__range=(start, today),
+    )
     sale_totals = sales.aggregate(
-        sales=Count("id"), animals=Sum("quantity"),
-        recorded_value=Sum("total_price"), priced_sales=Count("id", filter=Q(total_price__isnull=False)),
-    )
-    sales_by_method = list(
-        sales.values("sale_method").annotate(count=Count("id"), animals=Sum("quantity"), total_value=Sum("total_price"))
-        .order_by("-animals")
-    )
-    sales_by_purpose = list(
-        sales.values("purpose").annotate(count=Count("id"), animals=Sum("quantity"))
-        .order_by("-animals")
+        sales=Count("pk", distinct=True),
+        animals=Count("livestock_id", distinct=True),
+        recorded_value=Sum("purchase_price"),
+        priced_sales=Count("pk", filter=Q(purchase_price__isnull=False), distinct=True),
+        average_price=Avg("purchase_price"),
     )
     sales_by_species = [
         {
-            "species": row["species"],
+            "species": row["species"] or "Unknown",
             "animals": row["animals"] or 0,
             "transactions": row["transactions"],
-            "recorded_value_php": (
-                float(row["recorded_value_php"])
-                if row["recorded_value_php"] is not None else None
-            ),
+            "recorded_value_php": float(row["recorded_value_php"]) if row["recorded_value_php"] is not None else None,
             "priced_transactions": row["priced_transactions"],
         }
-        for row in sales.annotate(species=Coalesce(
-            "livestock__livestock_type__name",
-            "batch__livestock_type__name",
-            Value("Unspecified"),
-            output_field=CharField(),
-        ))
+        for row in sales.annotate(species=F("livestock__livestock_type__name"))
         .values("species")
         .annotate(
-            animals=Sum("quantity"),
-            transactions=Count("id"),
-            recorded_value_php=Sum("total_price"),
-            priced_transactions=Count("id", filter=Q(total_price__isnull=False)),
+            animals=Count("livestock_id", distinct=True),
+            transactions=Count("pk", distinct=True),
+            recorded_value_php=Sum("purchase_price"),
+            priced_transactions=Count("pk", filter=Q(purchase_price__isnull=False), distinct=True),
         )
         .order_by("-animals", "species")
     ]
     sales_monthly = list(
-        sales.annotate(month=TruncMonth("sale_date"))
-        .values("month").annotate(count=Count("id"), animals=Sum("quantity"), total_value=Sum("total_price"))
+        sales.annotate(month=TruncMonth("transfer_date"))
+        .values("month")
+        .annotate(
+            count=Count("pk", distinct=True),
+            animals=Count("livestock_id", distinct=True),
+            total_value=Sum("purchase_price"),
+        )
         .order_by("month")
     )
     sales_trend_map = {row["month"]: row for row in sales_monthly}
@@ -498,27 +496,23 @@ def descriptive_summary(today=None, *, user=None):
         {
             "month": m.isoformat(),
             "label": f"{calendar.month_abbr[m.month]} {m.year}",
-            "transactions": sales_trend_map.get(m, {}).get("count", 0),
-            "animals": sales_trend_map.get(m, {}).get("animals", 0),
-            "total_value_php": float(sales_trend_map.get(m, {}).get("total_value", 0.0) or 0.0),
+            # No event row is unknown coverage, not a verified zero-sales month.
+            "transactions": sales_trend_map[m]["count"] if m in sales_trend_map else None,
+            "animals": sales_trend_map[m]["animals"] if m in sales_trend_map else None,
+            "total_value_php": (
+                float(sales_trend_map[m]["total_value"])
+                if m in sales_trend_map and sales_trend_map[m]["total_value"] is not None else None
+            ),
         }
         for m in _months(start)
     ]
     sales_by_species_monthly = list(
-        sales.annotate(
-            month=TruncMonth("sale_date"),
-            species=Coalesce(
-                "livestock__livestock_type__name",
-                "batch__livestock_type__name",
-                Value("Unspecified"),
-                output_field=CharField(),
-            ),
-        )
+        sales.annotate(month=TruncMonth("transfer_date"), species=F("livestock__livestock_type__name"))
         .values("month", "species")
         .annotate(
-            animals=Sum("quantity"),
-            transactions=Count("id"),
-            recorded_value_php=Sum("total_price"),
+            animals=Count("livestock_id", distinct=True),
+            transactions=Count("pk", distinct=True),
+            recorded_value_php=Sum("purchase_price"),
         )
         .order_by("month", "species")
     )
@@ -526,35 +520,24 @@ def descriptive_summary(today=None, *, user=None):
         {
             "month": row["month"].isoformat(),
             "label": f"{calendar.month_abbr[row['month'].month]} {row['month'].year}",
-            "species": row["species"],
+            "species": row["species"] or "Unknown",
             "animals": row["animals"] or 0,
             "transactions": row["transactions"],
-            "recorded_value_php": (
-                float(row["recorded_value_php"])
-                if row["recorded_value_php"] is not None else None
-            ),
+            "recorded_value_php": float(row["recorded_value_php"]) if row["recorded_value_php"] is not None else None,
         }
         for row in sales_by_species_monthly
     ]
     sales_by_barangay = list(
         sales.annotate(
-            report_barangay_id=Coalesce(
-                "livestock__farmer__barangay_id",
-                "batch__farmer__barangay_id",
-            ),
-            report_barangay=Coalesce(
-                "livestock__farmer__barangay__barangay_name",
-                "batch__farmer__barangay__barangay_name",
-                Value("Unmapped"),
-                output_field=CharField(),
-            ),
+            report_barangay_id=F("previous_owner__barangay_id"),
+            report_barangay=Coalesce("previous_owner__barangay__barangay_name", Value("Unmapped"), output_field=CharField()),
         )
         .values("report_barangay_id", "report_barangay")
         .annotate(
-            animals=Sum("quantity"),
-            transactions=Count("id"),
-            recorded_value_php=Sum("total_price"),
-            priced_transactions=Count("id", filter=Q(total_price__isnull=False)),
+            animals=Count("livestock_id", distinct=True),
+            transactions=Count("pk", distinct=True),
+            recorded_value_php=Sum("purchase_price"),
+            priced_transactions=Count("pk", filter=Q(purchase_price__isnull=False), distinct=True),
         )
         .order_by("report_barangay", "report_barangay_id")
     )
@@ -652,13 +635,15 @@ def descriptive_summary(today=None, *, user=None):
     transfer_monthly = list(
         ownership_transfers.annotate(month=TruncMonth("transfer_date"))
         .values("month")
-        .annotate(animals=Count("id"), certificates=Count("transfer_certificate_number", distinct=True))
+        .annotate(animals=Count("livestock_id", distinct=True), transfers=Count("pk", distinct=True),
+                  certificates=Count("transfer_certificate_number", distinct=True))
         .order_by("month")
     )
     transfer_by_species_monthly = list(
         ownership_transfers.annotate(month=TruncMonth("transfer_date"))
         .values("month", "livestock__livestock_type__name")
-        .annotate(animals=Count("id"), certificates=Count("transfer_certificate_number", distinct=True))
+        .annotate(animals=Count("livestock_id", distinct=True), transfers=Count("pk", distinct=True),
+                  certificates=Count("transfer_certificate_number", distinct=True))
         .order_by("month", "livestock__livestock_type__name")
     )
     transfer_monthly_by_month = {row["month"]: row for row in transfer_monthly}
@@ -667,6 +652,7 @@ def descriptive_summary(today=None, *, user=None):
             "month": month.isoformat(),
             "label": f"{calendar.month_abbr[month.month]} {month.year}",
             "animals": transfer_monthly_by_month.get(month, {}).get("animals", 0),
+            "transfers": transfer_monthly_by_month.get(month, {}).get("transfers", 0),
             "certificates": transfer_monthly_by_month.get(month, {}).get("certificates", 0),
         }
         for month in _months(start)
@@ -677,6 +663,7 @@ def descriptive_summary(today=None, *, user=None):
             "label": f"{calendar.month_abbr[row['month'].month]} {row['month'].year}",
             "species": row["livestock__livestock_type__name"] or "Unknown",
             "animals": row["animals"],
+            "transfers": row["transfers"],
             "certificates": row["certificates"],
         }
         for row in transfer_by_species_monthly
@@ -836,11 +823,15 @@ def descriptive_summary(today=None, *, user=None):
                         "by_barangay": coverage},
         "sales": {
             "sales": sale_totals["sales"],
+            "completed_transfers": sale_totals["sales"],
             "animals": sale_totals["animals"] or 0,
             "recorded_value": float(sale_totals["recorded_value"]) if sale_totals["recorded_value"] is not None else None,
             "priced_sales": sale_totals["priced_sales"],
-            "by_method": sales_by_method,
-            "by_purpose": sales_by_purpose,
+            "average_price": float(sale_totals["average_price"]) if sale_totals["average_price"] is not None else None,
+            "missing_price_transfers": sale_totals["sales"] - sale_totals["priced_sales"],
+            "source": "LivestockOwnershipTransfer",
+            "period_start": start.isoformat(),
+            "period_end": today.isoformat(),
             "by_species": sales_by_species,
             "monthly_trend_by_species": sales_species_trend,
             "trend": sales_trend,

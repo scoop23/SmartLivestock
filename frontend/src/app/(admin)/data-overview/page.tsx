@@ -833,7 +833,7 @@ export default function DataOverviewPage() {
   // Overall KPI aggregates (Synced directly with canonical backend analytics population)
   const totalLivestockPopulation = summary?.population.total_heads ?? 0;
   const totalMilkVolume = barangayMasterSummaries.reduce((sum, row) => sum + row.monthlyMilkLiters, 0);
-  const totalAuctionValue = summary?.approved_sales_value ?? null;
+  const totalTransferValue = summary?.approved_transfer_value ?? null;
   const activeIncidentsCount = barangayMasterSummaries.reduce((sum, row) => sum + row.activeIncidents, 0);
   const totalFarmersCount = summary?.population.registered_farmers ?? 0;
 
@@ -1146,7 +1146,7 @@ export default function DataOverviewPage() {
           totalLivestock={totalLivestockPopulation}
           totalBatches={barangayMasterSummaries.reduce((sum, row) => sum + (row.batchCount ?? 0), 0)}
           totalMilkVolume={totalMilkVolume}
-          totalAuctionValue={totalAuctionValue}
+          totalTransferValue={totalTransferValue}
           activeIncidents={activeIncidentsCount}
           totalFarmers={totalFarmersCount}
           totalSlaughterKg={slaughterList.reduce((sum, s) => sum + (s.carcassWeightKg || 0), 0)}

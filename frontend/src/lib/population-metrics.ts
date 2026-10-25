@@ -12,7 +12,7 @@ export interface PopulationSummary {
   active_submitted_heads: number; historical_approved_heads: number;
 }
 export interface OverviewSummary {
-  population: PopulationSummary; period: string; approved_sales_value: number | null;
+  population: PopulationSummary; period: string; approved_transfer_value: number | null;
 }
 
 // Presentation categories only: all counts have already been computed by Django.

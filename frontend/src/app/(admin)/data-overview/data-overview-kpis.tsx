@@ -11,7 +11,7 @@ interface DataOverviewKpisProps {
   totalLivestock: number;
   totalBatches?: number;
   totalMilkVolume: number;
-  totalAuctionValue: number | null;
+  totalTransferValue: number | null;
   activeIncidents: number;
   totalFarmers: number;
   totalSlaughterKg?: number;
@@ -22,7 +22,7 @@ export function DataOverviewKpis({
   totalLivestock,
   totalBatches = 0,
   totalMilkVolume,
-  totalAuctionValue,
+  totalTransferValue,
   activeIncidents,
   totalFarmers,
   totalSlaughterKg = 34500,
@@ -121,10 +121,10 @@ export function DataOverviewKpis({
             </div>
             <div className="min-w-0">
               <span className="text-[9px] uppercase font-extrabold text-amber-800/80 block leading-tight truncate">
-                Auction
+                Transfers
               </span>
               <p className="text-xs sm:text-sm font-black text-amber-950 leading-tight tabular-nums truncate">
-                {totalAuctionValue == null ? "Not recorded" : `₱${totalAuctionValue.toLocaleString()}`}
+                {totalTransferValue == null ? "Not recorded" : `₱${totalTransferValue.toLocaleString()}`}
               </p>
             </div>
           </div>
@@ -244,7 +244,7 @@ export function DataOverviewKpis({
         {/* 4. Auction & Market Value */}
         <KpiCard
           title="Approved Sales Value"
-          value={totalAuctionValue == null ? "Not recorded" : `₱${totalAuctionValue.toLocaleString()}`}
+          value={totalTransferValue == null ? "Not recorded" : `₱${totalTransferValue.toLocaleString()}`}
           icon={<TrendingUp className="size-5" />}
           description="Recorded approved sales, all dates"
           badge="Active Market"

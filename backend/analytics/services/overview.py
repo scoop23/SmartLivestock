@@ -4,7 +4,8 @@ from django.db.models import Count, F, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from diseases.models import DiseaseCase
-from production.models import ProductionRecord, SlaughterRecord, LiveAnimalSale
+from livestock.models import LivestockOwnershipTransfer
+from production.models import ProductionRecord, SlaughterRecord
 from smartlivestock.workflows import scope_reviewer_queryset
 from .population import population_summary
 
@@ -29,8 +30,10 @@ def overview_summary(*, user=None, today=None):
         pk = barangay["barangay_id"]
         barangay.update(monthly_milk_l=float(milk.get(pk) or 0),
             monthly_meat_kg=float(meat.get(pk) or 0), pending_disease_reports=pending.get(pk, 0))
-    # Historical approved sales preserve their event value even after animals exit.
-    value = scope_reviewer_queryset(LiveAnimalSale.objects.all(), user).filter(
-        status="APPROVED").aggregate(value=Sum("total_price"))["value"]
+    # The approved transfer event is the completed-sale source. Inventory SOLD
+    # state and the buyer's later inventory entry are not additional events.
+    value = scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user).filter(
+        status=LivestockOwnershipTransfer.Status.APPROVED,
+    ).aggregate(value=Sum("purchase_price"))["value"]
     return {"population": population, "period": today.strftime("%Y-%m"),
-            "approved_sales_value": float(value) if value is not None else None}
+            "approved_transfer_value": float(value) if value is not None else None}
