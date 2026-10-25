@@ -38,6 +38,7 @@ InspectionRecord,
 fetchInspections,
 } from "../auction-inspections/auction-analytics";
 import { InspectionDetailsDialog } from "../auction-inspections/inspection-details-dialog";
+import { AuctionDescriptiveAnalytics } from "../components/auction-descriptive-analytics";
 
 export default function AuctionDashboard() {
   const router = useRouter();
@@ -174,7 +175,7 @@ export default function AuctionDashboard() {
 
       <div className="p-4 md:p-8 w-full space-y-6">
         {/* ═══ Operational KPI Cards ═══ */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           <KpiCard
             size="default"
             title="Pending Records"
@@ -299,6 +300,9 @@ export default function AuctionDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* ═══ Futuristic Market Descriptive Analytics Console ═══ */}
+        <AuctionDescriptiveAnalytics />
 
         {/* ═══ Recent Inspections Table / Cards ═══ */}
         <div className="space-y-3">
