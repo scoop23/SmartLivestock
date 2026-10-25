@@ -494,10 +494,9 @@ function SibatPortalContent() {
               </div>
             </div>
           }
-          variant="admin"
+          variant="sibat"
           maxWidthClass="w-full"
           showNotifications={true}
-          className="bg-white border-b border-slate-200/80"
         />
         <div className="mx-auto w-full max-w-[1600px] p-3 sm:p-5 lg:px-8 lg:py-6 2xl:px-10">
           <ValidationLoadingScreen
@@ -554,10 +553,9 @@ function SibatPortalContent() {
             </div>
           </div>
         }
-        variant="admin"
+        variant="sibat"
         maxWidthClass="w-full"
         showNotifications={true}
-        className="bg-white border-b border-slate-200/80"
       />
 
       <div className="mx-auto w-full max-w-[1600px] space-y-4 sm:space-y-6 px-3.5 py-4 sm:p-6 lg:px-8 lg:py-7 2xl:px-10">

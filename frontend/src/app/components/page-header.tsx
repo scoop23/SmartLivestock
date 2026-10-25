@@ -32,7 +32,7 @@ interface PageHeaderProps {
 const headerClasses: Record<PageHeaderVariant, string> = {
   admin: "bg-white text-gray-900 border-b border-gray-200",
   farmer: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
-  sibat: "bg-gradient-to-r from-[#1A365D] to-[#1E4E8C] text-white shadow-lg",
+  sibat: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   auction: "bg-gradient-to-r from-[#7C3AED] to-[#9F67FF] text-white shadow-lg",
   slaughterhouse: "bg-gradient-to-r from-[#9F1239] to-[#E11D48] text-white shadow-lg",
 };
@@ -40,7 +40,7 @@ const headerClasses: Record<PageHeaderVariant, string> = {
 const glowClasses: Record<PageHeaderVariant, string> = {
   admin: "bg-slate-400/15",
   farmer: "bg-emerald-300/20",
-  sibat: "bg-sky-300/20",
+  sibat: "bg-emerald-300/20",
   auction: "bg-fuchsia-200/25",
   slaughterhouse: "bg-rose-200/25",
 };
