@@ -1306,7 +1306,7 @@ export default function PredictiveAnalyticsView() {
               <div className="flex flex-wrap gap-2 pt-1">
                 <Badge variant="outline" className="border-indigo-200 bg-white text-indigo-900">{activeDomain.toUpperCase()}</Badge>
                 <Badge className={normalized.readinessStatus === "QUALITY_READY" ? "bg-emerald-700 text-white" : normalized.readinessStatus === "READY" ? "bg-cyan-800 text-white" : "bg-amber-600 text-white"}>{normalized.readinessStatus.replaceAll("_", " ")}</Badge>
-                <Badge variant="outline" className="border-slate-200 bg-white text-slate-700">{normalized.availableObservations} monthly observations</Badge>
+                <Badge variant="outline" className="border-slate-200 bg-white text-slate-700">{normalized.availableObservations} {periodUnit} observations</Badge>
               </div>
             </DialogHeader>
             <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 sm:p-6">
@@ -1342,7 +1342,7 @@ export default function PredictiveAnalyticsView() {
                     <span className={`mt-3 block w-full rounded-lg px-3 py-2 text-center text-sm font-bold ${isCurrent ? "bg-emerald-100 text-emerald-900" : evaluated ? "bg-indigo-700 text-white" : "bg-slate-100 text-slate-500"}`}>{isCurrent ? "Currently selected" : evaluated ? "Use this model" : "Unavailable to select"}</span>
                   </button>
                 );
-              }) : <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:col-span-2 lg:col-span-3"><p className="font-bold">No candidate models were evaluated for this data yet.</p><p className="mt-1">Available history: {normalized.availableObservations} of {normalized.requiredObservations} required monthly observations. {normalized.readinessDetails}</p></div>}
+              }) : <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:col-span-2 lg:col-span-3"><p className="font-bold">No candidate models were evaluated for this data yet.</p><p className="mt-1">Available history: {normalized.availableObservations} of {normalized.requiredObservations} required {periodUnit} observations. {normalized.readinessDetails}</p></div>}
             </div>
             <p className="px-4 pb-4 text-sm leading-relaxed text-slate-500 sm:px-6 sm:pb-6">A selected method is chosen from historical evaluation results. Past performance does not guarantee future accuracy.</p>
           </DialogContent>
@@ -1353,7 +1353,7 @@ export default function PredictiveAnalyticsView() {
       {/* 4. INSUFFICIENT DATA STATE (ACADEMIC INTEGRITY GUARANTEE) */}
       {/* ------------------------------------------------------------------ */}
       {/* 4. INSUFFICIENT DATA STATE:                                        */}
-      {/* Displays when PostgreSQL contains < 12 monthly observations.       */}
+      {/* Displays when PostgreSQL contains fewer observations than this domain requires. */}
       {/* Protects system integrity by refusing to manufacture fake forecast */}
       {/* numbers or pretend to train ML on insufficient sample sizes.       */}
       {/* ------------------------------------------------------------------ */}
@@ -1375,7 +1375,7 @@ export default function PredictiveAnalyticsView() {
                         variant="outline"
                         className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[11px]"
                       >
-                        Status: NOT_READY (&lt;12 mos)
+                        Status: NOT_READY (&lt;{normalized.requiredObservations} {periodUnit}s)
                       </Badge>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
@@ -1388,21 +1388,21 @@ export default function PredictiveAnalyticsView() {
                 </div>
 
                 <p className="text-sm text-slate-700 leading-relaxed font-medium">
-                  There are currently not enough monthly observations to generate a mathematically defensible forecast.
+                  There are currently not enough {periodUnit} observations to generate a mathematically defensible forecast.
                 </p>
 
                   {/* Display complete-month observations and whether coverage has gaps. */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
                   <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200/80 flex items-center justify-between">
-                    <span className="text-xs text-amber-900 font-semibold">Available observations:</span>
+                    <span className="text-xs text-amber-900 font-semibold">Available {periodUnit}s:</span>
                     <span className="text-base font-extrabold text-amber-950 font-mono">
-                      {normalized.availableObservations} months
+                      {normalized.availableObservations} {periodUnit}s
                     </span>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span className="text-xs text-slate-700 font-semibold">Required observations:</span>
+                    <span className="text-xs text-slate-700 font-semibold">Required {periodUnit}s:</span>
                     <span className="text-base font-extrabold text-slate-950 font-mono">
-                      {normalized.requiredObservations} months
+                      {normalized.requiredObservations} {periodUnit}s
                     </span>
                   </div>
                 </div>
@@ -1450,7 +1450,7 @@ export default function PredictiveAnalyticsView() {
                       Recorded Historical Observations ({unitLabel})
                     </CardTitle>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Displaying {fallbackHistoricalData.length} recorded monthly point(s). A minimum of 12 points activates full predictive forecasting.
+                      Displaying {fallbackHistoricalData.length} recorded {periodUnit} point(s). Forecasting activates after the minimum history and continuity requirements are met.
                     </p>
                   </div>
                   <Badge variant="outline" className="bg-slate-50 text-slate-700 text-xs">
@@ -1465,6 +1465,9 @@ export default function PredictiveAnalyticsView() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                       <XAxis
                         dataKey="month_label"
+                        interval="preserveStartEnd"
+                        minTickGap={24}
+                        tickFormatter={(label) => periodUnit === "week" ? String(label).replace(/^Week of /, "") : label}
                         tick={{ fill: "#64748b", fontSize: 11 }}
                         stroke="#cbd5e1"
                         angle={-25}
@@ -2138,6 +2141,9 @@ export default function PredictiveAnalyticsView() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                       <XAxis
                         dataKey="month_label"
+                        interval="preserveStartEnd"
+                        minTickGap={24}
+                        tickFormatter={(label) => periodUnit === "week" ? String(label).replace(/^Week of /, "") : label}
                         tick={{ fill: "#64748b", fontSize: 11 }}
                         stroke="#cbd5e1"
                         angle={-25}

@@ -304,6 +304,8 @@ export function FuturisticPredictiveDashboard() {
   const [horizonMonths, setHorizonMonths] = useState<number>(6);
   const [viewMode, setViewMode] = useState<"overview" | "backtest" | "models" | "checklist">("overview");
   const [showTableView, setShowTableView] = useState<boolean>(false);
+  const [timelinePage, setTimelinePage] = useState(0);
+  const timelinePageSize = 10;
 
   // Fetch Authoritative Readiness Diagnostics from Backend
   const { data, isPending, isError, error, refetch, isFetching } = useQuery<DiagnosticsApiResponse>({
@@ -325,6 +327,12 @@ export function FuturisticPredictiveDashboard() {
 
   // Chart Data preparation
   const chartTimeline = targetDetail?.forecast?.chart_data || [];
+  const timelinePageCount = Math.max(1, Math.ceil(chartTimeline.length / timelinePageSize));
+  const safeTimelinePage = Math.min(timelinePage, timelinePageCount - 1);
+  const visibleTimeline = chartTimeline.slice(
+    safeTimelinePage * timelinePageSize,
+    (safeTimelinePage + 1) * timelinePageSize,
+  );
   const forecastPoints = targetDetail?.forecast?.forecast_points || [];
   const metadata = targetDetail?.forecast?.metadata || {};
   const backtestInfo = targetDetail?.backtesting || targetDetail?.evaluation;
@@ -434,7 +442,10 @@ export function FuturisticPredictiveDashboard() {
               {[1, 3, 6, 12].map((m) => (
                 <button
                   key={m}
-                  onClick={() => setHorizonMonths(m)}
+                  onClick={() => {
+                    setHorizonMonths(m);
+                    setTimelinePage(0);
+                  }}
                   className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                     horizonMonths === m
                       ? "bg-emerald-700 text-white shadow-2xs"
@@ -477,7 +488,10 @@ export function FuturisticPredictiveDashboard() {
               return (
                 <button
                   key={card.id}
-                  onClick={() => setSelectedTargetId(card.id)}
+                  onClick={() => {
+                    setSelectedTargetId(card.id);
+                    setTimelinePage(0);
+                  }}
                   className={`group relative flex flex-col justify-between rounded-2xl p-4 text-left transition-all duration-200 border cursor-pointer ${
                     isSelected
                       ? "border-2 border-emerald-600 bg-emerald-50/70 shadow-sm"
@@ -596,51 +610,83 @@ export function FuturisticPredictiveDashboard() {
             </div>
           ) : showTableView ? (
             /* Tabular Alternative for Precision & Accessibility */
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
-              <Table>
-                <TableHeader className="bg-slate-50">
-                  <TableRow className="border-slate-200 hover:bg-transparent">
-                    <TableHead className="font-mono text-xs text-slate-600">Period</TableHead>
-                    <TableHead className="font-mono text-xs text-slate-600">Classification</TableHead>
-                    <TableHead className="font-mono text-xs text-slate-600 text-right">Actual Observed</TableHead>
-                    <TableHead className="font-mono text-xs text-slate-600 text-right">Model Projection</TableHead>
-                    <TableHead className="font-mono text-xs text-slate-600 text-right">Lower Bound</TableHead>
-                    <TableHead className="font-mono text-xs text-slate-600 text-right">Upper Bound</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {chartTimeline.map((row, idx) => (
-                    <TableRow key={idx} className="border-slate-100 hover:bg-slate-50/70">
-                      <TableCell className="font-mono text-xs font-semibold text-slate-900">
-                        {row.month_label || row.date}
-                      </TableCell>
-                      <TableCell>
-                        {row.is_future ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-mono font-bold">
-                            Forecast
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-slate-600 border-slate-200 text-[10px] font-mono">
-                            Historical
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-right text-slate-700">
-                        {row.actual != null ? row.actual.toLocaleString("en-PH") : "—"}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-right font-bold text-emerald-700">
-                        {row.forecast != null ? row.forecast.toLocaleString("en-PH") : "—"}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-right text-slate-500">
-                        {row.confidence_lower != null ? row.confidence_lower.toLocaleString("en-PH") : "—"}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-right text-slate-500">
-                        {row.confidence_upper != null ? row.confidence_upper.toLocaleString("en-PH") : "—"}
-                      </TableCell>
+            <div className="space-y-2">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow className="border-slate-200 hover:bg-transparent">
+                      <TableHead className="font-mono text-xs text-slate-600">Period</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-600">Classification</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-600 text-right">Actual Observed</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-600 text-right">Model Projection</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-600 text-right">Lower Bound</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-600 text-right">Upper Bound</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleTimeline.map((row) => (
+                      <TableRow key={row.date} className="border-slate-100 hover:bg-slate-50/70">
+                        <TableCell className="font-mono text-xs font-semibold text-slate-900">
+                          {row.month_label || row.date}
+                        </TableCell>
+                        <TableCell>
+                          {row.is_future ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-mono font-bold">
+                              Forecast
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-slate-600 border-slate-200 text-[10px] font-mono">
+                              Historical
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-right text-slate-700">
+                          {row.actual != null ? row.actual.toLocaleString("en-PH") : "—"}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-right font-bold text-emerald-700">
+                          {row.forecast != null ? row.forecast.toLocaleString("en-PH") : "—"}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-right text-slate-500">
+                          {row.confidence_lower != null ? row.confidence_lower.toLocaleString("en-PH") : "—"}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-right text-slate-500">
+                          {row.confidence_upper != null ? row.confidence_upper.toLocaleString("en-PH") : "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-slate-600">
+                  Showing {chartTimeline.length ? safeTimelinePage * timelinePageSize + 1 : 0}–{Math.min((safeTimelinePage + 1) * timelinePageSize, chartTimeline.length)} of {chartTimeline.length} periods
+                </span>
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTimelinePage(Math.max(0, safeTimelinePage - 1))}
+                    disabled={safeTimelinePage === 0}
+                    aria-label="Show previous forecast periods"
+                  >
+                    Previous
+                  </Button>
+                  <span className="min-w-16 text-center font-medium text-slate-600">
+                    Page {safeTimelinePage + 1} of {timelinePageCount}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTimelinePage(Math.min(timelinePageCount - 1, safeTimelinePage + 1))}
+                    disabled={safeTimelinePage >= timelinePageCount - 1}
+                    aria-label="Show next forecast periods"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </div>
           ) : (
             /* Light & Green Futuristic Composed Chart View */
