@@ -1,0 +1,97 @@
+/*
+ * Future app-wide dark mode reference: reuse this GIS palette—charcoal/olive
+ * surfaces (#282b20, #181d19), warm cream text (#f3f1e7), muted sage accents
+ * (#b9d49a), and soft gold highlights (#d6bc68). Keep this sidebar styling scoped
+ * to the map until the global dark theme is implemented.
+ */
+.panel {
+  color-scheme: dark;
+  color: #f3f1e7;
+  background: linear-gradient(145deg, rgb(40 43 32 / 96%), rgb(24 29 25 / 96%));
+  border-color: rgb(224 225 192 / 24%);
+  box-shadow: 0 16px 55px rgb(0 0 0 / 35%), inset 0 1px 0 rgb(255 255 255 / 8%);
+  backdrop-filter: blur(24px);
+}
+
+.panel :where(*) {
+  scrollbar-width: thin;
+  scrollbar-color: #757a60 transparent;
+}
+
+/* Existing detail, status, and movement cards share the sidebar's surface palette. */
+.panel :where([class*="bg-white"], [class~="bg-slate-50"], [class*="bg-slate-50/"], [class~="bg-slate-100"], [class*="bg-slate-100/"],
+  [class~="bg-emerald-50"], [class*="bg-emerald-50/"], [class~="bg-emerald-100"], [class*="bg-emerald-100/"], [class~="bg-sky-50"], [class*="bg-sky-50/"], [class~="bg-sky-100"], [class*="bg-sky-100/"],
+  [class~="bg-blue-50"], [class*="bg-blue-50/"], [class~="bg-blue-100"], [class*="bg-blue-100/"], [class~="bg-rose-50"], [class*="bg-rose-50/"], [class~="bg-rose-100"], [class*="bg-rose-100/"],
+  [class~="bg-amber-50"], [class*="bg-amber-50/"], [class~="bg-amber-100"], [class*="bg-amber-100/"], [class~="bg-purple-50"], [class*="bg-purple-50/"], [class~="bg-indigo-50"], [class*="bg-indigo-50/"],
+  [class~="bg-orange-50"], [class*="bg-orange-50/"], [class~="bg-green-50"], [class*="bg-green-50/"], [class~="bg-red-50"], [class*="bg-red-50/"], [class~="bg-teal-50"], [class*="bg-teal-50/"]) {
+  background-color: rgb(219 222 187 / 7%);
+  background-image: none;
+}
+
+.panel :where([class*="border-slate-"], [class*="border-emerald-"], [class*="border-sky-"],
+  [class*="border-blue-"], [class*="border-rose-"], [class*="border-amber-"], [class*="border-indigo-"],
+  [class*="border-purple-"], [class*="border-red-"], [class*="border-orange-"]) {
+  border-color: rgb(224 225 192 / 16%);
+}
+
+.panel :where([class*="text-slate-"], [class*="text-gray-"]) { color: #dedfd2; }
+.panel :where([class*="text-slate-4"], [class*="text-slate-5"], [class*="text-slate-6"]) { color: #babdaa; }
+.panel :where([class*="text-emerald-"], [class*="text-green-"], [class*="text-teal-"]) { color: #b9d49a; }
+.panel :where([class*="text-blue-"], [class*="text-sky-"], [class*="text-cyan-"]) { color: #a6cddc; }
+.panel :where([class*="text-amber-"], [class*="text-orange-"], [class*="text-yellow-"]) { color: #e4c781; }
+.panel :where([class*="text-rose-"], [class*="text-red-"]) { color: #f3a99b; }
+.panel :where([class*="text-purple-"], [class*="text-indigo-"]) { color: #c6b8e7; }
+.panel :where([class*="font-black"]) { font-weight: 600; }
+.panel :where([class*="font-mono"]) { font-family: inherit; font-variant-numeric: tabular-nums; }
+.panel :where([class*="uppercase"]) { text-transform: none; letter-spacing: 0.015em; }
+
+.panel :where(button, a, input, select):focus-visible {
+  outline: 2px solid #d6bc68;
+  outline-offset: 3px;
+}
+.panel :where(button, a):hover { filter: brightness(1.12); }
+.panel :where(select, input) { color: #f3f1e7; background-color: #33382d; }
+.panel :where(option) { color: #f3f1e7; background-color: #252b23; }
+
+.panel [data-gis-header] {
+  padding: 16px;
+  gap: 8px;
+  background: rgb(20 25 21 / 35%);
+  border-bottom: 1px solid rgb(224 225 192 / 16%);
+}
+.panel [data-gis-header] h2 { font-size: 16px; font-weight: 600; }
+.panel [data-gis-body] { padding: 12px 14px max(20px, env(safe-area-inset-bottom)); }
+.panel [data-gis-body] > * + * { margin-top: 10px; }
+.panel [data-gis-body] > :where([class~="rounded-xl"], [class~="rounded-2xl"]) { border-radius: 10px; box-shadow: none; }
+.panel [data-gis-brief] { background: rgb(12 17 13 / 25%); border-color: rgb(224 225 192 / 18%); }
+.panel [data-gis-brief] p { color: #e0e1d4; }
+.panel [data-gis-metrics] { gap: 6px; }
+.panel [data-gis-metrics] > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  min-height: 82px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgb(219 222 187 / 8%);
+}
+.panel [data-gis-metrics] :where([class~="text-xl"], [class~="text-2xl"]) { color: #f5f3e8; font-size: 23px; font-weight: 500; }
+.panel [data-gis-metrics] :where([class*="text-[10px]"]) { font-size: 11px; line-height: 1.5; }
+.panel :where([class*="h-1.5"][class*="overflow-hidden"]) {
+  height: 8px;
+  border-radius: 2px;
+  mask-image: repeating-linear-gradient(to right, #000 0 3px, transparent 3px 5px);
+}
+.panel :where([class*="h-1.5"][class*="overflow-hidden"]) > div { border-radius: 0; }
+
+.distribution { padding: 14px; border: 1px solid rgb(224 225 192 / 16%); border-radius: 10px; background: rgb(219 222 187 / 7%); }
+.distributionHeading { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #dfe1ce; font-size: 11px; }
+.distributionHeading > :last-child { flex-shrink: 0; color: #babdaa; }
+.muted { color: #babdaa; }
+.segmentTrack { height: 9px; overflow: hidden; border-radius: 2px; background: rgb(224 225 192 / 12%); mask-image: repeating-linear-gradient(to right, #000 0 3px, transparent 3px 5px); }
+.segmentTrack > div { height: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel, .panel * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

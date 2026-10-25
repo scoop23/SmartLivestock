@@ -1,6 +1,7 @@
 'use client';
 
 import type { GISUserScope, FarmerPersonalStats } from "./types";
+import styles from './GISSidebar.module.css';
 /**
  * SmartLivestock GIS — Telemetry Sidebar (Desktop Right Overlay + Mobile Sheet)
  * ============================================================================
@@ -252,7 +253,7 @@ export function GISSidebar({
           side="bottom"
           ref={mobilePanelRef}
           style={mobileDragHeight === null ? undefined : { height: `${mobileDragHeight}px` }}
-          className={`${mobileHeightClass} max-h-[89dvh] gap-0 rounded-t-3xl p-0 bg-white ${
+          className={`${styles.panel} ${mobileHeightClass} max-h-[89dvh] gap-0 rounded-t-3xl p-0 bg-white ${
             selectedMovement ? 'border-t-2 border-t-blue-500 ring-2 ring-blue-400/40 animate-sidebar-glow' : 'border-t border-slate-200'
           } flex flex-col overflow-hidden shadow-2xl z-[var(--z-dialog)] transition-[height] duration-300 data-[state=open]:duration-300 [&>button]:hidden ${mobileDragHeight === null ? '' : '!transition-none'}`}
         >
@@ -304,7 +305,7 @@ export function GISSidebar({
     <aside
       aria-label="GIS Telemetry Sidebar"
       style={{ width: desktopWidth, minWidth: 320, maxWidth: 'min(45rem, calc(100vw - 2rem))' }}
-      className={`hidden lg:flex absolute right-4 top-4 bottom-4 max-h-[calc(100dvh-2rem)] z-[1000] rounded-2xl bg-white/95 backdrop-blur-md shadow-2xl border flex-col overflow-hidden pointer-events-auto transition-all duration-300 animate-in fade-in slide-in-from-right duration-200 ${
+      className={`${styles.panel} hidden lg:flex absolute right-4 top-4 bottom-4 max-h-[calc(100dvh-2rem)] z-[1000] rounded-2xl backdrop-blur-xl shadow-2xl border flex-col overflow-hidden pointer-events-auto transition-all duration-300 animate-in fade-in slide-in-from-right duration-200 ${
         selectedMovement
           ? 'border-blue-400/90 ring-2 ring-blue-400/40 shadow-[0_0_35px_rgba(59,130,246,0.25)] animate-sidebar-glow'
           : 'border-slate-200/90'

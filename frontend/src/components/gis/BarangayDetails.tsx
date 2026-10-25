@@ -35,6 +35,7 @@
  *   `onSelectBarangay(data)`. This conditionally mounts `<BarangayDetails>` in the sidebar.
  */
 
+import { GISPopulationDistribution } from './GISPopulationDistribution';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -124,7 +125,7 @@ export function BarangayDetails({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="p-3.5 sm:p-4 border-b border-slate-100 bg-emerald-950 text-white flex items-center justify-between shrink-0">
+      <div data-gis-header className="p-3.5 sm:p-4 border-b border-slate-100 bg-emerald-950 text-white flex items-center justify-between shrink-0">
         <div className="min-w-0 pr-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             {onBack && (
@@ -172,9 +173,9 @@ export function BarangayDetails({
       </div>
 
       {/* Content scroll area */}
-      <div className="p-4 space-y-4 overflow-y-auto flex-1 text-slate-800 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] overscroll-contain">
+      <div data-gis-body className="p-4 space-y-4 overflow-y-auto flex-1 text-slate-800 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] overscroll-contain">
         {/* Quick Highlights Grid */}
-        <div className="grid grid-cols-2 gap-2">
+        <div data-gis-metrics className="grid grid-cols-2 gap-2">
           <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl p-2.5 text-center">
             <div className="text-2xl font-black text-emerald-900 font-mono">
               {displayHeads}
@@ -288,27 +289,11 @@ export function BarangayDetails({
             </div>
           )}
 
-          <div className="pt-2 px-1">
-            <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-              Species Breakdown
-            </span>
-            {data.species_breakdown.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {data.species_breakdown.map((s, idx) => (
-                  <Badge
-                    key={idx}
-                    variant="secondary"
-                    className="bg-slate-100 text-slate-800 text-xs px-2 py-0.5 border border-slate-200 font-semibold"
-                  >
-                    {s.species}: {s.heads}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 italic">No livestock recorded yet</p>
-            )}
-          </div>
         </div>
+
+        {(!userScope || userScope.allowed_layers.includes('cattle')) && (
+          <GISPopulationDistribution items={data.species_breakdown ?? []} />
+        )}
 
         {/* Disease Surveillance Section */}
         <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">

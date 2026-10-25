@@ -33,6 +33,7 @@
  *   the sidebar from MunicipalOverview to BarangayDetails and highlights the polygon on the map.
  */
 
+import { GISPopulationDistribution } from './GISPopulationDistribution';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -120,6 +121,15 @@ export function MunicipalOverview({
       ? 'Origin & Slaughter Overview'
       : 'Padre Garcia Overview');
 
+  const visibleBarangays = allBarangays.filter((barangay) => barangay.is_in_scope !== false);
+  const speciesTotals = new Map<string, number>();
+  for (const barangay of visibleBarangays) {
+    for (const item of barangay.species_breakdown ?? []) {
+      speciesTotals.set(item.species, (speciesTotals.get(item.species) ?? 0) + item.heads);
+    }
+  }
+  const speciesDistribution = Array.from(speciesTotals, ([species, heads]) => ({ species, heads }));
+
   const handleBarangayClick = (bName: string) => {
     const found = allBarangays.find((b) => b.name === bName);
     if (found) onSelectBarangay(found);
@@ -128,10 +138,10 @@ export function MunicipalOverview({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="p-3.5 sm:p-4 border-b border-slate-100 bg-emerald-950 text-white flex items-center justify-between shrink-0">
+      <div data-gis-header className="p-3.5 sm:p-4 border-b border-slate-100 bg-emerald-950 text-white flex items-center justify-between shrink-0">
         <div className="min-w-0 pr-2">
           <span className="text-[10px] font-black tracking-widest uppercase text-emerald-400 block truncate">
-            {isFarmer ? 'Local Barangay Context' : isSibat ? 'Jurisdiction Telemetry' : "God's-Eye Telemetry"}
+            {isFarmer ? 'Local Barangay Context' : isSibat ? 'Jurisdiction Telemetry' : 'Livestock monitoring'}
           </span>
           <h2 className="text-base sm:text-lg font-black tracking-tight text-white mt-0.5 truncate">
             {overviewTitle}
@@ -165,7 +175,16 @@ export function MunicipalOverview({
       </div>
 
       {/* Scrollable Content */}
-      <div className="p-4 space-y-4 overflow-y-auto flex-1 text-slate-800 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] overscroll-contain">
+      <div data-gis-body className="p-4 space-y-4 overflow-y-auto flex-1 text-slate-800 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] overscroll-contain">
+        <div data-gis-brief className="rounded-xl border p-3">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="flex items-center gap-1.5"><MapPin className="size-3.5" /> Padre Garcia, Batangas</span>
+            <span className="shrink-0">{visibleBarangays.length} barangays</span>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed">
+            Explore approved livestock records, production, and recorded health activity within your map scope. Select a barangay for its details.
+          </p>
+        </div>
         {/* FARMER LOCAL CONTEXT CARD (Shows Farmer's Own Heads vs. Community Aggregate) */}
         {isFarmer && farmerStats && (
           <div className="bg-emerald-900 text-white rounded-2xl p-4 shadow-md space-y-3">
@@ -214,7 +233,7 @@ export function MunicipalOverview({
           </div>
         )}
         {/* KPI Mini Grid */}
-        <div className="grid grid-cols-2 gap-2">
+        <div data-gis-metrics className="grid grid-cols-2 gap-2">
           <div className="bg-emerald-50/90 border border-emerald-200/80 rounded-xl p-2.5">
             <div className="text-xl font-black text-emerald-950 font-mono">
               {summary.total_cattle.toLocaleString()}
@@ -292,6 +311,10 @@ export function MunicipalOverview({
             </div>
           </div>
         </div>
+
+        {(!userScope || userScope.allowed_layers.includes('cattle')) && (
+          <GISPopulationDistribution items={speciesDistribution} />
+        )}
 
         {/* Recorded Mortality Section */}
         <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
