@@ -140,7 +140,8 @@ class Command(BaseCommand):
         expected_ack = f"development:{db_name}"
         if (
             connection.vendor != "postgresql"
-            or host not in {"localhost", "127.0.0.1", "::1"}
+            # An empty PostgreSQL HOST means Django uses the local Unix socket.
+            or host not in {"", "localhost", "127.0.0.1", "::1"}
             or not settings.DEBUG
             or target_env != "development"
             or os.environ.get("SMARTLIVESTOCK_DEMO_DATABASE_ACK") != expected_ack
