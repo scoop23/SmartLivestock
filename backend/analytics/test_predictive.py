@@ -2,7 +2,7 @@
 Tests for SmartLivestock Predictive Analytics, Model Comparison, and Prescriptive Rules.
 """
 
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 import numpy as np
@@ -31,6 +31,7 @@ from analytics.services.predictive.models import (
 from analytics.services.predictive.evaluation import (
     calculate_metrics,
     evaluate_all_models,
+    evaluate_rolling_origins,
 )
 from analytics.services.predictive.forecasting import generate_future_forecast
 from analytics.services.predictive.rules import generate_prescriptive_recommendations
@@ -144,6 +145,183 @@ class PredictiveAnalyticsTests(TestCase):
         self.assertEqual(len(result["models"]), 0)
         self.assertIn("Insufficient historical data", result["message"])
 
+    def test_milk_monthly_total_sums_sessions_and_missing_approval_time_stays_unknown(self):
+        """Monthly milk totals sum distinct session records without inventing approval history."""
+        from dateutil.relativedelta import relativedelta
+        from analytics.services.predictive.data import extract_monthly_series
+
+        event_date = timezone.localdate().replace(day=1) - relativedelta(days=1)
+        morning = ProductionRecord.objects.create(
+            livestock=self.inventory, production_type="MILK", quantity=Decimal("8.00"),
+            unit="LITERS", record_date=event_date, milking_session="MORNING",
+            status="APPROVED", created_by=self.farmer_user,
+        )
+        ProductionRecord.objects.create(
+            livestock=self.inventory, production_type="MILK", quantity=Decimal("5.00"),
+            unit="LITERS", record_date=event_date, milking_session="AFTERNOON",
+            status="APPROVED", created_by=self.farmer_user,
+        )
+        duplicate_conflict = ProductionRecord.objects.create(
+            livestock=self.inventory, production_type="MILK", quantity=Decimal("99.00"),
+            unit="LITERS", record_date=event_date, milking_session="EVENING",
+            status="APPROVED", created_by=self.farmer_user,
+        )
+        ProductionRecord.objects.filter(pk=duplicate_conflict.pk).update(session_conflict=True)
+
+        series, metadata = extract_monthly_series(domain="production", target="MILK", unit="LITERS")
+        self.assertIsNone(series)  # One month is visible, but far below the training minimum.
+        self.assertEqual(metadata["historical_trend"][0]["actual"], 13.0)
+        self.assertEqual(metadata["excluded_milk_session_conflict_records"], 1)
+        self.assertTrue(metadata["approval_cutoff_reconstructable"])
+
+        ProductionRecord.objects.filter(pk=morning.pk).update(approved_at=None)
+        _, metadata_without_approval_time = extract_monthly_series(
+            domain="production", target="MILK", unit="LITERS"
+        )
+        self.assertFalse(metadata_without_approval_time["approval_cutoff_reconstructable"])
+
+    def test_milk_availability_cutoff_uses_local_calendar_date(self):
+        """A UTC timestamp crossing midnight is assigned to its Asia/Manila approval day."""
+        from analytics.services.predictive.data import extract_monthly_series
+
+        record = ProductionRecord.objects.create(
+            livestock=self.inventory, production_type="MILK", quantity=Decimal("8.00"),
+            unit="LITERS", record_date=date(2026, 1, 31), milking_session="MORNING",
+            status="APPROVED", created_by=self.farmer_user,
+        )
+        boundary_timestamp = datetime.fromisoformat("2026-01-31T16:30:00+00:00")
+        ProductionRecord.objects.filter(pk=record.pk).update(
+            created_at=boundary_timestamp, approved_at=boundary_timestamp
+        )
+        _, metadata = extract_monthly_series(domain="production", target="MILK", unit="LITERS")
+        self.assertEqual(metadata["approval_timeline"][0]["event_month"], "2026-01")
+        self.assertEqual(metadata["approval_timeline"][0]["available_to_model_on"], "2026-02-01")
+
+    def test_months_without_records_are_not_zero_filled_or_forecast(self):
+        """Missing monthly reporting is shown as unknown, while a reported zero stays zero."""
+        from dateutil.relativedelta import relativedelta
+        from analytics.services.predictive.data import extract_monthly_series
+
+        current_month = timezone.localdate().replace(day=1)
+        first_month = current_month - relativedelta(months=25)
+        missing_index = 5
+        zero_index = 7
+        for offset in range(25):
+            if offset == missing_index:
+                continue
+            month = first_month + relativedelta(months=offset)
+            ProductionRecord.objects.create(
+                livestock=self.inventory,
+                production_type=ProductionRecord.ProductionType.MILK,
+                quantity=Decimal("0.00") if offset == zero_index else Decimal("5.00"),
+                unit=ProductionRecord.UnitType.LITERS,
+                record_date=month + timedelta(days=4),
+                status=ProductionRecord.ProductionStatus.APPROVED,
+                created_by=self.farmer_user,
+            )
+
+        series, metadata = extract_monthly_series(domain="production", target="MILK", unit="LITERS")
+        self.assertIsNone(series)
+        self.assertEqual(metadata["status"], "incomplete_coverage")
+        self.assertEqual(metadata["missing_month_count"], 1)
+        self.assertTrue(any(point["actual"] == 0 for point in metadata["historical_trend"]))
+        result = evaluate_all_models(domain="production", target="MILK", unit="LITERS")
+        self.assertFalse(result["forecast_available"])
+        self.assertIn("no coverage log", result["message"])
+        self.assertEqual(len(result["historical_trend"]), 24)
+
+    def test_rolling_origin_excludes_records_not_approved_at_cutoff(self):
+        """A late-reviewed event cannot enter the model history for an earlier cutoff."""
+        from unittest.mock import patch
+        from analytics.services.predictive.evaluation import evaluate_rolling_origins
+
+        months = pd.date_range("2024-01-01", periods=20, freq="MS")
+        approvals = [month.date() + timedelta(days=5) for month in months]
+        # The first test origin is index 14; this training-month value was only
+        # approved after that origin and must therefore be withheld.
+        approvals[13] = months[14].date() + timedelta(days=5)
+        frame = pd.DataFrame({
+            "month": months,
+            "quantity": np.arange(1, 21, dtype=float),
+            "available_at": pd.to_datetime(approvals),
+        })
+        seen_histories = []
+
+        def forecast(name, history, future_dates):
+            seen_histories.append(history["month"].tolist())
+            return np.ones(len(future_dates), dtype=float)
+
+        with patch("analytics.services.predictive.evaluation.forecast_candidate", side_effect=forecast):
+            result = evaluate_rolling_origins(frame, ["Naive Baseline"], requested_horizon=6)
+
+        self.assertTrue(seen_histories)
+        self.assertNotIn(months[13], seen_histories[-1])
+        self.assertLess(seen_histories[-1][-1], months[13])
+        self.assertEqual(result["diagnostics"][0]["status"], "EVALUATED")
+        self.assertEqual(result["diagnostics"][0]["available_training_months"], 13)
+
+    def test_rolling_origin_diagnostics_count_only_valid_cutoffs(self):
+        """Late imported history is excluded, while valid cutoffs remain reportable."""
+        from unittest.mock import patch
+        from analytics.services.predictive.evaluation import evaluate_rolling_origins
+
+        months = pd.date_range("2023-01-01", periods=36, freq="MS")
+        frame = pd.DataFrame({
+            "month": months,
+            "quantity": np.arange(10, 46, dtype=float),
+            "available_at": pd.to_datetime([month + timedelta(days=5) for month in months]),
+        })
+
+        def forecast(name, history, future_dates):
+            return np.repeat(float(history["quantity"].iloc[-1]), len(future_dates))
+
+        with patch("analytics.services.predictive.evaluation.forecast_candidate", side_effect=forecast):
+            result = evaluate_rolling_origins(frame, ["Naive Baseline"], requested_horizon=6)
+
+        self.assertGreaterEqual(result["windows"], 3)
+        self.assertIsNotNone(result["models"]["Naive Baseline"]["mae"])
+        self.assertTrue(all(row["status"] == "EVALUATED" for row in result["diagnostics"]))
+
+    def test_predictive_endpoint_keeps_sibat_scope_and_denies_farmer(self):
+        """Municipal forecasting aggregates only the assigned SIBAT barangay."""
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from analytics.views import predictive_model_comparison
+        from livestock.models import Farmer
+
+        sibat_role, _ = Role.objects.get_or_create(role_name="SIBAT")
+        sibat_user = User.objects.create(
+            username="test_sibat_forecast", email="sibat-forecast@example.com",
+            role=sibat_role, assigned_barangay=self.barangay,
+        )
+        other_barangay = Barangay.objects.create(
+            barangay_name="Pansol Forecast Test", latitude=Decimal("13.8"), longitude=Decimal("121.2")
+        )
+        other_farmer_user = User.objects.create(
+            username="test_other_farmer_forecast", email="other-forecast@example.com", role=self.farmer_role,
+        )
+        other_farmer = Farmer.objects.create(user=other_farmer_user, barangay=other_barangay)
+        event_date = timezone.localdate().replace(day=1) - relativedelta(days=1)
+        ProductionRecord.objects.create(
+            farmer_at_record=self.farmer_profile, production_type="MILK", quantity=Decimal("10.00"),
+            unit="LITERS", record_date=event_date, status="APPROVED", created_by=self.farmer_user,
+        )
+        ProductionRecord.objects.create(
+            farmer_at_record=other_farmer, production_type="MILK", quantity=Decimal("999.00"),
+            unit="LITERS", record_date=event_date, status="APPROVED", created_by=other_farmer_user,
+        )
+
+        factory = APIRequestFactory()
+        request = factory.get("/api/analytics/predictive/", {"domain": "production", "target": "MILK", "unit": "LITERS"})
+        force_authenticate(request, user=sibat_user)
+        response = predictive_model_comparison(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["historical_trend"][0]["actual"], 10.0)
+
+        farmer_request = factory.get("/api/analytics/predictive/")
+        force_authenticate(farmer_request, user=self.farmer_user)
+        farmer_response = predictive_model_comparison(farmer_request)
+        self.assertEqual(farmer_response.status_code, 403)
+
     def test_data_leakage_and_chronological_split(self):
         """
         Verify that train/test split is strictly chronological and tabular features
@@ -170,40 +348,16 @@ class PredictiveAnalyticsTests(TestCase):
         self.assertEqual(test_df.loc[first_test_idx, "lag_1"], preceding_quantity)
 
     def test_model_evaluation_metrics_and_comparison(self):
-        """
-        Verify that all 6 candidates are evaluated with valid MAE, RMSE, and R² scores.
-        """
+        """Seed timestamps do not count as historical backtest evidence."""
         call_command("seed_productions", months=36)
-
-        eval_res = evaluate_all_models(production_type="MILK", unit="LITERS")
-        self.assertEqual(eval_res["status"], "ready")
-
-        models = eval_res["models"]
-        self.assertEqual(len(models), 6)
-
-        model_names = [m["name"] for m in models]
-        self.assertIn("Naive Baseline", model_names)
-        self.assertIn("Seasonal Naive", model_names)
-        self.assertIn("Linear Regression", model_names)
-        self.assertIn("Random Forest", model_names)
-        self.assertIn("ARIMA", model_names)
-        self.assertIn("Holt-Winters", model_names)
-
-        # Every evaluated model must have finite numeric MAE, RMSE, R²
-        for m in models:
-            self.assertIn(m["status"][:9], ["EVALUATED"])
-            self.assertIsInstance(m["mae"], (int, float))
-            self.assertIsInstance(m["rmse"], (int, float))
-            self.assertIsInstance(m["r2"], (int, float))
-            self.assertGreater(m["mae"], 0.0)
-            self.assertGreater(m["rmse"], 0.0)
-            self.assertGreater(len(m["test_predictions"]), 0)
-
-        # Selection criterion must identify a best model with lowest MAE
-        selected = eval_res["selection"]["selected_model"]
-        self.assertIsNotNone(selected)
-        best_in_list = [m for m in models if m["is_selected"]][0]
-        self.assertEqual(best_in_list["name"], selected)
+        result = evaluate_all_models(production_type="MILK", unit="LITERS")
+        self.assertEqual(result["status"], "unvalidated")
+        self.assertTrue(result["forecast_available"])
+        self.assertEqual(result["validation_status"], "NOT_YET_VALIDATED")
+        self.assertEqual(result["backtest_windows_available"], 0)
+        self.assertEqual(len(result["models"]), 6)
+        self.assertTrue(all(item["mae"] is None for item in result["models"]))
+        self.assertTrue(all(item["status"] != "EVALUATED" for item in result["models"]))
 
     def test_future_forecast_generation(self):
         """
@@ -212,7 +366,8 @@ class PredictiveAnalyticsTests(TestCase):
         call_command("seed_productions", months=36)
 
         fc = generate_future_forecast(production_type="MILK", unit="LITERS", horizon_months=6)
-        self.assertEqual(fc["status"], "ready")
+        self.assertEqual(fc["status"], "unvalidated")
+        self.assertTrue(fc["forecast_available"])
         self.assertEqual(len(fc["forecast"]), 6)
 
         last_hist_date = fc["metadata"]["last_historical_date"]
@@ -234,7 +389,7 @@ class PredictiveAnalyticsTests(TestCase):
         call_command("seed_productions", months=24)
 
         rec_res = generate_prescriptive_recommendations(production_type="MILK", unit="LITERS")
-        self.assertEqual(rec_res["status"], "ready")
+        self.assertEqual(rec_res["status"], "partial")
         self.assertGreater(rec_res["total_recommendations"], 0)
 
         for rec in rec_res["recommendations"]:
@@ -285,16 +440,21 @@ class PredictiveAnalyticsTests(TestCase):
 
         # Model evaluation on HEADS
         eval_res = evaluate_all_models(domain="slaughter", target="ALL", unit="HEADS")
-        self.assertEqual(eval_res["status"], "ready")
+        self.assertEqual(eval_res["status"], "unvalidated")
         self.assertTrue(eval_res["forecast_available"])
-        self.assertEqual(len(eval_res["models"]), 6)
+        self.assertEqual(len(eval_res["models"]), 7)
         self.assertIn("selected_model", eval_res["selection"])
 
         # Future forecast generation
         fc = generate_future_forecast(domain="slaughter", target="ALL", unit="HEADS", horizon_months=6)
-        self.assertEqual(fc["status"], "ready")
+        self.assertEqual(fc["status"], "unvalidated")
         self.assertEqual(len(fc["forecast"]), 6)
         self.assertIn("chart_data", fc)
+
+        meat_yield = evaluate_all_models(domain="slaughter", target="ALL", unit="KILOGRAMS")
+        self.assertTrue(meat_yield["forecast_available"])
+        self.assertEqual(meat_yield["target"]["unit"], "KILOGRAMS")
+        self.assertEqual(meat_yield["metric_definition"]["label"], "Slaughterhouse meat yield")
 
         # Safe clean
         call_command("seed_slaughters", clean=True)
@@ -340,6 +500,40 @@ class PredictiveAnalyticsTests(TestCase):
         self.assertEqual(len(trend), 1)
         # Quantity should be exactly the 50.0 kg from farmer_meat, NOT including the 200.0 kg slaughterhouse meat!
         self.assertEqual(trend[0]["actual"], 50.0)
+
+    def test_farmer_reported_meat_has_its_own_kilogram_forecast(self):
+        """Farmer MEAT rows without a slaughter link remain a separate target."""
+        call_command("seed_productions", months=36, production_type="MEAT")
+
+        result = evaluate_all_models(domain="production", target="MEAT", unit="KILOGRAMS")
+        self.assertTrue(result["forecast_available"])
+        self.assertEqual(result["target"]["unit"], "KILOGRAMS")
+        self.assertEqual(result["metric_definition"]["label"], "Farmer-reported meat yield")
+        self.assertIn("slaughter is null", result["metric_definition"]["source"])
+
+        forecast = generate_future_forecast(domain="production", target="MEAT", unit="KILOGRAMS")
+        self.assertTrue(forecast["forecast_available"])
+        self.assertEqual(forecast["target"]["unit"], "KILOGRAMS")
+
+    def test_event_based_backtest_requires_the_full_requested_monthly_horizon(self):
+        months = pd.date_range("2024-01-01", periods=12, freq="MS")
+        short_history = pd.DataFrame({"month": months, "quantity": np.arange(12, dtype=float)})
+        result = evaluate_rolling_origins(
+            short_history, ["Naive Baseline"], requested_horizon=6, exact_horizon=True
+        )
+        self.assertEqual(result["windows"], 0)
+        self.assertEqual(result["horizon"], 6)
+        self.assertIn("full 6-month test horizon", result["diagnostics"][0]["reason"])
+
+        longer_history = pd.DataFrame({
+            "month": pd.date_range("2024-01-01", periods=18, freq="MS"),
+            "quantity": np.arange(18, dtype=float),
+        })
+        result = evaluate_rolling_origins(
+            longer_history, ["Naive Baseline"], requested_horizon=6, exact_horizon=True
+        )
+        self.assertGreaterEqual(result["windows"], 1)
+        self.assertEqual(result["horizon"], 6)
 
     def test_descriptive_analytics_slaughter_and_mortality_enrichment(self):
         """
@@ -399,22 +593,24 @@ class PredictiveAnalyticsTests(TestCase):
         seeded_sales = LiveAnimalSale.objects.filter(review_remarks__contains=SEED_MARKER_AUCTION).count()
         self.assertGreaterEqual(seeded_sales, 24)
 
-        # Step 2: Model evaluation on HEADS metric (checks 6 candidates, including seasonal baseline)
+        # The monthly seed is intentionally sparse by week, so it cannot stand in
+        # for a complete weekly sale history or validate the auction forecast.
         eval_res = evaluate_all_models(domain="auction", target="ALL", unit="HEADS")
-        self.assertEqual(eval_res["status"], "ready")
-        self.assertEqual(eval_res["scope"], "Municipal live animal commercial trade")
-        self.assertEqual(len(eval_res["models"]), 6)
+        self.assertEqual(eval_res["status"], "insufficient_data")
+        self.assertIn("recorded in SmartLivestock", eval_res["scope"])
+        self.assertEqual(eval_res["frequency"], "WEEKLY")
+        self.assertFalse(eval_res["forecast_available"])
+        self.assertGreater(eval_res["data"]["missing_week_count"], 0)
 
-        # Step 3A: Forecast generation on HEADS (verifies active metrics MAE/RMSE/R2 are attached)
+        # Neither projection target may zero-fill the weeks absent from the sparse seed.
         fc_heads = generate_future_forecast(domain="auction", target="ALL", unit="HEADS", horizon_months=6)
-        self.assertEqual(fc_heads["status"], "ready")
-        self.assertEqual(fc_heads["scope"], "Municipal live animal commercial trade")
-        self.assertIn("metrics", fc_heads)
-        self.assertIn("mae", fc_heads["metrics"])
+        self.assertEqual(fc_heads["status"], "insufficient_data")
+        self.assertIn("recorded in SmartLivestock", fc_heads["scope"])
+        self.assertEqual(fc_heads["forecast"], [])
 
-        # Step 3B: Forecast generation for PHP currency volume
+        # Recorded value remains a separate target and also withholds across gaps.
         fc_php = generate_future_forecast(domain="auction", target="ALL", unit="PHP", horizon_months=6)
-        self.assertEqual(fc_php["status"], "ready")
+        self.assertEqual(fc_php["status"], "insufficient_data")
         self.assertEqual(fc_php["target"]["unit"], "PHP")
 
         # Step 4: Safe clean verification - ensures seed marker allows 100% removal of test data
@@ -434,138 +630,64 @@ class PredictiveAnalyticsTests(TestCase):
         self.assertEqual(eval_not_ready["status"], "insufficient_data")
         self.assertEqual(eval_not_ready["readiness_status"], "NOT_READY")
 
-        # Tier 2: READY (12 records)
+        # Milk needs 24 monthly observations to cover two annual cycles.
         call_command("seed_productions", months=12)
         eval_ready = evaluate_all_models(production_type="MILK", unit="LITERS")
-        self.assertEqual(eval_ready["status"], "ready")
-        self.assertEqual(eval_ready["readiness_status"], "READY")
+        self.assertEqual(eval_ready["status"], "insufficient_data")
+        self.assertEqual(eval_ready["readiness_status"], "NOT_READY")
         self.assertEqual(eval_ready["available_observations"], 12)
-        self.assertIn("initial model evaluation", eval_ready["readiness_details"])
+        self.assertEqual(eval_ready["required_observations"], 24)
         call_command("seed_productions", clean=True)
 
-        # Tier 3: QUALITY_READY (24+ records = 2+ full annual cycles)
+        # Event-based targets need 12 training months and a 6-month test window.
+        from analytics.services.predictive.data import get_readiness_status
+        self.assertEqual(get_readiness_status(18, min_observations_required=18)[0], "READY")
+        self.assertEqual(get_readiness_status(24, min_observations_required=18)[0], "QUALITY_READY")
+
+        # Milk reaches QUALITY_READY at two annual cycles.
         call_command("seed_productions", months=24)
         eval_quality = evaluate_all_models(production_type="MILK", unit="LITERS")
-        self.assertEqual(eval_quality["status"], "ready")
-        self.assertEqual(eval_quality["readiness_status"], "QUALITY_READY")
+        self.assertEqual(eval_quality["status"], "unvalidated")
+        self.assertEqual(eval_quality["readiness_status"], "AVAILABLE_UNVALIDATED")
         self.assertGreaterEqual(eval_quality["available_observations"], 24)
         self.assertIn("full annual cycles", eval_quality["readiness_details"])
         call_command("seed_productions", clean=True)
 
-    def test_baseline_superiority_when_ml_beats_baseline(self):
-        """
-        When synthetic seasonal trend exists and an ML model achieves lower MAE than Naive Baseline:
-        - baseline_comparison must be 'MODEL_BEATS_BASELINE'
-        - forecast_source must be 'MACHINE_LEARNING'
-        - selected_model must be the winning ML model
-        - baseline_mae and selected_model_mae must both be reported accurately
-        """
+    def test_seeded_synthetic_trend_is_not_claimed_as_baseline_validation(self):
+        """Synthetic seed trends remain usable as projections, not as empirical validation."""
         call_command("seed_productions", months=36)
+        result = evaluate_all_models(production_type="MILK", unit="LITERS")
+        self.assertEqual(result["status"], "unvalidated")
+        self.assertTrue(result["forecast_available"])
+        self.assertEqual(result["selection"]["baseline_comparison"], "UNVALIDATED")
+        self.assertIsNone(result["selection"]["baseline_mae"])
+        self.assertEqual(result["selection"]["forecast_source"], "UNVALIDATED_PROJECTION")
 
-        eval_res = evaluate_all_models(production_type="MILK", unit="LITERS")
-        self.assertEqual(eval_res["status"], "ready")
-
-        selection = eval_res["selection"]
-        self.assertIn("baseline_model", selection)
-        self.assertIn(selection["baseline_model"], ("Naive Baseline", "Seasonal Naive"))
-        baseline_result = next(
-            model for model in eval_res["models"]
-            if model["name"] == selection["baseline_model"]
-        )
-        self.assertEqual(selection["baseline_mae"], baseline_result["mae"])
-        self.assertIsNotNone(selection["baseline_mae"])
-        self.assertIsNotNone(selection["selected_model_mae"])
-        self.assertIn(selection["baseline_comparison"], ["MODEL_BEATS_BASELINE", "BASELINE_BEST"])
-
-        fc_res = generate_future_forecast(production_type="MILK", unit="LITERS", horizon_months=6)
-        self.assertEqual(fc_res["status"], "ready")
-        self.assertIn("data_provenance", fc_res)
-        self.assertIn("train_period", fc_res["data_provenance"])
-        self.assertIn("test_period", fc_res["data_provenance"])
-        self.assertEqual(fc_res["data_provenance"]["total_observations"], 36)
-        self.assertEqual(fc_res["readiness_status"], "QUALITY_READY")
-
-        call_command("seed_productions", clean=True)
-
-    def test_baseline_selected_when_baseline_performs_best(self):
-        """
-        When historical observations are constant / static values where persistence
-        yields zero error (or lowest error):
-        - Naive Baseline must be selected as the operational model
-        - baseline_comparison must report 'BASELINE_BEST'
-        - forecast_source must report 'NAIVE_BASELINE'
-        - generate_future_forecast must produce persistence forecast matching the baseline value
-        """
-        # Create 14 months of constant approved production (100.00 L every month)
-        base_date = date(2025, 1, 15)
-        for i in range(14):
-            month_date = base_date + relativedelta(months=i)
+    def test_baseline_projection_is_labeled_unvalidated_without_historical_cutoffs(self):
+        """Constant fixture values do not receive a fabricated backtest score."""
+        base_date = timezone.localdate().replace(day=15) - relativedelta(months=24)
+        for i in range(24):
             ProductionRecord.objects.create(
-                livestock=self.inventory,
-                production_type=ProductionRecord.ProductionType.MILK,
-                quantity=Decimal("100.00"),
-                unit=ProductionRecord.UnitType.LITERS,
-                record_date=month_date,
-                status=ProductionRecord.ProductionStatus.APPROVED,
-                notes="Constant test record",
-                created_by=self.farmer_user,
+                livestock=self.inventory, production_type="MILK", quantity=Decimal("100.00"),
+                unit="LITERS", record_date=base_date + relativedelta(months=i),
+                status="APPROVED", notes="Constant test record", created_by=self.farmer_user,
             )
+        result = evaluate_all_models(production_type="MILK", unit="LITERS")
+        self.assertEqual(result["status"], "unvalidated")
+        self.assertEqual(result["selection"]["selected_model"], "Naive Baseline")
+        self.assertEqual(result["selection"]["baseline_comparison"], "UNVALIDATED")
+        self.assertIsNone(result["selection"]["baseline_mae"])
 
-        eval_res = evaluate_all_models(production_type="MILK", unit="LITERS")
-        self.assertEqual(eval_res["status"], "ready")
-        self.assertEqual(eval_res["selection"]["selected_model"], "Naive Baseline")
-        self.assertEqual(eval_res["selection"]["baseline_comparison"], "BASELINE_BEST")
-        self.assertEqual(eval_res["selection"]["forecast_source"], "NAIVE_BASELINE")
-        self.assertEqual(eval_res["selection"]["baseline_mae"], 0.0)
-
-        # Forecast generation must respect baseline selection
-        fc_res = generate_future_forecast(production_type="MILK", unit="LITERS", horizon_months=6)
-        self.assertEqual(fc_res["status"], "ready")
-        self.assertEqual(fc_res["model"], "Naive Baseline")
-        self.assertEqual(fc_res["forecast_source"], "NAIVE_BASELINE")
-        self.assertEqual(fc_res["baseline_comparison"], "BASELINE_BEST")
-        for pt in fc_res["forecast"]:
-            self.assertEqual(pt["predicted"], 100.0)
-
-    def test_failed_statistical_model_tolerance(self):
-        """
-        Verify that if Holt-Winters or ARIMA throws a mathematical or convergence error:
-        1. evaluate_all_models does NOT crash or raise 500.
-        2. The failed model is marked status='FAILED: ...' with mae=None.
-        3. The remaining valid candidate models participate normally in evaluation and selection.
-        """
+    def test_model_failures_do_not_create_scores_without_valid_cutoffs(self):
+        """A model fitting failure cannot turn demo data into validation evidence."""
         from unittest.mock import patch
-
         call_command("seed_productions", months=24)
-
-        # Simulate Holt-Winters throwing an optimization exception
-        with patch.object(HoltWintersForecaster, "fit", side_effect=RuntimeError("L-BFGS-B numerical divergence simulation")):
-            eval_res = evaluate_all_models(production_type="MILK", unit="LITERS")
-            self.assertEqual(eval_res["status"], "ready")
-            self.assertTrue(eval_res["forecast_available"])
-
-            # Find the Holt-Winters result
-            hw_model = next((m for m in eval_res["models"] if m["name"] == "Holt-Winters"), None)
-            self.assertIsNotNone(hw_model)
-            self.assertTrue(hw_model["status"].startswith("FAILED"))
-            self.assertIn("L-BFGS-B numerical divergence simulation", hw_model["status"])
-            self.assertIsNone(hw_model["mae"])
-            self.assertIsNone(hw_model["rmse"])
-            self.assertIsNone(hw_model["r2"])
-            self.assertFalse(hw_model["is_selected"])
-
-            # The other 5 candidates must still be evaluated
-            other_models = [m for m in eval_res["models"] if m["name"] != "Holt-Winters"]
-            self.assertEqual(len(other_models), 5)
-            for m in other_models:
-                self.assertTrue(m["status"].startswith("EVALUATED"))
-                self.assertIsNotNone(m["mae"])
-
-            # Selection must have chosen one of the valid models
-            self.assertIn(eval_res["selection"]["selected_model"], [m["name"] for m in other_models])
-            self.assertNotEqual(eval_res["selection"]["selected_model"], "Holt-Winters")
-
-        call_command("seed_productions", clean=True)
+        with patch.object(HoltWintersForecaster, "fit", side_effect=RuntimeError("simulated fit failure")):
+            result = evaluate_all_models(production_type="MILK", unit="LITERS")
+        self.assertEqual(result["status"], "unvalidated")
+        self.assertTrue(result["forecast_available"])
+        self.assertEqual(result["backtest_windows_available"], 0)
+        self.assertTrue(all(row["mae"] is None for row in result["models"]))
 
     def test_disease_surveillance_pipeline_cases_and_heads(self):
         """
@@ -580,18 +702,18 @@ class PredictiveAnalyticsTests(TestCase):
 
         # 1. Evaluate on CASES
         eval_cases = evaluate_all_models(domain="disease", target="ALL", unit="CASES")
-        self.assertEqual(eval_cases["status"], "ready")
+        self.assertEqual(eval_cases["status"], "unvalidated")
         self.assertEqual(eval_cases["target"]["unit"], "CASES")
         self.assertEqual(len(eval_cases["models"]), 6)
 
         # 2. Forecast on CASES
         fc_cases = generate_future_forecast(domain="disease", target="ALL", unit="CASES", horizon_months=6)
-        self.assertEqual(fc_cases["status"], "ready")
+        self.assertEqual(fc_cases["status"], "unvalidated")
         self.assertEqual(len(fc_cases["forecast"]), 6)
 
         # 3. Evaluate on HEADS
         eval_heads = evaluate_all_models(domain="disease", target="ALL", unit="HEADS")
-        self.assertEqual(eval_heads["status"], "ready")
+        self.assertEqual(eval_heads["status"], "unvalidated")
         self.assertEqual(eval_heads["target"]["unit"], "HEADS")
 
         call_command("seed_diseases", clean=True)
@@ -610,11 +732,11 @@ class PredictiveAnalyticsTests(TestCase):
         self.assertGreaterEqual(seeded_mortality, 24)
 
         eval_res = evaluate_all_models(domain="mortality", target="ALL", unit="HEADS")
-        self.assertEqual(eval_res["status"], "ready")
+        self.assertEqual(eval_res["status"], "unvalidated")
         self.assertEqual(len(eval_res["models"]), 6)
 
         fc_res = generate_future_forecast(domain="mortality", target="ALL", unit="HEADS", horizon_months=3)
-        self.assertEqual(fc_res["status"], "ready")
+        self.assertEqual(fc_res["status"], "unvalidated")
         self.assertEqual(len(fc_res["forecast"]), 3)
 
         call_command("seed_mortality", clean=True)
@@ -664,7 +786,7 @@ class PredictiveAnalyticsTests(TestCase):
                 horizon_months=6,
                 preferred_model="Holt-Winters",
             )
-            self.assertEqual(fc_res["status"], "ready")
+            self.assertEqual(fc_res["status"], "unvalidated")
             self.assertEqual(fc_res["model"], "Naive Baseline")
             self.assertTrue(fc_res["fallback_used"])
             self.assertIn("Prediction matrix singularity", fc_res["fallback_reason"])

@@ -143,6 +143,17 @@ def forecast_livestock_milk(
         if event_date <= today and approval_date <= today
     ]
     latest_calving = max(eligible_calvings) if eligible_calvings else None
+    calendar_gaps = []
+    missing_dates = []
+    missing_date_count = 0
+    for previous, current in zip(daily_records, daily_records[1:]):
+        gap = (current["date"] - previous["date"]).days
+        if gap > 1:
+            calendar_gaps.append(gap)
+            missing_date_count += gap - 1
+            for offset in range(1, gap):
+                if len(missing_dates) < 20:
+                    missing_dates.append((previous["date"] + timedelta(days=offset)).isoformat())
     result = {
         "status": "NOT_READY",
         "data_source": "approved_livestock_records",
@@ -156,6 +167,18 @@ def forecast_livestock_milk(
             "days_since_calving": _days_since_calving(latest_calving, latest_date),
         },
         "observation_count": len(daily_records),
+        "observation_unit": "recorded daily total (sum of approved sessions on that date)",
+        "session_coverage": {
+            "days_with_one_session": sum(1 for row in daily_records if row.get("session_count") == 1),
+            "days_with_two_sessions": sum(1 for row in daily_records if row.get("session_count") == 2),
+            "days_with_three_sessions": sum(1 for row in daily_records if row.get("session_count") == 3),
+            "days_with_unknown_session": sum(1 for row in daily_records if not row.get("session_count")),
+            "completeness_note": "A missing session is not counted as zero. The system has no session-coverage record to confirm whether it was missed, not applicable, or not reported.",
+        },
+        "missing_calendar_intervals": len(calendar_gaps),
+        "missing_calendar_days": missing_date_count,
+        "missing_calendar_dates": missing_dates,
+        "missing_calendar_dates_truncated": missing_date_count > len(missing_dates),
         "minimum_history_required": MIN_REAL_HISTORY_DAYS,
         "horizon_days": 7,
         "history": history,
@@ -188,6 +211,13 @@ def forecast_livestock_milk(
 
     if (today - latest_date).days > 7:
         result["reason"] = "The latest approved milk record is more than seven days old. Record current production before forecasting the coming week."
+        return result
+
+    if calendar_gaps:
+        result["reason"] = (
+            f"Forecast withheld: {len(calendar_gaps)} calendar interval(s), covering {missing_date_count} unrecorded date(s), exist in the approved daily history. "
+            "Missing dates are not filled with zero, and lag features require consecutive dates."
+        )
         return result
 
     weight_records = weight_records or []

@@ -30,9 +30,8 @@ KEY DATA SCIENCE & CAPSTONE PRINCIPLES:
    Counting both in the same meat metric would double-count the same livestock.
 
 4. Data Sufficiency vs. Fake Forecasts:
-   If a domain has fewer than 12 monthly observations, we NEVER fabricate fake forecast
-   curves or random numbers. We return `status: "insufficient_data"` with the historical
-   trend line and an educational explanation of minimum observation thresholds.
+   Each requested target has a documented monthly minimum. We NEVER fabricate forecast
+   curves or random numbers when that minimum or data-coverage rules are not met.
 
 5. Chronological Train/Test Split (Preventing Data Leakage):
    Standard ML often splits data randomly (e.g. train_test_split(..., shuffle=True)).
@@ -49,7 +48,7 @@ import pandas as pd
 import numpy as np
 from django.utils import timezone
 
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, Max
 from django.db.models.functions import TruncMonth
 
 from production.models import ProductionRecord, SlaughterRecord, LiveAnimalSale
@@ -71,9 +70,8 @@ SEED_MARKER = SEED_MARKER_V2
 # -----------------------------------------------------------------------------
 # MODEL & DATA READINESS THRESHOLDS (Capstone Defense Concept)
 # -----------------------------------------------------------------------------
-# 1. NOT_READY (< 12 observations):
-#    Fewer than 12 historical monthly points. Cannot establish a reliable
-#    chronological train/test split without severe overfitting or fabricating data.
+# 1. NOT_READY: The target-specific minimum is not met. Cannot establish the
+#    target's required chronological training and holdout periods.
 # 2. READY (12 - 23 observations):
 #    Minimal data available (at least 1 full annual cycle). Allows chronological
 #    holdout evaluation and baseline comparison, but sample size is still limited.
@@ -88,19 +86,98 @@ READINESS_QUALITY_READY = "QUALITY_READY"
 MIN_OBSERVATIONS_REQUIRED = 12
 QUALITY_OBSERVATIONS_THRESHOLD = 24
 
+# These are the only four operational forecasts requested by the municipal
+# dashboard. Event dates and statuses are tied to the actual source models.
+FORECAST_TARGETS = {
+    ("production", "MILK", "LITERS"): {
+        "label": "Milk production",
+        "unit": "LITERS",
+        "event_date_field": "ProductionRecord.record_date",
+        "eligible_status": "APPROVED",
+        "source": "ProductionRecord (MILK; liters)",
+        "expected_reporting": "Daily entries are possible, but no daily reporting-completeness ledger exists.",
+        "minimum_monthly_observations": 24,
+        "minimum_rule": "Two annual cycles before evaluating annual seasonality and a holdout forecast.",
+    },
+    ("production", "MEAT", "KILOGRAMS"): {
+        "label": "Farmer-reported meat yield",
+        "unit": "KILOGRAMS",
+        "event_date_field": "ProductionRecord.record_date",
+        "eligible_status": "APPROVED",
+        "source": "ProductionRecord (MEAT; slaughter is null; kilograms)",
+        "expected_reporting": "Event-based; no reporting-completeness ledger exists.",
+        "minimum_monthly_observations": 18,
+        "minimum_rule": "12 training months plus a 6-month out-of-sample window for this monthly event series.",
+    },
+    ("slaughter", "ALL", "KILOGRAMS"): {
+        "label": "Slaughterhouse meat yield",
+        "unit": "KILOGRAMS",
+        "event_date_field": "SlaughterRecord.record_date",
+        "eligible_status": "APPROVED",
+        "source": "SlaughterRecord.carcass_weight (kilograms)",
+        "expected_reporting": "Event-based; missing carcass weights are not treated as zero.",
+        "minimum_monthly_observations": 18,
+        "minimum_rule": "12 training months plus a 6-month out-of-sample window for this monthly event series.",
+    },
+    ("auction", "ALL", "HEADS"): {
+        "label": "Livestock sold",
+        "unit": "HEADS",
+        "event_date_field": "LiveAnimalSale.sale_date",
+        "eligible_status": "APPROVED",
+        "source": "LiveAnimalSale.quantity (approved transactions)",
+        "expected_reporting": "Transaction-based; a missing month does not prove zero sales or a held auction.",
+        "minimum_monthly_observations": 18,
+        "minimum_rule": "12 training months plus a 6-month out-of-sample window for this monthly event series.",
+    },
+    ("auction", "ALL", "TRANSACTIONS"): {
+        "label": "Completed livestock sale transactions",
+        "unit": "TRANSACTIONS",
+        "event_date_field": "LiveAnimalSale.sale_date",
+        "eligible_status": "APPROVED",
+        "source": "LiveAnimalSale approved transaction records",
+        "expected_reporting": "Weekly transaction-based; missing weeks are unknown because no market coverage log exists.",
+        "minimum_monthly_observations": 12,
+        "minimum_rule": "The weekly auction service requires 12 contiguous complete weeks of recorded transactions; missing weeks are never zero-filled.",
+    },
+}
 
-def get_readiness_status(observation_count: int, missing_month_count: int = 0) -> Tuple[str, str]:
+
+def get_forecast_target_definition(domain: str, target: str, unit: str) -> Dict[str, str]:
+    """Return source semantics for the four forecast metrics, when applicable."""
+    key = ((domain or "").lower(), (target or "").upper(), (unit or "").upper())
+    if key in FORECAST_TARGETS:
+        return dict(FORECAST_TARGETS[key])
+    # Slaughter may be filtered to a species rather than ALL.
+    if key[0] == "slaughter" and key[2] == "KILOGRAMS":
+        return dict(FORECAST_TARGETS[("slaughter", "ALL", "KILOGRAMS")])
+    return {
+        "label": f"{domain.title()} {target}",
+        "unit": unit,
+        "event_date_field": "source-model event date",
+        "eligible_status": "APPROVED",
+        "source": f"Approved {domain} records",
+        "expected_reporting": "Reporting completeness is not recorded; absent months are unknown.",
+        "minimum_monthly_observations": MIN_OBSERVATIONS_REQUIRED,
+        "minimum_rule": "Existing generic minimum for monthly forecasts.",
+    }
+
+
+def get_readiness_status(
+    observation_count: int,
+    missing_month_count: int = 0,
+    min_observations_required: int = MIN_OBSERVATIONS_REQUIRED,
+) -> Tuple[str, str]:
     """
     Computes deterministic model/data readiness state:
-    - NOT_READY (< 12 observations): Insufficient data to perform chronological split and train/test evaluation.
-    - READY (12 - 23 observations): Minimal data available for baseline and model training, but sample is limited.
+    - NOT_READY (< target-specific minimum): Insufficient data for the intended train/test periods.
+    - READY: Minimal data available for baseline and model training, but sample is limited.
     - QUALITY_READY (>= 24 observations): Two or more annual cycles available, supporting full 12-month seasonality
       and robust out-of-sample evaluation.
     """
-    if observation_count < MIN_OBSERVATIONS_REQUIRED:
+    if observation_count < min_observations_required:
         return (
             READINESS_NOT_READY,
-            f"Found {observation_count} monthly observation(s). At least {MIN_OBSERVATIONS_REQUIRED} required.",
+            f"Found {observation_count} monthly observation(s). At least {min_observations_required} are required for this target.",
         )
     elif missing_month_count > 0:
         return (
@@ -140,7 +217,7 @@ def extract_monthly_series(
     Returns:
         (df, metadata)
         - df: A pandas DataFrame with columns ['month', 'quantity'], indexed by DatetimeIndex,
-              or None if insufficient data (< 12 observations).
+              or None if the target-specific observation minimum or coverage rules are unmet.
         - metadata: Dictionary containing observation counts, seed status, historical points,
                     and sufficiency explanation.
     """
@@ -152,6 +229,9 @@ def extract_monthly_series(
     has_seed = False
     base_qs = None
     records = []
+    event_date_field = "record_date"
+    unmeasured_target_records = 0
+    excluded_milk_session_conflicts = 0
 
     if domain == "production":
         # ---------------------------------------------------------------------
@@ -165,6 +245,9 @@ def extract_monthly_series(
         # Crucial: Farmer-reported meat must NOT double-count slaughter records!
         if target_clean == "MEAT":
             base_qs = base_qs.filter(slaughter__isnull=True)
+        elif target_clean == "MILK":
+            excluded_milk_session_conflicts = base_qs.filter(session_conflict=True).count()
+            base_qs = base_qs.filter(session_conflict=False)
 
         seeded_record = base_qs.filter(notes__contains="AI_SEED").first()
         if seeded_record:
@@ -175,12 +258,25 @@ def extract_monthly_series(
                 else SEED_MARKER_PRODUCTION_LEGACY
             )
 
-        monthly_data = (
+        if target_clean == "MILK":
+            monthly_data = (
+                base_qs.annotate(month=TruncMonth("record_date"))
+                .values("month")
+                .annotate(total_quantity=Sum("quantity"), latest_event_date=Max("record_date"),
+                          latest_approval=Max("approved_at"), latest_creation=Max("created_at"),
+                          total_records=Count("pk"), reviewed_records=Count("approved_at"),
+                          created_records=Count("created_at"))
+                .order_by("month")
+            )
+        else:
+            monthly_data = (
             base_qs.annotate(month=TruncMonth("record_date"))
             .values("month")
-            .annotate(total_quantity=Sum("quantity"))
+            .annotate(total_quantity=Sum("quantity"), latest_event_date=Max("record_date"), latest_approval=Max("approved_at"),
+                      latest_creation=Max("created_at"), total_records=Count("pk"),
+                      reviewed_records=Count("approved_at"), created_records=Count("created_at"))
             .order_by("month")
-        )
+            )
         records = list(monthly_data)
 
     elif domain == "disease":
@@ -203,7 +299,9 @@ def extract_monthly_series(
             monthly_data = (
                 base_qs.annotate(month=TruncMonth("record_date"))
                 .values("month")
-                .annotate(total_quantity=Sum("affected_count"))
+                .annotate(total_quantity=Sum("affected_count"), latest_event_date=Max("record_date"), latest_approval=Max("reviewed_at"),
+                          latest_creation=Max("created_at"), total_records=Count("pk"),
+                          reviewed_records=Count("reviewed_at"), created_records=Count("created_at"))
                 .order_by("month")
             )
         else:
@@ -212,7 +310,9 @@ def extract_monthly_series(
             monthly_data = (
                 base_qs.annotate(month=TruncMonth("record_date"))
                 .values("month")
-                .annotate(total_quantity=Count("id"))
+                .annotate(total_quantity=Count("id"), latest_event_date=Max("record_date"), latest_approval=Max("reviewed_at"),
+                          latest_creation=Max("created_at"), total_records=Count("pk"),
+                          reviewed_records=Count("reviewed_at"), created_records=Count("created_at"))
                 .order_by("month")
             )
         records = list(monthly_data)
@@ -236,7 +336,9 @@ def extract_monthly_series(
         monthly_data = (
             base_qs.annotate(month=TruncMonth("record_date"))
             .values("month")
-            .annotate(total_quantity=Sum("death_count"))
+            .annotate(total_quantity=Sum("death_count"), latest_event_date=Max("record_date"), latest_approval=Max("reviewed_at"),
+                      latest_creation=Max("created_at"), total_records=Count("pk"),
+                      reviewed_records=Count("reviewed_at"), created_records=Count("created_at"))
             .order_by("month")
         )
         records = list(monthly_data)
@@ -258,10 +360,13 @@ def extract_monthly_series(
 
         if unit_clean in ("KILOGRAMS", "KG", "WEIGHT"):
             unit_clean = "KILOGRAMS"
+            unmeasured_target_records = base_qs.filter(carcass_weight__isnull=True).count()
             monthly_data = (
                 base_qs.annotate(month=TruncMonth("record_date"))
                 .values("month")
-                .annotate(total_quantity=Sum("carcass_weight"))
+                .annotate(total_quantity=Sum("carcass_weight"), latest_event_date=Max("record_date"), latest_approval=Max("reviewed_at"),
+                          latest_creation=Max("created_at"), total_records=Count("pk"),
+                          reviewed_records=Count("reviewed_at"), created_records=Count("created_at"))
                 .order_by("month")
             )
         else:
@@ -269,7 +374,9 @@ def extract_monthly_series(
             monthly_data = (
                 base_qs.annotate(month=TruncMonth("record_date"))
                 .values("month")
-                .annotate(total_quantity=Sum("quantity"))
+                .annotate(total_quantity=Sum("quantity"), latest_event_date=Max("record_date"), latest_approval=Max("reviewed_at"),
+                          latest_creation=Max("created_at"), total_records=Count("pk"),
+                          reviewed_records=Count("reviewed_at"), created_records=Count("created_at"))
                 .order_by("month")
             )
         records = list(monthly_data)
@@ -281,6 +388,7 @@ def extract_monthly_series(
         base_qs = scope_reviewer_queryset(LiveAnimalSale.objects.all(), user).filter(
             status=LiveAnimalSale.StatusType.APPROVED
         )
+        event_date_field = "sale_date"
         if target_clean not in ("ALL", "HEADS", "SALES", "PHP", ""):
             base_qs = base_qs.filter(
                 Q(sale_method__icontains=target_clean) | Q(purpose__icontains=target_clean)
@@ -301,7 +409,9 @@ def extract_monthly_series(
             monthly_data = (
                 base_qs.annotate(month=TruncMonth("sale_date"))
                 .values("month")
-                .annotate(total_quantity=Sum("total_price"))
+                .annotate(total_quantity=Sum("total_price"), latest_event_date=Max("sale_date"), latest_approval=Max("reviewed_at"),
+                          latest_creation=Max("created_at"), total_records=Count("pk"),
+                          reviewed_records=Count("reviewed_at"), created_records=Count("created_at"))
                 .order_by("month")
             )
         else:
@@ -309,7 +419,9 @@ def extract_monthly_series(
             monthly_data = (
                 base_qs.annotate(month=TruncMonth("sale_date"))
                 .values("month")
-                .annotate(total_quantity=Sum("quantity"))
+                .annotate(total_quantity=Sum("quantity"), latest_event_date=Max("sale_date"), latest_approval=Max("reviewed_at"),
+                          latest_creation=Max("created_at"), total_records=Count("pk"),
+                          reviewed_records=Count("reviewed_at"), created_records=Count("created_at"))
                 .order_by("month")
             )
         records = list(monthly_data)
@@ -353,6 +465,39 @@ def extract_monthly_series(
             if month not in observed_months
         ]
 
+    # Preserve approval availability by event month. A historical backtest may
+    # train on a month's value only after every record in that aggregate had been
+    # reviewed and created; records with unknown timestamps cannot establish that cutoff.
+    for row in records:
+        row["available_at"] = (
+            timezone.localtime(max(row.get("latest_approval"), row.get("latest_creation"))).date()
+            if row.get("latest_approval") is not None
+            and row.get("latest_creation") is not None
+            and row.get("total_records") == row.get("reviewed_records")
+            and row.get("total_records") == row.get("created_records")
+            else None
+        )
+
+    def date_only(value):
+        if value is None:
+            return None
+        return timezone.localtime(value).date().isoformat() if hasattr(value, "date") else value.isoformat()
+
+    # Give reviewers an aggregate-only trace of when each approved month's value
+    # entered the system and when its current approved records were last reviewed.
+    # These are current-record timestamps, not an immutable approval audit log.
+    availability_timeline = [
+        {
+            "event_month": pd.Timestamp(row["month"]).strftime("%Y-%m"),
+            "latest_event_date": date_only(row.get("latest_event_date")),
+            "record_count": int(row.get("total_records") or 0),
+            "latest_submitted_on": date_only(row.get("latest_creation")),
+            "latest_approved_on": date_only(row.get("latest_approval")),
+            "available_to_model_on": date_only(row.get("available_at")),
+        }
+        for row in records
+    ]
+
     # Convert the raw database query results into a list of chronological data points
     historical_trend_points = [
         {
@@ -377,7 +522,13 @@ def extract_monthly_series(
     domain_scope = domain_scopes.get(domain, f"Municipal {domain} aggregate")
 
     # Compute deterministic readiness status & explanatory message
-    readiness_status, readiness_message = get_readiness_status(len(records), len(missing_months))
+    target_definition = get_forecast_target_definition(domain, target_clean, unit_clean)
+    min_observations_required = target_definition.get(
+        "minimum_monthly_observations", MIN_OBSERVATIONS_REQUIRED
+    )
+    readiness_status, readiness_message = get_readiness_status(
+        len(records), len(missing_months), min_observations_required
+    )
     coverage_warning_parts = []
     if current_month_has_records:
         coverage_warning_parts.append(
@@ -402,8 +553,8 @@ def extract_monthly_series(
         "total_monthly_observations": len(records),
         # Observation counters consumed by frontend to display available vs required points:
         "available_observations": len(records),
-        "required_observations": MIN_OBSERVATIONS_REQUIRED,
-        "min_observations_required": MIN_OBSERVATIONS_REQUIRED,
+        "required_observations": min_observations_required,
+        "min_observations_required": min_observations_required,
         "quality_observations_threshold": QUALITY_OBSERVATIONS_THRESHOLD,
         "readiness_status": readiness_status,
         "readiness_details": readiness_message,
@@ -413,27 +564,76 @@ def extract_monthly_series(
         "excluded_incomplete_current_month": current_month_has_records,
         "coverage_warning": coverage_warning,
         "historical_trend": historical_trend_points,
+        "approval_timeline": availability_timeline,
+        "approval_timeline_note": (
+            "Dates summarize currently approved records by production month. Each month is treated as available "
+            "only after its latest original submission and approval timestamps. This is not a reconstruction of "
+            "historical edits beyond the stored workflow events."
+        ),
+        "target_definition": target_definition,
+        "data_through_date": (
+            base_qs.filter(**{f"{event_date_field}__lt": current_month_start}).aggregate(latest=Max(event_date_field))["latest"]
+            if base_qs is not None else None
+        ),
+        "approval_cutoff_reconstructable": all(r.get("available_at") is not None for r in records),
+        "unmeasured_target_records": unmeasured_target_records,
+        "excluded_milk_session_conflict_records": excluded_milk_session_conflicts,
     }
 
-    # Data sufficiency verification: NEVER force machine learning on sparse data (< 12 points).
+    # Data sufficiency verification: NEVER force a model on sparse target-specific data.
     # If the user does not have 12 months yet, we return status="insufficient_data"
     # along with the historical points so the frontend can display honest ground truth without guessing.
-    if len(records) < MIN_OBSERVATIONS_REQUIRED:
+    if len(records) < min_observations_required:
         metadata["status"] = "insufficient_data"
         metadata["forecast_available"] = False
         metadata["readiness_status"] = READINESS_NOT_READY
         metadata["message"] = (
             f"Insufficient historical data for {domain.title()} ({target_clean}): Found {len(records)} "
-            f"monthly observation(s). At least {MIN_OBSERVATIONS_REQUIRED} monthly observations are required "
+            f"monthly observation(s). At least {min_observations_required} monthly observations are required "
             f"to train, chronologically evaluate, and benchmark predictive forecasting models reliably "
             f"without fabricating synthetic scores."
         )
         return None, metadata
 
+    if unmeasured_target_records:
+        metadata["status"] = "incomplete_target_measurements"
+        metadata["forecast_available"] = False
+        metadata["readiness_status"] = READINESS_NOT_READY
+        metadata["readiness_details"] = (
+            f"{unmeasured_target_records} approved slaughter event(s) have no carcass weight. "
+            "The monthly meat-yield totals may be partial, so the forecast is withheld."
+        )
+        metadata["message"] = metadata["readiness_details"]
+        return None, metadata
+
+    # Monthly models and monthly horizons require one observation per calendar
+    # month. Filling absent event/report months with zero would invent reporting
+    # completeness, while dropping them would make adjacent rows look adjacent in
+    # time. Keep actual history visible and withhold the forecast instead.
+    if missing_months:
+        metadata["status"] = "incomplete_coverage"
+        metadata["forecast_available"] = False
+        metadata["readiness_status"] = READINESS_NOT_READY
+        metadata["readiness_details"] = (
+            f"There are {len(missing_months)} months without approved records. "
+            "The system has no coverage log to distinguish zero activity from unreported data, "
+            "so a monthly forecast is withheld."
+        )
+        metadata["message"] = metadata["readiness_details"]
+        return None, metadata
+
+    if not metadata["approval_cutoff_reconstructable"]:
+        metadata["approval_history_note"] = (
+            "One or more current approved periods lack reconstructable submission or approval timestamps. "
+            "They remain usable in the present-time projection but are excluded from historical training cutoffs. "
+            "Forecast generation and historical validation are reported separately."
+        )
+
     rows = [
         {
             "month": pd.to_datetime(r["month"]),
             "quantity": float(r["total_quantity"]),
+            "available_at": pd.Timestamp(r["available_at"]),
         }
         for r in records
     ]
@@ -506,8 +706,10 @@ def prepare_tabular_features(df: pd.DataFrame) -> pd.DataFrame:
     # preventing current target 'quantity' from leaking into the feature!
     df_feat["rolling_mean_3"] = df_feat["quantity"].shift(1).rolling(window=3).mean()
 
-    # Drop the first 3 rows because lag_3 / rolling_mean_3 creates NaN values for them
-    df_feat.dropna(inplace=True)
+    # Drop only rows without model features created by the lag window. In
+    # particular, an unknown historical approval time must stay unknown rather
+    # than deleting an otherwise usable observation from a forward forecast.
+    df_feat.dropna(subset=["lag_1", "lag_2", "lag_3", "rolling_mean_3"], inplace=True)
     df_feat.reset_index(drop=True, inplace=True)
 
     return df_feat

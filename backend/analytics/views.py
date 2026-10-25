@@ -483,6 +483,56 @@ def predictive_forecast(request):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated, isMAO | isSibat])
+def predictive_readiness_diagnostics(request):
+    """
+    Returns authoritative forecast readiness, validation diagnostics, checklist,
+    and cutoff timeline for MAO/Admin decision support.
+    """
+    domain = request.query_params.get("domain")
+    target = request.query_params.get("target") or request.query_params.get("production_type")
+    unit = request.query_params.get("unit")
+    parameters = ForecastHorizonSerializer(data=request.query_params)
+    parameters.is_valid(raise_exception=True)
+    horizon = parameters.validated_data["horizon"]
+
+    try:
+        from .services.predictive.diagnostics import (
+            get_forecast_readiness_diagnostics,
+            get_all_forecast_readiness_diagnostics,
+        )
+
+        if domain or target:
+            res = get_forecast_readiness_diagnostics(
+                domain=domain or "production",
+                target=target or "MILK",
+                unit=unit or ("LITERS" if (domain or "production") == "production" else "HEADS"),
+                user=request.user,
+                horizon_months=horizon,
+            )
+        else:
+            res = get_all_forecast_readiness_diagnostics(
+                user=request.user,
+                horizon_months=horizon,
+            )
+        return Response(res)
+    except APIException:
+        raise
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Predictive readiness diagnostics failed")
+        return Response(
+            {
+                "status": "error",
+                "message": "Predictive readiness diagnostics are temporarily unavailable.",
+                "summary_cards": [],
+                "diagnostics": {},
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
 def individual_milk_forecast(request):
     """List isolated demo cows or forecast one selected demo cow for seven days."""
     from .services.predictive.individual_milk import get_individual_milk_forecast, list_demo_cows
@@ -533,7 +583,7 @@ def _livestock_milk_forecast_response(request, livestock_id):
     is a separate branch so synthetic observations can never satisfy real-data
     readiness or silently replace an insufficient real history.
     """
-    from django.db.models import Q, Sum
+    from django.db.models import Count, Q, Sum
     from livestock.models import LivestockInventory
     from production.models import CalvingRecord, ProductionRecord, WeightRecord
     from smartlivestock.workflows import require_action, role_name
@@ -621,6 +671,8 @@ def _livestock_milk_forecast_response(request, livestock_id):
         production_type=ProductionRecord.ProductionType.MILK,
         unit=ProductionRecord.UnitType.LITERS,
         status=ProductionRecord.ProductionStatus.APPROVED,
+        approved_at__isnull=False,
+        session_conflict=False,
         record_date__lte=timezone.localdate(),
     )
     if user_role == "FARMER":
@@ -635,6 +687,8 @@ def _livestock_milk_forecast_response(request, livestock_id):
             production_type=ProductionRecord.ProductionType.MILK,
             unit=ProductionRecord.UnitType.LITERS,
             status=ProductionRecord.ProductionStatus.APPROVED,
+            approved_at__isnull=False,
+            session_conflict=False,
             record_date__lte=timezone.localdate(),
         )
 
@@ -642,11 +696,13 @@ def _livestock_milk_forecast_response(request, livestock_id):
     # observation because the model predicts daily milk totals.
     daily_records = list(
         records.values("record_date")
-        .annotate(milk_liters=Sum("quantity"))
+        .annotate(milk_liters=Sum("quantity"), session_count=Count("milking_session", distinct=True),
+                  record_count=Count("pk"))
         .order_by("record_date")
     )
     daily_records = [
-        {"date": row["record_date"], "milk_liters": float(row["milk_liters"])}
+        {"date": row["record_date"], "milk_liters": float(row["milk_liters"]),
+         "session_count": row["session_count"], "record_count": row["record_count"]}
         for row in daily_records
     ]
     calving_events = list(

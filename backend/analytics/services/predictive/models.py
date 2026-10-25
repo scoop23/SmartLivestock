@@ -366,6 +366,8 @@ def forecast_candidate(
 
     if model_name == "Naive Baseline":
         predictions = NaiveBaselineModel().fit(pd.Series(values)).predict_steps(horizon)
+    elif model_name == "Moving Average (3 periods)":
+        predictions = np.repeat(float(np.mean(values[-3:])), horizon)
     elif model_name == "Seasonal Naive":
         predictions = SeasonalNaiveModel().fit_predict(history, future_dates)
     elif model_name == "Linear Regression":

@@ -52,6 +52,17 @@ def generate_future_forecast(
     # Backward compatibility with callers passing production_type
     effective_target = production_type if production_type is not None else target
 
+    if (domain or "").lower() == "auction":
+        from .auction_weekly import generate_weekly_auction_forecast
+
+        return generate_weekly_auction_forecast(
+            target=effective_target,
+            unit=unit,
+            horizon_weeks=horizon_months,
+            preferred_model=preferred_model,
+            user=user,
+        )
+
     # Step 1: Run model evaluation to discover the benchmark winner
     eval_res = evaluate_all_models(
         domain=domain,
@@ -60,7 +71,7 @@ def generate_future_forecast(
         user=user,
         horizon_months=horizon_months,
     )
-    if eval_res.get("status") == "insufficient_data":
+    if eval_res.get("status") == "insufficient_data" or not eval_res.get("forecast_available", True):
         return eval_res
 
     best_evaluated_model = eval_res.get("selection", {}).get("selected_model") or "Naive Baseline"
@@ -176,9 +187,14 @@ def generate_future_forecast(
         baseline_comparison = eval_res.get("selection", {}).get("baseline_comparison", "MODEL_BEATS_BASELINE")
 
     # Step 7: Build Standardized API Response Payload
+    is_validated = eval_res.get("is_validated", True)
+    validation_status = eval_res.get("validation_status", "VALIDATED" if is_validated else "NOT_YET_VALIDATED")
+
     return {
-        "status": "ready",
+        "status": eval_res.get("status", "ready"),
         "forecast_available": True,
+        "validation_status": validation_status,
+        "is_validated": is_validated,
         "readiness_status": eval_res.get("readiness_status", "READY"),
         "readiness_details": eval_res.get("readiness_details", ""),
         "domain": domain,
@@ -200,6 +216,16 @@ def generate_future_forecast(
             "production_type": effective_target,
             "unit": unit,
             "frequency": "MONTHLY",
+        },
+        "metric_definition": eval_res.get("metric_definition"),
+        "data_through_date": meta.get("data_through_date"),
+        "multivariate_features": eval_res.get("multivariate_features"),
+        "coverage": {
+            "missing_months": meta.get("missing_months", []),
+            "missing_month_count": meta.get("missing_month_count", 0),
+            "approval_cutoff_reconstructable": meta.get("approval_cutoff_reconstructable", False),
+            "unmeasured_target_records": meta.get("unmeasured_target_records", 0),
+            "warning": meta.get("coverage_warning"),
         },
         "data_provenance": {
             "total_observations": len(df),
