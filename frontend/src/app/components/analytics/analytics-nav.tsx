@@ -127,10 +127,10 @@ export function AnalyticsNav({ currentSection, className = "" }: AnalyticsNavPro
                     tab.isActive ? "text-emerald-700" : "text-slate-400"
                   }`}
                 />
-                <span className="truncate">{tab.shortLabel}</span>
+                <span className="whitespace-nowrap">{tab.shortLabel}</span>
                 {tab.badge && (
                   <span
-                    className={`hidden xl:inline-block text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
+                    className={`hidden 2xl:inline-block text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
                       tab.isActive
                         ? "bg-emerald-50 text-emerald-800 border border-emerald-200/60"
                         : "bg-slate-200/60 text-slate-500"
