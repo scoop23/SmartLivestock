@@ -95,7 +95,7 @@ export function InventoryTable({
       {/* ── DESKTOP & TABLET VIEW (md and up) ── */}
       <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-b border-gray-100">
                 <TableHead className="w-14 px-6 py-5 text-center">

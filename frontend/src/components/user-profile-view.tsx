@@ -567,7 +567,7 @@ export function UserProfileView() {
               variant="outline"
               size="sm"
               onClick={logout}
-              className="rounded-xl text-xs font-bold h-9.5 px-3 text-rose-200 border-rose-400/30 hover:bg-rose-500/20 backdrop-blur-md transition-all cursor-pointer"
+              className="h-9.5 rounded-xl border-rose-300/70 bg-rose-600 px-3 text-xs font-bold text-white shadow-md transition-all hover:bg-rose-700 hover:text-white cursor-pointer"
               title="Sign Out"
             >
               <LogOut className="size-3.5" />

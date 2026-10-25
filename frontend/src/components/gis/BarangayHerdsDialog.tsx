@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -247,7 +246,7 @@ export function BarangayHerdsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] sm:max-h-[88dvh] overflow-hidden p-0 rounded-3xl border border-slate-200/90 bg-white shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl flex flex-col z-[var(--z-dialog)]">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-white shrink-0">
+        <div className="flex items-center justify-between p-4 pr-12 sm:p-5 sm:pr-12 border-b border-slate-100 bg-white shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="size-10 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200/80 flex items-center justify-center shrink-0 shadow-2xs">
               <TrendingUp className="size-5 text-emerald-700" />
@@ -267,17 +266,6 @@ export function BarangayHerdsDialog({
             </div>
           </div>
 
-          <DialogClose asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 shrink-0 cursor-pointer"
-            >
-              <X className="size-4" />
-              <span className="sr-only">Close</span>
-            </Button>
-          </DialogClose>
         </div>
 
         {/* Search Bar & Species Filters */}

@@ -1339,7 +1339,7 @@ export default function LivestockRecordList({
       ) : (
         /* ═══ Pro Table View ═══ */
         <Card className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-2xs">
-          <Table>
+          <Table className="min-w-[850px]">
             <TableHeader className="bg-slate-50/90 border-b border-slate-200">
               <TableRow>
                 <TableHead className="font-bold text-slate-700 text-xs py-3">
@@ -1664,7 +1664,7 @@ export default function LivestockRecordList({
 
       {/* ═══ Animal Digital QR Pass Dialog ═══ */}
       <Dialog open={Boolean(qrItem)} onOpenChange={(open) => !open && setQrItem(null)}>
-        <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-2xl border-slate-200">
+        <DialogContent className="sm:max-w-md p-0 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border-slate-200 [&>button]:z-20 [&>button]:bg-white/90 [&>button]:rounded-full [&>button]:shadow-xs">
           <DialogHeader className="sr-only">
             <DialogTitle>Livestock QR Pass</DialogTitle>
             <DialogDescription>Digital QR clearance pass for livestock record</DialogDescription>

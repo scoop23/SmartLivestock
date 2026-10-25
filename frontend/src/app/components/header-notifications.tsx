@@ -728,16 +728,16 @@ export function HeaderNotifications({
         align="end"
         sideOffset={8}
         collisionPadding={12}
-        className="w-[calc(100vw-24px)] sm:w-[540px] md:w-[620px] lg:w-[660px] max-w-[calc(100vw-24px)] sm:max-w-[540px] md:max-w-[660px] p-4 sm:p-6 md:p-7 rounded-2xl sm:rounded-3xl md:rounded-[2rem] border border-slate-200/90 shadow-2xl bg-white overflow-hidden text-slate-800 z-50 animate-in fade-in-50 zoom-in-95"
+        className="w-[360px] max-w-[calc(100vw-24px)] p-3 rounded-2xl border border-slate-200/90 shadow-2xl bg-white overflow-hidden text-slate-800 z-50 animate-in fade-in-50 zoom-in-95"
       >
         {/* Top Header */}
         <div className="flex items-start justify-between gap-2.5 sm:gap-3">
           <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
-            <div className="size-10 sm:size-12 md:size-13 rounded-xl sm:rounded-2xl bg-[#EAF5EC] text-[#2D5A27] flex items-center justify-center shrink-0 shadow-2xs">
-              <Bell className="size-5 sm:size-6 text-[#2D5A27] stroke-[2.2]" />
+            <div className="size-9 sm:size-10 rounded-xl bg-[#EAF5EC] text-[#2D5A27] flex items-center justify-center shrink-0 shadow-2xs">
+              <Bell className="size-5 text-[#2D5A27] stroke-[2.2]" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-none truncate">
+              <h3 className="text-lg font-black text-slate-900 tracking-tight leading-none truncate">
                 Notifications
               </h3>
               <p className="text-xs sm:text-[13px] text-slate-500 font-medium mt-1 sm:mt-1.5 truncate">
@@ -750,7 +750,7 @@ export function HeaderNotifications({
             type="button"
             onClick={handleMarkAllAsRead}
             disabled={unreadCount === 0}
-            className="inline-flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-bold text-[#1A3D22] hover:text-[#2D5A27] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 pt-0.5 sm:pt-1"
+            className="inline-flex items-center gap-1 text-xs font-bold text-[#1A3D22] hover:text-[#2D5A27] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 pt-0.5"
             title="Mark all notifications as read"
           >
             <Check className="size-3.5 sm:size-4 stroke-[3]" />
@@ -759,12 +759,12 @@ export function HeaderNotifications({
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 my-3.5 sm:my-5">
+        <div className="flex items-center gap-1.5 my-3">
           <button
             type="button"
             onClick={() => setFilter("all")}
             className={cn(
-              "flex-1 py-2 sm:py-2.5 px-2.5 sm:px-4 rounded-full text-xs sm:text-sm font-bold transition-all text-center cursor-pointer",
+              "flex-1 py-1.5 px-2 rounded-full text-xs font-bold transition-all text-center cursor-pointer",
               filter === "all"
                 ? "bg-[#1A3D22] text-white shadow-xs"
                 : "bg-[#EFF3F0] hover:bg-[#E4ECE6] text-slate-700"
@@ -776,7 +776,7 @@ export function HeaderNotifications({
             type="button"
             onClick={() => setFilter("unread")}
             className={cn(
-              "flex-1 py-2 sm:py-2.5 px-2 sm:px-4 rounded-full text-xs sm:text-sm font-bold transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer",
+              "flex-1 py-1.5 px-2 rounded-full text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer",
               filter === "unread"
                 ? "bg-[#1A3D22] text-white shadow-xs"
                 : "bg-[#EFF3F0] hover:bg-[#E4ECE6] text-slate-700"
@@ -793,7 +793,7 @@ export function HeaderNotifications({
             type="button"
             onClick={() => setFilter("action")}
             className={cn(
-              "flex-1 py-2 sm:py-2.5 px-2 sm:px-4 rounded-full text-xs sm:text-sm font-bold transition-all text-center flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer",
+              "flex-1 py-1.5 px-2 rounded-full text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer",
               filter === "action"
                 ? "bg-[#1A3D22] text-white shadow-xs"
                 : "bg-[#EFF3F0] hover:bg-[#E4ECE6] text-slate-700"
@@ -809,7 +809,7 @@ export function HeaderNotifications({
         </div>
 
         {/* Notifications Scrollable List */}
-        <div className="space-y-2.5 sm:space-y-3 max-h-[460px] overflow-y-auto pr-1">
+        <div className="space-y-1 max-h-[360px] overflow-y-auto pr-1">
           {isLoading ? (
             <div className="py-16 px-4 text-center flex flex-col items-center justify-center space-y-3">
               <div className="w-8 h-8 border-3 border-[#1E4D2B] border-t-transparent rounded-full animate-spin" />
@@ -850,16 +850,16 @@ export function HeaderNotifications({
               return (
                 <div
                   key={notif.id}
-                  className="p-3.5 sm:p-4.5 md:p-5 rounded-xl sm:rounded-2xl border border-slate-200/80 bg-white hover:border-slate-300 transition-all text-left flex items-start gap-3 sm:gap-4 relative shadow-2xs group"
+                  className="p-2.5 rounded-xl border border-transparent bg-white hover:bg-slate-50 transition-colors text-left flex items-start gap-2.5 relative group"
                 >
                   {/* Left Icon Container */}
                   <div
                     className={cn(
-                      "size-10 sm:size-12 rounded-xl sm:rounded-2xl border flex items-center justify-center shrink-0 mt-0.5",
+                      "size-9 sm:size-10 rounded-xl border flex items-center justify-center shrink-0 mt-0.5",
                       cardIcon.bg
                     )}
                   >
-                    <IconComp className="size-5 sm:size-6 stroke-[2.2]" />
+                    <IconComp className="size-5 stroke-[2.2]" />
                   </div>
 
                   {/* Content Container */}
@@ -911,7 +911,7 @@ export function HeaderNotifications({
                     </p>
 
                     {/* Bottom Row: Time/Location + Badge + Action Button */}
-                    <div className="flex items-center justify-between gap-2 mt-3 sm:mt-3.5 pt-0.5 flex-wrap">
+                    <div className="flex items-center justify-between gap-2 mt-2 pt-0.5 flex-wrap">
                       <span className="text-[11px] sm:text-xs text-slate-400 font-medium">
                         {notif.timeAgo} • {location}
                       </span>
@@ -953,7 +953,7 @@ export function HeaderNotifications({
             const targetRoute = getNotificationRouteForRole(variant, user?.role, pathname);
             router.push(targetRoute);
           }}
-          className="w-full py-3 sm:py-3.5 bg-[#EAF5EC] hover:bg-[#DCF0DF] text-[#1A3D22] border border-[#2D5A27]/25 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer mt-3 sm:mt-4 shadow-2xs active:scale-[0.99]"
+          className="w-full py-2.5 bg-[#EAF5EC] hover:bg-[#DCF0DF] text-[#1A3D22] border border-[#2D5A27]/25 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer mt-3 shadow-2xs active:scale-[0.99]"
         >
           <FileText className="size-4 sm:size-4.5 stroke-[2.2]" />
           <span>View All Notifications</span>

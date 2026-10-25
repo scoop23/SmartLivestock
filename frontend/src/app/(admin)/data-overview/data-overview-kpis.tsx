@@ -25,7 +25,7 @@ export function DataOverviewKpis({
   totalTransferValue,
   activeIncidents,
   totalFarmers,
-  totalSlaughterKg = 34500,
+  /* totalSlaughterKg reserved */
   isLoading = false,
 }: DataOverviewKpisProps) {
   const [isCompact, setIsCompact] = useState(false);
@@ -64,7 +64,7 @@ export function DataOverviewKpis({
         </div>
 
         {/* Responsive Grid of Mobile-Friendly Stat Capsules */}
-        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
           {/* 1. Livestock */}
           <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/70 hover:bg-emerald-50 transition-colors shadow-2xs">
             <div className="p-1.5 rounded-lg bg-emerald-700 text-white shrink-0 shadow-2xs">
@@ -207,7 +207,7 @@ export function DataOverviewKpis({
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3">
         {/* 1. Total Registered Livestock */}
         <KpiCard
           title="Total Livestock Heads"
