@@ -982,6 +982,11 @@ export function ForecastReadinessDashboard({
                             dataKey="month_label"
                             tick={{ fontSize: 11, fill: "#64748b" }}
                             stroke="#cbd5e1"
+                            angle={-45}
+                            textAnchor="end"
+                            height={55}
+                            interval="preserveStartEnd"
+                            minTickGap={10}
                           />
                           <YAxis
                             tick={{ fontSize: 11, fill: "#64748b" }}

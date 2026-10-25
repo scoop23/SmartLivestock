@@ -1470,8 +1470,9 @@ export default function PredictiveAnalyticsView() {
                         tickFormatter={(label) => periodUnit === "week" ? String(label).replace(/^Week of /, "") : label}
                         tick={{ fill: "#64748b", fontSize: 11 }}
                         stroke="#cbd5e1"
-                        angle={-25}
+                        angle={-45}
                         textAnchor="end"
+                        height={55}
                       />
                       <YAxis
                         tick={{ fill: "#64748b", fontSize: 11 }}
@@ -2146,8 +2147,9 @@ export default function PredictiveAnalyticsView() {
                         tickFormatter={(label) => periodUnit === "week" ? String(label).replace(/^Week of /, "") : label}
                         tick={{ fill: "#64748b", fontSize: 11 }}
                         stroke="#cbd5e1"
-                        angle={-25}
+                        angle={-45}
                         textAnchor="end"
+                        height={55}
                       />
                       <YAxis
                         tick={{ fill: "#64748b", fontSize: 11 }}
@@ -2376,9 +2378,18 @@ export default function PredictiveAnalyticsView() {
               <CardContent className="pt-6">
                 <div className="h-72 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={testComparisonData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+                    <LineChart data={testComparisonData} margin={{ top: 10, right: 30, left: 10, bottom: 25 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                      <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 11 }} stroke="#cbd5e1" />
+                      <XAxis
+                        dataKey="month"
+                        tick={{ fill: "#64748b", fontSize: 11 }}
+                        stroke="#cbd5e1"
+                        angle={-45}
+                        textAnchor="end"
+                        height={55}
+                        interval="preserveStartEnd"
+                        minTickGap={10}
+                      />
                       <YAxis tick={{ fill: "#64748b", fontSize: 11 }} stroke="#cbd5e1" domain={["auto", "auto"]} />
                       <Tooltip
                         contentStyle={ANALYTICS_TOOLTIP_STYLE}

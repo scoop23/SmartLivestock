@@ -707,6 +707,11 @@ export function FuturisticPredictiveDashboard() {
                     tick={{ fill: "#64748b", fontSize: 11, fontFamily: "monospace" }}
                     axisLine={{ stroke: "#e2e8f0" }}
                     tickLine={{ stroke: "#e2e8f0" }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={55}
+                    interval="preserveStartEnd"
+                    minTickGap={10}
                   />
                   <YAxis
                     stroke="#94a3b8"
