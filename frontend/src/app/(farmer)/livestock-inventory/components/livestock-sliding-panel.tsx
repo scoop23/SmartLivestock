@@ -134,7 +134,7 @@ export function LivestockSlidingPanel({
     <div
       ref={panelRef}
       style={dragHeight === null ? undefined : { height: `${dragHeight}px` }}
-      className={`w-full ${dragHeight === null ? "transition-all duration-300 ease-out" : "transition-none"} flex flex-col fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/90 dark:border-slate-800 rounded-t-[32px] shadow-[0_-12px_40px_rgba(0,0,0,0.22)] ${mobileHeightClass} lg:static lg:h-auto lg:max-h-none lg:border-0 lg:shadow-none lg:bg-transparent lg:backdrop-blur-none lg:rounded-none lg:z-auto lg:p-0`}
+      className={`w-full ${dragHeight === null ? "transition-all duration-300 ease-out" : "transition-none"} flex flex-col fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/90 dark:border-slate-800 rounded-t-[32px] shadow-[0_-12px_40px_rgba(0,0,0,0.22)] ${mobileHeightClass} lg:static lg:h-auto lg:max-h-none lg:border-0 lg:shadow-none lg:bg-transparent lg:!bg-transparent lg:backdrop-blur-none lg:rounded-none lg:z-auto lg:p-0`}
     >
       {/* ── DRAG HANDLE & HEADER (Visible only on mobile/tablet) ── */}
       <div

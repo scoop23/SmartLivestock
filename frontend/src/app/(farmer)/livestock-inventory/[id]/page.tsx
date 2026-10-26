@@ -57,10 +57,8 @@ ArrowLeft,
 Baby,
 CheckCircle2,
 Clock,
-Dna,
 Download,
 Heart,
-HeartPulse,
 Info,
 Layers,
 Milk,
@@ -88,6 +86,7 @@ YAxis,
 import { toast } from "sonner";
 import ProductionSubmissionSuccessDialog from "../../production-dashboard/production-submission-success-dialog";
 import { LivestockInfographicHero } from "../components/livestock-infographic-hero";
+import { LivestockLineageTree } from "../components/livestock-lineage-tree";
 import { LivestockSlidingPanel } from "../components/livestock-sliding-panel";
 import LivestockEditDialog from "../livestock-edit-dialog";
 import {
@@ -439,9 +438,12 @@ export default function LivestockDetailPage() {
 
   // Check if this animal itself was recorded as an offspring in municipal registry
   const selfLineage = useMemo(() => {
-    if (!activeItem || !activeItem.tagNumber) return null;
+    if (!activeItem) return null;
     const tagUpper = activeItem.tagNumber.trim().toUpperCase();
-    return allCalvingRecords.find((c) => c.calf_tag && c.calf_tag.trim().toUpperCase() === tagUpper) || null;
+    return allCalvingRecords.find((c) =>
+      Number(c.offspring_inventory) === Number(activeItem.id)
+      || Boolean(tagUpper && c.calf_tag && c.calf_tag.trim().toUpperCase() === tagUpper)
+    ) || null;
   }, [allCalvingRecords, activeItem]);
 
   // Filter disease cases for this animal
@@ -1566,37 +1568,20 @@ export default function LivestockDetailPage() {
                   Lineage &amp; Parentage Pedigree
                 </CardTitle>
                 <CardDescription className="text-xs text-slate-500 font-medium">
-                  Verified genealogical records connecting this animal to its registered dam (mother) and sire (father).
+                  A family tree from recorded parentage and birth records. Records show their current review status.
                 </CardDescription>
               </div>
 
-              {selfLineage ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
-                    <span className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-1">
-                      <Dna className="size-3" /> Sire (Father)
-                    </span>
-                    <p className="text-sm font-black text-slate-900">
-                      {selfLineage.sire_tag || "Sire tag not specified"}
-                    </p>
-                    <p className="text-xs text-slate-500 font-medium">
-                      Breed origin: {selfLineage.breed || activeItem.breed}
-                    </p>
-                  </div>
+              <LivestockLineageTree
+                animal={activeItem}
+                parentRecord={selfLineage}
+                offspringRecords={animalCalvingRecords}
+                inventory={inventories}
+                offspringName={terms.offspringName}
+                offspringPlural={terms.offspringPlural}
+              />
 
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
-                    <span className="text-[10px] font-black uppercase text-rose-600 flex items-center gap-1">
-                      <HeartPulse className="size-3" /> Dam (Mother)
-                    </span>
-                    <p className="text-sm font-black text-slate-900">
-                      {selfLineage.dam_tag ? `Dam #${selfLineage.dam_tag}` : `Dam ID #${selfLineage.dam}`}
-                    </p>
-                    <p className="text-xs text-slate-500 font-medium">
-                      Calving ease: {selfLineage.calving_ease || "Normal / Unassisted"} &bull; Birth weight: {selfLineage.birth_weight ? `${selfLineage.birth_weight} kg` : "Standard"}
-                    </p>
-                  </div>
-                </div>
-              ) : activeItem.batchCode ? (
+              {!selfLineage && activeItem.batchCode && (
                 <div className="p-4 rounded-2xl bg-teal-50/50 border border-teal-200 space-y-2 pt-2">
                   <span className="text-[10px] font-black uppercase text-teal-800 flex items-center gap-1">
                     <Layers className="size-3.5" /> Herd Origin
@@ -1622,14 +1607,6 @@ export default function LivestockDetailPage() {
                       </Link>
                     </div>
                   )}
-                </div>
-              ) : (
-                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
-                  <Dna className="size-8 text-slate-400 mx-auto" />
-                  <h4 className="font-bold text-sm text-slate-800">Independent Registration</h4>
-                  <p className="text-xs text-slate-500 max-w-md mx-auto">
-                    This animal was registered as an independent stock item. No maternal or paternal lineage was linked at registration. Offspring born from this animal will automatically appear under the &ldquo;{terms.eventName}&rdquo; tab.
-                  </p>
                 </div>
               )}
             </Card>
