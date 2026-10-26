@@ -16,21 +16,24 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   BarChart3,
+  Building,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Download,
   FileSpreadsheet,
   FileText,
   Plus,
   Printer,
+  RefreshCw,
   Scale,
   Scissors,
   ShieldAlert,
   ShieldCheck,
   Upload,
 } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import {
   downloadBatchErrors,
@@ -97,6 +100,28 @@ export default function SlaughterhousePage() {
     condemnation_reason: "",
     condemnation_type: "NONE",
   });
+
+  // Live real-time clock updating every second
+  const [clockString, setClockString] = useState<string>("");
+
+  useEffect(() => {
+    const formatter = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    const updateTime = () => {
+      setClockString(`${formatter.format(new Date())} PHT`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const params = new URLSearchParams();
   if (startDate) params.set("start_date", startDate);
@@ -236,49 +261,101 @@ export default function SlaughterhousePage() {
         subtitle="Daily livestock throughput, carcass yields, and meat inspection condemnation logs"
         variant="slaughterhouse"
         icon={<Scissors className="size-5" />}
+        maxWidthClass="w-full"
+        action={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={refresh}
+              disabled={recordsQuery.isFetching}
+              className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
+              title="Refresh Slaughterhouse Records"
+              aria-label="Refresh records"
+            >
+              <RefreshCw className={`size-5 ${recordsQuery.isFetching ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+        }
       />
 
-      <div className="mx-auto w-full max-w-screen-2xl space-y-6 p-4 sm:p-6">
-        {/* Banner with Facility Actions */}
-        <Card className="border-rose-100 bg-rose-50/70 shadow-sm">
-          <CardContent className="flex flex-col justify-between gap-3 py-4 sm:flex-row sm:items-center">
+      {/* Abattoir active status banner */}
+      <div className="bg-gradient-to-r from-rose-900 via-rose-800 to-rose-900 text-white shadow-xs border-b border-rose-950/30">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 rounded-lg bg-white/20 shrink-0">
+              <Scissors className="w-4 h-4 text-white" />
+            </div>
             <div>
-              <p className="font-semibold text-rose-950">Daily facility operations & official registers</p>
-              <p className="mt-1 text-sm text-rose-900/80">
-                Log dressed carcass weights and post-mortem findings. Submissions stay pending until MAO inspection review.
+              <p className="text-xs font-black">
+                Municipal Abattoir Operations Active — Padre Garcia Slaughterhouse
+              </p>
+              <p className="text-[10px] text-rose-100 font-semibold">
+                Daily carcass throughput, meat inspection findings, and dressing yield logs. Submissions stay pending until MAO inspection review.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                className="min-h-10 border-rose-300 bg-white hover:bg-rose-50 text-rose-950 font-medium"
-                onClick={() => setPdfDialogOpen(true)}
-              >
-                <Printer className="mr-2 size-4 text-rose-700" />
-                Monthly PDF Report
-              </Button>
-              <Button
-                variant="outline"
-                className="min-h-10 border-rose-200 bg-white"
-                onClick={() => {
-                  setImportDialog(true);
-                  setValidation(null);
-                  setImportSummary(null);
-                }}
-              >
-                <Upload className="mr-2 size-4" />
-                Import CSV/XLSX
-              </Button>
-              <Button
-                className="min-h-10 bg-rose-700 hover:bg-rose-800 text-white"
-                onClick={() => setRecordDialog(true)}
-              >
-                <Plus className="mr-2 size-4" />
-                Add daily record
-              </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPdfDialogOpen(true)}
+              className="bg-rose-950/60 hover:bg-rose-950 text-white border border-rose-400/30 text-xs font-bold rounded-xl shadow-xs gap-1.5 cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              Monthly PDF Report
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setImportDialog(true);
+                setValidation(null);
+                setImportSummary(null);
+              }}
+              className="bg-rose-950/60 hover:bg-rose-950 text-white border border-rose-400/30 text-xs font-bold rounded-xl shadow-xs gap-1.5 cursor-pointer"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Import CSV/XLSX
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setRecordDialog(true)}
+              className="bg-white hover:bg-rose-50 text-rose-900 text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Daily Record
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Upper Micro-Telemetry Banner with Live Realtime Clock */}
+      <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-2 sm:px-6 md:px-8">
+        <div className="w-full flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
+          <div className="flex items-center gap-2 font-semibold text-slate-600">
+            <Building className="size-3.5 text-rose-600" />
+            <span>
+              FACILITY:{" "}
+              <strong className="font-mono text-slate-900 uppercase">
+                PADRE GARCIA MUNICIPAL SLAUGHTERHOUSE
+              </strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
+              <Clock className="size-3.5 text-slate-400" />
+              <span className="tabular-nums font-bold">
+                {clockString || "Loading Manila time…"}
+              </span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+      </div>
+
+      <div className="w-full space-y-6 p-4 sm:p-6 lg:p-8">
 
         {/* =================================================================== */}
         {/* FUTURISTIC DESCRIPTIVE ANALYTICS HUD (MATCHING AUCTION PATTERN)     */}
@@ -342,12 +419,12 @@ export default function SlaughterhousePage() {
         {/* =================================================================== */}
         {/* SLAUGHTER RECORD REGISTER                                           */}
         {/* =================================================================== */}
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md shadow-xs">
+          <CardHeader className="pb-4 border-b border-slate-100">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
-                <CardTitle>Slaughterhouse & Carcass Log Register</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <CardTitle className="text-lg font-black tracking-tight text-slate-900">Slaughterhouse & Carcass Log Register</CardTitle>
+                <p className="mt-1 text-sm text-slate-500">
                   Official municipal abattoir throughput, dressing weights, and post-mortem inspection findings.
                 </p>
               </div>
@@ -356,7 +433,7 @@ export default function SlaughterhousePage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setPdfDialogOpen(true)}
-                  className="border-rose-200 text-rose-900 hover:bg-rose-50"
+                  className="rounded-xl border-rose-200 text-rose-900 hover:bg-rose-50 font-bold"
                 >
                   <FileText className="mr-2 size-4 text-rose-700" />
                   Official Form
@@ -366,6 +443,7 @@ export default function SlaughterhousePage() {
                   size="sm"
                   onClick={() => exportRecords(filteredRecords)}
                   disabled={!filteredRecords.length}
+                  className="rounded-xl border-slate-200 font-bold hover:bg-slate-50"
                 >
                   <Download className="mr-2 size-4" />
                   Export CSV
@@ -373,7 +451,7 @@ export default function SlaughterhousePage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-4">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-1">
                 <Label htmlFor="slaughter-start">From</Label>
@@ -385,6 +463,7 @@ export default function SlaughterhousePage() {
                     setStartDate(e.target.value);
                     setPage(1);
                   }}
+                  className="h-10 rounded-xl border-slate-200 bg-white"
                 />
               </div>
               <div className="space-y-1">
@@ -397,6 +476,7 @@ export default function SlaughterhousePage() {
                     setEndDate(e.target.value);
                     setPage(1);
                   }}
+                  className="h-10 rounded-xl border-slate-200 bg-white"
                 />
               </div>
               <div className="space-y-1">
@@ -408,7 +488,7 @@ export default function SlaughterhousePage() {
                     setPage(1);
                   }}
                 >
-                  <SelectTrigger id="slaughter-type-filter" className="min-h-10 w-full">
+                  <SelectTrigger id="slaughter-type-filter" className="min-h-10 w-full rounded-xl border-slate-200 bg-white">
                     <SelectValue placeholder="All types" />
                   </SelectTrigger>
                   <SelectContent>
@@ -431,6 +511,7 @@ export default function SlaughterhousePage() {
                     setPage(1);
                   }}
                   placeholder="Date, species, status, or condemnation..."
+                  className="h-10 rounded-xl border-slate-200 bg-white"
                 />
               </div>
             </div>
@@ -443,9 +524,9 @@ export default function SlaughterhousePage() {
               </div>
             ) : filteredRecords.length ? (
               <>
-                <div className="hidden overflow-x-auto rounded-lg border md:block">
+                <div className="hidden overflow-x-auto rounded-xl border border-slate-200/90 bg-white md:block">
                   <Table className="min-w-[800px]">
-                    <TableHeader className="bg-slate-50">
+                    <TableHeader className="bg-slate-50/80">
                       <TableRow>
                         <TableHead>Date</TableHead>
                         <TableHead>Livestock Type</TableHead>
@@ -514,7 +595,7 @@ export default function SlaughterhousePage() {
                 {/* Mobile Card View */}
                 <div className="space-y-3 md:hidden">
                   {displayedRecords.map((row) => (
-                    <div key={row.id} className="rounded-xl border bg-white p-4 shadow-xs">
+                    <div key={row.id} className="rounded-2xl border border-slate-200/90 bg-white p-4.5 shadow-xs">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-semibold">{row.livestock_type_name}</p>
@@ -948,13 +1029,38 @@ export default function SlaughterhousePage() {
 }
 
 function StatusBadge({ status }: { status: SlaughterRecord["status"] }) {
-  const styles: Record<SlaughterRecord["status"], string> = {
-    PENDING: "border-amber-200 bg-amber-50 text-amber-900",
-    VERIFIED: "border-blue-200 bg-blue-50 text-blue-900",
-    APPROVED: "border-emerald-200 bg-emerald-50 text-emerald-900",
-    SUBJECT_TO_REVISION: "border-orange-200 bg-orange-50 text-orange-900",
-  };
-  return <Badge variant="outline" className={styles[status]}>{status.replaceAll("_", " ")}</Badge>;
+  switch (status) {
+    case "PENDING":
+      return (
+        <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px] uppercase tracking-wider">
+          <Clock className="w-3 h-3 mr-1" /> Pending MAO Review
+        </Badge>
+      );
+    case "VERIFIED":
+      return (
+        <Badge className="bg-blue-100 text-blue-900 border-blue-300 font-bold text-[10px] uppercase tracking-wider">
+          <ShieldCheck className="w-3 h-3 mr-1" /> SIBAT Verified
+        </Badge>
+      );
+    case "APPROVED":
+      return (
+        <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-bold text-[10px] uppercase tracking-wider">
+          <ShieldCheck className="w-3 h-3 mr-1" /> Approved
+        </Badge>
+      );
+    case "SUBJECT_TO_REVISION":
+      return (
+        <Badge className="bg-orange-100 text-orange-950 border-orange-400 font-bold text-[10px] uppercase tracking-wider">
+          <AlertTriangle className="w-3 h-3 mr-1" /> Subject to Revision
+        </Badge>
+      );
+    default:
+      return (
+        <Badge variant="outline" className="font-bold text-[10px] uppercase tracking-wider">
+          {String(status).replaceAll("_", " ")}
+        </Badge>
+      );
+  }
 }
 
 function apiError(error: unknown, fallback: string) {

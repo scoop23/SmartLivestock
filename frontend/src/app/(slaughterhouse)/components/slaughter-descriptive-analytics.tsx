@@ -250,8 +250,8 @@ export function SlaughterDescriptiveAnalytics({
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
                 <span className="relative inline-flex size-2.5 rounded-full bg-rose-600" />
               </div>
-              <span className="font-mono text-[11px] font-bold tracking-widest text-rose-700 uppercase bg-rose-100/70 border border-rose-200/70 px-2 py-0.5 rounded-full">
-                Abattoir Telemetry Matrix // Descriptive Analytics
+              <span className="font-mono text-[11px] font-bold tracking-widest text-rose-700 uppercase bg-rose-100/70 border border-rose-200/70 px-2.5 py-0.5 rounded-full">
+                Padre Garcia Abattoir · Descriptive Analytics
               </span>
             </div>
             <h2 className="text-xl font-black tracking-tight text-slate-950 sm:text-2xl">

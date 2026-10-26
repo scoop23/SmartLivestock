@@ -11,8 +11,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table,TableBody,TableCell,TableHead,TableHeader,TableRow } from "@/components/ui/table";
 import api from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays,History,Scale,Scissors } from "lucide-react";
-import { useMemo,useState } from "react";
+import {
+  AlertTriangle,
+  Building,
+  CalendarDays,
+  Clock,
+  History,
+  Scale,
+  Scissors,
+  ShieldCheck,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 type SlaughterRecord = {
   id: number;
@@ -39,6 +48,28 @@ export default function SlaughterhouseHistoryPage() {
   const [year, setYear] = useState(String(currentYear));
   const [month, setMonth] = useState("all");
   const [livestockType, setLivestockType] = useState("all");
+
+  // Live real-time clock updating every second
+  const [clockString, setClockString] = useState<string>("");
+
+  useEffect(() => {
+    const formatter = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    const updateTime = () => {
+      setClockString(`${formatter.format(new Date())} PHT`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // The API applies date and livestock-type filters before returning records,
   // so the history page only loads the period the staff member selected.
@@ -88,18 +119,43 @@ export default function SlaughterhouseHistoryPage() {
 
   return (
     <>
-      <PageHeader title="Slaughter History" subtitle="Browse previous monthly and yearly slaughter records" variant="slaughterhouse" icon={<History className="size-5" />} />
-      <div className="mx-auto w-full max-w-screen-2xl space-y-5 p-4 sm:p-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Choose a period</CardTitle>
-            <p className="text-sm text-muted-foreground">Select a month and year to review past submissions and approved facility totals.</p>
+      <PageHeader title="Slaughter History" subtitle="Browse previous monthly and yearly slaughter records" variant="slaughterhouse" icon={<History className="size-5" />} maxWidthClass="w-full" />
+
+      {/* Upper Micro-Telemetry Banner with Live Realtime Clock */}
+      <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-2 sm:px-6 md:px-8">
+        <div className="w-full flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
+          <div className="flex items-center gap-2 font-semibold text-slate-600">
+            <Building className="size-3.5 text-rose-600" />
+            <span>
+              FACILITY:{" "}
+              <strong className="font-mono text-slate-900 uppercase">
+                PADRE GARCIA MUNICIPAL SLAUGHTERHOUSE
+              </strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
+              <Clock className="size-3.5 text-slate-400" />
+              <span className="tabular-nums font-bold">
+                {clockString || "Loading Manila time…"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="w-full space-y-5 p-4 sm:p-6 lg:p-8">
+        <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md shadow-xs">
+          <CardHeader className="pb-3 border-b border-slate-100">
+            <CardTitle className="text-base font-bold text-slate-900">Choose a period</CardTitle>
+            <p className="text-sm text-slate-500">Select a month and year to review past submissions and approved facility totals.</p>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-3">
+          <CardContent className="grid gap-4 pt-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="history-year">Year</Label>
               <Select value={year} onValueChange={setYear}>
-                <SelectTrigger id="history-year" className="min-h-10"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="history-year" className="min-h-10 rounded-xl border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All years</SelectItem>
                   {years.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
@@ -109,7 +165,7 @@ export default function SlaughterhouseHistoryPage() {
             <div className="space-y-1.5">
               <Label htmlFor="history-month">Month</Label>
               <Select value={month} onValueChange={setMonth}>
-                <SelectTrigger id="history-month" className="min-h-10"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="history-month" className="min-h-10 rounded-xl border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All months</SelectItem>
                   {MONTHS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
@@ -119,7 +175,7 @@ export default function SlaughterhouseHistoryPage() {
             <div className="space-y-1.5">
               <Label htmlFor="history-type">Livestock Type</Label>
               <Select value={livestockType} onValueChange={setLivestockType}>
-                <SelectTrigger id="history-type" className="min-h-10"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="history-type" className="min-h-10 rounded-xl border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All types</SelectItem>
                   {(typesQuery.data ?? []).map((type) => <SelectItem key={type.id} value={String(type.id)}>{type.name}</SelectItem>)}
@@ -143,34 +199,34 @@ export default function SlaughterhouseHistoryPage() {
           <KpiCard title="Average per weighed head" value={recordsQuery.isError || summary.average === null ? "—" : `${summary.average.toFixed(2)} kg`} description="Recorded kg ÷ heads with weight" variant="sky" icon={<CalendarDays className="size-4" />} isLoading={recordsQuery.isLoading} />
         </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>Records {year === "all" ? "across all years" : `for ${year}`}{month !== "all" ? ` · ${MONTHS[Number(month) - 1]?.label}` : ""}</CardTitle>
-            <p className="text-sm text-muted-foreground">Approved totals appear in the summary cards. Pending and returned records are included below for submission history.</p>
+        <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md shadow-xs">
+          <CardHeader className="pb-3 border-b border-slate-100">
+            <CardTitle className="text-base font-bold text-slate-900">Records {year === "all" ? "across all years" : `for ${year}`}{month !== "all" ? ` · ${MONTHS[Number(month) - 1]?.label}` : ""}</CardTitle>
+            <p className="text-sm text-slate-500">Approved totals appear in the summary cards. Pending and returned records are included below for submission history.</p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             {recordsQuery.isLoading ? <div className="space-y-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div> : records.length ? (
               <>
-                <div className="hidden overflow-x-auto rounded-md border md:block">
+                <div className="hidden overflow-x-auto rounded-xl border border-slate-200/90 bg-white md:block">
                   <Table className="min-w-[700px]">
-                    <TableHeader className="bg-muted/50"><TableRow><TableHead>Date</TableHead><TableHead>Livestock Type</TableHead><TableHead className="text-right">Heads</TableHead><TableHead className="text-right">Kilograms</TableHead><TableHead>Status</TableHead><TableHead>Submitted by</TableHead></TableRow></TableHeader>
+                    <TableHeader className="bg-slate-50/80"><TableRow><TableHead>Date</TableHead><TableHead>Livestock Type</TableHead><TableHead className="text-right">Heads</TableHead><TableHead className="text-right">Kilograms</TableHead><TableHead>Status</TableHead><TableHead>Submitted by</TableHead></TableRow></TableHeader>
                     <TableBody>{records.map((row) => <TableRow key={row.id}>
-                      <TableCell>{row.record_date}</TableCell><TableCell className="font-medium">{row.livestock_type_name || typesById.get(row.livestock_type) || "Unspecified"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{row.quantity}</TableCell><TableCell className="text-right tabular-nums">{row.carcass_weight ? `${Number(row.carcass_weight).toLocaleString()} kg` : "Not recorded"}</TableCell>
-                      <TableCell><StatusBadge status={row.status} /></TableCell><TableCell>{row.created_by_name}</TableCell>
+                      <TableCell>{row.record_date}</TableCell><TableCell className="font-semibold text-slate-900">{row.livestock_type_name || typesById.get(row.livestock_type) || "Unspecified"}</TableCell>
+                      <TableCell className="text-right tabular-nums font-bold">{row.quantity}</TableCell><TableCell className="text-right tabular-nums">{row.carcass_weight ? `${Number(row.carcass_weight).toLocaleString()} kg` : "Not recorded"}</TableCell>
+                      <TableCell><StatusBadge status={row.status} /></TableCell><TableCell className="text-slate-600">{row.created_by_name}</TableCell>
                     </TableRow>)}</TableBody>
                   </Table>
                 </div>
-                <div className="space-y-3 md:hidden">{records.map((row) => <Card key={row.id} className="shadow-none">
-                  <CardContent className="space-y-3 p-4">
-                    <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{row.livestock_type_name || typesById.get(row.livestock_type) || "Unspecified"}</p><p className="mt-1 text-sm text-muted-foreground">{row.record_date}</p></div><StatusBadge status={row.status} /></div>
-                    <div className="grid grid-cols-2 gap-3 border-t pt-3 text-sm"><div><p className="text-xs text-muted-foreground">Heads</p><p className="font-medium">{row.quantity}</p></div><div><p className="text-xs text-muted-foreground">Kilograms</p><p className="font-medium">{row.carcass_weight ? `${Number(row.carcass_weight).toLocaleString()} kg` : "Not recorded"}</p></div></div>
+                <div className="space-y-3 md:hidden">{records.map((row) => <div key={row.id} className="rounded-2xl border border-slate-200/90 bg-white p-4.5 shadow-xs">
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{row.livestock_type_name || typesById.get(row.livestock_type) || "Unspecified"}</p><p className="mt-1 text-sm text-slate-500">{row.record_date}</p></div><StatusBadge status={row.status} /></div>
+                    <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-sm"><div><p className="text-xs text-slate-500">Heads</p><p className="font-medium text-slate-900">{row.quantity}</p></div><div><p className="text-xs text-slate-500">Kilograms</p><p className="font-medium text-slate-900">{row.carcass_weight ? `${Number(row.carcass_weight).toLocaleString()} kg` : "Not recorded"}</p></div></div>
                     {row.review_remarks ? <p className="text-sm text-amber-800">MAO remarks: {row.review_remarks}</p> : null}
-                  </CardContent>
-                </Card>)}</div>
+                  </div>
+                </div>)}</div>
               </>
             ) : !recordsQuery.isError ? (
-              <div className="rounded-lg border border-dashed py-12 text-center"><History className="mx-auto size-8 text-muted-foreground" /><p className="mt-3 font-semibold">No records for this period</p><p className="mt-1 text-sm text-muted-foreground">Try another month or year. New records appear here after submission.</p></div>
+              <div className="rounded-2xl border border-dashed border-slate-200 py-12 text-center"><History className="mx-auto size-8 text-slate-400" /><p className="mt-3 font-semibold text-slate-800">No records for this period</p><p className="mt-1 text-sm text-slate-500">Try another month or year. New records appear here after submission.</p></div>
             ) : null}
           </CardContent>
         </Card>
@@ -180,11 +236,36 @@ export default function SlaughterhouseHistoryPage() {
 }
 
 function StatusBadge({ status }: { status: SlaughterRecord["status"] }) {
-  const styles: Record<SlaughterRecord["status"], string> = {
-    PENDING: "border-amber-200 bg-amber-50 text-amber-900",
-    VERIFIED: "border-blue-200 bg-blue-50 text-blue-900",
-    APPROVED: "border-emerald-200 bg-emerald-50 text-emerald-900",
-    SUBJECT_TO_REVISION: "border-orange-200 bg-orange-50 text-orange-900",
-  };
-  return <Badge variant="outline" className={styles[status]}>{status.replaceAll("_", " ")}</Badge>;
+  switch (status) {
+    case "PENDING":
+      return (
+        <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold text-[10px] uppercase tracking-wider">
+          <Clock className="w-3 h-3 mr-1" /> Pending MAO Review
+        </Badge>
+      );
+    case "VERIFIED":
+      return (
+        <Badge className="bg-blue-100 text-blue-900 border-blue-300 font-bold text-[10px] uppercase tracking-wider">
+          <ShieldCheck className="w-3 h-3 mr-1" /> SIBAT Verified
+        </Badge>
+      );
+    case "APPROVED":
+      return (
+        <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-bold text-[10px] uppercase tracking-wider">
+          <ShieldCheck className="w-3 h-3 mr-1" /> Approved
+        </Badge>
+      );
+    case "SUBJECT_TO_REVISION":
+      return (
+        <Badge className="bg-orange-100 text-orange-950 border-orange-400 font-bold text-[10px] uppercase tracking-wider">
+          <AlertTriangle className="w-3 h-3 mr-1" /> Subject to Revision
+        </Badge>
+      );
+    default:
+      return (
+        <Badge variant="outline" className="font-bold text-[10px] uppercase tracking-wider">
+          {String(status).replaceAll("_", " ")}
+        </Badge>
+      );
+  }
 }
