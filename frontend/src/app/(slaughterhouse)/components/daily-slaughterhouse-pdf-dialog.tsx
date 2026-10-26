@@ -26,6 +26,7 @@ interface DailySlaughterhousePdfDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   records: SlaughterRecordData[];
+  loading: boolean;
 }
 
 const MONTH_NAMES = [
@@ -47,10 +48,20 @@ export function DailySlaughterhousePdfDialog({
   open,
   onOpenChange,
   records,
+  loading,
 }: DailySlaughterhousePdfDialogProps) {
   const currentDate = new Date();
-  const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth()); // 0-indexed
-  const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
+  const [selectedPeriod, setSelectedPeriod] = useState<{ month: number; year: number } | null>(null);
+  const approvedRecords = useMemo(
+    () => records.filter((record) => record.status === "APPROVED"),
+    [records],
+  );
+  const latestApprovedDate = useMemo(
+    () => approvedRecords.map((record) => record.record_date).filter(Boolean).sort().at(-1),
+    [approvedRecords],
+  );
+  const selectedMonth = selectedPeriod?.month ?? (latestApprovedDate ? Number(latestApprovedDate.slice(5, 7)) - 1 : currentDate.getMonth());
+  const selectedYear = selectedPeriod?.year ?? (latestApprovedDate ? Number(latestApprovedDate.slice(0, 4)) : currentDate.getFullYear());
   const [signatoryName, setSignatoryName] = useState("REYMEL CORONEL");
   const [signatoryTitle, setSignatoryTitle] = useState("SLAUGHTERHOUSE MASTER II");
 
@@ -81,7 +92,7 @@ export function DailySlaughterhousePdfDialog({
     }
 
     // Filter relevant records for the month
-    records.forEach((rec) => {
+    approvedRecords.forEach((rec) => {
       if (!rec.record_date || !rec.record_date.startsWith(monthPrefix)) return;
 
       const dayNumber = parseInt(rec.record_date.slice(8, 10), 10);
@@ -128,7 +139,7 @@ export function DailySlaughterhousePdfDialog({
     );
 
     return { dailyRows, totals };
-  }, [records, selectedYear, selectedMonth]);
+  }, [approvedRecords, selectedYear, selectedMonth]);
 
   const handlePrint = () => {
     window.print();
@@ -197,7 +208,7 @@ export function DailySlaughterhousePdfDialog({
             <div className="w-36">
               <Select
                 value={String(selectedMonth)}
-                onValueChange={(val) => setSelectedMonth(parseInt(val, 10))}
+                onValueChange={(val) => setSelectedPeriod({ month: parseInt(val, 10), year: selectedYear })}
               >
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Month" />
@@ -218,7 +229,7 @@ export function DailySlaughterhousePdfDialog({
                 min={2020}
                 max={2035}
                 value={selectedYear}
-                onChange={(e) => setSelectedYear(parseInt(e.target.value, 10) || selectedYear)}
+                onChange={(e) => setSelectedPeriod({ month: selectedMonth, year: parseInt(e.target.value, 10) || selectedYear })}
                 className="h-9"
               />
             </div>
@@ -232,14 +243,19 @@ export function DailySlaughterhousePdfDialog({
                 className="h-9 text-xs"
               />
             </div>
+            <p className="w-full text-[11px] text-slate-500" role="status">
+              {loading
+                ? "Loading approved slaughter records…"
+                : "Prefilled from approved slaughter records. The latest month with approved data is selected automatically."}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleExportCsv} className="h-9 text-xs">
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={loading} className="h-9 text-xs">
               <Download className="mr-1.5 size-3.5" />
               CSV
             </Button>
-            <Button size="sm" onClick={handlePrint} className="h-9 bg-rose-700 hover:bg-rose-800 text-xs">
+            <Button size="sm" onClick={handlePrint} disabled={loading} className="h-9 bg-rose-700 hover:bg-rose-800 text-xs">
               <Printer className="mr-1.5 size-3.5" />
               Print / Save as PDF
             </Button>
@@ -436,7 +452,7 @@ export function DailySlaughterhousePdfDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <Button onClick={handlePrint} className="bg-rose-700 hover:bg-rose-800">
+          <Button onClick={handlePrint} disabled={loading} className="bg-rose-700 hover:bg-rose-800">
             <Printer className="mr-2 size-4" />
             Print Official Form
           </Button>

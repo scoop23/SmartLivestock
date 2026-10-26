@@ -133,6 +133,11 @@ export default function SlaughterhousePage() {
     queryKey: ["slaughterhouse-records", startDate, endDate, typeFilter],
     queryFn: async () => (await api.get<SlaughterRecord[]>(`/production/slaughterhouse/records/${queryString ? `?${queryString}` : ""}`)).data,
   });
+  const reportRecordsQuery = useQuery({
+    queryKey: ["slaughterhouse-report-records"],
+    enabled: pdfDialogOpen,
+    queryFn: async () => (await api.get<SlaughterRecord[]>("/production/slaughterhouse/records/")).data,
+  });
   const typesQuery = useQuery({
     queryKey: ["slaughterhouse-livestock-types"],
     queryFn: async () => (await api.get<LivestockType[]>("/production/slaughterhouse/livestock-types/")).data,
@@ -894,7 +899,8 @@ export default function SlaughterhousePage() {
       <DailySlaughterhousePdfDialog
         open={pdfDialogOpen}
         onOpenChange={setPdfDialogOpen}
-        records={records}
+        records={reportRecordsQuery.data ?? EMPTY_RECORDS}
+        loading={reportRecordsQuery.isLoading}
       />
 
       {/* CSV / Excel Import Dialog */}
