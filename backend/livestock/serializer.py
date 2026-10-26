@@ -851,10 +851,11 @@ class FarmerOptionsSerializer(serializers.ModelSerializer):
 
 
 class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
-    livestock_tag = serializers.CharField(source="livestock.tag_number", read_only=True)
-    livestock_type_name = serializers.CharField(source="livestock.livestock_type.name", read_only=True)
-    livestock_operational_status = serializers.CharField(source="livestock.operational_status", read_only=True)
-    previous_owner_name = serializers.CharField(source="previous_owner.user.get_full_name", read_only=True)
+    livestock = serializers.PrimaryKeyRelatedField(queryset=LivestockInventory.objects.all(), required=False, allow_null=True)
+    livestock_tag = serializers.SerializerMethodField()
+    livestock_type_name = serializers.SerializerMethodField()
+    livestock_operational_status = serializers.SerializerMethodField()
+    previous_owner_name = serializers.SerializerMethodField()
     new_owner = serializers.PrimaryKeyRelatedField(read_only=True)
     new_owner_name = serializers.SerializerMethodField(read_only=True)
     new_owner_identifier = serializers.CharField(write_only=True, required=False)
@@ -866,6 +867,8 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             "id", "livestock", "livestock_tag", "livestock_type_name", "livestock_operational_status",
             "previous_owner", "previous_owner_name", "owner_type", "new_owner", "new_owner_name",
             "new_owner_identifier", "external_owner_name", "external_owner_address", "can_edit",
+            "external_seller_name", "external_seller_address", "external_livestock_type", "external_livestock_tag_number",
+            "origin_municipality", "origin_province",
             "transfer_certificate_number", "original_certificate_number", "transfer_date",
             "municipality", "province", "animal_description", "sex_at_transfer",
             "age_at_transfer", "municipality_brand", "owner_brand", "purchase_price",
@@ -881,6 +884,21 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             user = obj.new_owner.user
             return user.get_full_name().strip() or user.username or user.email
         return obj.external_owner_name
+
+    def get_livestock_tag(self, obj):
+        return obj.livestock.tag_number if obj.livestock_id else obj.external_livestock_tag_number
+
+    def get_livestock_type_name(self, obj):
+        return obj.livestock.livestock_type.name if obj.livestock_id else obj.external_livestock_type
+
+    def get_livestock_operational_status(self, obj):
+        return obj.livestock.operational_status if obj.livestock_id else "EXTERNAL"
+
+    def get_previous_owner_name(self, obj):
+        if not obj.previous_owner_id:
+            return obj.external_seller_name
+        user = obj.previous_owner.user
+        return user.get_full_name().strip() or user.username
 
     def get_can_edit(self, obj):
         request = self.context.get("request")
@@ -904,9 +922,10 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
         owner_identifier = attrs.pop("new_owner_identifier", None)
         # Auction staff encode the seller's certificate from the selected animal row.
         # Deriving the seller here prevents the client from naming another Farmer.
+        is_auction = role_name(request.user) == "AUCTION"
         current_owner = (
             livestock.farmer
-            if role_name(request.user) == "AUCTION" and livestock
+            if is_auction and livestock
             else getattr(request.user, "farmer_profile", None)
         )
         if self.initial_data.get("new_owner") not in (None, ""):
@@ -952,19 +971,38 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             attrs["external_owner_address"] = external_address
             attrs["new_owner"] = None
 
-        if current_owner is None:
+        if livestock is None:
+            if not is_auction:
+                raise serializers.ValidationError({"livestock": "Only Auction staff can record an outside livestock sale."})
+            external_seller_name = str(attrs.get("external_seller_name", self.instance.external_seller_name if self.instance else "")).strip()
+            external_seller_address = str(attrs.get("external_seller_address", self.instance.external_seller_address if self.instance else "")).strip()
+            external_type = str(attrs.get("external_livestock_type", self.instance.external_livestock_type if self.instance else "")).strip()
+            origin_municipality = str(attrs.get("origin_municipality", self.instance.origin_municipality if self.instance else "")).strip()
+            origin_province = str(attrs.get("origin_province", self.instance.origin_province if self.instance else "")).strip()
+            if not all([external_seller_name, external_seller_address, external_type, origin_municipality, origin_province]):
+                raise serializers.ValidationError({"external_seller_name": "For outside livestock, enter the seller, animal type, and origin municipality and province."})
+            attrs.update({
+                "external_seller_name": external_seller_name,
+                "external_seller_address": external_seller_address,
+                "external_livestock_type": external_type,
+                "origin_municipality": origin_municipality,
+                "origin_province": origin_province,
+                "previous_owner": None,
+            })
+            attrs["external_seller_address"] = external_seller_address
+        elif current_owner is None:
             raise serializers.ValidationError({"livestock": "The transfer must belong to a registered current owner."})
-        if livestock is None or livestock.farmer_id != current_owner.pk:
+        elif livestock.farmer_id != current_owner.pk:
             raise serializers.ValidationError({"livestock": "You can request a transfer only for your own livestock."})
-        if self.instance and livestock.pk != self.instance.livestock_id:
+        if self.instance and (livestock.pk if livestock else None) != self.instance.livestock_id:
             raise serializers.ValidationError({"livestock": "A transfer request must remain attached to its original livestock identity."})
 
         transfer_date = attrs.get("transfer_date", self.instance.transfer_date if self.instance else None)
         if transfer_date is None:
             raise serializers.ValidationError({"transfer_date": "Transfer date is required."})
-        if livestock.entry_type != LivestockInventory.EntryType.INDIVIDUAL or livestock.quantity != 1:
+        if livestock and (livestock.entry_type != LivestockInventory.EntryType.INDIVIDUAL or livestock.quantity != 1):
             raise serializers.ValidationError({"livestock": "Transfers currently require one individually registered animal."})
-        if livestock.status != LivestockInventory.StatusType.APPROVED or livestock.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
+        if livestock and (livestock.status != LivestockInventory.StatusType.APPROVED or livestock.operational_status != LivestockInventory.OperationalStatus.ACTIVE):
             raise serializers.ValidationError({"livestock": "Only approved, active livestock can be transferred."})
         if transfer_date > timezone.localdate():
             raise serializers.ValidationError({"transfer_date": "Transfer date cannot be in the future."})
@@ -972,7 +1010,7 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             livestock=livestock,
             status=LivestockOwnershipTransfer.Status.APPROVED,
         ).order_by("-transfer_date", "-pk").first()
-        if previous_transfer and transfer_date < previous_transfer.transfer_date:
+        if livestock and previous_transfer and transfer_date < previous_transfer.transfer_date:
             raise serializers.ValidationError({
                 "transfer_date": "Transfer date cannot precede the animal's latest approved ownership transfer."
             })

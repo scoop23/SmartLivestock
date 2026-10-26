@@ -8,6 +8,7 @@ import { Card,CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
 import { Table,TableBody,TableCell,TableHead,TableHeader,TableRow } from "@/components/ui/table";
+import { httpError } from "@/lib/http-error";
 import api from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
 import { Archive,Search } from "lucide-react";
@@ -17,7 +18,7 @@ import { OwnershipTransferKpis } from "../ownership-transfer-kpis";
 
 type Transfer = {
   id: number;
-  livestock: number;
+  livestock: number | null;
   livestock_tag: string;
   livestock_type_name: string;
   livestock_operational_status: string;
@@ -30,7 +31,21 @@ type Transfer = {
   status: string;
   municipality: string;
   province: string;
+  origin_municipality: string;
+  origin_province: string;
 };
+
+function getRegistryError(error: unknown) {
+  const requestError = httpError(error);
+  const status = requestError?.response?.status;
+  const detail = requestError?.response?.data?.detail || requestError?.response?.data?.error;
+  if (status === 401) return "Your session has expired. Sign in again, then reload this registry.";
+  if (status === 403) return "Your account does not have Auction access to these transfer records.";
+  if (status && status >= 500) return `The server could not load transfer records (HTTP ${status}). Check the backend logs and apply pending livestock migrations.`;
+  if (typeof detail === "string") return detail;
+  if (!requestError?.response) return "Could not reach the livestock server. Check that the backend is running and try again.";
+  return `Could not load transfer records (HTTP ${status}).`;
+}
 
 const statusOptions = ["ALL", "PENDING", "VERIFIED", "APPROVED", "SUBJECT_TO_REVISION"] as const;
 
@@ -38,7 +53,7 @@ const statusOptions = ["ALL", "PENDING", "VERIFIED", "APPROVED", "SUBJECT_TO_REV
 export default function AuctionOwnershipTransferRegistryPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof statusOptions)[number]>("ALL");
-  const { data = [], isLoading, isError } = useQuery({
+  const { data = [], isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["auction-ownership-transfer-registry"],
     queryFn: async () => (await api.get<Transfer[]>("livestock/ownership-transfers/")).data,
   });
@@ -80,24 +95,24 @@ export default function AuctionOwnershipTransferRegistryPage() {
         </Select>
       </CardContent></Card>
 
-      {isError ? <Alert variant="destructive"><AlertDescription>Could not load your transfer records. Refresh or contact an administrator if access is unexpected.</AlertDescription></Alert> : null}
+      {isError ? <Alert variant="destructive"><AlertDescription className="flex flex-wrap items-center justify-between gap-3"><span>{getRegistryError(error)}</span><Button type="button" variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>Retry</Button></AlertDescription></Alert> : null}
       {isLoading ? <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card"><CardContent className="py-10 text-center text-sm text-muted-foreground">Loading transfer records…</CardContent></Card> : null}
-      {!isLoading && !isError && filtered.length === 0 ? <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card"><CardContent className="flex flex-col items-center gap-2 py-12 text-center"><Archive className="size-8 text-muted-foreground" /><p className="font-medium">No transfer records found</p><p className="text-sm text-muted-foreground">Try changing the search or status filter.</p></CardContent></Card> : null}
+      {!isLoading && !isError && filtered.length === 0 ? <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card"><CardContent className="flex flex-col items-center gap-2 py-12 text-center"><Archive className="size-8 text-muted-foreground" /><p className="font-medium">{data.length === 0 ? "No transfer records yet" : "No matching transfer records"}</p><p className="text-sm text-muted-foreground">{data.length === 0 ? "Transfers entered by this Auction account will appear here." : "Try changing the search or status filter."}</p></CardContent></Card> : null}
 
       {!isLoading && !isError && filtered.length > 0 ? <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card overflow-hidden"><CardContent className="overflow-x-auto pt-5">
         <Table>
           <TableHeader><TableRow><TableHead>Animal</TableHead><TableHead>Seller → Buyer</TableHead><TableHead>Certificates</TableHead><TableHead>Date / location</TableHead><TableHead>Price</TableHead><TableHead>Transfer status</TableHead><TableHead>Animal state</TableHead></TableRow></TableHeader>
           <TableBody>{filtered.map((transfer) => <TableRow key={transfer.id}>
-            <TableCell><p className="font-medium">{transfer.livestock_type_name}</p><p className="text-xs text-muted-foreground">{transfer.livestock_tag || `Record #${transfer.livestock}`}</p></TableCell>
+            <TableCell><p className="font-medium">{transfer.livestock_type_name || "Livestock"}</p><p className="text-xs text-muted-foreground">{transfer.livestock_tag || (transfer.livestock ? `Record #${transfer.livestock}` : "Outside livestock")}</p>{!transfer.livestock ? <p className="text-xs text-muted-foreground">Origin: {transfer.origin_municipality}, {transfer.origin_province}</p> : null}</TableCell>
             <TableCell><p className="font-medium">{transfer.previous_owner_name}</p><p className="text-xs text-muted-foreground">→ {transfer.new_owner_name}</p></TableCell>
-            <TableCell><p className="font-medium">Transfer: {transfer.transfer_certificate_number}</p><p className="text-xs text-muted-foreground">Ownership: {transfer.original_certificate_number}</p></TableCell>
+            <TableCell><p className="font-medium">Transfer: {transfer.transfer_certificate_number}</p><p className="text-xs text-muted-foreground">Ownership: {transfer.original_certificate_number || "—"}</p></TableCell>
             <TableCell><p>{transfer.transfer_date}</p><p className="text-xs text-muted-foreground">{transfer.municipality}, {transfer.province}</p></TableCell>
             <TableCell>{transfer.purchase_price ? `₱${Number(transfer.purchase_price).toLocaleString()}` : "—"}</TableCell>
             <TableCell><Badge variant="outline">{transfer.status.replaceAll("_", " ")}</Badge></TableCell>
-            <TableCell><Badge variant={transfer.livestock_operational_status === "SOLD" ? "secondary" : "outline"}>{transfer.livestock_operational_status.replaceAll("_", " ")}</Badge></TableCell>
+            <TableCell><Badge variant={transfer.livestock_operational_status === "SOLD" ? "secondary" : "outline"}>{transfer.livestock_operational_status === "EXTERNAL" ? "External record" : transfer.livestock_operational_status.replaceAll("_", " ")}</Badge></TableCell>
           </TableRow>)}</TableBody>
         </Table>
-        <p className="mt-3 text-xs text-muted-foreground">Showing {filtered.length} of {data.length} records. MAO approval marks the seller’s original livestock row as SOLD.</p>
+        <p className="mt-3 text-xs text-muted-foreground">Showing {filtered.length} of {data.length} records. MAO approval marks registered animals SOLD; outside livestock remains a market record.</p>
       </CardContent></Card> : null}
     </div>
   </>;

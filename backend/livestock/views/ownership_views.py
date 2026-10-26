@@ -168,7 +168,8 @@ def ownership_transfer_list_create(request):
         serializer = LivestockOwnershipTransferSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         # Auction is the recorder, not a party to the sale: the selected animal identifies its seller.
-        farmer = serializer.validated_data["livestock"].farmer if actor_role == "AUCTION" else request.user.farmer_profile
+        livestock = serializer.validated_data.get("livestock")
+        farmer = livestock.farmer if actor_role == "AUCTION" and livestock else request.user.farmer_profile
         try:
             # Roll back a duplicate insert before handling it, including when
             # the caller is already inside a transaction.
@@ -180,7 +181,7 @@ def ownership_transfer_list_create(request):
             role_name="MAO",
             notification_type=Notification.NotificationType.GENERAL,
             title="Ownership Transfer Awaiting Review",
-            message=f"Transfer certificate {transfer.transfer_certificate_number} is ready for MAO review.",
+            message=f"Transfer certificate {transfer.transfer_certificate_number} for {transfer.livestock.tag_number if transfer.livestock_id else transfer.external_livestock_type} is ready for MAO review.",
             link=f"/ownership-transfers?transferId={transfer.pk}",
             related_entity_type="ownership_transfer",
             related_entity_id=transfer.pk,
@@ -258,26 +259,27 @@ def review_ownership_transfer(request, pk):
     validate_review_transition(domain="ownership_transfers", role=reviewer_role,
         current=transfer.status, target=target, remarks=remarks)
     if target == LivestockOwnershipTransfer.Status.APPROVED:
-        animal = LivestockInventory.objects.select_for_update().get(pk=transfer.livestock_id)
-        if animal.farmer_id != transfer.previous_owner_id:
-            raise ValidationError({"livestock": "The recorded previous owner no longer owns this animal."})
-        # Keep checking eligibility at approval in case ownership or animal state changed after submission.
-        if (animal.entry_type != LivestockInventory.EntryType.INDIVIDUAL or animal.quantity != 1
-                or animal.status != LivestockInventory.StatusType.APPROVED
-                or animal.operational_status != LivestockInventory.OperationalStatus.ACTIVE):
-            raise ValidationError({"livestock": "The animal is no longer eligible for an ownership transfer."})
+        if transfer.livestock_id:
+            animal = LivestockInventory.objects.select_for_update().get(pk=transfer.livestock_id)
+            if animal.farmer_id != transfer.previous_owner_id:
+                raise ValidationError({"livestock": "The recorded previous owner no longer owns this animal."})
+            # Recheck eligibility in case the registered animal changed after submission.
+            if (animal.entry_type != LivestockInventory.EntryType.INDIVIDUAL or animal.quantity != 1
+                    or animal.status != LivestockInventory.StatusType.APPROVED
+                    or animal.operational_status != LivestockInventory.OperationalStatus.ACTIVE):
+                raise ValidationError({"livestock": "The animal is no longer eligible for an ownership transfer."})
         if transfer.owner_type == LivestockOwnershipTransfer.OwnerType.REGISTERED_FARMER:
             if transfer.new_owner is None or transfer.new_owner.user.role.role_name != "FARMER" or transfer.new_owner.user.account_status != "APPROVED":
                 raise ValidationError({"new_owner": "The selected owner is no longer an approved Farmer account."})
         elif transfer.new_owner_id is not None or not transfer.external_owner_name or not transfer.external_owner_address:
             raise ValidationError({"new_owner": "External buyer details are incomplete or conflict with a Farmer account."})
 
-        # Keep this certificate's animal row in the seller's inventory history as SOLD.
-        # A registered buyer records their acquired animal as a new inventory submission.
-        animal.operational_status = LivestockInventory.OperationalStatus.SOLD
-        animal.operational_status_changed_at = timezone.now()
-        animal.batch = None
-        animal.save(update_fields=["operational_status", "operational_status_changed_at", "batch"])
+        if transfer.livestock_id:
+            # Keep the registered animal row in the seller's history as SOLD.
+            animal.operational_status = LivestockInventory.OperationalStatus.SOLD
+            animal.operational_status_changed_at = timezone.now()
+            animal.batch = None
+            animal.save(update_fields=["operational_status", "operational_status_changed_at", "batch"])
 
     transfer.status = target
     transfer.reviewed_by = request.user
@@ -301,18 +303,25 @@ def review_ownership_transfer(request, pk):
             transfer.new_owner.user.get_full_name().strip() or transfer.new_owner.user.username
             if transfer.new_owner_id else transfer.external_owner_name
         )
-        notified_farmers = [transfer.previous_owner]
+        notified_farmers = [transfer.previous_owner] if transfer.previous_owner_id else []
         if transfer.new_owner_id:
             notified_farmers.append(transfer.new_owner)
+        animal_name = transfer.livestock.tag_number or transfer.livestock.livestock_type.name if transfer.livestock_id else transfer.external_livestock_type
         for farmer in notified_farmers:
             is_buyer = farmer.pk == transfer.new_owner_id
             create_notification(user=farmer.user, notification_type=Notification.NotificationType.GENERAL,
                 title="Livestock Ownership Transfer Approved",
                 message=(
-                    f"You are recorded as the new owner of {transfer.livestock.tag_number or 'livestock'}. Register it in your inventory to track it in SmartLivestock."
+                    f"You are recorded as the new owner of {animal_name}. Register it in your inventory to track it in SmartLivestock."
                     if is_buyer else
-                    f"Ownership transfer for {transfer.livestock.tag_number or 'livestock'} was approved and marked SOLD in your inventory history. Buyer: {buyer_name}."
+                    f"Ownership transfer for {animal_name} was approved and marked SOLD in your inventory history. Buyer: {buyer_name}."
                 ),
-                link="/livestock-inventory" if is_buyer else f"/livestock-inventory/{transfer.livestock_id}")
+                link="/livestock-inventory" if is_buyer or not transfer.livestock_id else f"/livestock-inventory/{transfer.livestock_id}")
+
+        if not transfer.livestock_id:
+            create_notification(user=transfer.created_by, notification_type=Notification.NotificationType.GENERAL,
+                title="Outside livestock transfer approved",
+                message=f"Transfer certificate {transfer.transfer_certificate_number} for {transfer.external_livestock_type} was approved as an external market record. It was not added to local inventory.",
+                link="/auction-ownership-transfers", related_entity_type="ownership_transfer", related_entity_id=transfer.pk)
 
     return Response(LivestockOwnershipTransferSerializer(transfer).data)

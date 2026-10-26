@@ -372,9 +372,16 @@ class LivestockOwnershipTransfer(models.Model):
         SUBJECT_TO_REVISION = "SUBJECT_TO_REVISION", "Subject to Revision"
 
     # This event points to the canonical animal row; changing owners must never create a second identity.
-    livestock = models.ForeignKey(LivestockInventory, on_delete=models.PROTECT, related_name="ownership_transfers")
+    livestock = models.ForeignKey(LivestockInventory, on_delete=models.PROTECT, related_name="ownership_transfers", null=True, blank=True)
     # Keep former and incoming owners as protected historical references even after the animal's current farmer changes.
-    previous_owner = models.ForeignKey(Farmer, on_delete=models.PROTECT, related_name="outgoing_livestock_transfers")
+    previous_owner = models.ForeignKey(Farmer, on_delete=models.PROTECT, related_name="outgoing_livestock_transfers", null=True, blank=True)
+    # Auction may record animals brought by outside traders without importing them into local inventory.
+    external_seller_name = models.CharField(max_length=255, blank=True, default="")
+    external_seller_address = models.TextField(blank=True, default="")
+    external_livestock_type = models.CharField(max_length=100, blank=True, default="")
+    external_livestock_tag_number = models.CharField(max_length=100, blank=True, default="")
+    origin_municipality = models.CharField(max_length=150, blank=True, default="")
+    origin_province = models.CharField(max_length=150, blank=True, default="")
     owner_type = models.CharField(
         max_length=30,
         choices=OwnerType.choices,
@@ -392,7 +399,7 @@ class LivestockOwnershipTransfer(models.Model):
     external_owner_address = models.TextField(blank=True, default="")
     # One paper certificate can cover several animals, so each animal event may share its number.
     transfer_certificate_number = models.CharField(max_length=100)
-    original_certificate_number = models.CharField(max_length=100)
+    original_certificate_number = models.CharField(max_length=100, blank=True, default="")
     transfer_date = models.DateField()
     municipality = models.CharField(max_length=150)
     province = models.CharField(max_length=150)
@@ -412,6 +419,13 @@ class LivestockOwnershipTransfer(models.Model):
     class Meta:
         ordering = ["-transfer_date", "-pk"]
         constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(livestock__isnull=False, previous_owner__isnull=False, external_seller_name="")
+                    | models.Q(livestock__isnull=True, previous_owner__isnull=True) & ~models.Q(external_seller_name="")
+                ),
+                name="ownership_transfer_source_matches",
+            ),
             models.UniqueConstraint(
                 fields=["livestock"],
                 condition=models.Q(status__in=["PENDING", "VERIFIED"]),
