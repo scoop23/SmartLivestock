@@ -94,9 +94,17 @@ class LivestockPhotoUpdateSerializer(serializers.Serializer):
     """Restrict approved-record photo changes to the media fields only."""
 
     photo = LivestockPhotoField(required=False, allow_null=True)
+    left_side_photo = LivestockPhotoField(required=False, allow_null=True)
+    right_side_photo = LivestockPhotoField(required=False, allow_null=True)
     avatar_key = serializers.CharField(required=False, allow_blank=True, max_length=50)
 
     def validate_photo(self, value):
+        return validate_livestock_photo_upload(value)
+
+    def validate_left_side_photo(self, value):
+        return validate_livestock_photo_upload(value)
+
+    def validate_right_side_photo(self, value):
         return validate_livestock_photo_upload(value)
 
     def update(self, instance, validated_data):
@@ -154,7 +162,7 @@ class LivestockInventorySerializer(serializers.Serializer):
     """
     Returns:
         Complete individual animal passport or herd entry with resolved relationships:
-        - Identity: id, tag_number, breed, sex, weight, photo, photo_url (absolute URI), avatar_key
+        - Identity: id, tag_number, breed, sex, weight, portrait and left/right side photos, avatar_key
         - Farmer & Barangay: farmer (ID), farmer_name (full name/username), barangay_name, barangay_id
         - Herd Group: batch (ID), batch_code, batch_name (null if independent animal)
         - Classification: livestock_type (ID), livestock_type_name, entry_type (INDIVIDUAL/BATCH), quantity
@@ -201,7 +209,11 @@ class LivestockInventorySerializer(serializers.Serializer):
         max_digits=6, decimal_places=2, required=False, allow_null=True
     )
     photo = LivestockPhotoField(required=False, allow_null=True)
+    left_side_photo = LivestockPhotoField(required=False, allow_null=True)
+    right_side_photo = LivestockPhotoField(required=False, allow_null=True)
     photo_url = serializers.SerializerMethodField(read_only=True)
+    left_side_photo_url = serializers.SerializerMethodField(read_only=True)
+    right_side_photo_url = serializers.SerializerMethodField(read_only=True)
     avatar_key = serializers.CharField(
         max_length=50, required=False, allow_blank=True, default=""
     )
@@ -246,17 +258,32 @@ class LivestockInventorySerializer(serializers.Serializer):
         return None
 
     def get_photo_url(self, obj):
-        if obj.photo:
+        return self._get_image_url(obj.photo)
+
+    def get_left_side_photo_url(self, obj):
+        return self._get_image_url(obj.left_side_photo)
+
+    def get_right_side_photo_url(self, obj):
+        return self._get_image_url(obj.right_side_photo)
+
+    def _get_image_url(self, image):
+        if image:
             try:
                 request = self.context.get("request")
                 if request:
-                    return request.build_absolute_uri(obj.photo.url)
-                return obj.photo.url
+                    return request.build_absolute_uri(image.url)
+                return image.url
             except Exception:
                 return None
         return None
 
     def validate_photo(self, value):
+        return validate_livestock_photo_upload(value)
+
+    def validate_left_side_photo(self, value):
+        return validate_livestock_photo_upload(value)
+
+    def validate_right_side_photo(self, value):
         return validate_livestock_photo_upload(value)
 
     def validate(self, attrs):
@@ -326,6 +353,8 @@ class LivestockInventorySerializer(serializers.Serializer):
             "sex",
             "weight",
             "photo",
+            "left_side_photo",
+            "right_side_photo",
             "avatar_key",
             "last_vaccination_date",
         ]

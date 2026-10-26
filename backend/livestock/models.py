@@ -215,6 +215,18 @@ class LivestockInventory(models.Model):
         blank=True,
         help_text="Animal photograph or digital passport portrait.",
     )
+    left_side_photo = models.ImageField(
+        upload_to="livestock_photos/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="Left-side identification photo of the animal.",
+    )
+    right_side_photo = models.ImageField(
+        upload_to="livestock_photos/%Y/%m/",
+        null=True,
+        blank=True,
+        help_text="Right-side identification photo of the animal.",
+    )
     avatar_key = models.CharField(
         max_length=50,
         blank=True,

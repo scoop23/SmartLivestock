@@ -67,6 +67,7 @@ Printer,
 Scale,
 ShieldCheck,
 Stethoscope,
+  Trash2,
 TrendingUp
 } from "lucide-react";
 import Image from "next/image";
@@ -240,6 +241,8 @@ export default function LivestockDetailPage() {
         reviewedAt: directInventory.reviewed_at || null,
         createdAt: directInventory.created_at || new Date().toISOString(),
         photoUrl: directInventory.photo_url || null,
+        leftSidePhotoUrl: directInventory.left_side_photo_url || directInventory.left_side_photo || null,
+        rightSidePhotoUrl: directInventory.right_side_photo_url || directInventory.right_side_photo || null,
         avatarKey: directInventory.avatar_key || null,
         batchId: directInventory.batch || null,
         batchCode: directInventory.batch_code || null,
@@ -280,6 +283,42 @@ export default function LivestockDetailPage() {
     },
     onError: () => toast.error("Could not save your corrections. Please review the fields and try again."),
   });
+
+  const sidePhotoMutation = useMutation({
+    mutationFn: async ({ side, file }: { side: "left" | "right"; file: File | null }) => {
+      if (!activeItem) throw new Error("Livestock record is not ready.");
+      const field = `${side}_side_photo`;
+      if (file) {
+        const payload = new FormData();
+        payload.append(field, file);
+        return api.patch(`livestock/inventory/${activeItem.id}/`, payload);
+      }
+      return api.patch(`livestock/inventory/${activeItem.id}/`, { [field]: null });
+    },
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["inventory"] }),
+        queryClient.invalidateQueries({ queryKey: ["inventory_item", String(activeItem?.id ?? rawId)] }),
+      ]);
+      toast.success(variables.file ? `${variables.side === "left" ? "Left" : "Right"} side photo updated.` : `${variables.side === "left" ? "Left" : "Right"} side photo removed.`);
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error, "Could not update this side photo.")),
+  });
+
+  function handleSidePhotoUpload(side: "left" | "right", event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Photo exceeds 5 MB. Please choose a smaller image.");
+      return;
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type.toLowerCase())) {
+      toast.error("Choose a JPEG, PNG, or WebP photo.");
+      return;
+    }
+    sidePhotoMutation.mutate({ side, file });
+  }
 
   // 3. Real Weight Records from Backend API
   const { data: allWeightRecords = [] } = useQuery<ApiWeightRecord[]>({
@@ -979,6 +1018,45 @@ export default function LivestockDetailPage() {
           }
         />
         </div>
+
+        {activeItem.entryType === "INDIVIDUAL" && (
+          <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
+            <CardHeader className="p-4 pb-2 sm:p-5 sm:pb-3">
+              <CardTitle className="text-sm font-black text-slate-900">Livestock Side Photos</CardTitle>
+              <CardDescription className="text-xs text-slate-500">Left- and right-side views. The species avatar is shown for any side without a photo.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-3 p-4 pt-2 sm:grid-cols-2 sm:p-5 sm:pt-2">
+              {([
+                { side: "Left", url: activeItem.leftSidePhotoUrl },
+                { side: "Right", url: activeItem.rightSidePhotoUrl },
+              ] as const).map(({ side, url }) => (
+                <figure key={side} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                  {url ? (
+                    <img src={url} alt={`${side} side view of livestock ${activeItem.tagNumber}`} className="aspect-[4/3] w-full object-cover" />
+                  ) : (
+                    <div className={`relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-gradient-to-br text-7xl ${avatar.bgGradient}`} aria-label={`Avatar shown because the ${side.toLowerCase()} side photo is missing`}>
+                      {speciesImageUrl ? <Image src={speciesImageUrl} alt={`${activeItem.livestockTypeName} avatar`} fill sizes="(max-width: 640px) 100vw, 50vw" className="object-contain p-6" /> : avatar.emoji}
+                    </div>
+                  )}
+                  <figcaption className="space-y-2 border-t border-slate-200 bg-white px-3 py-2">
+                    <p className="text-xs font-bold text-slate-700">{side} side view{!url ? " · avatar placeholder" : ""}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        aria-label={`Upload ${side.toLowerCase()} side photo`}
+                        disabled={sidePhotoMutation.isPending}
+                        onChange={(event) => handleSidePhotoUpload(side.toLowerCase() as "left" | "right", event)}
+                        className="h-auto min-w-0 flex-1 text-xs file:mr-2 file:rounded-md file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs file:font-semibold"
+                      />
+                      {url ? <Button type="button" size="sm" variant="ghost" disabled={sidePhotoMutation.isPending} onClick={() => sidePhotoMutation.mutate({ side: side.toLowerCase() as "left" | "right", file: null })}><Trash2 className="mr-1 size-3.5" />Remove</Button> : null}
+                    </div>
+                  </figcaption>
+                </figure>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {activeItem.status === "APPROVED" && activeItem.reviewRemarks && (
           <Card className="rounded-2xl border-emerald-200 bg-emerald-50/70 shadow-xs overflow-hidden">

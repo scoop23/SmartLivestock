@@ -195,7 +195,7 @@ def inventory_detail(request, pk):
 
         # Approved identity data is locked, but the owning farmer may update only
         # the photo/avatar. Keep that media operation separate from registry edits.
-        media_fields = {"photo", "avatar_key"}
+        media_fields = {"photo", "left_side_photo", "right_side_photo", "avatar_key"}
         if request.method == "PATCH" and request.data and set(request.data.keys()).issubset(media_fields):
             media_serializer = LivestockPhotoUpdateSerializer(
                 inventory, data=request.data, partial=True, context={"request": request}

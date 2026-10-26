@@ -44,6 +44,8 @@ export interface LivestockInventoryItem {
   reviewHistory: InventoryReviewHistoryEntry[];
   createdAt: string;
   photoUrl?: string | null;
+  leftSidePhotoUrl?: string | null;
+  rightSidePhotoUrl?: string | null;
   avatarKey?: string | null;
   batchId?: number | null;
   batchCode?: string | null;
@@ -77,6 +79,10 @@ export interface InventoryApiItem {
   created_at: string;
   photo?: string | null;
   photo_url?: string | null;
+  left_side_photo?: string | null;
+  right_side_photo?: string | null;
+  left_side_photo_url?: string | null;
+  right_side_photo_url?: string | null;
   avatar_key?: string | null;
   batch?: number | null;
   batch_code?: string | null;
@@ -154,6 +160,8 @@ export interface CreateInventoryPayload {
   weight?: number | null;
   last_vaccination_date?: string | null;
   photo?: string | null;
+  left_side_photo?: File | null;
+  right_side_photo?: File | null;
   avatar_key?: string | null;
   batch?: number | null;
 }
@@ -169,6 +177,8 @@ export interface UpdateInventoryPayload {
   weight?: number | null;
   last_vaccination_date?: string | null;
   photo?: string | null;
+  left_side_photo?: File | null;
+  right_side_photo?: File | null;
   avatar_key?: string | null;
   batch?: number | null;
 }
@@ -507,6 +517,8 @@ export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => 
   reviewHistory: item.review_history ?? [],
   createdAt: item.created_at,
   photoUrl: item.photo_url || item.photo || null,
+  leftSidePhotoUrl: item.left_side_photo_url || item.left_side_photo || null,
+  rightSidePhotoUrl: item.right_side_photo_url || item.right_side_photo || null,
   avatarKey: item.avatar_key || null,
   batchId: item.batch || null,
   batchCode: item.batch_code || null,

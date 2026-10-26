@@ -114,6 +114,10 @@ interface LivestockRegistrationDraft {
   savedAt: string;
 }
 
+type AnimalSide = "left" | "right";
+type SidePhotoFiles = Record<AnimalSide, File | null>;
+type SidePhotoPreviews = Record<AnimalSide, string>;
+
 const initialFormData = {
   entryType: "INDIVIDUAL" as EntryType,
   livestockType: "Cattle",
@@ -195,6 +199,9 @@ function RegisterLivestockDialogContent({
   const [submittedLivestock, setSubmittedLivestock] = useState<{ id: string; tagNumber: string } | null>(null);
   const [formData, setFormData] = useState(() => ({ ...initialFormData, tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "" }));
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [sidePhotoFiles, setSidePhotoFiles] = useState<SidePhotoFiles>({ left: null, right: null });
+  const [sidePhotoPreviews, setSidePhotoPreviews] = useState<SidePhotoPreviews>({ left: "", right: "" });
+  const sidePhotoInputRefs = useRef<Record<AnimalSide, HTMLInputElement | null>>({ left: null, right: null });
   const [batchPhotoFiles, setBatchPhotoFiles] = useState<File[]>([]);
   const [batchPhotoDataUrls, setBatchPhotoDataUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -332,6 +339,8 @@ function RegisterLivestockDialogContent({
         tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
       });
       setBatchAnimals(createDefaultBatchAnimals(ownerTagPrefix, existingTags));
+      setPhotoFile(null);
+      clearSidePhotos();
       setBatchPhotoFiles([]);
       setBatchPhotoDataUrls([]);
       setFormError("");
@@ -368,6 +377,42 @@ function RegisterLivestockDialogContent({
       toast.success("Livestock photo attached!");
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleSidePhotoUpload = (side: AnimalSide, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Each side photo must be 5 MB or smaller.");
+      e.target.value = "";
+      return;
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type.toLowerCase())) {
+      toast.error("Side photos must be JPEG, PNG, or WebP images.");
+      e.target.value = "";
+      return;
+    }
+
+    setSidePhotoFiles((current) => ({ ...current, [side]: file }));
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setSidePhotoPreviews((current) => ({ ...current, [side]: String(event.target?.result || "") }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveSidePhoto = (side: AnimalSide) => {
+    setSidePhotoFiles((current) => ({ ...current, [side]: null }));
+    setSidePhotoPreviews((current) => ({ ...current, [side]: "" }));
+    if (sidePhotoInputRefs.current[side]) sidePhotoInputRefs.current[side]!.value = "";
+  };
+
+  const clearSidePhotos = () => {
+    setSidePhotoFiles({ left: null, right: null });
+    setSidePhotoPreviews({ left: "", right: "" });
+    Object.values(sidePhotoInputRefs.current).forEach((input) => {
+      if (input) input.value = "";
+    });
   };
 
   const handleRemovePhoto = () => {
@@ -632,7 +677,7 @@ function RegisterLivestockDialogContent({
           : (formData.breed?.trim() || "Standard");
 
         let response;
-        if (photoFile) {
+        if (photoFile || sidePhotoFiles.left || sidePhotoFiles.right) {
           const body = new FormData();
           body.append("livestock_type", String(typeId));
           body.append("entry_type", "INDIVIDUAL");
@@ -645,7 +690,9 @@ function RegisterLivestockDialogContent({
           if (formData.lastVaccinationDate) body.append("last_vaccination_date", formData.lastVaccinationDate);
           if (formData.batchId) body.append("batch", String(formData.batchId));
           if (formData.avatarKey) body.append("avatar_key", formData.avatarKey);
-          body.append("photo", photoFile);
+          if (photoFile) body.append("photo", photoFile);
+          if (sidePhotoFiles.left) body.append("left_side_photo", sidePhotoFiles.left);
+          if (sidePhotoFiles.right) body.append("right_side_photo", sidePhotoFiles.right);
 
           response = await api.post("/livestock/inventory/", body, {
             headers: { "Content-Type": "multipart/form-data" },
@@ -763,6 +810,8 @@ function RegisterLivestockDialogContent({
       const registeredQty = wasBatch ? batchAnimals.length : formData.quantity;
       onOpenChange(false);
       setFormData(initialFormData);
+      setPhotoFile(null);
+      clearSidePhotos();
 
       // Clear draft on successful submission
       try {
@@ -863,6 +912,8 @@ function RegisterLivestockDialogContent({
     if (!nextOpen) {
       setFormError("");
       setFormData(initialFormData);
+      setPhotoFile(null);
+      clearSidePhotos();
       setBatchPhotoFiles([]);
       setBatchPhotoDataUrls([]);
       resetBatchAnimalsToPreset(formData.livestockType);
@@ -1214,6 +1265,65 @@ function RegisterLivestockDialogContent({
                     </div>
                   </div>
                 </div>
+
+                {/* Animal side identification photos */}
+                <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4" aria-labelledby="animal-side-photos-title">
+                  <div>
+                    <h3 id="animal-side-photos-title" className="text-xs font-black uppercase tracking-wider text-slate-700">
+                      Left and Right Side Photos <span className="font-semibold normal-case text-slate-400">(Optional)</span>
+                    </h3>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Add one full-body photo from each side for identification. JPEG, PNG, or WebP up to 5 MB per photo.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {(["left", "right"] as const).map((side) => (
+                      <div key={side} className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <Label className="text-xs font-bold capitalize text-slate-700">{side} side</Label>
+                          {sidePhotoPreviews[side] && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSidePhoto(side)}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 hover:underline"
+                            >
+                              <Trash2 className="size-3" /> Remove
+                            </button>
+                          )}
+                        </div>
+                        <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-white">
+                          {sidePhotoPreviews[side] ? (
+                            <img src={sidePhotoPreviews[side]} alt={`${side} side view preview`} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-center text-slate-400">
+                              <Camera className="size-7" />
+                              <span className="text-[10px] font-semibold">No {side} view added</span>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          ref={(input) => { sidePhotoInputRefs.current[side] = input; }}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(event) => handleSidePhotoUpload(side, event)}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => sidePhotoInputRefs.current[side]?.click()}
+                          className="w-full rounded-lg border-slate-300 text-xs font-bold"
+                        >
+                          <Upload className="mr-1.5 size-3.5" />
+                          {sidePhotoPreviews[side] ? "Change photo" : `Add ${side} side photo`}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
 
                 {/* Assigned Herd (Optional) */}
                 <div className="space-y-1.5">
