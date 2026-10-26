@@ -22,7 +22,7 @@ EDUCATIONAL OVERVIEW & LIVESTOCK CONCEPTS:
    Running with `--clean` deletes ONLY records containing this exact marker.
 """
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 import numpy as np
 
@@ -56,8 +56,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--months",
             type=int,
-            default=36,
-            help="Number of historical months to generate slaughter activity for (default: 36).",
+            default=3,
+            help="Number of recent calendar months to generate daily slaughter activity for (default: 3).",
         )
 
     def handle(self, *args, **options):
@@ -130,56 +130,47 @@ class Command(BaseCommand):
 
         records_to_create = []
 
-        # Generate realistic monthly slaughterhouse throughput over requested months
-        # Base: ~15 heads per month with slight upward trend and seasonal spike near December/holidays
-        for m_idx in range(months):
-            month_offset = months - 1 - m_idx
-            year = today.year - (month_offset // 12)
-            month = today.month - (month_offset % 12)
-            if month <= 0:
-                month += 12
-                year -= 1
+        # Include each calendar month from the first day of the oldest requested
+        # month through today, producing one facility-total row per day.
+        start_year, start_month = today.year, today.month
+        for _ in range(months - 1):
+            start_month -= 1
+            if start_month == 0:
+                start_month = 12
+                start_year -= 1
+        start_date = date(start_year, start_month, 1)
 
-            # Seasonal holiday bump in November & December (festivals, holiday meat demand)
-            holiday_multiplier = 1.35 if month in (11, 12) else 1.0
-            trend_bump = m_idx * 0.15
+        for day_offset in range((today - start_date).days + 1):
+            record_date = start_date + timedelta(days=day_offset)
+            month_offset = (record_date.year - start_year) * 12 + record_date.month - start_month
+            holiday_multiplier = 1.35 if record_date.month in (11, 12) else 1.0
+            trend_bump = month_offset * 0.15
 
-            # Number of events per month (2 to 4 slaughter batches)
-            num_batches = int(rng.choice([2, 3, 4]))
-            for b_idx in range(num_batches):
-                base_heads = float(rng.uniform(3, 8)) * holiday_multiplier + trend_bump
-                heads = max(1, int(round(base_heads)))
-
-                # Average carcass weight ~180-220 kg per head for cattle
-                avg_carcass_per_head = float(rng.uniform(185.0, 215.0))
-                total_carcass_kg = round(heads * avg_carcass_per_head, 2)
-
-                day = min(28, int(rng.choice([5, 12, 19, 26])))
-                record_date = date(year, month, day)
-
-                slaughter = SlaughterRecord(
-                    livestock=None,
-                    batch=None,
-                    barangay=barangay,
-                    livestock_type=livestock_type,
-                    quantity=heads,
-                    carcass_weight=Decimal(str(total_carcass_kg)),
-                    record_date=record_date,
-                    status=SlaughterRecord.StatusType.APPROVED,
-                    reviewed_by=mao_user,
-                    reviewed_at=timezone.now(),
-                    review_remarks=(
-                        f"{SEED_MARKER_SLAUGHTER} Synthetic municipal abattoir record "
-                        f"for month {m_idx + 1}/{months}."
-                    ),
-                    created_by=mao_user,
-                )
-                records_to_create.append(slaughter)
+            # One daily facility total; carcass kilograms remain separate from head count.
+            heads = max(1, int(round(float(rng.uniform(1, 5)) * holiday_multiplier + trend_bump)))
+            avg_carcass_per_head = float(rng.uniform(185.0, 215.0))
+            total_carcass_kg = round(heads * avg_carcass_per_head, 2)
+            slaughter = SlaughterRecord(
+                livestock=None,
+                batch=None,
+                barangay=barangay,
+                livestock_type=livestock_type,
+                quantity=heads,
+                carcass_weight=Decimal(str(total_carcass_kg)),
+                record_date=record_date,
+                status=SlaughterRecord.StatusType.APPROVED,
+                reviewed_by=mao_user,
+                reviewed_at=timezone.now(),
+                review_remarks=f"{SEED_MARKER_SLAUGHTER} Synthetic daily municipal abattoir total for {record_date}.",
+                created_by=mao_user,
+            )
+            records_to_create.append(slaughter)
 
         SlaughterRecord.objects.bulk_create(records_to_create)
         self.stdout.write(
             self.style.SUCCESS(
-                f"Successfully seeded {len(records_to_create)} synthetic slaughter records across {months} months "
+                f"Successfully seeded {len(records_to_create)} daily synthetic slaughter records "
+                f"across {months} calendar months ({start_date} through {today}) "
                 f"with marker '{SEED_MARKER_SLAUGHTER}'."
             )
         )

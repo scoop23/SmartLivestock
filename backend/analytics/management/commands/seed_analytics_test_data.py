@@ -19,13 +19,13 @@ SAFETY GUARANTEES:
 """
 
 from django.core.management import call_command
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
     help = (
         "Deterministically seeds or cleans all synthetic test datasets for SmartLivestock analytics.\n"
-        "Runs: seed_productions, seed_calving, seed_diseases, seed_mortality, seed_inspections.\n"
+        "Runs: seed_productions, seed_slaughters, seed_calving, seed_diseases, seed_mortality, seed_inspections.\n"
         "Use --clean to safely purge ONLY synthetic records carrying project seed markers."
     )
 
@@ -41,10 +41,17 @@ class Command(BaseCommand):
             default=36,
             help="Number of months for time-series production series (default: 36).",
         )
+        parser.add_argument(
+            "--slaughter-months",
+            type=int,
+            default=3,
+            help="Number of recent calendar months of daily slaughter records to seed (default: 3).",
+        )
 
     def handle(self, *args, **options):
         clean_mode = options["clean"]
         months = options["months"]
+        slaughter_months = options["slaughter_months"]
 
         if clean_mode:
             self.stdout.write(self.style.NOTICE("Initiating clean across all synthetic analytics datasets..."))
@@ -81,6 +88,9 @@ class Command(BaseCommand):
             )
             return
 
+        if slaughter_months < 1:
+            raise CommandError("--slaughter-months must be at least 1.")
+
         # MULTI-DOMAIN SEEDING FLOW:
         # Generates >= 12 months (default: 36 months) of approved records across all 5 predictive domains.
         # This provides the minimum time-series observations needed for:
@@ -91,8 +101,8 @@ class Command(BaseCommand):
         self.stdout.write("\n--- [1/7] Production Time-Series (Milk, Meat, Eggs, Wool) ---")
         call_command("seed_productions", months=months, production_type="ALL")
 
-        self.stdout.write("\n--- [2/7] Slaughterhouse Records (Heads & Carcass Weight) ---")
-        call_command("seed_slaughters", months=months)
+        self.stdout.write(f"\n--- [2/7] Daily Slaughterhouse Records (last {slaughter_months} months) ---")
+        call_command("seed_slaughters", months=slaughter_months)
 
         self.stdout.write("\n--- [3/7] Auction & Live Animal Sales (Heads & PHP Volume) ---")
         call_command("seed_auction", months=months)
