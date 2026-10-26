@@ -1,10 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import type { CalvingRecordItem } from "@/app/(farmer)/production-dashboard/production-calving-tab";
 import { formatCalendarDate } from "@/lib/livestock-age";
-import { ArrowDown, Dna, HeartPulse, Sprout } from "lucide-react";
+import { ArrowDown, Beef, Dna, HeartPulse } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import type { LivestockInventoryItem } from "../livestock-inventory";
+import { getAvatarById, type LivestockInventoryItem } from "../livestock-inventory";
 
 interface LivestockLineageTreeProps {
   animal: LivestockInventoryItem;
@@ -26,6 +26,13 @@ function findRegisteredOffspring(record: CalvingRecordItem, inventory: Livestock
   return matches.length === 1 ? matches[0] : null;
 }
 
+function findRegisteredAnimalByTag(tag: string, inventory: LivestockInventoryItem[]) {
+  const normalizedTag = tag.trim().toUpperCase();
+  if (!normalizedTag) return null;
+  const matches = inventory.filter((item) => item.tagNumber.trim().toUpperCase() === normalizedTag);
+  return matches.length === 1 ? matches[0] : null;
+}
+
 function RecordStatus({ status }: { status?: string }) {
   if (!status) return null;
   const approved = status === "APPROVED" || status === "VERIFIED";
@@ -42,6 +49,8 @@ function TreeNode({
   details,
   status,
   icon,
+  animal,
+  fallbackSpecies,
   href,
   highlight = false,
 }: {
@@ -50,9 +59,13 @@ function TreeNode({
   details?: string;
   status?: string;
   icon: ReactNode;
+  animal?: LivestockInventoryItem | null;
+  fallbackSpecies: string;
   href?: string;
   highlight?: boolean;
 }) {
+  const avatar = getAvatarById(animal?.avatarKey, animal?.livestockTypeName || fallbackSpecies);
+  const photoUrl = animal?.leftSidePhotoUrl || animal?.rightSidePhotoUrl || animal?.photoUrl;
   const content = (
     <div className={`h-full min-h-28 rounded-2xl border p-4 text-left shadow-xs transition-colors ${
       highlight
@@ -68,9 +81,19 @@ function TreeNode({
         </span>
         {status && <RecordStatus status={status} />}
       </div>
-      <p className="mt-2 break-words font-mono text-sm font-black text-slate-900">{tag}</p>
-      {details && <p className="mt-1 text-xs leading-relaxed text-slate-600">{details}</p>}
-      {href && <p className="mt-2 text-[10px] font-bold text-emerald-800">Open animal record ↗</p>}
+      <div className="mt-3 flex items-center gap-3">
+        <div className={`relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br text-3xl ${avatar.bgGradient}`}>
+          {photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photoUrl} alt={`${title} ${tag}`} className="size-full object-cover" />
+          ) : avatar.emoji}
+        </div>
+        <div className="min-w-0">
+          <p className="break-words font-mono text-sm font-black text-slate-900">{tag}</p>
+          {details && <p className="mt-1 text-xs leading-relaxed text-slate-600">{details}</p>}
+          {href && <p className="mt-2 text-[10px] font-bold text-emerald-800">Open animal record ↗</p>}
+        </div>
+      </div>
     </div>
   );
 
@@ -91,6 +114,7 @@ export function LivestockLineageTree({
 
   const sireTag = parentRecord?.sire_tag.trim() || "Not recorded";
   const damTag = dam?.tagNumber || parentRecord?.dam_tag || (parentRecord ? `Inventory #${parentRecord.dam}` : "Not recorded");
+  const sire = findRegisteredAnimalByTag(sireTag, inventory);
 
   return (
     <section aria-labelledby="lineage-tree-title" className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
@@ -116,6 +140,8 @@ export function LivestockLineageTree({
               details={parentRecord ? `Breed: ${parentRecord.breed || animal.breed || "Not recorded"}` : "Parentage has not been recorded."}
               status={parentRecord?.status}
               icon={<Dna className="size-3.5 text-blue-600" />}
+              animal={sire}
+              fallbackSpecies={animal.livestockTypeName}
             />
             <TreeNode
               title="Dam · Mother"
@@ -123,6 +149,8 @@ export function LivestockLineageTree({
               details={parentRecord ? `Breed: ${dam?.breed || parentRecord.dam_breed || parentRecord.breed || "Not recorded"}` : "Parentage has not been recorded."}
               status={parentRecord?.status}
               icon={<HeartPulse className="size-3.5 text-rose-600" />}
+              animal={dam}
+              fallbackSpecies={animal.livestockTypeName}
               href={dam ? `/livestock-inventory/${encodeURIComponent(dam.id)}` : undefined}
             />
           </div>
@@ -139,7 +167,9 @@ export function LivestockLineageTree({
             title="This animal"
             tag={animal.tagNumber || `Inventory #${animal.id}`}
             details={[animal.breed || "Breed not recorded", animal.sex || "Sex not recorded"].join(" · ")}
-            icon={<Sprout className="size-3.5 text-emerald-700" />}
+            icon={<Beef className="size-3.5 text-emerald-700" />}
+            animal={animal}
+            fallbackSpecies={animal.livestockTypeName}
             highlight
           />
         </div>
@@ -170,7 +200,9 @@ export function LivestockLineageTree({
                     tag={registeredAnimal?.tagNumber || calfTag}
                     details={details || "Birth details not recorded."}
                     status={record.status}
-                    icon={<Sprout className="size-3.5 text-emerald-700" />}
+                    icon={<Beef className="size-3.5 text-emerald-700" />}
+                    animal={registeredAnimal}
+                    fallbackSpecies={animal.livestockTypeName}
                     href={registeredAnimal ? `/livestock-inventory/${encodeURIComponent(registeredAnimal.id)}` : undefined}
                   />
                 );
