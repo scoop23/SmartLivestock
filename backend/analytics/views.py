@@ -152,7 +152,11 @@ def nlp_query(request):
     """Answer one allowlisted analytics question using the caller's data scope."""
     serializer = AskSmartLivestockSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
+    # Retrieve the factual answer first. Passing request.user lets the existing
+    # NLP handlers enforce the caller's permissions and geographic data scope.
     result = execute_question(serializer.validated_data["question"], user=request.user)
+    # The UI's explain flag requests optional prose; the explanation service
+    # still checks both deployment gates before sending any aggregates to Groq.
     if serializer.validated_data["explain"]:
         from .services.nlp_explanation import add_optional_explanation
 
