@@ -146,7 +146,7 @@ def compare_pipelines():
     lookup = {row["question"]: prediction for row, prediction in zip(evaluation, predictions)}
     hybrid = evaluate_parser(lambda question, **context: interpret_question(
         question, **context, prediction=lookup[question], threshold=threshold["threshold"]))
-    hybrid["engine"] = "Rules-first hybrid shadow (ML cannot execute)"
+    hybrid["engine"] = "Rules-first hybrid shadow"
     return {"baseline": baseline, "ml": ml, "hybrid": hybrid,
             "training": {"fit": len(fit), "validation": len(validation), "test": len(evaluation),
                          "seed": 42, "validation_threshold": threshold,
