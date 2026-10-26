@@ -358,10 +358,10 @@ export default function DataUploadsPage() {
         subtitle="Import historical, externally collected, and field survey livestock data into the official municipal registry — Padre Garcia MAO"
         icon={<UploadCloud className="size-5 text-slate-800" />}
         variant="admin"
-        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        maxWidthClass="w-full"
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-20 sm:pb-12">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-20 sm:pb-12">
         {/* ═══ Top Section: Dataset Selection & Template Download ═══ */}
         <section className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

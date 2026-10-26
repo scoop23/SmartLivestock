@@ -990,7 +990,7 @@ function AdminBatchesDrilldownContent() {
           maxWidthClass="w-full"
           icon={<Layers className="size-5 text-slate-800" />}
         />
-        <div className="mx-auto w-full max-w-[1500px] p-3 sm:p-5 lg:px-8 lg:py-6">
+        <div className="w-full p-3 sm:p-5 lg:px-8 lg:py-6">
           <ValidationLoadingScreen
             isLoading={isInitialLoading}
             title="Loading Municipal Herd Ledger"
@@ -2196,7 +2196,7 @@ export default function AdminBatchesDrilldownPage() {
             maxWidthClass="w-full"
             icon={<Layers className="size-5 text-slate-800" />}
           />
-          <div className="mx-auto w-full max-w-[1500px] p-3 sm:p-5 lg:px-8 lg:py-6">
+          <div className="w-full p-3 sm:p-5 lg:px-8 lg:py-6">
             <ValidationLoadingScreen
               isLoading={true}
               title="Loading Municipal Herd Ledger"

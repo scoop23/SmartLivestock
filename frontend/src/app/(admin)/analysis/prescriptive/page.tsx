@@ -103,7 +103,7 @@ export default function PrescriptiveAnalyticsLandingPage() {
         icon={<Lightbulb className="size-5 text-amber-800" />}
       />
 
-      <div className="p-3 sm:p-4 md:p-6 w-full space-y-6 pb-20 sm:pb-8 max-w-7xl mx-auto">
+      <div className="p-3 sm:p-4 md:p-6 w-full space-y-6 pb-20 sm:pb-8">
         <AnalyticsNav currentSection="prescriptive" />
 
         {/* ----------------------------------------------------------------- */}

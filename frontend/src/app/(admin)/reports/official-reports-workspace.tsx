@@ -783,7 +783,7 @@ export function OfficialReportsWorkspace({
   const chartConfig = CHART_CONFIGS[reportType];
 
   return (
-    <main className="mx-auto w-full max-w-screen-2xl space-y-6 px-3.5 py-4 pb-14 sm:px-6 lg:px-8 lg:py-6">
+    <main className="w-full space-y-6 px-3.5 py-4 pb-14 sm:px-6 lg:px-8 lg:py-6">
       {/* 1. Top Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3.5">

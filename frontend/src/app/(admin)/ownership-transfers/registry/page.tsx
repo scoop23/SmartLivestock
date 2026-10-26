@@ -63,8 +63,8 @@ export default function OwnershipTransferRegistryPage() {
   const pendingCount = data.filter((transfer) => transfer.status === "PENDING" || transfer.status === "VERIFIED").length;
 
   return <>
-    <PageHeader title="Ownership Transfer Registry" subtitle="Browse all Auction-recorded transfer certificates and the livestock linked to each record." variant="admin" />
-    <main className="mx-auto w-full max-w-7xl space-y-5 p-4 sm:p-6">
+    <PageHeader title="Ownership Transfer Registry" subtitle="Browse all Auction-recorded transfer certificates and the livestock linked to each record." variant="admin" maxWidthClass="w-full" />
+    <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8 py-6">
       <div className="grid gap-3 sm:grid-cols-3">
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">All transfer records</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold">{data.length}</p></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Awaiting review</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold">{pendingCount}</p></CardContent></Card>
@@ -102,6 +102,6 @@ export default function OwnershipTransferRegistryPage() {
           <p className="mt-3 text-xs text-muted-foreground">Showing {filtered.length} of {data.length} records. Approved transfers preserve the seller’s original livestock row as SOLD.</p>
         </CardContent>
       </Card> : null}
-    </main>
+    </div>
   </>;
 }

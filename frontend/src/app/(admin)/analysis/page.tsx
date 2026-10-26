@@ -121,11 +121,11 @@ export default function AnalysisOverviewPage() {
         title="Analytics & Insights"
         subtitle="Municipal livestock intelligence, empirical forecasting, and evidence-based decision guidance for Padre Garcia"
         variant="admin"
-        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        maxWidthClass="w-full"
         icon={<BarChart3 className="size-5 text-emerald-800" />}
       />
 
-      <div className="px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6 pb-20 sm:pb-8 max-w-7xl mx-auto">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6 pb-20 sm:pb-8">
         {/* Navigation Bar */}
         <AnalyticsNav currentSection="overview" />
 
