@@ -1,3 +1,5 @@
+import json
+import re
 from datetime import date
 from decimal import Decimal
 
@@ -15,20 +17,28 @@ from .models import SlaughterRecord
 
 
 class SlaughterRecordInputSerializer(serializers.ModelSerializer):
-    """Validate only aggregate fields supported by the current slaughter model."""
+    """Validate aggregate fields and condemnation inspection telemetry for slaughterhouse operations."""
 
     livestock_type_name = serializers.CharField(source="livestock_type.name", read_only=True)
     created_by_name = serializers.SerializerMethodField()
     can_edit = serializers.SerializerMethodField()
+
+    condemned_heads = serializers.IntegerField(required=False, default=0, min_value=0)
+    condemned_weight_kg = serializers.DecimalField(
+        max_digits=8, decimal_places=2, required=False, default=Decimal("0.00"), min_value=Decimal("0.00")
+    )
+    condemnation_reason = serializers.CharField(required=False, allow_blank=True, default="")
+    condemnation_type = serializers.CharField(required=False, allow_blank=True, default="NONE")
 
     class Meta:
         model = SlaughterRecord
         fields = (
             "id", "livestock_type", "livestock_type_name", "quantity", "carcass_weight",
             "record_date", "barangay", "status", "review_remarks", "created_by_name",
-            "created_at", "can_edit",
+            "created_at", "can_edit", "condemned_heads", "condemned_weight_kg",
+            "condemnation_reason", "condemnation_type",
         )
-        read_only_fields = ("id", "status", "review_remarks", "created_by_name", "created_at", "can_edit")
+        read_only_fields = ("id", "status", "created_by_name", "created_at", "can_edit")
 
     def validate_quantity(self, value):
         if value < 1:
@@ -54,6 +64,63 @@ class SlaughterRecordInputSerializer(serializers.ModelSerializer):
             SlaughterRecord.StatusType.PENDING,
             SlaughterRecord.StatusType.SUBJECT_TO_REVISION,
         }
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        remarks = instance.review_remarks or ""
+        match = re.search(r"<!--CONDEMNATION:(.*?)-->", remarks)
+        clean_remarks = remarks
+        condemned_heads = 0
+        condemned_weight_kg = "0.00"
+        condemnation_reason = ""
+        condemnation_type = "NONE"
+
+        if match:
+            clean_remarks = re.sub(r"<!--CONDEMNATION:.*?-->", "", remarks).strip()
+            try:
+                data = json.loads(match.group(1))
+                condemned_heads = int(data.get("heads", 0))
+                condemned_weight_kg = str(data.get("weight_kg", "0.00"))
+                condemnation_reason = str(data.get("reason", ""))
+                condemnation_type = str(data.get("type", "NONE"))
+            except Exception:
+                pass
+
+        ret["review_remarks"] = clean_remarks
+        ret["condemned_heads"] = condemned_heads
+        ret["condemned_weight_kg"] = condemned_weight_kg
+        ret["condemnation_reason"] = condemnation_reason
+        ret["condemnation_type"] = condemnation_type
+        return ret
+
+    def _pack_remarks(self, validated_data, existing_remarks=""):
+        condemned_heads = validated_data.pop("condemned_heads", 0)
+        condemned_weight_kg = validated_data.pop("condemned_weight_kg", Decimal("0.00"))
+        condemnation_reason = validated_data.pop("condemnation_reason", "").strip()
+        condemnation_type = validated_data.pop("condemnation_type", "NONE")
+        base_remarks = validated_data.get("review_remarks", existing_remarks) or ""
+        base_remarks = re.sub(r"<!--CONDEMNATION:.*?-->", "", base_remarks).strip()
+
+        if condemned_heads > 0 or condemnation_reason or Decimal(str(condemned_weight_kg or 0)) > 0:
+            payload = {
+                "heads": condemned_heads,
+                "weight_kg": str(condemned_weight_kg),
+                "reason": condemnation_reason,
+                "type": condemnation_type or ("TOTAL" if condemned_heads > 0 else "PARTIAL"),
+            }
+            tag = f"<!--CONDEMNATION:{json.dumps(payload)}-->"
+            validated_data["review_remarks"] = f"{base_remarks} {tag}".strip()
+        else:
+            validated_data["review_remarks"] = base_remarks
+        return validated_data
+
+    def create(self, validated_data):
+        self._pack_remarks(validated_data)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        self._pack_remarks(validated_data, instance.review_remarks)
+        return super().update(instance, validated_data)
 
 
 def _aggregate_slaughter_records():
@@ -172,6 +239,11 @@ def review_slaughterhouse_record(request, pk):
     record.status = target
     record.reviewed_by = request.user
     record.reviewed_at = timezone.now()
-    record.review_remarks = remarks
+
+    # Preserve any condemnation metadata when updating review remarks
+    match = re.search(r"<!--CONDEMNATION:.*?-->", record.review_remarks or "")
+    condemnation_tag = match.group(0) if match else ""
+    final_remarks = f"{remarks} {condemnation_tag}".strip()
+    record.review_remarks = final_remarks
     record.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_remarks"])
     return Response(SlaughterRecordInputSerializer(record, context={"request": request}).data)
