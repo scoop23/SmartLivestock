@@ -101,7 +101,7 @@ function ProductionRecordReviewContent() {
           </>
         }
         variant="farmer"
-        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        maxWidthClass="w-full"
         icon={<Milk className="size-5 text-white" />}
         hideIconOnMobile
         showTutorialToggle={false}
@@ -120,7 +120,7 @@ function ProductionRecordReviewContent() {
         }
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Back Link */}
         <div className="flex justify-start">
           <Link

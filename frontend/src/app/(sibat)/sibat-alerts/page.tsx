@@ -270,10 +270,10 @@ function SibatAlertsContent() {
         hideIconOnMobile
         showTutorialToggle={false}
         mobileActionsInline
-        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        maxWidthClass="w-full"
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* ── Scope Strip ── */}
         <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs font-semibold text-sky-950 sm:px-4">
           <MapPin className="size-4.5 text-sky-700 shrink-0" />

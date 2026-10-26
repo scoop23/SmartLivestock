@@ -73,9 +73,9 @@ function CensusSubmissionPageContent() {
             <span className="hidden sm:inline">Back</span>
           </button>
         }
-        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        maxWidthClass="w-full"
       />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+      <div className="w-full px-4 sm:px-6 lg:px-8 pt-4">
         <Button
           variant="outline"
           onClick={returnToCensus}
@@ -85,7 +85,7 @@ function CensusSubmissionPageContent() {
           Back to Records
         </Button>
       </div>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <div className="mb-5 flex items-center gap-2 rounded-xl bg-white/80 px-4 py-3 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-slate-200/70">
           <Save className="size-4 shrink-0 text-emerald-700" />
           Your draft saves automatically on this device while you work.

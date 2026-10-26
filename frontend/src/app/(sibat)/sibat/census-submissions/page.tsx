@@ -45,7 +45,7 @@ function CensusSubmissionReviewContent() {
           </>
         }
         variant="farmer"
-        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        maxWidthClass="w-full"
         icon={<ClipboardList className="size-5 text-white" />}
         hideIconOnMobile
         showTutorialToggle={false}
@@ -64,7 +64,7 @@ function CensusSubmissionReviewContent() {
         }
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
           <Link href="/sibat" className="hover:text-slate-900 transition-colors">SmartLivestock</Link>
           <span>/</span>

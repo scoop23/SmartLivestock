@@ -318,13 +318,13 @@ function SibatLivestockRegistryContent() {
             </>
           }
           variant="farmer"
-          maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+          maxWidthClass="w-full"
           icon={<ClipboardList className="size-5 text-white" />}
           hideIconOnMobile
           showTutorialToggle={false}
           mobileActionsInline
         />
-        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           <ValidationLoadingScreen
             isLoading={isInitialLoading}
             title="Loading Farmer Records Registry"
@@ -376,14 +376,14 @@ function SibatLivestockRegistryContent() {
           </>
         }
         variant="farmer"
-        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        maxWidthClass="w-full"
         icon={<ClipboardList className="size-5 text-white" />}
         hideIconOnMobile
         showTutorialToggle={false}
         mobileActionsInline
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Navigation Breadcrumb / Back Link */}
         <div className="flex items-center justify-between">
           <Link

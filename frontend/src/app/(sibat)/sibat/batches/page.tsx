@@ -1486,7 +1486,7 @@ function SibatBatchesVerificationContent() {
             : "Choose a registered livestock herd to inspect individual animals and verify records."
         }
         variant="farmer"
-        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        maxWidthClass="w-full"
         icon={<Layers className="size-5 text-white" />}
         hideIconOnMobile
         showTutorialToggle={false}
@@ -1494,7 +1494,7 @@ function SibatBatchesVerificationContent() {
         showBreadcrumbs={!isDrilldownOpen}
       />
 
-      <div className={isDrilldownOpen ? "hidden" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6"}>
+      <div className={isDrilldownOpen ? "hidden" : "w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6"}>
         {/* Navigation Breadcrumb / Top Bar */}
         <div className="flex min-w-0 flex-col items-start justify-between gap-3 rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs sm:flex-row sm:items-center sm:p-4">
           <div className="flex items-center gap-2">
@@ -2012,7 +2012,7 @@ function SibatBatchesVerificationContent() {
 
       {/* Inline herd details and individual livestock roster */}
       {isDrilldownOpen && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-32 sm:pb-28" aria-label="Herd details">
+        <section className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-32 sm:pb-28" aria-label="Herd details">
           {detailQuery.isLoading ? (
             <div
               className="flex min-h-[360px] flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200/90 bg-white p-6 text-center shadow-2xs"
@@ -2742,13 +2742,13 @@ export default function SibatBatchesVerificationPage() {
             title="Herds & Batches"
             subtitle="Choose a registered livestock herd to inspect individual animals and verify records."
             variant="farmer"
-            maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+            maxWidthClass="w-full"
             icon={<Layers className="size-5 text-white" />}
             hideIconOnMobile
             showTutorialToggle={false}
             mobileActionsInline
           />
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
             <ValidationLoadingScreen
               isLoading={true}
               title="Loading SIBAT Herd Ledger"
