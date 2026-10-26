@@ -198,7 +198,7 @@ export function AskSmartLivestock() {
   };
 
   return (
-    <section className="mx-auto min-w-0 w-full max-w-6xl rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5" aria-label="Ask SmartLivestock analytics assistant" aria-busy={loading}>
+    <section className="min-w-0 w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5" aria-label="Ask SmartLivestock analytics assistant" aria-busy={loading}>
       <div className="mb-4 space-y-1">
         <h2 className="text-base font-bold tracking-tight text-slate-900">Ask SmartLivestock</h2>
         <p id="ask-help" className="text-xs font-medium leading-relaxed text-slate-500">Ask about recorded livestock data available to your account. Answers use approved records and current review queues.</p>

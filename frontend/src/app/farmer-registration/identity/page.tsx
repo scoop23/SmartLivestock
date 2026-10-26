@@ -251,7 +251,7 @@ export default function RegistrationIdentityPage() {
 
       {/* ── Top Floating Navigation Header ── */}
       <header className="border-b border-emerald-500/15 bg-black/40 backdrop-blur-xl px-4 sm:px-8 py-3.5 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+        <div className="w-full flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="size-9 sm:size-10 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-700 text-slate-950 flex items-center justify-center font-black shadow-lg shadow-emerald-500/25 border border-emerald-300/30">
               <Icon iconNode={cowHead} className="size-5 text-slate-950" />
@@ -292,7 +292,7 @@ export default function RegistrationIdentityPage() {
       </header>
 
       {/* ── Main Two-Column Viewport Container ── */}
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-10 flex-1 flex flex-col justify-center relative z-10">
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-10 flex-1 flex flex-col justify-center relative z-10">
         <div className="lg:grid lg:grid-cols-12 gap-8 xl:gap-12 items-start">
           {/* ═════════════════════════════════════════════════════════════
               LEFT COLUMN: COMMAND & TELEMETRY TERMINAL (Desktop Sticky)

@@ -24,7 +24,7 @@ export default function SlaughterhouseLayout({ children }: { children: React.Rea
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased">
       <Sidebar role="slaughterhouse" onLogout={logout} />
-      <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+      <main className="min-w-0 flex-1 overflow-y-auto nexus-ambient-bg">{children}</main>
       <Toaster />
     </div>
   );

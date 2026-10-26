@@ -315,7 +315,7 @@ export function NotificationsView({
         mobileActionsInline
       />
 
-      <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Action Controls matching mock */}
         <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
           {/* Purple Select Dropdown */}

@@ -53,8 +53,8 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
   });
 
   return <>
-    <PageHeader title="Ownership Transfers" subtitle="Review certificate-backed changes to livestock ownership." variant="admin" />
-    <main className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6">
+    <PageHeader title="Ownership Transfers" subtitle="Review certificate-backed changes to livestock ownership." variant="admin" maxWidthClass="w-full" />
+    <main className="w-full space-y-6 p-4 sm:p-6 lg:p-8">
       {isLoading ? <p className="rounded-xl border bg-white p-6 text-sm text-slate-500">Loading transfer records…</p> : null}
       {!isLoading && data.length === 0 ? <p className="rounded-xl border border-dashed bg-white p-8 text-center text-sm text-slate-500">No ownership transfers are awaiting review.</p> : null}
       <div className="grid gap-4 md:grid-cols-2">
