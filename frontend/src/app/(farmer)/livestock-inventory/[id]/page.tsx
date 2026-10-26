@@ -402,7 +402,7 @@ export default function LivestockDetailPage() {
         return Math.round((totalGain / days) * 100) / 100;
       }
     }
-    return 0.72;
+    return null;
   }, [weightLogs]);
 
   // Filter production logs for this specific animal
@@ -1161,9 +1161,11 @@ export default function LivestockDetailPage() {
                     <span className="text-[10px] uppercase font-bold text-emerald-800">
                       Average Daily Gain (ADG)
                     </span>
-                    <p className="text-xl font-black text-emerald-950">+{latestAdg} kg/day</p>
+                    <p className="text-xl font-black text-emerald-950">
+                      {latestAdg === null ? "—" : `+${latestAdg} kg/day`}
+                    </p>
                     <p className="text-slate-600 text-[11px]">
-                      {weightLogs.length > 1 ? "Computed from verified historical scale readings." : "Baseline estimate until next weigh-in."}
+                      {latestAdg === null ? "Add a second weigh-in to calculate daily gain." : "Calculated between recorded weigh-ins."}
                     </p>
                   </div>
 

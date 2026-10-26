@@ -39,7 +39,7 @@ SILHOUETTE_ANCHORS
 interface LivestockInfographicHeroProps {
   activeItem: LivestockInventoryItem;
   latestWeight: number;
-  latestAdg: number;
+  latestAdg: number | null;
   targetWeight: number;
   projectedCarcassKg: number;
   meatDressingPct: number;
@@ -655,7 +655,9 @@ function LivestockInfographicHeroContent({
                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
                   Live Body Weight
                 </span>
-                <span className="text-[10px] font-bold text-emerald-400">+{latestAdg} kg/d</span>
+                <span className="text-[10px] font-bold text-emerald-400">
+                  {latestAdg === null ? "ADG pending" : `+${latestAdg} kg/d`}
+                </span>
               </div>
               <p className="text-2xl font-black text-white">{latestWeight} kg</p>
               <p className="text-[11px] text-emerald-200/70 font-medium">
@@ -833,7 +835,9 @@ function LivestockInfographicHeroContent({
             >
               <span className="text-[9px] uppercase font-bold text-emerald-300">Live Weight</span>
               <p className="text-base font-black text-white">{latestWeight} kg</p>
-              <p className="text-[10px] text-emerald-300 font-semibold">+{latestAdg} kg/d ADG</p>
+              <p className="text-[10px] text-emerald-300 font-semibold">
+                {latestAdg === null ? "ADG pending" : `+${latestAdg} kg/d ADG`}
+              </p>
             </div>
 
             <div
