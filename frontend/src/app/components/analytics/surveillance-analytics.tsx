@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   Clock,
   FileSpreadsheet,
+  Inbox,
   Info,
   LineChart as LineChartIcon,
   Map as MapIcon,
@@ -1631,83 +1632,237 @@ export default function SurveillanceAnalytics() {
           )}
 
           {/* TAB 3: DIAGNOSTIC CLASSIFICATIONS & CAUSES */}
-          {centerpieceTab === "diagnostics" && (
-            <div className="grid gap-6 xl:grid-cols-2">
-              {/* Recorded Disease Classifications */}
-              <Card className="rounded-2xl border border-slate-200/80 shadow-2xs">
-                <CardHeader className="p-4 sm:p-5 pb-2">
-                  <CardTitle className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                    <Stethoscope className="size-4 text-amber-700" />
-                    Disease Reports: Recorded Classifications
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-5 pt-1 space-y-3 text-xs sm:text-sm">
-                  <p className="text-xs leading-relaxed text-slate-500">
-                    Official labels written on approved reports by agricultural technologists. Heads represents reported affected animals.
-                  </p>
-                  {data.disease.by_recorded_classification_30_days.length ? (
-                    <div className="space-y-2">
-                      {data.disease.by_recorded_classification_30_days.map((row) => (
-                        <div
-                          key={row.classification}
-                          className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 last:border-0"
-                        >
-                          <span className="font-semibold text-slate-800">
-                            <RecordedLabel value={row.classification} />
-                          </span>
-                          <span className="font-mono font-bold text-slate-900">
-                            {number(row.reports)} reports · {number(row.affected_heads)} heads
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center py-6 text-xs text-slate-500">No approved disease reports in this period.</p>
-                  )}
-                  <div className="border-t border-slate-100 pt-3 text-xs text-slate-600">
-                    <strong className="text-slate-800">Clinical follow-up tracking: </strong>
-                    {Object.entries(data.disease.clinical_status_counts_30_days)
-                      .map(([status, count]) => `${clinicalStatusLabel[status] ?? status.replaceAll("_", " ")}: ${number(count)}`)
-                      .join(" · ") || "No active reports"}
-                  </div>
-                </CardContent>
-              </Card>
+          {centerpieceTab === "diagnostics" && (() => {
+            const diseaseRows = data.disease.by_recorded_classification_30_days;
+            const mortalityRows = data.mortality.by_recorded_cause_30_days;
 
-              {/* Recorded Death Causes */}
-              <Card className="rounded-2xl border border-slate-200/80 shadow-2xs">
-                <CardHeader className="p-4 sm:p-5 pb-2">
-                  <CardTitle className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                    <AlertTriangle className="size-4 text-rose-700" />
-                    Mortality: Recorded Causes
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-5 pt-1 space-y-3 text-xs sm:text-sm">
-                  <p className="text-xs leading-relaxed text-slate-500">
-                    Primary cause descriptions recorded on verified mortality forms by municipal technicians and field inspectors.
-                  </p>
-                  {data.mortality.by_recorded_cause_30_days.length ? (
-                    <div className="space-y-2">
-                      {data.mortality.by_recorded_cause_30_days.map((row) => (
-                        <div
-                          key={row.cause}
-                          className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 last:border-0"
-                        >
-                          <span className="font-semibold text-slate-800">
-                            <RecordedLabel value={row.cause} />
-                          </span>
-                          <span className="font-mono font-bold text-slate-900">
-                            {number(row.reports)} reports · {number(row.deaths)} deaths
-                          </span>
+            const totalDiseaseReports = diseaseRows.reduce((acc, r) => acc + (r.reports || 0), 0);
+            const totalDiseaseHeads = diseaseRows.reduce((acc, r) => acc + (r.affected_heads || 0), 0);
+
+            const totalMortalityReports = mortalityRows.reduce((acc, r) => acc + (r.reports || 0), 0);
+            const totalMortalityDeaths = mortalityRows.reduce((acc, r) => acc + (r.deaths || 0), 0);
+
+            return (
+              <div className="grid gap-6 xl:grid-cols-2">
+                {/* Recorded Disease Classifications */}
+                <Card className="rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                  <CardHeader className="p-4 sm:p-5 pb-4 border-b border-slate-100 bg-white">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="size-9 rounded-xl bg-amber-50 border border-amber-200/60 text-amber-700 flex items-center justify-center shrink-0">
+                          <Stethoscope className="size-4.5" />
                         </div>
-                      ))}
+                        <div>
+                          <CardTitle className="text-sm sm:text-base font-bold text-slate-900">
+                            Disease Reports: Recorded Classifications
+                          </CardTitle>
+                          <CardDescription className="text-xs text-slate-500 mt-0.5">
+                            Official labels written on approved reports by agricultural technologists.
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="self-start sm:self-auto shrink-0 border-amber-200 bg-amber-50/80 px-2.5 py-1 text-xs font-bold text-amber-900"
+                      >
+                        {number(totalDiseaseReports)} {totalDiseaseReports === 1 ? "report" : "reports"} · {number(totalDiseaseHeads)} {totalDiseaseHeads === 1 ? "head" : "heads"}
+                      </Badge>
                     </div>
-                  ) : (
-                    <p className="text-center py-6 text-xs text-slate-500">No approved mortality reports in this period.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                  </CardHeader>
+                  <CardContent className="p-4 sm:p-5 space-y-4">
+                    {diseaseRows.length ? (
+                      <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white">
+                        <Table className="min-w-full">
+                          <TableHeader className="bg-slate-50/80">
+                            <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
+                              <TableHead className="py-2.5 px-3.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                                Classification / Condition
+                              </TableHead>
+                              <TableHead className="py-2.5 px-3 text-center text-xs font-bold uppercase tracking-wider text-slate-600 w-28">
+                                Reports
+                              </TableHead>
+                              <TableHead className="py-2.5 px-3 text-right text-xs font-bold uppercase tracking-wider text-slate-600 w-32">
+                                Affected
+                              </TableHead>
+                              <TableHead className="py-2.5 px-3 text-right text-xs font-bold uppercase tracking-wider text-slate-600 w-24">
+                                Share
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody className="divide-y divide-slate-100 text-xs">
+                            {diseaseRows.map((row) => {
+                              const share = totalDiseaseHeads > 0 ? Math.round((row.affected_heads / totalDiseaseHeads) * 100) : 0;
+                              return (
+                                <TableRow key={row.classification} className="hover:bg-slate-50/70 transition-colors odd:bg-white even:bg-slate-50/30">
+                                  <TableCell className="py-3 px-3.5 align-middle">
+                                    <div className="font-semibold text-slate-900 leading-snug">
+                                      <RecordedLabel value={row.classification} />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-3 text-center align-middle whitespace-nowrap">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[11px] tabular-nums">
+                                      {number(row.reports)} {row.reports === 1 ? "report" : "reports"}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-3 text-right align-middle whitespace-nowrap">
+                                    <span className="inline-flex items-center gap-1 font-bold text-rose-800 bg-rose-50 border border-rose-200/60 px-2.5 py-1 rounded-lg tabular-nums text-xs">
+                                      <span className="size-1.5 rounded-full bg-rose-500" />
+                                      {number(row.affected_heads)} {row.affected_heads === 1 ? "head" : "heads"}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-3 text-right align-middle whitespace-nowrap">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <span className="font-mono font-semibold text-slate-600 text-[11px] tabular-nums">
+                                        {share}%
+                                      </span>
+                                      <div className="h-1.5 w-10 bg-slate-100 rounded-full overflow-hidden shrink-0 hidden sm:block">
+                                        <div
+                                          className="h-full bg-rose-500 rounded-full"
+                                          style={{ width: `${Math.min(share, 100)}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center flex flex-col items-center justify-center gap-2 text-slate-500 rounded-xl border border-dashed border-slate-200">
+                        <Inbox className="size-8 text-slate-300 stroke-[1.5]" />
+                        <p className="text-xs font-semibold">No approved disease reports in this period.</p>
+                      </div>
+                    )}
+
+                    {/* Clinical Follow-up Tracking Footer */}
+                    <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <Activity className="size-3.5 text-slate-600" />
+                          Clinical Follow-up Tracking
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-medium">30-day active statuses</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {Object.entries(data.disease.clinical_status_counts_30_days).length > 0 ? (
+                          Object.entries(data.disease.clinical_status_counts_30_days).map(([status, count]) => (
+                            <span
+                              key={status}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-700 shadow-2xs"
+                            >
+                              <span className="size-1.5 rounded-full bg-amber-500" />
+                              <span className="text-slate-600">
+                                {clinicalStatusLabel[status] ?? status.replaceAll("_", " ")}:
+                              </span>
+                              <strong className="font-bold text-slate-900 tabular-nums">{number(count)}</strong>
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">No active reports recorded</span>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Recorded Death Causes */}
+                <Card className="rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                  <CardHeader className="p-4 sm:p-5 pb-4 border-b border-slate-100 bg-white">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="size-9 rounded-xl bg-rose-50 border border-rose-200/60 text-rose-700 flex items-center justify-center shrink-0">
+                          <AlertTriangle className="size-4.5" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-sm sm:text-base font-bold text-slate-900">
+                            Mortality: Recorded Causes
+                          </CardTitle>
+                          <CardDescription className="text-xs text-slate-500 mt-0.5">
+                            Primary cause descriptions recorded on verified mortality forms by technicians and inspectors.
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="self-start sm:self-auto shrink-0 border-rose-200 bg-rose-50/80 px-2.5 py-1 text-xs font-bold text-rose-900"
+                      >
+                        {number(totalMortalityReports)} {totalMortalityReports === 1 ? "report" : "reports"} · {number(totalMortalityDeaths)} {totalMortalityDeaths === 1 ? "death" : "deaths"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 sm:p-5 space-y-4">
+                    {mortalityRows.length ? (
+                      <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white">
+                        <Table className="min-w-full">
+                          <TableHeader className="bg-slate-50/80">
+                            <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
+                              <TableHead className="py-2.5 px-3.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                                Recorded Cause Description
+                              </TableHead>
+                              <TableHead className="py-2.5 px-3 text-center text-xs font-bold uppercase tracking-wider text-slate-600 w-28">
+                                Reports
+                              </TableHead>
+                              <TableHead className="py-2.5 px-3 text-right text-xs font-bold uppercase tracking-wider text-slate-600 w-32">
+                                Deaths
+                              </TableHead>
+                              <TableHead className="py-2.5 px-3 text-right text-xs font-bold uppercase tracking-wider text-slate-600 w-24">
+                                Share
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody className="divide-y divide-slate-100 text-xs">
+                            {mortalityRows.map((row) => {
+                              const share = totalMortalityDeaths > 0 ? Math.round((row.deaths / totalMortalityDeaths) * 100) : 0;
+                              return (
+                                <TableRow key={row.cause} className="hover:bg-slate-50/70 transition-colors odd:bg-white even:bg-slate-50/30">
+                                  <TableCell className="py-3 px-3.5 align-middle">
+                                    <div className="font-semibold text-slate-900 leading-snug">
+                                      <RecordedLabel value={row.cause} />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-3 text-center align-middle whitespace-nowrap">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[11px] tabular-nums">
+                                      {number(row.reports)} {row.reports === 1 ? "report" : "reports"}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-3 text-right align-middle whitespace-nowrap">
+                                    <span className="inline-flex items-center gap-1 font-bold text-amber-900 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded-lg tabular-nums text-xs">
+                                      <span className="size-1.5 rounded-full bg-amber-500" />
+                                      {number(row.deaths)} {row.deaths === 1 ? "death" : "deaths"}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-3 px-3 text-right align-middle whitespace-nowrap">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <span className="font-mono font-semibold text-slate-600 text-[11px] tabular-nums">
+                                        {share}%
+                                      </span>
+                                      <div className="h-1.5 w-10 bg-slate-100 rounded-full overflow-hidden shrink-0 hidden sm:block">
+                                        <div
+                                          className="h-full bg-amber-500 rounded-full"
+                                          style={{ width: `${Math.min(share, 100)}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center flex flex-col items-center justify-center gap-2 text-slate-500 rounded-xl border border-dashed border-slate-200">
+                        <Inbox className="size-8 text-slate-300 stroke-[1.5]" />
+                        <p className="text-xs font-semibold">No approved mortality reports in this period.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 

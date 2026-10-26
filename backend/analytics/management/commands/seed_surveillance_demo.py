@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from django.db import connections, transaction
+from django.db import connections, models, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -446,6 +446,21 @@ class Command(BaseCommand):
         if not created and (marker.object_type != object_type or marker.object_id != obj.pk):
             raise CommandError(f"Ownership marker conflict for {identifier}; refusing to claim another row.")
 
+    @staticmethod
+    def _is_marked_cascading_child(relation, related_id):
+        if relation.on_delete is not models.CASCADE:
+            return False
+        model = relation.related_model
+        field_names = {field.name for field in model._meta.concrete_fields}
+        marker_field = next(
+            (name for name in ("remarks", "review_remarks", "notes") if name in field_names), None
+        )
+        if marker_field is None:
+            return False
+        return model.objects.filter(
+            pk=related_id, **{f"{marker_field}__contains": SEED_MARKER_SURVEILLANCE_DEMO}
+        ).exists()
+
     def _clean_owned_objects(self):
         markers = list(
             SurveillanceDemoOwnership.objects.filter(identifier__startswith=PREFIX).order_by("identifier")
@@ -480,11 +495,17 @@ class Command(BaseCommand):
                 else:
                     related_ids = (manager.pk,)
                 for related_id in related_ids:
-                    if related_id not in owned_ids.get(relation.related_model, set()):
-                        raise CommandError(
-                            f"Cannot clean {marker.identifier}: {relation.related_model.__name__} "
-                            f"#{related_id} is related but is not owned by this seed. No rows were deleted."
-                        )
+                    if related_id in owned_ids.get(relation.related_model, set()):
+                        continue
+                    # Approval signals backfill audit rows (e.g. review history) that the seed
+                    # never tracked. Accept them only when they cascade with the owned parent and
+                    # carry this seed's marker; any unmarked/real related row still blocks cleanup.
+                    if self._is_marked_cascading_child(relation, related_id):
+                        continue
+                    raise CommandError(
+                        f"Cannot clean {marker.identifier}: {relation.related_model.__name__} "
+                        f"#{related_id} is related but is not owned by this seed. No rows were deleted."
+                    )
 
         delete_order = ("mortality", "disease", "livestock", "batch", "farmer", "user")
         for object_type in delete_order:
