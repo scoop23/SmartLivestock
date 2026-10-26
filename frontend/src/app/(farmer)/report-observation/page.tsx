@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 import { KpiCard,type KpiVariant } from "@/components/ui/kpi-card";
 import { cowHead } from "@lucide/lab";
 import {
@@ -29,6 +30,7 @@ import { toast } from "sonner";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { useUserInventory } from "../livestock-inventory/livestock-inventory";
 
 import api from "@/lib/axios";
 import { getAttachedPhoto } from "@/lib/photo-storage";
@@ -49,6 +51,7 @@ function ReportObservationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedReportId = searchParams.get("reportId");
+  const { data: inventory = [], isLoading: isLoadingInventory, isError: isInventoryError } = useUserInventory({ includeInactive: true });
 
   // ── Dialog States ──
   const [isReportIllnessOpen, setIsReportIllnessOpen] = useState<boolean>(false);
@@ -91,7 +94,7 @@ function ReportObservationContent() {
   } = useQuery({
     queryKey: ["farmer-disease-cases"],
     queryFn: async () => {
-      const res = await api.get("diseases/cases/");
+      const res = await api.get("diseases/cases/", { params: { mine: true } });
       return Array.isArray(res.data) ? res.data : [];
     },
   });
@@ -105,7 +108,7 @@ function ReportObservationContent() {
   } = useQuery({
     queryKey: ["farmer-mortality-records"],
     queryFn: async () => {
-      const res = await api.get("diseases/mortality/");
+      const res = await api.get("diseases/mortality/", { params: { mine: true } });
       return Array.isArray(res.data) ? res.data : [];
     },
   });
@@ -203,15 +206,47 @@ function ReportObservationContent() {
     return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [diseaseCases, mortalityRecords]);
 
+  // Keep deceased-linked reports as audit records, but show their staff review
+  // trail under Livestock History instead of the active report queue.
+  const deceasedAnimalIds = useMemo(
+    () => new Set(inventory.filter((animal) => animal.operationalStatus === "DECEASED").map((animal) => String(animal.id))),
+    [inventory],
+  );
+  const reportsInHistory = useMemo(() => {
+    if (isLoadingInventory || isInventoryError) return [];
+    return reports.filter((report) => {
+      const raw = report.rawItem as {
+        livestock?: number | string | null;
+        batch?: number | string | null;
+        affected_animals?: Array<{ id: number | string }>;
+      } | undefined;
+      const linkedIds = new Set<string>();
+      if (report.inventoryId && !["null", "undefined"].includes(report.inventoryId)) linkedIds.add(report.inventoryId);
+      if (raw?.livestock != null) linkedIds.add(String(raw.livestock));
+      raw?.affected_animals?.forEach((animal) => linkedIds.add(String(animal.id)));
+      if (raw?.batch != null) {
+        inventory
+          .filter((animal) => String(animal.batchId ?? "") === String(raw.batch))
+          .forEach((animal) => linkedIds.add(String(animal.id)));
+      }
+      return linkedIds.size > 0 && [...linkedIds].every((id) => deceasedAnimalIds.has(id));
+    });
+  }, [reports, inventory, deceasedAnimalIds, isLoadingInventory, isInventoryError]);
+  const archivedReportIds = useMemo(() => new Set(reportsInHistory.map((report) => report.id)), [reportsInHistory]);
+  const activeReports = useMemo(
+    () => reports.filter((report) => !archivedReportIds.has(report.id)),
+    [reports, archivedReportIds],
+  );
+
   const chronologyConflicts = useMemo(() => {
     const conflicts = new Map<string, Array<{ counterpartId: string; eventDate: string }>>();
-    const deaths = reports.filter(
+    const deaths = activeReports.filter(
       (report) =>
         report.reportType === "MORTALITY" &&
         (report.status === "VERIFIED" || report.status === "APPROVED") &&
         Boolean(report.recordDate),
     );
-    const diseases = reports.filter(
+    const diseases = activeReports.filter(
       (report) => report.reportType === "DISEASE" && Boolean(report.recordDate),
     );
 
@@ -247,7 +282,7 @@ function ReportObservationContent() {
     });
 
     return conflicts;
-  }, [reports]);
+  }, [activeReports]);
 
   // ── Filter State ──
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -257,7 +292,7 @@ function ReportObservationContent() {
 
   // Filtered reports
   const filteredReports = useMemo(() => {
-    return reports.filter((rep) => {
+    return activeReports.filter((rep) => {
       const matchesSearch =
         rep.cattleTag.toLowerCase().includes(searchQuery.toLowerCase()) ||
         rep.cattleBreed.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -280,7 +315,7 @@ function ReportObservationContent() {
 
       return true;
     });
-  }, [reports, searchQuery, filterType]);
+  }, [activeReports, searchQuery, filterType]);
 
   const handleReportDialogSuccess = async (createdReportIds?: string[]) => {
     if (!createdReportIds?.length) {
@@ -297,7 +332,7 @@ function ReportObservationContent() {
   useEffect(() => {
     if (
       pendingNewReportIds.length === 0 ||
-      isLoadingDiseases || isLoadingMortality ||
+      isLoadingDiseases || isLoadingMortality || isLoadingInventory ||
       isFetchingDiseases || isFetchingMortality
     ) return;
 
@@ -321,6 +356,7 @@ function ReportObservationContent() {
     filteredReports,
     isLoadingDiseases,
     isLoadingMortality,
+    isLoadingInventory,
     isFetchingDiseases,
     isFetchingMortality,
   ]);
@@ -381,7 +417,7 @@ function ReportObservationContent() {
     ) return;
     const timer = window.setTimeout(startReportTour, 600);
     return () => window.clearTimeout(timer);
-  }, [isLoadingDiseases, isLoadingMortality, isDiseaseError, isMortalityError, requestedReportId, newReportParam, isReportIllnessOpen, isDetailOpen, startReportTour]);
+  }, [isLoadingDiseases, isLoadingMortality, isLoadingInventory, isDiseaseError, isMortalityError, requestedReportId, newReportParam, isReportIllnessOpen, isDetailOpen, startReportTour]);
 
   const handledReportLinkRef = useRef<string | null>(null);
   const missingReportLinkRef = useRef<string | null>(null);
@@ -391,11 +427,17 @@ function ReportObservationContent() {
       missingReportLinkRef.current = null;
       return;
     }
-    if (isLoadingDiseases || isLoadingMortality || isDiseaseError || isMortalityError || handledReportLinkRef.current === requestedReportId) return;
+    if (isLoadingDiseases || isLoadingMortality || isLoadingInventory || isDiseaseError || isMortalityError || handledReportLinkRef.current === requestedReportId) return;
 
     const requestedReport = reports.find((report) => report.id === requestedReportId);
     if (requestedReport) {
       missingReportLinkRef.current = null;
+      if (archivedReportIds.has(requestedReport.id)) {
+        toast.info("This report is part of a deceased animal's history.");
+        router.replace("/livestock-inventory/history");
+        handledReportLinkRef.current = requestedReportId;
+        return;
+      }
       startTransition(() => {
         setSelectedReport(requestedReport);
         setIsDetailOpen(true);
@@ -405,7 +447,7 @@ function ReportObservationContent() {
       toast.error("That health report could not be found in your reports.");
       missingReportLinkRef.current = requestedReportId;
     }
-  }, [requestedReportId, reports, isLoadingDiseases, isLoadingMortality, isDiseaseError, isMortalityError]);
+  }, [requestedReportId, reports, archivedReportIds, isLoadingDiseases, isLoadingMortality, isLoadingInventory, isDiseaseError, isMortalityError, router]);
 
   const clearReportLink = () => {
     const url = new URL(window.location.href);
@@ -414,12 +456,12 @@ function ReportObservationContent() {
   };
 
   // KPI Metrics
-  const totalDiseaseCases = reports.filter((r) => r.reportType === "DISEASE").length;
-  const totalMortality = reports.filter((r) => r.reportType === "MORTALITY").length;
-  const pendingVerification = reports.filter((r) => r.status === "PENDING").length;
-  const approvedCases = reports.filter((r) => r.status === "APPROVED").length;
-  const verifiedCases = reports.filter((r) => r.status === "VERIFIED").length;
-  const verifiedAndApprovedCases = reports.filter(
+  const totalDiseaseCases = activeReports.filter((r) => r.reportType === "DISEASE").length;
+  const totalMortality = activeReports.filter((r) => r.reportType === "MORTALITY").length;
+  const pendingVerification = activeReports.filter((r) => r.status === "PENDING").length;
+  const approvedCases = activeReports.filter((r) => r.status === "APPROVED").length;
+  const verifiedCases = activeReports.filter((r) => r.status === "VERIFIED").length;
+  const verifiedAndApprovedCases = activeReports.filter(
     (r) => r.status === "APPROVED" || r.status === "VERIFIED"
   ).length;
 
@@ -492,6 +534,14 @@ function ReportObservationContent() {
       />
 
       <div className="p-4 md:p-8 w-full space-y-6">
+        {!isLoadingInventory && reportsInHistory.length > 0 && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+            <p>{reportsInHistory.length} report{reportsInHistory.length === 1 ? " is" : "s are"} linked only to deceased livestock. Their review details are available in Livestock History.</p>
+            <Button asChild variant="outline" size="sm" className="shrink-0 border-amber-300 bg-white">
+              <Link href="/livestock-inventory/history">Open Livestock History</Link>
+            </Button>
+          </div>
+        )}
         {/* ── TOP KPI STATS ── */}
         <div data-tour="report-kpis" className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
           {kpis.map((kpi) => (
@@ -555,7 +605,7 @@ function ReportObservationContent() {
               </div>
 
               <span className="text-xs font-bold text-slate-400 self-start sm:self-center">
-                Showing {filteredReports.length} of {reports.length} reports
+                Showing {filteredReports.length} of {activeReports.length} active reports
               </span>
             </div>
 
@@ -564,7 +614,7 @@ function ReportObservationContent() {
               {/* Filter Pills */}
               <div className="flex flex-wrap gap-1.5">
                 {([
-                  { id: "ALL", label: `All (${reports.length})` },
+                  { id: "ALL", label: `All (${activeReports.length})` },
                   { id: "DISEASE", label: `Sick Animals (${totalDiseaseCases})` },
                   { id: "MORTALITY", label: `Deceased (${totalMortality})` },
                   { id: "PENDING", label: `Pending (${pendingVerification})` },
@@ -602,7 +652,7 @@ function ReportObservationContent() {
 
             {/* Grid of Report Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-              {isLoadingDiseases || isLoadingMortality ? (
+              {isLoadingDiseases || isLoadingMortality || isLoadingInventory ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="p-4 rounded-2xl bg-slate-50 animate-pulse space-y-3">
                     <div className="h-4 bg-slate-200 rounded w-1/2" />
@@ -627,7 +677,7 @@ function ReportObservationContent() {
                     >
                       + File Incident Report
                     </Button>
-                    {reports.length === 0 && (
+                    {activeReports.length === 0 && reportsInHistory.length === 0 && (
                       <Button
                         data-tour="report-details-preview"
                         type="button"

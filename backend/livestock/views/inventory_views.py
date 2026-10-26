@@ -10,7 +10,14 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-from livestock.models import Barangay, LivestockBatch, LivestockInventory, LivestockType, Farmer
+from livestock.models import (
+    Barangay,
+    Farmer,
+    LivestockBatch,
+    LivestockInventory,
+    LivestockInventoryReviewHistory,
+    LivestockType,
+)
 from livestock.serializer import (
     FarmerOptionsSerializer,
     LivestockInventorySerializer,
@@ -110,7 +117,7 @@ def inventory_list_create(request):
         "batch",
         "reviewed_by__role",
         "created_by",
-    ).only(
+    ).prefetch_related("review_history__reviewer").only(
         "id", "tag_number", "ownership_certificate_number", "breed", "sex", "birth_date", "weight", "entry_type", "quantity",
         "is_post_approval_addition",
         "last_vaccination_date", "status", "operational_status", "operational_status_changed_at",
@@ -166,7 +173,7 @@ def inventory_detail(request, pk):
         "batch",
         "reviewed_by__role",
         "created_by",
-    )
+    ).prefetch_related("review_history__reviewer")
 
     if request.method != "GET":
         base_qs = base_qs.select_for_update(of=("self",))
@@ -312,11 +319,20 @@ def review_inventory(request, pk):
         remarks=remarks,
     )
 
+    reviewed_at = timezone.now()
     inventory.status = new_status
     inventory.reviewed_by = request.user
     inventory.review_remarks = remarks
-    inventory.reviewed_at = timezone.now()
+    inventory.reviewed_at = reviewed_at
     inventory.save()
+    LivestockInventoryReviewHistory.objects.create(
+        inventory=inventory,
+        reviewer=request.user,
+        reviewer_role=user_role,
+        status=new_status,
+        remarks=remarks,
+        reviewed_at=reviewed_at,
+    )
     if new_status == "SUBJECT_TO_REVISION":
         notify_review_revision(inventory.farmer, request.user,
             title="Revision required: inventory #" + str(inventory.pk),

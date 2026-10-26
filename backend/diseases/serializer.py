@@ -61,6 +61,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
         source="batch.batch_code", read_only=True
     )
     reviewed_by_name = serializers.SerializerMethodField()
+    reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     photo_url = serializers.SerializerMethodField()
     inspector_photo_url = serializers.SerializerMethodField()
 
@@ -87,6 +88,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "inspector_photo_url",
             "reviewed_by",
             "reviewed_by_name",
+            "reviewed_by_role",
             "reviewed_at",
             "review_remarks",
             "inspection_details",
@@ -101,6 +103,7 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             "inspector_photo_url",
             "reviewed_by",
             "reviewed_by_name",
+            "reviewed_by_role",
             "reviewed_at",
             "review_remarks",
             "inspection_details",
@@ -324,6 +327,7 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
         source="source_disease_case.name", read_only=True
     )
     reviewed_by_name = serializers.SerializerMethodField()
+    reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     photo_url = serializers.SerializerMethodField()
     inspector_photo_url = serializers.SerializerMethodField()
     # `livestocks` is the write format for a shared death event. The legacy
@@ -363,6 +367,7 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             "inspector_photo_url",
             "reviewed_by",
             "reviewed_by_name",
+            "reviewed_by_role",
             "reviewed_at",
             "review_remarks",
             "inspection_details",
@@ -376,6 +381,7 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             "inspector_photo_url",
             "reviewed_by",
             "reviewed_by_name",
+            "reviewed_by_role",
             "reviewed_at",
             "review_remarks",
             "inspection_details",

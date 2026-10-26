@@ -359,6 +359,8 @@ def disease_case_list_create(request):
         records = DiseaseCase.objects.filter(
             Q(livestock__farmer__user=user) | Q(batch__farmer__user=user)
         ).distinct()
+        if request.query_params.get("mine", "").lower() == "true":
+            records = records.filter(created_by=user)
     else:
         # MAO, SIBAT: list all municipal disease cases
         require_action(user, "disease", "read_all")
@@ -381,7 +383,7 @@ def disease_case_list_create(request):
         "batch__farmer__barangay",
         "batch__livestock_type",
         "created_by",
-        "reviewed_by",
+        "reviewed_by__role",
     ).order_by("-record_date", "-created_at")
 
     serializer = DiseaseCaseSerializer(records, many=True, context={"request": request})
@@ -563,7 +565,10 @@ def review_disease_case(request, pk):
             )
         if prev_reviewed_at and not current_insp.get("verifiedAt"):
             current_insp["verifiedAt"] = prev_reviewed_at.isoformat()
+        if prev_reviewer and not current_insp.get("verifiedRole"):
+            current_insp["verifiedRole"] = getattr(getattr(prev_reviewer, "role", None), "role_name", "SIBAT")
         current_insp["maoRemarks"] = remarks
+        current_insp["maoReviewedRole"] = role_name
         current_insp["maoReviewedBy"] = (
             f"{user.first_name} {user.last_name}".strip() or user.username
         )
@@ -610,6 +615,8 @@ def mortality_record_list_create(request):
             | Q(affected_livestock__farmer__user=user)
             | Q(batch__farmer__user=user)
         ).distinct()
+        if request.query_params.get("mine", "").lower() == "true":
+            records = records.filter(created_by=user)
     else:
         # MAO, SIBAT: list all municipal mortality records
         require_action(user, "mortality", "read_all")
@@ -639,7 +646,7 @@ def mortality_record_list_create(request):
         "batch__farmer__barangay",
         "batch__livestock_type",
         "created_by",
-        "reviewed_by",
+        "reviewed_by__role",
     ).prefetch_related("affected_livestock__livestock_type").distinct().order_by("-record_date", "-created_at")
 
     serializer = MortalityRecordSerializer(records, many=True, context={"request": request})
@@ -811,7 +818,10 @@ def review_mortality_record(request, pk):
             )
         if prev_reviewed_at and not current_insp.get("verifiedAt"):
             current_insp["verifiedAt"] = prev_reviewed_at.isoformat()
+        if prev_reviewer and not current_insp.get("verifiedRole"):
+            current_insp["verifiedRole"] = getattr(getattr(prev_reviewer, "role", None), "role_name", "SIBAT")
         current_insp["maoRemarks"] = remarks
+        current_insp["maoReviewedRole"] = role_name
         current_insp["maoReviewedBy"] = (
             f"{user.first_name} {user.last_name}".strip() or user.username
         )

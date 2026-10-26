@@ -12,6 +12,7 @@ from .models import (
     LivestockBatch,
     LivestockBatchPhoto,
     LivestockInventory,
+    LivestockInventoryReviewHistory,
     LivestockOwnershipTransfer,
     LivestockType,
     CensusSubmission,
@@ -136,6 +137,19 @@ class BarangaySerializer(serializers.ModelSerializer):
         ]
 
 
+class LivestockInventoryReviewHistorySerializer(serializers.ModelSerializer):
+    reviewer_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LivestockInventoryReviewHistory
+        fields = ("id", "reviewer_name", "reviewer_role", "status", "remarks", "reviewed_at", "is_backfilled")
+        read_only_fields = fields
+
+    def get_reviewer_name(self, obj):
+        name = obj.reviewer.get_full_name().strip()
+        return name or obj.reviewer.username
+
+
 class LivestockInventorySerializer(serializers.Serializer):
     """
     Returns:
@@ -200,6 +214,7 @@ class LivestockInventorySerializer(serializers.Serializer):
     reviewed_at = serializers.DateTimeField(read_only=True, allow_null=True)
     reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
+    review_history = LivestockInventoryReviewHistorySerializer(many=True, read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
 
     def get_farmer_name(self, obj):

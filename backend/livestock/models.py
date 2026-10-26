@@ -316,6 +316,29 @@ class LivestockGateVerification(models.Model):
         constraints = [models.UniqueConstraint(fields=["gate_session_id", "livestock"], name="uniq_gate_scan_per_session")]
 
 
+class LivestockInventoryReviewHistory(models.Model):
+    """Immutable record of each SIBAT/MAO review applied to an animal registration."""
+    inventory = models.ForeignKey(
+        LivestockInventory,
+        on_delete=models.CASCADE,
+        related_name="review_history",
+    )
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="livestock_inventory_review_history",
+    )
+    reviewer_role = models.CharField(max_length=30)
+    status = models.CharField(max_length=25, choices=LivestockInventory.StatusType.choices)
+    remarks = models.TextField(blank=True, default="")
+    reviewed_at = models.DateTimeField()
+    is_backfilled = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["reviewed_at", "pk"]
+        indexes = [models.Index(fields=["inventory", "reviewed_at"], name="livestock_review_hist_idx")]
+
+
 class LivestockOwnershipTransfer(models.Model):
     """Certificate-backed sale recorded against the seller's existing animal row.
 
