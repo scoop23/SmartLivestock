@@ -11,10 +11,13 @@ import {
 AlertCircle,
 Camera,
 Check,
+Download,
+FileText,
 HelpCircle,
 Layers,
 Minus,
 Plus,
+Save,
 Sparkles,
 Syringe,
 Tag,
@@ -102,6 +105,13 @@ interface RegisterLivestockDialogProps {
   userBatches?: LivestockBatchItem[];
   existingTags?: string[];
   onSuccess?: () => void;
+}
+
+interface LivestockRegistrationDraft {
+  formData: typeof initialFormData;
+  batchAnimals: BatchAnimalFormRow[];
+  batchPhotoDataUrls?: string[];
+  savedAt: string;
 }
 
 const initialFormData = {
@@ -195,6 +205,141 @@ function RegisterLivestockDialogContent({
   const [batchAnimals, setBatchAnimals] = useState<BatchAnimalFormRow[]>(() =>
     createDefaultBatchAnimals(ownerTagPrefix, existingTags)
   );
+
+  // Draft persistence in localStorage
+  const draftStorageKey = useMemo(() => {
+    return `smartlivestock_livestock_draft_${user?.username || "default"}`;
+  }, [user?.username]);
+
+  const [hasDraft, setHasDraft] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"saved" | "saving" | "idle">("idle");
+
+  // Auto-restore draft on mount if available
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as LivestockRegistrationDraft;
+        if (parsed?.savedAt) {
+          if (parsed.formData) {
+            setFormData(parsed.formData);
+          }
+          if (parsed.batchAnimals && Array.isArray(parsed.batchAnimals) && parsed.batchAnimals.length > 0) {
+            setBatchAnimals(parsed.batchAnimals);
+          }
+          if (parsed.batchPhotoDataUrls && Array.isArray(parsed.batchPhotoDataUrls)) {
+            setBatchPhotoDataUrls(parsed.batchPhotoDataUrls);
+          }
+          setHasDraft(true);
+          setDraftSavedAt(parsed.savedAt);
+          setAutoSaveStatus("saved");
+        }
+      }
+    } catch {
+      // Ignore localStorage read errors
+    }
+  }, [draftStorageKey]);
+
+  // Debounced auto-save effect whenever form data or animals change
+  useEffect(() => {
+    const hasMeaningfulContent =
+      formData.batchName.trim().length > 0 ||
+      formData.housingPen.trim().length > 0 ||
+      formData.feedType.trim().length > 0 ||
+      formData.customBreed.trim().length > 0 ||
+      formData.weight.trim().length > 0 ||
+      formData.birthDate.trim().length > 0 ||
+      formData.lastVaccinationDate.trim().length > 0 ||
+      formData.photoDataUrl.length > 0 ||
+      batchPhotoDataUrls.length > 0 ||
+      batchAnimals.some((a) => (a.weight !== "65.0" && a.weight !== "65") || a.lastVaccinationDate || a.birthDate) ||
+      batchAnimals.length !== 3 ||
+      hasDraft;
+
+    if (!hasMeaningfulContent) return;
+
+    setAutoSaveStatus("saving");
+    const timeout = setTimeout(() => {
+      try {
+        const now = new Date().toISOString();
+        const draft: LivestockRegistrationDraft = {
+          formData,
+          batchAnimals,
+          batchPhotoDataUrls: batchPhotoDataUrls.slice(0, 3),
+          savedAt: now,
+        };
+        try {
+          localStorage.setItem(draftStorageKey, JSON.stringify(draft));
+        } catch {
+          const leanDraft: LivestockRegistrationDraft = {
+            formData: { ...formData, photoDataUrl: "" },
+            batchAnimals,
+            batchPhotoDataUrls: [],
+            savedAt: now,
+          };
+          localStorage.setItem(draftStorageKey, JSON.stringify(leanDraft));
+        }
+        setHasDraft(true);
+        setDraftSavedAt(now);
+        setAutoSaveStatus("saved");
+      } catch (err) {
+        console.error("Auto-save failed:", err);
+      }
+    }, 700);
+
+    return () => clearTimeout(timeout);
+  }, [formData, batchAnimals, batchPhotoDataUrls, draftStorageKey, hasDraft]);
+
+  const handleSaveDraft = () => {
+    try {
+      const now = new Date().toISOString();
+      const draft: LivestockRegistrationDraft = {
+        formData,
+        batchAnimals,
+        batchPhotoDataUrls: batchPhotoDataUrls.slice(0, 3),
+        savedAt: now,
+      };
+      try {
+        localStorage.setItem(draftStorageKey, JSON.stringify(draft));
+      } catch {
+        const leanDraft: LivestockRegistrationDraft = {
+          formData: { ...formData, photoDataUrl: "" },
+          batchAnimals,
+          batchPhotoDataUrls: [],
+          savedAt: now,
+        };
+        localStorage.setItem(draftStorageKey, JSON.stringify(leanDraft));
+      }
+      setHasDraft(true);
+      setDraftSavedAt(now);
+      setAutoSaveStatus("saved");
+      toast.success("Draft saved! You can resume editing anytime.");
+    } catch (err) {
+      console.error("Failed to save draft:", err);
+      toast.error("Could not save draft to local storage.");
+    }
+  };
+
+  const handleStartFresh = () => {
+    try {
+      localStorage.removeItem(draftStorageKey);
+      setHasDraft(false);
+      setDraftSavedAt(null);
+      setAutoSaveStatus("idle");
+      setFormData({
+        ...initialFormData,
+        tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
+      });
+      setBatchAnimals(createDefaultBatchAnimals(ownerTagPrefix, existingTags));
+      setBatchPhotoFiles([]);
+      setBatchPhotoDataUrls([]);
+      setFormError("");
+      toast.info("Draft discarded. Started with a fresh form.");
+    } catch (err) {
+      console.error("Failed to discard draft:", err);
+    }
+  };
 
   const tagError = (tag: string, otherTags: string[] = []) => {
     const normalizedTag = tag.trim().toUpperCase();
@@ -381,6 +526,23 @@ function RegisterLivestockDialogContent({
     const updated = batchAnimals.filter((_, i) => i !== index);
     setBatchAnimals(updated);
     setFormData((prev) => ({ ...prev, quantity: updated.length }));
+  };
+
+  const handleClearAllBatchAnimals = () => {
+    const preset = getSpeciesPreset(formData.livestockType);
+    const defBreed = preset.commonBreeds?.[0] || "Standard";
+    const defWeight = preset.suggestedWeightKg ? String(preset.suggestedWeightKg) : "65";
+    const singleAnimal: BatchAnimalFormRow = {
+      id: "1",
+      tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
+      breed: defBreed,
+      sex: "Female",
+      weight: defWeight,
+      lastVaccinationDate: "",
+    };
+    setBatchAnimals([singleAnimal]);
+    setFormData((prev) => ({ ...prev, quantity: 1 }));
+    toast.info("Cleared animal roster. Reset to 1 animal.");
   };
 
   const syncBreedToAllAnimals = () => {
@@ -602,6 +764,15 @@ function RegisterLivestockDialogContent({
       onOpenChange(false);
       setFormData(initialFormData);
 
+      // Clear draft on successful submission
+      try {
+        localStorage.removeItem(draftStorageKey);
+        setHasDraft(false);
+        setDraftSavedAt(null);
+      } catch {
+        // ignore
+      }
+
       if (wasBatch) {
         toast.success(`Herd of ${registeredQty} heads created!`, {
           description: "Individual animals saved. Would you like to view their herd roster?",
@@ -725,6 +896,40 @@ function RegisterLivestockDialogContent({
               <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-bold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{formError}</span>
+              </div>
+            )}
+
+            {hasDraft && (
+              <div className="p-3 sm:p-3.5 bg-emerald-50/90 border border-emerald-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs animate-in fade-in-50 duration-200">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                    <Check className="size-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-black text-emerald-950">
+                        Auto-Saved Draft Active
+                      </p>
+                      <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-800 border-emerald-300 font-bold">
+                        Auto-Saved
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-emerald-800">
+                      Your inputs are automatically saved{draftSavedAt ? ` (last saved ${new Date(draftSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})` : ""}.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleStartFresh}
+                    className="h-8 px-2.5 rounded-xl text-rose-700 hover:bg-rose-100/60 text-xs font-bold gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="size-3.5" /> Discard / Start Fresh
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -1592,6 +1797,35 @@ function RegisterLivestockDialogContent({
                         <Sparkles className="w-3 h-3 inline mr-1 text-emerald-600" />
                         Auto-Tag
                       </button>
+                      {batchAnimals.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={handleClearAllBatchAnimals}
+                          className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+                          title="Clear all animals and reset roster to 1 animal"
+                        >
+                          <Trash2 className="w-3 h-3 text-rose-600" />
+                          Clear All ({batchAnimals.length})
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleSaveDraft}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+                        title="Draft saves automatically as you type. Click to save now."
+                      >
+                        {autoSaveStatus === "saving" ? (
+                          <>
+                            <Sparkles className="w-3 h-3 text-amber-600 animate-spin" />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            <span>{hasDraft ? "Auto-Saved" : "Save Draft"}</span>
+                          </>
+                        )}
+                      </button>
                       <button
                         type="button"
                         onClick={addBatchAnimalRow}
@@ -1603,27 +1837,27 @@ function RegisterLivestockDialogContent({
                   </div>
 
                   {/* Scrollable Animal Roster Cards */}
-                  <div className="h-72 sm:h-80 overflow-y-auto pr-1.5 space-y-2.5 border border-slate-200/90 rounded-2xl p-2.5 bg-slate-50/50">
+                  <div className="h-72 sm:h-80 overflow-y-auto p-3 space-y-3 rounded-2xl border-2 border-emerald-600/25 bg-slate-100/90 shadow-inner [scrollbar-width:thin] [scrollbar-color:#059669_#cbd5e1] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-slate-200/90 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-600 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-emerald-700">
                     {batchAnimals.map((animal, idx) => (
                       <div
                         key={animal.id || idx}
-                        className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs space-y-2.5 hover:border-emerald-300 transition-colors"
+                        className="p-3.5 bg-white rounded-xl border border-slate-200/90 border-l-4 border-l-emerald-600 shadow-sm space-y-3 hover:border-emerald-400 hover:shadow-md transition-all"
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                           <div className="flex items-center gap-2">
-                            <span className="size-6 rounded-full bg-emerald-100 text-emerald-900 font-black text-xs flex items-center justify-center">
+                            <span className="size-6 rounded-full bg-emerald-700 text-white font-black text-xs flex items-center justify-center shadow-xs">
                               #{idx + 1}
                             </span>
-                            <span className="font-mono text-xs font-black text-slate-900">
+                            <span className="font-mono text-xs font-black text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                               {animal.tagNumber || `Animal #${idx + 1}`}
                             </span>
                             <Badge
                               variant="outline"
-                              className={`text-[10px] font-bold uppercase py-0 px-1.5 ${animal.sex === "Female"
-                                ? "text-rose-700 bg-rose-50 border-rose-200"
+                              className={`text-[10px] font-bold uppercase py-0.5 px-2 ${animal.sex === "Female"
+                                ? "text-rose-700 bg-rose-50 border-rose-200 font-black"
                                 : animal.sex === "Male"
-                                  ? "text-blue-700 bg-blue-50 border-blue-200"
-                                  : "text-amber-700 bg-amber-50 border-amber-200"
+                                  ? "text-blue-700 bg-blue-50 border-blue-200 font-black"
+                                  : "text-amber-700 bg-amber-50 border-amber-200 font-black"
                                 }`}
                             >
                               {animal.sex}
@@ -1634,7 +1868,7 @@ function RegisterLivestockDialogContent({
                             <button
                               type="button"
                               onClick={() => removeBatchAnimalRow(idx)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                               title="Remove this animal"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1642,10 +1876,10 @@ function RegisterLivestockDialogContent({
                           )}
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                           <div className="space-y-1">
                             <div className="flex items-center gap-1">
-                              <Label className="text-[10px] font-black uppercase text-slate-400">
+                              <Label className="text-[10px] font-black uppercase text-slate-600 tracking-wider">
                                 Ear Tag / RFID
                               </Label>
                               <InfoTooltip text="Unique identification tag or RFID for this individual animal in the herd." />
@@ -1654,7 +1888,7 @@ function RegisterLivestockDialogContent({
                               value={animal.tagNumber}
                               onChange={(e) => updateBatchAnimalField(idx, "tagNumber", e.target.value.toUpperCase())}
                               placeholder="e.g. NAME-001"
-                              className={`h-8 text-xs font-mono font-bold rounded-lg ${tagError(animal.tagNumber, batchAnimals.filter((_, index) => index !== idx).map((row) => row.tagNumber)) ? "border-rose-500" : ""}`}
+                              className={`h-8 text-xs font-mono font-bold rounded-lg border-slate-300 bg-white ${tagError(animal.tagNumber, batchAnimals.filter((_, index) => index !== idx).map((row) => row.tagNumber)) ? "border-rose-500" : ""}`}
                               required
                             />
                             {tagError(animal.tagNumber, batchAnimals.filter((_, index) => index !== idx).map((row) => row.tagNumber)) && (
@@ -1666,7 +1900,7 @@ function RegisterLivestockDialogContent({
 
                           <div className="space-y-1">
                             <div className="flex items-center gap-1">
-                              <Label className="text-[10px] font-black uppercase text-slate-400">
+                              <Label className="text-[10px] font-black uppercase text-slate-600 tracking-wider">
                                 Breed / Strain
                               </Label>
                               <InfoTooltip text="Breed or pedigree strain of this animal." />
@@ -1685,7 +1919,7 @@ function RegisterLivestockDialogContent({
                                 }
                               }}
                             >
-                              <SelectTrigger className="h-8 text-xs rounded-lg bg-white">
+                              <SelectTrigger className="h-8 text-xs rounded-lg bg-white border-slate-300">
                                 <SelectValue placeholder="Breed" />
                               </SelectTrigger>
                               <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-56">
@@ -1704,7 +1938,7 @@ function RegisterLivestockDialogContent({
                                 value={animal.breed === "Others" ? "" : animal.breed}
                                 onChange={(e) => updateBatchAnimalField(idx, "breed", e.target.value || "Others")}
                                 placeholder="Type custom breed"
-                                className="h-7 text-[11px] rounded-lg mt-1 bg-white border-emerald-300 font-medium"
+                                className="h-7 text-[11px] rounded-lg mt-1 bg-white border-emerald-400 font-medium"
                                 required
                               />
                             )}
@@ -1712,7 +1946,7 @@ function RegisterLivestockDialogContent({
 
                           <div className="space-y-1">
                             <div className="flex items-center gap-1">
-                              <Label className="text-[10px] font-black uppercase text-slate-400">
+                              <Label className="text-[10px] font-black uppercase text-slate-600 tracking-wider">
                                 Sex
                               </Label>
                               <InfoTooltip text="Sex of this individual animal (Female, Male, or Castrated)." />
@@ -1721,7 +1955,7 @@ function RegisterLivestockDialogContent({
                               value={animal.sex}
                               onValueChange={(val) => { if (val === "Male" || val === "Female") updateBatchAnimalField(idx, "sex", val); }}
                             >
-                              <SelectTrigger className="h-8 text-xs rounded-lg">
+                              <SelectTrigger className="h-8 text-xs rounded-lg bg-white border-slate-300">
                                 <SelectValue placeholder="Sex" />
                               </SelectTrigger>
                               <SelectContent className="z-[var(--z-popover-dialog)]">
@@ -1734,7 +1968,7 @@ function RegisterLivestockDialogContent({
 
                           <div className="space-y-1">
                             <div className="flex items-center gap-1">
-                              <Label className="text-[10px] font-black uppercase text-slate-400">
+                              <Label className="text-[10px] font-black uppercase text-slate-600 tracking-wider">
                                 Weight (kg)
                               </Label>
                               <InfoTooltip text="Weight in kg for this individual animal." />
@@ -1745,21 +1979,21 @@ function RegisterLivestockDialogContent({
                               value={animal.weight}
                               onChange={(e) => updateBatchAnimalField(idx, "weight", e.target.value)}
                               placeholder="e.g. 65"
-                              className="h-8 text-xs font-semibold rounded-lg"
+                              className="h-8 text-xs font-semibold rounded-lg bg-white border-slate-300"
                             />
                           </div>
                           <div className="space-y-1">
                             <div className="flex items-center gap-1">
-                              <Label className="text-[10px] font-black uppercase text-slate-400">Birth Date (optional)</Label>
+                              <Label className="text-[10px] font-black uppercase text-slate-600 tracking-wider">Birth Date (optional)</Label>
                               <InfoTooltip text="Birth date of this animal to track its age." />
                             </div>
-                            <Input type="date" max={localCalendarDateToday()} value={animal.birthDate || ""} onChange={(e) => updateBatchAnimalField(idx, "birthDate", e.target.value)} className="h-11 min-w-0 w-full text-xs rounded-lg" />
+                            <Input type="date" max={localCalendarDateToday()} value={animal.birthDate || ""} onChange={(e) => updateBatchAnimalField(idx, "birthDate", e.target.value)} className="h-11 min-w-0 w-full text-xs rounded-lg bg-white border-slate-300" />
                           </div>
                         </div>
 
-                        <div className="pt-1 flex items-center justify-between border-t border-slate-100">
-                          <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
-                            <Syringe className="w-3 h-3 text-slate-400" /> Vaccination Date (optional):
+                        <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+                          <span className="text-[11px] text-slate-600 font-bold flex items-center gap-1.5">
+                            <Syringe className="w-3.5 h-3.5 text-emerald-700" /> Vaccination Date (optional):
                             <InfoTooltip text="Date this member received its most recent vaccination dose." />
                           </span>
                           <Input
@@ -1769,7 +2003,7 @@ function RegisterLivestockDialogContent({
                             onChange={(e) =>
                               updateBatchAnimalField(idx, "lastVaccinationDate", e.target.value)
                             }
-                            className="h-7 w-36 text-[11px] rounded-lg py-0 px-2 bg-slate-50/50"
+                            className="h-7 w-36 text-[11px] rounded-lg py-0 px-2 bg-white border-slate-300 text-slate-800"
                           />
                         </div>
                       </div>
@@ -1863,22 +2097,55 @@ function RegisterLivestockDialogContent({
             </div>
           </div>
 
-          <div className="shrink-0 p-4 sm:p-5 bg-slate-50/90 border-t border-slate-100 flex items-center justify-end gap-2.5">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleModalClose(false)}
-              className="rounded-xl h-11"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={addMutation.isPending}
-              className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl h-11 px-6 shadow-sm cursor-pointer"
-            >
-              {addMutation.isPending ? "Submitting..." : "Submit for Review"}
-            </Button>
+          <div className="shrink-0 p-4 sm:p-5 bg-slate-50/90 border-t border-slate-100 flex items-center justify-between gap-2.5 flex-wrap">
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleStartFresh}
+                className="h-9 px-2.5 rounded-xl text-slate-500 hover:text-rose-700 hover:bg-rose-50 text-xs font-bold gap-1.5 cursor-pointer border border-slate-200 hover:border-rose-200 transition-colors"
+                title="Clear all fields, photos, and discard draft"
+              >
+                <Trash2 className="size-3.5 text-slate-400" />
+                Clear All
+              </Button>
+              <div className="flex items-center gap-2 text-xs">
+                {autoSaveStatus === "saving" ? (
+                  <span className="flex items-center gap-1.5 text-amber-700 font-bold animate-pulse">
+                    <Sparkles className="size-3.5 text-amber-600" />
+                    Saving draft...
+                  </span>
+                ) : draftSavedAt ? (
+                  <span className="flex items-center gap-1.5 text-emerald-700 font-bold">
+                    <Check className="size-3.5 text-emerald-600" />
+                    Draft auto-saved
+                    <span className="text-[11px] font-normal text-slate-500">
+                      ({new Date(draftSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-slate-400 font-medium">Auto-saves as you type</span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleModalClose(false)}
+                className="rounded-xl h-11"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={addMutation.isPending}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl h-11 px-6 shadow-sm cursor-pointer"
+              >
+                {addMutation.isPending ? "Submitting..." : "Submit for Review"}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

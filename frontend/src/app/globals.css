@@ -409,6 +409,37 @@ html[data-font-scale] .recharts-default-tooltip {
 /* Notifications remain visible above the shared dialog and popover layers. */
 [data-sonner-toaster] {
   z-index: var(--z-toast) !important;
+  --width: 440px !important;
+}
+
+[data-sonner-toast] {
+  padding: 14px 16px !important;
+  border-radius: 16px !important;
+}
+
+[data-sonner-toast] [data-content] {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+[data-sonner-toast] [data-button] {
+  flex-shrink: 0 !important;
+  font-weight: 700 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+@media (max-width: 640px) {
+  [data-sonner-toaster] {
+    --width: calc(100vw - 32px) !important;
+  }
+  [data-sonner-toast]:has([data-button]) {
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+  }
+  [data-sonner-toast] [data-button] {
+    margin-left: auto !important;
+  }
 }
 
 .dark {
