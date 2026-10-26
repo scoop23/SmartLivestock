@@ -1073,10 +1073,10 @@ export default function DataOverviewPage() {
           title="Municipal System Data Overview"
           subtitle="Consolidated livestock master registry, dairy yields, market trades & biosecurity intelligence — Padre Garcia MAO"
           variant="admin"
-          maxWidthClass="w-full"
+          maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
           icon={<Database className="size-5 text-slate-800" />}
         />
-        <div className="w-full p-3 sm:p-4 md:p-5">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
           <ValidationLoadingScreen
             isLoading={isInitialLoading}
             title="Synchronizing Municipal System Data Overview"
@@ -1136,11 +1136,11 @@ export default function DataOverviewPage() {
         title="Municipal System Data Overview"
         subtitle="Consolidated livestock master registry, dairy yields, market trades & biosecurity intelligence — Padre Garcia MAO"
         variant="admin"
-        maxWidthClass="w-full"
+        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
         icon={<Database className="size-5 text-slate-800" />}
       />
 
-      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Executive KPI Intelligence Strip */}
         <DataOverviewKpis
           totalLivestock={totalLivestockPopulation}

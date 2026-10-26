@@ -864,7 +864,7 @@ function AdminDataValidationContent() {
           title="Municipal Data Validation Center"
           subtitle="Official Municipal Agriculture Office (MAO) verification, review, and certification command center"
           variant="admin"
-          maxWidthClass="w-full"
+          maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
           icon={<ShieldCheck className="size-5 text-slate-800" />}
         />
         <ValidationLoadingScreen
@@ -883,7 +883,7 @@ function AdminDataValidationContent() {
         title="Municipal Data Validation Center"
         subtitle="Official Municipal Agriculture Office (MAO) verification, review, and certification command center"
         variant="admin"
-        maxWidthClass="w-full"
+        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
         icon={<ShieldCheck className="size-5 text-slate-800" />}
         action={
           <Button
@@ -897,7 +897,7 @@ function AdminDataValidationContent() {
         }
       />
 
-      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16 sm:pb-6">
         {/* KPI Strip */}
         <ValidationKpis
           kpis={kpis}

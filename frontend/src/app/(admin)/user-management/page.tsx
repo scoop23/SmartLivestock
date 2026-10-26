@@ -254,11 +254,11 @@ export default function UserManagementPage() {
         title="Personnel & Farmer Directory"
         subtitle="Manage registered farmers and field reviewers, and approve pending accounts"
         variant="admin"
-        maxWidthClass="w-full"
+        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
         icon={<Users className="size-5 text-slate-800" />}
       />
 
-      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5 pb-16 sm:pb-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16 sm:pb-6">
         {/* Controls Area */}
         <div className="flex flex-col md:flex-row gap-2.5 items-center justify-between bg-white p-3 rounded-xl shadow-2xs border border-slate-200/80">
           <div className="relative w-full md:w-80">

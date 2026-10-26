@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { AskSmartLivestock } from '@/app/components/ask-smartlivestock';
 import { PageHeader } from '@/app/components/page-header';
 import { Button } from "@/components/ui/button";
@@ -7,21 +8,24 @@ import { KpiCard,type KpiVariant } from "@/components/ui/kpi-card";
 import { ValidationLoadingScreen,useLoadingScreenTransition } from '@/components/validation-loading-screen';
 import { cowHead } from '@lucide/lab';
 import {
-AlertTriangle,
-CheckSquare,
-ChevronRight,
-ClipboardList,
-Database,
-Download,
-FileBarChart,
-FileSpreadsheet,
-FileText,
-Icon,
-LayoutDashboard,
-Map,
-Milk,Scale,
-TrendingUp,
-Users
+  AlertTriangle,
+  Building,
+  CheckSquare,
+  ChevronRight,
+  ClipboardList,
+  Clock,
+  Database,
+  Download,
+  FileBarChart,
+  FileSpreadsheet,
+  FileText,
+  Icon,
+  LayoutDashboard,
+  Map,
+  Milk,
+  Scale,
+  TrendingUp,
+  Users
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAdminDashboardAnalytics } from './admin-charts';
@@ -43,6 +47,26 @@ export default function AdminDashboard() {
     dashboardSummaryQuery,
   } = analytics;
   const keepLoadingScreenMounted = useLoadingScreenTransition(isLoading);
+  const [clockString, setClockString] = useState<string>("");
+
+  useEffect(() => {
+    const formatter = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    const updateTime = () => {
+      setClockString(`${formatter.format(new Date())} PHT`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (isLoading || keepLoadingScreenMounted) {
     return (
@@ -51,10 +75,10 @@ export default function AdminDashboard() {
           title="LGU/MAO Municipal Executive Dashboard"
           subtitle="Padre Garcia Municipal Agriculture Office — Livestock Surveillance, Yields & Commercial Trading"
           variant="admin"
-          maxWidthClass="w-full"
+          maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
           icon={<LayoutDashboard className="size-5 text-slate-800" />}
         />
-        <div className="w-full p-3 sm:p-4 md:p-5">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
           <ValidationLoadingScreen
             isLoading={isLoading}
             title="Synchronizing Executive Analytics Dashboard"
@@ -168,19 +192,43 @@ export default function AdminDashboard() {
         title="LGU/MAO Municipal Executive Dashboard"
         subtitle="Padre Garcia Municipal Agriculture Office — Livestock Surveillance, Yields & Commercial Trading"
         variant="admin"
-        maxWidthClass="w-full"
+        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
         icon={<LayoutDashboard className="size-5 text-slate-800" />}
       />
 
+      {/* Upper Micro-Telemetry Banner with Live Realtime Clock (No Transmit Telemetry Button) */}
+      <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-2 sm:px-6 md:px-8">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
+          <div className="flex items-center gap-2 font-semibold text-slate-600">
+            <Building className="size-3.5 text-emerald-600" />
+            <span>
+              MUNICIPAL JURISDICTION:{" "}
+              <strong className="font-mono text-slate-900 uppercase">
+                PADRE GARCIA, BATANGAS
+              </strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
+              <Clock className="size-3.5 text-slate-400" />
+              <span className="tabular-nums font-bold">
+                {clockString || "Loading Manila time…"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Rule-based analytics assistant */}
-      <div className="p-3 sm:p-4 bg-white border-b border-slate-200 shadow-2xs">
-        <div className="w-full">
+      <div className="border-b border-slate-200/80 bg-white/95 backdrop-blur-xs">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3">
           <AskSmartLivestock />
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Executive Stats Strip */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3">
           {statsCards.map((stat) => (
@@ -201,7 +249,7 @@ export default function AdminDashboard() {
         <AdminChartsView {...analytics} />
 
         {/* ── Generate Reports ── */}
-        <div className="bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">
+        <div className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 sm:p-6 shadow-holo-card">
           <div className="flex items-center gap-2 mb-1">
             <FileText className="w-4 h-4 text-[#2D5A27]" />
             <h3 className="font-black text-slate-900 text-sm sm:text-base tracking-tight">Generate Official Reports</h3>
@@ -263,7 +311,7 @@ export default function AdminDashboard() {
             <button
               key={path}
               onClick={() => router.push(path)}
-              className="bg-white p-2.5 sm:p-3 rounded-xl shadow-2xs border border-slate-200 hover:border-[#2D5A27] hover:bg-emerald-50/50 transition-all flex items-center justify-between text-left group cursor-pointer"
+              className="bg-white/95 backdrop-blur-xs p-3 rounded-2xl shadow-holo-card border border-slate-200/90 hover:border-emerald-600 hover:bg-emerald-50/50 transition-all flex items-center justify-between text-left group cursor-pointer"
             >
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg bg-slate-100 text-[#2D5A27] group-hover:bg-emerald-100 transition-colors">

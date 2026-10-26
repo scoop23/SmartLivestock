@@ -35,7 +35,7 @@ export default function CensusAnalyticsPage() {
         title="Census Analytics"
         subtitle={`Padre Garcia Municipal Agriculture Office — Quarterly Livestock Census Coverage (${periodLabel})`}
         variant="admin"
-        maxWidthClass="w-full"
+        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
         icon={<ClipboardList className="size-5 text-slate-800" />}
         action={
           <Button
@@ -50,7 +50,7 @@ export default function CensusAnalyticsPage() {
         }
       />
 
-      <div className="p-3 sm:p-4 md:p-5 w-full space-y-3.5">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Period selector + provenance note */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
           <div className="flex items-center gap-2">
