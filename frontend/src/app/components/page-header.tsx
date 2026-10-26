@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { TutorialAutoToggle } from "@/components/tutorial-auto-toggle";
 import { HeaderMenuButton } from "./header-menu-button";
 import { HeaderNotifications } from "./header-notifications";
 import { Breadcrumbs, type BreadcrumbItem } from "./breadcrumbs";
@@ -63,7 +62,6 @@ export function PageHeader({
   sticky = false,
   className = "",
   showNotifications = true,
-  showTutorialToggle = true,
   wrapSubtitleOnMobile = false,
   mobileActionsRow = false,
   hideIconOnMobile = false,
@@ -116,7 +114,6 @@ export function PageHeader({
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {showNotifications && <HeaderNotifications variant={variant} />}
-                  {variant === "farmer" && showTutorialToggle && <TutorialAutoToggle dark />}
                   {action ? action : null}
                 </div>
               </div>
@@ -152,7 +149,6 @@ export function PageHeader({
               <div className="shrink-0 flex items-center gap-2.5 ml-2">
                 <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2.5">
                   {showNotifications && <HeaderNotifications variant={variant} />}
-                  {variant === "farmer" && showTutorialToggle && <TutorialAutoToggle dark />}
                   {action ? action : null}
                 </div>
               </div>
@@ -211,7 +207,6 @@ export function PageHeader({
             }`}>
               <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2.5">
                 {showNotifications && <HeaderNotifications variant={variant} />}
-                {variant === "farmer" && showTutorialToggle && <TutorialAutoToggle dark />}
                 {action ? action : null}
               </div>
             </div>

@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs,TabsContent,TabsList,TabsTrigger } from "@/components/ui/tabs";
+import { TutorialAutoToggle } from "@/components/tutorial-auto-toggle";
 import { useAccessibilitySettings } from "@/contexts/accessibility-settings-context";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
@@ -66,9 +67,10 @@ export function UserProfileView() {
     const requestedTab = searchParams.get("tab") || "overview";
     const tabAliases: Record<string, string> = {
       alerts: "notifications",
+      "text-size": "settings",
     };
     const resolvedTab = tabAliases[requestedTab] || requestedTab;
-    const validTabs = ["overview", "security", "notifications", "activity", "text-size"];
+    const validTabs = ["overview", "security", "notifications", "activity", "settings"];
     setActiveTab(validTabs.includes(resolvedTab) ? resolvedTab : "overview");
   }, [searchParams]);
   const [isEditing, setIsEditing] = useState(false);
@@ -873,10 +875,10 @@ export function UserProfileView() {
                 </TabsTrigger>
 
                 <TabsTrigger
-                  value="text-size"
+                  value="settings"
                   className="px-3 py-2 rounded-lg text-xs font-bold data-[state=active]:bg-sky-700 data-[state=active]:text-white data-[state=active]:font-black data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 text-slate-600 cursor-pointer transition-all"
                 >
-                  <span>Text Size</span>
+                  <span>Settings</span>
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -1133,7 +1135,18 @@ export function UserProfileView() {
               )}
             </TabsContent>
 
-            <TabsContent value="text-size" className="space-y-4 mt-0">
+            <TabsContent value="settings" className="space-y-4 mt-0">
+              <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+                <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-slate-900">Guided tutorials</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                      Turn tutorials on or off throughout SmartLivestock on this browser.
+                    </p>
+                  </div>
+                  <TutorialAutoToggle />
+                </CardContent>
+              </Card>
               <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
                 <CardContent className="p-5 sm:p-7 space-y-5">
                   <div className="pb-4 border-b border-slate-100">
