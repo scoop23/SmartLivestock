@@ -287,7 +287,7 @@ export default function FarmerSchedulingPage() {
         }
       />
 
-      <main className="w-full space-y-5 p-3 sm:p-4 md:p-6">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Sleek Schedule Telemetry Ribbon (Replaces redundant KPI cards while clearly presenting all 3 insights) */}
         <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:px-5 sm:py-3 shadow-xs md:flex-row md:items-center md:justify-between">
           {/* Key Insight 1: Nearest Scheduled Farm Visit */}
@@ -1098,7 +1098,7 @@ export default function FarmerSchedulingPage() {
             </CardContent>
           </Card>
         </section>
-      </main>
+      </div>
 
       <Dialog
         open={photoViewer !== null}

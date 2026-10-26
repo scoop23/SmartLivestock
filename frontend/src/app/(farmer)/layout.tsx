@@ -43,7 +43,15 @@ export default function FarmerLayout({
         onLogout={logout}
       />
 
-      <main className={cn("flex-1 min-w-0", isMapPage ? "h-full max-h-full overflow-hidden" : "overflow-y-auto")}>{children}</main>
+      <main
+        className={cn(
+          "flex-1 min-w-0",
+          !isMapPage && "nexus-ambient-bg min-h-screen",
+          isMapPage ? "h-full max-h-full overflow-hidden" : "overflow-y-auto"
+        )}
+      >
+        {children}
+      </main>
 
       <Toaster />
     </div>

@@ -537,7 +537,7 @@ function LivestockInventoryContent() {
         }
       />
 
-      <div className="w-full min-w-0 max-w-full space-y-2 p-4 md:p-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Livestock overview and inventory actions */}
         {!selectedType && (
           <div data-tour="inventory-hero">

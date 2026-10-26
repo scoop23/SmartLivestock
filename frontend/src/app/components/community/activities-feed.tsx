@@ -147,7 +147,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
         title={headerTitle}
         subtitle={headerSubtitle}
         variant={role}
-        maxWidthClass="w-full"
+        maxWidthClass={isFarmer ? "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" : "w-full"}
         action={
           <Button
             variant="ghost"
@@ -163,7 +163,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
         }
       />
 
-      <main className="w-full space-y-4 p-3 sm:p-4 md:p-6">
+      <div className={isFarmer ? "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6" : "w-full space-y-4 p-3 sm:p-4 md:p-6"}>
         {/* Summary counts are available on request; the activity list stays first for farmers. */}
         <details open={!isFarmer} className={isFarmer ? "group rounded-2xl border border-slate-200 bg-white p-3" : undefined}>
           <summary className={isFarmer ? "cursor-pointer list-none text-sm font-semibold text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 [&::-webkit-details-marker]:hidden" : "hidden"}>
@@ -455,7 +455,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
             ) : null}
           </div>
         )}
-      </main>
+      </div>
 
       <ActivityDetailDialog
         activity={selected}

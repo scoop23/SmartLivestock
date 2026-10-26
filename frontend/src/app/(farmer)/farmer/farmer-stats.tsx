@@ -1,23 +1,13 @@
 "use client";
 
-import { KpiCard,type KpiVariant } from "@/components/ui/kpi-card";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { cowHead } from "@lucide/lab";
-import { AlertTriangle,Icon,Milk,ShieldCheck } from "lucide-react";
-import type { ReactNode } from "react";
+import { AlertTriangle, Icon, Milk, ShieldCheck, TrendingDown, TrendingUp } from "lucide-react";
+import React from "react";
 import {
-formatQty,
-type FarmerDashboardAnalytics,
+  formatQty,
+  type FarmerDashboardAnalytics,
 } from "./farmer-analytics";
-
-interface CardConfig {
-  label: string;
-  icon: ReactNode;
-  variant: KpiVariant;
-  value: string;
-  sub: string;
-  subClass?: string;
-  description?: string;
-}
 
 export default function FarmerStats({
   data,
@@ -28,7 +18,7 @@ export default function FarmerStats({
 }) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <KpiCard key={i} title="" value="" isLoading />
         ))}
@@ -43,83 +33,128 @@ export default function FarmerStats({
   const milkLiters = data?.milk_production_liters ?? null;
   const milkGrowth = data?.milk_growth_pct ?? null;
 
-  const livestockSub =
+  const livestockBadge =
     cattleCount === 0
-      ? "No animals registered"
+      ? "NO ANIMALS"
       : pendingCount > 0
-        ? `${approvedCount} verified • ${pendingCount} pending`
-        : `${approvedCount} verified heads`;
+      ? `${approvedCount} VERIFIED • ${pendingCount} PENDING`
+      : `${approvedCount} VERIFIED`;
 
-  const milkSub =
-    milkLiters === null || milkLiters === 0
-      ? "0 L this month"
-      : milkGrowth === null
-        ? "This month"
-        : milkGrowth >= 0
-          ? `↑ ${milkGrowth.toFixed(1)}% MoM`
-          : `↓ ${Math.abs(milkGrowth).toFixed(1)}% MoM`;
-
-  const allCards: CardConfig[] = [
-    {
-      label: "My Livestock",
-      icon: <Icon iconNode={cowHead} className="size-4.5" />,
-      variant: "emerald",
-      value: cattleCount.toLocaleString(),
-      sub: livestockSub,
-      description: "Animals on your farm",
-    },
-    {
-      label: "Production This Month",
-      icon: <Milk className="size-4.5" />,
-      variant: "sky",
-      value: milkLiters !== null && milkLiters > 0 ? `${formatQty(milkLiters)} L` : "0 L",
-      sub: milkSub,
-      subClass:
-        milkLiters !== null && milkGrowth !== null
-          ? milkGrowth >= 0
-            ? "text-emerald-700 bg-emerald-100 border-emerald-200"
-            : "text-rose-700 bg-rose-100 border-rose-200"
-          : undefined,
-      description: "Milk recorded this month",
-    },
-    {
-      label: "Animal Health Reports",
-      icon: <AlertTriangle className="size-4.5" />,
-      variant: activeAlerts > 0 ? "rose" : "stone",
-      value: activeAlerts.toLocaleString(),
-      sub: activeAlerts > 0 ? "Waiting for review" : "No active reports",
-      subClass: activeAlerts > 0 ? "text-rose-700 bg-rose-100 border-rose-200" : "text-emerald-700 bg-emerald-50 border-emerald-200",
-      description: "Reports needing attention",
-    },
-    {
-      label: "Record Status",
-      icon: <ShieldCheck className="size-4.5" />,
-      variant: "amber",
-      value: cattleCount > 0 ? `${Math.round((approvedCount / cattleCount) * 100)}%` : "100%",
-      sub: pendingCount === 0 ? "All records reviewed" : `${pendingCount} waiting for review`,
-      description: "Your records reviewed by the livestock office",
-    },
-  ];
+  const reviewPercent = cattleCount > 0 ? Math.round((approvedCount / cattleCount) * 100) : 100;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
-      {allCards.map((card, index) => (
-        <div
-          key={card.label}
-          data-tour={["my-livestock-stat", "production-stat", "health-stat", "record-status-stat"][index]}
-        >
-          <KpiCard
-            title={card.label}
-            value={card.value}
-            icon={card.icon}
-            badge={card.sub}
-            badgeClassName={card.subClass}
-            variant={card.variant}
-            description={card.description}
-            wrapText
-          />
-        </div>
-      ))}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI 1: My Livestock */}
+      <div data-tour="my-livestock-stat">
+        <KpiCard
+          title="My Livestock"
+          variant="emerald"
+          icon={<Icon iconNode={cowHead} className="size-5" />}
+          badge={livestockBadge}
+          badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
+          value={
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                {cattleCount.toLocaleString()}
+              </span>
+              <span className="text-xs font-mono text-emerald-700 font-bold">Heads</span>
+            </div>
+          }
+          description="Animals on your farm"
+          wrapText
+        />
+      </div>
+
+      {/* KPI 2: Production This Month */}
+      <div data-tour="production-stat">
+        <KpiCard
+          title="Production This Month"
+          variant="sky"
+          icon={<Milk className="size-5" />}
+          badge={
+            milkGrowth !== null ? (
+              <span className="flex items-center gap-1">
+                {milkGrowth >= 0 ? (
+                  <TrendingUp className="size-3" />
+                ) : (
+                  <TrendingDown className="size-3" />
+                )}
+                {milkGrowth >= 0 ? "↑" : "↓"} {Math.abs(milkGrowth).toFixed(1)}% MOM
+              </span>
+            ) : (
+              "THIS MONTH"
+            )
+          }
+          badgeClassName={
+            milkGrowth !== null && milkGrowth >= 0
+              ? "font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
+              : "font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 tracking-wider"
+          }
+          value={
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                {milkLiters !== null && milkLiters > 0 ? formatQty(milkLiters) : "0"}
+              </span>
+              <span className="font-display text-xl sm:text-2xl font-black text-sky-700 tracking-tight">
+                L
+              </span>
+            </div>
+          }
+          description="Milk recorded this month"
+          wrapText
+        />
+      </div>
+
+      {/* KPI 3: Animal Health Reports */}
+      <div data-tour="health-stat">
+        <KpiCard
+          title="Animal Health Reports"
+          variant={activeAlerts > 0 ? "rose" : "stone"}
+          icon={<AlertTriangle className="size-5" />}
+          badge={activeAlerts > 0 ? `${activeAlerts} WAITING REVIEW` : "NO ACTIVE REPORTS"}
+          badgeClassName={
+            activeAlerts > 0
+              ? "font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200 tracking-wider"
+              : "font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-emerald-800 border border-slate-200 tracking-wider"
+          }
+          value={
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                {activeAlerts}
+              </span>
+              <span
+                className={`text-xs font-mono font-bold ${
+                  activeAlerts > 0 ? "text-rose-700" : "text-emerald-700"
+                }`}
+              >
+                {activeAlerts > 0 ? "Review Needed" : "Clear"}
+              </span>
+            </div>
+          }
+          description="Reports needing attention"
+          wrapText
+        />
+      </div>
+
+      {/* KPI 4: Record Status */}
+      <div data-tour="record-status-stat">
+        <KpiCard
+          title="Record Status"
+          variant="amber"
+          icon={<ShieldCheck className="size-5" />}
+          badge={pendingCount === 0 ? "ALL REVIEWED" : `${pendingCount} WAITING FOR REVIEW`}
+          badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
+          value={
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                {reviewPercent}%
+              </span>
+            </div>
+          }
+          description="Your records reviewed by the livestock office"
+          wrapText
+        />
+      </div>
     </div>
   );
 }
