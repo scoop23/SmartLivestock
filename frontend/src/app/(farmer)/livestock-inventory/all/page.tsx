@@ -74,10 +74,10 @@ export default function AllLivestockInventoryPage() {
         title="All Livestock"
         subtitle="View and manage your animals."
         variant="farmer"
-        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        maxWidthClass="w-full"
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <div className="flex items-center justify-start gap-3">
           <Link href="/livestock-inventory">
             <Button

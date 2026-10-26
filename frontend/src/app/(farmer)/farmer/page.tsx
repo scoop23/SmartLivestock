@@ -403,7 +403,7 @@ export default function FarmerDashboard() {
 
       {/* Upper Micro-Telemetry Banner with Live Realtime Clock (No Transmit Telemetry Button) */}
       <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-2 sm:px-6 md:px-8">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
+        <div className="w-full flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 font-semibold text-emerald-700">
               <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -437,7 +437,7 @@ export default function FarmerDashboard() {
 
       {/* Ambient Blueprint Viewport Container */}
       <div className="relative min-h-screen">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-7">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-7">
           {isLoading || keepLoadingScreenMounted ? (
             <ValidationLoadingScreen
               isLoading={isLoading}

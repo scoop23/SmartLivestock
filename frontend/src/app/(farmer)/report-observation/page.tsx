@@ -533,7 +533,7 @@ function ReportObservationContent() {
         }
       />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {!isLoadingInventory && reportsInHistory.length > 0 && (
           <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">
             <p>{reportsInHistory.length} report{reportsInHistory.length === 1 ? " is" : "s are"} linked only to deceased livestock. Their review details are available in Livestock History.</p>

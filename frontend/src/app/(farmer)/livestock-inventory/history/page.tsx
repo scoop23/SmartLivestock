@@ -377,8 +377,9 @@ export default function LivestockHistoryPage() {
         title="Livestock History"
         subtitle="Past livestock records stay here for reference after an animal is sold, deceased, slaughtered, or moved out."
         variant="farmer"
+        maxWidthClass="w-full"
       />
-      <main className="mx-auto w-full max-w-5xl space-y-5 p-4 sm:p-6">
+      <main className="w-full space-y-5 p-4 sm:p-6 lg:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button asChild variant="outline" size="sm" className="rounded-lg">
             <Link href="/livestock-inventory"><ArrowLeft className="mr-2 size-4" />Back to livestock</Link>
