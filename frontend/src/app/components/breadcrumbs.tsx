@@ -61,7 +61,7 @@ const ROUTE_LABELS: Record<string, string> = {
   users: "User Management",
   "user-management": "User Management",
   analytics: "Executive Analytics",
-  analysis: "Analytics & Insights",
+  analysis: "Executive Analytics",
   descriptive: "Descriptive Analytics",
   predictive: "Predictive Analytics",
   prescriptive: "Prescriptive Analytics",
@@ -189,7 +189,7 @@ export function Breadcrumbs({
 
       breadcrumbs.push({
         label: formatSegmentLabel(segment),
-        href: isLast ? undefined : accumulatedPath,
+        href: isLast ? undefined : segment === "analysis" ? "/admin/analytics" : accumulatedPath,
         active: isLast,
       });
     });
