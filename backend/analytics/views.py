@@ -143,6 +143,7 @@ def mortality_weather_context(request):
 class AskSmartLivestockSerializer(serializers.Serializer):
     """Keep the natural-language input small and predictable before parsing."""
     question = serializers.CharField(max_length=500, allow_blank=False, trim_whitespace=True)
+    explain = serializers.BooleanField(required=False, default=False)
 
 
 @api_view(["POST"])
@@ -152,6 +153,10 @@ def nlp_query(request):
     serializer = AskSmartLivestockSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     result = execute_question(serializer.validated_data["question"], user=request.user)
+    if serializer.validated_data["explain"]:
+        from .services.nlp_explanation import add_optional_explanation
+
+        result = add_optional_explanation(result)
     return Response(result, status=status.HTTP_200_OK)
 
 

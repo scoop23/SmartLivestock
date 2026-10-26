@@ -44,6 +44,14 @@ type AskResponse = {
   results: ResultRow[];
   coverage_note?: string;
   suggestions?: { label: string; question: string }[];
+  ai_explanation?: {
+    status: "generated" | "unavailable" | "not_applicable";
+    provider?: string;
+    model?: string;
+    prompt_version?: string;
+    text: string | null;
+    message?: string;
+  };
 };
 
 const EXAMPLES = [
@@ -156,6 +164,7 @@ export function AskSmartLivestock() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [draftNotice, setDraftNotice] = useState("");
+  const [explainWithAI, setExplainWithAI] = useState(false);
   const questionInput = useRef<HTMLInputElement>(null);
   // A ref changes immediately; React state alone cannot block same-tick clicks.
   const submitting = useRef(false);
@@ -169,7 +178,10 @@ export function AskSmartLivestock() {
     setDraftNotice("");
     setResponse(null);
     try {
-      const result = await api.post<AskResponse>("analytics/nlp-query/", { question: trimmed });
+      const result = await api.post<AskResponse>("analytics/nlp-query/", {
+        question: trimmed,
+        explain: explainWithAI,
+      });
       setResponse(result.data);
     } catch (caught) {
       const axiosError = caught as AxiosError<{ detail?: string; question?: string[] }>;
@@ -214,6 +226,16 @@ export function AskSmartLivestock() {
           {loading ? "Checking records…" : "Ask"}
         </Button>
       </form>
+      <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs leading-relaxed text-slate-600">
+        <input
+          type="checkbox"
+          checked={explainWithAI}
+          onChange={(event) => setExplainWithAI(event.target.checked)}
+          disabled={loading}
+          className="mt-0.5 size-4 shrink-0 accent-[#2D5A27]"
+        />
+        <span>Also request an optional AI explanation. Only aggregate analytics are sent to the configured external provider; your question and farmer names are excluded.</span>
+      </label>
       {draftNotice ? <p role="status" className="mt-2 text-xs text-emerald-800">{draftNotice}</p> : null}
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label="Example questions">
@@ -244,6 +266,17 @@ export function AskSmartLivestock() {
               {response.interpreted ? <p className="text-xs text-slate-500">Metric: {response.interpreted.metric.replaceAll("_", " ")}{response.interpreted.group_by ? ` · Grouped by ${response.interpreted.group_by.replaceAll("_", " ")}` : ""}</p> : null}
               <ResultVisualization response={response} />
               {response.coverage_note ? <p className="text-xs leading-relaxed text-slate-500">{response.coverage_note}</p> : null}
+              {response.ai_explanation?.status === "generated" && response.ai_explanation.text ? (
+                <aside className="rounded-xl border border-violet-200 bg-violet-50/70 p-3" aria-label="AI-generated explanation">
+                  <p className="text-xs font-bold text-violet-900">AI-generated explanation{response.ai_explanation.provider ? ` · ${response.ai_explanation.provider}` : ""}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-700">{response.ai_explanation.text}</p>
+                </aside>
+              ) : null}
+              {response.ai_explanation?.status === "unavailable" ? (
+                <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600" role="status">
+                  {response.ai_explanation.message ?? "The optional AI explanation is unavailable. The factual answer above remains available."}
+                </p>
+              ) : null}
             </>
           ) : (
             <div className="space-y-3">

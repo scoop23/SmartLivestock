@@ -54,6 +54,23 @@ WEB_PUSH_VAPID_PUBLIC_KEY = os.environ.get("WEB_PUSH_VAPID_PUBLIC_KEY", "")
 WEB_PUSH_VAPID_PRIVATE_KEY = os.environ.get("WEB_PUSH_VAPID_PRIVATE_KEY", "")
 WEB_PUSH_VAPID_SUBJECT = os.environ.get("WEB_PUSH_VAPID_SUBJECT", f"mailto:{DEFAULT_FROM_EMAIL}")
 
+# Ask SmartLivestock's optional explanation layer is disabled until the
+# operator has reviewed the provider's current data terms and approved sending
+# aggregate analytics outside the application.
+SMARTLIVESTOCK_LLM_ENABLED = os.environ.get("SMARTLIVESTOCK_LLM_ENABLED", "false").lower() in {"1", "true", "yes"}
+SMARTLIVESTOCK_LLM_DATA_SHARING_APPROVED = os.environ.get(
+    "SMARTLIVESTOCK_LLM_DATA_SHARING_APPROVED", "false"
+).lower() in {"1", "true", "yes"}
+SMARTLIVESTOCK_LLM_PROVIDER = os.environ.get("SMARTLIVESTOCK_LLM_PROVIDER", "groq").strip().lower()
+SMARTLIVESTOCK_LLM_MODEL = os.environ.get("SMARTLIVESTOCK_LLM_MODEL", "openai/gpt-oss-20b").strip()
+SMARTLIVESTOCK_LLM_API_KEY = os.environ.get("GROQ_API_KEY", "")
+try:
+    SMARTLIVESTOCK_LLM_TIMEOUT_SECONDS = max(
+        2, min(20, int(os.environ.get("SMARTLIVESTOCK_LLM_TIMEOUT_SECONDS", "8")))
+    )
+except ValueError:
+    SMARTLIVESTOCK_LLM_TIMEOUT_SECONDS = 8
+
 # Production and local allowed hosts
 ALLOWED_HOSTS: list[str] = [
     host.strip()
