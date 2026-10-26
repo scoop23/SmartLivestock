@@ -114,7 +114,7 @@ class Command(BaseCommand):
                     f"status={record.status}, forecast comparison="
                     f"{(record.anomaly_assessment or {}).get('forecast_comparison', {}).get('status', 'unavailable')}."
                 )
-            self.stdout.write("Demo records are synthetic. Use the CBAT account to verify or return the flagged record, then the MAO account to make the final decision.")
+            self.stdout.write("Demo milk records use the morning session. The clean scenario routes to MAO; the flagged scenario follows Farmer submission, CBAT verification, then the MAO final decision.")
 
     def _assert_safe_database(self, *, clean):
         is_isolated_test_run = "test" in sys.argv and "memory" in str(connections["default"].settings_dict.get("NAME", "")).lower()
@@ -235,6 +235,7 @@ class Command(BaseCommand):
                     quantity=Decimal(DAILY_PATTERN[index % len(DAILY_PATTERN)]),
                     unit=ProductionRecord.UnitType.LITERS,
                     record_date=record_date,
+                    milking_session=ProductionRecord.MilkingSession.MORNING,
                     status=ProductionRecord.ProductionStatus.APPROVED,
                     next_review_queue=ProductionRecord.ReviewQueue.NONE,
                     anomaly_assessment_status=ProductionRecord.AnomalyAssessmentStatus.NOT_APPLICABLE,
@@ -245,6 +246,11 @@ class Command(BaseCommand):
                 self._track(identifier, MilkAnomalyDemoOwnership.ObjectType.PRODUCTION_RECORD, record)
             elif record.livestock_id != cow.pk or record.record_date != record_date or record.status != ProductionRecord.ProductionStatus.APPROVED:
                 raise CommandError(f"Tracked synthetic history row {identifier} no longer satisfies the approved daily-history invariant.")
+            elif record.milking_session is None:
+                record.milking_session = ProductionRecord.MilkingSession.MORNING
+                record.save(update_fields=["milking_session"])
+            elif record.milking_session != ProductionRecord.MilkingSession.MORNING:
+                raise CommandError(f"Tracked synthetic history row {identifier} has a different milking session; refusing to change it.")
         return 60
 
     def _get_or_create_scenario(self, key, cow, farmer, farmer_user, quantity, note):
@@ -255,6 +261,7 @@ class Command(BaseCommand):
                 production_type=ProductionRecord.ProductionType.MILK,
                 quantity=quantity, unit=ProductionRecord.UnitType.LITERS,
                 record_date=timezone.localdate() + timedelta(days=1),
+                milking_session=ProductionRecord.MilkingSession.MORNING,
                 status=ProductionRecord.ProductionStatus.PENDING,
                 notes=note, created_by=farmer_user,
             )
@@ -263,6 +270,14 @@ class Command(BaseCommand):
             self._track(key, MilkAnomalyDemoOwnership.ObjectType.PRODUCTION_RECORD, record)
         elif record.livestock_id != cow.pk or record.farmer_at_record_id != farmer.pk:
             raise CommandError(f"Tracked scenario {key} no longer belongs to its expected demo cow and farmer.")
+        elif record.milking_session is None:
+            if record.status != ProductionRecord.ProductionStatus.PENDING or record.reviewed_at:
+                raise CommandError(f"Tracked scenario {key} was already reviewed without a milking session; clean and reseed the demo to avoid rewriting its review history.")
+            record.milking_session = ProductionRecord.MilkingSession.MORNING
+            apply_milk_anomaly_assessment(record)
+            record.save()
+        elif record.milking_session != ProductionRecord.MilkingSession.MORNING:
+            raise CommandError(f"Tracked scenario {key} has a different milking session; refusing to change it.")
         return record
 
     def _ensure_route_notifications(self, key, record, farmer_user, route_sender):

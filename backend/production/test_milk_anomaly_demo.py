@@ -64,6 +64,7 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
             )
             self.assertEqual(history.count(), 60)
             self.assertEqual(history.values("record_date").distinct().count(), 60)
+            self.assertEqual(set(history.values_list("milking_session", flat=True)), {ProductionRecord.MilkingSession.MORNING})
             self.assertTrue(history.filter(notes__startswith="DEMO synthetic").exists())
 
         clean = self.demo_record("scenario-clean")
@@ -78,10 +79,13 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
         self.assertTrue(anomaly.requires_cbat_verification)
         self.assertEqual(anomaly.next_review_queue, "CBAT")
         self.assertEqual(anomaly.status, "PENDING")
+        self.assertEqual(clean.milking_session, ProductionRecord.MilkingSession.MORNING)
+        self.assertEqual(anomaly.milking_session, ProductionRecord.MilkingSession.MORNING)
         for record in (clean, anomaly):
             comparison = record.anomaly_assessment["forecast_comparison"]
-            self.assertEqual(comparison["status"], "MATCHED")
-            self.assertEqual(comparison["forecast_date"], record.record_date.isoformat())
+            self.assertFalse(comparison["available"])
+            self.assertEqual(comparison["status"], "INCOMPATIBLE_TARGET")
+            self.assertIsNone(comparison["forecast_date"])
         self.assertEqual(clean.record_date, timezone.localdate() + timedelta(days=1))
         self.assertIn("50.0%", anomaly.anomaly_reason)
 
@@ -119,7 +123,8 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
         )
         unrelated_record = ProductionRecord.objects.create(
             livestock=unrelated_cow, production_type="MILK", quantity=Decimal("8"), unit="LITERS",
-            record_date=timezone.localdate() - timedelta(days=3), created_by=unrelated_user,
+            record_date=timezone.localdate() - timedelta(days=3),
+            milking_session=ProductionRecord.MilkingSession.MORNING, created_by=unrelated_user,
         )
         self.seed()
         self.seed("--clean")
@@ -140,7 +145,8 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
         extra = ProductionRecord.objects.create(
             livestock=LivestockInventory.objects.filter(farmer__user=demo_farmer).first(),
             production_type="MILK", quantity=Decimal("9"), unit="LITERS",
-            record_date=timezone.localdate() + timedelta(days=2), created_by=demo_farmer,
+            record_date=timezone.localdate() + timedelta(days=2),
+            milking_session=ProductionRecord.MilkingSession.MORNING, created_by=demo_farmer,
         )
         with self.assertRaisesRegex(CommandError, "no demo ownership marker"):
             self.seed("--clean")
@@ -206,7 +212,8 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
         )
         foreign_record = ProductionRecord.objects.create(
             livestock=other_cow, production_type="MILK", quantity=Decimal("15"), unit="LITERS",
-            record_date=timezone.localdate() + timedelta(days=1), created_by=other_user,
+            record_date=timezone.localdate() + timedelta(days=1),
+            milking_session=ProductionRecord.MilkingSession.MORNING, created_by=other_user,
         )
         client.force_authenticate(cbat)
         self.assertEqual(client.get("/production/records/").status_code, 200)
@@ -252,6 +259,7 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
             response = client.post("/production/records/", {
                 "livestock": cow.pk, "production_type": "MILK", "quantity": quantity,
                 "unit": "LITERS", "record_date": record_date,
+                "milking_session": ProductionRecord.MilkingSession.MORNING,
             }, format="json")
             self.assertEqual(response.status_code, 201, response.data)
             self.assert_cow_state(cow, cow_states[cow.pk])
@@ -290,6 +298,24 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
             self.assert_cow_state(cow, cow_states[cow.pk])
         self.assertEqual((anomaly.anomaly_assessment_status, anomaly.next_review_queue), ("ANOMALY_DETECTED", "CBAT"))
         self.assertEqual((clean.anomaly_assessment_status, clean.next_review_queue), ("CLEAN", "MAO"))
+
+        # The flagged farmer submission follows the intended final-review path:
+        # Farmer resubmits -> CBAT verifies -> MAO approves.
+        client.force_authenticate(cbat)
+        response = client.post(f"/production/records/{anomaly.pk}/review/", {"status": "VERIFIED"}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        anomaly.refresh_from_db()
+        self.assertEqual((anomaly.status, anomaly.next_review_queue), ("VERIFIED", "MAO"))
+
+        client.force_authenticate(mao)
+        response = client.post(f"/production/records/{anomaly.pk}/review/", {"status": "APPROVED"}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        anomaly.refresh_from_db()
+        self.assertEqual((anomaly.status, anomaly.next_review_queue), ("APPROVED", "NONE"))
+        self.assert_cow_state(anomaly_cow, cow_states[anomaly_cow.pk])
+
+        response = client.post(f"/production/records/{clean.pk}/review/", {"status": "APPROVED"}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(LiveAnimalSale.objects.count(), 0)
         self.assertEqual(SlaughterRecord.objects.count(), 0)
 
@@ -318,7 +344,9 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
         )
         old_record = ProductionRecord.objects.create(
             livestock=manggas_cow, production_type="MILK", quantity=Decimal("15"), unit="LITERS",
-            record_date=timezone.localdate() + timedelta(days=1), created_by=manggas_cow.farmer.user,
+            record_date=timezone.localdate() + timedelta(days=1),
+            milking_session=ProductionRecord.MilkingSession.MORNING,
+            created_by=manggas_cow.farmer.user,
         )
         Notification.objects.create(
             user=tangob_cbat, notification_type="production", title="Old Manggas record",
