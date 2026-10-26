@@ -45,6 +45,7 @@ interface LivestockInfographicHeroProps {
   meatDressingPct: number;
   totalCalves: number;
   activeDiseaseCount: number;
+  canShowProduction: boolean;
   terms: {
     eventName: string;
     offspringName: string;
@@ -76,6 +77,7 @@ function LivestockInfographicHeroContent({
   meatDressingPct,
   totalCalves,
   activeDiseaseCount,
+  canShowProduction,
   terms,
   onOpenPassport,
   onOpenWeigh,
@@ -717,6 +719,7 @@ function LivestockInfographicHeroContent({
             </div>
 
             {/* Callout 5: Carcass Meat Yield */}
+            {canShowProduction && (
             <div
               onMouseEnter={() => setActiveHighlight("carcass")}
               onMouseLeave={() => setActiveHighlight(null)}
@@ -735,6 +738,7 @@ function LivestockInfographicHeroContent({
                 {meatDressingPct}% dressing &bull; Est. ₱{(projectedCarcassKg * 280).toLocaleString()}
               </p>
             </div>
+            )}
 
             {/* Callout 6: Offspring & Lineage */}
             <div
@@ -841,6 +845,7 @@ function LivestockInfographicHeroContent({
               <p className="text-[10px] text-emerald-200/70 truncate">{activeItem.breed || "Standard"}</p>
             </div>
 
+            {canShowProduction && (
             <div
               onClick={() => onSelectTab("production")}
               className="p-2.5 rounded-2xl bg-black/40 border border-emerald-500/20 active:bg-emerald-950/80 space-y-0.5"
@@ -849,6 +854,7 @@ function LivestockInfographicHeroContent({
               <p className="text-base font-black text-emerald-300">~{projectedCarcassKg} kg</p>
               <p className="text-[10px] text-emerald-200/70">{meatDressingPct}% dressed</p>
             </div>
+            )}
 
             <div
               onClick={() => onSelectTab("health")}

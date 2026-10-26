@@ -3,6 +3,29 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@layer components {
+  .livestock-card-depth {
+    border-left-color: transparent !important;
+    transition: transform 220ms ease, border-left-color 220ms ease, border-left-width 220ms ease;
+  }
+
+  .livestock-card-depth:hover {
+    border-left-color: #475569 !important;
+    border-left-width: 5px !important;
+    transform: translate3d(3px, -4px, 0) !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .livestock-card-depth {
+      transition: none;
+    }
+
+    .livestock-card-depth:hover {
+      transform: none !important;
+    }
+  }
+}
+
 /* Isolate selected print targets while letting ordinary pages print normally. */
 @media print {
   /* When isolation is active, hide all other direct children of body */
@@ -184,6 +207,13 @@
     box-shadow: none !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+  }
+
+  .qr-code-pass-print-active .qr-code-pass-image {
+    width: 3.5in !important;
+    height: 3.5in !important;
+    max-width: 100% !important;
+    object-fit: contain !important;
   }
 
   #livestock-clearance-print {

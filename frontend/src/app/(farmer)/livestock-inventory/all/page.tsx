@@ -32,7 +32,12 @@ export default function AllLivestockInventoryPage() {
   const [editTarget, setEditTarget] = useState<LivestockInventoryItem | null>(null);
 
   const { data: livestockTypes = {} } = useLivestockTypes();
-  const { data: inventories = [], isLoading } = useUserInventory({ includeInactive: true });
+  const {
+    data: inventories = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useUserInventory({ includeInactive: true });
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`/livestock/inventory/${id}/`);
@@ -89,6 +94,9 @@ export default function AllLivestockInventoryPage() {
         <LivestockRecordList
           items={inventories}
           isLoading={isLoading}
+          isError={isError}
+          onRetry={() => { void refetch(); }}
+          defaultOperationalFilter="ACTIVE"
           livestockTypes={livestockTypes}
           onView={(item) => setDetailTarget(item)}
           onEdit={(item) => setEditTarget(item)}

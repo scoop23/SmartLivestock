@@ -173,11 +173,11 @@ export function QrCodePass({
               <img
                 src={qrDataUrl}
                 alt={`QR code for ${code}`}
-                className={compact ? "size-44 object-contain" : "size-44 sm:size-48 object-contain"}
+                className={`qr-code-pass-image ${compact ? "size-44 object-contain" : "size-44 sm:size-48 object-contain"}`}
               />
             </div>
           ) : (
-            <div className={`flex items-center justify-center bg-slate-50 rounded-lg ${compact ? "size-44" : "size-44 sm:size-48"}`}>
+            <div className={`qr-code-pass-image flex items-center justify-center bg-slate-50 rounded-lg ${compact ? "size-44" : "size-44 sm:size-48"}`}>
               <QrCode className="size-8 text-slate-300 animate-pulse" />
             </div>
           )}

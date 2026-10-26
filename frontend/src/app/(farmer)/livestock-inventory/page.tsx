@@ -137,7 +137,12 @@ function LivestockInventoryContent() {
 
   const { data: livestockTypes = {} } = useLivestockTypes();
   const { data: inventories = [], isLoading, isError, refetch, isFetching } = useUserInventory();
-  const { data: allTagInventory = [] } = useUserInventory({ includeInactive: true });
+  const {
+    data: allTagInventory = [],
+    isLoading: isAllTagInventoryLoading,
+    isError: isAllTagInventoryError,
+    refetch: refetchAllTagInventory,
+  } = useUserInventory({ includeInactive: true });
   const { data: userBatches = [], isLoading: isBatchesLoading } = useLivestockBatches({ includeRoster: false });
 
   useEffect(() => {
@@ -406,10 +411,10 @@ function LivestockInventoryContent() {
 
   // Filtered inventories when a specific species is clicked
   const typeFilteredInventories = selectedType
-    ? inventories.filter(
+    ? allTagInventory.filter(
         (item) => item.livestockTypeName.toLowerCase() === selectedType.toLowerCase()
       )
-    : inventories;
+    : allTagInventory;
 
   // Herds belonging to the selected species, so the species drilldown can
   // surface group-managed batches alongside the individual registry records.
@@ -639,7 +644,9 @@ function LivestockInventoryContent() {
                 selectedType={selectedType}
                 items={typeFilteredInventories}
                 batches={typeFilteredBatches}
-                isLoading={isLoading}
+                isLoading={isAllTagInventoryLoading}
+                isError={isAllTagInventoryError}
+                onRetry={() => { void refetchAllTagInventory(); }}
                 livestockTypes={livestockTypes}
                 onBack={() => {
                   setSelectedType(null);
@@ -669,8 +676,11 @@ function LivestockInventoryContent() {
 
           <TabsContent value="all" data-tour="all-livestock-view" className="space-y-4 pt-2 outline-hidden">
             <LivestockRecordList
-              items={inventories}
-              isLoading={isLoading}
+              items={allTagInventory}
+              isLoading={isAllTagInventoryLoading}
+              isError={isAllTagInventoryError}
+              onRetry={() => { void refetchAllTagInventory(); }}
+              defaultOperationalFilter="ACTIVE"
               livestockTypes={livestockTypes}
               onView={(item) => setDetailTarget(item)}
               onEdit={(item) => setEditTarget(item)}

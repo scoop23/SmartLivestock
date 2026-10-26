@@ -251,13 +251,16 @@ export default function LivestockDetailPage() {
   }, [inventoryMatch, directInventory]);
   const canCorrectIndividual = Boolean(
     activeItem?.status === "SUBJECT_TO_REVISION"
+      && activeItem.operationalStatus === "ACTIVE"
       && activeItem.entryType === "INDIVIDUAL"
       && activeItem.quantity === 1
   );
+  const isDeceased = activeItem?.operationalStatus === "DECEASED";
 
   const correctionMutation = useMutation({
     mutationFn: async (payload: UpdateInventoryPayload) => {
       if (!activeItem) throw new Error("No livestock record is selected.");
+      if (activeItem.operationalStatus === "DECEASED") throw new Error("Deceased animals are read-only.");
       const response = await api.put(`livestock/inventory/${activeItem.id}/`, payload);
       return response.data;
     },
@@ -403,11 +406,18 @@ export default function LivestockDetailPage() {
   }, [weightLogs]);
 
   // Filter production logs for this specific animal
+  const canProduceMilk = Boolean(
+    activeItem
+      && activeItem.entryType === "INDIVIDUAL"
+      && getProductionTypesForLivestock(activeItem.livestockTypeName).includes("milk")
+      && ["FEMALE", "F"].includes(activeItem.sex.trim().toUpperCase())
+      && !["CALF", "YEARLING"].includes(activeItem.ageClassification),
+  );
   const productionLogs: ProductionLog[] = useMemo(() => {
     if (!activeItem) return [];
     const animalIdStr = String(activeItem.id);
     return allProductionRecords
-      .filter((r) => String(r.livestock) === animalIdStr)
+      .filter((r) => String(r.livestock) === animalIdStr && (r.production_type !== "MILK" || canProduceMilk))
       .sort((a, b) => new Date(b.record_date).getTime() - new Date(a.record_date).getTime())
       .map((r) => ({
         id: r.id,
@@ -418,7 +428,7 @@ export default function LivestockDetailPage() {
         status: r.status,
         notes: r.notes || "Farm production record",
       }));
-  }, [allProductionRecords, activeItem]);
+  }, [allProductionRecords, activeItem, canProduceMilk]);
 
   // Filter Calving & Birthing progeny records where dam is this animal
   const animalCalvingRecords: CalvingRecordItem[] = useMemo(() => {
@@ -518,13 +528,16 @@ export default function LivestockDetailPage() {
 
   // Form States: Production
   const availableProductionTypes = useMemo(
-    () => getProductionTypesForLivestock(activeItem?.livestockTypeName).map((type) => PRODUCTION_TYPE_CODES[type]),
-    [activeItem?.livestockTypeName],
+    () => getProductionTypesForLivestock(activeItem?.livestockTypeName)
+      .filter((type) => type !== "milk" || canProduceMilk)
+      .map((type) => PRODUCTION_TYPE_CODES[type]),
+    [activeItem?.livestockTypeName, canProduceMilk],
   );
   const [profileProductionType, setProfileProductionType] = useState<ProductionType>("milk");
   const [profileProductionForm, setProfileProductionForm] = useState<ProductionFormState>({});
   const [productionWizardResetSignal, setProductionWizardResetSignal] = useState(0);
   const openProductionDialog = () => {
+    if (isDeceased || !canProduceMilk) return;
     if (availableProductionTypes.length > 0) {
       const defaultType = availableProductionTypes.includes("MILK") ? "MILK" : availableProductionTypes[0];
       setProfileProductionType(defaultType.toLowerCase() as ProductionType);
@@ -562,6 +575,7 @@ export default function LivestockDetailPage() {
       weighing_date: string;
       notes?: string;
     }) => {
+      if (activeItem?.operationalStatus === "DECEASED") throw new Error("Deceased animals are read-only.");
       const res = await api.post("production/weights/", payload);
       return res.data;
     },
@@ -581,6 +595,7 @@ export default function LivestockDetailPage() {
   const handleAddWeight = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeItem) return;
+    if (isDeceased) return;
     const val = parseFloat(newWeight);
     if (isNaN(val) || val <= 0) {
       toast.error("Please enter a valid weight in kilograms.");
@@ -604,6 +619,10 @@ export default function LivestockDetailPage() {
       record_date: string;
       notes?: string;
     }) => {
+      if (activeItem?.operationalStatus === "DECEASED") throw new Error("Deceased animals are read-only.");
+      if (payload.production_type === "MILK" && !canProduceMilk) {
+        throw new Error("Milk production can only be recorded for a female animal.");
+      }
       const res = await api.post("production/records/", payload);
       return res.data;
     },
@@ -632,6 +651,7 @@ export default function LivestockDetailPage() {
       calving_ease: string;
       notes: string;
     }) => {
+      if (activeItem?.operationalStatus === "DECEASED") throw new Error("Deceased animals are read-only.");
       const res = await api.post("production/calving/", payload);
       return res.data;
     },
@@ -662,6 +682,7 @@ export default function LivestockDetailPage() {
   const handleRecordCalving = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeItem) return;
+    if (isDeceased) return;
     if (newCalfData.date > localCalendarDateToday()) {
       toast.error("Calving / birth date cannot be in the future.");
       return;
@@ -696,16 +717,19 @@ export default function LivestockDetailPage() {
   const canShowMilkPredictionTab = Boolean(
     activeItem
       && ["cattle", "cow", "baka", "carabao", "buffalo"].some((term) => normalizedLivestockType.includes(term))
+      && activeItem.operationalStatus === "ACTIVE"
       && activeItem.entryType === "INDIVIDUAL"
       && activeItem.quantity === 1
+      && canProduceMilk
       && ["FEMALE", "F"].includes(activeItem.sex.trim().toUpperCase())
   );
 
   useEffect(() => {
-    if (!canShowMilkPredictionTab && activeProfileTab === "milk-prediction") {
+    if ((!canShowMilkPredictionTab && activeProfileTab === "milk-prediction")
+      || (!canProduceMilk && activeProfileTab === "production")) {
       setActiveProfileTab("growth");
     }
-  }, [activeProfileTab, canShowMilkPredictionTab]);
+  }, [activeProfileTab, canShowMilkPredictionTab, canProduceMilk]);
 
   // Calving stats
   const totalCalves = animalCalvingRecords.length;
@@ -727,11 +751,13 @@ export default function LivestockDetailPage() {
         label: "Growth & Weight Logs",
         icon: <TrendingUp className="size-3.5 text-emerald-600" />,
       },
-      {
-        id: "production",
-        label: "Production",
-        icon: <Milk className="size-3.5 text-sky-600" />,
-      },
+      ...(canProduceMilk
+        ? [{
+            id: "production",
+            label: "Production",
+            icon: <Milk className="size-3.5 text-sky-600" />,
+          }]
+        : []),
       ...(canShowMilkPredictionTab
         ? [
             {
@@ -763,7 +789,7 @@ export default function LivestockDetailPage() {
         icon: <Layers className="size-3.5 text-slate-600" />,
       },
     ],
-    [canShowMilkPredictionTab, terms.eventName, totalCalves]
+    [canProduceMilk, canShowMilkPredictionTab, terms.eventName, totalCalves]
   );
 
   // Loading state
@@ -845,8 +871,15 @@ export default function LivestockDetailPage() {
         maxWidthClass="w-full"
       />
 
-      <div className="w-full max-w-none space-y-6 p-4 md:p-6 xl:p-8 pb-36 lg:pb-8">
-        {canCorrectIndividual && (
+      {isDeceased && (
+        <div className="mx-4 mt-4 flex items-start gap-3 rounded-2xl border border-stone-300 bg-stone-100 px-4 py-3 text-slate-700 md:mx-6 xl:mx-8" role="status">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-stone-600" />
+          <p className="text-sm font-semibold">Deceased record — read-only. Production, weight, calving, and correction actions are disabled; existing history remains available.</p>
+        </div>
+      )}
+
+      <div className={`w-full max-w-none space-y-6 p-4 md:p-6 xl:p-8 pb-36 lg:pb-8 ${isDeceased ? "grayscale-[0.75]" : ""}`}>
+        {canCorrectIndividual && !isDeceased && (
           <section className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-rose-950 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-5" aria-labelledby="livestock-revision-title">
             <div className="flex min-w-0 items-start gap-3">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700">
@@ -875,6 +908,7 @@ export default function LivestockDetailPage() {
         )}
 
         {/* ── INTERACTIVE LIVESTOCK SILHOUETTE INFOGRAPHIC HERO ── */}
+        <div className={isDeceased ? "pointer-events-none grayscale opacity-75" : undefined} aria-disabled={isDeceased}>
         <LivestockInfographicHero
           activeItem={activeItem}
           latestWeight={latestWeight}
@@ -885,6 +919,7 @@ export default function LivestockDetailPage() {
           totalCalves={totalCalves}
           activeDiseaseCount={animalDiseaseCases.length}
           terms={terms}
+          canShowProduction={canProduceMilk}
           onOpenPassport={() => setIsPassportDialogOpen(true)}
           onOpenWeigh={() => {
             setNewWeight(String(latestWeight || "70.0"));
@@ -941,6 +976,7 @@ export default function LivestockDetailPage() {
             />
           }
         />
+        </div>
 
         {activeItem.status === "APPROVED" && activeItem.reviewRemarks && (
           <Card className="rounded-2xl border-emerald-200 bg-emerald-50/70 shadow-xs overflow-hidden">
@@ -994,13 +1030,15 @@ export default function LivestockDetailPage() {
                   <span>Growth &amp; Weight Logs</span>
                 </TabsTrigger>
 
-                <TabsTrigger
-                  value="production"
-                  className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
-                >
-                  <Milk className="size-3.5 shrink-0 text-sky-600" />
-                  <span>Production</span>
-                </TabsTrigger>
+                {canProduceMilk && (
+                  <TabsTrigger
+                    value="production"
+                    className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  >
+                    <Milk className="size-3.5 shrink-0 text-sky-600" />
+                    <span>Production</span>
+                  </TabsTrigger>
+                )}
 
                 {canShowMilkPredictionTab && (
                   <TabsTrigger
@@ -1064,6 +1102,8 @@ export default function LivestockDetailPage() {
                     </CardDescription>
                   </div>
                   <Button
+                    disabled={isDeceased}
+                    title={isDeceased ? "Deceased animals are read-only" : "Log weight"}
                     onClick={() => {
                       setNewWeight(String(latestWeight || "70.0"));
                       setIsWeighDialogOpen(true);
@@ -1198,6 +1238,7 @@ export default function LivestockDetailPage() {
           </TabsContent>
 
           {/* ── TAB 2: PRODUCTION & YIELD ─────────────────────────────────── */}
+          {canProduceMilk && (
           <TabsContent value="production" className="space-y-6">
             <Card className="rounded-3xl border-slate-200 shadow-sm bg-white p-6 space-y-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -1211,6 +1252,8 @@ export default function LivestockDetailPage() {
                 </div>
 
                 <Button
+                  disabled={isDeceased}
+                  title={isDeceased ? "Deceased animals are read-only" : "Record production"}
                   onClick={openProductionDialog}
                   size="sm"
                   className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm"
@@ -1249,7 +1292,9 @@ export default function LivestockDetailPage() {
                   <Milk className="size-8 text-slate-400 mx-auto" />
                   <h4 className="font-bold text-sm text-slate-800">No production logs recorded yet</h4>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    Log daily milk volume, egg count, or harvest yield for Tag #{activeItem.tagNumber} to track output.
+                    {canProduceMilk
+                      ? `Log milk volume or other applicable production for Tag #${activeItem.tagNumber} to track output.`
+                      : `Log other applicable production for Tag #${activeItem.tagNumber} to track output.`}
                   </p>
                 </div>
               ) : (
@@ -1293,6 +1338,7 @@ export default function LivestockDetailPage() {
               )}
             </Card>
           </TabsContent>
+          )}
 
           {canShowMilkPredictionTab && (
             <TabsContent value="milk-prediction" className="space-y-6">
@@ -1317,6 +1363,8 @@ export default function LivestockDetailPage() {
                 </div>
 
                 <Button
+                  disabled={isDeceased}
+                  title={isDeceased ? "Deceased animals are read-only" : `Record new ${terms.eventName.toLowerCase()}`}
                   onClick={() => setIsCalvingDialogOpen(true)}
                   size="sm"
                   className="rounded-xl bg-pink-700 hover:bg-pink-800 text-white font-bold text-xs gap-1.5 shadow-sm cursor-pointer"
@@ -1610,7 +1658,7 @@ export default function LivestockDetailPage() {
         onSubmit={(payload) => correctionMutation.mutate(payload)}
       />
 
-      <Dialog open={isWeighDialogOpen} onOpenChange={setIsWeighDialogOpen}>
+      <Dialog open={isWeighDialogOpen && !isDeceased} onOpenChange={setIsWeighDialogOpen}>
         <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
@@ -1679,7 +1727,7 @@ export default function LivestockDetailPage() {
 
       {/* ── MODAL: LOG PRODUCTION OUTPUT ──────────────────────────────────── */}
       {/* The profile already supplies the animal and production type, so start at Details. */}
-      <ProductionWizard
+      {canProduceMilk && <ProductionWizard
         profileMode
         productionType={profileProductionType}
         onTypeChange={setProfileProductionType}
@@ -1692,7 +1740,7 @@ export default function LivestockDetailPage() {
         isSubmitting={logProductionMutation.isPending}
         resetSignal={productionWizardResetSignal}
         onSubmit={(payload: ProductionPayload) => logProductionMutation.mutate(payload)}
-        open={isProductionDialogOpen}
+        open={isProductionDialogOpen && !isDeceased && canProduceMilk}
         onClose={() => setIsProductionDialogOpen(false)}
         mode="create"
         editingRecord={null}
@@ -1711,7 +1759,7 @@ export default function LivestockDetailPage() {
           createdAt: record.created_at,
         }))}
         isLoadingProductionRecords={isProductionRecordsLoading}
-      />
+      />}
 
       <ProductionSubmissionSuccessDialog
         open={isProductionSuccessOpen}
@@ -1719,7 +1767,7 @@ export default function LivestockDetailPage() {
         recordId={submittedProductionId}
       />
 
-      <Dialog open={isCalvingDialogOpen} onOpenChange={setIsCalvingDialogOpen}>
+      <Dialog open={isCalvingDialogOpen && !isDeceased} onOpenChange={setIsCalvingDialogOpen}>
         <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">

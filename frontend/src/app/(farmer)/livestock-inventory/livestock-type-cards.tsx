@@ -198,7 +198,7 @@ export default function LivestockTypeCards({
                 {typeSummaries.length} {typeSummaries.length === 1 ? "Category" : "Categories"}
               </span>
             </div>
-            <p className="text-xs font-medium text-slate-500 truncate">
+            <p className="text-xs font-medium leading-snug text-slate-500 sm:truncate">
               Choose a livestock type to view your animals.
             </p>
           </div>

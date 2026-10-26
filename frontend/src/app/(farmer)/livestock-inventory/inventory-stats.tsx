@@ -103,6 +103,9 @@ export default function InventoryStats({
           icon={card.icon}
           description={card.sub}
           variant={card.variant}
+          size="sm"
+          wrapText
+          className={card.label === "Herd Vaccination" ? "col-span-2 md:col-span-1" : undefined}
           layout={layout}
         />
       ))}

@@ -12,6 +12,8 @@ interface SpeciesDrilldownViewProps {
   items: LivestockInventoryItem[];
   batches?: LivestockBatchItem[];
   isLoading: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
   livestockTypes: Record<string, number>;
   onBack: () => void;
   onView: (item: LivestockInventoryItem) => void;
@@ -25,6 +27,8 @@ export function SpeciesDrilldownView({
   items,
   batches,
   isLoading,
+  isError,
+  onRetry,
   livestockTypes,
   onBack,
   onView,
@@ -111,6 +115,8 @@ export function SpeciesDrilldownView({
         <LivestockRecordList
           items={items}
           isLoading={isLoading}
+          isError={isError}
+          onRetry={onRetry}
           livestockTypes={livestockTypes}
           showMetrics={false}
           showSpeciesFilter={false}

@@ -5,6 +5,16 @@ export type EntryType = "INDIVIDUAL" | "BATCH";
 export type StatusType = "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 export type OperationalStatus = "ACTIVE" | "SOLD" | "DECEASED" | "SLAUGHTERED" | "MOVED_OUT";
 
+export interface InventoryReviewHistoryEntry {
+  id: number;
+  reviewer_name: string;
+  reviewer_role: string;
+  status: StatusType;
+  remarks: string;
+  reviewed_at: string;
+  is_backfilled: boolean;
+}
+
 export interface LivestockType {
   id: number;
   name: string;
@@ -31,6 +41,7 @@ export interface LivestockInventoryItem {
   reviewRemarks?: string | null;
   reviewedByName?: string | null;
   reviewedAt?: string | null;
+  reviewHistory: InventoryReviewHistoryEntry[];
   createdAt: string;
   photoUrl?: string | null;
   avatarKey?: string | null;
@@ -62,6 +73,7 @@ export interface InventoryApiItem {
   review_remarks: string | null;
   reviewed_by_name?: string | null;
   reviewed_at?: string | null;
+  review_history?: InventoryReviewHistoryEntry[];
   created_at: string;
   photo?: string | null;
   photo_url?: string | null;
@@ -492,6 +504,7 @@ export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => 
   reviewRemarks: item.review_remarks,
   reviewedByName: item.reviewed_by_name,
   reviewedAt: item.reviewed_at,
+  reviewHistory: item.review_history ?? [],
   createdAt: item.created_at,
   photoUrl: item.photo_url || item.photo || null,
   avatarKey: item.avatar_key || null,
