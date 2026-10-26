@@ -1,5 +1,6 @@
 import json
 from unittest.mock import Mock, patch
+from urllib.error import HTTPError
 
 from django.test import SimpleTestCase, override_settings
 
@@ -40,7 +41,7 @@ class NLPExplanationTests(SimpleTestCase):
         response = Mock()
         response.status = 200
         response.read.return_value = json.dumps({
-            "choices": [{"message": {"content": text}}],
+            "choices": [{"finish_reason": "stop", "message": {"content": text}}],
         }).encode("utf-8")
         response.__enter__ = Mock(return_value=response)
         response.__exit__ = Mock(return_value=False)
@@ -49,7 +50,7 @@ class NLPExplanationTests(SimpleTestCase):
     @patch("analytics.services.nlp_explanation.urlopen")
     def test_generates_explanation_from_aggregate_payload_without_private_context(self, urlopen):
         urlopen.return_value = self.provider_response(
-            "These records summarize approved milk output across the selected period. Missing months remain unreported, not zero."
+            "These records summarize approved milk output across the selected period. Missing months remain unreported."
         )
         original = verified_result()
         result = add_optional_explanation(original)
@@ -67,7 +68,7 @@ class NLPExplanationTests(SimpleTestCase):
 
     @patch("analytics.services.nlp_explanation.urlopen")
     def test_rejects_numeric_or_clinical_claims_and_keeps_direct_answer(self, urlopen):
-        urlopen.return_value = self.provider_response("Milk output increased by 25 liters due to improved care.")
+        urlopen.return_value = self.provider_response("Milk output increased by twenty-five liters due to improved care.")
         result = add_optional_explanation(verified_result())
 
         self.assertEqual(result["answer"], verified_result()["answer"])
@@ -78,6 +79,27 @@ class NLPExplanationTests(SimpleTestCase):
     def test_provider_timeout_does_not_fail_core_answer(self, _urlopen):
         explanation = explain_verified_result(verified_result())
         self.assertEqual(explanation["status"], "unavailable")
+
+    @patch("analytics.services.nlp_explanation.urlopen")
+    def test_provider_rate_limit_returns_safe_fallback(self, urlopen):
+        urlopen.side_effect = HTTPError(
+            "https://api.groq.com/", 429, "rate limited", {}, None,
+        )
+        explanation = explain_verified_result(verified_result())
+        self.assertEqual(explanation["status"], "unavailable")
+        self.assertIn("rate limited", explanation["message"])
+
+    @patch("analytics.services.nlp_explanation.urlopen")
+    def test_malformed_provider_json_returns_safe_fallback(self, urlopen):
+        response = Mock()
+        response.status = 200
+        response.read.return_value = b"{"
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        urlopen.return_value = response
+        explanation = explain_verified_result(verified_result())
+        self.assertEqual(explanation["status"], "unavailable")
+        self.assertIn("factual database answer is still available", explanation["message"])
 
     @override_settings(SMARTLIVESTOCK_LLM_DATA_SHARING_APPROVED=False)
     @patch("analytics.services.nlp_explanation.urlopen")

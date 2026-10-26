@@ -39,6 +39,30 @@ developer-maintained synthetic cases; they are not a blind test or evidence of
 field accuracy. The live answer currently uses deterministic text and returns
 structured visualization rows. It does not use an LLM.
 
+Measured locally on 2026-10-26 with the checked-in evaluation code:
+
+- Live parser regression corpus: 51/51 expected outcomes and parameter checks
+  passed (100% on this small developer-maintained set only).
+- Offline TF-IDF + Logistic Regression: 0.529 outcome accuracy and 0.518 macro-F1
+  on the same 51 cases; it produced 20 false executable predictions. It remains
+  experimental and cannot route production requests.
+- Rules-first shadow pipeline: 51/51 on the regression corpus and zero false
+  executable predictions because deterministic rules still gate execution.
+- Classifier development split: 70 fit / 18 validation / 51 regression cases;
+  the validation-derived threshold accepted only 2 of 18 examples and is not
+  calibrated evidence of generalization.
+- The current live classifier training file has 88 labeled questions with no
+  language metadata (10 population, 10 production trend, 10 production
+  breakdown, 10 disease, 10 mortality, 9 pending review, 11 clarification,
+  10 unsupported, and 8 farmer-count examples). The separate generated
+  multilingual candidate corpus has 1,296 unpromoted examples: 144 per label,
+  split evenly across `en`, `tl`, and `tl_en`. Candidate examples do not train
+  or replace the live rules or model.
+
+These results measure repository fixtures only. They do not establish the
+accuracy of real user questions, completeness of municipal records, or the
+correctness of every production answer outside the ORM tests.
+
 ## Reusable analytics and frontend
 
 The retrieval handlers reuse `population_summary`, `official_inventory`,
@@ -63,6 +87,25 @@ that same component; a second analytics calculation path is unnecessary.
 5. Display the generated paragraph as an explicitly labeled optional
    explanation. No Executive Analytics-specific panel or database migration is
    needed because it shares the Ask component.
+
+The delivered provider adapter was verified with mocked success, malformed
+response, ungrounded numeric/clinical output, timeout, and rate-limit cases.
+No live provider request was made because no credential or approved deployment
+data-sharing configuration was available. The existing database answers stay
+usable without an LLM. Generated explanations are currently English-only; the
+rules-first parser still accepts the supported English, Filipino, and Taglish
+wording independently of this explanation layer.
+
+Verification performed in the local development environment:
+
+- `manage.py test analytics.tests.test_nlp_explanation analytics.tests.test_nlp_query --noinput`: 39 tests passed in the combined run. After adding final numeric-word, incomplete-response, and rate-limit guards, the focused explanation suite passed again: 9 tests.
+- `manage.py check`: no issues.
+- `manage.py makemigrations --check --dry-run`: no model changes detected.
+- Frontend ESLint for Ask SmartLivestock and the NLP example review page: passed.
+- `tsc --noEmit`: passed after fixing a union-typed filter label in the NLP
+  review page.
+- No live API request was issued. Local settings showed the provider disabled,
+  data-sharing approval false, and no API key configured.
 
 Groq was selected for the initial adapter because its official docs describe an
 OpenAI-compatible chat-completions API, production models, and inference data
