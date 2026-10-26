@@ -728,7 +728,7 @@ export function HeaderNotifications({
         align="end"
         sideOffset={8}
         collisionPadding={12}
-        className="w-[360px] max-w-[calc(100vw-24px)] p-3 rounded-2xl border border-slate-200/90 shadow-2xl bg-white overflow-hidden text-slate-800 z-50 animate-in fade-in-50 zoom-in-95"
+        className="w-[480px] max-w-[calc(100vw-24px)] max-h-[calc(100vh-32px)] flex flex-col p-3 rounded-2xl border border-slate-200/90 shadow-2xl bg-white overflow-hidden text-slate-800 z-50 animate-in fade-in-50 zoom-in-95"
       >
         {/* Top Header */}
         <div className="flex items-start justify-between gap-2.5 sm:gap-3">
@@ -809,7 +809,7 @@ export function HeaderNotifications({
         </div>
 
         {/* Notifications Scrollable List */}
-        <div className="space-y-1 max-h-[360px] overflow-y-auto pr-1">
+        <div className="space-y-1 max-h-[540px] sm:max-h-[580px] overflow-y-auto pr-1">
           {isLoading ? (
             <div className="py-16 px-4 text-center flex flex-col items-center justify-center space-y-3">
               <div className="w-8 h-8 border-3 border-[#1E4D2B] border-t-transparent rounded-full animate-spin" />
