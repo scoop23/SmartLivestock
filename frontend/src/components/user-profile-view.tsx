@@ -58,7 +58,7 @@ export function UserProfileView() {
   const normalizedRole = user?.role?.toUpperCase();
   const isFarmer = normalizedRole === "FARMER";
   const isFieldReviewer = normalizedRole === "SIBAT" || normalizedRole === "CBAT";
-  const { fontScale, setFontScale } = useAccessibilitySettings();
+  const { fontScale, setFontScale, fontTheme, setFontTheme } = useAccessibilitySettings();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "overview";
 
@@ -1206,6 +1206,84 @@ export function UserProfileView() {
                   </div>
                   <p className="text-sm text-slate-600" aria-live="polite">
                     Current text size: {fontScale === "extra-large" ? "Extra large" : fontScale === "standard" ? "Standard" : "Comfortable"}.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Typography Theme Toggle */}
+              <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+                <CardContent className="p-5 sm:p-7 space-y-5">
+                  <div className="flex flex-col gap-2 pb-4 border-b border-slate-100 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-black text-slate-900">
+                        Typography Style (Font Theme)
+                      </h3>
+                      <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                        Switch between the Nexus Modern font (Plus Jakarta Sans & Space Grotesk) and the classic system font (Inter).
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="nexus-font-toggle" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                        {fontTheme === "nexus" ? "Nexus Active" : "Classic Active"}
+                      </Label>
+                      <Switch
+                        id="nexus-font-toggle"
+                        checked={fontTheme === "nexus"}
+                        onCheckedChange={(checked) => setFontTheme(checked ? "nexus" : "inter")}
+                      />
+                    </div>
+                  </div>
+
+                  <div role="group" aria-label="Font Theme" className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      {
+                        value: "nexus" as const,
+                        title: "Nexus Modern",
+                        subtitle: "Plus Jakarta Sans + Space Grotesk + JetBrains Mono",
+                        preview: "BIO-NODE PG-200 // Dairy & Livestock Telemetry Nexus",
+                        recommended: true,
+                      },
+                      {
+                        value: "inter" as const,
+                        title: "Classic Inter",
+                        subtitle: "Inter + System Sans-Serif & Monospace",
+                        preview: "Padre Garcia Municipal Agriculture Information System",
+                        recommended: false,
+                      },
+                    ].map((option) => {
+                      const selected = fontTheme === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => setFontTheme(option.value)}
+                          className={`min-h-24 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 cursor-pointer ${
+                            selected
+                              ? "border-emerald-700 bg-emerald-50 ring-2 ring-emerald-700/20"
+                              : "border-slate-200 bg-white hover:border-emerald-400 hover:bg-slate-50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm sm:text-base font-bold text-slate-900">{option.title}</span>
+                            {option.recommended && (
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-900">
+                                Active / Recommended
+                              </span>
+                            )}
+                          </div>
+                          <span className="mt-1 block text-xs text-slate-500 font-medium">
+                            {option.subtitle}
+                          </span>
+                          <span className={`mt-2 block text-xs p-2 rounded-lg border bg-white/70 text-slate-700 ${option.value === "nexus" ? "font-mono" : "font-sans"}`}>
+                            {option.preview}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-sm text-slate-600" aria-live="polite">
+                    Current active font: <strong className="text-slate-800">{fontTheme === "nexus" ? "Nexus Modern (Plus Jakarta Sans, Space Grotesk & JetBrains Mono)" : "Classic (Inter)"}</strong>.
                   </p>
                 </CardContent>
               </Card>

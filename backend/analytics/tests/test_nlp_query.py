@@ -2,10 +2,11 @@ import json
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 from django.contrib.auth.models import Group
 from django.urls import reverse
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 from rest_framework.exceptions import PermissionDenied
 
@@ -381,6 +382,30 @@ class AskSmartLivestockQueryTests(TestCase):
         response = self.client.post(url, {"question": "How many cattle are currently registered?"}, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["intent"], "population_summary")
+        self.assertNotIn("ai_explanation", response.data)
+
+    @override_settings(
+        SMARTLIVESTOCK_LLM_ENABLED=True,
+        SMARTLIVESTOCK_LLM_DATA_SHARING_APPROVED=True,
+        SMARTLIVESTOCK_LLM_PROVIDER="groq",
+        SMARTLIVESTOCK_LLM_MODEL="openai/gpt-oss-20b",
+        SMARTLIVESTOCK_LLM_API_KEY="test-key",
+        SMARTLIVESTOCK_LLM_TIMEOUT_SECONDS=8,
+    )
+    @patch("analytics.services.nlp_explanation._request_groq")
+    def test_api_opt_in_adds_explanation_without_changing_factual_result(self, provider):
+        provider.return_value = "These records summarize approved milk output over the selected period."
+        self.client.force_authenticate(self.mao)
+        response = self.client.post(reverse("nlp-query"), {
+            "question": "Show monthly milk production for the last six months.",
+            "explain": True,
+        }, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "answered")
+        self.assertEqual(response.data["answer"], "Approved production quantities grouped by recorded month and livestock type.")
+        self.assertEqual(response.data["ai_explanation"]["status"], "generated")
+        self.assertEqual(provider.call_count, 1)
 
     def test_question_length_is_validated_by_api(self):
         self.client.force_authenticate(self.mao)
