@@ -43,7 +43,7 @@ export default function AuctionLayout({
         onLogout={logout}
       />
 
-      <main className={cn("flex-1 min-w-0", isMapPage ? "h-full max-h-full overflow-hidden" : "overflow-y-auto")}>
+      <main className={cn("flex-1 min-w-0", isMapPage ? "h-full max-h-full overflow-hidden" : "overflow-y-auto nexus-ambient-bg")}>
         {children}
       </main>
 

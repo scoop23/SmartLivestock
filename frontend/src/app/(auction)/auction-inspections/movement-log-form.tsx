@@ -433,7 +433,7 @@ export function NewInspectionForm({
 
   if (draftStatus === "prompt") {
     return (
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:py-12">
+      <main className="w-full px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         <section className="rounded-3xl border border-violet-200 bg-white p-6 shadow-sm sm:p-8">
           <p className="text-xs font-black uppercase tracking-wider text-violet-700">Unfinished movement log found</p>
           <h1 className="mt-2 text-2xl font-black text-slate-950">Your previous draft was saved locally.</h1>
@@ -448,7 +448,7 @@ export function NewInspectionForm({
   }
 
   return (
-    <main className="mx-auto w-full max-w-screen-2xl px-4 py-6 pb-10 sm:px-6 lg:px-8 lg:py-8 2xl:px-12">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       <div className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Button type="button" variant="ghost" onClick={cancelForm} className="-ml-3 mb-3 min-h-10 gap-2 px-3 text-slate-600">
@@ -482,7 +482,7 @@ export function NewInspectionForm({
           )}
 
           {/* Shipper & Transit details */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <section className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 sm:p-6 shadow-holo-card">
             <h2 className="mb-4 text-sm font-black text-slate-900">1. Shipper and movement information</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1">
@@ -595,7 +595,7 @@ export function NewInspectionForm({
           </section>
 
           {/* Livestock items breakdown */}
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <section className="space-y-4 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 sm:p-6 shadow-holo-card">
             <div className="flex items-center justify-between">
               <div><h2 className="text-sm font-black text-slate-900">2. Livestock ({items.length} line{items.length === 1 ? "" : "s"})</h2><p className="mt-1 text-xs text-slate-500">Each line is either linked to registered livestock or encoded for this movement only.</p></div>
               <Button
@@ -734,7 +734,7 @@ export function NewInspectionForm({
             </div>
           </section>
 
-          <div className="flex flex-col-reverse gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="flex flex-col-reverse gap-3 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs leading-5 text-slate-500">Submitting sends this record to MAO. Auction staff do not approve movement records.</p>
             <div className="flex flex-col-reverse gap-2 sm:flex-row">
             <Button
@@ -767,6 +767,6 @@ export function NewInspectionForm({
         if (!failure) setErrorMsg(null);
         return failure;
       }} />
-    </main>
+    </div>
   );
 }

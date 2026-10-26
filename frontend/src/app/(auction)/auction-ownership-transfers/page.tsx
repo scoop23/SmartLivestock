@@ -230,12 +230,17 @@ export default function AuctionOwnershipTransfersPage() {
 
   return (
     <>
-      <PageHeader title="Record Ownership Transfer" subtitle="Find the seller, select their livestock, then record the completed certificate." variant="auction" />
-      <main className="mx-auto w-full max-w-none space-y-6 p-4 pb-24 sm:p-6 md:pb-6">
+      <PageHeader
+        title="Record Ownership Transfer"
+        subtitle="Find the seller, select their livestock, then record the completed certificate."
+        variant="auction"
+        maxWidthClass="w-full"
+      />
+      <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8 py-6">
         <Button asChild variant="ghost" className="-ml-3 min-h-10 gap-2 px-3 text-slate-600">
           <Link href="/auction"><ArrowLeft className="size-4" />Back to Auction</Link>
         </Button>
-        <Card>
+        <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card">
           <CardHeader>
             <div className="flex items-start gap-3">
               <span className="rounded-lg bg-muted p-2"><ArrowLeftRight className="size-5" /></span>
@@ -317,9 +322,9 @@ export default function AuctionOwnershipTransfersPage() {
           {isLoading ? <Card><CardContent className="pt-6 text-sm text-muted-foreground">Loading records…</CardContent></Card> : null}
           {isError ? <Alert variant="destructive"><AlertDescription>Could not load your ownership-transfer records.</AlertDescription></Alert> : null}
           {!isLoading && !isError && transfers.length === 0 ? <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">No ownership transfers have been entered from this account.</CardContent></Card> : null}
-          <div className="grid gap-3 md:grid-cols-2">{transfers.map((transfer) => <Card key={transfer.id}><CardContent className="space-y-3 pt-5"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{transfer.livestock_type_name} · {transfer.livestock_tag || `#${transfer.livestock}`}</h3><p className="mt-1 text-sm text-muted-foreground">{transfer.previous_owner_name} → {transfer.new_owner_name}</p></div><Badge variant="outline">{transfer.status.replaceAll("_", " ")}</Badge></div><p className="text-sm text-muted-foreground">Certificate: {transfer.transfer_certificate_number} · {transfer.transfer_date}</p>{transfer.purchase_price ? <p className="text-sm text-muted-foreground">Agreed price: ₱{Number(transfer.purchase_price).toLocaleString()}</p> : null}{transfer.can_edit ? <Button type="button" variant="outline" disabled={isLoadingAnimals} onClick={() => void correctReturnedTransfer(transfer)}>Correct and resubmit</Button> : null}</CardContent></Card>)}</div>
+          <div className="grid gap-3 md:grid-cols-2">{transfers.map((transfer) => <Card key={transfer.id} className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card"><CardContent className="space-y-3 pt-5"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{transfer.livestock_type_name} · {transfer.livestock_tag || `#${transfer.livestock}`}</h3><p className="mt-1 text-sm text-muted-foreground">{transfer.previous_owner_name} → {transfer.new_owner_name}</p></div><Badge variant="outline">{transfer.status.replaceAll("_", " ")}</Badge></div><p className="text-sm text-muted-foreground">Certificate: {transfer.transfer_certificate_number} · {transfer.transfer_date}</p>{transfer.purchase_price ? <p className="text-sm text-muted-foreground">Agreed price: ₱{Number(transfer.purchase_price).toLocaleString()}</p> : null}{transfer.can_edit ? <Button type="button" variant="outline" disabled={isLoadingAnimals} onClick={() => void correctReturnedTransfer(transfer)}>Correct and resubmit</Button> : null}</CardContent></Card>)}</div>
         </section>
-      </main>
+      </div>
       <UniversalQrScannerDialog isOpen={isScannerOpen} onOpenChange={setIsScannerOpen} role="auction" onSelectFarmer={(farmerId) => { if (scannerTarget === "seller") void selectFarmerById(farmerId); else void selectBuyerById(farmerId); }} />
     </>
   );

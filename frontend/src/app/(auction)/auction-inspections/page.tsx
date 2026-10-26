@@ -128,7 +128,7 @@ export default function AuctionInspections() {
         maxWidthClass="w-full"
       />
 
-      <div className="p-4 md:p-8 w-full space-y-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Header Actions & Mode Switcher */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -203,7 +203,7 @@ export default function AuctionInspections() {
         </div>
 
         {/* Filter & Search Bar */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-3 space-y-3">
+        <div className="bg-white/95 backdrop-blur-xs rounded-2xl border border-slate-200/90 shadow-holo-card p-4 space-y-3">
           <div className="flex flex-col lg:flex-row gap-3">
             {/* Search Input */}
             <div className="relative flex-1">

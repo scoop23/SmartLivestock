@@ -125,9 +125,14 @@ export default function AuctionGatePage() {
   }
 
   return <>
-    <PageHeader title="Main Gate Livestock Check" subtitle="Scan registered animals to verify identity and count each head once." variant="auction" />
-    <main className="mx-auto w-full max-w-5xl space-y-6 p-4 sm:p-6">
-      <section className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+    <PageHeader
+      title="Main Gate Livestock Check"
+      subtitle="Scan registered animals to verify identity and count each head once."
+      variant="auction"
+      maxWidthClass="w-full"
+    />
+    <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8 py-6">
+      <section className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div><h2 className="flex items-center gap-2 text-lg font-bold"><QrCode className="size-5 text-violet-700" /> Gate scan count</h2><p className="mt-1 text-sm text-slate-600">Scan the animal QR, inspect the animal, and compare the owner and certificate details shown here with the paper certificate.</p></div>
           <div className="rounded-xl bg-violet-50 px-4 py-3 text-center"><p className="text-2xl font-black text-violet-900">{animals.length}</p><p className="text-xs font-bold uppercase text-violet-800">heads recorded</p></div>
@@ -137,7 +142,7 @@ export default function AuctionGatePage() {
         <p className="mt-4 text-xs text-slate-500">Count is for this browser session. The QR identifies the SmartLivestock record; staff still verify the physical animal and paper document.</p>
       </section>
 
-      <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 sm:p-6">
+      <section className="rounded-2xl border border-amber-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><ClipboardCheck className="size-5 text-amber-700" /> Issue and record a gate certificate</h2>
         <p className="mt-1 text-sm text-slate-600">For an animal not yet in SmartLivestock, verify the registered Farmer and animal, issue the paper certificate through the office process, then record its certificate number here. This creates its approved active identity and QR.</p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -155,7 +160,7 @@ export default function AuctionGatePage() {
           <div className="flex items-end"><Button type="submit" disabled={saving || !selectedFarmer} className="min-h-10 w-full bg-amber-700 hover:bg-amber-800">{saving ? "Recording…" : "Record gate certificate and animal"}</Button></div>
         </form>
       </section>
-    </main>
+    </div>
     <MovementLivestockQrDialog open={scannerOpen} onOpenChange={setScannerOpen} onFound={countRegisteredAnimal} actionLabel="Count verified animal" />
   </>;
 }

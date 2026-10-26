@@ -51,7 +51,7 @@ function InspectionsListViewContent({
 
 
   const paginationControl = inspections.length > PAGE_SIZE && (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200/80 shadow-2xs px-4 py-3 text-xs">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-white/95 backdrop-blur-xs rounded-2xl border border-slate-200/90 shadow-holo-card px-4 py-3 text-xs">
       <span className="text-[11px] text-slate-500 font-medium">
         Showing {(page - 1) * PAGE_SIZE + 1}–
         {Math.min(page * PAGE_SIZE, inspections.length)} of {inspections.length} records
@@ -87,7 +87,7 @@ function InspectionsListViewContent({
   if (viewMode === "table") {
     return (
       <div className="space-y-4">
-        <Card className="border-2 border-slate-200/80 bg-white shadow-xs rounded-2xl overflow-hidden">
+        <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader className="bg-slate-50/80">
@@ -227,7 +227,7 @@ function InspectionsListViewContent({
           <Card
             key={record.id}
             onClick={() => onSelectInspection(record)}
-            className="border border-slate-200 hover:border-purple-300 rounded-2xl bg-white shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col justify-between cursor-pointer group"
+            className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card hover:border-purple-300 transition-all duration-200 overflow-hidden flex flex-col justify-between cursor-pointer group"
           >
             <div className="p-5 space-y-4">
               <div className="flex items-start justify-between gap-3">

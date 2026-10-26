@@ -66,12 +66,13 @@ export default function AuctionOwnershipTransferRegistryPage() {
       title="Ownership Transfer Records"
       subtitle="Review the transfer certificates entered by your Auction account and their MAO review status."
       variant="auction"
+      maxWidthClass="w-full"
       action={<Button asChild variant="secondary"><Link href="/auction-ownership-transfers">Record a transfer</Link></Button>}
     />
-    <main className="mx-auto w-full max-w-none space-y-5 p-4 pb-24 sm:p-6 md:pb-6">
+    <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8 py-6">
       <OwnershipTransferKpis records={data} isLoading={isLoading} />
 
-      <Card><CardContent className="flex flex-col gap-3 pt-5 sm:flex-row">
+      <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card"><CardContent className="flex flex-col gap-3 pt-5 sm:flex-row">
         <div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search seller, buyer, tag, or certificate number" className="pl-9" /></div>
         <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as (typeof statusOptions)[number])}>
           <SelectTrigger className="sm:w-56"><SelectValue placeholder="Filter by status" /></SelectTrigger>
@@ -80,10 +81,10 @@ export default function AuctionOwnershipTransferRegistryPage() {
       </CardContent></Card>
 
       {isError ? <Alert variant="destructive"><AlertDescription>Could not load your transfer records. Refresh or contact an administrator if access is unexpected.</AlertDescription></Alert> : null}
-      {isLoading ? <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Loading transfer records…</CardContent></Card> : null}
-      {!isLoading && !isError && filtered.length === 0 ? <Card><CardContent className="flex flex-col items-center gap-2 py-12 text-center"><Archive className="size-8 text-muted-foreground" /><p className="font-medium">No transfer records found</p><p className="text-sm text-muted-foreground">Try changing the search or status filter.</p></CardContent></Card> : null}
+      {isLoading ? <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card"><CardContent className="py-10 text-center text-sm text-muted-foreground">Loading transfer records…</CardContent></Card> : null}
+      {!isLoading && !isError && filtered.length === 0 ? <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card"><CardContent className="flex flex-col items-center gap-2 py-12 text-center"><Archive className="size-8 text-muted-foreground" /><p className="font-medium">No transfer records found</p><p className="text-sm text-muted-foreground">Try changing the search or status filter.</p></CardContent></Card> : null}
 
-      {!isLoading && !isError && filtered.length > 0 ? <Card><CardContent className="overflow-x-auto pt-5">
+      {!isLoading && !isError && filtered.length > 0 ? <Card className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card overflow-hidden"><CardContent className="overflow-x-auto pt-5">
         <Table>
           <TableHeader><TableRow><TableHead>Animal</TableHead><TableHead>Seller → Buyer</TableHead><TableHead>Certificates</TableHead><TableHead>Date / location</TableHead><TableHead>Price</TableHead><TableHead>Transfer status</TableHead><TableHead>Animal state</TableHead></TableRow></TableHeader>
           <TableBody>{filtered.map((transfer) => <TableRow key={transfer.id}>
@@ -98,6 +99,6 @@ export default function AuctionOwnershipTransferRegistryPage() {
         </Table>
         <p className="mt-3 text-xs text-muted-foreground">Showing {filtered.length} of {data.length} records. MAO approval marks the seller’s original livestock row as SOLD.</p>
       </CardContent></Card> : null}
-    </main>
+    </div>
   </>;
 }

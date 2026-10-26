@@ -15,27 +15,28 @@ TableRow,
 } from "@/components/ui/table";
 import { useQuery,useQueryClient } from "@tanstack/react-query";
 import {
-ArrowRight,
-CheckCircle2,
-ChevronRight,
-ClipboardCheck,
-Clock,
-Loader2,
-Map,
-MapPin,
-Megaphone,
-Plus,
-QrCode,
-RotateCcw,
-Send,
+  ArrowRight,
+  Building,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardCheck,
+  Clock,
+  Loader2,
+  Map,
+  MapPin,
+  Megaphone,
+  Plus,
+  QrCode,
+  RotateCcw,
+  Send,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 import {
-InspectionRecord,
-fetchInspections,
+  InspectionRecord,
+  fetchInspections,
 } from "../auction-inspections/auction-analytics";
 import { InspectionDetailsDialog } from "../auction-inspections/inspection-details-dialog";
 import { AuctionDescriptiveAnalytics } from "../components/auction-descriptive-analytics";
@@ -45,6 +46,26 @@ export default function AuctionDashboard() {
   const queryClient = useQueryClient();
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
+  const [clockString, setClockString] = useState<string>("");
+
+  useEffect(() => {
+    const formatter = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    const updateTime = () => {
+      setClockString(`${formatter.format(new Date())} PHT`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // React Query loads the role-scoped inspection list; KPI cards below summarize
   // those records and link to the full registry for filtering and review.
@@ -135,8 +156,8 @@ export default function AuctionDashboard() {
       />
 
       {/* Market active status banner */}
-      <div className="bg-purple-700 text-white shadow-xs">
-        <div className="w-full px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
+      <div className="bg-gradient-to-r from-purple-800 to-purple-700 text-white shadow-xs border-b border-purple-900/30">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="p-1.5 rounded-lg bg-white/20 shrink-0">
               <ClipboardCheck className="w-4 h-4 text-white" />
@@ -155,7 +176,7 @@ export default function AuctionDashboard() {
             <Button
               size="sm"
               onClick={() => setIsScannerOpen(true)}
-              className="bg-purple-900/80 hover:bg-purple-900 text-white border border-purple-300/30 text-xs font-bold rounded-xl shadow-xs gap-1.5 cursor-pointer"
+              className="bg-purple-950/70 hover:bg-purple-950 text-white border border-purple-300/30 text-xs font-bold rounded-xl shadow-xs gap-1.5 cursor-pointer"
             >
               <QrCode className="w-3.5 h-3.5" />
               Scan Gate QR Pass
@@ -173,7 +194,31 @@ export default function AuctionDashboard() {
         </div>
       </div>
 
-      <div className="p-4 md:p-8 w-full space-y-6">
+      {/* Upper Micro-Telemetry Banner with Live Realtime Clock */}
+      <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-2 sm:px-6 md:px-8">
+        <div className="w-full flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
+          <div className="flex items-center gap-2 font-semibold text-slate-600">
+            <Building className="size-3.5 text-purple-600" />
+            <span>
+              FACILITY:{" "}
+              <strong className="font-mono text-slate-900 uppercase">
+                PADRE GARCIA LIVESTOCK TRADING CENTER
+              </strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
+              <Clock className="size-3.5 text-slate-400" />
+              <span className="tabular-nums font-bold">
+                {clockString || "Loading Manila time…"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* ═══ Operational KPI Cards ═══ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           <KpiCard
@@ -222,7 +267,7 @@ export default function AuctionDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card
             onClick={() => setIsScannerOpen(true)}
-            className="border-2 border-purple-200 bg-gradient-to-br from-purple-100/70 via-purple-50/40 to-white hover:border-purple-400 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl cursor-pointer group"
+            className="border border-purple-200/90 bg-white/95 backdrop-blur-xs hover:border-purple-400 shadow-holo-card transition-all duration-200 rounded-2xl cursor-pointer group"
           >
             <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3.5">
@@ -242,7 +287,7 @@ export default function AuctionDashboard() {
 
           <Card
             onClick={() => router.push("/auction-inspections/new")}
-            className="border-2 border-purple-100 bg-gradient-to-br from-purple-50/60 via-white to-white hover:border-purple-300 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl cursor-pointer group"
+            className="border border-purple-100/90 bg-white/95 backdrop-blur-xs hover:border-purple-300 shadow-holo-card transition-all duration-200 rounded-2xl cursor-pointer group"
           >
             <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3.5">
@@ -262,7 +307,7 @@ export default function AuctionDashboard() {
 
           <Card
             onClick={() => router.push("/auction-gis")}
-            className="border-2 border-sky-100 bg-gradient-to-br from-sky-50/60 via-white to-white hover:border-sky-300 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl cursor-pointer group"
+            className="border border-sky-100/90 bg-white/95 backdrop-blur-xs hover:border-sky-300 shadow-holo-card transition-all duration-200 rounded-2xl cursor-pointer group"
           >
             <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3.5">
@@ -282,7 +327,7 @@ export default function AuctionDashboard() {
 
           <Card
             onClick={() => router.push("/auction-announcement")}
-            className="border-2 border-emerald-100 bg-gradient-to-br from-emerald-50/60 via-white to-white hover:border-emerald-300 shadow-xs hover:shadow-md transition-all duration-200 rounded-2xl cursor-pointer group"
+            className="border border-emerald-100/90 bg-white/95 backdrop-blur-xs hover:border-emerald-300 shadow-holo-card transition-all duration-200 rounded-2xl cursor-pointer group"
           >
             <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3.5">
@@ -348,7 +393,7 @@ export default function AuctionDashboard() {
           ) : (
             <>
               {/* Desktop Table View */}
-              <Card className="hidden md:block border-2 border-slate-200/80 bg-white shadow-xs rounded-2xl overflow-hidden">
+              <Card className="hidden md:block rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card overflow-hidden">
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader className="bg-slate-50/80">
@@ -461,7 +506,7 @@ export default function AuctionDashboard() {
                     <Card
                       key={record.id}
                       onClick={() => setSelectedInspection(record)}
-                      className="border border-slate-200 bg-white p-4 rounded-2xl shadow-xs cursor-pointer hover:border-purple-300 transition-all"
+                      className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-4 shadow-holo-card cursor-pointer hover:border-purple-300 transition-all"
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div>
