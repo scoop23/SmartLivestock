@@ -46,11 +46,20 @@ export default function SibatLayout({
       />
 
       <main className={cn("flex-1 min-w-0 flex flex-col", isMapPage ? "h-full max-h-full overflow-hidden" : "overflow-y-auto")}>
-        <div className="border-b border-emerald-100 bg-emerald-50 px-3 py-3 text-sm leading-relaxed text-emerald-950 sm:px-4 sm:py-2.5 sm:text-base shrink-0">
-          {role === "CBAT" ? "CBAT area" : "Access"}: <strong>{user.accessScope === "ALL_BARANGAYS" ? "All Barangays" : user.assignedBarangayName || "Unassigned — contact MAO/Admin"}</strong>
-          {user.accessScope === "ALL_BARANGAYS" && user.assignedBarangayName && <span> · Primary barangay: {user.assignedBarangayName}</span>}
+        <div className="border-b border-emerald-900/10 bg-emerald-50/80 backdrop-blur-xs px-4 py-2.5 text-xs sm:text-sm leading-relaxed text-emerald-950 shrink-0 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 border border-emerald-200/80">
+              {role === "CBAT" ? "CBAT Field Node" : "SIBAT Node"}
+            </span>
+            <span className="text-slate-600 font-medium">
+              Sector: <strong className="text-emerald-950 font-bold">{user.accessScope === "ALL_BARANGAYS" ? "All Barangays (Full Municipal Access)" : user.assignedBarangayName || "Unassigned — contact MAO/Admin"}</strong>
+            </span>
+            {user.accessScope === "ALL_BARANGAYS" && user.assignedBarangayName && (
+              <span className="text-slate-400 text-xs">· Primary: {user.assignedBarangayName}</span>
+            )}
+          </div>
         </div>
-        <div className={cn("flex-1 min-h-0", isMapPage ? "h-full overflow-hidden" : "")}>
+        <div className={cn("flex-1 min-h-0", isMapPage ? "h-full overflow-hidden" : "nexus-ambient-bg")}>
           {children}
         </div>
       </main>

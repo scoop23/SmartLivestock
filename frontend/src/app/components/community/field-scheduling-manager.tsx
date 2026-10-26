@@ -350,7 +350,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         subtitle="Create and publish programs, manage registrations, and record farmer attendance."
         icon={<CalendarDays className="size-5 text-slate-800" />}
         variant={role}
-        maxWidthClass="w-full"
+        maxWidthClass={role === "sibat" ? "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" : "w-full"}
         action={
           <div className="flex items-center gap-2">
             <Button
@@ -376,7 +376,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         }
       />
 
-      <main className="w-full space-y-4 p-3 sm:p-4 md:p-5">
+      <div className={role === "sibat" ? "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6" : "w-full space-y-4 p-3 sm:p-4 md:p-5"}>
         {error ? (
           <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-red-800">
             {error}
@@ -580,7 +580,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         )}
         </div>
         </div>
-      </main>
+      </div>
 
       {/* Create / Edit Program Dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>

@@ -255,7 +255,7 @@ function SibatAlertsContent() {
   }, [highlightedRecordId, notificationKey, filtered]);
 
   return (
-    <div className="min-h-screen bg-slate-50/70 pb-16">
+    <div className="min-h-screen pb-16">
       {/* ── PageHeader ── */}
       <PageHeader
         title="Health Reports"
@@ -270,10 +270,10 @@ function SibatAlertsContent() {
         hideIconOnMobile
         showTutorialToggle={false}
         mobileActionsInline
-        maxWidthClass="w-full"
+        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
       />
 
-      <div className="w-full max-w-none space-y-4 px-2 py-3 sm:px-4 md:space-y-5 md:py-5">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* ── Scope Strip ── */}
         <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-xs font-semibold text-sky-950 sm:px-4">
           <MapPin className="size-4.5 text-sky-700 shrink-0" />

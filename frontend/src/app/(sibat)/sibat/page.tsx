@@ -14,18 +14,19 @@ import { useAuth } from "@/contexts/auth-context";
 import { getSchedules,type ProgramSchedule } from "@/lib/community-api";
 import { useQuery,useQueryClient } from "@tanstack/react-query";
 import {
-Activity,
-ArrowRight,
-CalendarDays,
-ChevronRight,
-ClipboardList,
-Clock3,
-FileSpreadsheet,
-Info,
-MapPin,
-Megaphone,
-QrCode,
-Search
+  Activity,
+  ArrowRight,
+  CalendarDays,
+  ChevronRight,
+  ClipboardList,
+  Clock,
+  Clock3,
+  FileSpreadsheet,
+  Info,
+  MapPin,
+  Megaphone,
+  QrCode,
+  Search
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -46,7 +47,6 @@ import CensusDetailsDialog from "./census-details-dialog";
 import { ReviewWorkloadPanel } from "@/app/(admin)/admin/review-workload-panel";
 
 import { SibatFarmerFinderDialog } from "./components/sibat-farmer-finder-dialog";
-import { IdentityReviewQueue } from "@/components/identity-evidence";
 
 
 import {
@@ -171,6 +171,26 @@ function SibatPortalContent() {
   };
 
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [clockString, setClockString] = useState<string>("");
+
+  useEffect(() => {
+    const formatter = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    const updateTime = () => {
+      setClockString(`${formatter.format(new Date())} PHT`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
 
 
@@ -495,10 +515,10 @@ function SibatPortalContent() {
             </div>
           }
           variant="sibat"
-          maxWidthClass="w-full"
+          maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
           showNotifications={true}
         />
-        <div className="mx-auto w-full max-w-[1600px] p-3 sm:p-5 lg:px-8 lg:py-6 2xl:px-10">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
           <ValidationLoadingScreen
             isLoading={isInitialQueueLoading}
             title="Loading SIBAT Field Inspection Center"
@@ -554,11 +574,35 @@ function SibatPortalContent() {
           </div>
         }
         variant="sibat"
-        maxWidthClass="w-full"
+        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
         showNotifications={true}
       />
 
-      <div className="mx-auto w-full max-w-[1600px] space-y-4 sm:space-y-6 px-3.5 py-4 sm:p-6 lg:px-8 lg:py-7 2xl:px-10">
+      {/* Upper Micro-Telemetry Banner with Live Realtime Clock (No Transmit Telemetry Button) */}
+      <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-2 sm:px-6 md:px-8">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
+          <div className="flex items-center gap-2 font-semibold text-slate-600">
+            <MapPin className="size-3.5 text-emerald-600" />
+            <span>
+              SECTOR:{" "}
+              <strong className="font-mono text-slate-900 uppercase">
+                {user?.accessScope === "ALL_BARANGAYS" ? "ALL BARANGAYS (MUNICIPAL)" : user?.assignedBarangayName || "PADRE GARCIA"}
+              </strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
+              <Clock className="size-3.5 text-slate-400" />
+              <span className="tabular-nums font-bold">
+                {clockString || "Loading Manila time…"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto w-full max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8 py-6">
         {!isLoadingAccount && (user?.role === "SIBAT" || user?.role === "CBAT") && user.accessScope !== "ALL_BARANGAYS" && !user.assignedBarangayId && (
           <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 sm:p-4 text-amber-950 text-xs sm:text-sm">
             <p className="font-semibold">Barangay assignment required</p>
@@ -598,7 +642,7 @@ function SibatPortalContent() {
             <button
               type="button"
               onClick={handleReviewRecords}
-              className="group relative col-span-2 overflow-hidden rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/90 via-emerald-50/40 to-white p-5 sm:p-6 text-left shadow-2xs hover:shadow-md hover:border-emerald-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              className="group relative col-span-2 overflow-hidden rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/90 via-emerald-50/40 to-white p-5 sm:p-6 text-left shadow-holo-card hover:shadow-holo-glow-emerald hover:border-emerald-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
             >
               {/* Subtle decorative background watermark */}
               <div className="pointer-events-none absolute -right-4 -bottom-6 size-36 opacity-[0.06] text-emerald-950">
@@ -612,7 +656,7 @@ function SibatPortalContent() {
                       <ClipboardList className="size-6 text-white" />
                     </div>
                     <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/70 border border-emerald-200/60 px-2 py-0.5 rounded-md inline-block mb-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/70 border border-emerald-200/60 px-2 py-0.5 rounded-md inline-block mb-1 font-mono">
                         Queue Active
                       </span>
                       <h2 className="text-sm sm:text-base font-bold text-slate-700 leading-tight">
@@ -621,7 +665,7 @@ function SibatPortalContent() {
                     </div>
                   </div>
 
-                  <span className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 leading-none">
+                  <span className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 leading-none font-mono">
                     {waitingForReviewCount}
                   </span>
                 </div>
@@ -631,7 +675,7 @@ function SibatPortalContent() {
                     Review Records
                     <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
                   </span>
-                  <span className="text-[11px] font-semibold text-slate-400">
+                  <span className="text-[11px] font-semibold text-slate-400 font-mono">
                     Click to open queue
                   </span>
                 </div>
@@ -642,14 +686,14 @@ function SibatPortalContent() {
             <button
               type="button"
               onClick={() => router.push("/sibat-alerts")}
-              className="group relative overflow-hidden rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50/80 via-amber-50/30 to-white p-4 sm:p-5 text-left shadow-2xs hover:shadow-md hover:border-amber-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+              className="group relative overflow-hidden rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50/80 via-amber-50/30 to-white p-4 sm:p-5 text-left shadow-holo-card hover:shadow-holo-glow-rose hover:border-amber-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
             >
               <div className="flex flex-col justify-between h-full gap-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="size-10 sm:size-11 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform duration-200 shrink-0">
                     <Activity className="size-5" />
                   </div>
-                  <span className="text-2xl sm:text-3xl font-black text-slate-900 leading-none">
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900 leading-none font-mono">
                     {pendingDiseaseCases.length}
                   </span>
                 </div>
@@ -670,14 +714,14 @@ function SibatPortalContent() {
             <button
               type="button"
               onClick={() => router.push("/sibat-scheduling")}
-              className="group relative overflow-hidden rounded-2xl border border-sky-200/90 bg-gradient-to-br from-sky-50/80 via-sky-50/30 to-white p-4 sm:p-5 text-left shadow-2xs hover:shadow-md hover:border-sky-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+              className="group relative overflow-hidden rounded-2xl border border-sky-200/90 bg-gradient-to-br from-sky-50/80 via-sky-50/30 to-white p-4 sm:p-5 text-left shadow-holo-card hover:shadow-md hover:border-sky-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
             >
               <div className="flex flex-col justify-between h-full gap-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="size-10 sm:size-11 rounded-xl bg-gradient-to-br from-sky-600 to-blue-700 text-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform duration-200 shrink-0">
                     <CalendarDays className="size-5" />
                   </div>
-                  <span className="text-2xl sm:text-3xl font-black text-slate-900 leading-none">
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900 leading-none font-mono">
                     {upcomingSchedulesCount}
                   </span>
                 </div>
@@ -694,8 +738,6 @@ function SibatPortalContent() {
               </div>
             </button>
           </div>
-
-          <IdentityReviewQueue />
 
           {/* Needs Attention Card */}
           <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xs" aria-labelledby="needs-attention-title">
@@ -780,8 +822,8 @@ function SibatPortalContent() {
 
         </section>
 
-        <aside className="min-w-0 space-y-4" aria-label="CBAT quick access">
-          <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4" aria-labelledby="next-activity-title">
+        <aside className="min-w-0 space-y-5" aria-label="CBAT quick access">
+          <section className="space-y-4 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card" aria-labelledby="next-activity-title">
             <div>
               <h2 id="next-activity-title" className="font-bold text-slate-900">Next Activity</h2>
               <p className="mt-1 text-sm text-slate-600">Your next animal health schedule.</p>
@@ -789,7 +831,7 @@ function SibatPortalContent() {
             {upcomingSchedule ? (
               <div className="flex items-center gap-3">
                 <div className="grid size-12 shrink-0 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-center">
-                  <span><strong className="block text-lg leading-5 text-emerald-950">{new Date(`${upcomingSchedule.date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}</strong><span className="text-[10px] font-bold uppercase text-emerald-700">{new Date(`${upcomingSchedule.date}T12:00:00`).toLocaleDateString("en-US", { month: "short" })}</span></span>
+                  <span><strong className="block text-lg leading-5 text-emerald-950 font-mono">{new Date(`${upcomingSchedule.date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}</strong><span className="text-[10px] font-bold uppercase text-emerald-700">{new Date(`${upcomingSchedule.date}T12:00:00`).toLocaleDateString("en-US", { month: "short" })}</span></span>
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-slate-900">{upcomingSchedule.program}</p>
@@ -798,29 +840,31 @@ function SibatPortalContent() {
                 </div>
               </div>
             ) : <p className="py-2 text-sm text-slate-600">No upcoming activity scheduled.</p>}
-            <Button type="button" variant="outline" onClick={() => router.push("/sibat-scheduling")} className="min-h-10 w-full rounded-lg">View Schedule</Button>
+            <Button type="button" variant="outline" onClick={() => router.push("/sibat-scheduling")} className="min-h-10 w-full rounded-xl">View Schedule</Button>
           </section>
 
-          <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4" aria-labelledby="quick-actions-title">
+          <section className="space-y-3 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card" aria-labelledby="quick-actions-title">
             <div><h2 id="quick-actions-title" className="font-bold text-slate-900">Quick Actions</h2><p className="mt-1 text-sm text-slate-600">Start a common task.</p></div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {[
-                { label: "Review Farmer Records", icon: <ClipboardList className="size-4" />, color: "text-emerald-700", action: handleReviewRecords },
-                { label: "Create Schedule", icon: <CalendarDays className="size-4" />, color: "text-sky-700", action: () => router.push("/sibat-scheduling") },
-                { label: "Post Announcement", icon: <Megaphone className="size-4" />, color: "text-amber-700", action: () => router.push("/sibat-announcement") },
-                { label: "Scan Livestock QR", icon: <QrCode className="size-4" />, color: "text-teal-700", action: () => setIsScannerOpen(true) },
-                { label: "Record Census", icon: <FileSpreadsheet className="size-4" />, color: "text-indigo-700", action: handleOpenNewCensus },
+                { label: "Review Farmer Records", icon: <ClipboardList className="size-4" />, color: "text-emerald-700 bg-emerald-50", action: handleReviewRecords },
+                { label: "Create Schedule", icon: <CalendarDays className="size-4" />, color: "text-sky-700 bg-sky-50", action: () => router.push("/sibat-scheduling") },
+                { label: "Post Announcement", icon: <Megaphone className="size-4" />, color: "text-amber-700 bg-amber-50", action: () => router.push("/sibat-announcement") },
+                { label: "Scan Livestock QR", icon: <QrCode className="size-4" />, color: "text-teal-700 bg-teal-50", action: () => setIsScannerOpen(true) },
+                { label: "Record Census", icon: <FileSpreadsheet className="size-4" />, color: "text-indigo-700 bg-indigo-50", action: handleOpenNewCensus },
               ].map((item) => (
-                <button key={item.label} type="button" onClick={item.action} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
-                  <span className={item.color}>{item.icon}</span>{item.label}<span className="ml-auto text-slate-400">→</span>
+                <button key={item.label} type="button" onClick={item.action} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-950 transition-all border border-transparent hover:border-slate-200/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+                  <span className={`p-1.5 rounded-lg shrink-0 ${item.color}`}>{item.icon}</span>
+                  <span className="truncate">{item.label}</span>
+                  <span className="ml-auto text-slate-400">→</span>
                 </button>
               ))}
             </div>
           </section>
 
-          <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4" aria-labelledby="recent-updates-title">
+          <section className="space-y-3 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card" aria-labelledby="recent-updates-title">
             <div className="flex items-center justify-between gap-2"><div><h2 id="recent-updates-title" className="font-bold text-slate-900">Recent Updates</h2><p className="mt-1 text-sm text-slate-600">Latest activity in your assigned area.</p></div><Button type="button" variant="ghost" size="sm" onClick={() => router.push("/sibat-alerts")} className="shrink-0">View All</Button></div>
-            {recentUpdates.length ? <div className="space-y-3">{recentUpdates.map((item) => <div key={item.id} className="flex gap-2.5 text-sm"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-emerald-600" /><div className="min-w-0"><p className="line-clamp-2 font-medium text-slate-800">{item.title}</p><p className="mt-0.5 text-xs text-slate-500">{item.time}</p></div></div>)}</div> : <p className="text-sm text-slate-600">No recent updates.</p>}
+            {recentUpdates.length ? <div className="space-y-3">{recentUpdates.map((item) => <div key={item.id} className="flex gap-2.5 text-sm"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-emerald-600" /><div className="min-w-0"><p className="line-clamp-2 font-medium text-slate-800">{item.title}</p><p className="mt-0.5 text-xs text-slate-500 font-mono">{item.time}</p></div></div>)}</div> : <p className="text-sm text-slate-600">No recent updates.</p>}
           </section>
         </aside>
         </div>

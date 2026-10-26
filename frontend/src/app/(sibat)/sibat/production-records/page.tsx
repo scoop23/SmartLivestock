@@ -101,7 +101,7 @@ function ProductionRecordReviewContent() {
           </>
         }
         variant="farmer"
-        maxWidthClass="w-full"
+        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
         icon={<Milk className="size-5 text-white" />}
         hideIconOnMobile
         showTutorialToggle={false}
@@ -120,7 +120,7 @@ function ProductionRecordReviewContent() {
         }
       />
 
-      <main className="mx-auto w-full min-w-0 space-y-4 px-3.5 py-4 sm:p-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Back Link */}
         <div className="flex justify-start">
           <Link
@@ -180,14 +180,14 @@ function ProductionRecordReviewContent() {
             }}
           />
         ) : null}
-      </main>
+      </div>
     </>
   );
 }
 
 export default function ProductionRecordReviewPage() {
   return (
-    <Suspense fallback={<main className="p-6 text-sm text-slate-600">Loading production records…</main>}>
+    <Suspense fallback={<div className="p-6 text-sm text-slate-600">Loading production records…</div>}>
       <ProductionRecordReviewContent />
     </Suspense>
   );

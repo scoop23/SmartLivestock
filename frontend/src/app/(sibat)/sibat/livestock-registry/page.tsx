@@ -318,13 +318,13 @@ function SibatLivestockRegistryContent() {
             </>
           }
           variant="farmer"
-          maxWidthClass="w-full"
+          maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
           icon={<ClipboardList className="size-5 text-white" />}
           hideIconOnMobile
           showTutorialToggle={false}
           mobileActionsInline
         />
-        <div className="mx-auto w-full p-3.5 sm:p-6 lg:px-8">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
           <ValidationLoadingScreen
             isLoading={isInitialLoading}
             title="Loading Farmer Records Registry"
@@ -376,14 +376,14 @@ function SibatLivestockRegistryContent() {
           </>
         }
         variant="farmer"
-        maxWidthClass="w-full"
+        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
         icon={<ClipboardList className="size-5 text-white" />}
         hideIconOnMobile
         showTutorialToggle={false}
         mobileActionsInline
       />
 
-      <main className="mx-auto w-full min-w-0 space-y-4 px-3.5 py-4 sm:p-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Navigation Breadcrumb / Back Link */}
         <div className="flex items-center justify-between">
           <Link
@@ -831,7 +831,7 @@ function SibatLivestockRegistryContent() {
             )}
           </Card>
         )}
-      </main>
+      </div>
 
       {/* Review Dialog */}
       {selectedSubmission && (

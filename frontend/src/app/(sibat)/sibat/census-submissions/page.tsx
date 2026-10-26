@@ -45,7 +45,7 @@ function CensusSubmissionReviewContent() {
           </>
         }
         variant="farmer"
-        maxWidthClass="w-full"
+        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
         icon={<ClipboardList className="size-5 text-white" />}
         hideIconOnMobile
         showTutorialToggle={false}
@@ -64,7 +64,7 @@ function CensusSubmissionReviewContent() {
         }
       />
 
-      <main className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
           <Link href="/sibat" className="hover:text-slate-900 transition-colors">SmartLivestock</Link>
           <span>/</span>
@@ -121,11 +121,11 @@ function CensusSubmissionReviewContent() {
         }}
         onRevise={(item) => router.push(`/sibat/census/submit?revise=${item.id}`)}
       />
-    </main>
+    </div>
     </>
   );
 }
 
 export default function CensusSubmissionReviewPage() {
-  return <Suspense fallback={<main className="p-6 text-sm text-slate-600">Loading census submissions…</main>}><CensusSubmissionReviewContent /></Suspense>;
+  return <Suspense fallback={<div className="p-6 text-sm text-slate-600">Loading census submissions…</div>}><CensusSubmissionReviewContent /></Suspense>;
 }

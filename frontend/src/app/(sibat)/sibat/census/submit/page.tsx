@@ -35,7 +35,7 @@ function CensusSubmissionPageContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f4f7fb]">
+    <div className="min-h-screen">
       <PageHeader
         title={
           submissionToRevise ? (
@@ -73,9 +73,9 @@ function CensusSubmissionPageContent() {
             <span className="hidden sm:inline">Back</span>
           </button>
         }
-        maxWidthClass="w-full"
+        maxWidthClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
       />
-      <div className="w-full px-3.5 pt-4 sm:px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
         <Button
           variant="outline"
           onClick={returnToCensus}
@@ -85,7 +85,7 @@ function CensusSubmissionPageContent() {
           Back to Records
         </Button>
       </div>
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-8 md:py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <div className="mb-5 flex items-center gap-2 rounded-xl bg-white/80 px-4 py-3 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-slate-200/70">
           <Save className="size-4 shrink-0 text-emerald-700" />
           Your draft saves automatically on this device while you work.
@@ -102,7 +102,7 @@ function CensusSubmissionPageContent() {
         }}
       />
       </div>
-    </main>
+    </div>
   );
 }
 
