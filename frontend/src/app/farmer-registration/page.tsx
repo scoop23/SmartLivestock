@@ -121,9 +121,11 @@ export default function FarmerRegistrationPage() {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Privacy Policy states
+  // Registration agreement states
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [privacyDialogOpen, setPrivacyDialogOpen] = useState(false);
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [termsDialogOpen, setTermsDialogOpen] = useState(false);
 
   // Document uploads
   const [governmentIdType, setGovernmentIdType] = useState('');
@@ -216,6 +218,11 @@ export default function FarmerRegistrationPage() {
       if (Object.keys(errors).length > 0) {
         setFieldErrors(errors);
         setError('Please fix the errors above before proceeding.');
+        return;
+      }
+
+      if (!termsAgreed || !privacyAgreed) {
+        setError('Please read and accept the Terms and Conditions and Privacy Policy before proceeding.');
         return;
       }
     } else if (step === 2) {
@@ -329,8 +336,8 @@ export default function FarmerRegistrationPage() {
       return;
     }
 
-    if (!privacyAgreed) {
-      setError('You must accept the Data Privacy Agreement to proceed with registration.');
+    if (!termsAgreed || !privacyAgreed) {
+      setError('Please read and accept both the Terms and Conditions and Privacy Policy to proceed.');
       return;
     }
 
@@ -461,7 +468,7 @@ export default function FarmerRegistrationPage() {
     {
       num: 3,
       phase: '03',
-      title: 'Step 3: Verification Documents & Agreement',
+      title: 'Step 3: Verification Documents',
       short: 'Documents',
       sub: 'Attach verification IDs and consent under RA 10173',
       icon: Shield,
@@ -743,7 +750,7 @@ export default function FarmerRegistrationPage() {
                       ? 'Step 1: Personal Credentials'
                       : step === 2
                       ? 'Step 2: Farm Location & Size'
-                      : 'Step 3: Verification Documents & Agreement'}
+                      : 'Step 3: Verification Documents'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {step === 1
@@ -1002,6 +1009,60 @@ export default function FarmerRegistrationPage() {
                     {fieldErrors.confirmPassword && (
                       <p className="text-[11px] text-rose-600 font-bold">{fieldErrors.confirmPassword}</p>
                     )}
+
+                    {/* Registration Terms and Privacy Agreement */}
+                    <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/90 border border-emerald-200/90 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-2">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <Shield className="size-4.5 text-[#2D5A27] shrink-0 mt-0.5" />
+                          <h3 className="text-xs font-black uppercase tracking-wider text-[#2D5A27] leading-snug">
+                            Terms and Privacy Agreement
+                          </h3>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 pl-6.5 sm:pl-0">
+                          <button
+                            type="button"
+                            onClick={() => setTermsDialogOpen(true)}
+                            className="inline-flex items-center gap-1 text-[11px] font-black text-[#2D5A27] hover:underline cursor-pointer shrink-0"
+                          >
+                            <span>Read Terms</span>
+                            <ExternalLink className="size-3 shrink-0" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPrivacyDialogOpen(true)}
+                            className="inline-flex items-center gap-1 text-[11px] font-black text-[#2D5A27] hover:underline cursor-pointer shrink-0"
+                          >
+                            <span>Read Privacy Policy</span>
+                            <ExternalLink className="size-3 shrink-0" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                        Review how your account and farm records may be used for Padre Garcia municipal agriculture services, and the rules for accessing SmartLivestock.
+                      </p>
+
+                      <div className="flex items-start gap-3 pt-1 border-t border-emerald-200/60">
+                        <Checkbox
+                          id="registration-agreement"
+                          checked={termsAgreed && privacyAgreed}
+                          onCheckedChange={(checked) => {
+                            const accepted = Boolean(checked);
+                            setTermsAgreed(accepted);
+                            setPrivacyAgreed(accepted);
+                            if (error) setError('');
+                          }}
+                          className="mt-0.5 shrink-0 rounded-lg border-emerald-600 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
+                        />
+                        <Label
+                          htmlFor="registration-agreement"
+                          className="block text-xs font-bold text-slate-800 leading-relaxed cursor-pointer select-none"
+                        >
+                          I have read and agree to the <strong className="text-[#2D5A27]">Terms and Conditions</strong> and acknowledge the <strong className="text-[#2D5A27]">Privacy Policy</strong>. <span className="text-rose-500">*</span>
+                        </Label>
+                      </div>
+                    </div>
 
                     {error && (
                       <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
@@ -1509,48 +1570,6 @@ export default function FarmerRegistrationPage() {
                       )}
                     </div>
 
-                    {/* Data Privacy Act Agreement Card */}
-                    <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/90 border border-emerald-200/90 space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-2">
-                        <div className="flex items-start gap-2 min-w-0">
-                          <Shield className="size-4.5 text-[#2D5A27] shrink-0 mt-0.5" />
-                          <h3 className="text-xs font-black uppercase tracking-wider text-[#2D5A27] leading-snug">
-                            Data Privacy Act of 2012 (RA 10173) Consent
-                          </h3>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setPrivacyDialogOpen(true)}
-                          className="inline-flex items-center gap-1 text-[11px] font-black text-[#2D5A27] hover:underline cursor-pointer shrink-0 pl-6.5 sm:pl-0 self-start"
-                        >
-                          <span>Read Policy</span>
-                          <ExternalLink className="size-3 shrink-0" />
-                        </button>
-                      </div>
-
-                      <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                        By registering, you authorize the <strong>Municipal Agriculture Office (MAO)</strong> of Padre Garcia, Batangas to collect, process, and retain your personal and farm information strictly for official agricultural programs, quarterly livestock censuses, vaccine assistance, and disease surveillance.
-                      </p>
-
-                      <div className="flex items-start gap-3 pt-1 border-t border-emerald-200/60">
-                        <Checkbox
-                          id="privacy-consent"
-                          checked={privacyAgreed}
-                          onCheckedChange={(checked) => {
-                            setPrivacyAgreed(Boolean(checked));
-                            if (error) setError('');
-                          }}
-                          className="mt-0.5 shrink-0 rounded-lg border-emerald-600 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
-                        />
-                        <Label
-                          htmlFor="privacy-consent"
-                          className="block text-xs font-bold text-slate-800 leading-relaxed cursor-pointer select-none"
-                        >
-                          I have read and agree to the <strong className="text-[#2D5A27]">Data Privacy Policy</strong> and hereby submit my registration for municipal validation. <span className="text-rose-500">*</span>
-                        </Label>
-                      </div>
-                    </div>
-
                     {error && (
                       <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
                         <AlertCircle className="size-4 text-rose-600 shrink-0 mt-0.5" />
@@ -1614,13 +1633,68 @@ export default function FarmerRegistrationPage() {
         <p className="text-[11px] text-slate-400/80">Cattle & Livestock Information System</p>
       </footer>
 
+      {/* ── Terms and Conditions Modal Dialog ── */}
+      <Dialog open={termsDialogOpen} onOpenChange={setTermsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl p-5 sm:p-6">
+          <DialogHeader className="space-y-1">
+            <div className="flex items-center gap-2 text-emerald-800">
+              <FileText className="size-5" />
+              <DialogTitle className="text-base font-black">SmartLivestock Terms and Conditions</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-slate-500">
+              Farmer registration and use of the Municipality of Padre Garcia agricultural information system
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 text-xs text-slate-600 leading-relaxed pt-2">
+            <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+              SmartLivestock supports municipal agriculture services. Creating an account or submitting information does not by itself approve your application, certify livestock ownership, or guarantee eligibility for a program or assistance.
+            </p>
+            <div>
+              <h4 className="font-bold text-slate-900 mb-1">1. Registration and accurate information</h4>
+              <p>Provide information that is complete and accurate to the best of your knowledge, use your own identity and contact details, and keep your farm and livestock information current. Upload only documents that you are authorized to provide. Tell the Municipal Agriculture Office (MAO) if information changes or you discover an error.</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 mb-1">2. Review and account status</h4>
+              <p>Registration is an application for access. MAO personnel may verify submitted details and documents and may request clarification or correction. Your account may remain pending until the required review is complete. Approval, rejection, or a request for more information is made through the applicable municipal process; SmartLivestock does not promise a particular result or timeline.</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 mb-1">3. Permitted use</h4>
+              <p>Use the service only for legitimate agricultural and livestock activities connected to your account and municipal services. Do not impersonate another person, submit forged or misleading records, access another person's account or information, probe or disrupt the system, upload malicious files, or use information obtained through the system for harassment, discrimination, or unauthorized disclosure.</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 mb-1">4. Account security</h4>
+              <p>Keep your password private, use a secure device, and sign out when finished on a shared device. You are responsible for activity performed through your credentials unless you promptly report suspected access or compromise to MAO. MAO may restrict access when reasonably necessary to protect accounts, records, the service, or a lawful review.</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 mb-1">5. Records, services, and communications</h4>
+              <p>You remain responsible for the accuracy of information you submit. You allow the Municipality, through authorized personnel and service providers, to use and store that information as described in the Privacy Policy and for the municipal services you request. System notices may relate to registration review, record corrections, inspections, agricultural programs, or livestock services. A system entry is not a permit, veterinary diagnosis, or official certificate unless issued through the relevant authorized process.</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 mb-1">6. Service availability and changes</h4>
+              <p>Features may be updated, temporarily unavailable, or changed to support municipal operations, security, or legal requirements. Keep copies of important documents and contact MAO if you cannot access the service or need help with a submission. These terms do not remove rights or remedies provided by applicable law.</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 mb-1">7. Questions and reports</h4>
+              <p>For account access, correction requests, or questions about these terms, contact the Padre Garcia Municipal Agriculture Office through the municipal office. Report suspected unauthorized account access promptly.</p>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100 flex justify-end">
+            <Button type="button" onClick={() => setTermsDialogOpen(false)} className="bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-bold rounded-xl">
+              Close Terms
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Data Privacy Policy Modal Dialog ── */}
       <Dialog open={privacyDialogOpen} onOpenChange={setPrivacyDialogOpen}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto rounded-3xl p-6">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl p-5 sm:p-6">
           <DialogHeader className="space-y-1">
             <div className="flex items-center gap-2 text-emerald-800">
               <Shield className="size-5" />
-              <DialogTitle className="text-base font-black">Padre Garcia Data Privacy Policy</DialogTitle>
+              <DialogTitle className="text-base font-black">SmartLivestock Privacy Policy</DialogTitle>
             </div>
             <DialogDescription className="text-xs text-slate-500">
               Republic Act No. 10173 (Data Privacy Act of 2012) Compliance
@@ -1628,53 +1702,50 @@ export default function FarmerRegistrationPage() {
           </DialogHeader>
 
           <div className="space-y-4 text-xs text-slate-600 leading-relaxed pt-2">
+            <p className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              This notice explains how the Municipality of Padre Garcia, through the Municipal Agriculture Office (MAO), handles information submitted through farmer registration and SmartLivestock. Processing is subject to Republic Act No. 10173, its implementing rules, other applicable laws, and the purposes explained below.
+            </p>
             <div>
-              <h4 className="font-bold text-slate-900 mb-1">1. Information We Collect</h4>
-              <p>
-                The Municipal Agriculture Office (MAO) collects personal identification details (full name,
-                email, contact number), farm location and size, and livestock holding declarations solely
-                for municipal monitoring and farmer support services.
-              </p>
+              <h4 className="font-bold text-slate-900 mb-1">1. Information covered</h4>
+              <p>Depending on the service you use, information may include your name, email address, telephone number, account and application status; farm address, barangay, farm size, and livestock or production declarations; government-issued identification and optional RSBSA documents you upload; and information you later provide for inspections, census, production, disease, mortality, movement, or assistance records. The system also processes technical account and activity information needed to operate and protect the service.</p>
             </div>
-
             <div>
-              <h4 className="font-bold text-slate-900 mb-1">2. Purpose of Processing</h4>
-              <ul className="list-disc pl-4 space-y-1">
-                <li>Issuance of municipal livestock clearances and inspection certificates.</li>
-                <li>Conduct of quarterly livestock censuses and agricultural surveys.</li>
-                <li>Distribution of government veterinary aid, vaccines, and calamity assistance.</li>
-                <li>Biosecurity monitoring and disease surveillance.</li>
-              </ul>
+              <h4 className="font-bold text-slate-900 mb-1">2. Why information is used</h4>
+              <p>MAO uses relevant information to create and review your farmer application; maintain farmer, farm, and livestock records; conduct censuses, inspections, and authorized agricultural monitoring; plan or administer municipal and government agriculture, veterinary, disease-surveillance, or disaster-assistance services; communicate about your application and services; prepare appropriately protected reports and statistics; investigate errors or misuse; and meet applicable legal, audit, and public-record duties. Information should be relevant and limited to the stated purpose and applicable lawful basis.</p>
             </div>
-
             <div>
-              <h4 className="font-bold text-slate-900 mb-1">3. Confidentiality & Storage</h4>
-              <p>
-                Your records are stored securely within the SmartLivestock municipal database and are only
-                accessible by authorized MAO personnel and accredited SIBAT agricultural technologists.
-              </p>
+              <h4 className="font-bold text-slate-900 mb-1">3. Identity checks</h4>
+              <p>If the optional hosted identity-verification feature is enabled for your registration, you will receive a separate notice and must provide separate consent before that check starts. The identity provider may process your government ID, selfie, and face comparison for verification. SmartLivestock stores verification outcome categories and related review records; it is designed not to import provider images or face templates. You may contact MAO about an alternative human review if the automated check is unavailable or cannot be completed. Declining this separate check does not itself determine whether your municipal application is approved.</p>
             </div>
-
             <div>
-              <h4 className="font-bold text-slate-900 mb-1">4. Your Rights as a Data Subject</h4>
-              <p>
-                Under RA 10173, you retain the right to access, verify, request corrections to, or withdraw
-                consent regarding your stored records by visiting the Padre Garcia Municipal Agriculture
-                Office during standard office hours.
-              </p>
+              <h4 className="font-bold text-slate-900 mb-1">4. Who may receive information</h4>
+              <p>Access is limited by assigned system roles to authorized municipal personnel who need the information for their duties. Relevant information may be shared with another government office or authorized program partner when needed for a stated public service, allowed by law, or otherwise supported by a valid lawful basis and safeguards. Technology and identity-verification providers may process information needed to deliver their services under applicable arrangements. Information is not intended for sale or unrelated advertising.</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 mb-1">5. Storage, retention, and protection</h4>
+              <p>Records are kept for as long as needed for the purposes above and for applicable municipal, audit, legal, and public-record retention requirements. The exact retention period depends on the record and the approved records schedule; records are not promised to be deleted on a fixed timeline. MAO and its providers use organizational, physical, and technical safeguards appropriate to the information, but no online service can guarantee that transmission or storage is completely risk-free. Records no longer required are handled under the applicable retention and disposal rules.</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 mb-1">6. Your data privacy rights</h4>
+              <p>Subject to the Data Privacy Act and other applicable laws, you may ask whether your personal information is being processed, request access to or a copy of it, seek correction of inaccurate or incomplete information, object to or request blocking/erasure where applicable, withdraw consent where consent is the basis for processing, and seek available remedies or file a complaint. Some requests may be limited where the Municipality has a legal duty to retain or process records. Withdrawal does not undo processing already lawfully performed or necessarily remove records that must be retained.</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 mb-1">7. How to contact us</h4>
+              <p>For a privacy request or concern, contact the Padre Garcia Municipal Agriculture Office through the municipal office and identify the SmartLivestock record involved. MAO may need to verify your identity before acting on a request. You may also contact the National Privacy Commission through its official channels regarding data privacy concerns.</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 mb-1">8. Updates to this notice</h4>
+              <p>This notice may be updated when the system, purposes, providers, or legal requirements change. Material changes should be communicated through the registration page or another appropriate municipal channel before they apply to new processing.</p>
             </div>
           </div>
 
           <div className="pt-4 border-t border-slate-100 flex justify-end">
             <Button
               type="button"
-              onClick={() => {
-                setPrivacyAgreed(true);
-                setPrivacyDialogOpen(false);
-              }}
+              onClick={() => setPrivacyDialogOpen(false)}
               className="bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-bold rounded-xl"
             >
-              I Understand & Agree
+              Close Privacy Policy
             </Button>
           </div>
         </DialogContent>
