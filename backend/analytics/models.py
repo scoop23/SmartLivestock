@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 
 class IndividualMilkDemoCow(models.Model):
@@ -81,3 +82,28 @@ class SurveillanceDemoOwnership(models.Model):
 
     def __str__(self):
         return f"Surveillance demo {self.identifier} ({self.object_type}:{self.object_id})"
+
+
+class NLPExampleReviewEvent(models.Model):
+    """Append-only MAO/Admin decisions for synthetic candidate training rows."""
+
+    class Decision(models.TextChoices):
+        ACCEPTED = "accepted", "Accepted"
+        REJECTED = "rejected", "Rejected"
+
+    corpus_version = models.CharField(max_length=80)
+    example_id = models.CharField(max_length=180, db_index=True)
+    decision = models.CharField(max_length=12, choices=Decision.choices)
+    utterance_override = models.CharField(max_length=500, blank=True, default="")
+    intent_override = models.CharField(max_length=40, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="nlp_example_reviews",
+    )
+    reviewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-reviewed_at", "-pk"]
+        indexes = [models.Index(fields=["corpus_version", "example_id", "-reviewed_at"], name="nlpex_review_latest_idx")]

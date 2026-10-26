@@ -13,11 +13,11 @@ class MultilingualNLPCorpusTests(SimpleTestCase):
     def test_grouped_splits_are_balanced_and_have_no_question_or_family_leakage(self):
         data, splits, distribution = load_corpus()
         self.assertEqual(data["schema_version"], 1)
-        self.assertEqual(distribution["groups"], {"train": 16, "validation": 8, "test": 8})
+        self.assertEqual(distribution["groups"], {"train": 18, "validation": 9, "test": 9})
         self.assertEqual({key: len(value) for key, value in splits.items()},
-                         {"train": 64, "validation": 32, "test": 32})
+                         {"train": 72, "validation": 36, "test": 36})
         self.assertEqual(set(distribution["intent_groups"]["test"]), ALLOWED_INTENTS)
-        self.assertEqual(distribution["languages"]["test"], {"en": 8, "tl": 8, "taglish": 16})
+        self.assertEqual(distribution["languages"]["test"], {"en": 9, "tl": 9, "taglish": 18})
         normalized = [{normalize_question(row["question"]) for row in splits[key]}
                       for key in ("train", "validation", "test")]
         self.assertFalse(normalized[0] & normalized[1])

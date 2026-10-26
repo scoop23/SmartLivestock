@@ -25,6 +25,7 @@ export interface User {
   assignedBarangayName?: string | null;
   accessScope?: "ASSIGNED_ONLY" | "ALL_BARANGAYS";
   farmerId?: number | null;
+  isNlpDeveloper?: boolean;
 }
 
 interface DecodedToken {
@@ -127,6 +128,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         assignedBarangayName: data.assigned_barangay_name ?? null,
         accessScope: data.access_scope ?? "ASSIGNED_ONLY",
         farmerId: data.farmer_id ?? null,
+        isNlpDeveloper: data.is_nlp_developer === true,
       });
       setAccessToken(latestToken);
     } catch (error: unknown) {

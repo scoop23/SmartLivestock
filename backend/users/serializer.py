@@ -403,6 +403,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         - id: User primary key
         - first_name, last_name, email, phone_number
         - role: Resolved role name string (e.g. 'FARMER', 'MAO', 'SIBAT')
+        - is_nlp_developer: Whether this account is a Django superuser allowed into NLP tooling
         - profile_image: Full URL of uploaded profile photo
         - barangay: Owning barangay name for farmer accounts (read-only)
     Used in:
@@ -414,6 +415,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     assigned_barangay_id = serializers.IntegerField(read_only=True)
     assigned_barangay_name = serializers.CharField(source="assigned_barangay.barangay_name", read_only=True, allow_null=True)
     farmer_id = serializers.SerializerMethodField()
+    is_nlp_developer = serializers.SerializerMethodField()
     documents = UserDocumentSerializer(many=True, read_only=True)
 
     class Meta:
@@ -432,6 +434,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "assigned_barangay_name",
             "access_scope",
             "farmer_id",
+            "is_nlp_developer",
             "documents",
         )
         read_only_fields = ("id", "role", "account_status", "barangay", "access_scope", "documents")
@@ -442,6 +445,11 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         if obj.is_superuser or obj.is_staff:
             return "MAO"
         return "FARMER"
+
+    def get_is_nlp_developer(self, obj):
+        from analytics.permissions import user_is_nlp_developer
+
+        return user_is_nlp_developer(obj)
 
     def get_profile_image(self, obj):
         if obj.profile_image:

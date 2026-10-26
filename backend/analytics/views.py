@@ -1,3 +1,4 @@
+import hashlib
 from django.db.models import Count, F, Q, Sum
 from django.db.utils import DatabaseError
 import logging
@@ -22,6 +23,7 @@ from .services.review_workload import review_workload_summary
 from .services.surveillance import surveillance_summary
 from .services.predictive.surveillance_experiment import evaluate_surveillance_forecast_experiment
 from .services.nlp_query import execute_question
+from .permissions import IsNLPDeveloper
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +156,7 @@ def nlp_query(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, isMAO])
+@permission_classes([IsAuthenticated, IsNLPDeveloper])
 def nlp_evaluation(request):
     """Evaluate checked-in language examples, never user questions or farm data."""
     from .services.nlp_evaluation import compare_pipelines, evaluate_parser
@@ -163,6 +165,111 @@ def nlp_evaluation(request):
         raise ValidationError({"compare": "Use 0 for the parser report or 1 for the offline comparison."})
     # ML is loaded only for an explicit admin diagnostic request, never Ask.
     return Response(compare_pipelines() if comparison == "1" else evaluate_parser())
+
+
+class NLPExampleDecisionSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=("accepted", "rejected"))
+    utterance = serializers.CharField(required=False, max_length=500, allow_blank=False, trim_whitespace=True)
+    intent = serializers.ChoiceField(required=False, choices=tuple((label, label) for label in (
+        "population_summary", "production_trend", "production_breakdown", "disease_by_barangay",
+        "mortality_comparison", "pending_reviews", "farmer_livestock_count", "unsupported", "clarification",
+    )))
+    notes = serializers.CharField(required=False, max_length=2000, allow_blank=True, trim_whitespace=True)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsNLPDeveloper])
+def nlp_dataset(request):
+    """Return only synthetic, versioned examples and their developer review state."""
+    import json
+    from collections import Counter
+    from .models import NLPExampleReviewEvent
+    from .services.nlp_dataset import CORPUS_PATH, REPORT_PATH
+
+    corpus = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
+    latest = {}
+    events = NLPExampleReviewEvent.objects.filter(corpus_version=corpus["version"]).select_related("reviewer")
+    for event in events:
+        latest.setdefault(event.example_id, event)
+    examples = []
+    for source in corpus["examples"]:
+        event = latest.get(source["example_id"])
+        examples.append({
+            **source,
+            "review": {
+                "decision": event.decision if event else "candidate",
+                "utterance": event.utterance_override if event and event.utterance_override else source["utterance"],
+                "intent": event.intent_override if event and event.intent_override else source["intent"],
+                "notes": event.notes if event else "",
+                "reviewer": (event.reviewer.get_full_name().strip() or event.reviewer.username) if event else None,
+                "reviewed_at": event.reviewed_at.isoformat() if event else None,
+            },
+        })
+    summary = {}
+    for key in ("intent", "language", "role", "expected_behavior", "difficulty", "split", "source_type"):
+        summary[key] = dict(Counter(row[key] for row in corpus["examples"]))
+    evaluation = None
+    if REPORT_PATH.exists():
+        saved = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
+        if saved.get("dataset", {}).get("sha256") == hashlib.sha256(
+                json.dumps(corpus, sort_keys=True, ensure_ascii=False).encode()
+            ).hexdigest():
+            evaluation = {
+                "version": saved.get("report_version"),
+                "evaluated_at": saved.get("evaluated_at"),
+                "baseline_classifier_accuracy": saved["model_evaluation"]["baseline_tf_idf_logistic_regression"]["outcome_accuracy"],
+                "baseline_classifier_macro_f1": saved["model_evaluation"]["baseline_tf_idf_logistic_regression"]["macro_f1"],
+                "candidate_classifier_accuracy": saved["model_evaluation"]["candidate_tf_idf_logistic_regression"]["outcome_accuracy"],
+                "candidate_classifier_macro_f1": saved["model_evaluation"]["candidate_tf_idf_logistic_regression"]["macro_f1"],
+                "candidate_training_count": saved["model_evaluation"]["candidate_training_count"],
+                "candidate_per_intent": saved["model_evaluation"]["candidate_tf_idf_logistic_regression"]["per_intent"],
+                "candidate_confidence": saved["model_evaluation"]["candidate_confidence"],
+                "baseline_parser_accuracy": saved["parser_evaluation"]["original_committed_rules_same_test"]["outcome_accuracy"],
+                "candidate_parser_accuracy": saved["parser_evaluation"]["end_to_end_static_contract"]["exact_correctness"],
+                "candidate_parser_macro_f1": saved["parser_evaluation"]["improved_rules_same_test"]["macro_f1"],
+                "entity_exact_match": saved["parser_evaluation"]["entity_extraction"]["per_entity"],
+                "near_duplicate_flags": len(saved.get("dataset", {}).get("near_duplicates_for_review", [])),
+                "label_conflicts": sum(bool(row.get("label_conflict")) for row in saved.get("dataset", {}).get("near_duplicates_for_review", [])),
+                "near_duplicate_pairs": saved.get("dataset", {}).get("near_duplicates_for_review", []),
+                "production_model_changed": False,
+                "limitations": saved.get("limitations"),
+            }
+    return Response({
+        "corpus_version": corpus["version"], "generation_method": corpus["generation_method"],
+        "production_training_file_changed": False, "summary": summary, "examples": examples,
+        "candidate_count": sum(item["review"]["decision"] == "candidate" for item in examples),
+        "accepted_count": sum(item["review"]["decision"] == "accepted" for item in examples),
+        "rejected_count": sum(item["review"]["decision"] == "rejected" for item in examples),
+        "evaluation": evaluation,
+    })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, IsNLPDeveloper])
+def nlp_dataset_review(request, example_id):
+    """Append a human review event; evaluation groups cannot be edited in place."""
+    import json
+    from .models import NLPExampleReviewEvent
+    from .services.nlp_dataset import CORPUS_PATH
+
+    corpus = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
+    example = next((row for row in corpus["examples"] if row["example_id"] == example_id), None)
+    if example is None:
+        return Response({"detail": "Candidate example not found."}, status=404)
+    if example["split"] != "train" or example["source_type"] != "generated_candidate":
+        return Response({"detail": "Only training candidates can be reviewed. Validation and test examples remain frozen."}, status=400)
+    serializer = NLPExampleDecisionSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    values = serializer.validated_data
+    decision = values["decision"]
+    event = NLPExampleReviewEvent.objects.create(
+        corpus_version=corpus["version"], example_id=example_id, decision=decision,
+        utterance_override=values.get("utterance", "") if decision == "accepted" else "",
+        intent_override=values.get("intent", "") if decision == "accepted" else "",
+        notes=values.get("notes", ""), reviewer=request.user,
+    )
+    return Response({"example_id": example_id, "decision": event.decision,
+                     "reviewed_at": event.reviewed_at, "reviewer": event.reviewer.username}, status=201)
 
 
 @api_view(["GET"])

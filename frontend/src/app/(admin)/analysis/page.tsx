@@ -537,12 +537,14 @@ export default function AnalysisOverviewPage() {
             </div>
 
             <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-              <Button asChild variant="outline" size="sm" className="h-8 text-xs font-semibold border-slate-200 hover:bg-slate-50 cursor-pointer">
-                <Link href="/admin/analytics/nlp-example-review">
-                  <FileSearch className="mr-1.5 size-3.5 text-slate-500" />
-                  NLP Examples
-                </Link>
-              </Button>
+              {user?.isNlpDeveloper ? (
+                <Button asChild variant="outline" size="sm" className="h-8 text-xs font-semibold border-slate-200 hover:bg-slate-50 cursor-pointer">
+                  <Link href="/admin/analytics/nlp-example-review">
+                    <FileSearch className="mr-1.5 size-3.5 text-slate-500" />
+                    NLP Examples
+                  </Link>
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 variant="outline"

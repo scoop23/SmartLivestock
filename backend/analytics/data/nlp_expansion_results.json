@@ -1,0 +1,5160 @@
+{
+  "report_version": 1,
+  "evaluated_corpus": "ask_smartlivestock_candidates.json",
+  "evaluated_at": "2026-10-26T08:38:11.886260+00:00",
+  "dataset": {
+    "version": "candidate-2026-10-26-v1",
+    "sha256": "e4d8922acc5f1b90774de59f2801c729089effe874680517a10ede0d33b89f3f",
+    "total": 1296,
+    "errors": [],
+    "near_duplicates_for_review": [
+      {
+        "left": "population_summary.train.give-a-barangay-breakdown-of-registe-be4bae50.tl",
+        "right": "population_summary.train.show-active-livestock-totals-for-eve-6d6f1bff.tl",
+        "similarity": 0.893,
+        "cross_split": false,
+        "label_conflict": false
+      },
+      {
+        "left": "production_trend.train.show-the-egg-output-trend-this-quart-c213c898.tl",
+        "right": "production_trend.train.show-the-egg-production-trend-for-th-86c81e4b.tl",
+        "similarity": 0.917,
+        "cross_split": false,
+        "label_conflict": false
+      },
+      {
+        "left": "production_trend.train.how-much-wool-was-produced-each-mont-829a827c.tl",
+        "right": "production_trend.train.how-much-meat-output-was-recorded-pe-715e560b.tl",
+        "similarity": 0.915,
+        "cross_split": false,
+        "label_conflict": false
+      },
+      {
+        "left": "mortality_comparison.train.count-deaths-per-barangay-for-last-y-56816c1d.tl",
+        "right": "mortality_comparison.train.count-livestock-deaths-across-barang-3a02fcc3.tl",
+        "similarity": 0.891,
+        "cross_split": false,
+        "label_conflict": false
+      },
+      {
+        "left": "mortality_comparison.train.summarize-goat-mortality-across-bara-e2ecac45.tl",
+        "right": "mortality_comparison.train.please-summarize-swine-deaths-across-320624a8.tl",
+        "similarity": 0.882,
+        "cross_split": false,
+        "label_conflict": false
+      },
+      {
+        "left": "farmer_livestock_count.train.how-many-verified-goats-does-farmer--9bfa791e.tl",
+        "right": "farmer_livestock_count.train.how-many-verified-carabaos-does-farm-70b5699c.tl",
+        "similarity": 0.885,
+        "cross_split": false,
+        "label_conflict": false
+      },
+      {
+        "left": "farmer_livestock_count.train.count-the-active-cattle-registered-t-86e1df8f.tl",
+        "right": "farmer_livestock_count.train.count-active-pigs-registered-to-farm-3c8444df.tl",
+        "similarity": 0.908,
+        "cross_split": false,
+        "label_conflict": false
+      }
+    ],
+    "distribution": {
+      "train": {
+        "intent": {
+          "population_summary": 102,
+          "production_trend": 102,
+          "production_breakdown": 102,
+          "disease_by_barangay": 102,
+          "mortality_comparison": 102,
+          "pending_reviews": 102,
+          "farmer_livestock_count": 102,
+          "clarification": 102,
+          "unsupported": 102
+        },
+        "language": {
+          "en": 306,
+          "tl": 306,
+          "tl_en": 306
+        },
+        "difficulty": {
+          "easy": 249,
+          "medium": 498,
+          "hard": 102,
+          "adversarial": 69
+        },
+        "review_status": {
+          "candidate": 918
+        },
+        "expected_behavior": {
+          "answer": 714,
+          "clarification": 102,
+          "unsupported": 102
+        }
+      },
+      "validation": {
+        "intent": {
+          "population_summary": 12,
+          "production_trend": 12,
+          "production_breakdown": 12,
+          "disease_by_barangay": 12,
+          "mortality_comparison": 12,
+          "pending_reviews": 12,
+          "farmer_livestock_count": 12,
+          "clarification": 12,
+          "unsupported": 12
+        },
+        "language": {
+          "en": 36,
+          "tl": 36,
+          "tl_en": 36
+        },
+        "difficulty": {
+          "easy": 31,
+          "medium": 62,
+          "hard": 12,
+          "adversarial": 3
+        },
+        "review_status": {
+          "candidate": 108
+        },
+        "expected_behavior": {
+          "answer": 84,
+          "clarification": 12,
+          "unsupported": 12
+        }
+      },
+      "test": {
+        "intent": {
+          "population_summary": 30,
+          "production_trend": 30,
+          "production_breakdown": 30,
+          "disease_by_barangay": 30,
+          "mortality_comparison": 30,
+          "pending_reviews": 30,
+          "farmer_livestock_count": 30,
+          "clarification": 30,
+          "unsupported": 30
+        },
+        "language": {
+          "en": 90,
+          "tl": 90,
+          "tl_en": 90
+        },
+        "difficulty": {
+          "easy": 76,
+          "medium": 152,
+          "hard": 30,
+          "adversarial": 12
+        },
+        "review_status": {
+          "candidate": 270
+        },
+        "expected_behavior": {
+          "answer": 210,
+          "clarification": 30,
+          "unsupported": 30
+        }
+      }
+    },
+    "group_counts": {
+      "train": 306,
+      "validation": 36,
+      "test": 90
+    },
+    "training_target_shortfall": {
+      "clarification": 0,
+      "disease_by_barangay": 0,
+      "farmer_livestock_count": 0,
+      "mortality_comparison": 0,
+      "pending_reviews": 0,
+      "population_summary": 0,
+      "production_breakdown": 0,
+      "production_trend": 0,
+      "unsupported": 0
+    },
+    "limitations": "AI-authored proposed labels, not human reviewed. Near-duplicate detection cannot prove semantic independence. Candidate test set is developmental; original regression remains separate."
+  },
+  "model_evaluation": {
+    "same_grouped_test": 270,
+    "split_groups": {
+      "train": 306,
+      "validation": 36,
+      "test": 90
+    },
+    "production_training_count": 88,
+    "candidate_training_count": 918,
+    "baseline_tf_idf_logistic_regression": {
+      "outcome_accuracy": 0.7555555555555555,
+      "macro_f1": 0.7188060903359944,
+      "per_intent": [
+        {
+          "intent": "clarification",
+          "support": 30,
+          "precision": 0.6428571428571429,
+          "recall": 0.3,
+          "f1": 0.4090909090909091
+        },
+        {
+          "intent": "disease_by_barangay",
+          "support": 30,
+          "precision": 0.7647058823529411,
+          "recall": 0.8666666666666667,
+          "f1": 0.8125
+        },
+        {
+          "intent": "farmer_livestock_count",
+          "support": 30,
+          "precision": 0.7647058823529411,
+          "recall": 0.8666666666666667,
+          "f1": 0.8125
+        },
+        {
+          "intent": "mortality_comparison",
+          "support": 30,
+          "precision": 0.7317073170731707,
+          "recall": 1.0,
+          "f1": 0.8450704225352113
+        },
+        {
+          "intent": "pending_reviews",
+          "support": 30,
+          "precision": 0.9090909090909091,
+          "recall": 1.0,
+          "f1": 0.9523809523809523
+        },
+        {
+          "intent": "population_summary",
+          "support": 30,
+          "precision": 0.696969696969697,
+          "recall": 0.7666666666666667,
+          "f1": 0.7301587301587302
+        },
+        {
+          "intent": "production_breakdown",
+          "support": 30,
+          "precision": 0.75,
+          "recall": 0.9,
+          "f1": 0.8181818181818182
+        },
+        {
+          "intent": "production_trend",
+          "support": 30,
+          "precision": 0.717948717948718,
+          "recall": 0.9333333333333333,
+          "f1": 0.8115942028985509
+        },
+        {
+          "intent": "unsupported",
+          "support": 30,
+          "precision": 0.8333333333333334,
+          "recall": 0.16666666666666666,
+          "f1": 0.2777777777777778
+        }
+      ],
+      "confusion_matrix": {
+        "labels": [
+          "clarification",
+          "disease_by_barangay",
+          "farmer_livestock_count",
+          "mortality_comparison",
+          "pending_reviews",
+          "population_summary",
+          "production_breakdown",
+          "production_trend",
+          "unsupported"
+        ],
+        "rows": [
+          [
+            9,
+            2,
+            4,
+            2,
+            0,
+            1,
+            5,
+            6,
+            1
+          ],
+          [
+            0,
+            26,
+            0,
+            4,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            26,
+            0,
+            0,
+            4,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            30,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            30,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            2,
+            1,
+            3,
+            1,
+            0,
+            23,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0,
+            2,
+            0,
+            0,
+            27,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+            28,
+            0
+          ],
+          [
+            3,
+            3,
+            1,
+            2,
+            3,
+            5,
+            3,
+            5,
+            5
+          ]
+        ]
+      },
+      "false_executable_predictions": 42,
+      "incorrect_rejections": 2,
+      "safe_rejection_rate": 0.3
+    },
+    "candidate_tf_idf_logistic_regression": {
+      "outcome_accuracy": 0.8703703703703703,
+      "macro_f1": 0.8522588273540312,
+      "per_intent": [
+        {
+          "intent": "clarification",
+          "support": 30,
+          "precision": 0.5384615384615384,
+          "recall": 0.23333333333333334,
+          "f1": 0.32558139534883723
+        },
+        {
+          "intent": "disease_by_barangay",
+          "support": 30,
+          "precision": 0.8823529411764706,
+          "recall": 1.0,
+          "f1": 0.9375
+        },
+        {
+          "intent": "farmer_livestock_count",
+          "support": 30,
+          "precision": 0.9090909090909091,
+          "recall": 1.0,
+          "f1": 0.9523809523809523
+        },
+        {
+          "intent": "mortality_comparison",
+          "support": 30,
+          "precision": 0.9375,
+          "recall": 1.0,
+          "f1": 0.967741935483871
+        },
+        {
+          "intent": "pending_reviews",
+          "support": 30,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "intent": "population_summary",
+          "support": 30,
+          "precision": 0.896551724137931,
+          "recall": 0.8666666666666667,
+          "f1": 0.8813559322033899
+        },
+        {
+          "intent": "production_breakdown",
+          "support": 30,
+          "precision": 0.8235294117647058,
+          "recall": 0.9333333333333333,
+          "f1": 0.8749999999999999
+        },
+        {
+          "intent": "production_trend",
+          "support": 30,
+          "precision": 0.7714285714285715,
+          "recall": 0.9,
+          "f1": 0.8307692307692307
+        },
+        {
+          "intent": "unsupported",
+          "support": 30,
+          "precision": 0.9,
+          "recall": 0.9,
+          "f1": 0.9
+        }
+      ],
+      "confusion_matrix": {
+        "labels": [
+          "clarification",
+          "disease_by_barangay",
+          "farmer_livestock_count",
+          "mortality_comparison",
+          "pending_reviews",
+          "population_summary",
+          "production_breakdown",
+          "production_trend",
+          "unsupported"
+        ],
+        "rows": [
+          [
+            7,
+            4,
+            3,
+            2,
+            0,
+            3,
+            2,
+            7,
+            2
+          ],
+          [
+            0,
+            30,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            30,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            30,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            30,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            3,
+            0,
+            0,
+            0,
+            0,
+            26,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            28,
+            1,
+            1
+          ],
+          [
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            27,
+            0
+          ],
+          [
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2,
+            0,
+            27
+          ]
+        ]
+      },
+      "false_executable_predictions": 23,
+      "incorrect_rejections": 6,
+      "safe_rejection_rate": 0.6166666666666667
+    },
+    "candidate_by_language": {
+      "en": {
+        "outcome_accuracy": 0.8444444444444444,
+        "macro_f1": 0.8172780520606607,
+        "per_intent": [
+          {
+            "intent": "clarification",
+            "support": 10,
+            "precision": 0.3333333333333333,
+            "recall": 0.1,
+            "f1": 0.15384615384615383
+          },
+          {
+            "intent": "disease_by_barangay",
+            "support": 10,
+            "precision": 0.9090909090909091,
+            "recall": 1.0,
+            "f1": 0.9523809523809523
+          },
+          {
+            "intent": "farmer_livestock_count",
+            "support": 10,
+            "precision": 0.9090909090909091,
+            "recall": 1.0,
+            "f1": 0.9523809523809523
+          },
+          {
+            "intent": "mortality_comparison",
+            "support": 10,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "pending_reviews",
+            "support": 10,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "population_summary",
+            "support": 10,
+            "precision": 0.8,
+            "recall": 0.8,
+            "f1": 0.8000000000000002
+          },
+          {
+            "intent": "production_breakdown",
+            "support": 10,
+            "precision": 0.8181818181818182,
+            "recall": 0.9,
+            "f1": 0.8571428571428572
+          },
+          {
+            "intent": "production_trend",
+            "support": 10,
+            "precision": 0.6923076923076923,
+            "recall": 0.9,
+            "f1": 0.7826086956521738
+          },
+          {
+            "intent": "unsupported",
+            "support": 10,
+            "precision": 0.8181818181818182,
+            "recall": 0.9,
+            "f1": 0.8571428571428572
+          }
+        ],
+        "confusion_matrix": {
+          "labels": [
+            "clarification",
+            "disease_by_barangay",
+            "farmer_livestock_count",
+            "mortality_comparison",
+            "pending_reviews",
+            "population_summary",
+            "production_breakdown",
+            "production_trend",
+            "unsupported"
+          ],
+          "rows": [
+            [
+              1,
+              1,
+              1,
+              0,
+              0,
+              2,
+              0,
+              3,
+              2
+            ],
+            [
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              0,
+              0,
+              8,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              9,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              9,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              9
+            ]
+          ]
+        },
+        "false_executable_predictions": 8,
+        "incorrect_rejections": 2,
+        "safe_rejection_rate": 0.6
+      },
+      "tl": {
+        "outcome_accuracy": 0.9,
+        "macro_f1": 0.8904761904761904,
+        "per_intent": [
+          {
+            "intent": "clarification",
+            "support": 10,
+            "precision": 0.6666666666666666,
+            "recall": 0.4,
+            "f1": 0.5
+          },
+          {
+            "intent": "disease_by_barangay",
+            "support": 10,
+            "precision": 0.9090909090909091,
+            "recall": 1.0,
+            "f1": 0.9523809523809523
+          },
+          {
+            "intent": "farmer_livestock_count",
+            "support": 10,
+            "precision": 0.9090909090909091,
+            "recall": 1.0,
+            "f1": 0.9523809523809523
+          },
+          {
+            "intent": "mortality_comparison",
+            "support": 10,
+            "precision": 0.9090909090909091,
+            "recall": 1.0,
+            "f1": 0.9523809523809523
+          },
+          {
+            "intent": "pending_reviews",
+            "support": 10,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "population_summary",
+            "support": 10,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "production_breakdown",
+            "support": 10,
+            "precision": 0.9,
+            "recall": 0.9,
+            "f1": 0.9
+          },
+          {
+            "intent": "production_trend",
+            "support": 10,
+            "precision": 0.8181818181818182,
+            "recall": 0.9,
+            "f1": 0.8571428571428572
+          },
+          {
+            "intent": "unsupported",
+            "support": 10,
+            "precision": 0.9,
+            "recall": 0.9,
+            "f1": 0.9
+          }
+        ],
+        "confusion_matrix": {
+          "labels": [
+            "clarification",
+            "disease_by_barangay",
+            "farmer_livestock_count",
+            "mortality_comparison",
+            "pending_reviews",
+            "population_summary",
+            "production_breakdown",
+            "production_trend",
+            "unsupported"
+          ],
+          "rows": [
+            [
+              4,
+              1,
+              1,
+              1,
+              0,
+              0,
+              1,
+              2,
+              0
+            ],
+            [
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              9,
+              0,
+              1
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              9,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              9
+            ]
+          ]
+        },
+        "false_executable_predictions": 6,
+        "incorrect_rejections": 2,
+        "safe_rejection_rate": 0.7
+      },
+      "tl_en": {
+        "outcome_accuracy": 0.8666666666666667,
+        "macro_f1": 0.8461943175901987,
+        "per_intent": [
+          {
+            "intent": "clarification",
+            "support": 10,
+            "precision": 0.5,
+            "recall": 0.2,
+            "f1": 0.28571428571428575
+          },
+          {
+            "intent": "disease_by_barangay",
+            "support": 10,
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1": 0.9090909090909091
+          },
+          {
+            "intent": "farmer_livestock_count",
+            "support": 10,
+            "precision": 0.9090909090909091,
+            "recall": 1.0,
+            "f1": 0.9523809523809523
+          },
+          {
+            "intent": "mortality_comparison",
+            "support": 10,
+            "precision": 0.9090909090909091,
+            "recall": 1.0,
+            "f1": 0.9523809523809523
+          },
+          {
+            "intent": "pending_reviews",
+            "support": 10,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "population_summary",
+            "support": 10,
+            "precision": 0.8888888888888888,
+            "recall": 0.8,
+            "f1": 0.8421052631578948
+          },
+          {
+            "intent": "production_breakdown",
+            "support": 10,
+            "precision": 0.7692307692307693,
+            "recall": 1.0,
+            "f1": 0.8695652173913044
+          },
+          {
+            "intent": "production_trend",
+            "support": 10,
+            "precision": 0.8181818181818182,
+            "recall": 0.9,
+            "f1": 0.8571428571428572
+          },
+          {
+            "intent": "unsupported",
+            "support": 10,
+            "precision": 1.0,
+            "recall": 0.9,
+            "f1": 0.9473684210526316
+          }
+        ],
+        "confusion_matrix": {
+          "labels": [
+            "clarification",
+            "disease_by_barangay",
+            "farmer_livestock_count",
+            "mortality_comparison",
+            "pending_reviews",
+            "population_summary",
+            "production_breakdown",
+            "production_trend",
+            "unsupported"
+          ],
+          "rows": [
+            [
+              2,
+              2,
+              1,
+              1,
+              0,
+              1,
+              1,
+              2,
+              0
+            ],
+            [
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              8,
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              10,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              9,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              9
+            ]
+          ]
+        },
+        "false_executable_predictions": 9,
+        "incorrect_rejections": 2,
+        "safe_rejection_rate": 0.55
+      }
+    },
+    "candidate_by_difficulty": {
+      "easy": {
+        "outcome_accuracy": 0.9473684210526315,
+        "macro_f1": 0.854320987654321,
+        "per_intent": [
+          {
+            "intent": "clarification",
+            "support": 0,
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0
+          },
+          {
+            "intent": "disease_by_barangay",
+            "support": 10,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "farmer_livestock_count",
+            "support": 10,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "mortality_comparison",
+            "support": 10,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "pending_reviews",
+            "support": 10,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "population_summary",
+            "support": 10,
+            "precision": 1.0,
+            "recall": 0.8,
+            "f1": 0.888888888888889
+          },
+          {
+            "intent": "production_breakdown",
+            "support": 10,
+            "precision": 0.9,
+            "recall": 0.9,
+            "f1": 0.9
+          },
+          {
+            "intent": "production_trend",
+            "support": 10,
+            "precision": 0.9,
+            "recall": 0.9,
+            "f1": 0.9
+          },
+          {
+            "intent": "unsupported",
+            "support": 6,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        ],
+        "confusion_matrix": {
+          "labels": [
+            "clarification",
+            "disease_by_barangay",
+            "farmer_livestock_count",
+            "mortality_comparison",
+            "pending_reviews",
+            "population_summary",
+            "production_breakdown",
+            "production_trend",
+            "unsupported"
+          ],
+          "rows": [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              0,
+              0,
+              8,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              9,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              9,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              6
+            ]
+          ]
+        },
+        "false_executable_predictions": 0,
+        "incorrect_rejections": 2,
+        "safe_rejection_rate": 1.0
+      },
+      "medium": {
+        "outcome_accuracy": 0.9605263157894737,
+        "macro_f1": 0.8623781676413256,
+        "per_intent": [
+          {
+            "intent": "clarification",
+            "support": 0,
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0
+          },
+          {
+            "intent": "disease_by_barangay",
+            "support": 20,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "farmer_livestock_count",
+            "support": 20,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "mortality_comparison",
+            "support": 20,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "pending_reviews",
+            "support": 20,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          {
+            "intent": "population_summary",
+            "support": 20,
+            "precision": 1.0,
+            "recall": 0.9,
+            "f1": 0.9473684210526316
+          },
+          {
+            "intent": "production_breakdown",
+            "support": 20,
+            "precision": 0.95,
+            "recall": 0.95,
+            "f1": 0.9500000000000001
+          },
+          {
+            "intent": "production_trend",
+            "support": 20,
+            "precision": 1.0,
+            "recall": 0.9,
+            "f1": 0.9473684210526316
+          },
+          {
+            "intent": "unsupported",
+            "support": 12,
+            "precision": 0.9166666666666666,
+            "recall": 0.9166666666666666,
+            "f1": 0.9166666666666666
+          }
+        ],
+        "confusion_matrix": {
+          "labels": [
+            "clarification",
+            "disease_by_barangay",
+            "farmer_livestock_count",
+            "mortality_comparison",
+            "pending_reviews",
+            "population_summary",
+            "production_breakdown",
+            "production_trend",
+            "unsupported"
+          ],
+          "rows": [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              20,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              20,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              20,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              20,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              18,
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              19,
+              0,
+              1
+            ],
+            [
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              18,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              11
+            ]
+          ]
+        },
+        "false_executable_predictions": 0,
+        "incorrect_rejections": 4,
+        "safe_rejection_rate": 1.0
+      },
+      "hard": {
+        "outcome_accuracy": 0.23333333333333334,
+        "macro_f1": 0.04729729729729729,
+        "per_intent": [
+          {
+            "intent": "clarification",
+            "support": 30,
+            "precision": 1.0,
+            "recall": 0.23333333333333334,
+            "f1": 0.37837837837837834
+          },
+          {
+            "intent": "disease_by_barangay",
+            "support": 0,
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0
+          },
+          {
+            "intent": "farmer_livestock_count",
+            "support": 0,
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0
+          },
+          {
+            "intent": "mortality_comparison",
+            "support": 0,
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0
+          },
+          {
+            "intent": "population_summary",
+            "support": 0,
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0
+          },
+          {
+            "intent": "production_breakdown",
+            "support": 0,
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0
+          },
+          {
+            "intent": "production_trend",
+            "support": 0,
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0
+          },
+          {
+            "intent": "unsupported",
+            "support": 0,
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0
+          }
+        ],
+        "confusion_matrix": {
+          "labels": [
+            "clarification",
+            "disease_by_barangay",
+            "farmer_livestock_count",
+            "mortality_comparison",
+            "population_summary",
+            "production_breakdown",
+            "production_trend",
+            "unsupported"
+          ],
+          "rows": [
+            [
+              7,
+              4,
+              3,
+              2,
+              3,
+              2,
+              7,
+              2
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        },
+        "false_executable_predictions": 21,
+        "incorrect_rejections": 0,
+        "safe_rejection_rate": 0.3
+      },
+      "adversarial": {
+        "outcome_accuracy": 0.8333333333333334,
+        "macro_f1": 0.45454545454545453,
+        "per_intent": [
+          {
+            "intent": "production_breakdown",
+            "support": 0,
+            "precision": 0.0,
+            "recall": 0,
+            "f1": 0
+          },
+          {
+            "intent": "unsupported",
+            "support": 12,
+            "precision": 1.0,
+            "recall": 0.8333333333333334,
+            "f1": 0.9090909090909091
+          }
+        ],
+        "confusion_matrix": {
+          "labels": [
+            "production_breakdown",
+            "unsupported"
+          ],
+          "rows": [
+            [
+              0,
+              0
+            ],
+            [
+              2,
+              10
+            ]
+          ]
+        },
+        "false_executable_predictions": 2,
+        "incorrect_rejections": 0,
+        "safe_rejection_rate": 0.8333333333333334
+      }
+    },
+    "threshold_from_validation_only": {
+      "threshold": 0.8878460371362689,
+      "accepted": 3,
+      "validation_total": 108,
+      "policy": "Maximum correct executable labels with zero observed validation label errors; exploratory, not calibrated."
+    },
+    "accepted_candidate_errors_at_threshold": 0,
+    "test_count_accepted_at_threshold": 8,
+    "candidate_abstaining_test_metrics": {
+      "outcome_accuracy": 0.15555555555555556,
+      "macro_f1": 0.16879469867466868,
+      "per_intent": [
+        {
+          "intent": "__abstain__",
+          "support": 0,
+          "precision": 0.0,
+          "recall": 0,
+          "f1": 0
+        },
+        {
+          "intent": "clarification",
+          "support": 30,
+          "precision": 0.5384615384615384,
+          "recall": 0.23333333333333334,
+          "f1": 0.32558139534883723
+        },
+        {
+          "intent": "disease_by_barangay",
+          "support": 30,
+          "precision": 0,
+          "recall": 0.0,
+          "f1": 0
+        },
+        {
+          "intent": "farmer_livestock_count",
+          "support": 30,
+          "precision": 1.0,
+          "recall": 0.03333333333333333,
+          "f1": 0.06451612903225806
+        },
+        {
+          "intent": "mortality_comparison",
+          "support": 30,
+          "precision": 0,
+          "recall": 0.0,
+          "f1": 0
+        },
+        {
+          "intent": "pending_reviews",
+          "support": 30,
+          "precision": 1.0,
+          "recall": 0.2,
+          "f1": 0.33333333333333337
+        },
+        {
+          "intent": "population_summary",
+          "support": 30,
+          "precision": 0,
+          "recall": 0.0,
+          "f1": 0
+        },
+        {
+          "intent": "production_breakdown",
+          "support": 30,
+          "precision": 1.0,
+          "recall": 0.03333333333333333,
+          "f1": 0.06451612903225806
+        },
+        {
+          "intent": "production_trend",
+          "support": 30,
+          "precision": 0,
+          "recall": 0.0,
+          "f1": 0
+        },
+        {
+          "intent": "unsupported",
+          "support": 30,
+          "precision": 0.9,
+          "recall": 0.9,
+          "f1": 0.9
+        }
+      ],
+      "confusion_matrix": {
+        "labels": [
+          "__abstain__",
+          "clarification",
+          "disease_by_barangay",
+          "farmer_livestock_count",
+          "mortality_comparison",
+          "pending_reviews",
+          "population_summary",
+          "production_breakdown",
+          "production_trend",
+          "unsupported"
+        ],
+        "rows": [
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            21,
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2
+          ],
+          [
+            30,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            29,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            30,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            24,
+            0,
+            0,
+            0,
+            0,
+            6,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            27,
+            3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            28,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            28,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            2,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            27
+          ]
+        ]
+      },
+      "false_executable_predictions": 0,
+      "incorrect_rejections": 202,
+      "safe_rejection_rate": 1.0
+    },
+    "candidate_confidence": {
+      "multiclass_brier_score": 0.29955397749559737,
+      "expected_calibration_error_10_bins": 0.2806803774543239,
+      "warning": "Exploratory calibration metrics on synthetic candidate examples; do not use as production confidence."
+    },
+    "production_model_changed": false
+  },
+  "parser_evaluation": {
+    "original_committed_rules_same_test": {
+      "outcome_accuracy": 0.5148148148148148,
+      "macro_f1": 0.5386679396210579,
+      "per_intent": [
+        {
+          "intent": "clarification",
+          "support": 30,
+          "precision": 0.2231404958677686,
+          "recall": 0.9,
+          "f1": 0.3576158940397351
+        },
+        {
+          "intent": "disease_by_barangay",
+          "support": 30,
+          "precision": 1.0,
+          "recall": 0.26666666666666666,
+          "f1": 0.4210526315789474
+        },
+        {
+          "intent": "farmer_livestock_count",
+          "support": 30,
+          "precision": 0.9333333333333333,
+          "recall": 0.4666666666666667,
+          "f1": 0.6222222222222223
+        },
+        {
+          "intent": "mortality_comparison",
+          "support": 30,
+          "precision": 1.0,
+          "recall": 0.43333333333333335,
+          "f1": 0.6046511627906976
+        },
+        {
+          "intent": "pending_reviews",
+          "support": 30,
+          "precision": 1.0,
+          "recall": 0.4,
+          "f1": 0.5714285714285715
+        },
+        {
+          "intent": "population_summary",
+          "support": 30,
+          "precision": 0.9230769230769231,
+          "recall": 0.4,
+          "f1": 0.5581395348837209
+        },
+        {
+          "intent": "production_breakdown",
+          "support": 30,
+          "precision": 1.0,
+          "recall": 0.2,
+          "f1": 0.33333333333333337
+        },
+        {
+          "intent": "production_trend",
+          "support": 30,
+          "precision": 0.8846153846153846,
+          "recall": 0.7666666666666667,
+          "f1": 0.8214285714285715
+        },
+        {
+          "intent": "unsupported",
+          "support": 30,
+          "precision": 0.42857142857142855,
+          "recall": 0.8,
+          "f1": 0.5581395348837209
+        }
+      ],
+      "confusion_matrix": {
+        "labels": [
+          "clarification",
+          "disease_by_barangay",
+          "farmer_livestock_count",
+          "mortality_comparison",
+          "pending_reviews",
+          "population_summary",
+          "production_breakdown",
+          "production_trend",
+          "unsupported"
+        ],
+        "rows": [
+          [
+            27,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2
+          ],
+          [
+            19,
+            8,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            3
+          ],
+          [
+            9,
+            0,
+            14,
+            0,
+            0,
+            1,
+            0,
+            0,
+            6
+          ],
+          [
+            17,
+            0,
+            0,
+            13,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            12,
+            0,
+            0,
+            0,
+            12,
+            0,
+            0,
+            0,
+            6
+          ],
+          [
+            8,
+            0,
+            0,
+            0,
+            0,
+            12,
+            0,
+            0,
+            10
+          ],
+          [
+            16,
+            0,
+            0,
+            0,
+            0,
+            0,
+            6,
+            3,
+            5
+          ],
+          [
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            23,
+            0
+          ],
+          [
+            6,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            24
+          ]
+        ]
+      },
+      "false_executable_predictions": 1,
+      "incorrect_rejections": 118,
+      "safe_rejection_rate": 0.9833333333333333
+    },
+    "improved_rules_same_test": {
+      "outcome_accuracy": 0.6222222222222222,
+      "macro_f1": 0.6472105885619641,
+      "per_intent": [
+        {
+          "intent": "clarification",
+          "support": 30,
+          "precision": 0.2641509433962264,
+          "recall": 0.9333333333333333,
+          "f1": 0.411764705882353
+        },
+        {
+          "intent": "disease_by_barangay",
+          "support": 30,
+          "precision": 1.0,
+          "recall": 0.43333333333333335,
+          "f1": 0.6046511627906976
+        },
+        {
+          "intent": "farmer_livestock_count",
+          "support": 30,
+          "precision": 0.9473684210526315,
+          "recall": 0.6,
+          "f1": 0.7346938775510204
+        },
+        {
+          "intent": "mortality_comparison",
+          "support": 30,
+          "precision": 1.0,
+          "recall": 0.5333333333333333,
+          "f1": 0.6956521739130436
+        },
+        {
+          "intent": "pending_reviews",
+          "support": 30,
+          "precision": 1.0,
+          "recall": 0.5333333333333333,
+          "f1": 0.6956521739130436
+        },
+        {
+          "intent": "population_summary",
+          "support": 30,
+          "precision": 0.8095238095238095,
+          "recall": 0.5666666666666667,
+          "f1": 0.6666666666666666
+        },
+        {
+          "intent": "production_breakdown",
+          "support": 30,
+          "precision": 1.0,
+          "recall": 0.26666666666666666,
+          "f1": 0.4210526315789474
+        },
+        {
+          "intent": "production_trend",
+          "support": 30,
+          "precision": 0.8846153846153846,
+          "recall": 0.7666666666666667,
+          "f1": 0.8214285714285715
+        },
+        {
+          "intent": "unsupported",
+          "support": 30,
+          "precision": 0.6444444444444445,
+          "recall": 0.9666666666666667,
+          "f1": 0.7733333333333334
+        }
+      ],
+      "confusion_matrix": {
+        "labels": [
+          "clarification",
+          "disease_by_barangay",
+          "farmer_livestock_count",
+          "mortality_comparison",
+          "pending_reviews",
+          "population_summary",
+          "production_breakdown",
+          "production_trend",
+          "unsupported"
+        ],
+        "rows": [
+          [
+            28,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1
+          ],
+          [
+            17,
+            13,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            6,
+            0,
+            18,
+            0,
+            0,
+            4,
+            0,
+            0,
+            2
+          ],
+          [
+            14,
+            0,
+            0,
+            16,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            11,
+            0,
+            0,
+            0,
+            16,
+            0,
+            0,
+            0,
+            3
+          ],
+          [
+            8,
+            0,
+            0,
+            0,
+            0,
+            17,
+            0,
+            0,
+            5
+          ],
+          [
+            14,
+            0,
+            0,
+            0,
+            0,
+            0,
+            8,
+            3,
+            5
+          ],
+          [
+            7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            23,
+            0
+          ],
+          [
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            29
+          ]
+        ]
+      },
+      "false_executable_predictions": 1,
+      "incorrect_rejections": 92,
+      "safe_rejection_rate": 0.9833333333333333
+    },
+    "entity_extraction": {
+      "per_entity": {
+        "species": {
+          "support": 66,
+          "matches": 185,
+          "checks": 210,
+          "tp": 43,
+          "fp": 2,
+          "fn": 23,
+          "precision": 0.9555555555555556,
+          "recall": 0.6515151515151515,
+          "exact_match_accuracy": 0.8809523809523809
+        },
+        "barangay": {
+          "support": 12,
+          "matches": 207,
+          "checks": 210,
+          "tp": 9,
+          "fp": 0,
+          "fn": 3,
+          "precision": 1.0,
+          "recall": 0.75,
+          "exact_match_accuracy": 0.9857142857142858
+        },
+        "barangay_id": {
+          "support": 12,
+          "matches": 207,
+          "checks": 210,
+          "tp": 9,
+          "fp": 0,
+          "fn": 3,
+          "precision": 1.0,
+          "recall": 0.75,
+          "exact_match_accuracy": 0.9857142857142858
+        },
+        "production_type": {
+          "support": 45,
+          "matches": 197,
+          "checks": 210,
+          "tp": 32,
+          "fp": 0,
+          "fn": 13,
+          "precision": 1.0,
+          "recall": 0.7111111111111111,
+          "exact_match_accuracy": 0.9380952380952381
+        },
+        "group_by": {
+          "support": 96,
+          "matches": 153,
+          "checks": 210,
+          "tp": 39,
+          "fp": 0,
+          "fn": 57,
+          "precision": 1.0,
+          "recall": 0.40625,
+          "exact_match_accuracy": 0.7285714285714285
+        },
+        "period": {
+          "support": 0,
+          "matches": 90,
+          "checks": 90,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0,
+          "recall": null,
+          "exact_match_accuracy": 1.0
+        },
+        "period.start": {
+          "support": 120,
+          "matches": 54,
+          "checks": 120,
+          "tp": 54,
+          "fp": 9,
+          "fn": 66,
+          "precision": 0.8571428571428571,
+          "recall": 0.45,
+          "exact_match_accuracy": 0.45
+        },
+        "period.end": {
+          "support": 120,
+          "matches": 57,
+          "checks": 120,
+          "tp": 57,
+          "fp": 6,
+          "fn": 63,
+          "precision": 0.9047619047619048,
+          "recall": 0.475,
+          "exact_match_accuracy": 0.475
+        },
+        "review_domain": {
+          "support": 24,
+          "matches": 13,
+          "checks": 30,
+          "tp": 7,
+          "fp": 0,
+          "fn": 17,
+          "precision": 1.0,
+          "recall": 0.2916666666666667,
+          "exact_match_accuracy": 0.43333333333333335
+        },
+        "approval_status": {
+          "support": 9,
+          "matches": 4,
+          "checks": 9,
+          "tp": 4,
+          "fp": 0,
+          "fn": 5,
+          "precision": 1.0,
+          "recall": 0.4444444444444444,
+          "exact_match_accuracy": 0.4444444444444444
+        }
+      },
+      "mismatches": [
+        {
+          "example_id": "population_summary.test.for-a-quick-briefing-how-many-cattle-3e397009.tl",
+          "utterance": "Para sa maikling ulat, ilan ang bakang aktibo sa rehistro?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Cattle",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.for-a-quick-briefing-how-many-cattle-3e397009.tl_en",
+          "utterance": "For briefing lang, ilan yung cattle sa active register?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Cattle",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.i-want-a-snapshot-of-the-livestock-p-d9919d0d.tl",
+          "utterance": "Gusto ko ng kasalukuyang bilang ng hayop na nakapangkat sa barangay.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.can-the-inventory-give-me-a-current--d122ce9f.tl",
+          "utterance": "Makikita ba sa imbentaryo ang kasalukuyang kabuuang kalabaw?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Carabao",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.can-the-inventory-give-me-a-current--d122ce9f.tl_en",
+          "utterance": "Pwede current carabao total mula sa inventory?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Carabao",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.how-many-registered-chickens-do-the--5f189e4f.tl",
+          "utterance": "Ilang rehistradong manok ang nasa tala ngayon?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Chicken",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.how-many-registered-chickens-do-the--5f189e4f.tl_en",
+          "utterance": "Ilan yung registered chickens sa records ngayon?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Chicken",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.using-the-active-register-count-shee-415fb2a5.tl",
+          "utterance": "Batay sa aktibong rehistro, bilangin ang tupa.",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Sheep",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.please-pull-up-the-current-inventory-e40cd0e3.en",
+          "utterance": "Please pull up the current inventory for Banaba Ibaba.",
+          "mismatches": [
+            {
+              "entity": "barangay",
+              "expected": "Banaba Ibaba",
+              "actual": null
+            },
+            {
+              "entity": "barangay_id",
+              "expected": 2,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.please-pull-up-the-current-inventory-e40cd0e3.tl",
+          "utterance": "Pakitingnan ang kasalukuyang imbentaryo para sa Banaba Ibaba.",
+          "mismatches": [
+            {
+              "entity": "barangay",
+              "expected": "Banaba Ibaba",
+              "actual": null
+            },
+            {
+              "entity": "barangay_id",
+              "expected": 2,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.give-the-present-totals-for-each-liv-d0bd20e8.en",
+          "utterance": "Give the present totals for each livestock species.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "species",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.give-the-present-totals-for-each-liv-d0bd20e8.tl",
+          "utterance": "Ibigay ang kasalukuyang kabuuan ng bawat uri ng hayop.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "species",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.give-the-present-totals-for-each-liv-d0bd20e8.tl_en",
+          "utterance": "Pakibigay yung present totals per livestock species.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "species",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "population_summary.test.count-the-cattle-registered-in-san-r-bf67f64e.tl",
+          "utterance": "Bilangin ang bakang kasalukuyang rehistrado sa San Roque.",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Cattle",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_trend.test.for-a-briefing-show-how-recorded-mil-cbbdfbfb.en",
+          "utterance": "For a briefing, show how recorded milk output varies month to month.",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "MILK",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_trend.test.for-a-briefing-show-how-recorded-mil-cbbdfbfb.tl",
+          "utterance": "Para sa ulat, ipakita ang pagbabago ng nakatalang gatas bawat buwan.",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "MILK",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_trend.test.for-a-briefing-show-how-recorded-mil-cbbdfbfb.tl_en",
+          "utterance": "For briefing, pakita yung recorded milk output month to month.",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "MILK",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_trend.test.could-you-draw-a-time-series-of-meat-15d634d8.en",
+          "utterance": "Could you draw a time series of meat production?",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "MEAT",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_trend.test.what-milk-totals-were-recorded-month-f7c33076.en",
+          "utterance": "What milk totals were recorded monthly during the preceding year?",
+          "mismatches": [
+            {
+              "entity": "period.start",
+              "expected": "2025-01-01",
+              "actual": "2025-11-01"
+            },
+            {
+              "entity": "period.end",
+              "expected": "2025-12-31",
+              "actual": "2026-10-26"
+            }
+          ]
+        },
+        {
+          "example_id": "production_trend.test.i-want-to-follow-egg-output-across-t-ae5575ac.tl",
+          "utterance": "Gusto kong makita ang takbo ng itlog sa huling anim na buwan.",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "EGGS",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-05-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_trend.test.provide-monthly-wool-output-for-the--c61d3729.tl",
+          "utterance": "Ibigay ang buwanang produksyon ng lana mula simula ng taon.",
+          "mismatches": [
+            {
+              "entity": "period.start",
+              "expected": "2026-01-01",
+              "actual": "2025-11-01"
+            }
+          ]
+        },
+        {
+          "example_id": "production_trend.test.retrieve-the-meat-output-trend-from--f579c5bf.tl",
+          "utterance": "Kunin ang takbo ng produksyon ng karne mula 2026-02-01 hanggang 2026-04-30.",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "MEAT",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-02-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-04-30",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_trend.test.what-quantities-of-milk-were-logged--c113c355.en",
+          "utterance": "What quantities of milk were logged per month in Q2 2026?",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "MILK",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-04-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-06-30",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_trend.test.please-show-the-milk-history-for-the-bc309b09.en",
+          "utterance": "Please show the milk history for the previous calendar month.",
+          "mismatches": [
+            {
+              "entity": "period.start",
+              "expected": "2026-09-01",
+              "actual": "2025-11-01"
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-09-30",
+              "actual": "2026-10-26"
+            }
+          ]
+        },
+        {
+          "example_id": "production_trend.test.please-show-the-milk-history-for-the-bc309b09.tl_en",
+          "utterance": "Pakita yung milk history for the previous calendar month.",
+          "mismatches": [
+            {
+              "entity": "period.start",
+              "expected": "2026-09-01",
+              "actual": "2025-11-01"
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-09-30",
+              "actual": "2026-10-26"
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.for-the-report-keep-milk-production--a4ed6790.tl",
+          "utterance": "Para sa ulat, pangkatin ang kabuuang gatas ayon sa barangay.",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "MILK",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.for-the-report-keep-milk-production--a4ed6790.tl_en",
+          "utterance": "For report, group milk production totals per barangay.",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "MILK",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.could-i-see-separate-totals-for-each-c2751c75.en",
+          "utterance": "Could I see separate totals for each production category?",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.could-i-see-separate-totals-for-each-c2751c75.tl",
+          "utterance": "Makikita ba ang magkakahiwalay na kabuuan ng bawat produkto?",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.could-i-see-separate-totals-for-each-c2751c75.tl_en",
+          "utterance": "Pwede separate totals per production category?",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.present-the-meat-production-breakdow-c25f5e00.tl",
+          "utterance": "Ipakita ang paghahati ng karne ayon sa uri ng alaga.",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "MEAT",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "species",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.arrange-this-year-s-egg-output-accor-4b953155.en",
+          "utterance": "Arrange this year's egg output according to barangay.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.arrange-this-year-s-egg-output-accor-4b953155.tl",
+          "utterance": "Ayusin ayon sa barangay ang produksyon ng itlog ngayong taon.",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "EGGS",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.separate-the-approved-production-out-286aa59a.en",
+          "utterance": "Separate the approved production outputs into categories during 2025.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2025-12-31",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.separate-the-approved-production-out-286aa59a.tl",
+          "utterance": "Ihiwalay ayon sa produkto ang aprubadong produksyon noong 2025.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2025-12-31",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.separate-the-approved-production-out-286aa59a.tl_en",
+          "utterance": "I-separate yung approved production outputs into categories during 2025.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2025-12-31",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.give-the-recorded-milk-output-per-sp-a72b9048.en",
+          "utterance": "Give the recorded milk output per species for last quarter.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "species",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.give-the-recorded-milk-output-per-sp-a72b9048.tl",
+          "utterance": "Ibigay ang nakatalang gatas ayon sa uri ng hayop noong nakaraang quarter.",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "MILK",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "species",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-07-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-09-30",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.give-the-recorded-milk-output-per-sp-a72b9048.tl_en",
+          "utterance": "Recorded milk output per species for last quarter please.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "species",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.separate-the-approved-outputs-into-p-cb6f4723.en",
+          "utterance": "Separate the approved outputs into product types for the preceding three months.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-08-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.separate-the-approved-outputs-into-p-cb6f4723.tl",
+          "utterance": "Ihiwalay ayon sa produkto ang aprubadong tala sa huling tatlong buwan.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-08-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.separate-the-approved-outputs-into-p-cb6f4723.tl_en",
+          "utterance": "I-separate yung approved outputs by product type for the last three months.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-08-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.what-is-the-production-mix-on-record-73c8eae1.tl_en",
+          "utterance": "Ano yung recorded production mix sa San Roque?",
+          "mismatches": [
+            {
+              "entity": "barangay",
+              "expected": "San Roque",
+              "actual": null
+            },
+            {
+              "entity": "barangay_id",
+              "expected": 1,
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.summarize-wool-quantities-by-baranga-93331b57.tl",
+          "utterance": "Ibuod ang dami ng lana ayon sa barangay ngayong quarter.",
+          "mismatches": [
+            {
+              "entity": "production_type",
+              "expected": "WOOL",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-10-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.separate-production-into-output-cate-40a82e48.en",
+          "utterance": "Separate production into output categories from 2026-01-01 to 2026-05-31.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-05-31",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.separate-production-into-output-cate-40a82e48.tl",
+          "utterance": "Hatiin ayon sa produkto ang produksyon mula 2026-01-01 hanggang 2026-05-31.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-05-31",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "production_breakdown.test.separate-production-into-output-cate-40a82e48.tl_en",
+          "utterance": "Separate production by category from 2026-01-01 to 2026-05-31.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "production_type",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-05-31",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.for-the-meeting-display-disease-repo-64d09f88.tl",
+          "utterance": "Para sa pulong, ipakita ang bilang ng ulat ng sakit ayon sa barangay.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.for-the-meeting-display-disease-repo-64d09f88.tl_en",
+          "utterance": "For meeting, display disease report counts by barangay.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.i-want-to-compare-this-year-s-diseas-d7ce0eaa.en",
+          "utterance": "I want to compare this year's disease reports across barangays.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.i-want-to-compare-this-year-s-diseas-d7ce0eaa.tl_en",
+          "utterance": "Compare this year's disease reports across barangays please.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.give-a-per-barangay-count-of-cattle--47dc282e.en",
+          "utterance": "Give a per-barangay count of cattle illness cases.",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Cattle",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2025-12-31",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.give-a-per-barangay-count-of-cattle--47dc282e.tl",
+          "utterance": "Ibigay ang bilang ng sakit ng baka sa bawat barangay.",
+          "mismatches": [
+            {
+              "entity": "period.start",
+              "expected": "2025-01-01",
+              "actual": "2025-11-01"
+            },
+            {
+              "entity": "period.end",
+              "expected": "2025-12-31",
+              "actual": "2026-10-26"
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.give-a-per-barangay-count-of-cattle--47dc282e.tl_en",
+          "utterance": "Give per-barangay cattle illness counts.",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Cattle",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2025-12-31",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.pull-up-last-quarter-s-disease-cases-29d5990f.en",
+          "utterance": "Pull up last quarter's disease cases grouped by barangay.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-07-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-09-30",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.pull-up-last-quarter-s-disease-cases-29d5990f.tl",
+          "utterance": "Ipakita ang sakit noong nakaraang quarter na nakapangkat sa barangay.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-07-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-09-30",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.which-barangays-have-illness-reports-c0135e88.tl",
+          "utterance": "Aling barangay ang may ulat ng sakit ng kambing?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Goat",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.which-barangays-have-illness-reports-c0135e88.tl_en",
+          "utterance": "Saang barangay may illness reports for goats?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Goat",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.show-a-barangay-comparison-of-illnes-407dc50f.en",
+          "utterance": "Show a barangay comparison of illnesses for the past three months.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-08-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.show-a-barangay-comparison-of-illnes-407dc50f.tl",
+          "utterance": "Ipakita ang paghahambing ng sakit sa bawat barangay sa huling tatlong buwan.",
+          "mismatches": [
+            {
+              "entity": "period.start",
+              "expected": "2026-08-01",
+              "actual": "2025-11-01"
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.list-disease-case-counts-per-baranga-d84277d2.tl",
+          "utterance": "Ilista ang bilang ng kaso ng sakit sa bawat barangay noong 2025.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2025-12-31",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.list-disease-case-counts-per-baranga-d84277d2.tl_en",
+          "utterance": "Paki-list yung disease case count sa bawat barangay noong 2025.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2025-12-31",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.i-need-this-month-s-disease-totals-b-65eee7ec.en",
+          "utterance": "I need this month's disease totals by barangay.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-10-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.i-need-this-month-s-disease-totals-b-65eee7ec.tl",
+          "utterance": "Kailangan ko ang kabuuang ulat ng sakit ngayong buwan ayon sa barangay.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-10-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.i-need-this-month-s-disease-totals-b-65eee7ec.tl_en",
+          "utterance": "Need this month's disease totals by barangay.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-10-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.how-were-cattle-disease-cases-distri-69ae261b.en",
+          "utterance": "How were cattle disease cases distributed across all barangays between 2026-02-01 and 2026-04-30?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": null,
+              "actual": "Cattle"
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.how-were-cattle-disease-cases-distri-69ae261b.tl",
+          "utterance": "Paano nahati sa lahat ng barangay ang sakit ng baka mula 2026-02-01 hanggang 2026-04-30?",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-02-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-04-30",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "disease_by_barangay.test.how-were-cattle-disease-cases-distri-69ae261b.tl_en",
+          "utterance": "Paano distributed yung cattle disease cases across all barangays between 2026-02-01 and 2026-04-30?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": null,
+              "actual": "Cattle"
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.for-the-briefing-compare-deaths-reco-185ce564.tl",
+          "utterance": "Para sa ulat, ihambing ang nakatalang namatay sa bawat barangay.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.for-the-briefing-compare-deaths-reco-185ce564.tl_en",
+          "utterance": "For briefing, compare deaths recorded per barangay.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.can-we-see-this-year-s-mortality-fig-7b5a9b38.en",
+          "utterance": "Can we see this year's mortality figures grouped by barangay?",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.can-we-see-this-year-s-mortality-fig-7b5a9b38.tl",
+          "utterance": "Makikita ba ang bilang ng namatay ngayong taon ayon sa barangay?",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.can-we-see-this-year-s-mortality-fig-7b5a9b38.tl_en",
+          "utterance": "Pwede this year's mortality figures grouped by barangay?",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.what-mortality-records-were-logged-p-c4555b37.tl_en",
+          "utterance": "Ano yung mortality records logged per barangay in Q2 2026?",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-04-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-06-30",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.i-need-a-barangay-breakdown-of-recor-8e35c346.en",
+          "utterance": "I need a barangay breakdown of recorded cattle deaths.",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Cattle",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.i-need-a-barangay-breakdown-of-recor-8e35c346.tl",
+          "utterance": "Kailangan ko ang paghahati ng nakatalang namatay na baka ayon sa barangay.",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Cattle",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.i-need-a-barangay-breakdown-of-recor-8e35c346.tl_en",
+          "utterance": "Need barangay breakdown ng recorded cattle deaths.",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Cattle",
+              "actual": null
+            },
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-11-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.compare-the-number-of-deaths-across--0b361d62.en",
+          "utterance": "Compare the number of deaths across barangays over the past three months.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-08-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-10-26",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.compare-the-number-of-deaths-across--0b361d62.tl",
+          "utterance": "Ihambing ang bilang ng namatay sa bawat barangay sa huling tatlong buwan.",
+          "mismatches": [
+            {
+              "entity": "period.start",
+              "expected": "2026-08-01",
+              "actual": "2025-11-01"
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.give-mortality-totals-by-barangay-fo-e9425649.en",
+          "utterance": "Give mortality totals by barangay for the preceding calendar year.",
+          "mismatches": [
+            {
+              "entity": "period.start",
+              "expected": "2025-01-01",
+              "actual": "2025-11-01"
+            },
+            {
+              "entity": "period.end",
+              "expected": "2025-12-31",
+              "actual": "2026-10-26"
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.give-mortality-totals-by-barangay-fo-e9425649.tl",
+          "utterance": "Ibigay ang kabuuang namatay ayon sa barangay noong nakaraang taon.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2025-01-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2025-12-31",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.give-mortality-totals-by-barangay-fo-e9425649.tl_en",
+          "utterance": "Give mortality totals by barangay for the previous calendar year.",
+          "mismatches": [
+            {
+              "entity": "period.start",
+              "expected": "2025-01-01",
+              "actual": "2025-11-01"
+            },
+            {
+              "entity": "period.end",
+              "expected": "2025-12-31",
+              "actual": "2026-10-26"
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.retrieve-the-deaths-by-barangay-betw-72a8c2f6.en",
+          "utterance": "Retrieve the deaths by barangay between 2026-02-01 and 2026-04-30.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-02-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-04-30",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.retrieve-the-deaths-by-barangay-betw-72a8c2f6.tl",
+          "utterance": "Kunin ang tala ng namatay sa bawat barangay mula 2026-02-01 hanggang 2026-04-30.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-02-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-04-30",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "mortality_comparison.test.retrieve-the-deaths-by-barangay-betw-72a8c2f6.tl_en",
+          "utterance": "Retrieve deaths by barangay between 2026-02-01 and 2026-04-30.",
+          "mismatches": [
+            {
+              "entity": "group_by",
+              "expected": "barangay",
+              "actual": null
+            },
+            {
+              "entity": "period.start",
+              "expected": "2026-02-01",
+              "actual": null
+            },
+            {
+              "entity": "period.end",
+              "expected": "2026-04-30",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.could-i-get-a-count-of-registrations-dbc397b8.en",
+          "utterance": "Could I get a count of registrations handed to MAO for review?",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "inventory",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.could-i-get-a-count-of-registrations-dbc397b8.tl",
+          "utterance": "Makukuha ba ang bilang ng rehistrong ipinasa sa MAO para suriin?",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "inventory",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.could-i-get-a-count-of-registrations-dbc397b8.tl_en",
+          "utterance": "Pwede count ng registrations handed to MAO for review?",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "inventory",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.show-how-many-mortality-reports-have-9933dee2.tl",
+          "utterance": "Ipakita kung ilang ulat ng namatay ang nasa pila ng pagsusuri ng MAO.",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "mortality",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.retrieve-the-current-calving-submiss-76b4f27b.tl",
+          "utterance": "Kunin ang kasalukuyang ulat ng panganganak na naghihintay ng MAO.",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "calving",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.i-need-counts-of-production-reports--cff5cab6.en",
+          "utterance": "I need counts of production reports waiting for MAO's decision.",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "production",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.i-need-counts-of-production-reports--cff5cab6.tl",
+          "utterance": "Kailangan ko ang bilang ng ulat ng produksyon na naghihintay ng pasya ng MAO.",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "production",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.i-need-counts-of-production-reports--cff5cab6.tl_en",
+          "utterance": "Need counts ng production reports waiting for MAO decision.",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "production",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.pull-up-ownership-transfer-submissio-c0f48542.tl",
+          "utterance": "Ipakita ang ipinasa para sa paglipat ng pagmamay-ari na nasa MAO.",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "ownership_transfers",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.pull-up-ownership-transfer-submissio-c0f48542.tl_en",
+          "utterance": "Patingin ng ownership transfer submissions na pending sa MAO.",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "ownership_transfers",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.give-the-number-of-inspection-record-1806f376.en",
+          "utterance": "Give the number of inspection records awaiting MAO review.",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "inspection_clearances",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.give-the-number-of-inspection-record-1806f376.tl",
+          "utterance": "Ibigay ang bilang ng tala ng inspeksyon na naghihintay ng MAO.",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "inspection_clearances",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.what-disease-reporting-workload-is-w-d924028f.tl",
+          "utterance": "Anong ulat ng sakit ang naghihintay ng pagsusuri ng MAO ngayon?",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "disease",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.what-disease-reporting-workload-is-w-d924028f.tl_en",
+          "utterance": "Ano yung disease reporting workload waiting for MAO now?",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "disease",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.count-the-sales-submissions-that-are-9f14dd30.en",
+          "utterance": "Count the sales submissions that are pending at the MAO review stage.",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "sales",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.count-the-sales-submissions-that-are-9f14dd30.tl",
+          "utterance": "Bilangin ang ipinasa para sa bentahan na naghihintay sa yugto ng MAO.",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "sales",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "pending_reviews.test.count-the-sales-submissions-that-are-9f14dd30.tl_en",
+          "utterance": "Count sales submissions pending at MAO review stage.",
+          "mismatches": [
+            {
+              "entity": "review_domain",
+              "expected": "sales",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "farmer_livestock_count.test.i-want-the-number-of-carabaos-for-fa-0b1c052d.tl_en",
+          "utterance": "Need number ng carabao for Farmer Ema Pagsubok.",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Carabao",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "farmer_livestock_count.test.how-many-pending-cattle-registration-8ec5b671.en",
+          "utterance": "How many pending cattle registrations does Farmer Berto Pagsubok have?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Cattle",
+              "actual": null
+            },
+            {
+              "entity": "approval_status",
+              "expected": "PENDING",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "farmer_livestock_count.test.how-many-pending-cattle-registration-8ec5b671.tl",
+          "utterance": "Ilang nakabinbing rehistro ng baka ang kay magsasakang Berto Pagsubok?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Cattle",
+              "actual": null
+            },
+            {
+              "entity": "approval_status",
+              "expected": "PENDING",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "farmer_livestock_count.test.how-many-pending-cattle-registration-8ec5b671.tl_en",
+          "utterance": "Ilang pending cattle registrations kay Farmer Berto Pagsubok?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Cattle",
+              "actual": null
+            },
+            {
+              "entity": "approval_status",
+              "expected": "PENDING",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "farmer_livestock_count.test.please-total-the-verified-goats-belo-b855632a.tl",
+          "utterance": "Pakibilang ang beripikadong kambing ni magsasakang Cora Halimbawa.",
+          "mismatches": [
+            {
+              "entity": "approval_status",
+              "expected": "VERIFIED",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "farmer_livestock_count.test.count-the-approved-chickens-of-farme-49081a77.tl",
+          "utterance": "Bilangin ang aprubadong manok ni magsasakang Dado Demo.",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Chicken",
+              "actual": null
+            },
+            {
+              "entity": "approval_status",
+              "expected": "APPROVED",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "farmer_livestock_count.test.how-many-active-pigs-does-farmer-ber-59f5b3b5.tl",
+          "utterance": "Ilang aktibong baboy ang kay magsasakang Berto Pagsubok?",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Swine",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "farmer_livestock_count.test.give-the-number-of-ducks-owned-by-fa-79926667.tl",
+          "utterance": "Ibigay ang bilang ng itik ni magsasakang Cora Halimbawa.",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Duck",
+              "actual": null
+            }
+          ]
+        },
+        {
+          "example_id": "farmer_livestock_count.test.give-the-number-of-ducks-owned-by-fa-79926667.tl_en",
+          "utterance": "Give number ng ducks owned by Farmer Cora Halimbawa.",
+          "mismatches": [
+            {
+              "entity": "species",
+              "expected": "Duck",
+              "actual": null
+            }
+          ]
+        }
+      ]
+    },
+    "end_to_end_static_contract": {
+      "examples": 270,
+      "intent_and_handler_matches": 168,
+      "exact_correctness": 0.6222222222222222,
+      "mismatches": [
+        {
+          "example_id": "population_summary.test.for-a-quick-briefing-how-many-cattle-3e397009.tl",
+          "utterance": "Para sa maikling ulat, ilan ang bakang aktibo sa rehistro?",
+          "expected": "population_summary",
+          "actual": "clarification",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "population_summary.test.for-a-quick-briefing-how-many-cattle-3e397009.tl_en",
+          "utterance": "For briefing lang, ilan yung cattle sa active register?",
+          "expected": "population_summary",
+          "actual": "clarification",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "population_summary.test.i-want-a-snapshot-of-the-livestock-p-d9919d0d.tl",
+          "utterance": "Gusto ko ng kasalukuyang bilang ng hayop na nakapangkat sa barangay.",
+          "expected": "population_summary",
+          "actual": "clarification",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "population_summary.test.can-the-inventory-give-me-a-current--d122ce9f.tl",
+          "utterance": "Makikita ba sa imbentaryo ang kasalukuyang kabuuang kalabaw?",
+          "expected": "population_summary",
+          "actual": "unsupported",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "population_summary.test.can-the-inventory-give-me-a-current--d122ce9f.tl_en",
+          "utterance": "Pwede current carabao total mula sa inventory?",
+          "expected": "population_summary",
+          "actual": "clarification",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "population_summary.test.how-many-registered-chickens-do-the--5f189e4f.tl",
+          "utterance": "Ilang rehistradong manok ang nasa tala ngayon?",
+          "expected": "population_summary",
+          "actual": "clarification",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "population_summary.test.how-many-registered-chickens-do-the--5f189e4f.tl_en",
+          "utterance": "Ilan yung registered chickens sa records ngayon?",
+          "expected": "population_summary",
+          "actual": "clarification",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "population_summary.test.using-the-active-register-count-shee-415fb2a5.tl",
+          "utterance": "Batay sa aktibong rehistro, bilangin ang tupa.",
+          "expected": "population_summary",
+          "actual": "clarification",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "population_summary.test.please-pull-up-the-current-inventory-e40cd0e3.en",
+          "utterance": "Please pull up the current inventory for Banaba Ibaba.",
+          "expected": "population_summary",
+          "actual": "clarification",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "population_summary.test.please-pull-up-the-current-inventory-e40cd0e3.tl",
+          "utterance": "Pakitingnan ang kasalukuyang imbentaryo para sa Banaba Ibaba.",
+          "expected": "population_summary",
+          "actual": "unsupported",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "population_summary.test.give-the-present-totals-for-each-liv-d0bd20e8.en",
+          "utterance": "Give the present totals for each livestock species.",
+          "expected": "population_summary",
+          "actual": "unsupported",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "population_summary.test.give-the-present-totals-for-each-liv-d0bd20e8.tl",
+          "utterance": "Ibigay ang kasalukuyang kabuuan ng bawat uri ng hayop.",
+          "expected": "population_summary",
+          "actual": "unsupported",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "population_summary.test.give-the-present-totals-for-each-liv-d0bd20e8.tl_en",
+          "utterance": "Pakibigay yung present totals per livestock species.",
+          "expected": "population_summary",
+          "actual": "unsupported",
+          "expected_handler": "_population_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_trend.test.for-a-briefing-show-how-recorded-mil-cbbdfbfb.en",
+          "utterance": "For a briefing, show how recorded milk output varies month to month.",
+          "expected": "production_trend",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_trend.test.for-a-briefing-show-how-recorded-mil-cbbdfbfb.tl",
+          "utterance": "Para sa ulat, ipakita ang pagbabago ng nakatalang gatas bawat buwan.",
+          "expected": "production_trend",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_trend.test.for-a-briefing-show-how-recorded-mil-cbbdfbfb.tl_en",
+          "utterance": "For briefing, pakita yung recorded milk output month to month.",
+          "expected": "production_trend",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_trend.test.could-you-draw-a-time-series-of-meat-15d634d8.en",
+          "utterance": "Could you draw a time series of meat production?",
+          "expected": "production_trend",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_trend.test.i-want-to-follow-egg-output-across-t-ae5575ac.tl",
+          "utterance": "Gusto kong makita ang takbo ng itlog sa huling anim na buwan.",
+          "expected": "production_trend",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_trend.test.retrieve-the-meat-output-trend-from--f579c5bf.tl",
+          "utterance": "Kunin ang takbo ng produksyon ng karne mula 2026-02-01 hanggang 2026-04-30.",
+          "expected": "production_trend",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_trend.test.what-quantities-of-milk-were-logged--c113c355.en",
+          "utterance": "What quantities of milk were logged per month in Q2 2026?",
+          "expected": "production_trend",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.for-the-report-keep-milk-production--a4ed6790.tl",
+          "utterance": "Para sa ulat, pangkatin ang kabuuang gatas ayon sa barangay.",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.for-the-report-keep-milk-production--a4ed6790.tl_en",
+          "utterance": "For report, group milk production totals per barangay.",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.could-i-see-separate-totals-for-each-c2751c75.en",
+          "utterance": "Could I see separate totals for each production category?",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.could-i-see-separate-totals-for-each-c2751c75.tl",
+          "utterance": "Makikita ba ang magkakahiwalay na kabuuan ng bawat produkto?",
+          "expected": "production_breakdown",
+          "actual": "unsupported",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.could-i-see-separate-totals-for-each-c2751c75.tl_en",
+          "utterance": "Pwede separate totals per production category?",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.present-the-meat-production-breakdow-c25f5e00.tl",
+          "utterance": "Ipakita ang paghahati ng karne ayon sa uri ng alaga.",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.arrange-this-year-s-egg-output-accor-4b953155.en",
+          "utterance": "Arrange this year's egg output according to barangay.",
+          "expected": "production_breakdown",
+          "actual": "production_trend",
+          "expected_handler": "_production_results",
+          "actual_handler": "_production_results"
+        },
+        {
+          "example_id": "production_breakdown.test.arrange-this-year-s-egg-output-accor-4b953155.tl",
+          "utterance": "Ayusin ayon sa barangay ang produksyon ng itlog ngayong taon.",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.separate-the-approved-production-out-286aa59a.en",
+          "utterance": "Separate the approved production outputs into categories during 2025.",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.separate-the-approved-production-out-286aa59a.tl",
+          "utterance": "Ihiwalay ayon sa produkto ang aprubadong produksyon noong 2025.",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.separate-the-approved-production-out-286aa59a.tl_en",
+          "utterance": "I-separate yung approved production outputs into categories during 2025.",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.give-the-recorded-milk-output-per-sp-a72b9048.en",
+          "utterance": "Give the recorded milk output per species for last quarter.",
+          "expected": "production_breakdown",
+          "actual": "production_trend",
+          "expected_handler": "_production_results",
+          "actual_handler": "_production_results"
+        },
+        {
+          "example_id": "production_breakdown.test.give-the-recorded-milk-output-per-sp-a72b9048.tl",
+          "utterance": "Ibigay ang nakatalang gatas ayon sa uri ng hayop noong nakaraang quarter.",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.give-the-recorded-milk-output-per-sp-a72b9048.tl_en",
+          "utterance": "Recorded milk output per species for last quarter please.",
+          "expected": "production_breakdown",
+          "actual": "production_trend",
+          "expected_handler": "_production_results",
+          "actual_handler": "_production_results"
+        },
+        {
+          "example_id": "production_breakdown.test.separate-the-approved-outputs-into-p-cb6f4723.en",
+          "utterance": "Separate the approved outputs into product types for the preceding three months.",
+          "expected": "production_breakdown",
+          "actual": "unsupported",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.separate-the-approved-outputs-into-p-cb6f4723.tl",
+          "utterance": "Ihiwalay ayon sa produkto ang aprubadong tala sa huling tatlong buwan.",
+          "expected": "production_breakdown",
+          "actual": "unsupported",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.separate-the-approved-outputs-into-p-cb6f4723.tl_en",
+          "utterance": "I-separate yung approved outputs by product type for the last three months.",
+          "expected": "production_breakdown",
+          "actual": "unsupported",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.what-is-the-production-mix-on-record-73c8eae1.tl_en",
+          "utterance": "Ano yung recorded production mix sa San Roque?",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.summarize-wool-quantities-by-baranga-93331b57.tl",
+          "utterance": "Ibuod ang dami ng lana ayon sa barangay ngayong quarter.",
+          "expected": "production_breakdown",
+          "actual": "unsupported",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.separate-production-into-output-cate-40a82e48.en",
+          "utterance": "Separate production into output categories from 2026-01-01 to 2026-05-31.",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.separate-production-into-output-cate-40a82e48.tl",
+          "utterance": "Hatiin ayon sa produkto ang produksyon mula 2026-01-01 hanggang 2026-05-31.",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "production_breakdown.test.separate-production-into-output-cate-40a82e48.tl_en",
+          "utterance": "Separate production by category from 2026-01-01 to 2026-05-31.",
+          "expected": "production_breakdown",
+          "actual": "clarification",
+          "expected_handler": "_production_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.for-the-meeting-display-disease-repo-64d09f88.tl",
+          "utterance": "Para sa pulong, ipakita ang bilang ng ulat ng sakit ayon sa barangay.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.for-the-meeting-display-disease-repo-64d09f88.tl_en",
+          "utterance": "For meeting, display disease report counts by barangay.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.i-want-to-compare-this-year-s-diseas-d7ce0eaa.en",
+          "utterance": "I want to compare this year's disease reports across barangays.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.i-want-to-compare-this-year-s-diseas-d7ce0eaa.tl_en",
+          "utterance": "Compare this year's disease reports across barangays please.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.give-a-per-barangay-count-of-cattle--47dc282e.en",
+          "utterance": "Give a per-barangay count of cattle illness cases.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.give-a-per-barangay-count-of-cattle--47dc282e.tl_en",
+          "utterance": "Give per-barangay cattle illness counts.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.pull-up-last-quarter-s-disease-cases-29d5990f.en",
+          "utterance": "Pull up last quarter's disease cases grouped by barangay.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.pull-up-last-quarter-s-disease-cases-29d5990f.tl",
+          "utterance": "Ipakita ang sakit noong nakaraang quarter na nakapangkat sa barangay.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.which-barangays-have-illness-reports-c0135e88.tl",
+          "utterance": "Aling barangay ang may ulat ng sakit ng kambing?",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.which-barangays-have-illness-reports-c0135e88.tl_en",
+          "utterance": "Saang barangay may illness reports for goats?",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.show-a-barangay-comparison-of-illnes-407dc50f.en",
+          "utterance": "Show a barangay comparison of illnesses for the past three months.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.list-disease-case-counts-per-baranga-d84277d2.tl",
+          "utterance": "Ilista ang bilang ng kaso ng sakit sa bawat barangay noong 2025.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.list-disease-case-counts-per-baranga-d84277d2.tl_en",
+          "utterance": "Paki-list yung disease case count sa bawat barangay noong 2025.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.i-need-this-month-s-disease-totals-b-65eee7ec.en",
+          "utterance": "I need this month's disease totals by barangay.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.i-need-this-month-s-disease-totals-b-65eee7ec.tl",
+          "utterance": "Kailangan ko ang kabuuang ulat ng sakit ngayong buwan ayon sa barangay.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.i-need-this-month-s-disease-totals-b-65eee7ec.tl_en",
+          "utterance": "Need this month's disease totals by barangay.",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "disease_by_barangay.test.how-were-cattle-disease-cases-distri-69ae261b.tl",
+          "utterance": "Paano nahati sa lahat ng barangay ang sakit ng baka mula 2026-02-01 hanggang 2026-04-30?",
+          "expected": "disease_by_barangay",
+          "actual": "clarification",
+          "expected_handler": "_disease_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.for-the-briefing-compare-deaths-reco-185ce564.tl",
+          "utterance": "Para sa ulat, ihambing ang nakatalang namatay sa bawat barangay.",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.for-the-briefing-compare-deaths-reco-185ce564.tl_en",
+          "utterance": "For briefing, compare deaths recorded per barangay.",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.can-we-see-this-year-s-mortality-fig-7b5a9b38.en",
+          "utterance": "Can we see this year's mortality figures grouped by barangay?",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.can-we-see-this-year-s-mortality-fig-7b5a9b38.tl",
+          "utterance": "Makikita ba ang bilang ng namatay ngayong taon ayon sa barangay?",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.can-we-see-this-year-s-mortality-fig-7b5a9b38.tl_en",
+          "utterance": "Pwede this year's mortality figures grouped by barangay?",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.what-mortality-records-were-logged-p-c4555b37.tl_en",
+          "utterance": "Ano yung mortality records logged per barangay in Q2 2026?",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.i-need-a-barangay-breakdown-of-recor-8e35c346.en",
+          "utterance": "I need a barangay breakdown of recorded cattle deaths.",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.i-need-a-barangay-breakdown-of-recor-8e35c346.tl",
+          "utterance": "Kailangan ko ang paghahati ng nakatalang namatay na baka ayon sa barangay.",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.i-need-a-barangay-breakdown-of-recor-8e35c346.tl_en",
+          "utterance": "Need barangay breakdown ng recorded cattle deaths.",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.compare-the-number-of-deaths-across--0b361d62.en",
+          "utterance": "Compare the number of deaths across barangays over the past three months.",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.give-mortality-totals-by-barangay-fo-e9425649.tl",
+          "utterance": "Ibigay ang kabuuang namatay ayon sa barangay noong nakaraang taon.",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.retrieve-the-deaths-by-barangay-betw-72a8c2f6.en",
+          "utterance": "Retrieve the deaths by barangay between 2026-02-01 and 2026-04-30.",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.retrieve-the-deaths-by-barangay-betw-72a8c2f6.tl",
+          "utterance": "Kunin ang tala ng namatay sa bawat barangay mula 2026-02-01 hanggang 2026-04-30.",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "mortality_comparison.test.retrieve-the-deaths-by-barangay-betw-72a8c2f6.tl_en",
+          "utterance": "Retrieve deaths by barangay between 2026-02-01 and 2026-04-30.",
+          "expected": "mortality_comparison",
+          "actual": "clarification",
+          "expected_handler": "_mortality_results",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.for-triage-which-submission-types-ar-c473caf1.en",
+          "utterance": "For triage, which submission types are waiting on MAO approval?",
+          "expected": "pending_reviews",
+          "actual": "clarification",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.for-triage-which-submission-types-ar-c473caf1.tl",
+          "utterance": "Para sa pag-aayos, anong uri ng ipinasa ang naghihintay sa MAO?",
+          "expected": "pending_reviews",
+          "actual": "clarification",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.for-triage-which-submission-types-ar-c473caf1.tl_en",
+          "utterance": "For triage, which submission types wait for MAO approval?",
+          "expected": "pending_reviews",
+          "actual": "clarification",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.could-i-get-a-count-of-registrations-dbc397b8.en",
+          "utterance": "Could I get a count of registrations handed to MAO for review?",
+          "expected": "pending_reviews",
+          "actual": "clarification",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.could-i-get-a-count-of-registrations-dbc397b8.tl",
+          "utterance": "Makukuha ba ang bilang ng rehistrong ipinasa sa MAO para suriin?",
+          "expected": "pending_reviews",
+          "actual": "clarification",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.i-need-counts-of-production-reports--cff5cab6.en",
+          "utterance": "I need counts of production reports waiting for MAO's decision.",
+          "expected": "pending_reviews",
+          "actual": "clarification",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.i-need-counts-of-production-reports--cff5cab6.tl_en",
+          "utterance": "Need counts ng production reports waiting for MAO decision.",
+          "expected": "pending_reviews",
+          "actual": "clarification",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.pull-up-ownership-transfer-submissio-c0f48542.tl",
+          "utterance": "Ipakita ang ipinasa para sa paglipat ng pagmamay-ari na nasa MAO.",
+          "expected": "pending_reviews",
+          "actual": "unsupported",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.pull-up-ownership-transfer-submissio-c0f48542.tl_en",
+          "utterance": "Patingin ng ownership transfer submissions na pending sa MAO.",
+          "expected": "pending_reviews",
+          "actual": "clarification",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.give-the-number-of-inspection-record-1806f376.en",
+          "utterance": "Give the number of inspection records awaiting MAO review.",
+          "expected": "pending_reviews",
+          "actual": "clarification",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.what-disease-reporting-workload-is-w-d924028f.tl_en",
+          "utterance": "Ano yung disease reporting workload waiting for MAO now?",
+          "expected": "pending_reviews",
+          "actual": "clarification",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.count-the-sales-submissions-that-are-9f14dd30.en",
+          "utterance": "Count the sales submissions that are pending at the MAO review stage.",
+          "expected": "pending_reviews",
+          "actual": "unsupported",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.count-the-sales-submissions-that-are-9f14dd30.tl",
+          "utterance": "Bilangin ang ipinasa para sa bentahan na naghihintay sa yugto ng MAO.",
+          "expected": "pending_reviews",
+          "actual": "clarification",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "pending_reviews.test.count-the-sales-submissions-that-are-9f14dd30.tl_en",
+          "utterance": "Count sales submissions pending at MAO review stage.",
+          "expected": "pending_reviews",
+          "actual": "unsupported",
+          "expected_handler": "review_workload_summary",
+          "actual_handler": null
+        },
+        {
+          "example_id": "farmer_livestock_count.test.could-i-get-the-goat-count-for-farme-dbd3aca5.tl",
+          "utterance": "Makukuha ba ang bilang ng kambing ni magsasakang Cora Halimbawa?",
+          "expected": "farmer_livestock_count",
+          "actual": "population_summary",
+          "expected_handler": "_farmer_livestock_count",
+          "actual_handler": "_population_results"
+        },
+        {
+          "example_id": "farmer_livestock_count.test.i-want-the-number-of-carabaos-for-fa-0b1c052d.tl",
+          "utterance": "Gusto ko ang bilang ng kalabaw ni magsasakang Ema Pagsubok.",
+          "expected": "farmer_livestock_count",
+          "actual": "population_summary",
+          "expected_handler": "_farmer_livestock_count",
+          "actual_handler": "_population_results"
+        },
+        {
+          "example_id": "farmer_livestock_count.test.i-want-the-number-of-carabaos-for-fa-0b1c052d.tl_en",
+          "utterance": "Need number ng carabao for Farmer Ema Pagsubok.",
+          "expected": "farmer_livestock_count",
+          "actual": "unsupported",
+          "expected_handler": "_farmer_livestock_count",
+          "actual_handler": null
+        },
+        {
+          "example_id": "farmer_livestock_count.test.how-many-pending-cattle-registration-8ec5b671.en",
+          "utterance": "How many pending cattle registrations does Farmer Berto Pagsubok have?",
+          "expected": "farmer_livestock_count",
+          "actual": "clarification",
+          "expected_handler": "_farmer_livestock_count",
+          "actual_handler": null
+        },
+        {
+          "example_id": "farmer_livestock_count.test.how-many-pending-cattle-registration-8ec5b671.tl",
+          "utterance": "Ilang nakabinbing rehistro ng baka ang kay magsasakang Berto Pagsubok?",
+          "expected": "farmer_livestock_count",
+          "actual": "clarification",
+          "expected_handler": "_farmer_livestock_count",
+          "actual_handler": null
+        },
+        {
+          "example_id": "farmer_livestock_count.test.how-many-pending-cattle-registration-8ec5b671.tl_en",
+          "utterance": "Ilang pending cattle registrations kay Farmer Berto Pagsubok?",
+          "expected": "farmer_livestock_count",
+          "actual": "clarification",
+          "expected_handler": "_farmer_livestock_count",
+          "actual_handler": null
+        },
+        {
+          "example_id": "farmer_livestock_count.test.please-total-the-verified-goats-belo-b855632a.tl",
+          "utterance": "Pakibilang ang beripikadong kambing ni magsasakang Cora Halimbawa.",
+          "expected": "farmer_livestock_count",
+          "actual": "population_summary",
+          "expected_handler": "_farmer_livestock_count",
+          "actual_handler": "_population_results"
+        },
+        {
+          "example_id": "farmer_livestock_count.test.count-the-approved-chickens-of-farme-49081a77.tl",
+          "utterance": "Bilangin ang aprubadong manok ni magsasakang Dado Demo.",
+          "expected": "farmer_livestock_count",
+          "actual": "clarification",
+          "expected_handler": "_farmer_livestock_count",
+          "actual_handler": null
+        },
+        {
+          "example_id": "farmer_livestock_count.test.what-is-the-current-cattle-count-for-2623c5b7.tl",
+          "utterance": "Ano ang kasalukuyang bilang ng baka ni magsasakang Ema Pagsubok?",
+          "expected": "farmer_livestock_count",
+          "actual": "population_summary",
+          "expected_handler": "_farmer_livestock_count",
+          "actual_handler": "_population_results"
+        },
+        {
+          "example_id": "farmer_livestock_count.test.how-many-active-pigs-does-farmer-ber-59f5b3b5.tl",
+          "utterance": "Ilang aktibong baboy ang kay magsasakang Berto Pagsubok?",
+          "expected": "farmer_livestock_count",
+          "actual": "clarification",
+          "expected_handler": "_farmer_livestock_count",
+          "actual_handler": null
+        },
+        {
+          "example_id": "farmer_livestock_count.test.give-the-number-of-ducks-owned-by-fa-79926667.tl",
+          "utterance": "Ibigay ang bilang ng itik ni magsasakang Cora Halimbawa.",
+          "expected": "farmer_livestock_count",
+          "actual": "clarification",
+          "expected_handler": "_farmer_livestock_count",
+          "actual_handler": null
+        },
+        {
+          "example_id": "farmer_livestock_count.test.give-the-number-of-ducks-owned-by-fa-79926667.tl_en",
+          "utterance": "Give number ng ducks owned by Farmer Cora Halimbawa.",
+          "expected": "farmer_livestock_count",
+          "actual": "unsupported",
+          "expected_handler": "_farmer_livestock_count",
+          "actual_handler": null
+        },
+        {
+          "example_id": "clarification.test.show-cattle-inventory-during-2025-f291a3ad.tl",
+          "utterance": "Ipakita ang imbentaryo ng baka noong 2025.",
+          "expected": "clarification",
+          "actual": "unsupported",
+          "expected_handler": null,
+          "actual_handler": null
+        },
+        {
+          "example_id": "clarification.test.count-the-rejected-cattle-registrati-51c7e7b0.tl",
+          "utterance": "Bilangin ang tinanggihang rehistro ng baka ni magsasakang Berto Pagsubok.",
+          "expected": "clarification",
+          "actual": "farmer_livestock_count",
+          "expected_handler": null,
+          "actual_handler": "_farmer_livestock_count"
+        },
+        {
+          "example_id": "unsupported.test.disregard-approval-filters-and-add-p-ebd168f6.tl",
+          "utterance": "Balewalain ang pag-apruba at isama ang nakabinbing tala sa opisyal na produksyon.",
+          "expected": "unsupported",
+          "actual": "clarification",
+          "expected_handler": null,
+          "actual_handler": null
+        }
+      ]
+    }
+  },
+  "limitations": "All expansion examples are generated synthetic proposals, not reviewer-accepted labels or a blind study. The fixed test set is developmental; later edits require a new version/split before reuse. Classifier labels never run queries. Database values, role/barangay authorization, official filters and API values are verified separately by deterministic Django tests."
+}

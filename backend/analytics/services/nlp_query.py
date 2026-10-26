@@ -37,7 +37,7 @@ PRODUCTION_ALIASES = {
 }
 SPECIES_ALIASES = {
     "cattle": ("cattle", "cow", "cows", "baka", "bovine"),
-    "carabao": ("carabao", "kalabaw", "buffalo", "buffaloes"),
+    "carabao": ("carabao", "carabaos", "kalabaw", "buffalo", "buffaloes"),
     "goat": ("goat", "goats", "kambing", "caprine"),
     "sheep": ("sheep", "tupa", "ovine", "lamb", "ram"),
     "swine": ("swine", "pig", "pigs", "baboy", "hog", "porcine"),
@@ -181,7 +181,9 @@ def _parse_period(text, today, intent):
 
 def _resolve_species(text, species_names):
     names = sorted({name for name in species_names if name}, key=lambda name: len(name), reverse=True)
-    direct = [name for name in names if _contains(text, name)]
+    # Registered labels are authoritative; accept a plain English plural when
+    # it still resolves to exactly one stored type (e.g. "chickens" -> Chicken).
+    direct = [name for name in names if _contains(text, name) or _contains(text, f"{name}s")]
 
     aliases_found = [
         (group, aliases)
@@ -268,6 +270,11 @@ def _unknown_species_reference(text, species_names):
         "disease", "diseases", "death", "deaths", "mortality", "production", "yield", "output", "sakit", "namatay",
             "barangay", "barangays", "case", "cases", "ang", "ilan", "ilang", "are", "is", "was", "were", "livestock",
         "monthly", "daily", "breakdown", "break", "down", "trend", "type", "species", "composition", "distribution", "all",
+        "meeting", "briefing", "brief", "display", "show", "list", "give", "pull", "up", "recorded", "record",
+        "counts", "count", "figures", "figure", "grouped", "group", "compare", "comparison", "across", "each",
+        "for", "the", "a", "an", "please", "can", "we", "look", "at", "this", "year", "month", "quarter",
+        "pulong", "ulat", "maikling", "para", "sa", "ipakita", "bilang", "tala", "nakatalang", "ihambing",
+        "ilista", "pakitingnan", "kailangan", "makikita", "bawat", "ayon", "paano", "nasa", "kasalukuyang",
     }
     markers = ("mortality", "death", "deaths", "disease", "diseases", "production", "yield", "registered", "heads")
     for marker in markers:
@@ -430,6 +437,30 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     if len(question) > MAX_QUESTION_LENGTH:
         return {"status": "clarification", "message": f"Keep the question to {MAX_QUESTION_LENGTH} characters or fewer."}
 
+    # A question cannot override server-side authorization, query allowlists,
+    # barangay scope or approval rules. Refuse these before metric detection.
+    override_patterns = (
+        r"\b(?:ignore|bypass|override|disregard)\b.{0,100}\b(?:restriction|permission|access|policy|instruction|role|scope|barangay|approval|system)\b",
+        r"\b(?:ignore|bypass|override|disregard)\b.{0,100}\b(?:approval filter|approval rules?|pending records?|record filters?|status filters?)\b",
+        r"\bpretend\b.{0,60}\b(?:mao|admin|administrator|farmer|another user)\b",
+        r"\b(?:act as|use another user|another user.s session|reveal hidden|show hidden)\b",
+        r"\b(?:select|update|delete|drop|truncate)\b.{0,100}\b(?:from|table|users|records|database|set)\b",
+        r"\b(?:sql|database query|arbitrary query|every database row|all database rows)\b",
+        r"\b(?:sql|database)\b.{0,80}\b(?:select|insert|update|delete|drop|truncate)\b",
+    )
+    if any(re.search(pattern, normalized) for pattern in override_patterns):
+        return {"status": "unsupported", "message": "Ask SmartLivestock only runs fixed, permission-scoped analytics. It cannot change roles, bypass record scope or approval rules, run database commands, or reveal private records."}
+
+    unsupported_capabilities = (
+        "weather", "sensor", "iot", "real time", "real-time", "auction", "subasta",
+        "slaughterhouse", "slaughter", "slaughtered", "katay", "diagnose", "diagnosis",
+        "diagnostic", "treatment", "treat", "prescribe", "antibiotic", "dosage", "dose of",
+        "severity", "clinical", "symptom", "symptoms", "fmd", "foot and mouth", "cause of death", "sanhi ng pagkamatay",
+        "sales", "sold", "revenue", "profit", "benta", "sales records",
+    )
+    if any(_contains(normalized, word) for word in unsupported_capabilities):
+        return {"status": "unsupported", "message": "This assistant returns approved recorded analytics only. It does not provide sensor data, auction/slaughter summaries, veterinary diagnosis or treatment, or sales totals."}
+
     today = today or timezone.localdate()
     if _has_farmer_count_request(normalized):
         return _parse_farmer_livestock_count(
@@ -439,7 +470,7 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     # different question with municipal totals.
     if any(_contains(normalized, word) for word in ("farmer", "farmers", "raiser", "raisers", "magsasaka", "my", "mine", "akin", "own", "owns", "owner", "owned", "tag", "animal id", "farmer id")) or re.search(r"\bdoes\s+.+\s+have\b|\blivestock\s+\d+\b", normalized):
         return {"status": "unsupported", "message": "The assistant does not yet implement farmer-count, individual-owner, or animal-ID filters. This is a query capability limitation, not a decision about your permissions. Use the authorized farmer directory or inventory instead."}
-    queue_request = _contains(normalized, "mao") and any(_contains(normalized, word) for word in ("waiting", "pending", "approval", "review"))
+    queue_request = _contains(normalized, "mao") and any(_contains(normalized, word) for word in ("waiting", "pending", "approval", "review", "naghihintay", "nakapila", "pag-apruba", "pagsusuri"))
     if not queue_request and any(_contains(normalized, word) for word in ("sales", "sold", "revenue", "profit", "benta", "sold animals")):
         return {"status": "unsupported", "message": "Sales and sold-animal summaries are not implemented in this assistant. Use the existing trade records interface."}
     if any(_contains(normalized, word) for word in ("slaughter", "slaughtered", "katay")):
@@ -449,9 +480,10 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     signals = {
         "pending_reviews": any(_contains(normalized, phrase) for phrase in (
             "pending", "waiting", "awaiting", "review", "approval", "for mao", "ma approve", "hindi pa approved",
+            "naghihintay", "nakapila", "nasa pila", "pag-apruba", "apruba", "pagsusuri",
         )),
             "disease_by_barangay": any(_contains(normalized, phrase) for phrase in (
-            "disease", "diseases", "desease", "disese", "outbreak", "illness", "sakit", "may sakit", "karamdaman", "nagkasakit",
+            "disease", "diseases", "desease", "disese", "outbreak", "illness", "illnesses", "sickness", "sakit", "may sakit", "karamdaman", "nagkasakit",
         )),
         "mortality_comparison": any(_contains(normalized, phrase) for phrase in (
             "mortality", "death", "deaths", "died", "namatay", "kamatayan", "pagkamatay",
@@ -460,7 +492,7 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
             "production", "prodution", "produccion", "produksyon", "yield", "output", "milk", "dairy", "gatas", "egg", "eggs", "itlog", "wool", "meat", "karne",
         )),
         "population_summary": any(_contains(normalized, phrase) for phrase in (
-            "population", "inventory", "registered", "currently", "current herd", "heads", "how many", "ilang", "ilan", "active livestock", "livestock count", "herd size", "headcount", "pakibilang", "bilangin", "rehistrado", "nakarehistro",
+            "population", "inventory", "registered", "currently", "current herd", "heads", "how many", "ilang", "ilan", "bilang", "count", "active register", "active inventory", "current inventory", "active livestock", "livestock count", "herd size", "headcount", "pakibilang", "bilangin", "rehistrado", "nakarehistro",
         )),
     }
 
@@ -484,7 +516,8 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         return {"status": "clarification", "message": "Analytics use approved records. For pending submissions, ask about the current MAO review queue."}
     if intent == "production":
         breakdown = any(_contains(normalized, phrase) for phrase in (
-            "breakdown", "break down", "by barangay", "per barangay", "sa bawat barangay", "by type", "by livestock type", "by species", "distribution", "composition",
+            "breakdown", "break down", "by barangay", "per barangay", "sa bawat barangay", "by type", "by livestock type", "by species", "distribution", "composition", "production mix", "grouped", "group production", "product category", "product categories", "product types", "output categories",
+            "paghahati", "pangkatin", "hatiin", "ihiwalay", "separate", "separated", "split", "divided", "ayon sa uri", "ayon sa produkto", "ayon sa barangay",
         ))
         intent = "production_breakdown" if breakdown else "production_trend"
 
@@ -525,6 +558,16 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     if production_error:
         return {"status": "clarification", "message": production_error}
 
+    requested_units = [unit for unit, aliases in {
+        "LITERS": ("liter", "litre", "litro", "liters", "litres", "litros"),
+        "KILOGRAMS": ("kilogram", "kilograms", "kilo", "kilos", "kg"),
+        "PIECES": ("piece", "pieces", "piraso", "count of eggs"),
+    }.items() if any(_contains(normalized, alias) for alias in aliases)]
+    if production_type and requested_units:
+        expected_unit = {"MILK": "LITERS", "MEAT": "KILOGRAMS", "WOOL": "KILOGRAMS", "EGGS": "PIECES"}[production_type]
+        if requested_units != [expected_unit]:
+            return {"status": "clarification", "message": f"{production_type.title()} production is recorded in {expected_unit.lower()}; please request that unit so quantities are not mixed or relabeled."}
+
     if species and production_type and production_type not in allowed_production_types(species[0]):
         return {"status": "clarification", "message": "That production category is not supported for the selected livestock type. Choose a supported combination."}
     if any(_contains(normalized, phrase) for phrase in ("by barangay", "per barangay")) and any(_contains(normalized, phrase) for phrase in ("by species", "by livestock type")):
@@ -532,19 +575,20 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     group_by = None
     if intent in ("disease_by_barangay", "mortality_comparison"):
         if not any(_contains(normalized, phrase) for phrase in (
-            "by barangay", "per barangay", "across barangays", "across all barangays", "each barangay", "which barangays", "barangays reported", "sa bawat barangay",
+            "by barangay", "per barangay", "across barangays", "across all barangays", "each barangay", "for each barangay", "in each barangay", "which barangays", "barangay comparison", "barangays reported", "sa bawat barangay", "ayon sa barangay", "saang barangay",
+            "bawat barangay", "bawat na barangay",
         )):
             return {"status": "clarification", "message": "Should I compare this metric by barangay? Please say 'by barangay' or 'across barangays'."}
         group_by = "barangay"
     elif intent == "population_summary":
-        if any(_contains(normalized, phrase) for phrase in ("by barangay", "per barangay", "each barangay", "across barangays", "sa bawat barangay")):
+        if any(_contains(normalized, phrase) for phrase in ("by barangay", "per barangay", "each barangay", "for each barangay", "in each barangay", "across barangays", "sa bawat barangay", "bawat barangay", "ayon sa barangay")):
             group_by = "barangay"
-        elif any(_contains(normalized, phrase) for phrase in ("by livestock type", "by species", "per species")):
+        elif any(_contains(normalized, phrase) for phrase in ("by livestock type", "by species", "per species", "each livestock species", "by type", "ayon sa uri")):
             group_by = "species"
     elif intent == "production_breakdown":
-        if any(_contains(normalized, phrase) for phrase in ("by barangay", "per barangay", "sa bawat barangay")):
+        if any(_contains(normalized, phrase) for phrase in ("by barangay", "per barangay", "sa bawat barangay", "bawat barangay", "ayon sa barangay", "according to barangay")):
             group_by = "barangay"
-        elif any(_contains(normalized, phrase) for phrase in ("by livestock type", "by species", "per species")):
+        elif any(_contains(normalized, phrase) for phrase in ("by livestock type", "by species", "per species", "across livestock types", "across species", "ayon sa uri", "according to species", "according to livestock type")):
             group_by = "species"
         else:
             group_by = "production_type"
@@ -554,7 +598,7 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     review_domain = None
     if intent == "pending_reviews":
         domain_aliases = {
-            "inventory": ("inventory", "livestock registration"),
+            "inventory": ("inventory", "livestock registration", "registration"),
             "production": ("production", "milk", "eggs", "meat", "wool"),
             "disease": ("disease", "diseases"),
             "mortality": ("mortality", "deaths"),
@@ -562,15 +606,15 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
             "census": ("census",),
             "ownership_transfers": ("ownership transfer", "transfer of ownership"),
             "inspection_clearances": ("inspection", "clearance", "movement"),
-            "sales": ("auction sales", "sale record"),
+            "sales": ("auction sales", "sale record", "sales"),
         }
         domains_found = [key for key, aliases in domain_aliases.items() if any(_contains(normalized, alias) for alias in aliases)]
         if len(domains_found) > 1:
             return {"status": "clarification", "message": "Please ask about one submission type at a time, or ask for all MAO queues."}
         review_domain = domains_found[0] if domains_found else None
-        if not any(_contains(normalized, phrase) for phrase in ("mao", "municipal agriculture office")):
+        if not any(_contains(normalized, phrase) for phrase in ("mao", "municipal agriculture office", "tanggapan ng agrikultura", "opisina ng agrikultura")):
             return {"status": "clarification", "message": "Do you mean items waiting for MAO approval? This query does not combine SIBAT and MAO review stages."}
-        if not any(_contains(normalized, phrase) for phrase in ("approval", "approve", "review", "waiting", "awaiting", "pending", "for mao", "ma approve")):
+        if not any(_contains(normalized, phrase) for phrase in ("approval", "approve", "review", "waiting", "awaiting", "pending", "for mao", "ma approve", "naghihintay", "nakapila", "pag-apruba", "apruba", "pagsusuri")):
             return {"status": "clarification", "message": "Please specify that you mean submissions waiting for MAO review or approval."}
         if barangay or species or production_type:
             return {"status": "clarification", "message": "The existing MAO workload summary can group queue counts by submission type only; it cannot filter queue counts by barangay, livestock type, or production type."}
