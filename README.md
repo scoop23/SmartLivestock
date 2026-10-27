@@ -216,6 +216,21 @@ under each app's `management/commands` directory include synthetic/demo seeders;
 inspect the specific command before using it in an explicitly disposable database.
 No assertion is made that every record in an existing database is synthetic.
 
+For a read-only catalog of installed seed commands and an analytics presentation
+sequence, run this from `backend`:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py analytics_seed_guide --demo
+```
+
+The guide does not query or modify database records. For a focused presentation,
+use `seed_forecast_quality_demo --scenario ideal` for synthetic forecast examples
+and `seed_inspections` for inspection/clearance data used by the GIS movement
+layer. Only approved clearances appear as official GIS movements. Both commands
+write synthetic data, so verify the configured database is disposable local
+PostgreSQL before running them. Forecast-quality `ideal` and `poor` scenarios must
+be seeded separately; clean the current scenario before switching.
+
 ### Optional services
 
 - Password recovery needs `FRONTEND_URL` and working SMTP settings in production.
