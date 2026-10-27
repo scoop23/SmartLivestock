@@ -257,7 +257,7 @@ export default function LivestockDetailsDialog({
       element: '[data-tour="details-footer"]',
       popover: {
         title: "Open the full profile",
-        description: "Use View Profile to open this animal’s complete page and management tools.",
+        description: "Use View Profile for the full record: side photos, growth and production history, health, Pedigree & Lineage, and ownership history. On phones, the sections are in a draggable panel.",
         side: "top",
         align: "end",
       },

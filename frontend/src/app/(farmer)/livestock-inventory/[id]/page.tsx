@@ -85,6 +85,9 @@ XAxis,
 YAxis,
 } from "recharts";
 import { toast } from "sonner";
+import { type DriveStep } from "driver.js";
+import "driver.js/dist/driver.css";
+import { markTutorialSeen, shouldAutoStartTutorial, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import ProductionSubmissionSuccessDialog from "../../production-dashboard/production-submission-success-dialog";
 import { LivestockInfographicHero } from "../components/livestock-infographic-hero";
 import { LivestockLineageTree } from "../components/livestock-lineage-tree";
@@ -251,6 +254,78 @@ export default function LivestockDetailPage() {
     }
     return null;
   }, [inventoryMatch, directInventory]);
+
+  useEffect(() => {
+    if (!activeItem?.id || !shouldAutoStartTutorial("smartlivestock-livestock-profile-tour")) return;
+
+    const timer = window.setTimeout(() => {
+      const isMobile = window.matchMedia("(max-width: 1023px)").matches;
+      const steps: DriveStep[] = [
+        {
+          element: '[data-tour="livestock-profile-overview"]',
+          popover: {
+            title: "Animal profile overview",
+            description: "This infographic summarizes the selected animal’s identity, status, and available actions. Use its shortcuts to open the related record section.",
+            side: "bottom",
+            align: "start",
+          },
+        },
+      ];
+
+      if (activeItem.entryType === "INDIVIDUAL") {
+        steps.push({
+          element: '[data-tour="livestock-profile-side-photos"]',
+          popover: {
+            title: "Left and right side photos",
+            description: "These views help identify an individual animal. Upload a photo for either side, or remove an existing one; a species avatar appears when a photo is missing.",
+            side: "top",
+            align: "start",
+          },
+        });
+      }
+
+      steps.push(
+        {
+          element: isMobile
+            ? '[data-tour="profile-tabs-mobile"]'
+            : '[data-tour="profile-tabs-desktop"]',
+          popover: {
+            title: isMobile ? "Switch profile sections" : "Profile sections",
+            description: isMobile
+              ? "The profile opens in a draggable bottom panel. Swipe or drag its handle to expand it, then use this row to switch sections."
+              : "Use these tabs to switch between growth, production, offspring, health, pedigree, and ownership information.",
+            side: isMobile ? "top" : "bottom",
+            align: "center",
+          },
+        },
+        {
+          element: isMobile
+            ? '[data-tour="profile-pedigree-tab-mobile"]'
+            : '[data-tour="profile-pedigree-tab-desktop"]',
+          popover: {
+            title: "Pedigree and lineage",
+            description: "Choose this section to see recorded parents and offspring in a family tree. It reflects saved birth and inventory links; missing parentage is shown as not recorded.",
+            side: isMobile ? "top" : "bottom",
+            align: "center",
+          },
+        },
+      );
+
+      markTutorialSeen("smartlivestock-livestock-profile-tour");
+      startGuidedTutorial({
+        showProgress: true,
+        animate: true,
+        allowClose: true,
+        nextBtnText: "Next",
+        prevBtnText: "Back",
+        doneBtnText: "Finish",
+        progressText: "{{current}} of {{total}}",
+        steps,
+      });
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [activeItem?.id, activeItem?.entryType]);
   const canCorrectIndividual = Boolean(
     activeItem?.status === "SUBJECT_TO_REVISION"
       && activeItem.operationalStatus === "ACTIVE"
@@ -949,7 +1024,7 @@ export default function LivestockDetailPage() {
         )}
 
         {/* ── INTERACTIVE LIVESTOCK SILHOUETTE INFOGRAPHIC HERO ── */}
-        <div className={isDeceased ? "pointer-events-none grayscale opacity-75" : undefined} aria-disabled={isDeceased}>
+        <div data-tour="livestock-profile-overview" className={isDeceased ? "pointer-events-none grayscale opacity-75" : undefined} aria-disabled={isDeceased}>
         <LivestockInfographicHero
           activeItem={activeItem}
           latestWeight={latestWeight}
@@ -1020,7 +1095,7 @@ export default function LivestockDetailPage() {
         </div>
 
         {activeItem.entryType === "INDIVIDUAL" && (
-          <Card className="rounded-2xl border-slate-200 bg-white shadow-sm">
+          <Card data-tour="livestock-profile-side-photos" className="rounded-2xl border-slate-200 bg-white shadow-sm">
             <CardHeader className="p-4 pb-2 sm:p-5 sm:pb-3">
               <CardTitle className="text-sm font-black text-slate-900">Livestock Side Photos</CardTitle>
               <CardDescription className="text-xs text-slate-500">Left- and right-side views. The species avatar is shown for any side without a photo.</CardDescription>
@@ -1101,7 +1176,7 @@ export default function LivestockDetailPage() {
         >
           <Tabs value={activeProfileTab} onValueChange={setActiveProfileTab} className="w-full space-y-6">
             <div className="hidden lg:block w-full overflow-x-auto no-scrollbar py-1.5">
-              <TabsList className="h-12 flex w-full min-w-max items-center justify-between gap-1.5 rounded-2xl border border-slate-200/90 bg-slate-100/90 p-1.5 shadow-2xs">
+              <TabsList data-tour="profile-tabs-desktop" className="h-12 flex w-full min-w-max items-center justify-between gap-1.5 rounded-2xl border border-slate-200/90 bg-slate-100/90 p-1.5 shadow-2xs">
                 <TabsTrigger
                   value="growth"
                   className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
@@ -1151,6 +1226,7 @@ export default function LivestockDetailPage() {
 
                 <TabsTrigger
                   value="pedigree"
+                  data-tour="profile-pedigree-tab-desktop"
                   className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Heart className="size-3.5 shrink-0 text-purple-600" />

@@ -176,13 +176,14 @@ export function LivestockSlidingPanel({
       </div>
 
       {/* ── QUICK TAB SWITCHER BAR (Mobile view) ── */}
-      <div className="px-3 py-2 overflow-x-auto no-scrollbar shrink-0 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/60 dark:bg-slate-900/60 flex items-center gap-1.5 lg:hidden">
+      <div data-tour="profile-tabs-mobile" className="px-3 py-2 overflow-x-auto no-scrollbar shrink-0 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/60 dark:bg-slate-900/60 flex items-center gap-1.5 lg:hidden">
         {tabItems.map((tab) => {
           const isActive = tab.id === activeTab;
           return (
             <button
               key={tab.id}
               type="button"
+              data-tour={tab.id === "pedigree" ? "profile-pedigree-tab-mobile" : undefined}
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectTab(tab.id);
