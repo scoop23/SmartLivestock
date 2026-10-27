@@ -384,10 +384,12 @@ export default function DataOverviewPage() {
       breed: item.livestockBreed || "Standard Breed",
       cause: item.conditionName || "Unspecified Cause",
       dateOfDeath: item.date || "",
+      status: item.status,
+      reviewStatus: item.status,
       necropsyPerformed: Boolean(item.reviewedBy),
       necropsyFindings: item.reviewRemarks || undefined,
       disposalMethod: "Burial with Lime",
-      insuranceClaimStatus: (item.status === "APPROVED" ? "Approved" : "In Review"),
+      insuranceClaimStatus: "Not recorded",
       verifiedBy: item.reviewedBy || "MAO Biosecurity Officer",
     }));
   }, [rawIncidents]);

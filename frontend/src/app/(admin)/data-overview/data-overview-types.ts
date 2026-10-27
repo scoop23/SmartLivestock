@@ -160,10 +160,12 @@ export interface MortalityRecord {
   breed: string;
   cause: string;
   dateOfDeath: string;
+  status?: string;
+  reviewStatus?: string;
   necropsyPerformed: boolean;
   necropsyFindings?: string;
   disposalMethod: 'Burial with Lime' | 'Municipal Crematorium' | 'Rendering Facility';
-  insuranceClaimStatus: 'Approved' | 'In Review' | 'Not Insured';
+  insuranceClaimStatus: 'Approved' | 'In Review' | 'Not Insured' | 'Not recorded';
   verifiedBy: string;
 }
 

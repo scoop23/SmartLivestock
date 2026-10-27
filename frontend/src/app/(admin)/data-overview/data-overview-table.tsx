@@ -253,6 +253,9 @@ export function DataOverviewTable({
                       Cause of Death
                     </TableHead>
                     <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider">
+                      Review Status
+                    </TableHead>
+                    <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider">
                       Disposal Method
                     </TableHead>
                     <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider">
@@ -584,6 +587,9 @@ export function DataOverviewTable({
                       </TableCell>
                       <TableCell className="px-3.5 py-2.5 text-xs font-bold text-slate-800">
                         {item.cause}
+                      </TableCell>
+                      <TableCell className="px-3.5 py-2.5">
+                        <ReviewStatusBadge status={item.reviewStatus || item.status || "NOT_RECORDED"} />
                       </TableCell>
                       <TableCell className="px-3.5 py-2.5 text-xs text-slate-600">
                         {item.disposalMethod}
