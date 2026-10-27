@@ -261,7 +261,7 @@ export function GISSidebar({
             {selectedBarangay ? `Barangay ${selectedBarangay.name} Telemetry` : 'Municipal Telemetry Overview'}
           </SheetTitle>
           <SheetDescription className="sr-only">
-            Detailed livestock, disease, and production records for Padre Garcia
+            Livestock, farmer-reported production, and health activity for Padre Garcia
           </SheetDescription>
           <div className="shrink-0">
             <button

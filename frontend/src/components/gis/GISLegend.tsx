@@ -98,16 +98,16 @@ export function GISLegend({
         ];
       case 'milk':
         return [
-          { color: '#0c4a6e', label: '10,000+ L/mo' },
-          { color: '#0284c7', label: '1,000–10,000 L/mo' },
-          { color: '#38bdf8', label: '1–1,000 L/mo' },
+          { color: '#0c4a6e', label: '10,000+ L/mo (reported)' },
+          { color: '#0284c7', label: '1,000–10,000 L/mo (reported)' },
+          { color: '#38bdf8', label: '1–1,000 L/mo (reported)' },
           { color: '#e0f2fe', label: '0 L (No records)' },
         ];
       case 'farmer_meat':
         return [
-          { color: '#9a3412', label: '500+ kg production' },
-          { color: '#c2410c', label: '100–500 kg production' },
-          { color: '#fb923c', label: '1–100 kg production' },
+          { color: '#9a3412', label: '500+ kg reported' },
+          { color: '#c2410c', label: '100–500 kg reported' },
+          { color: '#fb923c', label: '1–100 kg reported' },
           { color: '#fff7ed', label: '0 kg (No farmer production)' },
         ];
       case 'slaughter_yield':
@@ -171,8 +171,8 @@ export function GISLegend({
           : 'Reported Disease Heat Map',
       icon: '🩺',
     },
-    milk: { title: 'Dairy Milk Production', icon: '🥛' },
-    farmer_meat: { title: 'Farmer Meat Production', icon: '🥩' },
+    milk: { title: 'Recorded Milk (Farmer-reported)', icon: '🥛' },
+    farmer_meat: { title: 'Recorded Meat Yield (Farmer-reported)', icon: '🥩' },
     slaughter_yield: { title: 'Slaughterhouse Carcass Yield', icon: '🔪' },
     meat: { title: 'Slaughterhouse Carcass Yield', icon: '🔪' },
     mortality: { title: mortalityTitle, icon: '☠️' },

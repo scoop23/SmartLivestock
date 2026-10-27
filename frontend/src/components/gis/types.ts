@@ -65,8 +65,8 @@ export interface BarangayGISData {
   affected_heads: number;     // Animals affected by disease
   disease_risk: 'low' | 'medium' | 'high'; // Derived from recent approved reports
   recent_diseases: string[];  // Symptoms / disease names reported
-  milk: number;               // Total milk production in Liters
-  farmer_meat: number;        // Farmer-reported on-farm meat production in kg (ProductionRecord)
+  milk: number;               // Farmer-reported/recorded milk production in Liters
+  farmer_meat: number;        // Farmer-reported meat-yield logs in kg (ProductionRecord)
   slaughter_yield: number;    // Inspected carcass meat yield in kg (SlaughterRecord)
   slaughter_heads: number;    // Heads slaughtered
   meat: number;               // Legacy alias for slaughter_yield

@@ -391,7 +391,7 @@ export function BarangayDetails({
             <div className="space-y-1.5 text-xs">
               <div className="flex items-center justify-between p-2 bg-sky-50/70 border border-sky-100 rounded-lg">
                 <span className="font-semibold text-sky-900 flex items-center gap-1.5">
-                  🥛 Dairy Milk
+                  🥛 Recorded Milk (farmer-reported)
                 </span>
                 <span className="font-bold font-mono text-sky-900">
                   {data.milk > 0 ? `${data.milk.toLocaleString()} L` : '0 L (No records)'}
@@ -400,7 +400,7 @@ export function BarangayDetails({
 
               <div className="flex items-center justify-between p-2 bg-amber-50/70 border border-amber-100 rounded-lg">
                 <span className="font-semibold text-amber-950 flex items-center gap-1.5">
-                  🥩 Farmer Meat Production
+                  🥩 Recorded Meat Yield (farmer-reported)
                 </span>
                 <span className="font-bold font-mono text-amber-950">
                   {(data.farmer_meat ?? 0) > 0

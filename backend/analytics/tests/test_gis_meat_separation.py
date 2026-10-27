@@ -141,7 +141,7 @@ class GISMeatSeparationTestCase(TestCase):
         self.assertEqual(data["summary"]["total_farmer_meat"], 0.0)
 
     def test_non_approved_records_excluded(self):
-        """Pending or rejected records are never included in official GIS totals."""
+        """Pending records are excluded; recorded farmer reports remain labeled separately from official slaughter."""
         # Pending farmer meat
         ProductionRecord.objects.create(
             livestock=self.inventory,
@@ -170,6 +170,26 @@ class GISMeatSeparationTestCase(TestCase):
         self.assertEqual(cawongan["slaughter_yield"], 0.0)
         self.assertEqual(data["summary"]["total_farmer_meat"], 0.0)
         self.assertEqual(data["summary"]["total_slaughter_yield"], 0.0)
+
+    def test_recorded_farmer_meat_is_reported_but_not_official_slaughter_or_inventory_change(self):
+        ProductionRecord.objects.create(
+            livestock=self.inventory,
+            production_type=ProductionRecord.ProductionType.MEAT,
+            quantity=Decimal("125.00"),
+            unit=ProductionRecord.UnitType.KILOGRAMS,
+            record_date=timezone.localdate(),
+            status=ProductionRecord.ProductionStatus.RECORDED,
+            created_by=self.farmer_user,
+        )
+
+        data = get_gis_aggregated_data(user=self.admin_user)
+        barangay = data["barangays_dict"]["Cawongan"]
+        self.assertEqual(barangay["farmer_meat"], 125.0)
+        self.assertEqual(barangay["slaughter_yield"], 0.0)
+        self.assertEqual(barangay["slaughter_heads"], 0)
+        self.assertEqual(SlaughterRecord.objects.count(), 0)
+        self.inventory.refresh_from_db()
+        self.assertEqual(self.inventory.operational_status, LivestockInventory.OperationalStatus.ACTIVE)
 
     def test_coexistence_never_summed_together(self):
         """Both approved farmer meat and slaughter yield exist; metrics remain strictly separated."""

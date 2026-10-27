@@ -513,9 +513,10 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             b_entry["disease_risk"] = "low"
 
     # 7. Aggregate Production (Milk in Liters)
-    # DATA TRUST POLICY: Only MAO-approved production logs are summarized
+    # Farmer-reported layer: new routine logs are RECORDED; APPROVED is retained
+    # for legacy logs. This is contextual reporting, not a municipal certification.
     production_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-        status=ProductionRecord.ProductionStatus.APPROVED,
+        status__in=[ProductionRecord.ProductionStatus.RECORDED, ProductionRecord.ProductionStatus.APPROVED],
         production_type=ProductionRecord.ProductionType.MILK,
     )
     milk_grouped = (
@@ -535,15 +536,14 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     # -------------------------------------------------------------------------
     # Farmer Meat Production (on-farm logs) vs. Slaughterhouse Yield (facility carcass weight).
     # - Source: ProductionRecord with production_type = MEAT and unit = KILOGRAMS.
-    # - CRITICAL INVARIANT: slaughter__isnull=True guarantees that slaughter-projected
-    #   records are NOT included here, preventing double-counting.
+    # This is a farmer-reported layer. It is intentionally separate from official
+    # SlaughterRecord aggregation below; quantities are never combined into total_meat.
     # - Associated with farmer's registered barangay.
-    # - DATA TRUST: Only MAO-approved production records are included.
+    # - DATA TRUST: Only recorded farmer reports and legacy approved records.
     farmer_meat_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-        status=ProductionRecord.ProductionStatus.APPROVED,
+        status__in=[ProductionRecord.ProductionStatus.RECORDED, ProductionRecord.ProductionStatus.APPROVED],
         production_type=ProductionRecord.ProductionType.MEAT,
         unit=ProductionRecord.UnitType.KILOGRAMS,
-        slaughter__isnull=True,
     )
     farmer_meat_grouped = (
         farmer_meat_qs.annotate(
@@ -782,15 +782,14 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         my_total_livestock = my_inv.aggregate(s=Sum("quantity"))["s"] or 0
         my_milk = ProductionRecord.objects.filter(
             farmer_at_record=fp,
-            status=ProductionRecord.ProductionStatus.APPROVED,
+            status__in=[ProductionRecord.ProductionStatus.RECORDED, ProductionRecord.ProductionStatus.APPROVED],
             production_type=ProductionRecord.ProductionType.MILK,
         ).aggregate(s=Sum("quantity"))["s"] or 0.0
         my_farmer_meat = ProductionRecord.objects.filter(
             farmer_at_record=fp,
-            status=ProductionRecord.ProductionStatus.APPROVED,
+            status__in=[ProductionRecord.ProductionStatus.RECORDED, ProductionRecord.ProductionStatus.APPROVED],
             production_type=ProductionRecord.ProductionType.MEAT,
             unit=ProductionRecord.UnitType.KILOGRAMS,
-            slaughter__isnull=True,
         ).aggregate(s=Sum("quantity"))["s"] or 0.0
 
         farmer_stats = {

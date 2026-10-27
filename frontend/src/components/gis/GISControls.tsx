@@ -154,8 +154,8 @@ export function GISControls({
   const allLayerOptions: { id: MapLayer; label: string; icon: string }[] = [
     { id: 'cattle', label: livestockLabel, icon: '🐄' },
     { id: 'disease', label: 'Disease', icon: '🩺' },
-    { id: 'milk', label: 'Dairy Milk', icon: '🥛' },
-    { id: 'farmer_meat', label: 'Farmer Meat', icon: '🥩' },
+    { id: 'milk', label: 'Recorded Milk (Farmer-reported)', icon: '🥛' },
+    { id: 'farmer_meat', label: 'Recorded Meat Yield (Farmer-reported)', icon: '🥩' },
     { id: 'slaughter_yield', label: 'Slaughter Yield', icon: '🔪' },
     { id: 'mortality', label: 'Mortality', icon: '☠️' },
     { id: 'movement', label: 'Movement', icon: '🚛' },

@@ -182,7 +182,7 @@ export function MunicipalOverview({
             <span className="shrink-0">{visibleBarangays.length} barangays</span>
           </div>
           <p className="mt-2 text-xs leading-relaxed">
-            Explore approved livestock records, production, and recorded health activity within your map scope. Select a barangay for its details.
+            Explore livestock, farmer-reported production, and recorded health activity within your map scope. Select a barangay for its details.
           </p>
         </div>
         {/* FARMER LOCAL CONTEXT CARD (Shows Farmer's Own Heads vs. Community Aggregate) */}
