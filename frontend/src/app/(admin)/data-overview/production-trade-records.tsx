@@ -185,7 +185,7 @@ export function ProductionTradeRecords({
 
   const recordViews = [
     { id: "sales", label: "Auction & Trade", count: allTradeRecordsCount },
-    { id: "ownership", label: "Ownership Transfers", count: transfers.length },
+    { id: "ownership", label: "Live Sales", count: transfers.length },
     { id: "movement", label: "Movement Logs", count: movements.length },
   ] as const;
 

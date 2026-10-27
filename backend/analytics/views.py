@@ -749,6 +749,10 @@ def _livestock_milk_forecast_response(request, livestock_id):
             seed_marker=SEED_MARKER_INDIVIDUAL_MILK_DEMO,
         ).first()
         if demo_cow is None:
+            demo_cow = IndividualMilkDemoCow.objects.filter(
+                seed_marker=SEED_MARKER_INDIVIDUAL_MILK_DEMO,
+            ).first()
+        if demo_cow is None:
             return Response({"detail": "No synthetic demonstration has been seeded for this livestock."}, status=status.HTTP_404_NOT_FOUND)
         from .services.predictive.individual_milk import get_individual_milk_forecast
         from .services.predictive.weather import get_weather_context
@@ -880,7 +884,6 @@ def _livestock_milk_forecast_response(request, livestock_id):
     from analytics.models import IndividualMilkDemoCow
     from analytics.seed_markers import SEED_MARKER_INDIVIDUAL_MILK_DEMO
     result["demonstration_available"] = IndividualMilkDemoCow.objects.filter(
-        tag_number=animal.tag_number,
         seed_marker=SEED_MARKER_INDIVIDUAL_MILK_DEMO,
     ).exists()
     return Response(result)

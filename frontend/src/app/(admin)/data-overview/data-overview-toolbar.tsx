@@ -92,7 +92,7 @@ const DOMAIN_PILLARS: DomainPillar[] = [
   },
   {
     id: "registry",
-    label: "Herd Registry",
+    label: "Livestock",
     shortLabel: "Herd Registry",
     emoji: "🐄",
     icon: Layers,
@@ -117,7 +117,7 @@ const DOMAIN_PILLARS: DomainPillar[] = [
   },
   {
     id: "commerce",
-    label: "Production & Trade",
+    label: "Production",
     shortLabel: "Production",
     emoji: "📈",
     icon: TrendingUp,
@@ -133,7 +133,7 @@ const DOMAIN_PILLARS: DomainPillar[] = [
       },
       {
         id: "sales",
-        label: "Trade Records",
+        label: "Auction",
         emoji: "💰",
         icon: TrendingUp,
         activeColorClass: "bg-amber-700 text-white shadow-xs",
@@ -149,7 +149,7 @@ const DOMAIN_PILLARS: DomainPillar[] = [
   },
   {
     id: "biosecurity",
-    label: "Surveillance & Census",
+    label: "Report",
     shortLabel: "Biosecurity",
     emoji: "🛡️",
     icon: AlertTriangle,

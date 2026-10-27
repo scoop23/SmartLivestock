@@ -47,6 +47,12 @@ useAdminInventoryRecords,
 useAdminProductionRecords,
 } from "../data-validation/validation-analytics";
 
+type OfficialSlaughterApi = {
+  id: number; livestock_type_name: string; barangay_name?: string | null;
+  created_by_name: string; selected_animal_tags: string[]; carcass_weight: string | null;
+  record_date: string; status: string; farmer_reported: boolean;
+};
+
 const normalizeStatus = (value: string) => value.trim().toUpperCase().replace(/[\s-]+/g, "_");
 
 const STATUS_FILTER_ALIASES: Record<string, string[]> = {
@@ -112,6 +118,10 @@ export default function DataOverviewPage() {
   const summary = summaryQuery.data;
   const { data: rawInventory, isLoading: isInvLoading, isError: isInventoryError } = useAdminInventoryRecords();
   const { data: rawProduction, isLoading: isProdLoading, isError: isProductionError } = useAdminProductionRecords();
+  const { data: rawSlaughter, isLoading: isSlaughterLoading, isError: isSlaughterError } = useQuery<OfficialSlaughterApi[]>({
+    queryKey: ["admin", "official-slaughter-records"],
+    queryFn: async ({ signal }) => (await municipalRead<OfficialSlaughterApi[]>("production/slaughterhouse/records/", { signal })).data,
+  });
   const { data: rawCensus, isLoading: isCenLoading, isError: isCensusError } = useAdminCensusSubmissions();
   const { data: rawIncidents, isLoading: isIncLoading, isError: isIncidentError } = useAdminIncidentRecords();
   const { data: rawBatches, isLoading: isBatchLoading, isError: isBatchError } = useQuery<BatchApiItem[]>({
@@ -124,13 +134,14 @@ export default function DataOverviewPage() {
     staleTime: 30 * 1000,
   });
 
-  const isDataLoading = summaryQuery.isLoading || isInvLoading || isProdLoading || isCenLoading || isIncLoading || isBatchLoading;
+  const isDataLoading = summaryQuery.isLoading || isInvLoading || isProdLoading || isSlaughterLoading || isCenLoading || isIncLoading || isBatchLoading;
 
   const isInitialLoading =
     summaryQuery.isLoading ||
     (isInvLoading && !rawInventory) ||
     (isBatchLoading && !rawBatches) ||
     (isProdLoading && !rawProduction) ||
+    (isSlaughterLoading && !rawSlaughter) ||
     (isCenLoading && !rawCensus) ||
     (isIncLoading && !rawIncidents);
   const keepLoadingScreenMounted = useLoadingScreenTransition(isInitialLoading);
@@ -415,21 +426,21 @@ export default function DataOverviewPage() {
     }));
   }, [rawIncidents]);
 
-  // Linked slaughter records are projected from their production submissions.
+  // Official slaughter records have their own decision, independent of personal yield logs.
   const slaughterList: SlaughterRecord[] = useMemo(() => {
-    return (rawProduction ?? []).filter((item) => item.slaughterDetails != null).map((item) => ({
-      id: `SLG-${item.slaughterDetails!.id}`,
-      inspectionCertNo: "Not recorded", farmerName: item.farmerName || "Unknown farmer",
-      meatInspector: item.reviewedByName || "Not recorded",
-      barangay: item.barangayName || "Unknown barangay",
-      cattleId: item.slaughterDetails!.animals.map((animal) => animal.tag_number || String(animal.id)).join(", "),
-      specie: item.livestockTypeName || "Unspecified",
-      carcassWeightKg: Number(item.quantity), purpose: "Not recorded",
+    return (rawSlaughter ?? []).map((item) => ({
+      id: `SLG-${item.id}`,
+      inspectionCertNo: "Not recorded", farmerName: item.farmer_reported ? item.created_by_name : "Facility total",
+      meatInspector: "Not recorded",
+      barangay: item.barangay_name || "Unknown barangay",
+      cattleId: item.selected_animal_tags.join(", "),
+      specie: item.livestock_type_name || "Unspecified",
+      carcassWeightKg: Number(item.carcass_weight || 0), purpose: "Not recorded",
       anteMortemStatus: "Not recorded", postMortemStatus: "Not recorded",
-      destinationMarket: "Not recorded", date: item.recordDate,
+      destinationMarket: "Not recorded", date: item.record_date,
       status: item.status,
     }));
-  }, [rawProduction]);
+  }, [rawSlaughter]);
 
   // ── Connected Recent Municipal Activity Stream (Real-Time Multi-Domain) ──
   const recentActivityFeed: ActivityFeedItem[] = useMemo(() => {
@@ -1147,7 +1158,7 @@ export default function DataOverviewPage() {
     );
   }
 
-  if (summaryQuery.isError || isInventoryError || isProductionError || isCensusError || isIncidentError || isBatchError) {
+  if (summaryQuery.isError || isInventoryError || isProductionError || isSlaughterError || isCensusError || isIncidentError || isBatchError) {
     return <div className="p-6" role="alert">Data Overview could not load complete data. Refresh to try again.</div>;
   }
 
