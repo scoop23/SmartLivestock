@@ -2,7 +2,7 @@
 
 import { KpiCard } from "@/components/ui/kpi-card";
 import { cowHead } from "@lucide/lab";
-import { AlertTriangle, Icon, Milk, ShieldCheck, TrendingDown, TrendingUp } from "lucide-react";
+import { AlertTriangle, Icon, Milk, ShieldCheck } from "lucide-react";
 import React from "react";
 import {
   formatQty,
@@ -28,26 +28,40 @@ export default function FarmerStats({
 
   const cattleCount = data?.cattle_count ?? 0;
   const approvedCount = data?.approved_count ?? 0;
+  const verifiedCount = data?.verified_count ?? 0;
   const pendingCount = data?.pending_count ?? 0;
   const activeAlerts = data?.active_health_alerts ?? 0;
   const milkLiters = data?.milk_production_liters ?? null;
   const milkGrowth = data?.milk_growth_pct ?? null;
+  const milkApprovedLiters = data?.milk_approved_liters ?? 0;
+  const milkRecordedLiters = data?.milk_recorded_liters ?? 0;
+  const milkVerifiedLiters = data?.milk_verified_liters ?? 0;
+  const milkPendingLiters = data?.milk_pending_liters ?? 0;
 
   const livestockBadge =
     cattleCount === 0
-      ? "NO ANIMALS"
+      ? "NO ACTIVE ANIMALS"
       : pendingCount > 0
-      ? `${approvedCount} VERIFIED • ${pendingCount} PENDING`
-      : `${approvedCount} VERIFIED`;
+      ? `${approvedCount} APPROVED • ${verifiedCount} VERIFIED • ${pendingCount} PENDING`
+      : `${approvedCount} APPROVED • ${verifiedCount} VERIFIED`;
 
-  const reviewPercent = cattleCount > 0 ? Math.round((approvedCount / cattleCount) * 100) : 100;
+  const milkBadge =
+    (milkLiters ?? 0) === 0
+      ? "NO RECORDED YIELD"
+      : milkPendingLiters > 0
+      ? `${formatQty(milkRecordedLiters)} RECORDED • ${formatQty(milkApprovedLiters)} HISTORICALLY APPROVED • ${formatQty(milkPendingLiters)} HISTORICALLY PENDING`
+      : `${formatQty(milkRecordedLiters)} RECORDED • ${formatQty(milkApprovedLiters)} HISTORICALLY APPROVED • ${formatQty(milkVerifiedLiters)} HISTORICALLY VERIFIED`;
+
+  const reviewPercent = cattleCount > 0
+    ? Math.round(((approvedCount + verifiedCount) / cattleCount) * 100)
+    : 100;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* KPI 1: My Livestock */}
+      {/* KPI 1: Current active livestock */}
       <div data-tour="my-livestock-stat">
         <KpiCard
-          title="My Livestock"
+          title="Active Livestock"
           variant="emerald"
           icon={<Icon iconNode={cowHead} className="size-5" />}
           badge={livestockBadge}
@@ -60,7 +74,7 @@ export default function FarmerStats({
               <span className="text-xs font-mono text-emerald-700 font-bold">Heads</span>
             </div>
           }
-          description="Animals on your farm"
+          description="Animals currently on your farm"
           wrapText
         />
       </div>
@@ -71,25 +85,8 @@ export default function FarmerStats({
           title="Production This Month"
           variant="sky"
           icon={<Milk className="size-5" />}
-          badge={
-            milkGrowth !== null ? (
-              <span className="flex items-center gap-1">
-                {milkGrowth >= 0 ? (
-                  <TrendingUp className="size-3" />
-                ) : (
-                  <TrendingDown className="size-3" />
-                )}
-                {milkGrowth >= 0 ? "↑" : "↓"} {Math.abs(milkGrowth).toFixed(1)}% MOM
-              </span>
-            ) : (
-              "THIS MONTH"
-            )
-          }
-          badgeClassName={
-            milkGrowth !== null && milkGrowth >= 0
-              ? "font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
-              : "font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 tracking-wider"
-          }
+          badge={milkBadge}
+          badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
           value={
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -100,7 +97,11 @@ export default function FarmerStats({
               </span>
             </div>
           }
-          description="Milk recorded this month"
+          description={
+            milkGrowth !== null
+              ? `${milkGrowth >= 0 ? "↑ +" : "↓ "}${Math.abs(milkGrowth).toFixed(1)}% MOM · Recorded this month`
+              : "Milk yield recorded this month"
+          }
           wrapText
         />
       </div>

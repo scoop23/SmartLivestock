@@ -221,7 +221,10 @@ export const KpiCard: React.FC<KpiCardProps> = ({
             {badge && (
               <span
                 className={cn(
-                  "font-bold uppercase tracking-wide px-1.5 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs whitespace-nowrap shrink-0 max-w-[65%] truncate text-right",
+                  "font-bold uppercase tracking-wide px-1.5 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs text-right",
+                  wrapText
+                    ? "whitespace-normal break-words min-w-0 max-w-[65%]"
+                    : "whitespace-nowrap shrink-0 max-w-[65%] truncate",
                   badgeClassName || styles.badgeDefault
                 )}
               >
@@ -242,7 +245,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
 
           {/* Optional extra description */}
           {description && (
-            <p className={cn("text-[11px] sm:text-xs text-stone-500 font-medium mt-0.5 leading-snug", wrapText ? "line-clamp-2 break-normal" : "truncate")}>
+            <p className={cn("text-[11px] sm:text-xs text-stone-500 font-medium mt-0.5 leading-snug", wrapText ? "whitespace-normal break-words" : "truncate")}>
               {description}
             </p>
           )}

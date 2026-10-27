@@ -52,16 +52,21 @@ export interface HealthIncidentTrendPoint {
 }
 
 export interface FarmerDashboardAnalytics {
-  /** Sum of LivestockInventory.quantity for the authenticated farmer. */
+  /** Sum of active LivestockInventory.quantity for the authenticated farmer. */
   cattle_count: number;
   approved_count: number;
+  verified_count: number;
   pending_count: number;
   /** Avg SlaughterRecord.carcass_weight for farmer-owned records; NULL if none. */
   avg_carcass_weight_kg: number | null;
   /** Active DiseaseCase count (PENDING / VERIFIED) for the farmer. */
   active_health_alerts: number;
-  /** Approved MILK production (liters) this month; NULL if none. */
+  /** MILK liters from approved, verified, and pending records this month; NULL if none. */
   milk_production_liters: number | null;
+  milk_approved_liters: number;
+  milk_recorded_liters: number;
+  milk_verified_liters: number;
+  milk_pending_liters: number;
   /** Month-over-month growth % of milk production; NULL if not calculable. */
   milk_growth_pct: number | null;
   /** Historical cattle trend */
@@ -95,7 +100,9 @@ const DEFAULT_COLORS = ["#059669", "#d97706", "#ea580c", "#0284c7", "#8b5cf6", "
 
 async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics> {
   const [invRes, batchRes, prodRes, diseaseRes, mortRes] = await Promise.allSettled([
-    api.get("livestock/inventory/"),
+    // Include inactive rows so the dashboard can explicitly build a current
+    // herd from operational_status instead of relying on the API's default filter.
+    api.get("livestock/inventory/", { params: { include_inactive: true } }),
     api.get("livestock/batches/"),
     api.get("production/records/"),
     api.get("diseases/cases/"),
@@ -108,7 +115,12 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
   const diseaseCases: RawDiseaseCase[] = diseaseRes.status === "fulfilled" && Array.isArray(diseaseRes.value.data) ? diseaseRes.value.data : [];
   const mortalities: RawMortalityRecord[] = mortRes.status === "fulfilled" && Array.isArray(mortRes.value.data) ? mortRes.value.data : [];
 
-  // 1. Livestock Inventory calculations
+  // 1. Current herd calculations. Historical animals remain in the API for
+  // records, but only active animals belong in the farmer's current herd KPIs.
+  const activeInventories = inventories.filter(
+    (item) => String(item.operational_status || "ACTIVE").toUpperCase() === "ACTIVE",
+  );
+
   let totalHeads = 0;
   let approvedHeads = 0;
   let verifiedHeads = 0;
@@ -120,7 +132,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
   const monthlyHerdMap = new Map<string, number>();
 
   // Tally individual inventories
-  inventories.forEach((item) => {
+  activeInventories.forEach((item) => {
     const qty = Number(item.quantity) || 1;
     totalHeads += qty;
 
@@ -188,25 +200,34 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
   let currentMonthMilk = 0;
   let prevMonthMilk = 0;
   let hasMilkData = false;
+  let currentMonthApprovedMilk = 0;
+  let currentMonthRecordedMilk = 0;
+  let currentMonthVerifiedMilk = 0;
+  let currentMonthPendingMilk = 0;
 
   const monthlyMilkMap = new Map<string, number>();
 
   productions.forEach((prod) => {
     const type = String(prod.production_type || "").toUpperCase();
+    const status = String(prod.status || "").toUpperCase();
     const qty = Number(prod.quantity) || 0;
     const dateStr = String(prod.record_date || prod.created_at || "");
     const monthKey = dateStr.slice(0, 7); // "YYYY-MM"
 
-    if (type === "MILK") {
-      hasMilkData = true;
-      if (monthKey) {
-        monthlyMilkMap.set(monthKey, (monthlyMilkMap.get(monthKey) || 0) + qty);
-      }
-      if (monthKey === currentMonthStr) {
-        currentMonthMilk += qty;
-      } else if (monthKey === prevMonthStr) {
-        prevMonthMilk += qty;
-      }
+    if (type !== "MILK" || !["RECORDED", "APPROVED", "VERIFIED", "PENDING"].includes(status)) return;
+
+    hasMilkData = true;
+    if (monthKey) {
+      monthlyMilkMap.set(monthKey, (monthlyMilkMap.get(monthKey) || 0) + qty);
+    }
+    if (monthKey === currentMonthStr) {
+      currentMonthMilk += qty;
+      if (status === "APPROVED") currentMonthApprovedMilk += qty;
+      if (status === "RECORDED") currentMonthRecordedMilk += qty;
+      if (status === "VERIFIED") currentMonthVerifiedMilk += qty;
+      if (status === "PENDING") currentMonthPendingMilk += qty;
+    } else if (monthKey === prevMonthStr) {
+      prevMonthMilk += qty;
     }
   });
 
@@ -231,7 +252,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
   // 4. Combined Recent Activity Feed
   const activities: FarmerActivityItem[] = [];
 
-  inventories.slice(0, 5).forEach((inv) => {
+  activeInventories.slice(0, 5).forEach((inv) => {
     activities.push({
       id: `inv-${inv.id}`,
       type: "INVENTORY",
@@ -336,10 +357,15 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
   return {
     cattle_count: totalHeads,
     approved_count: approvedHeads,
+    verified_count: verifiedHeads,
     pending_count: pendingHeads,
     avg_carcass_weight_kg: null,
     active_health_alerts: activeAlerts,
     milk_production_liters: hasMilkData ? currentMonthMilk : null,
+    milk_approved_liters: currentMonthApprovedMilk,
+    milk_recorded_liters: currentMonthRecordedMilk,
+    milk_verified_liters: currentMonthVerifiedMilk,
+    milk_pending_liters: currentMonthPendingMilk,
     milk_growth_pct,
     cattle_trend,
     milk_trend,
