@@ -21,6 +21,8 @@ export interface RegisteredLivestockLookup extends RegisteredAnimalOption {
   age: { years: number; months: number; total_months: number } | null;
   age_classification: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
   photo_url?: string | null;
+  left_side_photo_url?: string | null;
+  right_side_photo_url?: string | null;
   registration_status: string;
   ownership_certificate_number: string;
   operational_status: string;
@@ -30,6 +32,8 @@ export interface RegisteredLivestockLookup extends RegisteredAnimalOption {
   owner_name: string;
   origin: string;
   barangay: string;
+  owner_phone?: string;
+  date_registered?: string;
 }
 
 export interface InspectionItem {

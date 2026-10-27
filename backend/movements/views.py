@@ -197,6 +197,20 @@ def inspection_livestock_lookup(request):
             photo_url = request.build_absolute_uri(inventory.photo.url)
         except Exception:
             photo_url = None
+
+    left_side_photo_url = None
+    if getattr(inventory, "left_side_photo", None):
+        try:
+            left_side_photo_url = request.build_absolute_uri(inventory.left_side_photo.url)
+        except Exception:
+            left_side_photo_url = None
+
+    right_side_photo_url = None
+    if getattr(inventory, "right_side_photo", None):
+        try:
+            right_side_photo_url = request.build_absolute_uri(inventory.right_side_photo.url)
+        except Exception:
+            right_side_photo_url = None
     # Identity can still be traced when inactive; action eligibility is checked
     # separately from existence using the current approval and lifecycle fields.
     sold_after_approved_transfer = (
@@ -228,6 +242,8 @@ def inspection_livestock_lookup(request):
         "age": inventory.age_as_of(timezone.localdate()),
         "age_classification": inventory.age_classification_as_of(timezone.localdate()),
         "photo_url": photo_url,
+        "left_side_photo_url": left_side_photo_url,
+        "right_side_photo_url": right_side_photo_url,
         "registration_status": inventory.status,
         "ownership_certificate_number": inventory.ownership_certificate_number,
         "operational_status": inventory.operational_status,
@@ -235,6 +251,8 @@ def inspection_livestock_lookup(request):
         "ineligibility_reason": ineligibility_reason,
         "owner_id": inventory.farmer_id,
         "owner_name": farmer.user.get_full_name() or farmer.user.username,
+        "owner_phone": str(farmer.user.phone_number or "") if hasattr(farmer.user, "phone_number") else "",
+        "date_registered": inventory.created_at.strftime("%Y-%m-%d") if getattr(inventory, "created_at", None) else "",
         "origin": farmer.address or "",
         "barangay": farmer.barangay.barangay_name if farmer.barangay else "",
     })
