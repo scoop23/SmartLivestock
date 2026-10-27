@@ -7,7 +7,6 @@ import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/component
 import { useAuth } from "@/contexts/auth-context";
 import {
   ArrowUpRight,
-  Barcode,
   CalendarDays,
   Clock,
   Map,
@@ -354,10 +353,6 @@ export default function FarmerDashboard() {
     setIsReportIllnessOpen(true);
   };
 
-  const municipalHerdId = user?.barangay
-    ? `PG-${user.barangay.toUpperCase().slice(0, 3)}-${String(user.farmerId || 200).padStart(3, "0")}`
-    : "PG-MAN-200";
-
   return (
     <>
       {/* Retain the original PageHeader without changing its green header styling */}
@@ -401,36 +396,14 @@ export default function FarmerDashboard() {
         }
       />
 
-      {/* Upper Micro-Telemetry Banner with Live Realtime Clock (No Transmit Telemetry Button) */}
+      {/* Local dashboard clock */}
       <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-2 sm:px-6 md:px-8">
-        <div className="w-full flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 font-semibold text-emerald-700">
-              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-              {/* <span className="tracking-wide uppercase">BIO-NODE // LIVESTOCK SENSORS SYNCHRONIZED</span> */}
-            </div>
-            <span className="hidden text-slate-300 md:inline">/</span>
-            <div className="hidden items-center gap-1.5 font-semibold text-slate-600 md:flex">
-              <Barcode className="size-3.5 text-emerald-600" />
-              <span>
-                MUNICIPAL HERD ID:{" "}
-                <strong className="font-mono text-slate-900">{municipalHerdId}</strong>
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/*<div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">*/}
-              {/*<span className="size-1.5 rounded-full bg-emerald-500" />*/}
-              {/* <span>RADIO TELEMETRY: 99.8% ONLINE</span> */}
-            {/*</div>*/}
-            <span className="text-slate-300">|</span>
-            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
-              <Clock className="size-3.5 text-slate-400" />
-              <span className="tabular-nums font-bold">
-                {clockString || "Loading Manila time…"}
-              </span>
-            </div>
+        <div className="w-full flex items-center justify-end gap-3 font-mono text-[11px] text-slate-500">
+          <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
+            <Clock className="size-3.5 text-slate-400" />
+            <span className="tabular-nums font-bold">
+              {clockString || "Loading Manila time…"}
+            </span>
           </div>
         </div>
       </div>
