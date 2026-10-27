@@ -4,6 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
 AlertTriangle,
 Boxes,
 ChevronDown,
@@ -13,7 +20,6 @@ FileSpreadsheet,
 Layers,
 LayoutGrid,
 List,
-MapPin,
 Milk,
 RotateCcw,
 Scale,
@@ -440,73 +446,60 @@ export function DataOverviewToolbar({
           <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 animate-in fade-in-50 duration-200">
             {/* Barangay Filter */}
             <div className="relative w-full sm:w-auto sm:min-w-[160px] sm:flex-initial">
-              <MapPin
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                size={13}
-              />
-              <select
-                className="w-full pl-7 pr-7 py-2 sm:py-1.5 h-9 sm:h-8.5 bg-slate-50/80 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#2D5A27] transition-all cursor-pointer appearance-none shadow-2xs"
-                value={filterBarangay}
-                onChange={(e) => onBarangayChange(e.target.value)}
-              >
-                {PADRE_GARCIA_BARANGAYS.map((b) => (
-                  <option key={b} value={b === "All Barangays" ? "all" : b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                size={13}
-              />
+              <Select value={filterBarangay} onValueChange={onBarangayChange}>
+                <SelectTrigger aria-label="Filter by barangay" className="h-9 sm:h-8.5 w-full rounded-lg border-slate-200/80 bg-slate-50/80 text-xs font-bold shadow-2xs sm:w-[190px]">
+                  <SelectValue placeholder="All Barangays" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PADRE_GARCIA_BARANGAYS.map((barangay) => (
+                    <SelectItem key={barangay} value={barangay === "All Barangays" ? "all" : barangay}>
+                      {barangay}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Specie Filter (Livestock, Batches, Sales, Disease, Slaughter) */}
             {activeTab !== "overall" &&
-              activeTab !== "census" &&
-              activeTab !== "production" && (
+              activeTab !== "census" && (
                 <div className="relative w-full sm:w-auto sm:min-w-[130px] sm:flex-initial">
-                  <select
-                    className="w-full px-2.5 py-2 sm:py-1.5 h-9 sm:h-8.5 bg-slate-50/80 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#2D5A27] transition-all cursor-pointer shadow-2xs appearance-none pr-7"
-                    value={filterSpecie}
-                    onChange={(e) => onSpecieChange(e.target.value)}
-                  >
-                    <option value="all">All Species</option>
-                    <option value="Cattle">Cattle</option>
-                    <option value="Carabao">Carabao</option>
-                    <option value="Swine">Swine</option>
-                    <option value="Goat">Goat</option>
-                    <option value="Poultry">Poultry</option>
-                  </select>
-                  <ChevronDown
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                    size={13}
-                  />
+                  <Select value={filterSpecie} onValueChange={onSpecieChange}>
+                    <SelectTrigger aria-label="Filter by species" className="h-9 sm:h-8.5 w-full rounded-lg border-slate-200/80 bg-slate-50/80 text-xs font-bold shadow-2xs sm:w-[150px]">
+                      <SelectValue placeholder="All Species" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Species</SelectItem>
+                      <SelectItem value="Cattle">Cattle</SelectItem>
+                      <SelectItem value="Carabao">Carabao</SelectItem>
+                      <SelectItem value="Swine">Swine</SelectItem>
+                      <SelectItem value="Goat">Goat</SelectItem>
+                      <SelectItem value="Poultry">Poultry</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
             {/* Status Filter */}
             {activeTab !== "overall" && (
               <div className="relative w-full sm:w-auto sm:min-w-[150px] sm:flex-initial">
-                <select
-                  className="w-full px-2.5 py-2 sm:py-1.5 h-9 sm:h-8.5 bg-slate-50/80 border border-slate-200/80 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#2D5A27] transition-all cursor-pointer shadow-2xs appearance-none pr-7"
-                  value={filterStatus}
-                  onChange={(e) => onStatusChange(e.target.value)}
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="APPROVED">MAO Approved</option>
-                  <option value="VERIFIED">SIBAT Verified</option>
-                  <option value="PENDING">Awaiting SIBAT</option>
-                  <option value="SUBJECT_TO_REVISION">Revision Required</option>
-                  <option value="Healthy">Healthy / Passed</option>
-                  <option value="Under Treatment">Under Treatment</option>
-                  <option value="Quarantined">Quarantined</option>
-                  <option value="Completed">Completed</option>
-                </select>
-                <ChevronDown
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                  size={13}
-                />
+                <Select value={filterStatus} onValueChange={onStatusChange}>
+                  <SelectTrigger aria-label="Filter by status" className="h-9 sm:h-8.5 w-full rounded-lg border-slate-200/80 bg-slate-50/80 text-xs font-bold shadow-2xs sm:w-[180px]">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="APPROVED">MAO Approved</SelectItem>
+                    <SelectItem value="VERIFIED">SIBAT Verified</SelectItem>
+                    <SelectItem value="PENDING">Awaiting Review</SelectItem>
+                    <SelectItem value="SUBJECT_TO_REVISION">Revision Required</SelectItem>
+                    <SelectItem value="REJECTED">Rejected</SelectItem>
+                    <SelectItem value="Healthy">Healthy / Passed</SelectItem>
+                    <SelectItem value="Under Treatment">Under Treatment</SelectItem>
+                    <SelectItem value="Quarantined">Quarantined</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
 

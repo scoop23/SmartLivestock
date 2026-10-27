@@ -47,6 +47,31 @@ useAdminInventoryRecords,
 useAdminProductionRecords,
 } from "../data-validation/validation-analytics";
 
+const normalizeStatus = (value: string) => value.trim().toUpperCase().replace(/[\s-]+/g, "_");
+
+const STATUS_FILTER_ALIASES: Record<string, string[]> = {
+  APPROVED: ["CERTIFIED", "MAO_VERIFIED"],
+  VERIFIED: ["SIBAT_VERIFIED"],
+  PENDING: ["PENDING_REVIEW", "AWAITING_REVIEW", "AWAITING_SIBAT", "PENDING_AUDIT", "PENDING_CLEARANCE", "IN_REVIEW", "AWAITING_MAO"],
+  SUBJECT_TO_REVISION: ["SUBJECT_FOR_REVISION", "REVISION_REQUIRED"],
+  Healthy: ["PASSED"],
+};
+
+function matchesStatusFilter(item: OverviewRecord, filter: string) {
+  if (filter === "all") return true;
+
+  const acceptedStatuses = new Set(
+    [filter, ...(STATUS_FILTER_ALIASES[filter] ?? [])].map(normalizeStatus)
+  );
+  const recordStatuses = [
+    item.status,
+    item.reviewStatus,
+    item.review_status,
+    item.healthStatus,
+  ].filter((status): status is string => typeof status === "string");
+
+  return recordStatuses.some((status) => acceptedStatuses.has(normalizeStatus(status)));
+}
 
 export default function DataOverviewPage() {
   // Navigation & View States
@@ -220,6 +245,7 @@ export default function DataOverviewPage() {
       farmerName: item.farmerName || "Registered Farmer",
       barangay: item.barangayName || "Unknown barangay",
       cattleId: `TAG-LIV-${item.livestockId}`,
+      specie: item.livestockTypeName || item.productionType,
       type: (item.productionType?.toLowerCase() === "milk"
         ? "Cow Milk"
         : item.productionType?.toLowerCase() === "eggs"
@@ -233,6 +259,7 @@ export default function DataOverviewPage() {
       estValuePhp: item.valuationSnapshot ? Number(item.valuationSnapshot.estimated_value) : null,
       date: item.recordDate || "",
       status: (item.status === "APPROVED" ? "Certified" : "Pending Review"),
+      reviewStatus: item.status,
     }));
   }, [rawProduction]);
 
@@ -886,19 +913,11 @@ export default function DataOverviewPage() {
         item.barangayName === filterBarangay;
 
       // Specie filter
-      const matchesSpecie =
-        filterSpecie === "all" ||
-        !item.specie ||
-        item.specie.toLowerCase().includes(filterSpecie.toLowerCase());
+      const matchesSpecie = filterSpecie === "all" ||
+        (typeof item.specie === "string" && item.specie.toLowerCase().includes(filterSpecie.toLowerCase()));
 
       // Status filter
-      const matchesStatus =
-        filterStatus === "all" ||
-        item.status === filterStatus ||
-        item.status?.toUpperCase() === filterStatus.toUpperCase() ||
-        item.reviewStatus === filterStatus ||
-        item.review_status === filterStatus ||
-        item.healthStatus === filterStatus;
+      const matchesStatus = matchesStatusFilter(item, filterStatus);
 
       return matchesSearch && matchesBarangay && matchesSpecie && matchesStatus;
     });

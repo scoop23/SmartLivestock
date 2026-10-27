@@ -21,7 +21,7 @@ MapPin,
 Search,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect,useMemo,useState } from "react";
+import { useMemo,useState } from "react";
 import {
 DataTab
 } from "./data-overview-types";
@@ -31,6 +31,28 @@ interface DataOverviewTableProps {
   items: OverviewRecord[];
   onSelectRecord: (record: OverviewRecord, domain: DataTab) => void;
   onResetFilters: () => void;
+}
+
+function ReviewStatusBadge({ status }: { status: string }) {
+  const normalizedStatus = status.toUpperCase();
+  const label = normalizedStatus === "APPROVED"
+    ? "MAO Approved"
+    : normalizedStatus === "VERIFIED"
+      ? "SIBAT Verified"
+      : normalizedStatus === "PENDING"
+        ? "Awaiting Review"
+        : normalizedStatus === "SUBJECT_TO_REVISION" || normalizedStatus === "SUBJECT_FOR_REVISION"
+          ? "Revision Required"
+          : normalizedStatus.replaceAll("_", " ");
+  const statusClass = normalizedStatus === "APPROVED"
+    ? "bg-emerald-100 text-emerald-800"
+    : normalizedStatus === "VERIFIED"
+      ? "bg-sky-100 text-sky-800"
+      : normalizedStatus === "REJECTED" || normalizedStatus === "SUBJECT_TO_REVISION" || normalizedStatus === "SUBJECT_FOR_REVISION"
+        ? "bg-rose-100 text-rose-800"
+        : "bg-amber-100 text-amber-800";
+
+  return <Badge className={`border-0 px-2 py-0.5 text-[9px] font-black uppercase ${statusClass}`}>{label}</Badge>;
 }
 
 export function DataOverviewTable({
@@ -172,6 +194,9 @@ export function DataOverviewTable({
                     </TableHead>
                     <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider">
                       Date
+                    </TableHead>
+                    <TableHead className="px-3.5 py-2.5 text-[11px] font-black text-slate-500 uppercase tracking-wider">
+                      Review Status
                     </TableHead>
                   </>
                 )}
@@ -477,6 +502,9 @@ export function DataOverviewTable({
                       </TableCell>
                       <TableCell className="px-3.5 py-2.5 text-xs font-medium text-slate-500">
                         {item.date}
+                      </TableCell>
+                      <TableCell className="px-3.5 py-2.5">
+                        <ReviewStatusBadge status={item.reviewStatus || item.status || "NOT_RECORDED"} />
                       </TableCell>
                     </>
                   )}

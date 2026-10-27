@@ -103,6 +103,7 @@ export interface ProductionRecord {
   barangay: string;
   cattleId: string;
   type: 'Cow Milk' | 'Carabao Milk' | 'Eggs' | 'Wool' | 'Manure Fertilizer';
+  specie?: string;
   quantity: string;
   quantityNumber: number;
   unit: string;
@@ -112,6 +113,7 @@ export interface ProductionRecord {
   estValuePhp: number | null;
   date: string;
   status: 'Certified' | 'Pending Review' | 'Subject for Revision' | 'Flagged';
+  reviewStatus?: string;
 }
 
 export interface SalesRecord {
