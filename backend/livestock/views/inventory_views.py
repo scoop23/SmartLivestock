@@ -193,15 +193,33 @@ def inventory_detail(request, pk):
     if request.method in ["PUT", "PATCH", "DELETE"]:
         require_action(user, "inventory", "edit_own")
 
-        # Approved identity data is locked, but the owning farmer may update only
-        # the photo/avatar. Keep that media operation separate from registry edits.
+        # Approved/Verified identity data is locked, but the owning farmer may update
+        # photo/avatar or routine profile maintenance fields (birth date, last vaccination date).
         media_fields = {"photo", "left_side_photo", "right_side_photo", "avatar_key"}
-        if request.method == "PATCH" and request.data and set(request.data.keys()).issubset(media_fields):
-            media_serializer = LivestockPhotoUpdateSerializer(
-                inventory, data=request.data, partial=True, context={"request": request}
+        profile_maintenance_fields = media_fields | {"birth_date", "last_vaccination_date"}
+
+        if (
+            request.method == "PATCH"
+            and request.data
+            and set(request.data.keys()).issubset(profile_maintenance_fields)
+            and inventory.operational_status == LivestockInventory.OperationalStatus.ACTIVE
+        ):
+            if set(request.data.keys()).issubset(media_fields):
+                media_serializer = LivestockPhotoUpdateSerializer(
+                    inventory, data=request.data, partial=True, context={"request": request}
+                )
+                media_serializer.is_valid(raise_exception=True)
+                inventory = media_serializer.save()
+                return Response(LivestockInventorySerializer(inventory, context={"request": request}).data)
+
+            serializer = LivestockInventorySerializer(
+                inventory,
+                data=request.data,
+                partial=True,
+                context={"request": request},
             )
-            media_serializer.is_valid(raise_exception=True)
-            inventory = media_serializer.save()
+            serializer.is_valid(raise_exception=True)
+            inventory = serializer.save()
             return Response(LivestockInventorySerializer(inventory, context={"request": request}).data)
 
         editable_statuses = {

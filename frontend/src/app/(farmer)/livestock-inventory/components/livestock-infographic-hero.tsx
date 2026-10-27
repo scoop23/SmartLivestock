@@ -12,18 +12,19 @@ DialogTitle,
 } from "@/components/ui/dialog";
 import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
 import {
-AlertTriangle,
-ArrowLeft,
-Camera,
-CheckCircle2,
-Download,
-Eye,
-Layers,
-Maximize2,
-QrCode,
-Scale,
-ShieldCheck,
-Sparkles
+  AlertTriangle,
+  ArrowLeft,
+  Calendar,
+  Camera,
+  CheckCircle2,
+  Download,
+  Eye,
+  Layers,
+  Maximize2,
+  QrCode,
+  Scale,
+  ShieldCheck,
+  Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -53,6 +54,7 @@ interface LivestockInfographicHeroProps {
   };
   onOpenPassport: () => void;
   onOpenWeigh: () => void;
+  onOpenBirthDate?: () => void;
   onOpenProduction: () => void;
   onOpenCalving: () => void;
   onOpenCorrection?: () => void;
@@ -81,6 +83,7 @@ function LivestockInfographicHeroContent({
   terms,
   onOpenPassport,
   onOpenWeigh,
+  onOpenBirthDate,
   onOpenProduction,
   onOpenCalving,
   onOpenCorrection,
@@ -255,6 +258,18 @@ function LivestockInfographicHeroContent({
               className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs gap-1.5 shadow-sm"
             >
               <AlertTriangle className="size-3.5" /> Corrections
+            </Button>
+          )}
+
+          {onOpenBirthDate && (
+            <Button
+              onClick={onOpenBirthDate}
+              variant="outline"
+              size="sm"
+              className="rounded-xl bg-white/10 hover:bg-white/20 text-white border-white/20 font-bold text-xs gap-1.5 cursor-pointer"
+            >
+              <Calendar className="size-3.5 text-amber-300" />
+              <span>{activeItem.birthDate ? "Edit Birth Date" : "Set Birth Date"}</span>
             </Button>
           )}
 
@@ -704,16 +719,23 @@ function LivestockInfographicHeroContent({
             <div
               onMouseEnter={() => setActiveHighlight("age")}
               onMouseLeave={() => setActiveHighlight(null)}
-              onClick={() => onSelectTab("pedigree")}
+              onClick={onOpenBirthDate || (() => onSelectTab("pedigree"))}
               className={`p-3 rounded-2xl border transition-all cursor-pointer backdrop-blur-md ${
                 activeHighlight === "age"
                   ? "bg-emerald-950/90 border-emerald-400 shadow-lg scale-105"
                   : "bg-black/40 border-emerald-500/20 hover:border-emerald-400/60"
               }`}
             >
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
-                Age &amp; Classification
-              </span>
+              <div className="flex items-center justify-end gap-2">
+                {onOpenBirthDate && (
+                  <span className="text-[10px] font-bold text-emerald-300/80 hover:text-emerald-200 flex items-center gap-1">
+                    <Calendar className="size-3" /> Edit
+                  </span>
+                )}
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                  Age &amp; Classification
+                </span>
+              </div>
               <p className="text-lg font-black text-white">{formatLivestockAge(activeItem.age)}</p>
               <p className="text-[11px] text-emerald-200/70 font-medium">
                 {formatAgeClassification(activeItem.ageClassification)} Stage &bull; Born {formatCalendarDate(activeItem.birthDate)}

@@ -52,11 +52,12 @@ localCalendarDateToday
 import { livestockIdentityQrPayload } from "@/lib/livestock-identity";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import {
-AlertTriangle,
-ArrowLeft,
-Baby,
-CheckCircle2,
-Clock,
+  AlertTriangle,
+  ArrowLeft,
+  Baby,
+  Calendar,
+  CheckCircle2,
+  Clock,
 Download,
 Heart,
 Info,
@@ -596,6 +597,8 @@ export default function LivestockDetailPage() {
 
   // Dialog States
   const [isWeighDialogOpen, setIsWeighDialogOpen] = useState(false);
+  const [isBirthDateDialogOpen, setIsBirthDateDialogOpen] = useState(false);
+  const [editBirthDateValue, setEditBirthDateValue] = useState("");
   const [isPassportDialogOpen, setIsPassportDialogOpen] = useState(false);
   const [isProductionDialogOpen, setIsProductionDialogOpen] = useState(false);
   const [isProductionSuccessOpen, setIsProductionSuccessOpen] = useState(false);
@@ -703,7 +706,53 @@ export default function LivestockDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["inventory_item", rawId] });
     },
     onError: (err: unknown) => {
-      const msg = httpError(err)?.response?.data?.error || httpError(err)?.response?.data?.weight?.[0] || "Failed to save weight record.";
+      const data = httpError(err)?.response?.data as Record<string, unknown> | undefined;
+      let msg = "Failed to save weight record.";
+      if (typeof data?.error === "string") {
+        msg = data.error;
+      } else if (typeof data?.detail === "string") {
+        msg = data.detail;
+      } else if (Array.isArray(data?.livestock) && data.livestock[0]) {
+        msg = String(data.livestock[0]);
+      } else if (Array.isArray(data?.weight) && data.weight[0]) {
+        msg = String(data.weight[0]);
+      } else if (data && typeof data === "object") {
+        const firstVal = Object.values(data)[0];
+        if (Array.isArray(firstVal) && firstVal[0]) {
+          msg = String(firstVal[0]);
+        } else if (typeof firstVal === "string") {
+          msg = firstVal;
+        }
+      }
+      toast.error(msg);
+    },
+  });
+
+  const updateBirthDateMutation = useMutation({
+    mutationFn: async (birthDateStr: string | null) => {
+      if (!activeItem) throw new Error("No livestock record selected.");
+      if (isDeceased) throw new Error("Deceased animals are read-only.");
+      const res = await api.patch(`livestock/inventory/${activeItem.id}/`, {
+        birth_date: birthDateStr || null,
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      toast.success(
+        data.birth_date
+          ? `Birth date updated to ${formatCalendarDate(data.birth_date)}`
+          : "Birth date cleared."
+      );
+      setIsBirthDateDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory_item", rawId] });
+    },
+    onError: (err: unknown) => {
+      const data = httpError(err)?.response?.data as Record<string, unknown> | undefined;
+      let msg = "Failed to update birth date.";
+      if (typeof data?.error === "string") msg = data.error;
+      else if (typeof data?.detail === "string") msg = data.detail;
+      else if (Array.isArray(data?.birth_date) && data.birth_date[0]) msg = String(data.birth_date[0]);
       toast.error(msg);
     },
   });
@@ -1037,6 +1086,10 @@ export default function LivestockDetailPage() {
           terms={terms}
           canShowProduction={canProduceMilk}
           onOpenPassport={() => setIsPassportDialogOpen(true)}
+          onOpenBirthDate={() => {
+            setEditBirthDateValue(activeItem?.birthDate || "");
+            setIsBirthDateDialogOpen(true);
+          }}
           onOpenWeigh={() => {
             setNewWeight(String(latestWeight || "70.0"));
             setIsWeighDialogOpen(true);
@@ -1790,6 +1843,93 @@ export default function LivestockDetailPage() {
         isSubmitting={correctionMutation.isPending}
         onSubmit={(payload) => correctionMutation.mutate(payload)}
       />
+
+      {/* ── MODAL: EDIT BIRTH DATE ────────────────────────────────────────── */}
+      <Dialog open={isBirthDateDialogOpen && !isDeceased} onOpenChange={setIsBirthDateDialogOpen}>
+        <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <Calendar className="size-5 text-emerald-600" />
+              <span>Edit Birth Date for {activeItem.tagNumber}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Updating the birth date automatically recalculates the animal&apos;s exact age, life stage classification, and breeding timelines.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              updateBirthDateMutation.mutate(editBirthDateValue || null);
+            }}
+            className="space-y-4 pt-2"
+          >
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">Date of Birth</Label>
+              <Input
+                type="date"
+                max={localCalendarDateToday()}
+                value={editBirthDateValue}
+                onChange={(e) => setEditBirthDateValue(e.target.value)}
+                className="h-11 rounded-xl bg-slate-50 border-slate-200"
+              />
+              <p className="text-[11px] text-slate-500">
+                Current record: {activeItem.birthDate ? formatCalendarDate(activeItem.birthDate) : "Not recorded"}
+              </p>
+            </div>
+
+            {editBirthDateValue && (
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 text-xs text-emerald-900">
+                <p className="font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="size-4 text-emerald-600" />
+                  Selected: {formatCalendarDate(editBirthDateValue)}
+                </p>
+                <p className="mt-1 text-emerald-800 text-[11px]">
+                  Saving this date will update the passport, growth tracking, and gestation analytics.
+                </p>
+              </div>
+            )}
+
+            <DialogFooter className="flex items-center justify-between pt-2">
+              {activeItem.birthDate ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditBirthDateValue("");
+                    updateBirthDateMutation.mutate(null);
+                  }}
+                  disabled={updateBirthDateMutation.isPending}
+                  className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                >
+                  Clear Date
+                </Button>
+              ) : <div />}
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBirthDateDialogOpen(false)}
+                  className="rounded-xl text-xs font-bold"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={updateBirthDateMutation.isPending}
+                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                >
+                  {updateBirthDateMutation.isPending ? "Saving..." : "Save Birth Date"}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isWeighDialogOpen && !isDeceased} onOpenChange={setIsWeighDialogOpen}>
         <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
