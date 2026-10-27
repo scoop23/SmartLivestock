@@ -7,6 +7,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/axios";
 import { useAuth } from "@/contexts/auth-context";
 import SibatReviewDialog from "../components/sibat-review-dialog";
 import SibatProductionQueue, { type SibatProdStatusFilter } from "../components/sibat-production-queue";
@@ -41,8 +43,13 @@ function ProductionRecordReviewContent() {
   const queryClient = useQueryClient();
   const reviewType = searchParams.get("reviewType");
   const reviewId = searchParams.get("reviewId");
+  const slaughterReportId = searchParams.get("slaughterReportId");
   const { user, isLoading: isAuthLoading } = useAuth();
   const { submissions, isLoading, isError, refetch } = useSibatSubmissions();
+  const slaughterReports = useQuery({
+    queryKey: ["field-farmer-slaughter-reports"],
+    queryFn: async () => (await api.get<Array<{ id: number; livestock_type_name: string; record_date: string; quantity: number; status: string; created_by_name: string; selected_animal_tags: string[] }>>("production/slaughterhouse/records/")).data,
+  });
   const allowedTypes = ["PRODUCTION", "SALE", "CALVING"];
   const hasAllBarangayAccess = user?.accessScope === "ALL_BARANGAYS";
   const assignedBarangay = (user?.assignedBarangayName || user?.barangay || "").trim().toLocaleLowerCase();
@@ -150,6 +157,23 @@ function ProductionRecordReviewContent() {
             <Button type="button" variant="link" onClick={closeReview} className="ml-1 text-amber-900">Return to records</Button>
           </section>
         ) : null}
+
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4" aria-label="Farmer-reported slaughter notices">
+          <h2 className="text-sm font-bold text-amber-950">Farmer-reported slaughter</h2>
+          <p className="mt-1 text-xs text-amber-800">These reports are unverified field notices. MAO reviews the official slaughter record before inventory changes.</p>
+          {slaughterReports.isLoading ? <p className="mt-3 text-xs text-amber-800">Loading reports…</p> : null}
+          {slaughterReports.isError ? <Button type="button" variant="link" onClick={() => void slaughterReports.refetch()}>Could not load reports. Retry</Button> : null}
+          {slaughterReports.data?.length === 0 ? <p className="mt-3 text-xs text-amber-800">No farmer slaughter reports in your assigned area.</p> : null}
+          <div className="mt-3 space-y-2">
+            {slaughterReports.data?.map((report) => (
+              <div key={report.id} id={`slaughter-report-${report.id}`} className={`rounded-xl border bg-white p-3 text-xs ${String(report.id) === slaughterReportId ? "border-amber-600" : "border-amber-200"}`}>
+                <p className="font-semibold text-slate-900">{report.livestock_type_name} · {report.quantity} head(s) · {report.record_date}</p>
+                <p className="text-slate-600">Reported by {report.created_by_name} · Animal tags: {report.selected_animal_tags.join(", ") || "Not listed"}</p>
+                <p className="font-medium text-amber-800">Official status: {report.status.replaceAll("_", " ")} · No field decision required</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <SibatProductionQueue
           submissions={productionSubmissions}

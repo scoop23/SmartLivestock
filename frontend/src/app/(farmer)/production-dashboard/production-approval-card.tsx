@@ -33,6 +33,7 @@ type ProductionStatus,
 } from "./production-analytics";
 
 const statusClasses: Record<ProductionStatus, string> = {
+  RECORDED: "bg-emerald-100 text-emerald-800 border-emerald-200",
   APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 border-amber-200",
@@ -114,9 +115,23 @@ export default function ProductionApprovalCard({
           <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/60 text-left flex items-start gap-2.5">
             <Info className="size-4 text-amber-700 shrink-0 mt-0.5" />
             <p className="text-xs text-amber-900 leading-normal">
-              Records marked <span className="font-semibold text-emerald-800">APPROVED</span> have been inspected and confirmed by the local CBAT officer.
+              New farm logs are recorded for your own history. Historical entries may still show their earlier review status.
             </p>
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (record.status === "RECORDED") {
+    return (
+      <Card className="rounded-2xl border-emerald-200 bg-emerald-50/50 shadow-sm">
+        <CardContent className="space-y-3 p-5">
+          <h3 className="text-base font-bold text-emerald-950">Recorded in your farm log</h3>
+          <p className="text-sm text-emerald-900">{record.quantity} {record.unit} of {PRODUCTION_TYPE_LABELS[record.productionType]} on {formatRecordDate(record.recordDate)}. Routine production logs do not require field verification or MAO approval.</p>
+          {record.anomalyDetected ? <p className="text-xs text-amber-800">Milk yield advisory: {record.anomalyReason}</p> : null}
+          {record.slaughterDetails ? <p className="text-xs text-slate-700">Separate official slaughter report: {record.slaughterDetails.status?.replaceAll("_", " ") || "PENDING"}. {record.slaughterDetails.review_remarks || "Inventory changes only after official approval."}</p> : null}
+          <ProductionValuation record={record} />
         </CardContent>
       </Card>
     );

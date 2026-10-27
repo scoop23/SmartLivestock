@@ -26,6 +26,8 @@ interface ActiveDomainTableProps {
   onViewDetail: (data: DetailRecordData) => void;
   onReview: (target: ReviewTargetItem) => void;
   onReviewHealth: (record: ValidationIncidentItem) => void;
+  highlightId?: string | number | null;
+  highlightTag?: string | null;
 }
 
 export function ActiveDomainTable({
@@ -40,6 +42,8 @@ export function ActiveDomainTable({
   onViewDetail,
   onReview,
   onReviewHealth,
+  highlightId,
+  highlightTag,
 }: ActiveDomainTableProps) {
   if (activeDomain === "census") {
     return (
@@ -76,6 +80,8 @@ export function ActiveDomainTable({
         onSelectAll={onSelectAll}
         onViewDetail={onViewDetail}
         onReview={onReview}
+        highlightId={highlightId}
+        highlightTag={highlightTag}
       />
     );
   }

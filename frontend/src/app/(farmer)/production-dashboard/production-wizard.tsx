@@ -229,12 +229,12 @@ function ProductionWizardContent({
             ? [
                 { element: '[data-tour="production-wizard-date"]', popover: { title: "Set the record date", description: "Choose when the production was collected or the slaughter happened.", side: "bottom" as const, align: "start" as const } },
                 { element: '[data-tour="production-wizard-fields"]', popover: { title: "Enter production details", description: "Fill in the quantity and activity-specific details. Meat entries also require selecting the individual animals.", side: "top" as const, align: "center" as const } },
-                { element: '[data-tour="production-wizard-notes"]', popover: { title: "Add optional notes", description: "Share context that may help SIBAT and MAO review the record.", side: "top" as const, align: "start" as const } },
+                { element: '[data-tour="production-wizard-notes"]', popover: { title: "Add optional notes", description: "Add context for your own farm history.", side: "top" as const, align: "start" as const } },
               ]
             : [
-                { element: '[data-tour="production-wizard-review"]', popover: { title: "Review the entry", description: "Check the livestock, date, and production values before sending the record for review.", side: "top" as const, align: "center" as const } },
+                { element: '[data-tour="production-wizard-review"]', popover: { title: "Review the entry", description: "Check the livestock, date, and production values before saving.", side: "top" as const, align: "center" as const } },
                 { element: '[data-tour="production-wizard-certification"]', popover: { title: "Confirm the declaration", description: "Check this confirmation only when the information reflects what you are reporting.", side: "top" as const, align: "center" as const } },
-                { element: '[data-tour="production-wizard-submit"]', popover: { title: "Submit for review", description: "Submitting sends this record to the SIBAT and MAO review workflow. It is not approved immediately.", side: "top" as const, align: "center" as const } },
+                { element: '[data-tour="production-wizard-submit"]', popover: { title: "Save farm log", description: "Your production log is saved for your own history. Meat entries also send a separate slaughter notice for official review.", side: "top" as const, align: "center" as const } },
               ]),
       ...(step < 3
         ? [{
@@ -289,7 +289,7 @@ function ProductionWizardContent({
     ? productionRecords.filter((record) =>
         record.livestockId === Number(clickedInventory.id)
         && record.productionType === "milk"
-        && record.status === "APPROVED"
+        && (record.status === "APPROVED" || record.status === "RECORDED")
         && record.id !== editingRecord?.id
         && record.recordDate < String(formState.prodDate ?? new Date().toISOString().slice(0, 10)),
       )
@@ -442,10 +442,10 @@ function ProductionWizardContent({
               </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm text-white/80 mt-1 leading-normal break-words">
                 {mode === "edit"
-                  ? "Update the returned details, review them, and resubmit to SIBAT."
+                  ? "Update your farm log details and save the correction."
                   : profileMode
-                    ? "Enter this animal’s production details, review the record, then submit it for review."
-                    : "Reporting is optional. Enter production information you have recorded; SIBAT and MAO will review your submission."}
+                    ? "Enter this animal’s production details, then save your farm log."
+                    : "Reporting is optional. Your production entry is saved in your own farm history."}
               </DialogDescription>
             </div>
           </div>
@@ -601,6 +601,7 @@ function ProductionWizardContent({
                     selectedId={clickedInventory?.id ?? null}
                     productionType={productionType}
                     onSelect={handleSelectInventory}
+                    excludeSibatVerifiedDisease
                   />
                 </>
               )}
@@ -691,7 +692,7 @@ function ProductionWizardContent({
                   </div>
                   <div
                     role="progressbar"
-                    aria-label="Approved milk history days"
+                    aria-label="Recorded milk history days"
                     aria-valuemin={0}
                     aria-valuemax={5}
                     aria-valuenow={isLoadingProductionRecords ? 0 : milkHistoryProgress}
@@ -704,11 +705,11 @@ function ProductionWizardContent({
                   </div>
                   <p className="text-xs leading-relaxed text-sky-900">
                     {isLoadingProductionRecords
-                      ? "Checking this animal’s approved milk history."
+                      ? "Checking this animal’s recorded milk history."
                       : milkHistoryDays < 5
-                        ? `Add ${5 - milkHistoryDays} more distinct approved milk ${5 - milkHistoryDays === 1 ? "day" : "days"} before a cow-specific anomaly assessment can run. Standard review still applies.`
+                        ? `Add ${5 - milkHistoryDays} more distinct recorded milk ${5 - milkHistoryDays === 1 ? "day" : "days"} before a cow-specific advisory assessment can run.`
                         : milkHistoryGapDays !== null && milkHistoryGapDays > 45
-                          ? `The five-day minimum is met, but the latest approved milk record is ${milkHistoryGapDays} days before this entry. History must be within 45 days for automated assessment.`
+                          ? `The five-day minimum is met, but the latest recorded milk entry is ${milkHistoryGapDays} days before this entry. History must be within 45 days for automated assessment.`
                           : "The five-day minimum is met. The system will check history recency and valid values before assessing this entry."}
                   </p>
                 </section>
@@ -749,7 +750,7 @@ function ProductionWizardContent({
                   name="notes"
                   rows={3}
                   maxLength={500}
-                  placeholder="Optional context for SIBAT and MAO reviewers..."
+                  placeholder="Optional notes for your farm history..."
                   className="rounded-xl border-slate-200 min-h-[80px]"
                   value={String(formState.notes ?? "")}
                   onChange={(e) => onFieldChange("notes", e.target.value)}
@@ -823,7 +824,7 @@ function ProductionWizardContent({
                   htmlFor="certify-production"
                   className="min-w-0 flex-1 text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed cursor-pointer select-none"
                 >
-                  I confirm this report reflects the information available to me and may be reviewed first by <span className="font-extrabold text-emerald-950">SIBAT</span>, then officially approved by MAO.
+                  I confirm this farm log reflects the information available to me. A meat entry also sends a separate farmer-reported slaughter notice for official review.
                 </label>
               </div>
 
@@ -838,10 +839,10 @@ function ProductionWizardContent({
                   ? "Saving..."
                   : mode === "edit"
                   ? "Update Record"
-                  : "Submit Record"}
+                  : "Save Record"}
               </Button>
               <p className="text-[11px] text-slate-500 text-center leading-normal">
-                Workflow: Farmer submission → SIBAT verification → MAO approval
+                Production log: saved to your history{productionType === "meat" ? "; slaughter report: separate official review" : ""}
               </p>
               <Button
                 type="button"

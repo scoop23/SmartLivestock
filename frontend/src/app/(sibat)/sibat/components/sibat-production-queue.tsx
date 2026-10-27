@@ -29,6 +29,7 @@ import {
   Sprout,
   User,
 } from "lucide-react";
+import { FileEye } from "@/components/icons/FileEye";
 import { useEffect, useMemo, useState } from "react";
 import { PADRE_GARCIA_BARANGAYS } from "@/app/(admin)/admin/admin-charts";
 import { KpiCard, type KpiVariant } from "@/components/ui/kpi-card";
@@ -168,7 +169,7 @@ function SibatProductionQueueContent({
 
   const prodSubmissions = useMemo(() => {
     return submissions.filter(
-      (s) => s.sourceType === "PRODUCTION" || s.sourceType === "CALVING" || s.sourceType === "SALE"
+      (s) => s.sourceType === "CALVING" || s.sourceType === "SALE"
     );
   }, [submissions]);
 
@@ -684,9 +685,10 @@ function SibatProductionQueueContent({
                         <Button
                           variant="outline"
                           onClick={() => onReview(item)}
-                          className="h-10 w-full max-w-xs justify-center rounded-xl border border-slate-300 px-4 text-xs font-semibold text-slate-700 transition-all hover:bg-slate-50 lg:w-auto"
+                          className="h-10 w-full max-w-xs justify-center gap-2 rounded-xl border border-slate-300 px-4 text-xs font-semibold text-slate-700 transition-all hover:bg-slate-50 lg:w-auto"
                         >
-                          View verification
+                          <FileEye className="size-4 shrink-0 text-slate-600" />
+                          <span>View Verification</span>
                         </Button>
                       )}
                     </div>

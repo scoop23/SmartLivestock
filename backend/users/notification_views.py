@@ -26,11 +26,14 @@ def _field_officer_notification_queryset(user, queryset):
     from diseases.models import DiseaseCase, MortalityRecord
     from livestock.models import CensusSubmission, LivestockBatch, LivestockInventory, LivestockOwnershipTransfer
     from movements.models import LivestockInspection
-    from production.models import CalvingRecord, LiveAnimalSale, ProductionRecord
+    from production.models import CalvingRecord, LiveAnimalSale, ProductionRecord, SlaughterRecord
     from smartlivestock.workflows import scope_reviewer_queryset
 
     scoped_record_ids = {
         "production_record": scope_reviewer_queryset(ProductionRecord.objects.all(), user).values("pk"),
+        "slaughter_record": scope_reviewer_queryset(
+            SlaughterRecord.objects.filter(production_output__status="RECORDED"), user
+        ).values("pk"),
         "livestock_inventory": scope_reviewer_queryset(LivestockInventory.objects.all(), user).values("pk"),
         "livestock_batch": scope_reviewer_queryset(LivestockBatch.objects.all(), user).values("pk"),
         "disease_case": scope_reviewer_queryset(DiseaseCase.objects.all(), user).values("pk"),

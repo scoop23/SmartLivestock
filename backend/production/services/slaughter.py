@@ -11,6 +11,11 @@ def validate_animals(record, animals):
     if not animals or len({a.pk for a in animals}) != len(animals):
         raise ValidationError({"selected_animals": "Select distinct animals that were slaughtered."})
     for animal in animals:
+        duplicate = SlaughterRecord.objects.filter(selected_animals=animal).exclude(
+            pk=record.slaughter_id or 0
+        ).exists()
+        if duplicate:
+            raise ValidationError({"selected_animals": "An animal already has a slaughter report. Edit that report instead."})
         if animal.farmer_id != source.farmer_id or animal.livestock_type_id != source.livestock_type_id:
             raise ValidationError({"selected_animals": "Every selected animal must belong to your source farm and species."})
         if animal.status != "APPROVED" or animal.operational_status != "ACTIVE" or animal.quantity != 1:
@@ -25,10 +30,12 @@ def validate_animals(record, animals):
 
 
 def sync_slaughter(record, animals):
-    """The existing production queue displays this event; it is not a second meat event."""
+    """Keep one pending official slaughter report beside the farmer's private yield log."""
+    slaughter = SlaughterRecord.objects.select_for_update().get(pk=record.slaughter_id) if record.slaughter_id else SlaughterRecord(created_by=record.created_by)
+    animal_ids = sorted(a.pk for a in animals)
+    list(LivestockInventory.objects.select_for_update().filter(pk__in=animal_ids).order_by("pk"))
     validate_animals(record, animals)
     source = record.livestock or record.batch
-    slaughter = record.slaughter if record.slaughter_id else SlaughterRecord(created_by=record.created_by)
     if slaughter.inventory_reconciled_at:
         raise ValidationError({"slaughter": "Approved slaughter cannot be edited."})
     slaughter.livestock = record.livestock
@@ -38,7 +45,11 @@ def sync_slaughter(record, animals):
     slaughter.quantity = len(animals)
     slaughter.carcass_weight = record.quantity
     slaughter.record_date = record.record_date
-    slaughter.status = record.status
+    if record.status != "RECORDED":
+        # Historical linked records still follow their original review state.
+        slaughter.status = record.status
+    elif not record.slaughter_id or slaughter.status == SlaughterRecord.StatusType.SUBJECT_TO_REVISION:
+        slaughter.status = SlaughterRecord.StatusType.PENDING
     slaughter.save()
     slaughter.selected_animals.set(animals)
     if not record.slaughter_id:

@@ -115,12 +115,12 @@ export default function ProductionCharts({
   // Dynamic chart config based on current production type color
   const dynamicChartConfig = {
     quantity: { label: "Total Recorded Volume", color: unitInfo.color },
-    verifiedQuantity: { label: "Verified Yield", color: unitInfo.color },
-    pendingQuantity: { label: "Awaiting Verification", color: "#f59e0b" },
+    verifiedQuantity: { label: "Recorded or historically approved yield", color: unitInfo.color },
+    pendingQuantity: { label: "Historical records awaiting review", color: "#f59e0b" },
     revisionQuantity: { label: "Needs Revision", color: "#ef4444" },
     value: { label: "Estimated Reference Value", color: "#059669" },
-    verifiedValue: { label: "Verified Value", color: "#059669" },
-    pendingValue: { label: "Awaiting Verification Value", color: "#f59e0b" },
+    verifiedValue: { label: "Recorded or historically approved value", color: "#059669" },
+    pendingValue: { label: "Historical pending value", color: "#f59e0b" },
   } satisfies ChartConfig;
 
   // Calculate quick stats
@@ -170,8 +170,8 @@ export default function ProductionCharts({
               </CardTitle>
               <CardDescription className="text-xs text-slate-500 mt-0.5">
                 {currentView === "volume"
-                  ? "Your reported production output. Verified records have completed official SIBAT/MAO review."
-                  : "Estimated benchmark value based on official PSA rates. Awaiting verification values are indicative."}
+                  ? "Your farm-reported production output. Recorded entries are part of your personal history."
+                  : "Estimated benchmark value based on official PSA rates. Values are indicative."}
               </CardDescription>
             </div>
           </div>
@@ -223,8 +223,8 @@ export default function ProductionCharts({
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
                     {hasPending
-                      ? `${totalVerifiedVolume.toLocaleString()} ${unitInfo.unit} verified · ${totalPendingVolume.toLocaleString()} ${unitInfo.unit} awaiting`
-                      : `${totalVerifiedVolume.toLocaleString()} ${unitInfo.unit} verified`}
+                      ? `${totalVerifiedVolume.toLocaleString()} ${unitInfo.unit} recorded · ${totalPendingVolume.toLocaleString()} ${unitInfo.unit} historical pending`
+                      : `${totalVerifiedVolume.toLocaleString()} ${unitInfo.unit} recorded`}
                   </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
@@ -265,8 +265,8 @@ export default function ProductionCharts({
                   </span>
                   <span className="text-[10px] text-emerald-800 font-medium block mt-0.5">
                     {totalPendingValue > 0
-                      ? `${formatPesoCompact(totalVerifiedValue)} verified · ${formatPesoCompact(totalPendingValue)} indicative`
-                      : `${formatPesoCompact(totalVerifiedValue)} verified`}
+                      ? `${formatPesoCompact(totalVerifiedValue)} recorded · ${formatPesoCompact(totalPendingValue)} historical pending`
+                      : `${formatPesoCompact(totalVerifiedValue)} recorded`}
                   </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-100">
@@ -362,7 +362,7 @@ export default function ProductionCharts({
                   className="size-2.5 rounded-full"
                   style={{ backgroundColor: pointAColor }}
                 />
-                <span>Verified ({type === "meat" ? "Red" : "Blue"})</span>
+                <span>Recorded ({type === "meat" ? "Red" : "Blue"})</span>
               </span>
               {hasPending && (
                 <>
@@ -377,7 +377,7 @@ export default function ProductionCharts({
                   </span>
                   <span className="flex items-center gap-1.5 font-bold text-amber-800">
                     <span className="size-2.5 rounded-full bg-yellow-400 border border-yellow-500" />
-                    <span>Awaiting Review (Yellow)</span>
+                    <span>Historical pending (Yellow)</span>
                   </span>
                 </>
               )}
@@ -390,8 +390,8 @@ export default function ProductionCharts({
             </div>
             <p className="text-[11px] text-slate-500 italic">
               {hasPending
-                ? "Your chart shows all your submitted records with verified records distinguished from pending reviews."
-                : "Your chart shows all your submitted records, all of which have completed official verification."}
+                ? "Your chart includes your recorded history and older entries still awaiting a reviewer decision."
+                : "Your chart shows the production entries saved in your farm history."}
             </p>
           </div>
         )}
@@ -475,7 +475,7 @@ export default function ProductionCharts({
                         <div className="flex items-center justify-between" style={{ color: pointAColor }}>
                           <span className="flex items-center gap-1.5 font-medium">
                             <span className="size-2 rounded-full" style={{ backgroundColor: pointAColor }} />
-                            Verified:
+                            Recorded:
                           </span>
                           <span className="font-bold">
                             {Number(item.verifiedQuantity || 0).toLocaleString()} {unitInfo.unit}
@@ -485,7 +485,7 @@ export default function ProductionCharts({
                           <div className="flex items-center justify-between text-amber-700">
                             <span className="flex items-center gap-1.5 font-medium">
                               <span className="size-2 rounded-full bg-yellow-500" />
-                              Awaiting Review:
+                              Historical pending:
                             </span>
                             <span className="font-bold">
                               {Number(item.pendingQuantity || 0).toLocaleString()} {unitInfo.unit}
@@ -610,14 +610,14 @@ export default function ProductionCharts({
                         <div className="flex items-center justify-between text-emerald-800">
                           <span className="flex items-center gap-1.5 font-medium">
                             <span className="size-2 rounded-full bg-emerald-600" />
-                            Verified Value:
+                            Recorded Value:
                           </span>
                           <span className="font-bold">{formatPeso(Number(item.verifiedValue || 0))}</span>
                         </div>
                         <div className="flex items-center justify-between text-amber-800">
                           <span className="flex items-center gap-1.5 font-medium">
                             <span className="size-2 rounded-full bg-amber-500" />
-                            Indicative (Awaiting):
+                            Historical pending value:
                           </span>
                           <span className="font-bold">{formatPeso(Number(item.pendingValue || 0))}</span>
                         </div>
@@ -627,7 +627,7 @@ export default function ProductionCharts({
                 />
                 <Bar
                   dataKey="verifiedValue"
-                  name="Verified Value"
+                  name="Recorded Value"
                   stackId="val"
                   fill="#059669"
                   radius={[0, 0, 0, 0]}
@@ -635,7 +635,7 @@ export default function ProductionCharts({
                 />
                 <Bar
                   dataKey="pendingValue"
-                  name="Awaiting Verification (Indicative)"
+                  name="Historical pending value"
                   stackId="val"
                   fill="#f59e0b"
                   radius={[6, 6, 0, 0]}

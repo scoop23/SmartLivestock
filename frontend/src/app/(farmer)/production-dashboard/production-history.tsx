@@ -58,6 +58,7 @@ const SORT_OPTIONS: { value: SortKey; label: string; icon: React.ElementType }[]
 ];
 
 const statusClasses: Record<ProductionStatus, string> = {
+  RECORDED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
@@ -201,8 +202,8 @@ export default function ProductionHistory({
   });
 
   const handleDelete = (record: ProductionRecordItem) => {
-    if (record.status === "APPROVED") {
-      toast.error("Approved records cannot be deleted.");
+    if (record.status !== "PENDING") {
+      toast.error("Farm history and reviewed records cannot be deleted.");
       return;
     }
     setDialogRecord(null);
@@ -215,7 +216,7 @@ export default function ProductionHistory({
   };
 
   const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { ALL: userProductions.length, APPROVED: 0, PENDING: 0, SUBJECT_TO_REVISION: 0, REJECTED: 0 };
+    const counts: Record<string, number> = { ALL: userProductions.length, RECORDED: 0, APPROVED: 0, PENDING: 0, SUBJECT_TO_REVISION: 0, REJECTED: 0 };
     userProductions.forEach((item) => {
       counts[item.status] = (counts[item.status] ?? 0) + 1;
     });
@@ -314,7 +315,7 @@ export default function ProductionHistory({
         <div className="px-3 py-2.5 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-1.5 flex-wrap">
             <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400 mr-0.5 shrink-0 hidden sm:block" />
-            {STATUS_CHIPS.map((chip) => {
+            {[STATUS_CHIPS[0], { value: "RECORDED", label: "Recorded", activeClass: "bg-emerald-700 text-white border-emerald-700", dotClass: "bg-emerald-500" }, ...STATUS_CHIPS.slice(1)].map((chip) => {
               const isActive = statusFilter === chip.value;
               const count = statusCounts[chip.value] ?? 0;
               return (
@@ -474,7 +475,7 @@ export default function ProductionHistory({
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0 mt-1">
-                          {record.status !== "APPROVED" && (
+                          {record.status === "PENDING" && (
                             <Button
                               type="button"
                               variant="ghost"

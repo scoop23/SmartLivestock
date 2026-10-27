@@ -1,13 +1,13 @@
-"""Cow-specific milk anomaly detection and conditional review-routing service.
+"""Cow-specific advisory milk anomaly assessment for farmer logs.
 
 Assesses an individual cow's submitted milk ProductionRecord against that same
-cow's approved historical milk production records using a transparent,
+cow's recorded or historically approved milk records using a transparent,
 rule-based rolling baseline (median, mean, MAD, standard deviation, and
 percentage/absolute deviation), and attaches advisory 7-day forecast context
 when date-aligned and ready.
 
-An anomaly is a review signal for CBAT field verification, never automatic
-rejection or proof of inaccurate reporting.
+An anomaly is an optional warning to the farmer, never a review task or proof
+of inaccurate reporting.
 """
 
 from __future__ import annotations
@@ -230,7 +230,7 @@ def assess_milk_production_record(
     previous_assessment: dict[str, Any] | None = None,
     thresholds: dict[str, float | int] | None = None,
 ) -> dict[str, Any]:
-    """Assess an individual cow's milk production submission against approved history."""
+    """Assess a cow's session yield against its earlier farmer-recorded history."""
     from production.models import ProductionRecord
 
     cfg = {**DEFAULT_MILK_ANOMALY_THRESHOLDS, **(thresholds or {})}
@@ -245,7 +245,7 @@ def assess_milk_production_record(
             "sufficient_history": False,
             "anomaly_detected": False,
             "requires_cbat_verification": False,
-            "next_review_queue": "SIBAT",
+            "next_review_queue": "NONE",
             "reason": "Milk anomaly detection applies only to individual-animal milk production records.",
             "severity": "NONE",
             "anomaly_direction": "NONE",
@@ -276,8 +276,8 @@ def assess_milk_production_record(
         return {
             "assessment_status": "INSUFFICIENT_HISTORY", "sufficient_history": False,
             "anomaly_detected": False, "requires_cbat_verification": False,
-            "next_review_queue": "SIBAT",
-            "reason": "A valid milking session is required for a session-specific comparison. Standard field verification applies.",
+            "next_review_queue": "NONE",
+            "reason": "A valid milking session is required for a session-specific comparison.",
             "severity": "NONE", "anomaly_direction": "NONE", "submitted_quantity": round(submitted_qty, 2),
             "unit": unit, "record_date": record_date.isoformat(), "historical_baseline": None,
             "deviation": None,
@@ -292,8 +292,7 @@ def assess_milk_production_record(
     approved_qs = ProductionRecord.objects.filter(
         livestock_id=livestock.pk,
         production_type=ProductionRecord.ProductionType.MILK,
-        status=ProductionRecord.ProductionStatus.APPROVED,
-        approved_at__isnull=False,
+        status__in=[ProductionRecord.ProductionStatus.APPROVED, ProductionRecord.ProductionStatus.RECORDED],
         milking_session=milking_session,
         session_conflict=False,
         record_date__lt=record_date,
@@ -322,11 +321,11 @@ def assess_milk_production_record(
             "sufficient_history": False,
             "anomaly_detected": False,
             "requires_cbat_verification": False,
-            "next_review_queue": "SIBAT",
+            "next_review_queue": "NONE",
             "reason": (
-                f"Insufficient approved milk history for {tag_label} to establish a reliable "
-                f"cow- and session-specific baseline ({len(prior_session_rows)} of {min_days} required approved "
-                f"{milking_session.lower()} session observations prior to {record_date.isoformat()}). Standard field verification applies."
+                f"Insufficient recorded milk history for {tag_label} to establish a reliable "
+                f"cow- and session-specific baseline ({len(prior_session_rows)} of {min_days} required "
+                f"{milking_session.lower()} session observations prior to {record_date.isoformat()})."
             ),
             "severity": "NONE",
             "anomaly_direction": "NONE",
@@ -360,12 +359,12 @@ def assess_milk_production_record(
             "sufficient_history": False,
             "anomaly_detected": False,
             "requires_cbat_verification": False,
-            "next_review_queue": "SIBAT",
+            "next_review_queue": "NONE",
             "reason": (
                 f"Approved milk history for {tag_label} is not recent enough for automated "
                 f"baseline comparison (latest approved record was {gap_days} days before "
                 f"{record_date.isoformat()}, exceeding the {max_gap_days}-day recency limit). "
-                f"Standard field verification applies."
+                f"Continue recording sessions to establish a useful baseline."
             ),
             "severity": "NONE",
             "anomaly_direction": "NONE",
@@ -401,10 +400,10 @@ def assess_milk_production_record(
             "sufficient_history": False,
             "anomaly_detected": False,
             "requires_cbat_verification": False,
-            "next_review_queue": "SIBAT",
+            "next_review_queue": "NONE",
             "reason": (
-                f"Insufficient positive approved milk observations for {tag_label} to compute "
-                f"a non-zero baseline. Standard field verification applies."
+                f"Insufficient positive recorded milk observations for {tag_label} to compute "
+                f"a non-zero baseline."
             ),
             "severity": "NONE",
             "anomaly_direction": "NONE",
@@ -516,16 +515,16 @@ def assess_milk_production_record(
         )
         reason = (
             f"Reported milk yield of {submitted_qty:.2f} L on {record_date.isoformat()} for {tag_label} "
-        f"is {abs_pct:.1f}% ({sign_str} L, {pct_str}) {direction_word} this cow's approved rolling median "
+        f"is {abs_pct:.1f}% ({sign_str} L, {pct_str}) {direction_word} this cow's recorded rolling median "
         f"{milking_session.lower()} session baseline of {baseline_median:.2f} L/session (mean {baseline_mean:.2f} L/session across "
-        f"{len(window_values)} recent approved sessions). Routed to field verification to {context_note}."
+        f"{len(window_values)} recent sessions). Advisory: {context_note}."
         )
         return {
             "assessment_status": "ANOMALY_DETECTED",
             "sufficient_history": True,
             "anomaly_detected": True,
-            "requires_cbat_verification": True,
-            "next_review_queue": "CBAT",
+            "requires_cbat_verification": False,
+            "next_review_queue": "NONE",
             "reason": reason,
             "severity": severity,
             "anomaly_direction": direction,
@@ -545,16 +544,15 @@ def assess_milk_production_record(
     pct_str = f"+{pct_change:.1f}%" if pct_change >= 0 else f"{pct_change:.1f}%"
     reason = (
         f"Reported milk yield of {submitted_qty:.2f} L on {record_date.isoformat()} for {tag_label} "
-        f"is consistent with this cow's approved rolling median {milking_session.lower()} session baseline of {baseline_median:.2f} L/session "
-        f"({sign_str} L, {pct_str} across {len(window_values)} recent approved sessions). "
-        f"No anomaly detected; routed directly to the MAO approval queue."
+        f"is consistent with this cow's recorded rolling median {milking_session.lower()} session baseline of {baseline_median:.2f} L/session "
+        f"({sign_str} L, {pct_str} across {len(window_values)} recent sessions)."
     )
     return {
         "assessment_status": "CLEAN",
         "sufficient_history": True,
         "anomaly_detected": False,
         "requires_cbat_verification": False,
-        "next_review_queue": "MAO",
+        "next_review_queue": "NONE",
         "reason": reason,
         "severity": "NONE",
         "anomaly_direction": "NONE",

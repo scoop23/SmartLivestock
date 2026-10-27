@@ -14,8 +14,8 @@ export default function SpeciesProductionPage() {
   const requestedActivity = searchParams.get("activity");
   const requestedType = searchParams.get("type");
   const rawActivity = (requestedActivity || requestedType)?.toLowerCase();
-  const activity = rawActivity && ["milk", "meat", "eggs", "wool", "calving", "weights", "sales", "intent"].includes(rawActivity)
-    ? rawActivity
+  const activity = rawActivity && ["milk", "meat", "eggs", "wool", "breeding", "insemination", "calving", "weights", "sales", "intent", "feedings", "feeding"].includes(rawActivity)
+    ? (rawActivity === "insemination" ? "breeding" : (rawActivity === "feeding" ? "feedings" : rawActivity))
     : null;
   const requestedMode = searchParams.get("mode");
   const activityMode = requestedMode === "record" || requestedMode === "history" ? requestedMode : null;
@@ -30,7 +30,9 @@ export default function SpeciesProductionPage() {
     if (activity === "milk") return `${sName} Dairy Milk Records`;
     if (activity === "eggs") return `${sName} Egg Collection Logs`;
     if (activity === "wool") return `${sName} Wool Shearing Logs`;
+    if (activity === "breeding") return `${sName} Breeding & Insemination Records`;
     if (activity === "calving") return `${sName} Birthing & Calving Logs`;
+    if (activity === "feedings" || activity === "feeding") return `${sName} Feeding & Ration Logs`;
     if (activity === "weights") return `${sName} Weight & Growth Records`;
     if (activity === "sales" || activity === "intent") return `${sName} Sale Intent Declarations`;
     return `${sName} Production Logs`;
@@ -41,6 +43,8 @@ export default function SpeciesProductionPage() {
     if (activity === "milk") return "Daily milking session logs, yield in liters, and review status.";
     if (activity === "eggs") return "Daily egg harvest logs and flock efficiency.";
     if (activity === "wool") return "Wool shearing logs and harvest weights.";
+    if (activity === "breeding") return "Artificial insemination (AI), natural service records, and gestation countdowns.";
+    if (activity === "feedings" || activity === "feeding") return "Daily feed intake, ration mix, and feed expenditure records.";
     return "Production records, animal births, and weight history";
   }, [activity]);
 

@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from livestock.models import LivestockType
-from smartlivestock.workflows import require_action, role_name, validate_review_transition
+from smartlivestock.workflows import require_action, role_name, scope_reviewer_queryset, validate_review_transition
 from .models import SlaughterRecord
 
 
@@ -20,8 +20,12 @@ class SlaughterRecordInputSerializer(serializers.ModelSerializer):
     """Validate aggregate fields and condemnation inspection telemetry for slaughterhouse operations."""
 
     livestock_type_name = serializers.CharField(source="livestock_type.name", read_only=True)
+    barangay_name = serializers.CharField(source="barangay.barangay_name", read_only=True, allow_null=True)
     created_by_name = serializers.SerializerMethodField()
     can_edit = serializers.SerializerMethodField()
+    farmer_reported = serializers.SerializerMethodField()
+    production_record_id = serializers.SerializerMethodField()
+    selected_animal_tags = serializers.SerializerMethodField()
 
     condemned_heads = serializers.IntegerField(required=False, default=0, min_value=0)
     condemned_weight_kg = serializers.DecimalField(
@@ -33,9 +37,9 @@ class SlaughterRecordInputSerializer(serializers.ModelSerializer):
     class Meta:
         model = SlaughterRecord
         fields = (
-            "id", "livestock_type", "livestock_type_name", "quantity", "carcass_weight",
+            "id", "livestock_type", "livestock_type_name", "barangay_name", "quantity", "carcass_weight",
             "record_date", "barangay", "status", "review_remarks", "created_by_name",
-            "created_at", "can_edit", "condemned_heads", "condemned_weight_kg",
+            "created_at", "can_edit", "farmer_reported", "production_record_id", "selected_animal_tags", "condemned_heads", "condemned_weight_kg",
             "condemnation_reason", "condemnation_type",
         )
         read_only_fields = ("id", "status", "created_by_name", "created_at", "can_edit")
@@ -57,6 +61,16 @@ class SlaughterRecordInputSerializer(serializers.ModelSerializer):
 
     def get_created_by_name(self, obj):
         return obj.created_by.get_full_name() or obj.created_by.username
+
+    def get_farmer_reported(self, obj):
+        return hasattr(obj, "production_output")
+
+    def get_production_record_id(self, obj):
+        output = getattr(obj, "production_output", None)
+        return output.pk if output else None
+
+    def get_selected_animal_tags(self, obj):
+        return [animal.tag_number or str(animal.pk) for animal in obj.selected_animals.all()]
 
     def get_can_edit(self, obj):
         user = self.context["request"].user
@@ -136,14 +150,21 @@ def _aggregate_slaughter_records():
 
 
 def _visible_slaughter_records(user):
+    role = role_name(user)
     records = _aggregate_slaughter_records()
-    if role_name(user) == "SLAUGHTERHOUSESTAFF":
+    if role == "SLAUGHTERHOUSESTAFF":
         # With no facility field in this schema, staff can see municipal approved
         # totals plus their own submissions; another operator's pending records
         # remain private until MAO makes them official.
         records = records.filter(status=SlaughterRecord.StatusType.APPROVED) | records.filter(created_by=user)
+    elif role in {"SIBAT", "CBAT"}:
+        # Field officers see only farmer reports in their assigned barangays.
+        records = scope_reviewer_queryset(SlaughterRecord.objects.filter(
+            production_output__status="RECORDED"
+        ), user)
     else:
         require_action(user, "slaughter_records", "read_all")
+        records = records | SlaughterRecord.objects.filter(production_output__status="RECORDED")
     return records.order_by("-record_date", "-id").distinct()
 
 
@@ -193,6 +214,7 @@ def slaughterhouse_records(request):
             return Response({"detail": "Select a valid livestock type."}, status=400)
         records = records.filter(livestock_type_id=livestock_type)
     records = records.distinct()
+    records = records.select_related("livestock_type", "created_by").prefetch_related("selected_animals")
     data = SlaughterRecordInputSerializer(records, many=True, context={"request": request}).data
     return Response(data)
 
@@ -227,15 +249,25 @@ def slaughterhouse_record_detail(request, pk):
 @permission_classes([IsAuthenticated])
 @transaction.atomic
 def review_slaughterhouse_record(request, pk):
-    """MAO/Admin approve or return facility totals without touching animal inventory."""
+    """Review facility totals or farmer-linked slaughter through separate official states."""
     require_action(request.user, "slaughter_records", "review")
-    record = get_object_or_404(
-        _visible_slaughter_records(request.user).select_for_update(),
-        pk=pk,
+    # Lock by primary key before checking eligibility. Joining selected_animals
+    # here duplicates a batch report once per animal and breaks get().
+    record = get_object_or_404(SlaughterRecord.objects.select_for_update(), pk=pk)
+    production_output = getattr(record, "production_output", None)
+    is_farmer_report = production_output is not None and production_output.status == "RECORDED"
+    is_facility_total = (
+        record.livestock_id is None and record.batch_id is None and production_output is None
+        and not record.selected_animals.exists()
     )
+    if not (is_farmer_report or is_facility_total):
+        from django.http import Http404
+        raise Http404
     target = request.data.get("status", "")
     remarks = str(request.data.get("remarks", ""))
     validate_review_transition(domain="slaughter_records", role=role_name(request.user), current=record.status, target=target, remarks=remarks)
+    if is_farmer_report and record.status == SlaughterRecord.StatusType.SUBJECT_TO_REVISION and target == SlaughterRecord.StatusType.APPROVED:
+        raise serializers.ValidationError({"status": "The farmer must correct the returned slaughter report before approval."})
     record.status = target
     record.reviewed_by = request.user
     record.reviewed_at = timezone.now()
@@ -246,4 +278,19 @@ def review_slaughterhouse_record(request, pk):
     final_remarks = f"{remarks} {condemnation_tag}".strip()
     record.review_remarks = final_remarks
     record.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_remarks"])
+    if is_farmer_report:
+        if target == SlaughterRecord.StatusType.APPROVED:
+            from .services.slaughter import reconcile_approved_slaughter
+            reconcile_approved_slaughter(record)
+        from users.models import Notification
+        from users.notification_views import create_notification
+        create_notification(
+            user=record.created_by,
+            notification_type=Notification.NotificationType.PRODUCTION,
+            priority=Notification.Priority.MEDIUM,
+            title="Official slaughter report approved" if target == SlaughterRecord.StatusType.APPROVED else "Slaughter report returned for correction",
+            message=("The official slaughter report was approved and the selected livestock inventory was updated."
+                     if target == SlaughterRecord.StatusType.APPROVED else f"Correct your linked meat-yield entry and resubmit the slaughter report. {remarks}"),
+            link="/production-dashboard",
+        )
     return Response(SlaughterRecordInputSerializer(record, context={"request": request}).data)

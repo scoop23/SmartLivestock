@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 // Production Analytics types
 // ---------------------------------------------------------------------------
 
-export type ProductionStatus = "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
+export type ProductionStatus = "RECORDED" | "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 
 export type ProductionType = "milk" | "meat" | "eggs" | "wool";
 
@@ -119,6 +119,8 @@ export interface ProductionValuationSnapshot {
 export interface SlaughterDetails {
   id: number;
   quantity: number;
+  status?: string;
+  review_remarks?: string;
   animals: { id: number; tag_number: string }[];
   inventory_reconciled_at: string | null;
 }
@@ -338,12 +340,12 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
       const qty = r.quantity;
       totalQty += qty;
 
-      if (r.status === "APPROVED") {
+      if (r.status === "APPROVED" || r.status === "RECORDED") {
         verifiedQty += qty;
       } else if (r.status === "SUBJECT_TO_REVISION") {
         revisionQty += qty;
       } else {
-        // PENDING or SIBAT-VERIFIED (awaiting final MAO approval)
+        // Historical records still awaiting a reviewer decision.
         pendingQty += qty;
       }
 
@@ -351,7 +353,7 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
       if (mStr) {
         const cur = monthlyMap.get(mStr) || { total: 0, verified: 0, pending: 0, revision: 0 };
         cur.total += qty;
-        if (r.status === "APPROVED") {
+        if (r.status === "APPROVED" || r.status === "RECORDED") {
           cur.verified += qty;
         } else if (r.status === "SUBJECT_TO_REVISION") {
           cur.revision += qty;
@@ -394,7 +396,7 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
       const val = Number(record.valuationSnapshot!.estimated_value) || 0;
       totalEstimatedValue += val;
 
-      const isApproved = record.status === "APPROVED";
+      const isApproved = record.status === "APPROVED" || record.status === "RECORDED";
       if (isApproved) {
         verifiedEstimatedValue += val;
       } else {
@@ -420,7 +422,7 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
         pendingValue: valData.pending,
       }));
 
-    const verifiedRecords = typeRecords.filter((r) => r.status === "APPROVED");
+    const verifiedRecords = typeRecords.filter((r) => r.status === "APPROVED" || r.status === "RECORDED");
     const pendingRecords = typeRecords.filter((r) => r.status === "PENDING" || r.status === "VERIFIED");
     const revisionRecords = typeRecords.filter((r) => r.status === "SUBJECT_TO_REVISION");
 
@@ -435,8 +437,8 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
         pending_record_count: pendingRecords.length,
         revision_record_count: revisionRecords.length,
         estimated_value: valuedRecords.length ? totalEstimatedValue : null,
-        verified_estimated_value: valuedRecords.some((r) => r.status === "APPROVED") ? verifiedEstimatedValue : null,
-        pending_estimated_value: valuedRecords.some((r) => r.status !== "APPROVED") ? pendingEstimatedValue : null,
+        verified_estimated_value: valuedRecords.some((r) => r.status === "APPROVED" || r.status === "RECORDED") ? verifiedEstimatedValue : null,
+        pending_estimated_value: valuedRecords.some((r) => r.status !== "APPROVED" && r.status !== "RECORDED") ? pendingEstimatedValue : null,
         valued_record_count: valuedRecords.length,
         reference_periods: [...new Set(valuedRecords.map(record => record.valuationSnapshot!.reference_period))],
         // Keep distinct prices visible when reports use different commodities or periods.
@@ -522,6 +524,8 @@ export function formatRecordDate(date: string): string {
 
 export function formatProductionStatus(status: ProductionStatus): string {
   switch (status) {
+    case "RECORDED":
+      return "Recorded in your farm log";
     case "APPROVED":
       return "Approved by MAO";
     case "VERIFIED":

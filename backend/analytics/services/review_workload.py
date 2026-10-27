@@ -87,14 +87,14 @@ def review_workload_summary(*, now=None, user=None):
     standard_domains = [
         # Aggregated legacy rows cannot be independently verified as animals.
         ("inventory", "Livestock Inventory", scoped(LivestockInventory.objects.filter(entry_type=LivestockInventory.EntryType.INDIVIDUAL))),
-        ("production", "Production", scoped(ProductionRecord.objects.all())),
+        ("production", "Production", scoped(ProductionRecord.objects.none())),
         ("disease", "Disease Reports", scoped(DiseaseCase.objects.all())),
         ("mortality", "Mortality", scoped(MortalityRecord.objects.all())),
         ("calving", "Calving", scoped(CalvingRecord.objects.all())),
-        ("slaughter", "Slaughter", scoped(SlaughterRecord.objects.all())),
         ("sales", "Auction Sales", scoped(LiveAnimalSale.objects.all())),
     ]
     direct_mao_domains = [
+        ("slaughter", "Slaughter", scoped(SlaughterRecord.objects.all())),
         ("ownership_transfers", "Ownership Transfers", scoped(LivestockOwnershipTransfer.objects.all())),
         ("inspection_clearances", "Inspection Clearances", scoped(LivestockInspectionClearance.objects.all())),
     ]
@@ -107,6 +107,34 @@ def review_workload_summary(*, now=None, user=None):
     }
 
     def add_domain(key, label, queryset, *, sibat_statuses, mao_created_statuses, mao_reviewed_statuses):
+        if key == "slaughter":
+            # Legacy linked events still await their old field step. New farmer
+            # reports and facility totals go straight to official MAO review.
+            legacy = Q(production_output__status__in=["PENDING", "VERIFIED"])
+            sibat_base = legacy & Q(status="PENDING")
+            mao_base = Q(status="VERIFIED") | (Q(status="PENDING") & ~legacy)
+            age_created = _age_buckets(created_statuses=("PENDING",), reviewed_statuses=(), now=now)
+            age_reviewed = _age_buckets(created_statuses=(), reviewed_statuses=("VERIFIED",), now=now)
+            counts = queryset.aggregate(
+                sibat_count=Count("pk", filter=sibat_base),
+                mao_count=Count("pk", filter=mao_base),
+                returned_count=Count("pk", filter=Q(status="SUBJECT_TO_REVISION")),
+                **{f"sibat_{bucket}": Count("pk", filter=sibat_base & cond) for bucket, cond in age_created.items()},
+                **{f"mao_{bucket}": Count("pk", filter=(mao_base & age_created[bucket]) | (Q(status="VERIFIED") & age_reviewed[bucket])) for bucket in age_created},
+            )
+            sibat_aging = {bucket: counts[f"sibat_{bucket}"] for bucket in age_created}
+            mao_aging = {bucket: counts[f"mao_{bucket}"] for bucket in age_created}
+            row = {"key": key, "label": label, "sibat_count": counts["sibat_count"],
+                   "cbat_count": 0, "mao_count": counts["mao_count"], "returned_count": counts["returned_count"],
+                   "sibat_aging": sibat_aging, "cbat_aging": {bucket: 0 for bucket in age_created}, "mao_aging": mao_aging}
+            domains.append(row)
+            overall["sibat"]["count"] += row["sibat_count"]
+            overall["mao"]["count"] += row["mao_count"]
+            overall["returned"] += row["returned_count"]
+            for bucket in age_created:
+                overall["sibat"]["aging"][bucket] += sibat_aging[bucket]
+                overall["mao"]["aging"][bucket] += mao_aging[bucket]
+            return
         if key == "production":
             sibat_base = Q(status="PENDING") & ~Q(next_review_queue__in=["CBAT", "MAO"])
             cbat_base = Q(status="PENDING", next_review_queue="CBAT")

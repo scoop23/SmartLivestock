@@ -7,7 +7,7 @@ DialogContent,
 DialogDescription,
 DialogTitle,
 } from "@/components/ui/dialog";
-import { Clock3 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface ProductionSubmissionSuccessDialogProps {
@@ -35,17 +35,16 @@ export default function ProductionSubmissionSuccessDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl p-6">
         <div className="mx-auto flex size-16 items-center justify-center">
-          <div className="relative flex size-14 items-center justify-center rounded-full bg-amber-100 text-amber-800">
-            <span className="absolute inset-0 animate-ping rounded-full bg-amber-300/40 motion-reduce:animate-none" aria-hidden="true" />
-            <Clock3 className="relative size-7 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+          <div className="relative flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
+            <CheckCircle2 className="relative size-7" aria-hidden="true" />
           </div>
         </div>
         <div className="space-y-2 text-center">
           <DialogTitle className="text-xl font-bold text-slate-900">
-            Your production is now pending for review
+            Saved to your farm log
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-slate-600">
-            Your record was submitted. It will appear in your production history with its current review status.
+            Your production entry is in your history. Meat entries also create a separate farmer-reported slaughter notice for official review.
           </DialogDescription>
         </div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">

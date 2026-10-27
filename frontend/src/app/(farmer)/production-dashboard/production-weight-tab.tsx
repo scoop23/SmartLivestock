@@ -376,6 +376,7 @@ export default function ProductionWeightTab({
               items={approvedInventories}
               selectedId={selectedLivestockId}
               onSelect={(item) => setSelectedLivestockId(item.id)}
+              warnOnActiveDisease
               dialogTitle="Choose Livestock to Weigh"
               dialogDescription="Choose an approved animal or herd from your inventory. Current weights are shown on each card."
               emptyStateText="No approved livestock is available for weight logging."

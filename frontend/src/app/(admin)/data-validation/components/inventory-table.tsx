@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { LivestockOperationalStatusBadge } from "@/components/livestock-operational-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,8 @@ interface InventoryTableProps {
   onSelectAll: (checked: boolean) => void;
   onViewDetail: (detail: DetailRecordData) => void;
   onReview: (target: ReviewTargetItem) => void;
+  highlightId?: string | number | null;
+  highlightTag?: string | null;
 }
 
 export function InventoryTable({
@@ -43,7 +46,37 @@ export function InventoryTable({
   onSelectAll,
   onViewDetail,
   onReview,
+  highlightId,
+  highlightTag,
 }: InventoryTableProps) {
+  const desktopHighlightRef = useRef<HTMLTableRowElement | null>(null);
+  const mobileHighlightRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (highlightId || highlightTag) {
+      if (desktopHighlightRef.current) {
+        desktopHighlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (mobileHighlightRef.current) {
+        mobileHighlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [highlightId, highlightTag, records]);
+
+  const isRecordHighlighted = (inv: ValidationInventoryItem) => {
+    if (!highlightId && !highlightTag) return false;
+    if (highlightId && (String(inv.id) === String(highlightId) || String(inv.rawId) === String(highlightId))) {
+      return true;
+    }
+    if (highlightTag) {
+      const search = highlightTag.toLowerCase();
+      const tag = (inv.tagNumber || "").toLowerCase();
+      if (tag === search || tag.includes(search) || search.includes(tag)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const isIndividuallyReviewable = (record: ValidationInventoryItem) =>
     !record.isBatch && record.entryType === "INDIVIDUAL";
 
@@ -143,6 +176,7 @@ export function InventoryTable({
               ) : (
                 records.map((inv) => {
                   const isSelected = selectedIds.includes(inv.id);
+                  const isHighlighted = isRecordHighlighted(inv);
                   const statusNorm = (inv.status || "PENDING").toUpperCase();
                   const isHerdMemberRow = !inv.isBatch && (inv.batchId != null || !!inv.batchCode);
                   const canReview = statusNorm === "VERIFIED" && isIndividuallyReviewable(inv);
@@ -151,8 +185,13 @@ export function InventoryTable({
                   return (
                     <TableRow
                       key={inv.id}
-                      className={`group hover:bg-gray-50/80 transition-all border-none ${
-                        isSelected ? "bg-green-50/40" : ""
+                      ref={isHighlighted ? desktopHighlightRef : undefined}
+                      className={`group transition-all ${
+                        isHighlighted
+                          ? "bg-emerald-50/95 ring-2 ring-emerald-500 border-l-4 border-l-emerald-600 shadow-sm"
+                          : isSelected
+                          ? "bg-green-50/40 hover:bg-gray-50/80 border-none"
+                          : "hover:bg-gray-50/80 border-none"
                       }`}
                     >
                       <TableCell className="px-6 py-5 text-center">
@@ -168,7 +207,9 @@ export function InventoryTable({
                         <div className="flex items-center gap-4">
                           <div
                             className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                              inv.isBatch
+                              isHighlighted
+                                ? "bg-emerald-200 text-emerald-900 ring-2 ring-emerald-400"
+                                : inv.isBatch
                                 ? "bg-teal-100 text-teal-800"
                                 : "bg-amber-100 text-amber-800"
                             }`}
@@ -177,9 +218,15 @@ export function InventoryTable({
                           </div>
                           <div>
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="font-bold text-gray-800 text-sm font-mono leading-snug">
+                              <p className={`font-bold text-sm font-mono leading-snug ${isHighlighted ? "text-emerald-950 font-black text-base" : "text-gray-800"}`}>
                                 {inv.tagNumber || (inv.isBatch ? `BATCH-${inv.id}` : `TAG-${inv.id}`)}
                               </p>
+                              {isHighlighted && (
+                                <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white border-0 text-[8px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs animate-pulse">
+                                  <span className="size-1.5 rounded-full bg-white" />
+                                  Scanned Record
+                                </Badge>
+                              )}
                               {inv.isBatch && (
                                 <Badge className="bg-teal-100 text-teal-900 border-0 text-[8px] font-black uppercase px-1.5 py-0.5">
                                   Herd
@@ -355,6 +402,7 @@ export function InventoryTable({
         ) : (
           records.map((inv) => {
             const isSelected = selectedIds.includes(inv.id);
+            const isHighlighted = isRecordHighlighted(inv);
             const statusNorm = (inv.status || "PENDING").toUpperCase();
             const isHerdMemberRow = !inv.isBatch && (inv.batchId != null || !!inv.batchCode);
             const canReview = statusNorm === "VERIFIED" && isIndividuallyReviewable(inv);
@@ -363,10 +411,13 @@ export function InventoryTable({
             return (
               <div
                 key={inv.id}
-                className={`bg-white rounded-3xl p-4 shadow-sm border transition-all space-y-3 ${
-                  isSelected
-                    ? "border-[#2D5A27] bg-green-50/30 ring-1 ring-green-200/60 shadow-xs"
-                    : "border-gray-100"
+                ref={isHighlighted ? mobileHighlightRef : undefined}
+                className={`rounded-3xl p-4 transition-all space-y-3 ${
+                  isHighlighted
+                    ? "bg-emerald-50/95 border-2 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md"
+                    : isSelected
+                    ? "bg-white border-[#2D5A27] bg-green-50/30 ring-1 ring-green-200/60 shadow-xs"
+                    : "bg-white border border-gray-100 shadow-sm"
                 }`}
               >
                 {/* Header Row */}
@@ -386,13 +437,27 @@ export function InventoryTable({
                         className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27] shrink-0"
                       />
                     </div>
-                    <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        isHighlighted
+                          ? "bg-emerald-200 text-emerald-900 ring-2 ring-emerald-400"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
                       <Tag size={20} />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-gray-800 text-sm font-mono truncate">
-                        {inv.tagNumber || `TAG-${inv.id}`}
-                      </p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className={`font-bold text-sm font-mono truncate ${isHighlighted ? "text-emerald-950 font-black" : "text-gray-800"}`}>
+                          {inv.tagNumber || `TAG-${inv.id}`}
+                        </p>
+                        {isHighlighted && (
+                          <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white border-0 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                            <span className="size-1 rounded-full bg-white" />
+                            Scanned
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate">
                         {inv.breed || "Breed Unspecified"}
                       </p>

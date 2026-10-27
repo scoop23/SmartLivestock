@@ -135,68 +135,10 @@ def validate_review_transition(*, domain: str, role: str, current: str, target: 
 
 
 def validate_production_review_transition(*, record, role: str, target: str, remarks: str = "") -> None:
-    """Enforce conditional review routing for milk production while preserving non-milk rules."""
-    current = (getattr(record, "status", "") or "").upper()
-    prod_type = (getattr(record, "production_type", "") or "").upper()
-    assessment_status = (getattr(record, "anomaly_assessment_status", "") or "").upper()
-    requires_cbat = bool(getattr(record, "requires_cbat_verification", False) or getattr(record, "anomaly_detected", False))
-    next_queue = (getattr(record, "next_review_queue", "") or "").upper()
+    """Keep legacy shared review statuses from creating a routine production queue."""
+    from rest_framework.exceptions import ValidationError
 
-    is_milk = prod_type == "MILK"
-
-    if not is_milk:
-        # Non-milk records use the same field reviewer then MAO workflow.
-        validate_review_transition(domain="production", role=role, current=current, target=target, remarks=remarks)
-        return
-
-    # Milk production records:
-    if current == "PENDING":
-        if assessment_status == "CLEAN" and not requires_cbat and next_queue == "MAO":
-            # Path A: Clean milk record routed directly to MAO.
-            allowed_targets = {"APPROVED", "SUBJECT_TO_REVISION"} if role in {MAO, ADMIN} else set()
-            if target not in allowed_targets:
-                if role in FIELD_REVIEWERS:
-                    raise ValidationError(
-                        {"status": f"This clean milk record had no anomaly detected and is routed directly to MAO; {role} verification is not required."}
-                    )
-                allowed_str = ", ".join(sorted(allowed_targets)) or "none"
-                raise ValidationError(
-                    {"status": f"The {role} role cannot move this clean milk record from {current} to {target}. Allowed next statuses: {allowed_str}."}
-                )
-        elif requires_cbat or assessment_status == "ANOMALY_DETECTED" or next_queue == "CBAT":
-            # Path B: Flagged milk record requires field verification before MAO approval.
-            allowed_targets = {"VERIFIED", "SUBJECT_TO_REVISION"} if role in FIELD_REVIEWERS else set()
-            if target not in allowed_targets:
-                if role in {MAO, ADMIN}:
-                    raise ValidationError(
-                        {"status": "Flagged milk records with a detected anomaly must be field-verified before MAO can approve or review them."}
-                    )
-                allowed_str = ", ".join(sorted(allowed_targets)) or "none"
-                raise ValidationError(
-                    {"status": f"The {role} role cannot move this flagged milk record from {current} to {target}. Allowed next statuses: {allowed_str}."}
-                )
-        else:
-            # Inconclusive / insufficient history fallback: requires field verification (SIBAT or CBAT) before MAO approval.
-            allowed_targets = {"VERIFIED", "SUBJECT_TO_REVISION"} if role in FIELD_REVIEWERS else set()
-            if target not in allowed_targets:
-                allowed_str = ", ".join(sorted(allowed_targets)) or "none"
-                raise ValidationError(
-                    {"status": f"The {role} role cannot move this production record from {current} to {target}. Allowed next statuses: {allowed_str}."}
-                )
-    elif current == "VERIFIED":
-        allowed_targets = {"APPROVED", "SUBJECT_TO_REVISION"} if role in {MAO, ADMIN} else set()
-        if target not in allowed_targets:
-            allowed_str = ", ".join(sorted(allowed_targets)) or "none"
-            raise ValidationError(
-                {"status": f"The {role} role cannot move this production record from {current} to {target}. Allowed next statuses: {allowed_str}."}
-            )
-    else:
-        raise ValidationError(
-            {"status": f"The {role} role cannot move this production record from {current} to {target}. Allowed next statuses: none."}
-        )
-
-    if target == "SUBJECT_TO_REVISION" and not remarks.strip():
-        raise ValidationError({"remarks": "Remarks are required when returning a record for revision."})
+    raise ValidationError({"status": "Farmer production logs are personal records and do not have a field verification or MAO approval workflow."})
 
 
 def validate_batch_lifecycle(current: str, target: str) -> None:

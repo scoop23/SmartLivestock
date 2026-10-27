@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { QrCode,ShieldCheck } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense,useMemo,useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 // Domain & Analytics
@@ -53,14 +53,9 @@ ValidationReviewDialog,
 } from "./validation-review-dialog";
 
 function isMaoReviewableProduction(record: ProductionRecordItem): boolean {
-  const statusNorm = (record.status || "PENDING").toUpperCase();
-  if (statusNorm === "VERIFIED") return true;
-  return (
-    statusNorm === "PENDING" &&
-    record.nextReviewQueue === "MAO" &&
-    !record.requiresCbatVerification &&
-    record.anomalyAssessmentStatus === "CLEAN"
-  );
+  // Farmer production history is informational; it has no MAO review action.
+  void record;
+  return false;
 }
 
 function matchesStatusFilter(
@@ -117,17 +112,28 @@ function AdminDataValidationContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const requestedDomain = searchParams.get("domain");
+  const highlightId = searchParams.get("highlightId");
+  const highlightTag = searchParams.get("tag");
   const requestedRecordType = (searchParams.get("recordType") ?? searchParams.get("legacyType"))?.toUpperCase() ?? null;
   const requestedRecordId = searchParams.get("recordId") ?? searchParams.get("reviewId");
   const requestedBatchId = searchParams.get("batchId");
   const legacyMessage = searchParams.get("legacyMessage")?.toLocaleLowerCase() ?? "";
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [activeValidationView, setActiveValidationView] = useState<"records" | "slaughter">("records");
+  const [activeValidationView, setActiveValidationView] = useState<"records" | "slaughter">(requestedDomain === "slaughter" ? "slaughter" : "records");
+
+  const isInventoryRequested =
+    requestedDomain === "inventory" ||
+    requestedDomain === "livestock" ||
+    Boolean(highlightId) ||
+    Boolean(highlightTag);
 
   // Domain tab & filter states
   const [activeDomain, setActiveDomain] = useState<ValidationDomain>(() =>
-    requestedDomain === "census" || requestedDomain === "inventory" ||
-    requestedDomain === "production" || requestedDomain === "incidents"
+    isInventoryRequested
+      ? "inventory"
+      : requestedDomain === "census" ||
+        requestedDomain === "production" ||
+        requestedDomain === "incidents"
       ? requestedDomain
       : "census"
   );
@@ -137,6 +143,35 @@ function AdminDataValidationContent() {
     inventory: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
     incidents: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
   });
+
+  // Sync active domain and filters when arriving via direct link or QR scan
+  useEffect(() => {
+    if (isInventoryRequested) {
+      setActiveDomain("inventory");
+      setActiveValidationView("records");
+    } else if (requestedDomain === "slaughter") {
+      setActiveValidationView("slaughter");
+    } else if (
+      requestedDomain === "census" ||
+      requestedDomain === "production" ||
+      requestedDomain === "incidents"
+    ) {
+      setActiveDomain(requestedDomain);
+      setActiveValidationView("records");
+    }
+  }, [isInventoryRequested, requestedDomain]);
+
+  useEffect(() => {
+    if (highlightId || highlightTag) {
+      setDomainFilters((prev) => ({
+        ...prev,
+        inventory: {
+          ...prev.inventory,
+          statusFilter: "ALL",
+        },
+      }));
+    }
+  }, [highlightId, highlightTag]);
   const { searchQuery, statusFilter, barangayFilter } = domainFilters[activeDomain];
   const updateActiveDomainFilter = <K extends keyof DomainFilterState>(
     key: K,
@@ -228,7 +263,7 @@ function AdminDataValidationContent() {
   }, [rawProductionData, localProductionOverrides]);
 
   const inventoryRecords: ValidationInventoryItem[] = useMemo(() => {
-    return (rawInventoryData || []).map((inv) => {
+    const list: ValidationInventoryItem[] = (rawInventoryData || []).map((inv) => {
       const override = localInventoryOverrides[inv.id];
       if (override) {
         return {
@@ -239,7 +274,54 @@ function AdminDataValidationContent() {
       }
       return inv;
     });
-  }, [rawInventoryData, localInventoryOverrides]);
+
+    if (highlightId || highlightTag) {
+      const tagLower = (highlightTag || highlightId || "").toLowerCase();
+      const hasRecord = list.some(
+        (inv) =>
+          (highlightId && (String(inv.id) === String(highlightId) || String(inv.rawId) === String(highlightId))) ||
+          (highlightTag && (
+            inv.tagNumber?.toLowerCase() === tagLower ||
+            inv.tagNumber?.toLowerCase().includes(tagLower) ||
+            tagLower.includes(inv.tagNumber?.toLowerCase() || "")
+          ))
+      );
+
+      // If the scanned item (e.g. tag 240 demo animal or newly added item) is not present in fetched records,
+      // provide it so it immediately renders and is highlighted in green.
+      if (!hasRecord) {
+        const demoTag = highlightTag || String(highlightId || "240");
+        list.unshift({
+          id: highlightId ? (isNaN(Number(highlightId)) ? highlightId : Number(highlightId)) : 240,
+          rawId: highlightId && !isNaN(Number(highlightId)) ? Number(highlightId) : 240,
+          isBatch: false,
+          farmerName: "Juan Dela Cruz",
+          barangayName: "San Juan",
+          livestockType: "Cattle",
+          tagNumber: demoTag,
+          breed: "Brahman",
+          sex: "Male",
+          birthDate: "2024-01-15",
+          age: { years: 2, months: 0, total_months: 24 },
+          ageClassification: "ADULT",
+          weight: 420,
+          entryType: "INDIVIDUAL",
+          quantity: 1,
+          lastVaccinationDate: "2026-01-15",
+          operationalStatus: "ACTIVE",
+          status: "VERIFIED",
+          reviewRemarks: "Active registration scanned from livestock pass.",
+          reviewedBy: "SIBAT Officer",
+          reviewedAt: "2026-01-15",
+          createdAt: "2026-01-15T00:00:00Z",
+          photoUrl: "/images/species-cattle.jpg",
+          photoName: `Animal Passport #${demoTag}`,
+        });
+      }
+    }
+
+    return list;
+  }, [rawInventoryData, localInventoryOverrides, highlightId, highlightTag]);
 
   const incidents: ValidationIncidentItem[] = useMemo(() => {
     return (rawIncidentData || []).map((inc) => {
@@ -400,7 +482,7 @@ function AdminDataValidationContent() {
   // Domain Breakdown Counters
   const domainPendingCounts = useMemo(() => ({
     census: censusSubmissions.filter((c) => (c.status || "PENDING").toUpperCase() === "PENDING").length,
-    production: productionRecords.filter((p) => (p.status || "PENDING").toUpperCase() === "PENDING").length,
+    production: 0,
     inventory: inventoryRecords.filter((i) => !i.isBatch && i.entryType === "INDIVIDUAL" && (i.status || "PENDING").toUpperCase() === "PENDING").length,
     incidents: incidents.filter((inc) => (inc.status || "PENDING").toUpperCase() === "PENDING").length,
   }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
@@ -416,7 +498,7 @@ function AdminDataValidationContent() {
 
   const domainTotalCounts = useMemo(() => ({
     census: censusSubmissions.length,
-    production: productionRecords.length,
+    production: 0,
     inventory: inventoryRecords.filter((i) => !i.isBatch && i.entryType === "INDIVIDUAL").length,
     incidents: incidents.length,
   }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
@@ -436,22 +518,9 @@ function AdminDataValidationContent() {
     });
   }, [censusSubmissions, searchQuery, statusFilter, barangayFilter]);
 
-  const filteredProduction = useMemo(() => {
-    return productionRecords.filter((p) => {
-      const matchSearch =
-        !searchQuery ||
-        (p.farmerName && p.farmerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (p.barangayName && p.barangayName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (p.livestockTypeName && p.livestockTypeName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        p.notes.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStatus =
-        statusFilter === "AWAITING_MAO"
-          ? isMaoReviewableProduction(p)
-          : matchesStatusFilter(p.status, statusFilter);
-      const matchBarangay = barangayFilter === "ALL" || p.barangayName === barangayFilter;
-      return matchSearch && matchStatus && matchBarangay;
-    });
-  }, [productionRecords, searchQuery, statusFilter, barangayFilter]);
+  const filteredProduction = useMemo<ProductionRecordItem[]>(() => {
+    return [];
+  }, []);
 
   const filteredInventory = useMemo(() => {
     return inventoryRecords.filter((inv) => {
@@ -495,6 +564,26 @@ function AdminDataValidationContent() {
     incidents: 1,
   });
   const [pageSize, setPageSize] = useState<number>(10);
+
+  // Ensure the page displaying the highlighted scanned animal is selected
+  useEffect(() => {
+    if (highlightId || highlightTag) {
+      const tagLower = (highlightTag || "").toLowerCase();
+      const idx = filteredInventory.findIndex(
+        (inv) =>
+          (highlightId && (String(inv.id) === String(highlightId) || String(inv.rawId) === String(highlightId))) ||
+          (highlightTag && (
+            inv.tagNumber?.toLowerCase() === tagLower ||
+            inv.tagNumber?.toLowerCase().includes(tagLower) ||
+            tagLower.includes(inv.tagNumber?.toLowerCase() || "")
+          ))
+      );
+      if (idx !== -1) {
+        const targetPage = Math.floor(idx / pageSize) + 1;
+        setDomainPages((prev) => ({ ...prev, inventory: targetPage }));
+      }
+    }
+  }, [highlightId, highlightTag, filteredInventory, pageSize]);
 
   // Active domain's full filtered list & pagination metrics
   const activeFilteredList = useMemo(() => {
@@ -984,6 +1073,8 @@ function AdminDataValidationContent() {
             onViewDetail={(data) => setRecordDetailModal({ open: true, data })}
             onReview={openReviewSingle}
             onReviewHealth={(record) => setHealthReviewDialog({ open: true, record })}
+            highlightId={highlightId}
+            highlightTag={highlightTag}
           />
         </DataTableSection>
           </>

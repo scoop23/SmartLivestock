@@ -21,6 +21,8 @@ type ReviewRecord = {
   status: string;
   review_remarks: string;
   created_by_name: string;
+  farmer_reported: boolean;
+  selected_animal_tags: string[];
 };
 
 export function SlaughterReviewQueue() {
@@ -94,7 +96,7 @@ export function SlaughterReviewQueue() {
           <div className="min-w-0 space-y-1">
             <p className="text-xs font-black uppercase tracking-wider text-slate-800">MAO review queue</p>
             <p className="text-xs leading-relaxed text-slate-600 sm:text-sm">
-              Approval makes the aggregate record available to official slaughter analytics. It does not change individual animal inventory.
+              Facility totals enter official analytics after approval. Approving a farmer-reported slaughter also reconciles the selected animals in inventory.
             </p>
           </div>
         </CardContent>
@@ -157,13 +159,14 @@ export function SlaughterReviewQueue() {
                           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs"><Scissors size={19} /></div>
                           <div>
                             <p className="text-sm font-bold leading-snug text-gray-800">{row.livestock_type_name}</p>
+                            {row.farmer_reported ? <span className="text-[10px] font-semibold text-amber-700">Farmer-reported, unverified · {row.selected_animal_tags.join(", ")}</span> : null}
                             <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">{row.record_date}</span>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell className="px-8 py-5">
                         <p className="text-sm font-bold text-gray-700">{row.created_by_name}</p>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Slaughterhouse Staff</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">{row.farmer_reported ? "Farmer report" : "Slaughterhouse Staff"}</span>
                       </TableCell>
                       <TableCell className="px-8 py-5 text-right">
                         <p className="text-sm font-black text-[#2D5A27]">{row.quantity.toLocaleString()} <span className="text-[10px] font-black uppercase text-gray-500">head(s)</span></p>
@@ -204,6 +207,7 @@ export function SlaughterReviewQueue() {
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs"><Scissors size={19} /></div>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold leading-snug text-gray-800">{row.livestock_type_name}</p>
+                      {row.farmer_reported ? <span className="block text-[10px] font-semibold text-amber-700">Farmer-reported, unverified · {row.selected_animal_tags.join(", ")}</span> : null}
                       <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">{row.record_date}</span>
                     </div>
                   </div>

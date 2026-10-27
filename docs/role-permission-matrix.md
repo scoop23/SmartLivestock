@@ -17,6 +17,7 @@ requires a new report. These outcomes do not certify a laboratory diagnosis.
 
 | Area | Farmer | SIBAT | MAO | Auction |
 | --- | --- | --- | --- | --- |
+| Production logs | Create/view/edit own farm logs and personal analytics; no review stage | No production verification; separate slaughter notices remain visible by barangay | Read municipal reports; no farmer-log approval; official slaughter review remains | No access |
 | Inventory | Create/view own; edit/delete own pending/returned records | View scoped; verify pending or return | View municipal; approve verified or return | No access |
 | Sales | Create/view own; delete own pending sales | View scoped; verify pending or return | View municipal; approve verified or return | Read only |
 | Calving | Create and view own records | View scoped; verify pending or return | View municipal; approve verified or return | No access |
@@ -34,6 +35,8 @@ PENDING --SIBAT--> VERIFIED --MAO--> APPROVED
    +--reviewer return-+--> SUBJECT_TO_REVISION
 SUBJECT_TO_REVISION --owner edits/resubmits--> PENDING
 ```
+
+Farmer production logs are saved as `RECORDED`; they do not enter either review transition below. Official slaughter records linked to farmer meat reports keep their separate MAO review.
 
 Census follows:
 

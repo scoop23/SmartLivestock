@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Baby,Beef,Egg,Milk,Scale,Scissors,ShoppingBag } from "lucide-react";
+import { Baby,BarChart3,Beef,Egg,HeartHandshake,Milk,Scale,Scissors,ShoppingBag,Wheat } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
@@ -25,6 +25,7 @@ const PRODUCTION_META: Record<ProductionType, { title: string; description: stri
   wool: { title: "Wool shearing", description: "Record wool collected from your sheep.", icon: Scissors },
 };
 
+
 export default function RecordActivityChooser({
   inventories,
   intentInventories,
@@ -45,23 +46,66 @@ export default function RecordActivityChooser({
   );
   const activities = useMemo(() => {
     const items: Activity[] = [];
-    for (const name of species) {
-      for (const productionType of getProductionTypesForLivestock(name)) {
-        const meta = PRODUCTION_META[productionType];
-        const existing = items.find((item) => item.id === productionType);
-        if (existing) existing.species.push(name);
-        else items.push({ id: productionType, ...meta, species: [name], productionType });
+    const productionTypes: ProductionType[] = ["milk", "meat", "eggs", "wool"];
+
+    for (const pType of productionTypes) {
+      const meta = PRODUCTION_META[pType];
+      const eligibleOwned = species.filter((name) =>
+        getProductionTypesForLivestock(name).includes(pType)
+      );
+      // Only show production types (including wool and eggs) if there is existing eligible livestock
+      if (eligibleOwned.length === 0) {
+        continue;
       }
-      const birth = items.find((item) => item.id === "calving");
-      if (birth) birth.species.push(name);
-      else items.push({ id: "calving", title: "Animal birth", description: "Register a newborn and its birth details.", icon: Baby, species: [name] });
+      items.push({
+        id: pType,
+        ...meta,
+        species: eligibleOwned,
+        productionType: pType,
+      });
     }
-    if (species.length) {
-      items.push({ id: "weights", title: "Weight / growth", description: "Record an animal’s current weight.", icon: Scale, species });
+
+    if (species.length > 0) {
+      items.push({
+        id: "breeding",
+        title: "Breeding & Insemination",
+        description: "Log artificial insemination (AI) or natural service and track gestation.",
+        icon: HeartHandshake,
+        species,
+      });
+      items.push({
+        id: "calving",
+        title: "Animal birth",
+        description: "Register a newborn and its birth details.",
+        icon: Baby,
+        species,
+      });
+      items.push({
+        id: "weights",
+        title: "Weight / growth",
+        description: "Record an animal’s current weight.",
+        icon: Scale,
+        species,
+      });
+      items.push({
+        id: "feedings",
+        title: "Feeding & Rations",
+        description: "Log daily forage, concentrates, rations, and feed costs.",
+        icon: Wheat,
+        species,
+      });
     }
-    if (intentSpecies.length) {
-      items.push({ id: "sales", title: "Declare sale intent", description: "Tell Auction you plan to sell; Auction records the completed sale and movement.", icon: ShoppingBag, species: intentSpecies });
+
+    if (intentSpecies.length > 0) {
+      items.push({
+        id: "sales",
+        title: "Declare sale intent",
+        description: "Tell Auction you plan to sell; Auction records the completed sale and movement.",
+        icon: ShoppingBag,
+        species: intentSpecies,
+      });
     }
+
     return items;
   }, [species, intentSpecies]);
 
@@ -90,9 +134,14 @@ export default function RecordActivityChooser({
             <h2 id="record-activity-title" className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">What would you like to record?</h2>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-emerald-50/80 sm:text-base">Choose an activity to open its existing form. You’ll select the animal before saving.</p>
           </div>
-          <Button asChild variant="outline" className="min-h-11 w-full shrink-0 rounded-xl border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white sm:w-auto">
-            <Link href="/production-dashboard/history">All production records</Link>
-          </Button>
+          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button asChild variant="outline" className="min-h-11 w-full rounded-xl border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white sm:w-auto">
+              <Link href="/production-dashboard/analytics"><BarChart3 className="mr-2 size-4" /> Production analytics</Link>
+            </Button>
+            <Button asChild variant="outline" className="min-h-11 w-full rounded-xl border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white sm:w-auto">
+              <Link href="/production-dashboard/history">All production records</Link>
+            </Button>
+          </div>
         </div>
       </div>
 

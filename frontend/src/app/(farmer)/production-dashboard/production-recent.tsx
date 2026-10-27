@@ -25,6 +25,7 @@ type ProductionStatus,
 import ProductionRecordDialog from "./production-record-dialog";
 
 const statusClasses: Record<ProductionStatus, string> = {
+  RECORDED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
@@ -113,7 +114,7 @@ export default function ProductionRecent({
           </div>
 
           <div className="flex items-center gap-1 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-            {(["ALL", "APPROVED", "PENDING", "SUBJECT_TO_REVISION"] as const).map((st) => (
+            {(["ALL", "RECORDED", "APPROVED", "PENDING", "SUBJECT_TO_REVISION"] as const).map((st) => (
               <button
                 key={st}
                 type="button"
@@ -146,6 +147,7 @@ export default function ProductionRecent({
           <div className="divide-y divide-slate-100">
             {filteredRecords.map((record) => {
               const isPending = record.status === "PENDING";
+              const canEdit = isPending || (record.status === "RECORDED" && record.slaughterDetails?.status !== "APPROVED");
               return (
                 <div
                   key={record.id}
@@ -183,7 +185,7 @@ export default function ProductionRecent({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                    {isPending && onEdit && (
+                    {canEdit && onEdit && (
                       <Button
                         type="button"
                         variant="ghost"

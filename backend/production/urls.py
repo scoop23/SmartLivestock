@@ -27,4 +27,14 @@ urlpatterns = [
 
     # Animal Disposition Intent (Sale, Slaughter, Movement)
     path("dispositions/", views.animal_disposition_list_create, name="dispositions_list_create"),
+
+    # Breeding & Insemination (Mating, AI, Gestation Tracking)
+    path("breeding/", views.breeding_records_list_create, name="breeding_list_create"),
+    path("breeding/analytics/", views.breeding_analytics, name="breeding_analytics"),
+    path("breeding/<int:pk>/", views.breeding_record_detail, name="breeding_detail"),
+
+    # Feeding Logs & Rations
+    path("feedings/", views.feeding_records_list_create, name="feeding_list_create"),
+    path("feedings/analytics/", views.feeding_analytics, name="feeding_analytics"),
+    path("feedings/<int:pk>/", views.feeding_record_detail, name="feeding_detail"),
 ]

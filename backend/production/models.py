@@ -3,8 +3,8 @@ from django.conf import settings
 
 
 # Tracks daily/non-daily production output from livestock.
-# Supports three production types: milk (liters), eggs (pieces), wool (kilograms).
-# Status lifecycle: PENDING → VERIFIED → APPROVED/SUBJECT_TO_REVISION
+# Supports milk, meat, eggs, and wool as farmer production logs.
+# New logs are RECORDED; earlier PENDING/VERIFIED/APPROVED records retain their history.
 class ProductionRecord(models.Model):
     class ProductionType(models.TextChoices):
         MILK = "MILK", "Milk"
@@ -18,6 +18,7 @@ class ProductionRecord(models.Model):
         KILOGRAMS = "KILOGRAMS", "Kilograms"
 
     class ProductionStatus(models.TextChoices):
+        RECORDED = "RECORDED", "Recorded by farmer"
         PENDING = "PENDING", "Pending"
         VERIFIED = "VERIFIED", "Verified" # might remove
         APPROVED = "APPROVED", "Approved"
@@ -33,7 +34,7 @@ class ProductionRecord(models.Model):
         UNAVAILABLE = "UNAVAILABLE", "Assessment Unavailable"
         INSUFFICIENT_HISTORY = "INSUFFICIENT_HISTORY", "Insufficient History"
         CLEAN = "CLEAN", "Assessed — No Anomaly Detected"
-        ANOMALY_DETECTED = "ANOMALY_DETECTED", "Anomaly Detected — CBAT Review Required"
+        ANOMALY_DETECTED = "ANOMALY_DETECTED", "Unusual yield (advisory)"
 
     class ReviewQueue(models.TextChoices):
         SIBAT = "SIBAT", "SIBAT Field Verification"
@@ -103,7 +104,7 @@ class ProductionRecord(models.Model):
 
     valuation_snapshot = models.JSONField(null=True, blank=True, editable=False)
 
-    # Cow-specific milk anomaly assessment and conditional review routing.
+    # Cow-specific milk assessment; new farmer logs use this only as advice.
     anomaly_assessment_status = models.CharField(
         max_length=24,
         choices=AnomalyAssessmentStatus.choices,
@@ -190,6 +191,15 @@ class ProductionRecord(models.Model):
             self.next_review_queue = self.ReviewQueue.FARMER
             if update_fields is not None and "next_review_queue" not in update_fields:
                 kwargs["update_fields"] = [*update_fields, "next_review_queue"]
+        elif self.status == self.ProductionStatus.RECORDED:
+            self.next_review_queue = self.ReviewQueue.NONE
+            self.requires_cbat_verification = False
+            if update_fields is not None:
+                fields = list(kwargs.get("update_fields", update_fields))
+                for field in ("next_review_queue", "requires_cbat_verification"):
+                    if field not in fields:
+                        fields.append(field)
+                kwargs["update_fields"] = fields
 
         super().save(*args, **kwargs)
 
@@ -696,3 +706,176 @@ class MilkAnomalyDemoOwnership(models.Model):
 
     def __str__(self):
         return f"Milk demo {self.identifier} ({self.object_type}:{self.object_id})"
+
+
+def get_species_gestation_days(livestock_type_name: str | None) -> int:
+    """Return standard biological gestation period in days for livestock species."""
+    name = (livestock_type_name or "").lower()
+    if any(k in name for k in ["carabao", "kalabaw", "buffalo"]):
+        return 310
+    if any(k in name for k in ["goat", "kambing", "caprine"]):
+        return 150
+    if any(k in name for k in ["sheep", "tupa", "ovine", "lamb", "ram"]):
+        return 147
+    if any(k in name for k in ["swine", "pig", "baboy", "hog", "porcine"]):
+        return 114
+    return 283  # Default cattle / cow
+
+
+class BreedingRecord(models.Model):
+    """
+    Farmbrite-style breeding & insemination tracker:
+    Logs mating / AI events, calculates expected due dates, and tracks active gestation.
+    """
+    class BreedingType(models.TextChoices):
+        ARTIFICIAL_INSEMINATION = "ARTIFICIAL_INSEMINATION", "Artificial Insemination (AI)"
+        NATURAL = "NATURAL", "Natural Service / Bull Mating"
+        EMBRYO_TRANSFER = "EMBRYO_TRANSFER", "Embryo Transfer"
+
+    class BreedingStatus(models.TextChoices):
+        PENDING_CHECK = "PENDING_CHECK", "Inseminated / Awaiting Check"
+        PREGNANT = "PREGNANT", "Confirmed Pregnant / Gestating"
+        CALVED = "CALVED", "Calved / Parturition Recorded"
+        OPEN = "OPEN", "Open / Not Pregnant / Re-bred"
+
+    dam = models.ForeignKey(
+        "livestock.LivestockInventory",
+        on_delete=models.PROTECT,
+        related_name="breeding_events",
+        help_text="Mother cow / dam.",
+    )
+    breeding_date = models.DateField(help_text="Date of breeding or insemination.")
+    breeding_type = models.CharField(
+        max_length=32,
+        choices=BreedingType.choices,
+        default=BreedingType.ARTIFICIAL_INSEMINATION,
+    )
+    sire_tag_or_code = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Sire bull tag number, or semen straw batch code.",
+    )
+    sire_breed = models.CharField(
+        max_length=80,
+        blank=True,
+        help_text="Sire breed.",
+    )
+    technician_or_inseminator = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Technician, AI officer, or farmer who performed insemination.",
+    )
+    gestation_days = models.PositiveIntegerField(
+        default=283,
+        help_text="Standard biological gestation length in days.",
+    )
+    expected_due_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Calculated or estimated expected due date.",
+    )
+    status = models.CharField(
+        max_length=24,
+        choices=BreedingStatus.choices,
+        default=BreedingStatus.PENDING_CHECK,
+    )
+    notes = models.TextField(blank=True, max_length=500)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_breeding_records",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-breeding_date", "-created_at"]
+
+    def save(self, *args, **kwargs):
+        if not self.expected_due_date and self.breeding_date:
+            from datetime import timedelta
+            livestock_type = getattr(getattr(self.dam, "livestock_type", None), "name", "")
+            days = self.gestation_days or get_species_gestation_days(livestock_type)
+            self.gestation_days = days
+            self.expected_due_date = self.breeding_date + timedelta(days=days)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Breeding {self.dam.tag_number or self.dam.id} on {self.breeding_date} ({self.breeding_type})"
+
+
+class FeedingRecord(models.Model):
+    """
+    Farmbrite-style daily feeding & ration tracker:
+    Logs feed types, quantities (kg), and feed costs for individual animals or batches.
+    """
+    class FeedType(models.TextChoices):
+        FORAGE = "FORAGE", "Fresh Forage & Grass (Napier, Guinea, Native)"
+        SILAGE_HAY = "SILAGE_HAY", "Silage & Hay"
+        CONCENTRATE = "CONCENTRATE", "Commercial Concentrates & Mash"
+        BYPRODUCTS = "BYPRODUCTS", "Byproducts (Rice Bran / Darak, Corn, Copra)"
+        MINERALS = "MINERALS", "Minerals & Vitamin Supplements"
+
+    class FeedingTime(models.TextChoices):
+        MORNING = "MORNING", "Morning"
+        AFTERNOON = "AFTERNOON", "Afternoon"
+        EVENING = "EVENING", "Evening"
+        ALL_DAY = "ALL_DAY", "All Day / Free Choice"
+
+    livestock = models.ForeignKey(
+        "livestock.LivestockInventory",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="feeding_records",
+        help_text="Target animal (for individual feeding).",
+    )
+    batch = models.ForeignKey(
+        "livestock.LivestockBatch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="feeding_records",
+        help_text="Target batch (for herd feeding).",
+    )
+    feeding_date = models.DateField(help_text="Date the feed was provided.")
+    feed_type = models.CharField(
+        max_length=32,
+        choices=FeedType.choices,
+        default=FeedType.FORAGE,
+    )
+    feed_name = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Specific feed brand or pasture description (e.g., Napier Grass, Starter Mash).",
+    )
+    quantity_kg = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        help_text="Weight of feed provided in kilograms.",
+    )
+    cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Optional total cost in PHP for this feeding.",
+    )
+    feeding_time = models.CharField(
+        max_length=16,
+        choices=FeedingTime.choices,
+        default=FeedingTime.MORNING,
+    )
+    notes = models.TextField(blank=True, max_length=500)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_feeding_records",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-feeding_date", "-created_at"]
+
+    def __str__(self):
+        target = self.livestock.tag_number if self.livestock else (self.batch.batch_code if self.batch else "General")
+        return f"Feeding {target} ({self.feed_type}, {self.quantity_kg} kg) on {self.feeding_date}"

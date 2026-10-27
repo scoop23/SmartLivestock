@@ -548,7 +548,10 @@ export function useAdminProductionRecords() {
   return useQuery({
     queryKey: ["admin-production-records"],
     queryFn: fetchAdminProductionRecords,
-    staleTime: 30_000,
+    // Review status can change in the production validation workflow. Refresh
+    // on page entry/focus so Data Overview doesn't keep a recently pending row.
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 

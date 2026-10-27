@@ -1,4 +1,4 @@
-"""Create the Tangob individual-cow milk anomaly and review demonstration.
+"""Create the Tangob individual-cow personal milk-log anomaly demonstration.
 
 Local development use:
     SMARTLIVESTOCK_DEMO_PASSWORD=<secure-local-password> python manage.py seed_milk_anomaly_demo
@@ -29,7 +29,6 @@ from users.models import Notification, Role, User
 
 PREFIX = "milk-anomaly-demo-v1:"
 FARMER_EMAIL = "demo.milk.farmer@smartlivestock-demo.invalid"
-CBAT_EMAIL = "demo.milk.cbat@smartlivestock-demo.invalid"
 MAO_EMAIL = "demo.milk.mao@smartlivestock-demo.invalid"
 DAILY_PATTERN = ("9.80", "9.90", "10.00", "10.10", "10.20", "9.95", "10.05")
 RECORD_TYPES = {
@@ -76,12 +75,7 @@ class Command(BaseCommand):
                 name: self._get_reference(Role, "role_name", name, f"{name} role")
                 for name in (Role.UserRoles.FARMER, Role.UserRoles.MAO)
             }
-            # CBAT is a valid reviewer role in the model, but older databases may
-            # only have SIBAT. The demo needs a CBAT account for flagged milk.
-            roles[Role.UserRoles.CBAT], _ = Role.objects.get_or_create(role_name=Role.UserRoles.CBAT)
-
             farmer_user = self._get_or_create_user("farmer-user", FARMER_EMAIL, "demo_milk_farmer", roles[Role.UserRoles.FARMER], barangay, password)
-            cbat_user = self._get_or_create_user("cbat-user", CBAT_EMAIL, "demo_milk_cbat", roles[Role.UserRoles.CBAT], barangay, password)
             mao_user = self._get_or_create_user("mao-user", MAO_EMAIL, "demo_milk_mao", roles[Role.UserRoles.MAO], barangay, password)
             farmer = self._get_or_create_farmer(farmer_user, barangay)
             cows = {
@@ -97,12 +91,8 @@ class Command(BaseCommand):
                 "anomaly": self._get_or_create_scenario("scenario-anomaly", cows["anomaly"], farmer, farmer_user, Decimal("15.00"), "DEMO synthetic elevated-yield anomaly scenario; not real farmer data."),
             }
 
-            from production.views import _notify_production_route
-            for key, record in scenarios.items():
-                self._ensure_route_notifications(key, record, farmer_user, _notify_production_route)
-
             self.stdout.write(self.style.SUCCESS("Milk anomaly demonstration is ready."))
-            self.stdout.write(f"Farmer: {farmer_user.email} — Tangob, Padre Garcia; reviewer accounts: {cbat_user.email}, {mao_user.email}")
+            self.stdout.write(f"Farmer: {farmer_user.email} — Tangob, Padre Garcia; synthetic historical reviewer: {mao_user.email}")
             for key, cow in cows.items():
                 forecast = self._forecast(cow)
                 self.stdout.write(f"Cow {cow.tag_number}: {history_counts[key]} approved synthetic daily records; forecast {forecast['status']} ({len(forecast.get('forecast') or [])}/7 days).")
@@ -114,7 +104,7 @@ class Command(BaseCommand):
                     f"status={record.status}, forecast comparison="
                     f"{(record.anomaly_assessment or {}).get('forecast_comparison', {}).get('status', 'unavailable')}."
                 )
-            self.stdout.write("Demo milk records use the morning session. The clean scenario routes to MAO; the flagged scenario follows Farmer submission, CBAT verification, then the MAO final decision.")
+            self.stdout.write("Demo milk scenarios are personal farmer logs. An unusual yield is advisory only; neither scenario creates a review task.")
 
     def _assert_safe_database(self, *, clean):
         is_isolated_test_run = "test" in sys.argv and "memory" in str(connections["default"].settings_dict.get("NAME", "")).lower()
@@ -262,7 +252,7 @@ class Command(BaseCommand):
                 quantity=quantity, unit=ProductionRecord.UnitType.LITERS,
                 record_date=timezone.localdate() + timedelta(days=1),
                 milking_session=ProductionRecord.MilkingSession.MORNING,
-                status=ProductionRecord.ProductionStatus.PENDING,
+                status=ProductionRecord.ProductionStatus.RECORDED,
                 notes=note, created_by=farmer_user,
             )
             apply_milk_anomaly_assessment(record)
@@ -270,8 +260,10 @@ class Command(BaseCommand):
             self._track(key, MilkAnomalyDemoOwnership.ObjectType.PRODUCTION_RECORD, record)
         elif record.livestock_id != cow.pk or record.farmer_at_record_id != farmer.pk:
             raise CommandError(f"Tracked scenario {key} no longer belongs to its expected demo cow and farmer.")
+        elif record.status != ProductionRecord.ProductionStatus.RECORDED:
+            raise CommandError(f"Tracked scenario {key} follows the old review workflow; clean and reseed the demo rather than rewriting history.")
         elif record.milking_session is None:
-            if record.status != ProductionRecord.ProductionStatus.PENDING or record.reviewed_at:
+            if record.reviewed_at:
                 raise CommandError(f"Tracked scenario {key} was already reviewed without a milking session; clean and reseed the demo to avoid rewriting its review history.")
             record.milking_session = ProductionRecord.MilkingSession.MORNING
             apply_milk_anomaly_assessment(record)
@@ -279,25 +271,6 @@ class Command(BaseCommand):
         elif record.milking_session != ProductionRecord.MilkingSession.MORNING:
             raise CommandError(f"Tracked scenario {key} has a different milking session; refusing to change it.")
         return record
-
-    def _ensure_route_notifications(self, key, record, farmer_user, route_sender):
-        if MilkAnomalyDemoOwnership.objects.filter(
-            identifier__startswith=f"{PREFIX}notification-{key}-"
-        ).exists():
-            return
-        before = set(Notification.objects.filter(
-            related_entity_type="production_record", related_entity_id=record.pk,
-        ).values_list("pk", flat=True))
-        route_sender(record, farmer_user)
-        created = Notification.objects.filter(
-            related_entity_type="production_record", related_entity_id=record.pk,
-        ).exclude(pk__in=before)
-        for notification in created:
-            self._track(
-                f"notification-{key}-{notification.pk}",
-                MilkAnomalyDemoOwnership.ObjectType.NOTIFICATION,
-                notification,
-            )
 
     def _forecast(self, cow):
         from django.db.models import Sum

@@ -4,13 +4,25 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import api from "@/lib/axios";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import {
 ArrowLeft,
+AlertTriangle,
 Baby,
 ClipboardList,
+HeartHandshake,
 LineChart as LineChartIcon,
 Milk,
 Plus,
@@ -18,6 +30,7 @@ RefreshCw,
 Scale,
 ShieldCheck,
 ShoppingBag,
+Wheat,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo,useState } from "react";
@@ -25,6 +38,8 @@ import { toast } from "sonner";
 
 import SpeciesHeroBanner from "./components/species-hero-banner";
 import SpeciesKpiCards from "./components/species-kpi-cards";
+import ProductionBreedingTab from "./production-breeding-tab";
+import ProductionFeedingTab from "./production-feeding-tab";
 import ProductionCalvingTab,{
 CalvingRecordItem,
 getBirthingTerminology,
@@ -51,6 +66,14 @@ type ProductionType,
 import type { ProductionPayload } from "./production-wizard";
 
 export type UnitType = "liters" | "pieces" | "kilograms";
+
+type DiseaseReportSummary = {
+  id: number;
+  livestock: number | null;
+  batch: number | null;
+  name: string;
+  status: string;
+};
 
 export type UpdateProductionPayload = {
   id: number;
@@ -89,9 +112,11 @@ export default function ProductionDashboardView({
 }: ProductionDashboardViewProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const activityTabs: Record<string, "production" | "calving" | "weights" | "sales" | "forecasts"> = {
+  const activityTabs: Record<string, "production" | "breeding" | "calving" | "weights" | "sales" | "forecasts" | "feedings"> = {
     milk: "production", meat: "production", eggs: "production", wool: "production",
+    breeding: "breeding", insemination: "breeding",
     calving: "calving", weights: "weights", sales: "sales", intent: "sales",
+    feedings: "feedings", feeding: "feedings",
   };
   const focusedProductionType = initialActivity && ["milk", "meat", "eggs", "wool"].includes(initialActivity)
     ? initialActivity as ProductionType
@@ -106,6 +131,12 @@ export default function ProductionDashboardView({
   const [isWizardOpen, setIsWizardOpen] = useState(initialMode === "record" && ["milk", "meat", "eggs", "wool"].includes(initialActivity ?? ""));
   const [isSubmissionSuccessOpen, setIsSubmissionSuccessOpen] = useState(false);
   const [submittedProductionId, setSubmittedProductionId] = useState<number | string | null>(null);
+  const [diseaseWarning, setDiseaseWarning] = useState<{
+    payload: ProductionPayload;
+    reports: DiseaseReportSummary[];
+    lookupFailed: boolean;
+    blocked: boolean;
+  } | null>(null);
   const [editingRecord, setEditingRecord] = useState<Partial<ProductionRecordItem> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProductionRecordItem | null>(null);
   const [productionType, setProductionType] = useState<ProductionType>(focusedProductionType);
@@ -119,14 +150,14 @@ export default function ProductionDashboardView({
   });
   const [resetSignal, setResetSignal] = useState(0);
 
-  // Main Tabs State: "production" | "calving" | "weights" | "sales" | "forecasts"
+  // Main Tabs State: "production" | "breeding" | "calving" | "weights" | "sales" | "forecasts" | "feedings"
   const [activeMainTab, setActiveMainTab] = useState<
-    "production" | "calving" | "weights" | "sales" | "forecasts"
+    "production" | "breeding" | "calving" | "weights" | "sales" | "forecasts" | "feedings"
   >(initialActivity ? activityTabs[initialActivity] ?? "production" : "production");
 
   const shouldRenderFocusedTab = !focusedActivity
     || focusedMode === "history"
-    || (focusedMode === "record" && ["calving", "weights", "sales", "intent"].includes(focusedActivity));
+    || (focusedMode === "record" && ["breeding", "insemination", "calving", "weights", "sales", "intent", "feedings", "feeding"].includes(focusedActivity));
   const isFocusedProductionHistory = Boolean(
     focusedMode === "history" && ["milk", "meat", "eggs", "wool"].includes(focusedActivity ?? ""),
   );
@@ -144,6 +175,13 @@ export default function ProductionDashboardView({
   } = useQuery<ProductionRecordItem[]>({
     queryKey: ["production_records"],
     queryFn: fetchProductionRecords,
+  });
+
+  const diseaseReportsQuery = useQuery<DiseaseReportSummary[]>({
+    queryKey: ["farmer-disease-reports-for-recording"],
+    queryFn: async () => (await api.get<DiseaseReportSummary[]>("diseases/cases/")).data,
+    enabled: isWizardOpen,
+    staleTime: 30_000,
   });
 
   // Fetch Calving Records
@@ -427,6 +465,43 @@ export default function ProductionDashboardView({
     },
   });
 
+  const handleProductionSubmit = async (payload: ProductionPayload) => {
+    if (editingRecord?.id) {
+      updateMutation.mutate({ id: editingRecord.id as number, payload });
+      return;
+    }
+
+    const result = await diseaseReportsQuery.refetch();
+    const reports = result.data;
+    const lookupFailed = result.isError || !reports;
+
+    const relatedAnimalIds = new Set([
+      String(payload.livestock),
+      ...(payload.selected_animals ?? []).map(String),
+    ]);
+    const targetBatchId = clickedInventory?.batchId
+      ?? (clickedInventory?.entryType === "BATCH" ? Number(clickedInventory.id) : null);
+    const matchingReports = (reports ?? []).filter((report) =>
+      ["PENDING", "VERIFIED"].includes(report.status)
+      && (
+        (report.livestock != null && relatedAnimalIds.has(String(report.livestock)))
+        || (report.batch != null && targetBatchId != null && String(report.batch) === String(targetBatchId))
+      ),
+    );
+
+    const verifiedReports = matchingReports.filter((report) => report.status === "VERIFIED");
+    if (verifiedReports.length > 0) {
+      setDiseaseWarning({ payload, reports: verifiedReports, lookupFailed: false, blocked: true });
+      return;
+    }
+    const pendingReports = matchingReports.filter((report) => report.status === "PENDING");
+    if (pendingReports.length > 0 || lookupFailed) {
+      setDiseaseWarning({ payload, reports: pendingReports, lookupFailed, blocked: lookupFailed });
+      return;
+    }
+    submitMutation.mutate(payload);
+  };
+
   const handleConfirmDelete = () => {
     if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
   };
@@ -473,7 +548,7 @@ export default function ProductionDashboardView({
             <p className="mt-1 text-sm text-slate-600">
               {focusedMode === "record"
                 ? `Complete the form to log ${focusedActivity ?? "production"} output. Choose the animal and review before saving.`
-                : `Review the ${focusedActivity ?? "production"} records and their verification status.`}
+                : `Review your saved ${focusedActivity ?? "production"} records and activity history.`}
             </p>
           </section>
         </div>
@@ -580,6 +655,19 @@ export default function ProductionDashboardView({
 
         <button
           type="button"
+          onClick={() => setActiveMainTab("breeding")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs ${
+            activeMainTab === "breeding"
+              ? "bg-emerald-800 text-white shadow-emerald-950/20"
+              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+          }`}
+        >
+          <HeartHandshake className="size-4" />
+          <span>Breeding & Insemination</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveMainTab("calving")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs ${
             activeMainTab === "calving"
@@ -613,6 +701,19 @@ export default function ProductionDashboardView({
         >
           <Scale className="size-4" />
           <span>Growth & ADG Tracker</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveMainTab("feedings")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer ${
+            activeMainTab === "feedings"
+              ? "bg-emerald-800 text-white shadow-emerald-950/20"
+              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+          }`}
+        >
+          <Wheat className="size-4" />
+          <span>Feeding & Rations</span>
         </button>
 
         <button
@@ -865,8 +966,7 @@ export default function ProductionDashboardView({
                     </div>
                     <p className="text-slate-500 leading-relaxed">
                       Submitted daily yields and {terms.eventName.toLowerCase()} records are
-                      verified by the assigned <strong>SIBAT Agricultural Technologist</strong>{" "}
-                      before aggregation into Municipal Agriculture Office (MAO) census reports.
+                      saved in your own farm history. Official livestock and incident reports follow their separate municipal workflows.
                     </p>
                     <div className="flex items-center justify-between pt-1 text-[11px] text-slate-600 font-semibold border-t border-slate-200/60">
                       <span>Pending Verification:</span>
@@ -882,6 +982,15 @@ export default function ProductionDashboardView({
         </div>
       )}
 
+      {/* Tab: Breeding & Insemination Tracker */}
+      {activeMainTab === "breeding" && (
+        <ProductionBreedingTab
+          approvedInventories={focusedActivity ? activityInventories : approvedInventories}
+          selectedSpecies={selectedSpecies}
+          autoOpen={focusedActivity === "breeding" && focusedMode === "record"}
+        />
+      )}
+
       {/* Tab 2: Birthing & Offspring Registry */}
       {activeMainTab === "calving" && (
         <ProductionCalvingTab
@@ -894,6 +1003,15 @@ export default function ProductionDashboardView({
       {/* Tab 3: Weight & Growth Tracker */}
       {activeMainTab === "weights" && (
         <ProductionWeightTab approvedInventories={focusedActivity ? activityInventories : filteredInventories} autoOpen={focusedActivity === "weights" && focusedMode === "record"} />
+      )}
+
+      {/* Tab: Feeding & Rations Tracker */}
+      {activeMainTab === "feedings" && (
+        <ProductionFeedingTab
+          approvedInventories={focusedActivity ? activityInventories : approvedInventories}
+          selectedSpecies={selectedSpecies}
+          autoOpen={Boolean(["feedings", "feeding"].includes(focusedActivity ?? "") && focusedMode === "record")}
+        />
       )}
 
       {/* Tab 4: Live Animal Sales & Commercial Outlets */}
@@ -926,16 +1044,7 @@ export default function ProductionDashboardView({
         isLoading={isInventoryLoading}
         isSubmitting={submitMutation.isPending || updateMutation.isPending}
         resetSignal={resetSignal}
-        onSubmit={(payload) => {
-          if (editingRecord && editingRecord.id) {
-            updateMutation.mutate({
-              id: editingRecord.id as number,
-              payload,
-            });
-          } else {
-            submitMutation.mutate(payload);
-          }
-        }}
+        onSubmit={handleProductionSubmit}
         open={isWizardOpen}
         onClose={handleWizardClose}
         mode={editingRecord ? "edit" : "create"}
@@ -963,6 +1072,52 @@ export default function ProductionDashboardView({
         onOpenChange={setIsSubmissionSuccessOpen}
         recordId={submittedProductionId}
       />
+      <AlertDialog
+        open={diseaseWarning !== null}
+        onOpenChange={(open) => !open && setDiseaseWarning(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-amber-100 text-amber-800 sm:mx-0">
+              <AlertTriangle className="size-5" />
+            </div>
+            <AlertDialogTitle>Disease report on this livestock</AlertDialogTitle>
+            <AlertDialogDescription>
+              {diseaseWarning?.lookupFailed
+                ? "We could not check this animal’s disease reports, so production recording is temporarily unavailable. Please try again."
+                : diseaseWarning?.blocked
+                  ? "This animal has a disease report verified by SIBAT, so it cannot be selected for a production record."
+                  : "This animal has a disease report pending review. You can continue recording, and the disease report will remain pending."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {diseaseWarning && !diseaseWarning.lookupFailed && (
+            <ul className="max-h-36 space-y-2 overflow-y-auto rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">
+              {diseaseWarning.reports.map((report) => (
+                <li key={report.id} className="flex items-start justify-between gap-3">
+                  <span className="font-medium text-amber-950">{report.name}</span>
+                  <span className="shrink-0 text-xs font-semibold text-amber-800">
+                    {report.status === "VERIFIED" ? "SIBAT verified" : "Pending review"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            {!diseaseWarning?.blocked && (
+              <AlertDialogAction
+                className="bg-amber-700 text-white hover:bg-amber-800"
+                onClick={() => {
+                  if (diseaseWarning) submitMutation.mutate(diseaseWarning.payload);
+                  setDiseaseWarning(null);
+                }}
+              >
+                Yes, continue recording
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

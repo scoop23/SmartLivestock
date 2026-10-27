@@ -10,7 +10,19 @@ DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/components/ui/utils";
+import api from "@/lib/axios";
+import { useQuery } from "@tanstack/react-query";
 import { formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
 import {
 CalendarDays,
@@ -24,6 +36,7 @@ Tag,
 Weight,
 X,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
 import { useMemo,useState,useSyncExternalStore } from "react";
 import { getAvatarById,type LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
@@ -39,6 +52,8 @@ interface SelectLivestockDialogProps {
   title?: string;
   description?: string;
   emptyStateText?: string;
+  warnOnActiveDisease?: boolean;
+  excludeSibatVerifiedDisease?: boolean;
 }
 
 interface LivestockPickerFieldProps {
@@ -52,6 +67,17 @@ interface LivestockPickerFieldProps {
   dialogDescription?: string;
   emptyStateText?: string;
   disabled?: boolean;
+  warnOnActiveDisease?: boolean;
+  excludeSibatVerifiedDisease?: boolean;
+}
+
+interface DiseaseReportSummary {
+  id: number;
+  livestock: number | null;
+  batch: number | null;
+  name: string;
+  status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION";
+  record_date: string | null;
 }
 
 const PAGE_SIZE = 6;
@@ -108,12 +134,43 @@ export default function SelectLivestockDialog({
   title = "Choose Production Livestock",
   description,
   emptyStateText,
+  warnOnActiveDisease = false,
+  excludeSibatVerifiedDisease = false,
 }: SelectLivestockDialogProps) {
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("ALL");
   const [page, setPage] = useState(1);
+  const [isCheckingDiseaseReports, setIsCheckingDiseaseReports] = useState(false);
+  const [diseaseWarning, setDiseaseWarning] = useState<{
+    item: LivestockInventoryItem;
+    reports: DiseaseReportSummary[];
+    lookupFailed: boolean;
+    blocked: boolean;
+  } | null>(null);
+  const diseaseReportsQuery = useQuery<DiseaseReportSummary[]>({
+    queryKey: ["farmer-disease-reports-for-recording"],
+    queryFn: async () => (await api.get<DiseaseReportSummary[]>("diseases/cases/")).data,
+    enabled: open && (warnOnActiveDisease || excludeSibatVerifiedDisease),
+    staleTime: 0,
+  });
 
-  const eligibleItems = items;
+  const verifiedReportMatchesItem = (item: LivestockInventoryItem) => {
+    if (!excludeSibatVerifiedDisease || !diseaseReportsQuery.data) return false;
+    const batchId = item.batchId ?? (item.entryType === "BATCH" ? Number(item.id) : null);
+    const animalIds = new Set((item.entryType === "BATCH"
+      ? items.filter((candidate) => candidate.batchId === batchId)
+      : [item]
+    ).map((candidate) => String(candidate.id)));
+    return diseaseReportsQuery.data.some((report) => report.status === "VERIFIED" && (
+      (report.livestock != null && animalIds.has(String(report.livestock)))
+      || (report.batch != null && batchId != null && report.batch === batchId)
+    ));
+  };
+  const diseaseLookupPending = excludeSibatVerifiedDisease && diseaseReportsQuery.isLoading;
+  const diseaseLookupFailed = excludeSibatVerifiedDisease && diseaseReportsQuery.isError;
+  const eligibleItems = diseaseLookupPending || diseaseLookupFailed
+    ? []
+    : items.filter((item) => !verifiedReportMatchesItem(item));
 
   const speciesOptions = useMemo(
     () =>
@@ -157,11 +214,65 @@ export default function SelectLivestockDialog({
       setQuery("");
       setSpecies("ALL");
       setPage(1);
+      setDiseaseWarning(null);
     }
     onOpenChange(nextOpen);
   };
 
+  const confirmSelection = (item: LivestockInventoryItem) => {
+    onSelect(item);
+    handleOpenChange(false);
+  };
+
+  const handleSelectItem = async (item: LivestockInventoryItem) => {
+    if (!warnOnActiveDisease && !excludeSibatVerifiedDisease) {
+      confirmSelection(item);
+      return;
+    }
+
+    setIsCheckingDiseaseReports(true);
+    const result = await diseaseReportsQuery.refetch();
+    const reports = result.data;
+    const lookupFailed = result.isError || !reports;
+    setIsCheckingDiseaseReports(false);
+
+    if (lookupFailed || !reports) {
+      setDiseaseWarning({ item, reports: [], lookupFailed: true, blocked: excludeSibatVerifiedDisease });
+      return;
+    }
+
+    const selectedBatchId = item.batchId ?? (item.entryType === "BATCH" ? Number(item.id) : null);
+    const relatedAnimalIds = new Set(
+      (item.entryType === "BATCH"
+        ? items.filter((candidate) => candidate.batchId === selectedBatchId)
+        : [item]
+      ).map((candidate) => String(candidate.id)),
+    );
+    const matchingReports = reports.filter((report) =>
+      (warnOnActiveDisease || excludeSibatVerifiedDisease ? ["PENDING", "VERIFIED"] : ["PENDING"]).includes(report.status)
+      && (
+        (report.livestock != null && relatedAnimalIds.has(String(report.livestock)))
+        || (report.batch != null && selectedBatchId != null && report.batch === selectedBatchId)
+      ),
+    );
+
+    const verifiedMatches = excludeSibatVerifiedDisease
+      ? matchingReports.filter((report) => report.status === "VERIFIED")
+      : [];
+    if (verifiedMatches.length > 0) {
+      setDiseaseWarning({ item, reports: verifiedMatches, lookupFailed: false, blocked: true });
+      return;
+    }
+
+    if (matchingReports.length > 0) {
+      setDiseaseWarning({ item, reports: matchingReports, lookupFailed: false, blocked: false });
+      return;
+    }
+    confirmSelection(item);
+  };
+
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] sm:w-full sm:max-w-4xl sm:max-h-[90dvh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl sm:rounded-3xl border-0 shadow-2xl bg-slate-50">
         <DialogHeader className="relative overflow-hidden shrink-0 px-4 py-4 sm:px-6 sm:py-5 pr-12 sm:pr-14 md:pr-16 bg-gradient-to-r from-[#244a20] via-[#2D5A27] to-[#3E7A36] text-left">
@@ -246,8 +357,15 @@ export default function SelectLivestockDialog({
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-6">
-          {eligibleItems.length === 0 ? (
-            <EmptyState text={emptyStateText ?? (productionType === "milk" ? "No approved female livestock of a milk-capable species is available." : "No approved livestock is available for production logging.")} />
+          {diseaseLookupPending ? (
+            <EmptyState text="Checking disease reports before showing production livestock…" />
+          ) : diseaseLookupFailed ? (
+            <div className="flex min-h-56 flex-col items-center justify-center gap-3 text-center">
+              <p className="max-w-md text-sm text-slate-600">Disease reports could not be checked, so production livestock selection is temporarily unavailable.</p>
+              <Button type="button" variant="outline" onClick={() => void diseaseReportsQuery.refetch()}>Retry check</Button>
+            </div>
+          ) : eligibleItems.length === 0 ? (
+            <EmptyState text={emptyStateText ?? (productionType === "milk" ? "No approved female livestock of a milk-capable species is available." : "No approved livestock is available for production logging. Livestock with SIBAT-verified disease reports are excluded.")} />
           ) : filtered.length === 0 ? (
             <EmptyState text="No livestock matches the current search and species filter." />
           ) : (
@@ -262,10 +380,8 @@ export default function SelectLivestockDialog({
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => {
-                      onSelect(item);
-                      handleOpenChange(false);
-                    }}
+                    onClick={() => void handleSelectItem(item)}
+                    disabled={isCheckingDiseaseReports}
                     className={cn(
                       "group text-left rounded-2xl border-2 bg-white p-4 transition-all hover:-translate-y-0.5 hover:shadow-md",
                       selected
@@ -341,6 +457,53 @@ export default function SelectLivestockDialog({
         </div>
       </DialogContent>
     </Dialog>
+      <AlertDialog
+        open={diseaseWarning !== null}
+        onOpenChange={(isOpen) => !isOpen && setDiseaseWarning(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-amber-100 text-amber-800 sm:mx-0">
+              <AlertTriangle className="size-5" />
+            </div>
+            <AlertDialogTitle>Disease report on this livestock</AlertDialogTitle>
+            <AlertDialogDescription>
+              {diseaseWarning?.lookupFailed
+                ? diseaseWarning.blocked
+                  ? "Disease report status could not be checked, so this livestock cannot be selected for production right now."
+                  : "The disease reports could not be checked right now. Do you still want to continue recording?"
+                : diseaseWarning?.blocked
+                  ? `A SIBAT-verified disease report is linked to ${diseaseWarning?.item.tagNumber || diseaseWarning?.item.batchCode || "this livestock"}. It cannot be selected for production.`
+                  : `A pending disease report is linked to ${diseaseWarning?.item.tagNumber || diseaseWarning?.item.batchCode || "this livestock"}. Continuing does not change or bypass the disease report review.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {diseaseWarning && !diseaseWarning.lookupFailed && (
+            <ul className="max-h-36 space-y-2 overflow-y-auto rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">
+              {diseaseWarning.reports.map((report) => (
+                <li key={report.id} className="flex items-start justify-between gap-3">
+                  <span className="font-medium text-amber-950">{report.name}</span>
+                  <span className="shrink-0 text-xs font-semibold text-amber-800">
+                    {report.status === "VERIFIED" ? "SIBAT verified" : "Pending review"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            {!diseaseWarning?.blocked && <AlertDialogAction
+              onClick={() => {
+                if (diseaseWarning) confirmSelection(diseaseWarning.item);
+                setDiseaseWarning(null);
+              }}
+              className="bg-amber-700 text-white hover:bg-amber-800"
+            >
+              Yes, continue recording
+            </AlertDialogAction>}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -355,6 +518,8 @@ export function LivestockPickerField({
   dialogDescription = "Choose from your approved livestock records.",
   emptyStateText = "No approved livestock is available.",
   disabled = false,
+  warnOnActiveDisease = false,
+  excludeSibatVerifiedDisease = false,
 }: LivestockPickerFieldProps) {
   const [open, setOpen] = useState(false);
   const selectedItem = items.find((item) => item.id === selectedId);
@@ -405,6 +570,8 @@ export function LivestockPickerField({
         title={dialogTitle}
         description={dialogDescription}
         emptyStateText={emptyStateText}
+        warnOnActiveDisease={warnOnActiveDisease}
+        excludeSibatVerifiedDisease={excludeSibatVerifiedDisease}
       />
     </div>
   );

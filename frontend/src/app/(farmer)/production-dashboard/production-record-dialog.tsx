@@ -22,6 +22,7 @@ type ProductionStatus,
 } from "./production-analytics";
 
 const statusClasses: Record<ProductionStatus, string> = {
+  RECORDED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
   PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
@@ -78,7 +79,7 @@ export default function ProductionRecordDialog({
   const isApproved = record?.status === "APPROVED";
   const isVerified = record?.status === "VERIFIED";
   const canDelete = record?.status === "PENDING";
-  const canEdit = canDelete || record?.status === "SUBJECT_TO_REVISION";
+  const canEdit = canDelete || record?.status === "SUBJECT_TO_REVISION" || (record?.status === "RECORDED" && record.slaughterDetails?.status !== "APPROVED");
 
   const meta = typeMeta[record?.productionType ?? "milk"];
   const TypeIcon = meta.icon;
@@ -146,7 +147,7 @@ export default function ProductionRecordDialog({
               {record.slaughterDetails && <div className="rounded-xl bg-amber-50 p-3 text-sm">
                 <p className="font-semibold">Slaughter: {record.slaughterDetails.quantity} animal(s)</p>
                 <p className="mt-1 text-xs">{record.slaughterDetails.animals.map(animal => animal.tag_number || `Animal #${animal.id}`).join(", ")}</p>
-                <p className="mt-1 text-xs">{record.slaughterDetails.inventory_reconciled_at ? "Selected animals marked slaughtered after MAO approval." : "Inventory changes only after MAO approval."}</p>
+                <p className="mt-1 text-xs">{record.slaughterDetails.inventory_reconciled_at ? "Selected animals marked slaughtered after official approval." : `Farmer-reported, unverified. Official slaughter status: ${record.slaughterDetails.status?.replaceAll("_", " ") || "PENDING"}. Inventory changes only after MAO approval.`}</p>
               </div>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <InfoCard
@@ -203,6 +204,14 @@ export default function ProductionRecordDialog({
                       </p>
                     )}
                   </div>
+                </div>
+              )}
+
+              {record.status === "RECORDED" && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-900">
+                  Saved in your farm history. This production log does not need field verification or MAO approval.
+                  {record.anomalyDetected ? <p className="mt-1 font-medium">Unusual milk yield advisory: {record.anomalyReason}</p> : null}
+                  {record.slaughterDetails?.status === "SUBJECT_TO_REVISION" ? <p className="mt-1 font-medium">Official slaughter report returned: {record.slaughterDetails.review_remarks || "Please correct and save this entry."}</p> : null}
                 </div>
               )}
 

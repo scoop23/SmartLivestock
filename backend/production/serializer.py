@@ -9,6 +9,8 @@ from .models import (
     WeightRecord,
     CalvingRecord,
     AnimalDisposition,
+    BreedingRecord,
+    FeedingRecord,
 )
 from livestock.models import LivestockInventory, LivestockBatch
 from rest_framework.exceptions import ValidationError
@@ -69,6 +71,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         if not obj.slaughter_id:
             return None
         return {"id": obj.slaughter_id, "quantity": obj.slaughter.quantity,
+                "status": obj.slaughter.status, "review_remarks": obj.slaughter.review_remarks,
                 "animals": [{"id": a.pk, "tag_number": a.tag_number} for a in obj.slaughter.selected_animals.all()],
                 "inventory_reconciled_at": obj.slaughter.inventory_reconciled_at}
 
@@ -94,7 +97,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             return {
                 "assessment_status": assessment.get("assessment_status"),
                 "anomaly_detected": assessment.get("anomaly_detected"),
-                "requires_cbat_verification": assessment.get("requires_cbat_verification"),
+                "requires_cbat_verification": False if obj.status == ProductionRecord.ProductionStatus.RECORDED else assessment.get("requires_cbat_verification"),
                 "next_review_queue": obj.next_review_queue,
             }
         return assessment
@@ -334,15 +337,18 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
                 "unit": f"{production_type.title()} production must use {expected_unit}."
             })
 
+        event_date = attrs.get("record_date", self.instance.record_date if self.instance else None)
+        if event_date and event_date > timezone.localdate():
+            raise ValidationError({"record_date": "Production record date cannot be in the future."})
+
         if production_type == "MEAT":
-            event_date = attrs.get("record_date", self.instance.record_date if self.instance else None)
-            if event_date and event_date > timezone.localdate():
-                raise ValidationError({"record_date": "Slaughter date cannot be in the future."})
             animals = attrs.get("selected_animals")
             if "selected_animals" not in self.initial_data:
                 animals = list(self.instance.slaughter.selected_animals.all()) if self.instance and self.instance.slaughter_id else ([livestock] if livestock else [])
             from .services.slaughter import validate_animals
             record = ProductionRecord(livestock=livestock, batch=batch)
+            if self.instance:
+                record.slaughter_id = self.instance.slaughter_id
             validate_animals(record, animals)
             attrs["selected_animals"] = animals
         elif attrs.get("selected_animals") or (self.instance and self.instance.slaughter_id):
@@ -359,6 +365,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         from .services.valuation import snapshot_for
         animals = validated_data.pop("selected_animals", [])
         record = ProductionRecord(**validated_data)
+        record.status = ProductionRecord.ProductionStatus.RECORDED
         record.valuation_snapshot = snapshot_for(record)
         apply_milk_anomaly_assessment(record)
         record.save()
@@ -398,7 +405,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             source = instance.livestock or instance.batch
             instance.farmer_at_record = source.farmer
         if was_returned:
-            instance.status = ProductionRecord.ProductionStatus.PENDING
+            instance.status = ProductionRecord.ProductionStatus.RECORDED
             instance.reviewed_by = None
             instance.reviewed_at = None
         from .services.milk_anomaly import apply_milk_anomaly_assessment
@@ -579,12 +586,23 @@ class WeightRecordSerializer(serializers.ModelSerializer):
     def validate_weight(self, value):
         if value <= 0:
             raise ValidationError("Recorded weight must be greater than zero.")
+        if value > 3500:
+            raise ValidationError("Recorded weight exceeds realistic biological limits (max 3,500 kg). Check your units.")
         return value
 
     def validate_weighing_date(self, value):
         if value > timezone.localdate():
             raise ValidationError("Weighing date cannot be in the future.")
         return value
+
+    def validate(self, attrs):
+        livestock = attrs.get("livestock", self.instance.livestock if self.instance else None)
+        weighing_date = attrs.get("weighing_date", self.instance.weighing_date if self.instance else None)
+        weight = attrs.get("weight", self.instance.weight if self.instance else None)
+        if not self.instance and livestock and weighing_date and weight:
+            if WeightRecord.objects.filter(livestock=livestock, weighing_date=weighing_date, weight=weight).exists():
+                raise ValidationError("A weight entry with this exact measurement on this date already exists for this animal.")
+        return attrs
 
     class Meta:
         model = WeightRecord
@@ -602,12 +620,16 @@ class WeightRecordSerializer(serializers.ModelSerializer):
         read_only_fields = ("created_at",)
 
     def validate_livestock(self, value):
-        if value.farmer.user_id != self.context["request"].user.pk:
+        user = self.context["request"].user
+        if not value or not value.farmer or value.farmer.user_id != user.pk:
             raise ValidationError("Select your own livestock.")
-        if value.operational_status != "ACTIVE":
+        if value.status not in (
+            LivestockInventory.StatusType.APPROVED,
+            LivestockInventory.StatusType.VERIFIED,
+        ):
+            raise ValidationError("Only verified or approved livestock can be logged for weight.")
+        if value.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
             raise ValidationError("Select active livestock.")
-        if value.status == LivestockInventory.StatusType.REJECTED:
-            raise ValidationError("Rejected livestock cannot be declared for sale or movement.")
         return value
 
     def create(self, validated_data):
@@ -734,10 +756,13 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
 
     def validate_dam(self, value):
         user = self.context["request"].user
-        if value.farmer.user_id != user.id:
+        if not value or not value.farmer or value.farmer.user_id != user.id:
             raise ValidationError("You can only record calving for your own livestock.")
-        if value.status != LivestockInventory.StatusType.APPROVED:
-            raise ValidationError("Only approved livestock can be used as the dam.")
+        if value.status not in (
+            LivestockInventory.StatusType.APPROVED,
+            LivestockInventory.StatusType.VERIFIED,
+        ):
+            raise ValidationError("Only verified or approved livestock can be used as the dam.")
         if value.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
             raise ValidationError("Only active livestock can be used as the dam.")
         if value.sex.upper() not in {"FEMALE", "F"}:
@@ -747,7 +772,16 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if self.instance and "dam" in attrs and attrs["dam"].pk != self.instance.dam_id:
             raise ValidationError({"dam": "The dam cannot be changed on an existing birth declaration."})
-        self.validate_dam(attrs.get("dam", self.instance.dam if self.instance else None))
+        dam = attrs.get("dam", self.instance.dam if self.instance else None)
+        self.validate_dam(dam)
+        calving_date = attrs.get("calving_date", self.instance.calving_date if self.instance else None)
+        calf_tag = (attrs.get("calf_tag") or (self.instance.calf_tag if self.instance else "")).strip()
+        if not self.instance and dam and calving_date:
+            qs = CalvingRecord.objects.filter(dam=dam, calving_date=calving_date)
+            if calf_tag:
+                qs = qs.filter(calf_tag__iexact=calf_tag)
+            if qs.exclude(status=CalvingRecord.StatusType.SUBJECT_TO_REVISION).exists():
+                raise ValidationError("A calving record for this dam on this date already exists.")
         return attrs
 
     def create(self, validated_data):
@@ -803,7 +837,8 @@ class AnimalDispositionSerializer(serializers.ModelSerializer):
         read_only_fields = ("created_at",)
 
     def validate_livestock(self, value):
-        if value.farmer.user_id != self.context["request"].user.pk:
+        user = self.context["request"].user
+        if not value or not value.farmer or value.farmer.user_id != user.pk:
             raise ValidationError("Select your own livestock.")
         if value.operational_status != "ACTIVE":
             raise ValidationError("Select active livestock.")
@@ -813,3 +848,145 @@ class AnimalDispositionSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         validated_data["created_by"] = user
         return AnimalDisposition.objects.create(**validated_data)
+
+
+class BreedingRecordSerializer(serializers.ModelSerializer):
+    dam_tag = serializers.CharField(source="dam.tag_number", read_only=True)
+    dam_breed = serializers.CharField(source="dam.breed", read_only=True)
+    livestock_type_name = serializers.CharField(source="dam.livestock_type.name", read_only=True)
+    farmer_name = serializers.CharField(source="dam.farmer.user.get_full_name", read_only=True)
+    days_until_due = serializers.SerializerMethodField()
+    gestation_progress_pct = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BreedingRecord
+        fields = (
+            "id",
+            "dam",
+            "dam_tag",
+            "dam_breed",
+            "livestock_type_name",
+            "farmer_name",
+            "breeding_date",
+            "breeding_type",
+            "sire_tag_or_code",
+            "sire_breed",
+            "technician_or_inseminator",
+            "gestation_days",
+            "expected_due_date",
+            "days_until_due",
+            "gestation_progress_pct",
+            "status",
+            "notes",
+            "created_at",
+        )
+        read_only_fields = ("created_at",)
+
+    def get_days_until_due(self, obj):
+        if not obj.expected_due_date:
+            return None
+        today = timezone.localdate()
+        return (obj.expected_due_date - today).days
+
+    def get_gestation_progress_pct(self, obj):
+        if not obj.breeding_date or not obj.gestation_days:
+            return 0
+        today = timezone.localdate()
+        elapsed = (today - obj.breeding_date).days
+        if elapsed <= 0:
+            return 0
+        return min(100, max(0, round((elapsed / obj.gestation_days) * 100)))
+
+    def validate_dam(self, value):
+        user = self.context["request"].user
+        if not value or not value.farmer or value.farmer.user_id != user.pk:
+            raise ValidationError("You may only record breeding for your own livestock.")
+        if value.status not in (
+            LivestockInventory.StatusType.APPROVED,
+            LivestockInventory.StatusType.VERIFIED,
+        ):
+            raise ValidationError("Selected female animal must be verified or approved first.")
+        if value.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
+            raise ValidationError("Selected female animal must be currently active.")
+        sex = (value.sex or "").upper()
+        if not (sex.startswith("F") or sex == "FEMALE" or value.entry_type == "BATCH"):
+            raise ValidationError("Breeding records can only be registered for female livestock (dam).")
+        return value
+
+    def validate_breeding_date(self, value):
+        if value > timezone.localdate():
+            raise ValidationError("Breeding date cannot be in the future.")
+        return value
+
+    def create(self, validated_data):
+        validated_data["created_by"] = self.context["request"].user
+        return super().create(validated_data)
+
+
+class FeedingRecordSerializer(serializers.ModelSerializer):
+    livestock_tag = serializers.CharField(source="livestock.tag_number", read_only=True)
+    batch_code = serializers.CharField(source="batch.batch_code", read_only=True)
+    livestock_type_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FeedingRecord
+        fields = (
+            "id",
+            "livestock",
+            "livestock_tag",
+            "batch",
+            "batch_code",
+            "livestock_type_name",
+            "feeding_date",
+            "feed_type",
+            "feed_name",
+            "quantity_kg",
+            "cost",
+            "feeding_time",
+            "notes",
+            "created_at",
+        )
+        read_only_fields = ("created_at",)
+
+    def get_livestock_type_name(self, obj):
+        if obj.livestock and obj.livestock.livestock_type:
+            return obj.livestock.livestock_type.name
+        if obj.batch and obj.batch.livestock_type:
+            return obj.batch.livestock_type.name
+        return None
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        livestock = attrs.get("livestock")
+        batch = attrs.get("batch")
+
+        if not livestock and not batch:
+            raise ValidationError("Choose an animal or herd batch for this feeding log.")
+
+        if livestock:
+            if not livestock.farmer or livestock.farmer.user_id != user.pk:
+                raise ValidationError({"livestock": "You can only log feeding for your own livestock."})
+            if livestock.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
+                raise ValidationError({"livestock": "Cannot log feeding for inactive or culled livestock."})
+
+        if batch:
+            if not batch.farmer or batch.farmer.user_id != user.pk:
+                raise ValidationError({"batch": "You can only log feeding for your own herd batch."})
+
+        feeding_date = attrs.get("feeding_date")
+        if feeding_date and feeding_date > timezone.localdate():
+            raise ValidationError({"feeding_date": "Feeding date cannot be in the future."})
+
+        quantity = attrs.get("quantity_kg")
+        if quantity is not None and quantity <= 0:
+            raise ValidationError({"quantity_kg": "Feed quantity must be greater than 0 kg."})
+
+        cost = attrs.get("cost")
+        if cost is not None and cost < 0:
+            raise ValidationError({"cost": "Feed cost cannot be negative."})
+
+        return attrs
+
+    def create(self, validated_data):
+        validated_data["created_by"] = self.context["request"].user
+        return super().create(validated_data)
