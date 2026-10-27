@@ -222,43 +222,47 @@ export default function AuctionDashboard() {
         {/* ═══ Operational KPI Cards ═══ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           <KpiCard
-            size="default"
+            size="sm"
             title="Pending Records"
             value={pendingCount}
             variant="amber"
             icon={<Clock className="w-4 h-4" />}
             badge="Queue"
             description="Auction requests and MAO queue"
+            isLoading={isLoading}
             onClick={() => router.push("/auction-inspections")}
           />
           <KpiCard
-            size="default"
+            size="sm"
             title="Submitted Requests"
             value={verifiedCount}
             variant="sky"
             icon={<Send className="w-4 h-4" />}
             badge="Submitted"
             description="Forwarded for MAO review"
+            isLoading={isLoading}
             onClick={() => router.push("/auction-inspections")}
           />
           <KpiCard
-            size="default"
+            size="sm"
             title="Approved Clearances"
             value={approvedCount}
             variant="emerald"
             icon={<CheckCircle2 className="w-4 h-4" />}
             badge="Cleared"
             description="Official permits issued"
+            isLoading={isLoading}
             onClick={() => router.push("/auction-inspections")}
           />
           <KpiCard
-            size="default"
+            size="sm"
             title="Subject to Revision"
             value={revisionCount}
             variant="amber"
             icon={<RotateCcw className="w-4 h-4" />}
             badge="Revision"
             description="Records requiring correction"
+            isLoading={isLoading}
             onClick={() => router.push("/auction-inspections")}
           />
         </div>
