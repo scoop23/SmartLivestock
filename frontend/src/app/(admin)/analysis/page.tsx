@@ -158,9 +158,9 @@ export default function AnalysisOverviewPage() {
               </div>
               <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
                 Analytics &amp; Intelligence Overview
-                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-mono font-bold">
-                  v2.4 Core
-                </Badge>
+                {/* <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-mono font-bold"> */}
+                {/*   v2.4 Core */}
+                {/* </Badge> */}
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
                 Authoritative command portal connecting descriptive census records, empirical time-series forecasts, deterministic decision rules, and active biosurveillance across Padre Garcia.
