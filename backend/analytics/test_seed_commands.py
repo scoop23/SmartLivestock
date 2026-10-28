@@ -17,7 +17,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from production.models import ProductionRecord, CalvingRecord
+from production.models import ProductionRecord, CalvingRecord, SlaughterRecord
 from diseases.models import DiseaseCase, MortalityRecord
 from movements.models import (
     LivestockInspection,
@@ -81,20 +81,18 @@ class SeedCommandsTests(TestCase):
     def test_seed_productions_all_commodities_and_unit_purity(self):
         """
         Verify that seed_productions with production_type='ALL' generates
-        distinct time series for Milk, Meat, Eggs, and Wool with correct units,
-        and farmer meat has slaughter=None.
+        distinct time series for Meat, Eggs, and Wool by default (Milk omitted),
+        with unit purity, and farmer meat has slaughter=None.
+        When include_milk=True is passed, Milk is also seeded.
         """
         call_command("seed_productions", months=12, production_type="ALL")
 
-        # 1. Milk in Liters
+        # 1. Milk in Liters (omitted by default)
         milk_qs = ProductionRecord.objects.filter(
             production_type=ProductionRecord.ProductionType.MILK,
             notes__contains=SEED_MARKER_PRODUCTION_V2,
         )
-        self.assertEqual(milk_qs.count(), 12)
-        for r in milk_qs:
-            self.assertEqual(r.unit, ProductionRecord.UnitType.LITERS)
-            self.assertEqual(r.status, ProductionRecord.ProductionStatus.RECORDED)
+        self.assertEqual(milk_qs.count(), 0)
 
         # 2. Farmer-Reported Meat in Kilograms (slaughter=None)
         meat_qs = ProductionRecord.objects.filter(
@@ -125,10 +123,52 @@ class SeedCommandsTests(TestCase):
         for r in wool_qs:
             self.assertEqual(r.unit, ProductionRecord.UnitType.KILOGRAMS)
 
-        # Total seeded = 12 * 4 = 48
+        # Total seeded = 12 * 3 = 36
+        self.assertEqual(
+            ProductionRecord.objects.filter(notes__contains=SEED_MARKER_PRODUCTION_V2).count(),
+            36,
+        )
+
+        # Clean
+        call_command("seed_productions", clean=True)
+        self.assertEqual(
+            ProductionRecord.objects.filter(notes__contains=SEED_MARKER_PRODUCTION_V2).count(),
+            0,
+        )
+
+        # Test with opt-in include_milk=True
+        call_command("seed_productions", months=12, production_type="ALL", include_milk=True)
+        self.assertEqual(
+            ProductionRecord.objects.filter(
+                production_type=ProductionRecord.ProductionType.MILK,
+                notes__contains=SEED_MARKER_PRODUCTION_V2,
+            ).count(),
+            12,
+        )
         self.assertEqual(
             ProductionRecord.objects.filter(notes__contains=SEED_MARKER_PRODUCTION_V2).count(),
             48,
+        )
+
+        # Test clean_milk_only
+        call_command("seed_productions", clean_milk_only=True)
+        self.assertEqual(
+            ProductionRecord.objects.filter(
+                production_type=ProductionRecord.ProductionType.MILK,
+                notes__contains=SEED_MARKER_PRODUCTION_V2,
+            ).count(),
+            0,
+        )
+        self.assertEqual(
+            ProductionRecord.objects.filter(notes__contains=SEED_MARKER_PRODUCTION_V2).count(),
+            36,
+        )
+
+        # Final clean
+        call_command("seed_productions", clean=True)
+        self.assertEqual(
+            ProductionRecord.objects.filter(notes__contains=SEED_MARKER_PRODUCTION_V2).count(),
+            0,
         )
 
     def test_seed_productions_clean_preserves_real_records(self):
@@ -267,10 +307,16 @@ class SeedCommandsTests(TestCase):
 
     def test_master_seed_analytics_test_data(self):
         """Verify master command executes seed and clean lifecycle across all domains."""
-        # Run master seed
+        # Run master seed (default: excludes milk and slaughter)
         call_command("seed_analytics_test_data", months=12)
 
         self.assertGreater(ProductionRecord.objects.count(), 0)
+        # Milk and Slaughter must be omitted by default
+        self.assertEqual(
+            ProductionRecord.objects.filter(production_type=ProductionRecord.ProductionType.MILK).count(),
+            0,
+        )
+        self.assertEqual(SlaughterRecord.objects.count(), 0)
         self.assertGreater(CalvingRecord.objects.count(), 0)
         self.assertGreater(DiseaseCase.objects.count(), 0)
         self.assertGreater(MortalityRecord.objects.count(), 0)
@@ -284,3 +330,23 @@ class SeedCommandsTests(TestCase):
         self.assertEqual(DiseaseCase.objects.count(), 0)
         self.assertEqual(MortalityRecord.objects.count(), 0)
         self.assertEqual(LivestockInspection.objects.count(), 0)
+        self.assertEqual(SlaughterRecord.objects.count(), 0)
+
+        # Run master seed with include_milk and include_slaughter opt-in
+        call_command(
+            "seed_analytics_test_data",
+            months=2,
+            slaughter_months=1,
+            include_milk=True,
+            include_slaughter=True,
+        )
+        self.assertGreater(
+            ProductionRecord.objects.filter(production_type=ProductionRecord.ProductionType.MILK).count(),
+            0,
+        )
+        self.assertGreater(SlaughterRecord.objects.count(), 0)
+
+        # Clean again
+        call_command("seed_analytics_test_data", clean=True)
+        self.assertEqual(ProductionRecord.objects.count(), 0)
+        self.assertEqual(SlaughterRecord.objects.count(), 0)

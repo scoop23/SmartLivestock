@@ -45,13 +45,27 @@ class Command(BaseCommand):
             "--slaughter-months",
             type=int,
             default=3,
-            help="Number of recent calendar months of daily slaughter records to seed (default: 3).",
+            help="Number of recent calendar months of daily slaughter records to seed if enabled (default: 3).",
+        )
+        parser.add_argument(
+            "--include-milk",
+            action="store_true",
+            default=False,
+            help="Explicitly include synthetic milk yield records (omitted by default since milk workflow was removed).",
+        )
+        parser.add_argument(
+            "--include-slaughter",
+            action="store_true",
+            default=False,
+            help="Explicitly include synthetic daily slaughterhouse records (omitted by default since slaughter workflow was removed).",
         )
 
     def handle(self, *args, **options):
         clean_mode = options["clean"]
         months = options["months"]
         slaughter_months = options["slaughter_months"]
+        include_milk = options["include_milk"]
+        include_slaughter = options["include_slaughter"]
 
         if clean_mode:
             self.stdout.write(self.style.NOTICE("Initiating clean across all synthetic analytics datasets..."))
@@ -88,35 +102,46 @@ class Command(BaseCommand):
             )
             return
 
-        if slaughter_months < 1:
+        if include_slaughter and slaughter_months < 1:
             raise CommandError("--slaughter-months must be at least 1.")
 
         # MULTI-DOMAIN SEEDING FLOW:
-        # Generates >= 12 months (default: 36 months) of approved records across all 5 predictive domains.
+        # Generates >= 12 months (default: 36 months) of approved records across predictive domains.
         # This provides the minimum time-series observations needed for:
         # 1. Capturing annual 12-month agricultural seasonality.
         # 2. Chronological holdout splitting (training on earlier months, testing on recent months).
-        self.stdout.write(self.style.NOTICE(f"Seeding synthetic analytics test datasets across all domains ({months} months)..."))
+        self.stdout.write(self.style.NOTICE(f"Seeding synthetic analytics test datasets ({months} months)..."))
 
-        self.stdout.write("\n--- [1/7] Production Time-Series (Milk, Meat, Eggs, Wool) ---")
-        call_command("seed_productions", months=months, production_type="ALL")
+        total_steps = 7 if include_slaughter else 6
+        current_step = 1
 
-        self.stdout.write(f"\n--- [2/7] Daily Slaughterhouse Records (last {slaughter_months} months) ---")
-        call_command("seed_slaughters", months=slaughter_months)
+        commodities_desc = "Milk, Meat, Eggs, Wool" if include_milk else "Meat, Eggs, Wool"
+        self.stdout.write(f"\n--- [{current_step}/{total_steps}] Production Time-Series ({commodities_desc}) ---")
+        call_command("seed_productions", months=months, production_type="ALL", include_milk=include_milk)
+        current_step += 1
 
-        self.stdout.write("\n--- [3/7] Auction & Live Animal Sales (Heads & PHP Volume) ---")
+        if include_slaughter:
+            self.stdout.write(f"\n--- [{current_step}/{total_steps}] Daily Slaughterhouse Records (last {slaughter_months} months) ---")
+            call_command("seed_slaughters", months=slaughter_months)
+            current_step += 1
+
+        self.stdout.write(f"\n--- [{current_step}/{total_steps}] Auction & Live Animal Sales (Heads & PHP Volume) ---")
         call_command("seed_auction", months=months)
+        current_step += 1
 
-        self.stdout.write("\n--- [4/7] Calving & Reproduction Records ---")
+        self.stdout.write(f"\n--- [{current_step}/{total_steps}] Calving & Reproduction Records ---")
         call_command("seed_calving", count=24)
+        current_step += 1
 
-        self.stdout.write("\n--- [5/7] Disease Surveillance Cases ---")
+        self.stdout.write(f"\n--- [{current_step}/{total_steps}] Disease Surveillance Cases ---")
         call_command("seed_diseases", count=max(40, months), months=months)
+        current_step += 1
 
-        self.stdout.write("\n--- [6/7] Livestock Mortality Records ---")
+        self.stdout.write(f"\n--- [{current_step}/{total_steps}] Livestock Mortality Records ---")
         call_command("seed_mortality", count=max(40, months), months=months)
+        current_step += 1
 
-        self.stdout.write("\n--- [7/7] Pre-Movement Inspections & Clearances ---")
+        self.stdout.write(f"\n--- [{current_step}/{total_steps}] Pre-Movement Inspections & Clearances ---")
         call_command("seed_inspections", count=24)
 
         self.stdout.write(

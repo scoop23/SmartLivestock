@@ -111,6 +111,11 @@ class Command(BaseCommand):
             help="Safely remove ONLY seeded synthetic production records.",
         )
         parser.add_argument(
+            "--clean-milk-only",
+            action="store_true",
+            help="Safely remove ONLY seeded synthetic milk records without removing other commodities.",
+        )
+        parser.add_argument(
             "--months",
             type=int,
             default=36,
@@ -119,9 +124,15 @@ class Command(BaseCommand):
         parser.add_argument(
             "--production-type",
             type=str,
-            default="MILK",
+            default="ALL",
             choices=["ALL", "MILK", "MEAT", "EGGS", "WOOL"],
-            help="Commodity to seed: MILK (default), MEAT, EGGS, WOOL, or ALL (seeds all 4).",
+            help="Commodity to seed: ALL (default: Meat, Eggs, Wool), MEAT, EGGS, WOOL, or MILK.",
+        )
+        parser.add_argument(
+            "--include-milk",
+            action="store_true",
+            default=False,
+            help="Explicitly include synthetic MILK time series when production_type is ALL (omitted by default).",
         )
         parser.add_argument(
             "--unit",
@@ -146,15 +157,20 @@ class Command(BaseCommand):
             self._handle_clean()
             return
 
+        if options.get("clean_milk_only"):
+            self._handle_clean(milk_only=True)
+            return
+
         self._handle_seed(
             months=options["months"],
             production_type=options["production_type"],
             unit_override=options["unit"],
             fill_gaps=options["fill_gaps"],
             dry_run=options["dry_run"],
+            include_milk=options.get("include_milk", False),
         )
 
-    def _handle_clean(self):
+    def _handle_clean(self, milk_only: bool = False):
         """Safely delete ONLY records containing the deterministic seed markers."""
         # Query specifically for test markers — never touch records without markers
         seed_qs = ProductionRecord.objects.filter(
@@ -164,16 +180,21 @@ class Command(BaseCommand):
             Q(notes__contains=SEED_MARKER_FORECAST_QUALITY_IDEAL)
             | Q(notes__contains=SEED_MARKER_FORECAST_QUALITY_POOR)
         )
+        if milk_only:
+            seed_qs = seed_qs.filter(production_type="MILK")
+
         count = seed_qs.count()
 
         if count == 0:
-            self.stdout.write(self.style.WARNING("No seeded test production records found to clean."))
+            target_desc = "synthetic milk production records" if milk_only else "seeded test production records"
+            self.stdout.write(self.style.WARNING(f"No {target_desc} found to clean."))
             return
 
         deleted_count, _ = seed_qs.delete()
+        label = "synthetic milk production seed records" if milk_only else "synthetic production seed records"
         self.stdout.write(
             self.style.SUCCESS(
-                f"Successfully removed {deleted_count} synthetic production seed records.\n"
+                f"Successfully removed {deleted_count} {label}.\n"
                 f"Real farmer production records, inventory, and accounts were NOT modified."
             )
         )
@@ -185,13 +206,16 @@ class Command(BaseCommand):
         unit_override: str,
         fill_gaps: bool = False,
         dry_run: bool = False,
+        include_milk: bool = False,
     ):
         if months < 1:
             self.stderr.write(self.style.ERROR("--months must be at least 1."))
             return
         # Determine which commodities to generate
         if production_type == "ALL":
-            commodities_to_seed = ["MILK", "MEAT", "EGGS", "WOOL"]
+            commodities_to_seed = ["MEAT", "EGGS", "WOOL"]
+            if include_milk:
+                commodities_to_seed.insert(0, "MILK")
         else:
             commodities_to_seed = [production_type]
 

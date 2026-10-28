@@ -9,16 +9,16 @@ from django.core.management.base import BaseCommand
 SEED_NOTES = {
     "seed_analytics_test_data": (
         "Core multi-domain analytics dataset",
-        "Monthly farmer production, slaughter, auction sales, calving, disease, mortality, inspections, and clearances. "
-        "The master command also seeds auction sales, even though its built-in help omits that command; --clean is marker-scoped.",
+        "Monthly farmer production (Meat, Eggs, Wool by default; Milk and Slaughter omitted by default since workflows were removed), "
+        "auction sales, calving, disease, mortality, inspections, and clearances. Use --clean for marker-scoped cleanup across all domains.",
     ),
     "seed_productions": (
         "Production trends",
-        "Synthetic monthly milk, farmer-reported meat, egg, and wool records; useful for commodity time-series charts.",
+        "Synthetic monthly farmer-reported meat, egg, and wool records by default (Milk omitted by default; opt-in via --include-milk); useful for commodity time-series charts.",
     ),
     "seed_slaughters": (
         "Slaughterhouse activity",
-        "Synthetic daily slaughter events. Head count and carcass weight are separate measures from farmer-reported meat.",
+        "Synthetic daily slaughter events (omitted from master seed by default; opt-in via --include-slaughter). Head count and carcass weight are separate measures from farmer-reported meat.",
     ),
     "seed_auction": (
         "Live animal sales",
