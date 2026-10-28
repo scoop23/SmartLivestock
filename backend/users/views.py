@@ -302,7 +302,7 @@ def verify_user_document(request, pk):
 @authentication_classes([])
 @permission_classes([AllowAny])
 def view_user_document(request, pk):
-    auth_user = _authenticate_any_user_request(request)
+    auth_user = _authenticate_any_user_request(request, allow_registration_token=False)
     if auth_user is None:
         return Response(
             {"detail": "Authentication credentials were not provided."},
@@ -367,7 +367,7 @@ def update_sibat_assignment(request, pk):
     return Response(UserManagementSerializer(user, context={"request": request}).data)
 
 
-def _authenticate_any_user_request(request):
+def _authenticate_any_user_request(request, allow_registration_token=True):
     """
     Authenticate a request via:
     1. Already-authenticated request.user (e.g. force_authenticate in tests or session)
@@ -381,7 +381,8 @@ def _authenticate_any_user_request(request):
     from .identity_service import RegistrationIdentityAuthentication
     from .authentication import ApprovedJWTAuthentication
 
-    for auth_cls in (RegistrationIdentityAuthentication, ApprovedJWTAuthentication):
+    auth_classes = (RegistrationIdentityAuthentication, ApprovedJWTAuthentication) if allow_registration_token else (ApprovedJWTAuthentication,)
+    for auth_cls in auth_classes:
         try:
             auth_result = auth_cls().authenticate(request)
             if auth_result is not None:

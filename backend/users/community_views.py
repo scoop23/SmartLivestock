@@ -251,10 +251,7 @@ def schedules(request):
             else:
                 qs = qs.filter(farmer_audience=ProgramSchedule.FarmerAudience.ALL_FARMERS)
         elif role in (Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
-            # The CBAT dashboard currently authenticates through the SIBAT
-            # role in existing deployments. Both field-officer roles can
-            # browse programs across barangays; booking rosters stay scoped.
-            pass
+            qs = scope_reviewer_queryset(qs, request.user)
         return Response(ProgramScheduleSerializer(qs, many=True, context={"request": request}).data)
     denied = require_role(request, Role.UserRoles.MAO, "ADMIN", Role.UserRoles.SIBAT, Role.UserRoles.CBAT)
     if denied:
@@ -286,7 +283,7 @@ def schedule_detail(request, pk):
         with transaction.atomic():
             schedules = ProgramSchedule.objects.select_for_update().filter(deleted_at__isnull=True)
             if role_of(request.user) in (Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
-                schedules = schedules.filter(created_by=request.user)
+                schedules = scope_reviewer_queryset(schedules, request.user)
             schedule = get_object_or_404(schedules, pk=pk)
             if schedule.date < timezone.localdate():
                 # Keep past program records for history even when there are no
@@ -302,7 +299,7 @@ def schedule_detail(request, pk):
     with transaction.atomic():
         schedules = ProgramSchedule.objects.select_for_update().filter(deleted_at__isnull=True)
         if role_of(request.user) in (Role.UserRoles.SIBAT, Role.UserRoles.CBAT):
-            schedules = schedules.filter(created_by=request.user)
+            schedules = scope_reviewer_queryset(schedules, request.user)
         schedule = get_object_or_404(schedules, pk=pk)
         serializer = ProgramScheduleSerializer(schedule, data=request.data, partial=True, context={"request": request})
         serializer.is_valid(raise_exception=True)

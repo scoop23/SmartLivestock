@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 class ProviderUnavailable(Exception):
     """Safe service boundary; deliberately excludes response bodies and credentials."""
-    def __init__(self, message, code=None):
+    def __init__(self, message="Verification service unavailable. Retry later or contact MAO for manual review.", code=None):
         super().__init__(message)
         self.code = code
 

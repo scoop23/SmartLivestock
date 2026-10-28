@@ -166,9 +166,8 @@ class AccessScopeTests(APITestCase):
         self.assertEqual(self.client.get("/analytics/dashboard/").data["descriptive"]["population"]["total_heads"],2)
         self.assertEqual(self.client.get("/analytics/census/").data["totals"]["submissions"],1)
 
-    def test_remote_health_and_production_reviews_follow_same_scope(self):
+    def test_remote_health_and_sales_reviews_follow_same_scope(self):
         for model,values,endpoint in (
-            (ProductionRecord,{"quantity":2,"unit":"LITERS","production_type":"MILK","record_date":date.today()},"/production/records/"),
             (LiveAnimalSale,{"quantity":1,"sale_date":date.today()},"/production/sales/"),
             (DiseaseCase,{"name":"Test","affected_count":1},"/diseases/cases/"),
             (MortalityRecord,{"cause":"Test","death_count":1},"/diseases/mortality/"),
@@ -180,6 +179,31 @@ class AccessScopeTests(APITestCase):
             self.authenticate(self.municipal)
             self.assertEqual(self.client.post(path,{"status":"VERIFIED"}).status_code,200)
             self.assertIn(self.client.post(path,{"status":"APPROVED"}).status_code,(400,403))
+
+    def test_ordinary_production_logs_are_recorded_without_reviewer_queue_or_notifications(self):
+        self.remote_animal.status = "APPROVED"
+        self.remote_animal.save(update_fields=["status"])
+        self.authenticate(self.other)
+        Notification.objects.all().delete()
+        response = self.client.post("/production/records/", {
+            "livestock": self.remote_animal.pk,
+            "quantity": 2,
+            "unit": "LITERS",
+            "production_type": "MILK",
+            "milking_session": "MORNING",
+            "record_date": date.today().isoformat(),
+        }, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["status"], "RECORDED")
+        self.assertFalse(Notification.objects.filter(user=self.remote_officer).exists())
+        self.assertFalse(Notification.objects.filter(user=self.municipal).exists())
+        path = f"/production/records/{response.data['id']}/review/"
+        # Out-of-scope officer cannot access the record (404)
+        self.authenticate(self.sibat)
+        self.assertEqual(self.client.post(path, {"status": "VERIFIED"}).status_code, 404)
+        # Ordinary production logs cannot be reviewed by field reviewers or municipal reviewers (404)
+        self.authenticate(self.municipal)
+        self.assertEqual(self.client.post(path, {"status": "VERIFIED"}).status_code, 404)
 
     def test_municipal_revision_informs_owner_and_scoped_officers(self):
         self.local_animal.status="VERIFIED";self.local_animal.save(update_fields=["status"])
@@ -195,7 +219,6 @@ class AccessScopeTests(APITestCase):
         self.authenticate(self.other)
         for endpoint,payload in (
             ("/livestock/inventory/", {"livestock_type":self.species.pk,"entry_type":"INDIVIDUAL","quantity":1,"tag_number":"REMOTE-OWNER-001"}),
-            ("/production/records/", {"livestock":self.remote_animal.pk,"quantity":2,"unit":"LITERS","production_type":"MILK","record_date":date.today().isoformat()}),
             ("/diseases/cases/", {"livestock":self.remote_animal.pk,"name":"Observation","affected_count":1,"record_date":date.today().isoformat()}),
             ("/diseases/mortality/", {"livestock":self.remote_animal.pk,"cause":"Observation","death_count":1,"record_date":date.today().isoformat()}),
         ):
