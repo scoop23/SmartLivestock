@@ -799,6 +799,8 @@ export default function LivestockDetailsDialog({
                   "px-3 py-1.5 rounded-full text-xs font-bold tracking-wide inline-flex items-center gap-1.5 shadow-xs",
                   operationalLabel === "DECEASED"
                     ? "bg-slate-100 text-slate-800 border border-slate-300"
+                    : operationalLabel === "SLAUGHTERED"
+                    ? "bg-rose-100 text-rose-900 border border-rose-200"
                     : "bg-sky-50 text-sky-700 border border-sky-200/90"
                 )}
               >

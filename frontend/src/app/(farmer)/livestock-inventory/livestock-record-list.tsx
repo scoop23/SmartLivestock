@@ -330,6 +330,8 @@ function LivestockSplitCard({
   const hasVax = Boolean(item.lastVaccinationDate);
   const isApproved = item.status === "APPROVED";
   const isDeceased = item.operationalStatus === "DECEASED";
+  const isSlaughtered = item.operationalStatus === "SLAUGHTERED";
+  const isInactive = isDeceased || isSlaughtered;
   const speciesTheme = getSpeciesTheme(item.livestockTypeName);
 
   const rawSex = (item.sex || "").trim().toUpperCase();
@@ -393,18 +395,19 @@ function LivestockSplitCard({
         "livestock-card-depth group overflow-hidden rounded-2xl border transition-all duration-200 flex flex-col sm:flex-row justify-between shadow-xs",
         genderTheme.card,
         isDeceased && "border-stone-300 bg-gradient-to-br from-stone-100 via-amber-50/40 to-slate-100 border-l-amber-500 hover:border-amber-400 hover:shadow-sm",
+        isSlaughtered && "border-stone-300 bg-gradient-to-br from-stone-100 via-rose-50/40 to-slate-100 border-l-rose-500 hover:border-rose-400 hover:shadow-sm",
         item.status === "SUBJECT_TO_REVISION" && "ring-2 ring-rose-400/50"
       )}
     >
       {/* ── LEFT HERO IMAGE SECTION ── */}
-      <div data-tour="record-card-identity" className={cn("relative aspect-[21/9] sm:aspect-auto sm:w-52 md:w-56 lg:w-60 sm:self-stretch min-h-[150px] sm:min-h-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-slate-850 to-slate-800", isDeceased && "grayscale opacity-80")}>
+      <div data-tour="record-card-identity" className={cn("relative aspect-[21/9] sm:aspect-auto sm:w-52 md:w-56 lg:w-60 sm:self-stretch min-h-[150px] sm:min-h-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-slate-850 to-slate-800", isInactive && "grayscale opacity-80")}>
         {currentPhoto ? (
           <Image
             src={currentPhoto}
             alt={item.tagNumber || item.livestockTypeName}
             fill
             unoptimized
-            className={cn("object-cover transition-transform duration-300 group-hover:scale-105", isDeceased && "grayscale")}
+            className={cn("object-cover transition-transform duration-300 group-hover:scale-105", isInactive && "grayscale")}
           />
         ) : (
           <div className={cn("flex h-full w-full flex-col items-center justify-center p-3 text-white", genderTheme.heroFallback)}>
@@ -482,7 +485,7 @@ function LivestockSplitCard({
       </div>
 
       {/* ── RIGHT CONTENT SECTION ── */}
-      <div className={cn("flex flex-1 flex-col justify-between p-3.5 sm:p-4 space-y-2.5 min-w-0", isDeceased && "grayscale-[0.8] opacity-80")}>
+      <div className={cn("flex flex-1 flex-col justify-between p-3.5 sm:p-4 space-y-2.5 min-w-0", isInactive && "grayscale-[0.8] opacity-80")}>
         <div className="space-y-2.5">
           {/* Header Row: Title & Regulatory Status */}
           <div data-tour="record-card-review" className="flex items-start justify-between gap-2">
@@ -704,8 +707,16 @@ function LivestockSplitCard({
                       variant="ghost"
                       size="icon"
                       onClick={() => onEdit(item)}
-                      disabled={isApproved || isDeceased}
-                      title={isDeceased ? "Deceased animals are read-only" : isApproved ? "Approved entries are locked" : "Edit animal record"}
+                      disabled={isApproved || isInactive}
+                      title={
+                        isDeceased
+                          ? "Deceased animals are read-only"
+                          : isSlaughtered
+                          ? "Slaughtered animals are read-only"
+                          : isApproved
+                          ? "Approved entries are locked"
+                          : "Edit animal record"
+                      }
                       className="size-8 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Pencil className="size-3.5" />
@@ -713,7 +724,13 @@ function LivestockSplitCard({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  {isDeceased ? "Deceased animals are read-only" : isApproved ? "Approved entries are locked" : "Edit animal record"}
+                  {isDeceased
+                    ? "Deceased animals are read-only"
+                    : isSlaughtered
+                    ? "Slaughtered animals are read-only"
+                    : isApproved
+                    ? "Approved entries are locked"
+                    : "Edit animal record"}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -727,8 +744,16 @@ function LivestockSplitCard({
                       variant="ghost"
                       size="icon"
                       onClick={() => onDelete(item)}
-                      disabled={isApproved || isDeceased}
-                      title={isDeceased ? "Deceased animals are preserved in history" : isApproved ? "Approved entries cannot be deleted" : "Delete record"}
+                      disabled={isApproved || isInactive}
+                      title={
+                        isDeceased
+                          ? "Deceased animals are preserved in history"
+                          : isSlaughtered
+                          ? "Slaughtered animals are preserved in history"
+                          : isApproved
+                          ? "Approved entries cannot be deleted"
+                          : "Delete record"
+                      }
                       className="size-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Trash2 className="size-3.5" />
@@ -736,7 +761,13 @@ function LivestockSplitCard({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  {isDeceased ? "Deceased animals are preserved in history" : isApproved ? "Approved entries cannot be deleted" : "Delete record"}
+                  {isDeceased
+                    ? "Deceased animals are preserved in history"
+                    : isSlaughtered
+                    ? "Slaughtered animals are preserved in history"
+                    : isApproved
+                    ? "Approved entries cannot be deleted"
+                    : "Delete record"}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -1400,6 +1431,8 @@ export default function LivestockRecordList({
                 const hasVax = Boolean(item.lastVaccinationDate);
                 const isApproved = item.status === "APPROVED";
                 const isDeceased = item.operationalStatus === "DECEASED";
+                const isSlaughtered = item.operationalStatus === "SLAUGHTERED";
+                const isInactive = isDeceased || isSlaughtered;
                 const localPhoto = typeof window !== "undefined" ? localStorage.getItem(`livestock_photo_${item.id}`) : null;
                 const localAvatar = typeof window !== "undefined" ? localStorage.getItem(`livestock_avatar_${item.id}`) : null;
                 const photoUrl = item.photoUrl || localPhoto;
@@ -1411,6 +1444,7 @@ export default function LivestockRecordList({
                     className={cn(
                       "hover:bg-slate-50/80 transition-colors border-b border-slate-100",
                       isDeceased && "bg-stone-100/80 text-slate-500 grayscale border-l-4 border-l-amber-500 hover:bg-stone-100",
+                      isSlaughtered && "bg-stone-100/80 text-slate-500 grayscale border-l-4 border-l-rose-500 hover:bg-stone-100",
                     )}
                   >
                     {/* Ear Tag */}
@@ -1574,8 +1608,16 @@ export default function LivestockRecordList({
                           variant="ghost"
                           size="icon"
                           onClick={() => onEdit(item)}
-                          disabled={isApproved || isDeceased}
-                          title={isDeceased ? "Deceased animals are read-only" : isApproved ? "Approved entries are locked" : "Edit animal record"}
+                          disabled={isApproved || isInactive}
+                          title={
+                            isDeceased
+                              ? "Deceased animals are read-only"
+                              : isSlaughtered
+                              ? "Slaughtered animals are read-only"
+                              : isApproved
+                              ? "Approved entries are locked"
+                              : "Edit animal record"
+                          }
                           className="h-7 w-7 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-25"
                         >
                           <Pencil className="w-3.5 h-3.5" />
@@ -1584,8 +1626,16 @@ export default function LivestockRecordList({
                           variant="ghost"
                           size="icon"
                           onClick={() => onDelete(item)}
-                          disabled={isApproved || isDeceased}
-                          title={isDeceased ? "Deceased animals are preserved in history" : isApproved ? "Approved entries cannot be deleted" : "Delete record"}
+                          disabled={isApproved || isInactive}
+                          title={
+                            isDeceased
+                              ? "Deceased animals are preserved in history"
+                              : isSlaughtered
+                              ? "Slaughtered animals are preserved in history"
+                              : isApproved
+                              ? "Approved entries cannot be deleted"
+                              : "Delete record"
+                          }
                           className="h-7 w-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-25"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
