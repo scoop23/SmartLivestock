@@ -24,6 +24,7 @@ Tag,
 Trash2,
 Upload,
 Users,
+Wand2
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -1150,20 +1151,34 @@ function RegisterLivestockDialogContent({
 
                   {!formData.isCustomTag ? (
                     <div className="space-y-1.5 pt-0.5">
-                      <Label
-                        htmlFor="tagNumber"
-                        className="text-[11px] font-bold text-slate-600"
-                      >
-                        Generated Tag Number
-                      </Label>
+                      <div className="flex items-center justify-between">
+                        <Label
+                          htmlFor="tagNumber"
+                          className="text-[11px] font-bold text-slate-600"
+                        >
+                          Tag Number ({ownerTagPrefix || "NAME"}-001):
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
+                            })
+                          }
+                          className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Wand2 className="w-3 h-3" /> Auto-generate Tag
+                        </button>
+                      </div>
                       <Input
                         id="tagNumber"
                         placeholder="e.g. NAME-001"
                         value={formData.tagNumber}
-                        readOnly
+                        onChange={(e) => setFormData({ ...formData, tagNumber: e.target.value.toUpperCase() })}
                         className={`h-11 rounded-xl font-mono font-bold ${
                           tagError(formData.tagNumber, [], false) ? "border-rose-500 focus-visible:ring-rose-500" : ""
-                        } cursor-not-allowed bg-slate-50 text-slate-600`}
+                        }`}
                         required
                       />
                       {tagError(formData.tagNumber, [], false) ? (
