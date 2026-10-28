@@ -50,7 +50,7 @@ function ProductionRecordReviewContent() {
     queryKey: ["field-farmer-slaughter-reports"],
     queryFn: async () => (await api.get<Array<{ id: number; livestock_type_name: string; record_date: string; quantity: number; status: string; created_by_name: string; selected_animal_tags: string[] }>>("production/slaughterhouse/records/")).data,
   });
-  const allowedTypes = ["PRODUCTION", "SALE", "CALVING"];
+  const allowedTypes = ["SALE", "CALVING"];
   const hasAllBarangayAccess = user?.accessScope === "ALL_BARANGAYS";
   const assignedBarangay = (user?.assignedBarangayName || user?.barangay || "").trim().toLocaleLowerCase();
   const hasBarangayAssignment = hasAllBarangayAccess || assignedBarangay.length > 0;
@@ -89,21 +89,21 @@ function ProductionRecordReviewContent() {
       <PageHeader
         title={
           <>
-            <span className="hidden sm:inline">Production, Sales & Calving Logs</span>
-            <span className="sm:hidden">Production Logs</span>
+            <span className="hidden sm:inline">Sales, Births & Slaughter Notices</span>
+            <span className="sm:hidden">Field Record Follow-ups</span>
           </>
         }
         subtitle={
           <>
             <span className="hidden sm:inline">
               {hasAllBarangayAccess
-                ? "Review production measurements, live animal sales, and newborn calf birth records across authorized barangays."
-                : `Review production measurements, live animal sales, and newborn calf birth records from ${user?.assignedBarangayName || "your assigned barangay"}.`}
+                ? "Review live animal sales and birth records across authorized barangays."
+                : `Review live animal sales and birth records from ${user?.assignedBarangayName || "your assigned barangay"}.`}
             </span>
             <span className="sm:hidden">
               {hasAllBarangayAccess
-                ? "Review and validate barangay production logs."
-                : `Validate production logs for ${user?.assignedBarangayName || "assigned barangay"}.`}
+                ? "Follow up sales, births, and slaughter notices."
+                : `Review field records for ${user?.assignedBarangayName || "assigned barangay"}.`}
             </span>
           </>
         }

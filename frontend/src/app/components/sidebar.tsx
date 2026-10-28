@@ -137,7 +137,7 @@ const sibatLinks: SidebarLink[] = [
     subLinks: [
       { path: '/sibat/livestock-registry', label: 'Animals' },
       { path: '/sibat/batches', label: 'Herds' },
-      { path: '/sibat/production-records', label: 'Production Records' },
+      { path: '/sibat/livestock-monitoring', label: 'Livestock Monitoring' },
     ],
   },
   { path: '/sibat-monitoring', label: 'Map', icon: Map },
