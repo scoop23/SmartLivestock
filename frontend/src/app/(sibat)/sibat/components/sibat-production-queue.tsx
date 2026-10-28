@@ -544,12 +544,12 @@ function SibatProductionQueueContent({
             📋
           </div>
           <h3 className="text-sm sm:text-base font-bold text-slate-800">
-            {hasActiveFilters ? "No matching production logs" : "All Caught Up on Review Logs!"}
+            {hasActiveFilters ? "No matching calving or sales records" : "No calving or sales records to review"}
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto font-medium">
             {hasActiveFilters
-              ? "No yield logs matched your search filters. Try adjusting your search query or reset filters."
-              : "No farmer production yields are waiting for review in your assigned sector right now."}
+              ? "No calving or sales records matched your search filters. Try adjusting your search query or reset filters."
+              : "Routine farmer production logs do not require field review. Calving remains in its assigned verification workflow."}
           </p>
         </div>
       ) : (

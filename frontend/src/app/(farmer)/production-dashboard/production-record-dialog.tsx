@@ -218,33 +218,20 @@ export default function ProductionRecordDialog({
               {record.status === "VERIFIED" && (
                 <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 text-xs leading-relaxed">
                   <p className="font-bold uppercase tracking-wider text-sky-800 mb-0.5">
-                    Field Verified ({record.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"})
+                    Historical Field Verification
                   </p>
-                  This record has been field-verified by {record.reviewedByName || (record.reviewedByRole === "CBAT" ? "a CBAT officer" : "a SIBAT officer")} and forwarded to MAO for final approval.
+                  This legacy review event is retained for history. Current routine production logs do not require field verification or MAO approval.
                 </div>
               )}
 
               {record.status === "PENDING" && (
                 <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed space-y-1">
                   <p className="font-bold uppercase tracking-wider text-amber-800 mb-0.5">
-                    {record.nextReviewQueue === "MAO" && !record.requiresCbatVerification
-                      ? "Awaiting MAO Final Approval"
-                      : record.nextReviewQueue === "CBAT" || record.requiresCbatVerification
-                        ? "Awaiting CBAT Field Verification"
-                        : "Awaiting Validation"}
+                    Historical Pending Status
                   </p>
                   <p>
-                    {record.nextReviewQueue === "MAO" && !record.requiresCbatVerification
-                      ? "This milk production record matched your cow's historical baseline and is queued directly for MAO final approval."
-                      : record.nextReviewQueue === "CBAT" || record.requiresCbatVerification
-                        ? "This milk production record showed an unusual change compared with your cow's approved baseline and is queued for CBAT field verification."
-                        : "This record is awaiting review by your local SIBAT officer."}
+                    This older record keeps its original status for audit history. New routine production logs are saved directly to your farm history without a review queue.
                   </p>
-                  {(record.nextReviewQueue === "CBAT" || record.requiresCbatVerification) && record.anomalyReason && (
-                    <p className="text-[11px] text-amber-800 pt-1 border-t border-amber-200/70">
-                      {record.anomalyReason}
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -268,7 +255,7 @@ export default function ProductionRecordDialog({
               {isApproved || isVerified ? (
                 <div className="flex items-center gap-2 text-emerald-700 text-sm font-medium">
                   <Lock className="w-4 h-4 shrink-0" />
-                  This record is under review or approved and can no longer be edited or deleted.
+                  This historical production record is locked under its original review status and cannot be edited or deleted.
                 </div>
               ) : (
                 <div className="flex flex-col sm:flex-row items-center justify-end gap-3 w-full">

@@ -52,12 +52,6 @@ ReviewTargetItem,
 ValidationReviewDialog,
 } from "./validation-review-dialog";
 
-function isMaoReviewableProduction(record: ProductionRecordItem): boolean {
-  // Farmer production history is informational; it has no MAO review action.
-  void record;
-  return false;
-}
-
 function matchesStatusFilter(
   rawStatus: string | null | undefined,
   statusFilter: ValidationStatus
@@ -461,7 +455,6 @@ function AdminDataValidationContent() {
   const kpis = useMemo(() => {
     const allRecords = [
       ...censusSubmissions.map((c) => ({ status: c.status, barangay: c.barangay })),
-      ...productionRecords.map((p) => ({ status: p.status, barangay: p.barangayName })),
       ...inventoryRecords.map((i) => ({ status: i.status, barangay: i.barangayName })),
       ...incidents.map((inc) => ({ status: inc.status, barangay: inc.barangayName })),
     ];
@@ -477,7 +470,7 @@ function AdminDataValidationContent() {
     const activeBarangays = new Set(allRecords.map((r) => r.barangay).filter(Boolean)).size;
 
     return { pending, verified, approved, flagged, activeBarangays };
-  }, [censusSubmissions, productionRecords, inventoryRecords, incidents]);
+  }, [censusSubmissions, inventoryRecords, incidents]);
 
   // Domain Breakdown Counters
   const domainPendingCounts = useMemo(() => ({
@@ -485,23 +478,23 @@ function AdminDataValidationContent() {
     production: 0,
     inventory: inventoryRecords.filter((i) => !i.isBatch && i.entryType === "INDIVIDUAL" && (i.status || "PENDING").toUpperCase() === "PENDING").length,
     incidents: incidents.filter((inc) => (inc.status || "PENDING").toUpperCase() === "PENDING").length,
-  }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
+  }), [censusSubmissions, inventoryRecords, incidents]);
 
   const domainVerifiedCounts = useMemo(() => ({
     census: censusSubmissions.filter((c) => (c.status || "").toUpperCase() === "VERIFIED").length,
-    production: productionRecords.filter(isMaoReviewableProduction).length,
+    production: 0,
     inventory: inventoryRecords.filter((i) => !i.isBatch && i.entryType === "INDIVIDUAL" && (i.status || "").toUpperCase() === "VERIFIED").length,
     // Only records whose stored status is VERIFIED belong in this badge.
     // Pending inspections remain reviewable, but they are not SIBAT-verified.
     incidents: incidents.filter((inc) => inc.status === "VERIFIED").length,
-  }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
+  }), [censusSubmissions, inventoryRecords, incidents]);
 
   const domainTotalCounts = useMemo(() => ({
     census: censusSubmissions.length,
     production: 0,
     inventory: inventoryRecords.filter((i) => !i.isBatch && i.entryType === "INDIVIDUAL").length,
     incidents: incidents.length,
-  }), [censusSubmissions, productionRecords, inventoryRecords, incidents]);
+  }), [censusSubmissions, inventoryRecords, incidents]);
 
   // ── Filtered Domain Data ──
 
@@ -633,9 +626,7 @@ function AdminDataValidationContent() {
           .filter((c) => (c.status || "PENDING").toUpperCase() === "PENDING")
           .map((c) => c.id);
       case "production":
-        return paginatedProduction
-          .filter(isMaoReviewableProduction)
-          .map((p) => p.id);
+        return [];
       case "inventory":
         return paginatedInventory
           .filter((i) => (i.status || "PENDING").toUpperCase() === "VERIFIED" && !i.isBatch && i.entryType === "INDIVIDUAL")
@@ -645,7 +636,7 @@ function AdminDataValidationContent() {
           .filter((inc) => inc.status === "VERIFIED" || (inc.type === "inspection" && inc.status === "PENDING"))
           .map((inc) => inc.id);
     }
-  }, [activeDomain, paginatedCensus, paginatedProduction, paginatedInventory, paginatedIncidents]);
+  }, [activeDomain, paginatedCensus, paginatedInventory, paginatedIncidents]);
 
   const handleSelectAll = (checked: boolean) => {
     setSelectedIds((prev) => {
@@ -687,17 +678,7 @@ function AdminDataValidationContent() {
           currentRemarks: c.reviewRemarks,
         }));
     } else if (activeDomain === "production") {
-      targets = productionRecords
-        .filter((p) => selectedIds.includes(p.id) && isMaoReviewableProduction(p))
-        .map((p) => ({
-          id: p.id,
-          domain: "production",
-          title: `${p.farmerName || "Farmer"} — ${p.productionType.toUpperCase()}`,
-          farmerOrSubmitter: p.farmerName || "Registered Farmer",
-          barangay: p.barangayName || "Municipality",
-          keyMetric: `${p.quantity} ${p.unit}`,
-          currentRemarks: p.reviewRemarks,
-        }));
+      targets = [];
     } else if (activeDomain === "inventory") {
       targets = inventoryRecords
         .filter((i) => selectedIds.includes(i.id) && (i.status || "PENDING").toUpperCase() === "VERIFIED" && !i.isBatch && i.entryType === "INDIVIDUAL")
@@ -737,8 +718,7 @@ function AdminDataValidationContent() {
         return censusSubmissions.find((item) => item.id === id)?.status.toUpperCase() === "VERIFIED";
       }
       if (activeDomain === "production") {
-        const item = productionRecords.find((rec) => rec.id === id);
-        return item ? isMaoReviewableProduction(item) : false;
+        return false;
       }
       if (activeDomain === "inventory") {
         const item = inventoryRecords.find((record) => record.id === id);
@@ -820,7 +800,6 @@ function AdminDataValidationContent() {
 
         await Promise.all(
           processableIds.map((id) => {
-            const strId = String(id);
             return api.post(`livestock/inventory/${id}/review/`, { status: action, remarks });
           })
         );

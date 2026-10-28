@@ -289,14 +289,14 @@ export default function ProductionApprovalCard({
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <h4 className="text-xs font-black uppercase tracking-wider text-sky-900">
-                    Verified by {record.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"} Field Officer
+                    Historical field verification
                   </h4>
                   <Badge className="bg-sky-600 text-white text-[9px] px-1.5 py-0 font-bold hover:bg-sky-600">
                     Ready for MAO
                   </Badge>
                 </div>
                 <p className="text-xs text-sky-800 mt-1 leading-relaxed">
-                  Your entry has been field-verified by {record.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"} and is awaiting final MAO certification.
+                  This legacy review event is retained for audit history. Current routine production logs do not require field verification or MAO approval.
                 </p>
               </div>
             </div>
@@ -325,18 +325,10 @@ export default function ProductionApprovalCard({
               </div>
               <div className="min-w-0">
                 <h4 className="text-xs font-black uppercase tracking-wider text-amber-900">
-                  {record.nextReviewQueue === "MAO" && !record.requiresCbatVerification
-                    ? "Awaiting MAO Final Approval"
-                    : record.nextReviewQueue === "CBAT" || record.requiresCbatVerification
-                      ? "Awaiting Field Verification"
-                      : "Awaiting Validation"}
+                  Historical pending status
                 </h4>
                 <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-                  {record.nextReviewQueue === "MAO" && !record.requiresCbatVerification
-                    ? "Your milk yield passed automated historical baseline assessment and is queued directly for MAO final approval."
-                    : record.nextReviewQueue === "CBAT" || record.requiresCbatVerification
-                      ? "Your milk entry showed an unusual change relative to this cow's approved baseline and is queued for field verification before MAO approval."
-                      : "Your submitted entry is currently queued for review by the barangay SIBAT officer."}
+                  This older record keeps its original status for audit history. New routine production logs are saved directly to your farm history without a review queue.
                 </p>
               </div>
             </div>

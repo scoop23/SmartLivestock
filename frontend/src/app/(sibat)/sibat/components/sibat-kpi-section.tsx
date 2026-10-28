@@ -28,9 +28,8 @@ export default function SibatKpiSection({
   // Health counts
   const pendingHealthCount = healthRecords.filter((r) => r.status === "PENDING").length;
 
-  // Production & Calving counts
-  const prodSubmissions = submissions.filter((s) => s.sourceType === "PRODUCTION" || s.sourceType === "CALVING");
-  const pendingProdCount = prodSubmissions.filter((s) => s.status === "PENDING").length;
+  // Routine farmer production is informational; calving keeps field review.
+  const pendingCalvingCount = submissions.filter((s) => s.sourceType === "CALVING" && s.status === "PENDING").length;
 
   // Inventory counts
   const invSubmissions = submissions.filter((s) => s.sourceType === "INVENTORY");
@@ -110,7 +109,7 @@ export default function SibatKpiSection({
         <CardContent className="p-5">
           <div className="flex items-center justify-between gap-3 mb-3">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Harvest & Calving Logs
+              Calving Reports
             </span>
             <div className="size-10 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center font-black group-hover:scale-110 transition-transform">
               <Milk className="size-5" />
@@ -122,21 +121,21 @@ export default function SibatKpiSection({
           ) : (
             <div className="flex items-baseline gap-2 mb-1.5">
               <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                {pendingProdCount}
+                {pendingCalvingCount}
               </span>
-              <span className="text-xs font-bold text-slate-400">to calibrate</span>
+              <span className="text-xs font-bold text-slate-400">for field review</span>
             </div>
           )}
 
           <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
             <span
               className={`inline-flex items-center gap-1 font-extrabold text-[11px] px-2 py-0.5 rounded-full ${
-                pendingProdCount > 0
+                pendingCalvingCount > 0
                   ? "bg-sky-100/80 text-sky-800"
                   : "bg-emerald-100/80 text-emerald-800"
               }`}
             >
-              {pendingProdCount > 0 ? `🥛 ${pendingProdCount} logs to check` : "✨ All calibrated"}
+              {pendingCalvingCount > 0 ? `🐄 ${pendingCalvingCount} calving reports` : "✨ No pending calving reports"}
             </span>
             <span className="text-slate-400 font-medium group-hover:text-sky-600 transition-colors">
               View →

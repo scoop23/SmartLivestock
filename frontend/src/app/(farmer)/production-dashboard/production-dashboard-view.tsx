@@ -527,7 +527,9 @@ export default function ProductionDashboardView({
     () => computeProductionAnalytics(filteredProductionRecords),
     [filteredProductionRecords]
   );
-  const pendingCount = filteredProductionRecords.filter((r) => r.status === "PENDING").length;
+  const legacyReviewStatusCount = filteredProductionRecords.filter((r) =>
+    ["PENDING", "VERIFIED"].includes((r.status || "").toUpperCase())
+  ).length;
   const isOverviewLoading =
     isRecordsLoading || isInventoryLoading || isCalvingLoading || isWeightLoading;
 
@@ -962,16 +964,16 @@ export default function ProductionDashboardView({
                   <CardContent className="p-5 space-y-2.5 text-xs">
                     <div className="flex items-center gap-2 text-slate-900 font-bold">
                       <ShieldCheck className="size-4 text-emerald-700" />
-                      <span>Official LGU Validation Protocol</span>
+                      <span>Personal Production Records</span>
                     </div>
                     <p className="text-slate-500 leading-relaxed">
                       Submitted daily yields and {terms.eventName.toLowerCase()} records are
                       saved in your own farm history. Official livestock and incident reports follow their separate municipal workflows.
                     </p>
                     <div className="flex items-center justify-between pt-1 text-[11px] text-slate-600 font-semibold border-t border-slate-200/60">
-                      <span>Pending Verification:</span>
+                      <span>Legacy review statuses:</span>
                       <span className="text-amber-800 font-bold bg-amber-100 px-2 py-0.5 rounded-full">
-                        {pendingCount} records
+                        {legacyReviewStatusCount} historical records
                       </span>
                     </div>
                   </CardContent>

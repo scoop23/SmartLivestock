@@ -413,16 +413,6 @@ function SibatPortalContent() {
       })),
     },
     {
-      title: "Production Records",
-      icon: <FileSpreadsheet className="size-4 text-sky-700" />,
-      items: submissions.filter((item) => item.status === "PENDING" && item.sourceType === "PRODUCTION").map((item) => ({
-        id: item.id,
-        title: item.detailsTitle || item.submissionTypeLabel,
-        detail: `${item.farmerName} · ${item.barangayName}`,
-        onSelect: () => openSubmissionReviewRoute(item),
-      })),
-    },
-    {
       title: "Sales Records",
       icon: <FileSpreadsheet className="size-4 text-indigo-700" />,
       items: submissions.filter((item) => item.status === "PENDING" && item.sourceType === "SALE").map((item) => ({
@@ -522,7 +512,7 @@ function SibatPortalContent() {
           <ValidationLoadingScreen
             isLoading={isInitialQueueLoading}
             title="Loading SIBAT Field Inspection Center"
-            subtitle="Connecting your authorized production, livestock, health, mortality, and census review queues."
+            subtitle="Connecting your authorized livestock, calving, health, mortality, and census review queues. Farmer production is available only as read-only context."
             badgeLabel="SIBAT Queue Sync"
             authorityText="SIBAT Field Review · Barangay-scoped records"
             items={[

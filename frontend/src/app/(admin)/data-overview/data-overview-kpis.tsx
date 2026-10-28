@@ -235,7 +235,7 @@ export function DataOverviewKpis({
           title="Monthly Dairy Yield"
           value={`${totalMilkVolume.toLocaleString()} L`}
           icon={<Milk className="size-5" />}
-          description="Approved milk liters this month"
+          description="Farmer-recorded milk liters this month"
           badge="This Month"
           variant="sky"
           isLoading={isLoading}

@@ -9,12 +9,15 @@ legacy review endpoint no longer processes production logs; municipal access to
 them remains available in authorized read and analytics views.
 
 Milk anomaly assessment is an advisory comparison against the same animal's
-earlier recorded or historically approved sessions. An unusual result does not
+earlier recorded sessions. An unusual result does not
 block saving, change the queue, or prove inaccurate reporting. The seven-day
 forecast predicts daily totals and is not compared with one milking session.
-Municipal production analytics and predictive training still use approved
-records only; personal `RECORDED` entries appear in farmer analytics, not in
-official approved totals.
+Farmer analytics and authorized municipal production summaries include
+`RECORDED` logs only. Historical approval-state, pending, verified, and returned
+legacy review states remain outside those totals. Municipal dashboards label
+these as farmer-recorded production; they are not official slaughter totals.
+Predictive backtests use a recorded log's submission timestamp and a historical
+approved log's approval timestamp to avoid using information before it existed.
 
 A farmer meat-yield entry creates one linked `SlaughterRecord` in `PENDING`
 status. This is a **farmer-reported, unverified slaughter notice**, visible to
@@ -26,11 +29,14 @@ which resubmits the same slaughter record. The personal production record stays
 `RECORDED` throughout. Facility-entered aggregate slaughter totals retain
 their separate existing workflow and do not change individual inventory.
 
-The `RECORDED` migration only adds a choice to the existing production status
-field and changes the anomaly choice label. It does not rewrite historical
-records or timestamps. Deployments must apply that migration before using the
-new code. The demo seed refuses to rewrite an old tracked scenario; clean and
-reseed **only synthetic demo data** after confirming the intended local database.
+The `RECORDED` status preserves new farmer entries without marking them as
+municipally approved. Historical review statuses and their events are retained;
+analytics includes only `RECORDED` production rows. Existing historical approval-state
+rows remain stored for audit/history but are excluded from current analytics and forecasts.
+Deployments must apply the existing status migration before using code that
+writes `RECORDED`. The demo seed refuses to rewrite an old tracked scenario;
+clean and reseed **only synthetic demo data** after confirming the intended
+local database.
 
 Calving keeps its existing field verification and MAO approval because approval
 creates a registered calf in livestock inventory. Weight logs already save

@@ -151,7 +151,7 @@ class ProductionRecordAPITests(APITestCase):
         response = self.client.post(
             f"/production/records/{self.record.pk}/review/", {"status": "APPROVED"},
         )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.record.refresh_from_db()
         self.assertEqual(self.record.status, ProductionRecord.ProductionStatus.PENDING)
 
@@ -163,10 +163,10 @@ class ProductionRecordAPITests(APITestCase):
         response = self.client.post(
             f"/production/records/{self.record.pk}/review/", {"status": "APPROVED"},
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.record.refresh_from_db()
-        self.assertEqual(self.record.status, ProductionRecord.ProductionStatus.APPROVED)
-        self.assertTrue(Notification.objects.filter(user=self.farmer_user).exists())
+        self.assertEqual(self.record.status, ProductionRecord.ProductionStatus.VERIFIED)
+        self.assertFalse(Notification.objects.filter(user=self.farmer_user).exists())
 
     def test_farmer_cannot_log_production_against_another_farmers_batch(self):
         other_user = User.objects.create_user(
@@ -358,30 +358,26 @@ class ProductionRecordAPITests(APITestCase):
                 self.assertIn("quantity", response.data)
         self.assertEqual(ProductionRecord.objects.count(), 1)
 
-    def test_returned_report_resubmits_and_reenters_approval_flow(self):
+    def test_legacy_returned_report_can_be_corrected_without_review_queue(self):
         from analytics.services.descriptive import descriptive_summary
         record_id = self.record.pk
+        ProductionRecord.objects.filter(pk=record_id).update(
+            status=ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION,
+            review_remarks="Correct the reported quantity",
+        )
         self.client.force_authenticate(user=self.sibat_user)
-        self.assertEqual(self.client.post(f"/production/records/{record_id}/review/", {"status": "VERIFIED"}).status_code, 200)
+        self.assertEqual(self.client.post(f"/production/records/{record_id}/review/", {"status": "VERIFIED"}).status_code, 404)
         self.client.force_authenticate(user=self.mao_user)
-        response = self.client.post(f"/production/records/{record_id}/review/", {"status": "SUBJECT_TO_REVISION", "remarks": "Correct the reported quantity"})
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(descriptive_summary(date(2026, 1, 1))["descriptive"]["production"]["records"], 0)
+        self.assertEqual(self.client.post(f"/production/records/{record_id}/review/", {"status": "APPROVED"}).status_code, 404)
         self.client.force_authenticate(user=self.farmer_user)
         response = self.client.patch(f"/production/records/{record_id}/", {"quantity": "8.50"})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["status"], "PENDING")
+        self.assertEqual(response.data["status"], "RECORDED")
         self.record.refresh_from_db()
         self.assertIsNone(self.record.reviewed_by)
         self.assertEqual(self.record.review_remarks, "Correct the reported quantity")
         self.assertEqual(ProductionRecord.objects.count(), 1)
-        self.client.force_authenticate(user=self.mao_user)
-        self.assertEqual(self.client.post(f"/production/records/{record_id}/review/", {"status": "APPROVED"}).status_code, 400)
-        self.client.force_authenticate(user=self.sibat_user)
-        self.assertEqual(self.client.post(f"/production/records/{record_id}/review/", {"status": "VERIFIED"}).status_code, 200)
-        self.client.force_authenticate(user=self.mao_user)
-        self.assertEqual(self.client.post(f"/production/records/{record_id}/review/", {"status": "APPROVED"}).status_code, 200)
-        summary = descriptive_summary(date(2026, 1, 1))["descriptive"]["production"]
+        summary = descriptive_summary(date(2026, 1, 31))["descriptive"]["production"]
         self.assertEqual(summary["records"], 1)
         self.assertEqual(summary["by_type"][0]["quantity"], 8.5)
 
@@ -497,21 +493,19 @@ class ProductionRecordAPITests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertIsNone(response.data["valuation_snapshot"])
 
-    def test_psa_analytics_only_include_approved_valuations(self):
+    def test_psa_production_analytics_include_recorded_and_exclude_approved_rows(self):
         from analytics.services.descriptive import descriptive_summary
         self.load_reference_data()
         response = self.submit_output("Cattle", "MILK", "LITERS", "2")
         record_id = response.data["id"]
         summary = descriptive_summary(date(2026, 1, 31))["descriptive"]["production"]["valuation"]
-        self.assertIsNone(summary["estimated_value"])
-        # The approved fixture represents a historical official record.
-        ProductionRecord.objects.filter(pk=record_id).update(status=ProductionRecord.ProductionStatus.APPROVED)
-        summary = descriptive_summary(date(2026, 1, 31))["descriptive"]["production"]["valuation"]
         self.assertEqual(summary["estimated_value"], 94.1)
         self.assertEqual(summary["valued_records"], 1)
-        self.assertEqual(summary["by_species"][0]["species"], "Cattle")
-        self.assertEqual(summary["by_barangay"][0]["value"], 94.1)
-        self.assertEqual(summary["by_month"][0]["month"], "2026-01-01")
+        # The old approval state is excluded from routine farmer production analytics.
+        ProductionRecord.objects.filter(pk=record_id).update(status=ProductionRecord.ProductionStatus.APPROVED)
+        summary = descriptive_summary(date(2026, 1, 31))["descriptive"]["production"]["valuation"]
+        self.assertIsNone(summary["estimated_value"])
+        self.assertEqual(summary["valued_records"], 0)
 
     def test_psa_fallback_uses_latest_earlier_period_and_preserves_snapshot(self):
         from decimal import Decimal
@@ -840,7 +834,7 @@ class ProductionRecordAPITests(APITestCase):
         with self.assertRaises(ProtectedError):
             animals[1].delete()
 
-    def test_farmer_own_production_records_include_pending_while_analytics_excludes_unapproved(self):
+    def test_farmer_own_production_records_include_legacy_statuses_while_analytics_uses_recorded_only(self):
         from analytics.services.descriptive import descriptive_summary
 
         other_farmer_user = User.objects.create_user(
@@ -902,11 +896,11 @@ class ProductionRecordAPITests(APITestCase):
         self.assertNotIn(self.record.id, record_ids_b)
         self.assertNotIn(pending_record.id, record_ids_b)
 
-        # 3. Descriptive municipal analytics only aggregates APPROVED records (25 L)
+        # 3. Production analytics now uses RECORDED logs only, not historical
+        # approval-state records or pending rows.
         summary = descriptive_summary(date(2026, 1, 31))["descriptive"]
         milk_stats = [row for row in summary["production"]["by_type"] if row["type"] == "MILK"]
-        self.assertEqual(len(milk_stats), 1)
-        self.assertEqual(milk_stats[0]["quantity"], 25.0)
+        self.assertEqual(milk_stats, [])
 
 
 class SlaughterhouseAggregateRecordAPITests(APITestCase):
@@ -1085,7 +1079,7 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
             created_by=self.other_farmer_user,
         )
 
-    def seed_approved_milk_history(self, cow, quantities, end_date=date(2026, 3, 10)):
+    def seed_recorded_milk_history(self, cow, quantities, end_date=date(2026, 3, 10)):
         start_date = end_date - timedelta(days=len(quantities) - 1)
         records = []
         for idx, qty in enumerate(quantities):
@@ -1097,7 +1091,7 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
                     unit=ProductionRecord.UnitType.LITERS,
                     record_date=start_date + timedelta(days=idx),
                     milking_session=ProductionRecord.MilkingSession.MORNING,
-                    status=ProductionRecord.ProductionStatus.APPROVED,
+                    status=ProductionRecord.ProductionStatus.RECORDED,
                     anomaly_assessment_status=ProductionRecord.AnomalyAssessmentStatus.CLEAN,
                     next_review_queue=ProductionRecord.ReviewQueue.NONE,
                     created_by=cow.farmer.user,
@@ -1121,7 +1115,7 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
         return self.client.post("/production/records/", payload, format="json")
 
     def test_clean_milk_log_is_recorded_without_review_notifications(self):
-        self.seed_approved_milk_history(self.cow, [12.0, 12.2, 11.8, 12.1, 11.9, 12.0, 12.1])
+        self.seed_recorded_milk_history(self.cow, [12.0, 12.2, 11.8, 12.1, 11.9, 12.0, 12.1])
         response = self.submit_milk("12.3")
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data["status"], "RECORDED")
@@ -1130,7 +1124,7 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
         self.assertFalse(Notification.objects.filter(related_entity_type="production_record", related_entity_id=response.data["id"]).exists())
 
     def test_anomalous_milk_is_advisory_only(self):
-        self.seed_approved_milk_history(self.cow, [10] * 7)
+        self.seed_recorded_milk_history(self.cow, [10] * 7)
         response = self.submit_milk("18")
         self.assertEqual(response.status_code, 201, response.data)
         self.assertTrue(response.data["anomaly_detected"])
@@ -1141,7 +1135,7 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
         self.assertEqual(response.data["anomaly_assessment"]["next_review_queue"], "NONE")
 
     def test_recorded_session_is_used_for_later_advisory_baseline(self):
-        self.seed_approved_milk_history(self.cow, [10] * 4)
+        self.seed_recorded_milk_history(self.cow, [10] * 4)
         first = self.submit_milk("10", "2026-03-11")
         self.assertEqual(first.status_code, 201, first.data)
         second = self.submit_milk("17", "2026-03-12")
@@ -1149,8 +1143,8 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
         self.assertTrue(second.data["anomaly_detected"])
 
     def test_anomaly_does_not_use_another_cow_or_unapproved_legacy_history(self):
-        self.seed_approved_milk_history(self.second_cow, [20] * 7)
-        self.seed_approved_milk_history(self.cow, [10] * 4)
+        self.seed_recorded_milk_history(self.second_cow, [20] * 7)
+        self.seed_recorded_milk_history(self.cow, [10] * 4)
         ProductionRecord.objects.create(
             livestock=self.cow, production_type="MILK", quantity=50, unit="LITERS",
             record_date=date(2026, 3, 10), milking_session="EVENING",
@@ -1190,7 +1184,7 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
         self.assertFalse(record.requires_cbat_verification)
         self.assertIsNone(record.reviewed_by)
 
-    def test_historical_verified_milk_keeps_audit_and_mao_can_finish_it(self):
+    def test_historical_verified_milk_audit_remains_but_mao_cannot_review_it(self):
         from production.models import ProductionRecordWorkflowEvent
         old = ProductionRecord.objects.create(
             livestock=self.cow, production_type="MILK", quantity=8, unit="LITERS",
@@ -1203,10 +1197,10 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
         )
         self.client.force_authenticate(user=self.mao_user)
         approved = self.client.post(f"/production/records/{old.pk}/review/", {"status": "APPROVED"})
-        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual(approved.status_code, 404, approved.data)
         self.assertTrue(ProductionRecordWorkflowEvent.objects.filter(pk=event.pk).exists())
         old.refresh_from_db()
-        self.assertEqual(old.status, "APPROVED")
+        self.assertEqual(old.status, "VERIFIED")
 
     def test_same_session_duplicate_and_forecast_target_are_safe(self):
         first = self.submit_milk("8")

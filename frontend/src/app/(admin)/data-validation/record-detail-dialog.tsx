@@ -56,7 +56,7 @@ Tag,
 ZoomIn
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect,useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { getIncidentTypeBadge,IncidentType,SibatInspectionData } from "./validation-analytics";
 
@@ -225,13 +225,7 @@ function RecordDetailDialogContent({
   const isPending = statusNorm === "PENDING";
   const isVerified = statusNorm === "VERIFIED";
   const isAuctionRecord = record.kind === "incident" && record.type === "inspection";
-  const isCleanDirectProduction =
-    record.kind === "production" &&
-    isPending &&
-    record.nextReviewQueue === "MAO" &&
-    !record.requiresCbatVerification &&
-    record.anomalyAssessmentStatus === "CLEAN";
-  const canMaoReview = isVerified || (isAuctionRecord && isPending) || isCleanDirectProduction;
+  const canMaoReview = record.kind !== "production" && (isVerified || (isAuctionRecord && isPending));
   const isApproved = statusNorm === "APPROVED";
   const isRejected = statusNorm === "SUBJECT_TO_REVISION" || statusNorm === "SUBJECT_FOR_REVISION" || statusNorm === "REJECTED" || statusNorm === "FLAGGED";
 
@@ -389,21 +383,23 @@ function RecordDetailDialogContent({
               {isRejected && <RotateCcw className="size-3 mr-1" />}
               {isPending && <Clock className="size-3 mr-1" />}
               <span>
-                {isApproved
+                {record.kind === "production" && isPending
+                  ? "Legacy Pending"
+                  : record.kind === "production" && isVerified
+                    ? "Legacy Verified"
+                    : record.kind === "production" && isApproved
+                      ? "Historical MAO Approval"
+                      : isApproved
                   ? "MAO Approved & Certified"
                   : isVerified
                     ? `${record.kind === "production" && record.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"} Field-Verified`
                     : isRejected
-                      ? "Subject for Revision"
+                      ? record.kind === "production" ? "Legacy Returned Status" : "Subject for Revision"
                       : isAuctionRecord && isPending
                         ? "Awaiting MAO"
-                        : isCleanDirectProduction
-                          ? "Clean Baseline • Pending MAO Review"
-                          : record.kind === "production" && isPending && (record.requiresCbatVerification || record.nextReviewQueue === "CBAT")
-                            ? "Pending CBAT Verification"
-                            : record.kind === "census"
-                              ? "Pending MAO Review"
-                              : "Pending SIBAT Verification"}
+                        : record.kind === "census"
+                          ? "Pending MAO Review"
+                          : "Pending SIBAT Verification"}
               </span>
             </Badge>
           </div>

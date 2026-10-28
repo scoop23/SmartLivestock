@@ -62,11 +62,7 @@ export function ActiveDomainTable({
     return (
       <ProductionTable
         records={production}
-        selectedIds={selectedIds}
-        onToggleSelect={onToggleSelect}
-        onSelectAll={onSelectAll}
         onViewDetail={onViewDetail}
-        onReview={onReview}
       />
     );
   }

@@ -229,9 +229,7 @@ function SibatReviewDialogContent({
   let animalTagLabel = submission.tagNumber || "";
   let animalNotice = "Recorded in farm inventory.";
   const isProductionObservation = submission.sourceType === "PRODUCTION" && !submission.slaughterDetails;
-  const isCleanMilkForMao = isPending && isProductionObservation &&
-    submission.productionType?.toLowerCase() === "milk" &&
-    submission.anomalyAssessmentStatus === "CLEAN" && submission.nextReviewQueue === "MAO";
+  const isFarmerProduction = submission.sourceType === "PRODUCTION";
 
   if (submission.sourceType === "PRODUCTION" && submission.slaughterDetails?.animals?.length) {
     animalCount = submission.slaughterDetails.quantity || submission.slaughterDetails.animals.length;
@@ -384,7 +382,7 @@ function SibatReviewDialogContent({
                     : submission.sourceType === "CALVING"
                     ? "Verify Calving & Birthing Event"
                     : submission.sourceType === "PRODUCTION"
-                    ? "Review Harvest & Yield Log"
+                    ? "Farmer-reported Production"
                     : isBatch
                     ? "Review Herd"
                     : "Review Animal Submission"}
@@ -423,7 +421,7 @@ function SibatReviewDialogContent({
         </DialogHeader>
 
         {/* ═══ Top Stepper / Progress Bar ═══ */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-2.5 sm:p-3.5">
+        {!isFarmerProduction ? <div className="rounded-2xl border border-slate-200/80 bg-white p-2.5 sm:p-3.5">
           <div className="relative grid grid-cols-4 gap-1">
             {/* Connecting lines between centers of circles */}
             <div className="absolute top-3.5 left-[12.5%] right-[12.5%] h-[2px] -translate-y-1/2 flex pointer-events-none">
@@ -541,7 +539,11 @@ function SibatReviewDialogContent({
               </span>
             </div>
           </div>
-        </div>
+        </div> : (
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-50 px-4 py-3 text-xs text-slate-700">
+            Farmer-reported production remains separate from SIBAT/CBAT review. Any linked official slaughter report follows the municipal slaughter workflow.
+          </div>
+        )}
 
         {/* ═══ Main 2-Column Grid ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4 items-start">
@@ -829,16 +831,18 @@ function SibatReviewDialogContent({
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                      Field Verification
+                      {isFarmerProduction ? "Municipal Visibility" : "Field Verification"}
                     </h3>
                     <p className="text-[10.5px] sm:text-[11px] text-slate-500 truncate sm:whitespace-normal">
-                      Validate the information through in-person assessment.
+                      {isFarmerProduction
+                        ? "Farmer-reported production context. Official slaughter review is handled separately by MAO."
+                        : "Validate the information through in-person assessment."}
                     </p>
                   </div>
                 </div>
                 <div className="self-start sm:self-auto shrink-0">
-                  {isCleanMilkForMao ? (
-                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-sky-200 bg-sky-50 text-[10.5px] font-semibold text-sky-900">Routed directly to MAO</span>
+                  {isFarmerProduction ? (
+                    <span className="inline-block px-2.5 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-[10.5px] font-semibold text-slate-700">Farmer-reported · not verified</span>
                   ) : isPending ? (
                     <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#fef3c7] text-[#92400e] text-[10.5px] sm:text-[11px] font-semibold border border-amber-200/60 whitespace-nowrap">
                       Pending field review
@@ -869,13 +873,15 @@ function SibatReviewDialogContent({
                 <div className="min-w-0">
                   <h4 className="text-[11px] sm:text-xs font-bold text-[#1b4332]">Guidelines</h4>
                   <p className="text-[10.5px] sm:text-[11px] text-[#2d6a4f] mt-0.5 leading-relaxed">
-                    Confirm this submission against barangay logs before forwarding to MAO.
+                    {isFarmerProduction
+                      ? "This is a farmer-reported entry for municipal awareness. It does not need SIBAT/CBAT verification; official slaughter actions remain in the MAO workflow."
+                      : "Confirm this submission against barangay logs before forwarding to MAO."}
                   </p>
                 </div>
               </div>
 
               {/* Remarks Textarea */}
-              <div>
+              {!isFarmerProduction && <div>
                 <Label className="text-[11px] sm:text-xs font-semibold text-slate-700 block mb-1">
                   Verification Remarks (Optional)
                 </Label>
@@ -883,13 +889,13 @@ function SibatReviewDialogContent({
                   placeholder="Enter field observations or validation remarks..."
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
-                  disabled={!isPending || isCleanMilkForMao || reviewMutation.isPending}
+                  disabled={!isPending || reviewMutation.isPending}
                   className="min-h-[75px] sm:min-h-[85px] w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#1b4332] focus-visible:border-[#1b4332] resize-none shadow-2xs"
                 />
                 <p className="text-[10.5px] text-slate-500 mt-1 leading-relaxed">
                   Include observations on actual stock, weights, documents, or any discrepancies noted during the field check.
                 </p>
-              </div>
+              </div>}
 
               {/* Previous Review Info if Available */}
               {(submission.reviewedByName || submission.reviewedAt) && (
@@ -931,7 +937,7 @@ function SibatReviewDialogContent({
             </Button>
           )}
 
-          {isPending && !isCleanMilkForMao ? (
+          {isPending && !isFarmerProduction ? (
             <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <Button
                 type="button"
@@ -958,8 +964,8 @@ function SibatReviewDialogContent({
             </div>
           ) : (
             <span className="text-xs text-slate-500 font-medium italic text-center sm:text-right">
-              {isCleanMilkForMao
-                ? "Clean milk record is awaiting MAO approval; field verification is not required."
+              {isFarmerProduction
+                ? "Farmer production is visible for context only. This screen cannot verify or change its status."
                 : isReturned
                 ? "Awaiting farmer resubmission. SIBAT review becomes available when Pending."
                 : isVerified

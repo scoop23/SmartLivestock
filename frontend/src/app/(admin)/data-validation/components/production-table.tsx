@@ -3,7 +3,6 @@
 import { ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
 Table,
 TableBody,
@@ -21,43 +20,19 @@ Eye,
 Layers,
 MapPin,
 Milk,
-ShieldCheck,
 } from "lucide-react";
 import { DetailRecordData } from "../record-detail-dialog";
 import { getStatusPill } from "../validation-analytics";
-import { ReviewTargetItem } from "../validation-review-dialog";
 
 interface ProductionTableProps {
   records: ProductionRecordItem[];
-  selectedIds: (string | number)[];
-  onToggleSelect: (id: string | number) => void;
-  onSelectAll: (checked: boolean) => void;
   onViewDetail: (detail: DetailRecordData) => void;
-  onReview: (target: ReviewTargetItem) => void;
 }
 
 export function ProductionTable({
   records,
-  selectedIds,
-  onToggleSelect,
-  onSelectAll,
   onViewDetail,
-  onReview,
 }: ProductionTableProps) {
-  const isMaoReviewable = (record: ProductionRecordItem) => {
-    const statusNorm = (record.status || "PENDING").toUpperCase();
-    if (statusNorm === "VERIFIED") return true;
-    return (
-      statusNorm === "PENDING" &&
-      record.nextReviewQueue === "MAO" &&
-      !record.requiresCbatVerification &&
-      record.anomalyAssessmentStatus === "CLEAN"
-    );
-  };
-
-  const reviewableRecords = records.filter(isMaoReviewable);
-  const allSelected =
-    reviewableRecords.length > 0 && reviewableRecords.every((record) => selectedIds.includes(record.id));
 
   const buildDetailPayload = (prod: ProductionRecordItem): DetailRecordData => ({
     kind: "production",
@@ -94,13 +69,7 @@ export function ProductionTable({
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-b border-gray-100">
-                <TableHead className="w-14 px-6 py-5 text-center">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={(checked) => onSelectAll(Boolean(checked))}
-                    className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
-                  />
-                </TableHead>
+                <TableHead className="w-14 px-6 py-5 text-center">History</TableHead>
                 <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                   Farmer / Raiser
                 </TableHead>
@@ -132,36 +101,22 @@ export function ProductionTable({
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <CheckCircle2 className="w-10 h-10 text-green-500" />
                       <p className="text-sm font-bold text-gray-800">No production logs found</p>
-                      <p className="text-xs text-gray-400 font-medium">All submitted farmer yields are verified.</p>
+                    <p className="text-xs text-gray-400 font-medium">Farmer production logs are informational and do not require municipal review.</p>
                     </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 records.map((prod) => {
-                  const isSelected = selectedIds.includes(prod.id);
                   const statusNorm = (prod.status || "PENDING").toUpperCase();
-                  const isCleanDirectToMao =
-                    statusNorm === "PENDING" &&
-                    prod.nextReviewQueue === "MAO" &&
-                    !prod.requiresCbatVerification &&
-                    prod.anomalyAssessmentStatus === "CLEAN";
-                  const canReview = isMaoReviewable(prod);
                   const detailPayload = buildDetailPayload(prod);
 
                   return (
                     <TableRow
                       key={prod.id}
-                      className={`group hover:bg-gray-50/80 transition-all border-none ${
-                        isSelected ? "bg-green-50/40" : ""
-                      }`}
+                      className="group hover:bg-gray-50/80 transition-all border-none"
                     >
                       <TableCell className="px-6 py-5 text-center">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => onToggleSelect(prod.id)}
-                          disabled={!canReview}
-                          className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
-                        />
+                        <span className="text-[9px] font-bold uppercase text-slate-400">View only</span>
                       </TableCell>
 
                       <TableCell className="px-8 py-5">
@@ -222,60 +177,17 @@ export function ProductionTable({
                           className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${getStatusPill(prod.status).bg}`}
                         >
                           <span className={`size-1.5 rounded-full mr-1.5 ${getStatusPill(prod.status).dot}`} />
-                          {getStatusPill(prod.status).label}
+                          {statusNorm === "PENDING" ? "Legacy Pending" : statusNorm === "VERIFIED" ? "Legacy Verified" : getStatusPill(prod.status).label}
                         </Badge>
                         {statusNorm === "VERIFIED" && prod.reviewedByName && (
                           <span className="block text-[8px] text-sky-700 font-bold tracking-tight mt-0.5">
                             By {prod.reviewedByName} ({prod.reviewedByRole || "SIBAT"})
                           </span>
                         )}
-                        {isCleanDirectToMao && (
-                          <span className="block text-[8px] text-emerald-700 font-bold tracking-tight mt-0.5">
-                            Clean Baseline • Direct to MAO
-                          </span>
-                        )}
-                        {statusNorm === "PENDING" && (prod.requiresCbatVerification || prod.nextReviewQueue === "CBAT") && (
-                          <span className="block text-[8px] text-amber-700 font-bold tracking-tight mt-0.5">
-                            Awaiting CBAT Verification
-                          </span>
-                        )}
                       </TableCell>
 
                       <TableCell className="px-8 py-5 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            disabled={!canReview}
-                            onClick={() =>
-                              onReview({
-                                id: prod.id,
-                                domain: "production",
-                                title: `${prod.farmerName || "Farmer"} — ${prod.productionType.toUpperCase()}`,
-                                farmerOrSubmitter: prod.farmerName || "Registered Farmer",
-                                barangay: prod.barangayName || "Batangas",
-                                keyMetric: `${prod.quantity} ${prod.unit}`,
-                                currentRemarks: prod.reviewRemarks,
-                              })
-                            }
-                            title={
-                              prod.status === "VERIFIED"
-                                ? "MAO Approve SIBAT-Verified Record"
-                                : prod.status === "PENDING"
-                                ? "Validate & Certify"
-                                : "Re-evaluate Determination"
-                            }
-                            className={`h-9 w-9 rounded-xl transition-all cursor-pointer ${
-                              prod.status === "VERIFIED"
-                                ? "text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100"
-                                : prod.status === "PENDING"
-                                ? "text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100"
-                                : "text-gray-400 hover:text-gray-900 hover:bg-gray-100"
-                            }`}
-                          >
-                            <ShieldCheck size={17} />
-                          </Button>
-
                           <Button
                             variant="ghost"
                             size="icon"
@@ -298,71 +210,25 @@ export function ProductionTable({
 
       {/* ── MOBILE CARD LIST VIEW (under md) ── */}
       <div className="md:hidden space-y-3">
-        {/* Mobile Header with Select All */}
-        {records.length > 0 && (
-          <div className="flex items-center justify-between px-2.5 py-1">
-            <label className="flex items-center gap-2.5 cursor-pointer select-none">
-              <div className="-m-2 p-2 flex items-center justify-center">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={(checked) => onSelectAll(Boolean(checked))}
-                  className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
-                />
-              </div>
-              <span className="text-[11px] font-black uppercase tracking-wider text-gray-500">
-                Select All ({records.length})
-              </span>
-            </label>
-            <span className="text-[10px] font-bold text-gray-400">
-              {records.length} {records.length === 1 ? "record" : "records"}
-            </span>
-          </div>
-        )}
-
         {records.length === 0 ? (
           <div className="bg-white rounded-3xl p-8 text-center shadow-sm border border-gray-100 space-y-2">
             <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto" />
             <p className="text-sm font-bold text-gray-800">No production logs found</p>
-            <p className="text-xs text-gray-400">All submitted farmer yields are verified.</p>
+            <p className="text-xs text-gray-400">Farmer production logs are informational and do not require municipal review.</p>
           </div>
         ) : (
           records.map((prod) => {
-            const isSelected = selectedIds.includes(prod.id);
             const statusNorm = (prod.status || "PENDING").toUpperCase();
-            const isCleanDirectToMao =
-              statusNorm === "PENDING" &&
-              prod.nextReviewQueue === "MAO" &&
-              !prod.requiresCbatVerification &&
-              prod.anomalyAssessmentStatus === "CLEAN";
-            const canReview = isMaoReviewable(prod);
             const detailPayload = buildDetailPayload(prod);
 
             return (
               <div
                 key={prod.id}
-                className={`bg-white rounded-3xl p-4 shadow-sm border transition-all space-y-3 ${
-                  isSelected
-                    ? "border-[#2D5A27] bg-green-50/30 ring-1 ring-green-200/60 shadow-xs"
-                    : "border-gray-100"
-                }`}
+                className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 space-y-3"
               >
                 {/* Header Row */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="-m-2 p-2 flex items-center justify-center cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (canReview) onToggleSelect(prod.id);
-                      }}
-                    >
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => onToggleSelect(prod.id)}
-                        disabled={!canReview}
-                        className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27] shrink-0"
-                      />
-                    </div>
                     <div className="w-10 h-10 rounded-xl bg-green-100 text-[#2D5A27] flex items-center justify-center shrink-0">
                       {prod.productionType === "milk" ? (
                         <Milk size={20} />
@@ -387,7 +253,7 @@ export function ProductionTable({
                     className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full shrink-0 ${getStatusPill(prod.status).bg}`}
                   >
                     <span className={`size-1.5 rounded-full mr-1.5 ${getStatusPill(prod.status).dot}`} />
-                    {getStatusPill(prod.status).label}
+                    {statusNorm === "PENDING" ? "Legacy Pending" : statusNorm === "VERIFIED" ? "Legacy Verified" : getStatusPill(prod.status).label}
                   </Badge>
                 </div>
 
@@ -395,18 +261,6 @@ export function ProductionTable({
                   <div className="text-[10px] text-sky-800 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100 flex items-center justify-between">
                     <span className="font-bold">Verified by {prod.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"} Officer</span>
                     <span className="font-mono font-bold">{prod.reviewedByName}</span>
-                  </div>
-                )}
-                {isCleanDirectToMao && (
-                  <div className="text-[10px] text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100 flex items-center justify-between">
-                    <span className="font-bold">Clean Milk Baseline</span>
-                    <span className="font-mono font-bold">Routed Direct to MAO</span>
-                  </div>
-                )}
-                {statusNorm === "PENDING" && (prod.requiresCbatVerification || prod.nextReviewQueue === "CBAT") && (
-                  <div className="text-[10px] text-amber-800 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-100 flex items-center justify-between">
-                    <span className="font-bold">Anomaly Flagged</span>
-                    <span className="font-mono font-bold">Awaiting CBAT Verification</span>
                   </div>
                 )}
 
@@ -449,40 +303,7 @@ export function ProductionTable({
                     <span>Details</span>
                   </Button>
 
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={!canReview}
-                    onClick={() =>
-                      onReview({
-                        id: prod.id,
-                        domain: "production",
-                        title: `${prod.farmerName || "Farmer"} — ${prod.productionType.toUpperCase()}`,
-                        farmerOrSubmitter: prod.farmerName || "Registered Farmer",
-                        barangay: prod.barangayName || "Batangas",
-                        keyMetric: `${prod.quantity} ${prod.unit}`,
-                        currentRemarks: prod.reviewRemarks,
-                      })
-                    }
-                    className={`flex-1 py-2.5 h-auto rounded-xl text-xs font-bold gap-1.5 shadow-xs ${
-                      prod.status === "VERIFIED"
-                        ? "bg-sky-700 hover:bg-sky-800 text-white"
-                        : prod.status === "PENDING"
-                        ? "bg-[#2D5A27] hover:bg-[#23471f] text-white"
-                        : "bg-gray-900 hover:bg-gray-800 text-white"
-                    }`}
-                  >
-                    <ShieldCheck size={15} />
-                    <span>
-                      {prod.status === "VERIFIED"
-                        ? "MAO Approve"
-                        : isCleanDirectToMao
-                        ? "MAO Approve"
-                        : prod.status === "PENDING"
-                        ? "Awaiting Field"
-                        : "Re-evaluate"}
-                    </span>
-                  </Button>
+                  <span className="flex-1 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">History only</span>
                 </div>
               </div>
             );
