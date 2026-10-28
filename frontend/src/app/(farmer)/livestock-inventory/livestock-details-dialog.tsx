@@ -23,11 +23,9 @@ import {
   Calendar,
   Check,
   CheckCircle2,
-  Clock,
   Copy,
   Droplets,
   ExternalLink,
-  HeartHandshake,
   HelpCircle,
   Hourglass,
   Info,
@@ -38,7 +36,6 @@ import {
   Radio,
   Scale,
   ShieldCheck,
-  Sparkles,
   Tag,
   TrendingUp,
   Users,
@@ -190,7 +187,7 @@ export default function LivestockDetailsDialog({
 }: LivestockDetailsDialogProps) {
   const router = useRouter();
   const animalId = livestock?.id ? Number(livestock.id) : null;
-  const [activeTab, setActiveTab] = useState<"overview" | "yields" | "weight" | "calves" | "reproduction" | "medical">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "yields" | "weight" | "calves" | "medical">("overview");
   const [copiedTag, setCopiedTag] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [prevAnimalId, setPrevAnimalId] = useState<number | null>(null);
@@ -551,7 +548,7 @@ export default function LivestockDetailsDialog({
   };
 
   const handleTabClick = (
-    tab: "overview" | "yields" | "weight" | "calves" | "reproduction" | "medical",
+    tab: "overview" | "yields" | "weight" | "calves" | "medical",
     e: React.MouseEvent<HTMLButtonElement>
   ) => {
     setActiveTab(tab);
@@ -645,32 +642,20 @@ export default function LivestockDetailsDialog({
         {/* ═══ 1. HEADER SECTION (Mobile-responsive flex flow) ═══ */}
         <div
           data-tour="details-header"
-          className="p-4 sm:p-6 bg-white border-b border-slate-100 relative shrink-0"
+          className="p-5 sm:p-6 bg-white border-b border-slate-100 relative shrink-0"
         >
-          {/* Close Modal Icon - Fixed at Top Right */}
-          <DialogClose asChild>
-            <button
-              type="button"
-              onClick={onOpenChange}
-              className="absolute top-3.5 right-3.5 sm:top-5 sm:right-5 z-20 size-9 sm:size-10 rounded-full bg-slate-100/90 hover:bg-slate-200 active:bg-slate-300 text-slate-500 hover:text-slate-800 transition-all flex items-center justify-center cursor-pointer shadow-2xs focus:outline-none focus:ring-2 focus:ring-slate-400"
-              aria-label="Close modal"
-            >
-              <X className="size-4.5 sm:size-5 stroke-[2.5]" />
-            </button>
-          </DialogClose>
-
-          {/* Top Row: Avatar + Title + Status Badges */}
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 pr-12 sm:pr-16">
+          {/* Top Row: Avatar + Title + Status Badges + Close Button */}
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             {/* Left: Photo/Avatar & Identifiers */}
-            <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+            <div className="flex items-start gap-3.5 sm:gap-4 min-w-0">
               {/* Tactile Avatar Badge (R2 Photo or Fallback to Species Avatar) */}
               <div className="relative shrink-0">
                 <div
                   className={cn(
-                    "size-14 sm:size-16 rounded-xl sm:rounded-2xl border flex items-center justify-center shadow-2xs overflow-hidden group transition-all",
+                    "size-16 sm:size-20 rounded-2xl border flex items-center justify-center shadow-xs overflow-hidden group transition-all",
                     hasPhoto
                       ? "border-slate-200/90 bg-slate-100"
-                      : cn("border-amber-200/70 bg-gradient-to-br", avatar.bgGradient)
+                      : cn("border-amber-200/80 bg-amber-50", avatar.bgGradient)
                   )}
                 >
                   {hasPhoto ? (
@@ -693,7 +678,7 @@ export default function LivestockDetailsDialog({
                     /* Illustrated Cattle SVG Icon matching reference */
                     <svg
                       viewBox="0 0 64 64"
-                      className="w-9 h-9 sm:w-10 sm:h-10 text-amber-800"
+                      className="w-10 h-10 sm:w-12 sm:h-12 text-amber-800"
                       fill="currentColor"
                     >
                       <path
@@ -708,7 +693,7 @@ export default function LivestockDetailsDialog({
 
                 {/* Sub-badge: RFID chip active */}
                 <span
-                  className="absolute -bottom-1 -right-1 size-5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-white text-[10px] shadow-2xs"
+                  className="absolute -bottom-1 -right-1 size-5 sm:size-6 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-white text-[10px] sm:text-[11px] shadow-xs"
                   title="RFID Tag Active"
                 >
                   <Radio className="size-3 stroke-[2.5]" />
@@ -716,15 +701,15 @@ export default function LivestockDetailsDialog({
               </div>
 
               {/* Metadata & Tag Code */}
-              <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight truncate">
+              <div className="space-y-1.5 min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight truncate">
                     {titleText}
                   </h1>
                   <button
                     type="button"
                     onClick={handleCopyEarTag}
-                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
                     title="Copy Ear Tag ID"
                   >
                     {copiedTag ? <Check className="size-4 text-emerald-600" /> : <Copy className="size-4" />}
@@ -732,7 +717,7 @@ export default function LivestockDetailsDialog({
                 </div>
 
                 <div className="text-xs sm:text-sm text-slate-600 flex flex-wrap items-center gap-1.5 sm:gap-2">
-                  <span className="inline-flex items-center gap-1 text-slate-900 font-bold">
+                  <span className="inline-flex items-center gap-1.5 text-slate-900 font-bold">
                     <Tag className="text-emerald-700 size-3 sm:size-3.5 fill-emerald-700" />
                     {activeLivestock?.livestockTypeName || "Livestock"}
                   </span>
@@ -754,7 +739,7 @@ export default function LivestockDetailsDialog({
                     return (
                       <>
                         <span className="text-slate-300">•</span>
-                        <span className={`inline-flex items-center gap-1 font-semibold px-1.5 sm:px-2 py-0.5 rounded-md text-[11px] sm:text-xs border ${badgeClass}`}>
+                        <span className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-md text-[11px] sm:text-xs border ${badgeClass}`}>
                           {isFemale ? (
                             <>
                               <span className="text-rose-500 font-bold">♀</span> Female
@@ -778,13 +763,13 @@ export default function LivestockDetailsDialog({
               </div>
             </div>
 
-            {/* Right: Badges & Actions */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100 sm:border-0">
+            {/* Right: Badges & Actions + Close Button */}
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
               {/* Tutorial Button */}
               <button
                 type="button"
                 onClick={startDetailsTour}
-                className="min-h-[34px] sm:min-h-auto px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200/90 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <HelpCircle className="size-3.5 text-slate-400" />
                 <span>Tutorial</span>
@@ -793,7 +778,7 @@ export default function LivestockDetailsDialog({
               {/* Status Badges */}
               <span
                 className={cn(
-                  "min-h-[34px] sm:min-h-auto px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 shadow-2xs",
+                  "px-3 py-1.5 rounded-full text-xs font-bold tracking-wide inline-flex items-center gap-1.5 shadow-xs",
                   isApproved
                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200/90"
                     : "bg-amber-50 text-amber-800 border border-amber-200/90"
@@ -805,7 +790,7 @@ export default function LivestockDetailsDialog({
 
               <span
                 className={cn(
-                  "min-h-[34px] sm:min-h-auto px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 shadow-2xs",
+                  "px-3 py-1.5 rounded-full text-xs font-bold tracking-wide inline-flex items-center gap-1.5 shadow-xs",
                   operationalLabel === "DECEASED"
                     ? "bg-slate-100 text-slate-800 border border-slate-300"
                     : "bg-sky-50 text-sky-700 border border-sky-200/90"
@@ -815,27 +800,17 @@ export default function LivestockDetailsDialog({
                 <span>{operationalLabel === "ACTIVE" ? "ACTIVE HERD" : operationalLabel}</span>
               </span>
 
-              {/* Official Reproductive Status Badge (Phase 3 & 9) */}
-              {reproSummary?.reproductive_status && (
-                <span
-                  className={cn(
-                    "min-h-[34px] sm:min-h-auto px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 shadow-2xs border",
-                    reproSummary.reproductive_status.status === "PREGNANT"
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                      : reproSummary.reproductive_status.status === "EXPOSED"
-                      ? "bg-amber-50 text-amber-800 border-amber-300"
-                      : reproSummary.reproductive_status.status === "COMPLETE"
-                      ? "bg-sky-50 text-sky-800 border-sky-300"
-                      : reproSummary.reproductive_status.status === "NOT_APPLICABLE"
-                      ? "bg-slate-100 text-slate-600 border-slate-200"
-                      : "bg-slate-50 text-slate-700 border-slate-300"
-                  )}
-                  title={reproSummary.reproductive_status.explanation}
+              {/* Close Modal Icon */}
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  onClick={onOpenChange}
+                  className="size-9 sm:size-10 rounded-full bg-slate-100/90 hover:bg-slate-200 active:bg-slate-300 text-slate-400 hover:text-slate-700 transition-all flex items-center justify-center cursor-pointer shadow-xs focus:outline-none focus:ring-2 focus:ring-slate-400 shrink-0 ml-1"
+                  aria-label="Close modal"
                 >
-                  <HeartHandshake className="size-3.5" />
-                  <span>{reproSummary.reproductive_status.label}</span>
-                </span>
-              )}
+                  <X className="size-4.5 sm:size-5 stroke-[2.5]" />
+                </button>
+              </DialogClose>
             </div>
           </div>
 
@@ -912,32 +887,6 @@ export default function LivestockDetailsDialog({
               <span className="px-1.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-slate-100 text-slate-400 border border-slate-200/60">
                 {animalCalves.length}
               </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={(e) => handleTabClick("reproduction", e)}
-              className={cn(
-                "shrink-0 whitespace-nowrap min-h-[36px] sm:min-h-[38px] px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-tight transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer",
-                effectiveTab === "reproduction"
-                  ? "bg-slate-900 text-white shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
-              )}
-            >
-              <HeartHandshake className="size-3.5" />
-              <span>Reproduction</span>
-              {reproSummary?.reproductive_status && (
-                <span className={cn(
-                  "px-1.5 py-0.5 rounded-full text-[10px] font-bold border",
-                  reproSummary.reproductive_status.status === "PREGNANT"
-                    ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                    : reproSummary.reproductive_status.status === "EXPOSED"
-                    ? "bg-amber-100 text-amber-800 border-amber-200"
-                    : "bg-slate-100 text-slate-600 border-slate-200"
-                )}>
-                  {reproSummary.reproductive_status.label}
-                </span>
-              )}
             </button>
 
             <button
@@ -1182,13 +1131,15 @@ export default function LivestockDetailsDialog({
                       {formatAgeClassification(activeLivestock?.ageClassification) || "Livestock"}
                     </span>
                     <span className="text-[10px] font-mono text-slate-500 mt-0.5 block truncate">
-                      {activeLivestock?.sex || "Sex unrecorded"} • {activeLivestock?.entryType === "INDIVIDUAL" ? "Individual Animal" : "Herd Stock"}
+                      {reproSummary?.reproductive_status?.cycle_number
+                        ? `Active Lactation Cycle #${reproSummary.reproductive_status.cycle_number}`
+                        : `${activeLivestock?.sex || "Sex unrecorded"} • ${activeLivestock?.entryType === "INDIVIDUAL" ? "Individual Animal" : "Herd Stock"}`}
                     </span>
                   </div>
                 </div>
 
                 {/* Tile 6: Vaccination Status */}
-                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-emerald-50/40 border border-emerald-200/90 hover:border-emerald-300 transition-all flex flex-col justify-between shadow-2xs min-h-[96px] sm:min-h-[105px]">
+                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-emerald-50/30 border border-emerald-300 hover:border-emerald-400 transition-all flex flex-col justify-between shadow-2xs min-h-[96px] sm:min-h-[105px]">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono font-bold text-emerald-800 uppercase tracking-wider">
                       VACCINATION STATUS
@@ -1196,7 +1147,7 @@ export default function LivestockDetailsDialog({
                     <ShieldCheck className="size-4 text-emerald-600" />
                   </div>
                   <div className="mt-1">
-                    <span className="text-xs sm:text-sm md:text-base font-bold text-emerald-950 tracking-tight block truncate">
+                    <span className="text-sm sm:text-base font-bold text-slate-900 tracking-tight block truncate">
                       {activeLivestock?.lastVaccinationDate
                         ? `Vaccinated (${formatCalendarDate(activeLivestock.lastVaccinationDate)})`
                         : "Unvaccinated / Pending"}
@@ -1428,152 +1379,7 @@ export default function LivestockDetailsDialog({
             </div>
           )}
 
-          {/* TAB 5: REPRODUCTION & BREEDING LIFECYCLE (Phases 3, 4, 7, 8) */}
-          {effectiveTab === "reproduction" && (
-            <div className="space-y-4 font-mono text-xs">
-              {/* Reproductive Status Overview Card */}
-              {reproSummary?.reproductive_status ? (
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 text-sm">Authoritative Reproductive Status</span>
-                      <span className={cn(
-                        "px-2.5 py-0.5 rounded-full text-xs font-bold border",
-                        reproSummary.reproductive_status.status === "PREGNANT"
-                          ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                          : reproSummary.reproductive_status.status === "EXPOSED"
-                          ? "bg-amber-100 text-amber-800 border-amber-300"
-                          : reproSummary.reproductive_status.status === "COMPLETE"
-                          ? "bg-sky-100 text-sky-800 border-sky-300"
-                          : reproSummary.reproductive_status.status === "NOT_APPLICABLE"
-                          ? "bg-slate-100 text-slate-600 border-slate-200"
-                          : "bg-slate-100 text-slate-700 border-slate-300"
-                      )}>
-                        {reproSummary.reproductive_status.label}
-                      </span>
-                    </div>
-                    {reproSummary.reproductive_status.cycle_number > 0 && (
-                      <span className="text-[11px] text-slate-500 font-semibold">
-                        Reproductive Cycle #{reproSummary.reproductive_status.cycle_number}
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {reproSummary.reproductive_status.explanation}
-                  </p>
-
-                  {/* Gestation Window & Calving Prediction (Phase 8) */}
-                  {reproSummary.reproductive_status.expected_calving_date && (
-                    <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1.5 text-xs">
-                      <div className="flex items-center justify-between font-bold text-amber-950">
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="size-4 text-amber-700" />
-                          Estimated Calving Date:
-                        </span>
-                        <span className="text-sm font-black text-amber-900">
-                          {formatCalendarDate(reproSummary.reproductive_status.expected_calving_date)}
-                        </span>
-                      </div>
-                      {reproSummary.reproductive_status.gestation_window && (
-                        <p className="text-[11px] text-amber-800">
-                          Expected Window: {formatCalendarDate(reproSummary.reproductive_status.gestation_window.start)} – {formatCalendarDate(reproSummary.reproductive_status.gestation_window.end)}
-                          {" "}(Biological variance: ±10 days based on species reference).
-                        </p>
-                      )}
-                      <p className="text-[10px] text-amber-700 italic">
-                        * Note: This date is a biological estimate derived from the recorded breeding date. It does not replace clinical ultrasound confirmation.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Herd Bull Exposure Check (Phase 4) */}
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
-                    <div className="flex items-center justify-between font-bold text-slate-800">
-                      <span className="flex items-center gap-1.5">
-                        <Users className="size-3.5 text-slate-600" />
-                        Current Herd Bull Exposure:
-                      </span>
-                      <span className={reproSummary.bull_herd_exposure.has_exposure ? "text-amber-800" : "text-slate-500"}>
-                        {reproSummary.bull_herd_exposure.has_exposure
-                          ? `Exposed in ${reproSummary.bull_herd_exposure.batch_name || "Herd"}`
-                          : "No Active Sire Bull in Current Pen"}
-                      </span>
-                    </div>
-                    {reproSummary.bull_herd_exposure.bull_tags.length > 0 && (
-                      <p className="text-[11px] text-slate-600">
-                        Active Sire Bull(s): <strong className="text-slate-800">{reproSummary.bull_herd_exposure.bull_tags.join(", ")}</strong>
-                      </p>
-                    )}
-                    <p className="text-[10px] text-slate-400 italic">
-                      SmartLivestock enforces strict pen/herd boundaries. Exposure is never inferred merely because animals share a farm or barangay.
-                    </p>
-                  </div>
-
-                  {/* AI Conception Prediction Governance Banner (Phase 7) */}
-                  <div className="p-3 rounded-xl bg-sky-50/60 border border-sky-200 text-xs space-y-1">
-                    <div className="flex items-center justify-between font-bold text-sky-950">
-                      <span className="flex items-center gap-1.5">
-                        <Sparkles className="size-3.5 text-sky-600" />
-                        Conception Likelihood Model:
-                      </span>
-                      <span className="px-2 py-0.5 rounded text-[10px] bg-sky-100 text-sky-800">
-                        {reproSummary.conception_prediction.prediction_status === "BLOCKED_PENDING_DATA" ? "Deferred (Data Collection)" : "Active"}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-sky-800">
-                      {reproSummary.conception_prediction.message}
-                    </p>
-                    <p className="text-[10px] text-sky-700 italic">
-                      {reproSummary.conception_prediction.disclaimer}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-slate-400">Loading reproductive profile...</div>
-              )}
-
-              {/* Unified Chronological Timeline (Phase 2 & 5) */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
-                <h4 className="font-bold text-slate-900 text-xs sm:text-sm flex items-center gap-2">
-                  <Calendar className="size-4 text-emerald-700" />
-                  <span>Unified Reproductive & Clinical History</span>
-                </h4>
-
-                {reproSummary?.unified_timeline && reproSummary.unified_timeline.length > 0 ? (
-                  <div className="relative pl-6 space-y-3 border-l-2 border-slate-200">
-                    {reproSummary.unified_timeline.map((evt, idx) => (
-                      <div key={idx} className="relative group">
-                        <div className={cn(
-                          "absolute -left-[31px] top-1 size-3.5 rounded-full border-2 border-white",
-                          evt.type === "PREGNANCY_CHECK"
-                            ? "bg-emerald-600"
-                            : evt.type === "CALVING"
-                            ? "bg-sky-600"
-                            : evt.type === "TREATMENT"
-                            ? "bg-purple-600"
-                            : "bg-amber-500"
-                        )} />
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-slate-900">{evt.title}</span>
-                            <span className="text-[10px] text-slate-400">{formatCalendarDate(evt.date)}</span>
-                          </div>
-                          <p className="text-[11px] text-slate-600 mt-0.5">{evt.details}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400 italic py-2">
-                    No historical breeding, pregnancy diagnoses, calvings, or treatments logged yet for this animal.
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 6: VACCINES & HEALTH (Integrated with Clinical Treatments - Phase 5) */}
+          {/* TAB 5: VACCINES & HEALTH (Integrated with Clinical Treatments) */}
           {effectiveTab === "medical" && (
             <div className="space-y-3 font-mono text-xs">
               {/* Top Action to Log Treatment */}
