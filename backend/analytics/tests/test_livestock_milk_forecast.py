@@ -69,7 +69,7 @@ class LivestockMilkForecastApiTests(TestCase):
                 quantity=Decimal("8.00") + Decimal(index % 5) / Decimal("10"),
                 unit=ProductionRecord.UnitType.LITERS,
                 record_date=start + timedelta(days=index),
-                status=ProductionRecord.ProductionStatus.APPROVED,
+                status=ProductionRecord.ProductionStatus.RECORDED,
                 created_by=farmer.user,
             )
             for index in range(count)
@@ -79,7 +79,7 @@ class LivestockMilkForecastApiTests(TestCase):
         response = self._request(self.user_a)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], "NOT_READY")
-        self.assertEqual(response.data["data_source"], "approved_livestock_records")
+        self.assertEqual(response.data["data_source"], "farmer_recorded_livestock_logs")
         self.assertEqual(response.data["forecast"], [])
         self.assertEqual(response.data["observation_count"], 0)
 
@@ -88,11 +88,18 @@ class LivestockMilkForecastApiTests(TestCase):
         response = self._request(self.user_a)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], "READY")
-        self.assertEqual(response.data["data_source"], "approved_livestock_records")
+        self.assertEqual(response.data["data_source"], "farmer_recorded_livestock_logs")
         self.assertEqual(len(response.data["forecast"]), 7)
         forecast_dates = [date.fromisoformat(row["date"]) for row in response.data["forecast"]]
         self.assertEqual(forecast_dates[0], timezone.localdate() + timedelta(days=1))
         self.assertEqual(forecast_dates, [forecast_dates[0] + timedelta(days=offset) for offset in range(7)])
+
+    def test_farmer_recorded_milk_logs_feed_the_owner_scoped_forecast(self):
+        self._add_daily_milk_history()
+        response = self._request(self.user_a, self.cow.pk)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["data_source"], "farmer_recorded_livestock_logs")
+        self.assertEqual(response.data["observation_count"], 65)
         self.assertGreaterEqual(response.data["evaluation"]["train_samples"], 20)
         self.assertGreaterEqual(response.data["evaluation"]["test_samples"], 10)
 

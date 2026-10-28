@@ -9,7 +9,6 @@ Egg,
 Milk,
 Package,
 Scale,
-ShieldCheck,
 TrendingUp,
 Users
 } from "lucide-react";
@@ -41,11 +40,14 @@ export default function SpeciesKpiCards({
   const effectiveType = (activity || productionType)?.toLowerCase();
 
   const metrics = useMemo(() => {
+    const eligibleProductionRecords = productionRecords.filter((record) =>
+      (record.status || "").toUpperCase() === "RECORDED"
+    );
     const totalHeads = inventories.reduce(
       (sum, item) => sum + (item.quantity || 1),
       0
     );
-    const totalRecords = productionRecords.length;
+    const totalRecords = eligibleProductionRecords.length;
     const totalOffspring = calvingRecords.length;
     const femaleInventories = inventories.filter(
       (i) =>
@@ -59,46 +61,46 @@ export default function SpeciesKpiCards({
     );
 
     // Yield aggregation
-    const milkRecords = productionRecords.filter((r) => r.productionType === "milk");
-    const meatRecords = productionRecords.filter((r) => r.productionType === "meat");
-    const eggRecords = productionRecords.filter((r) => r.productionType === "eggs");
-    const woolRecords = productionRecords.filter((r) => r.productionType === "wool");
+    const milkRecords = eligibleProductionRecords.filter((r) => r.productionType === "milk");
+    const meatRecords = eligibleProductionRecords.filter((r) => r.productionType === "meat");
+    const eggRecords = eligibleProductionRecords.filter((r) => r.productionType === "eggs");
+    const woolRecords = eligibleProductionRecords.filter((r) => r.productionType === "wool");
 
     const totalMilk = milkRecords.reduce((sum, r) => sum + Number(r.quantity || 0), 0);
     const totalMeat = meatRecords.reduce((sum, r) => sum + Number(r.quantity || 0), 0);
     const totalEggs = eggRecords.reduce((sum, r) => sum + Number(r.quantity || 0), 0);
     const totalWool = woolRecords.reduce((sum, r) => sum + Number(r.quantity || 0), 0);
 
-    const verifiedMilk = milkRecords.filter((r) => ["APPROVED", "RECORDED"].includes(r.status)).reduce((sum, r) => sum + Number(r.quantity || 0), 0);
-    const pendingMilk = milkRecords.filter((r) => !["APPROVED", "RECORDED"].includes(r.status)).reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+    const verifiedMilk = totalMilk;
+    const pendingMilk = 0;
 
-    const verifiedMeat = meatRecords.filter((r) => ["APPROVED", "RECORDED"].includes(r.status)).reduce((sum, r) => sum + Number(r.quantity || 0), 0);
-    const pendingMeat = meatRecords.filter((r) => !["APPROVED", "RECORDED"].includes(r.status)).reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+    const verifiedMeat = totalMeat;
+    const pendingMeat = 0;
     const meatRecordCount = meatRecords.length;
     const avgMeatPerRecord =
       meatRecordCount > 0 ? (totalMeat / meatRecordCount).toFixed(1) : null;
-    const approvedMeatCount = meatRecords.filter((r) => ["APPROVED", "RECORDED"].includes(r.status)).length;
+    const approvedMeatCount = meatRecordCount;
 
-    const verifiedEggs = eggRecords.filter((r) => ["APPROVED", "RECORDED"].includes(r.status)).reduce((sum, r) => sum + Number(r.quantity || 0), 0);
-    const pendingEggs = eggRecords.filter((r) => !["APPROVED", "RECORDED"].includes(r.status)).reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+    const verifiedEggs = totalEggs;
+    const pendingEggs = 0;
 
-    const verifiedWool = woolRecords.filter((r) => ["APPROVED", "RECORDED"].includes(r.status)).reduce((sum, r) => sum + Number(r.quantity || 0), 0);
-    const pendingWool = woolRecords.filter((r) => !["APPROVED", "RECORDED"].includes(r.status)).reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+    const verifiedWool = totalWool;
+    const pendingWool = 0;
 
     const eggRecordCount = eggRecords.length;
     const avgEggsPerRecord =
       eggRecordCount > 0 ? (totalEggs / eggRecordCount).toFixed(0) : null;
-    const approvedEggCount = eggRecords.filter((r) => ["APPROVED", "RECORDED"].includes(r.status)).length;
+    const approvedEggCount = eggRecordCount;
 
     const woolRecordCount = woolRecords.length;
     const avgWoolPerRecord =
       woolRecordCount > 0 ? (totalWool / woolRecordCount).toFixed(1) : null;
-    const approvedWoolCount = woolRecords.filter((r) => ["APPROVED", "RECORDED"].includes(r.status)).length;
+    const approvedWoolCount = woolRecordCount;
 
     const milkRecordCount = milkRecords.length;
     const avgMilkPerRecord =
       milkRecordCount > 0 ? (totalMilk / milkRecordCount).toFixed(1) : null;
-    const approvedMilkCount = milkRecords.filter((r) => ["APPROVED", "RECORDED"].includes(r.status)).length;
+    const approvedMilkCount = milkRecordCount;
 
     // Average birth weight
     const validBirthWeights = calvingRecords
@@ -122,11 +124,10 @@ export default function SpeciesKpiCards({
         ? (validWeights.reduce((a, b) => a + b, 0) / validWeights.length).toFixed(1)
         : null;
 
-    // Approved percentage
-    const approvedCount = productionRecords.filter((r) => ["APPROVED", "RECORDED"].includes(r.status)).length;
-    const pendingRecordsCount = productionRecords.filter((r) => r.status === "PENDING" || r.status === "VERIFIED").length;
-    const approvalRate =
-      totalRecords > 0 ? Math.round((approvedCount / totalRecords) * 100) : 100;
+    // Old review states remain visible in history, but are not routine production analytics.
+    const legacyReviewCount = productionRecords.filter(
+      (record) => !["RECORDED", "APPROVED"].includes((record.status || "").toUpperCase())
+    ).length;
 
     return {
       totalHeads,
@@ -157,12 +158,11 @@ export default function SpeciesKpiCards({
       milkRecordCount,
       avgMilkPerRecord,
       approvedMilkCount,
-      pendingRecordsCount,
+      legacyReviewCount,
       avgBirthWeight,
       femaleOffspringCount,
       maleOffspringCount,
       avgWeight: avgWeight !== "0.0" && avgWeight !== "NaN" ? avgWeight : null,
-      approvalRate,
     };
   }, [inventories, productionRecords, calvingRecords, weightRecords]);
 
@@ -183,7 +183,7 @@ export default function SpeciesKpiCards({
             title={meatTitle}
             value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
             icon={<Beef className="size-4.5" />}
-            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
+            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg in legacy statuses` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
             variant="rose"
           />
           <KpiCard
@@ -219,7 +219,7 @@ export default function SpeciesKpiCards({
             title="Pork & Carcass Yield"
             value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
             icon={<Beef className="size-4.5" />}
-            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
+            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg in legacy statuses` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
             variant="rose"
           />
           <KpiCard
@@ -255,7 +255,7 @@ export default function SpeciesKpiCards({
             title="Chevon & Meat Output"
             value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
             icon={<Beef className="size-4.5" />}
-            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
+            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg in legacy statuses` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
             variant="rose"
           />
           <KpiCard
@@ -291,7 +291,7 @@ export default function SpeciesKpiCards({
             title="Mutton & Meat Output"
             value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
             icon={<Beef className="size-4.5" />}
-            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
+            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg in legacy statuses` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
             variant="rose"
           />
           <KpiCard
@@ -327,7 +327,7 @@ export default function SpeciesKpiCards({
             title="Broiler Meat Harvest"
             value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
             icon={<Beef className="size-4.5" />}
-            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
+            badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg in legacy statuses` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
             variant="rose"
           />
           <KpiCard
@@ -362,7 +362,7 @@ export default function SpeciesKpiCards({
           title="Total Meat Output"
           value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
           icon={<Beef className="size-4.5" />}
-          badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
+          badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg in legacy statuses` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
           variant="rose"
         />
         <KpiCard
@@ -403,7 +403,7 @@ export default function SpeciesKpiCards({
           title="Daily Egg Harvest"
           value={metrics.totalEggs > 0 ? `${metrics.totalEggs.toLocaleString()} pcs` : "0 pcs"}
           icon={<Egg className="size-4.5" />}
-          badge={metrics.pendingEggs > 0 ? `${metrics.verifiedEggs.toLocaleString()} pcs recorded · ${metrics.pendingEggs.toLocaleString()} pcs awaiting` : `${metrics.totalEggs.toLocaleString()} pcs recorded`}
+          badge={metrics.pendingEggs > 0 ? `${metrics.verifiedEggs.toLocaleString()} pcs recorded · ${metrics.pendingEggs.toLocaleString()} pcs in legacy statuses` : `${metrics.totalEggs.toLocaleString()} pcs recorded`}
           variant="amber"
         />
         <KpiCard
@@ -439,7 +439,7 @@ export default function SpeciesKpiCards({
           title="Wool & Fleece Harvest"
           value={metrics.totalWool > 0 ? `${metrics.totalWool.toLocaleString()} kg` : "0.0 kg"}
           icon={<Package className="size-4.5" />}
-          badge={metrics.pendingWool > 0 ? `${metrics.verifiedWool.toLocaleString()} kg recorded · ${metrics.pendingWool.toLocaleString()} kg awaiting` : `${metrics.totalWool.toLocaleString()} kg recorded`}
+          badge={metrics.pendingWool > 0 ? `${metrics.verifiedWool.toLocaleString()} kg recorded · ${metrics.pendingWool.toLocaleString()} kg in legacy statuses` : `${metrics.totalWool.toLocaleString()} kg recorded`}
           variant="stone"
         />
         <KpiCard
@@ -480,7 +480,7 @@ export default function SpeciesKpiCards({
           title="Dairy Milk Output"
           value={metrics.totalMilk > 0 ? `${metrics.totalMilk.toLocaleString()} L` : "0.0 L"}
           icon={<Milk className="size-4.5" />}
-          badge={metrics.pendingMilk > 0 ? `${metrics.verifiedMilk.toLocaleString()} L recorded · ${metrics.pendingMilk.toLocaleString()} L awaiting` : `${metrics.totalMilk.toLocaleString()} L recorded`}
+          badge={metrics.pendingMilk > 0 ? `${metrics.verifiedMilk.toLocaleString()} L recorded · ${metrics.pendingMilk.toLocaleString()} L in legacy statuses` : `${metrics.totalMilk.toLocaleString()} L recorded`}
           variant="sky"
         />
         <KpiCard
@@ -518,7 +518,7 @@ export default function SpeciesKpiCards({
           title="Goat Milk Yield"
           value={metrics.totalMilk > 0 ? `${metrics.totalMilk.toLocaleString()} L` : "0.0 L"}
           icon={<Milk className="size-4.5" />}
-          badge={metrics.pendingMilk > 0 ? `${metrics.verifiedMilk.toLocaleString()} L recorded · ${metrics.pendingMilk.toLocaleString()} L awaiting` : `${metrics.totalMilk.toLocaleString()} L recorded`}
+          badge={metrics.pendingMilk > 0 ? `${metrics.verifiedMilk.toLocaleString()} L recorded · ${metrics.pendingMilk.toLocaleString()} L in legacy statuses` : `${metrics.totalMilk.toLocaleString()} L recorded`}
           variant="sky"
         />
         <KpiCard
@@ -554,7 +554,7 @@ export default function SpeciesKpiCards({
           title="Wool & Fleece Harvest"
           value={metrics.totalWool > 0 ? `${metrics.totalWool.toLocaleString()} kg` : "0.0 kg"}
           icon={<Package className="size-4.5" />}
-          badge={metrics.pendingWool > 0 ? `${metrics.verifiedWool.toLocaleString()} kg recorded · ${metrics.pendingWool.toLocaleString()} kg awaiting` : `${metrics.totalWool.toLocaleString()} kg recorded`}
+          badge={metrics.pendingWool > 0 ? `${metrics.verifiedWool.toLocaleString()} kg recorded · ${metrics.pendingWool.toLocaleString()} kg in legacy statuses` : `${metrics.totalWool.toLocaleString()} kg recorded`}
           variant="stone"
         />
         <KpiCard
@@ -590,7 +590,7 @@ export default function SpeciesKpiCards({
           title="Pork / Carcass Yield"
           value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
           icon={<Beef className="size-4.5" />}
-          badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
+          badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg in legacy statuses` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
           variant="rose"
         />
         <KpiCard
@@ -631,7 +631,7 @@ export default function SpeciesKpiCards({
           title="Daily Egg Harvest"
           value={metrics.totalEggs > 0 ? `${metrics.totalEggs.toLocaleString()} pcs` : "0 pcs"}
           icon={<Egg className="size-4.5" />}
-          badge={metrics.pendingEggs > 0 ? `${metrics.verifiedEggs.toLocaleString()} pcs recorded · ${metrics.pendingEggs.toLocaleString()} pcs awaiting` : `${metrics.totalEggs.toLocaleString()} pcs recorded`}
+          badge={metrics.pendingEggs > 0 ? `${metrics.verifiedEggs.toLocaleString()} pcs recorded · ${metrics.pendingEggs.toLocaleString()} pcs in legacy statuses` : `${metrics.totalEggs.toLocaleString()} pcs recorded`}
           variant="amber"
         />
         <KpiCard
@@ -645,7 +645,7 @@ export default function SpeciesKpiCards({
           title="Broiler Meat Harvest"
           value={metrics.totalMeat > 0 ? `${metrics.totalMeat.toLocaleString()} kg` : "0.0 kg"}
           icon={<Beef className="size-4.5" />}
-          badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg awaiting` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
+          badge={metrics.pendingMeat > 0 ? `${metrics.verifiedMeat.toLocaleString()} kg recorded · ${metrics.pendingMeat.toLocaleString()} kg in legacy statuses` : `${metrics.totalMeat.toLocaleString()} kg recorded`}
           variant="rose"
         />
         <KpiCard
@@ -672,7 +672,7 @@ export default function SpeciesKpiCards({
           title="Dairy Milk Output"
           value={metrics.totalMilk > 0 ? `${metrics.totalMilk.toLocaleString()} L` : "0.0 L"}
           icon={<Milk className="size-4.5" />}
-          badge={metrics.pendingMilk > 0 ? `${metrics.verifiedMilk.toLocaleString()} L recorded · ${metrics.pendingMilk.toLocaleString()} L awaiting` : `${metrics.totalMilk.toLocaleString()} L recorded`}
+          badge={metrics.pendingMilk > 0 ? `${metrics.verifiedMilk.toLocaleString()} L recorded · ${metrics.pendingMilk.toLocaleString()} L in legacy statuses` : `${metrics.totalMilk.toLocaleString()} L recorded`}
           variant="sky"
         />
         <KpiCard
@@ -707,7 +707,7 @@ export default function SpeciesKpiCards({
         title="Total Output Logs"
         value={metrics.totalRecords.toString()}
         icon={<ClipboardList className="size-4.5" />}
-        badge={metrics.pendingRecordsCount > 0 ? `${metrics.totalRecords - metrics.pendingRecordsCount} recorded · ${metrics.pendingRecordsCount} awaiting review` : "Submitted yield entries"}
+        badge={`${metrics.totalRecords} eligible logs · ${metrics.legacyReviewCount} legacy statuses`}
         variant="emerald"
       />
       <KpiCard
@@ -725,10 +725,10 @@ export default function SpeciesKpiCards({
         variant="amber"
       />
       <KpiCard
-        title="LGU Validation Rate"
-        value={`${metrics.approvalRate}%`}
-        icon={<ShieldCheck className="size-4.5" />}
-        badge="MAO / SIBAT verified"
+        title="Legacy Review Statuses"
+        value={metrics.legacyReviewCount.toString()}
+        icon={<ClipboardList className="size-4.5" />}
+        badge="Historical entries outside production analytics"
         variant="stone"
       />
     </div>

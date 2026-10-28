@@ -12,9 +12,10 @@ In municipal livestock analytics, we process five core time-series domains:
   5. Auction / Live Animal Sales: Market throughput (Heads) and trading volume (PHP)
 
 KEY DATA SCIENCE & CAPSTONE PRINCIPLES:
-1. Approved Records Only:
-   Only MAO-approved records represent official, verified municipal observations.
-   Pending or revised records may contain unverified estimates or data entry typos.
+1. Source-appropriate Records:
+   Routine farmer production is available as RECORDED only. Historical rows
+   in approval states remain stored but are excluded. Official slaughter, disease, mortality, and transfer
+   sources retain their separate approval requirements.
 
 2. Unit Purity Rule:
    Different production yields have incompatible physical units:
@@ -49,7 +50,7 @@ import numpy as np
 from django.utils import timezone
 from livestock.models import LivestockOwnershipTransfer
 
-from django.db.models import Sum, Count, Max
+from django.db.models import Case, Count, DateTimeField, F, Max, Sum, When
 from django.db.models.functions import TruncMonth
 
 from production.models import ProductionRecord, SlaughterRecord
@@ -96,8 +97,8 @@ FORECAST_TARGETS = {
         "label": "Milk production",
         "unit": "LITERS",
         "event_date_field": "ProductionRecord.record_date",
-        "eligible_status": "APPROVED",
-        "source": "ProductionRecord (MILK; liters)",
+        "eligible_status": "RECORDED",
+        "source": "Farmer-recorded ProductionRecord (MILK; liters)",
         "expected_reporting": "Daily entries are possible, but no daily reporting-completeness ledger exists.",
         "minimum_monthly_observations": 24,
         "minimum_rule": "Two annual cycles before evaluating annual seasonality and a holdout forecast.",
@@ -106,8 +107,8 @@ FORECAST_TARGETS = {
         "label": "Farmer-reported meat yield",
         "unit": "KILOGRAMS",
         "event_date_field": "ProductionRecord.record_date",
-        "eligible_status": "APPROVED",
-        "source": "ProductionRecord (MEAT; slaughter is null; kilograms)",
+        "eligible_status": "RECORDED",
+        "source": "Farmer-recorded ProductionRecord (MEAT; slaughter is null; kilograms)",
         "expected_reporting": "Event-based; no reporting-completeness ledger exists.",
         "minimum_monthly_observations": 18,
         "minimum_rule": "12 training months plus a 6-month out-of-sample window for this monthly event series.",
@@ -185,7 +186,7 @@ def get_readiness_status(
     elif missing_month_count > 0:
         return (
             READINESS_READY,
-            f"Found {observation_count} observed months and {missing_month_count} months with no approved records. "
+            f"Found {observation_count} observed months and {missing_month_count} months with no eligible records. "
             "Missing months are not assumed to be zero; annual seasonality confidence is limited.",
         )
     elif observation_count < QUALITY_OBSERVATIONS_THRESHOLD:
@@ -241,7 +242,7 @@ def extract_monthly_series(
         # DOMAIN: PRODUCTION (Milk, Meat, Eggs, Wool)
         # ---------------------------------------------------------------------
         base_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-            status=ProductionRecord.ProductionStatus.APPROVED,
+            status=ProductionRecord.ProductionStatus.RECORDED,
             production_type=target_clean,
             unit=unit_clean,
         )
@@ -251,6 +252,19 @@ def extract_monthly_series(
         elif target_clean == "MILK":
             excluded_milk_session_conflicts = base_qs.filter(session_conflict=True).count()
             base_qs = base_qs.filter(session_conflict=False)
+
+        # A farmer log becomes available at submission. Approval-state history
+        # is excluded from training and backtesting.
+        production_availability = {
+            "latest_eligible_at": Max(Case(
+                When(status=ProductionRecord.ProductionStatus.RECORDED, then=F("created_at")),
+                output_field=DateTimeField(),
+            )),
+            "eligible_timestamp_count": Count(Case(
+                When(status=ProductionRecord.ProductionStatus.RECORDED, created_at__isnull=False, then=F("created_at")),
+                output_field=DateTimeField(),
+            )),
+        }
 
         seeded_record = base_qs.filter(notes__contains="AI_SEED").first()
         if seeded_record:
@@ -268,7 +282,7 @@ def extract_monthly_series(
                 .annotate(total_quantity=Sum("quantity"), latest_event_date=Max("record_date"),
                           latest_approval=Max("approved_at"), latest_creation=Max("created_at"),
                           total_records=Count("pk"), reviewed_records=Count("approved_at"),
-                          created_records=Count("created_at"))
+                          created_records=Count("created_at"), **production_availability)
                 .order_by("month")
             )
         else:
@@ -277,7 +291,8 @@ def extract_monthly_series(
             .values("month")
             .annotate(total_quantity=Sum("quantity"), latest_event_date=Max("record_date"), latest_approval=Max("approved_at"),
                       latest_creation=Max("created_at"), total_records=Count("pk"),
-                      reviewed_records=Count("approved_at"), created_records=Count("created_at"))
+                      reviewed_records=Count("approved_at"), created_records=Count("created_at"),
+                      **production_availability)
             .order_by("month")
             )
         records = list(monthly_data)
@@ -459,7 +474,7 @@ def extract_monthly_series(
     if records:
         observed_months = {pd.Timestamp(r["month"]).to_period("M") for r in records}
         first_month = min(observed_months)
-        # Also disclose trailing months without approved records through the last
+        # Also disclose trailing months without eligible records through the last
         # fully completed calendar month; otherwise stale data can look current.
         last_month = (pd.Timestamp(current_month_start) - pd.offsets.MonthBegin(1)).to_period("M")
         missing_months = [
@@ -468,27 +483,33 @@ def extract_monthly_series(
             if month not in observed_months
         ]
 
-    # Preserve approval availability by event month. A historical backtest may
-    # train on a month's value only after every record in that aggregate had been
-    # reviewed and created; records with unknown timestamps cannot establish that cutoff.
+    # A monthly observation becomes usable only when every included row has an
+    # availability timestamp. Farmer production uses submission time.
     for row in records:
-        row["available_at"] = (
-            timezone.localtime(max(row.get("latest_approval"), row.get("latest_creation"))).date()
-            if row.get("latest_approval") is not None
-            and row.get("latest_creation") is not None
-            and row.get("total_records") == row.get("reviewed_records")
-            and row.get("total_records") == row.get("created_records")
-            else None
-        )
+        if domain == "production":
+            row["available_at"] = (
+                timezone.localtime(row["latest_eligible_at"]).date()
+                if row.get("latest_eligible_at") is not None
+                and row.get("total_records") == row.get("eligible_timestamp_count")
+                else None
+            )
+        else:
+            row["available_at"] = (
+                timezone.localtime(max(row.get("latest_approval"), row.get("latest_creation"))).date()
+                if row.get("latest_approval") is not None
+                and row.get("latest_creation") is not None
+                and row.get("total_records") == row.get("reviewed_records")
+                and row.get("total_records") == row.get("created_records")
+                else None
+            )
 
     def date_only(value):
         if value is None:
             return None
         return timezone.localtime(value).date().isoformat() if hasattr(value, "date") else value.isoformat()
 
-    # Give reviewers an aggregate-only trace of when each approved month's value
-    # entered the system and when its current approved records were last reviewed.
-    # These are current-record timestamps, not an immutable approval audit log.
+    # Give reviewers an aggregate-only trace of when each month's value became
+    # eligible. These are current-record timestamps, not immutable history.
     availability_timeline = [
         {
             "event_month": pd.Timestamp(row["month"]).strftime("%Y-%m"),
@@ -496,6 +517,7 @@ def extract_monthly_series(
             "record_count": int(row.get("total_records") or 0),
             "latest_submitted_on": date_only(row.get("latest_creation")),
             "latest_approved_on": date_only(row.get("latest_approval")),
+            "latest_eligible_on": date_only(row.get("latest_eligible_at")) if domain == "production" else None,
             "available_to_model_on": date_only(row.get("available_at")),
         }
         for row in records
@@ -539,7 +561,7 @@ def extract_monthly_series(
         )
     if missing_months:
         coverage_warning_parts.append(
-            f"There are {len(missing_months)} calendar month(s) with no approved records. They were left missing, not treated as zero."
+            f"There are {len(missing_months)} calendar month(s) with no eligible records. They were left missing, not treated as zero."
         )
     coverage_warning = " ".join(coverage_warning_parts) or None
 
@@ -569,9 +591,12 @@ def extract_monthly_series(
         "historical_trend": historical_trend_points,
         "approval_timeline": availability_timeline,
         "approval_timeline_note": (
-            "Dates summarize currently approved records by production month. Each month is treated as available "
-            "only after its latest original submission and approval timestamps. This is not a reconstruction of "
-            "historical edits beyond the stored workflow events."
+            "Production months become available after the latest recorded log was submitted. Historical approval-state rows are excluded. "
+            "Official slaughter, disease, mortality, and transfer sources use their review timestamps. This is not "
+            "a reconstruction of historical edits beyond stored timestamps."
+            if domain == "production" else
+            "Dates summarize currently approved records by event month. Each month is treated as available only "
+            "after its latest submission and approval timestamps. This is not a reconstruction of historical edits."
         ),
         "target_definition": target_definition,
         "data_through_date": (
@@ -626,7 +651,7 @@ def extract_monthly_series(
         metadata["forecast_available"] = False
         metadata["readiness_status"] = READINESS_NOT_READY
         metadata["readiness_details"] = (
-            f"There are {len(missing_months)} months without approved records. "
+            f"There are {len(missing_months)} months without eligible records. "
             "The system has no coverage log to distinguish zero activity from unreported data, "
             "so a monthly forecast is withheld."
         )
@@ -635,6 +660,10 @@ def extract_monthly_series(
 
     if not metadata["approval_cutoff_reconstructable"]:
         metadata["approval_history_note"] = (
+            "One or more production periods lack reconstructable submission or historical approval timestamps. "
+            "They remain usable in the present-time projection but are excluded from historical training cutoffs. "
+            "Forecast generation and historical validation are reported separately."
+            if domain == "production" else
             "One or more current approved periods lack reconstructable submission or approval timestamps. "
             "They remain usable in the present-time projection but are excluded from historical training cutoffs. "
             "Forecast generation and historical validation are reported separately."

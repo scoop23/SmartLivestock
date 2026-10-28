@@ -130,10 +130,28 @@ class ForecastReadinessDiagnosticsTests(TestCase):
         self.assertEqual(milk["usable_production_days"], 0)
         self.assertEqual(milk["pending_records"], 0)
 
+    def test_recorded_farmer_milk_is_eligible_without_review(self):
+        event_date = localdate().replace(day=1) - timedelta(days=1)
+        ProductionRecord.objects.create(
+            production_type=ProductionRecord.ProductionType.MILK,
+            unit=ProductionRecord.UnitType.LITERS,
+            quantity=Decimal("7.00"), record_date=event_date,
+            status=ProductionRecord.ProductionStatus.RECORDED,
+            farmer_at_record=self.farmer_profile, created_by=self.farmer_user,
+        )
+        diagnostic = get_forecast_readiness_diagnostics(
+            "production", "MILK", "LITERS", user=self.mao_user
+        )
+        checklist = {item["id"]: item for item in diagnostic["checklist"]}
+        self.assertEqual(checklist["approved_records"]["title"], "Eligible Production Logs")
+        self.assertNotIn("MAO", checklist["approved_records"]["action_needed"] or "")
+        self.assertEqual(diagnostic["progress"]["milk_diagnostics"]["usable_records"], 1)
+        self.assertEqual(diagnostic["progress"]["milk_diagnostics"]["pending_records"], 0)
+
     def test_approval_status_breakdown_counts_target_rows_without_double_counting(self):
         event_date = localdate().replace(day=1) - timedelta(days=1)
         for status_value in (
-            ProductionRecord.ProductionStatus.APPROVED,
+            ProductionRecord.ProductionStatus.RECORDED,
             ProductionRecord.ProductionStatus.PENDING,
             ProductionRecord.ProductionStatus.VERIFIED,
             ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION,
@@ -152,17 +170,17 @@ class ForecastReadinessDiagnosticsTests(TestCase):
             production_type=ProductionRecord.ProductionType.MEAT,
             unit=ProductionRecord.UnitType.KILOGRAMS,
             quantity=Decimal("8.00"), record_date=event_date,
-            status=ProductionRecord.ProductionStatus.APPROVED,
+            status=ProductionRecord.ProductionStatus.RECORDED,
             farmer_at_record=self.farmer_profile, created_by=self.farmer_user,
         )
 
         breakdown = get_forecast_readiness_diagnostics(
             "production", "MILK", "LITERS", user=self.mao_user
         )["progress"]["approval_status_breakdown"]
-        self.assertEqual(breakdown["total_records"], 4)
+        self.assertEqual(breakdown["total_records"], 1)
         self.assertEqual(
             {item["status"]: item["count"] for item in breakdown["statuses"]},
-            {"PENDING": 1, "VERIFIED": 1, "APPROVED": 1, "SUBJECT_TO_REVISION": 1},
+            {"PENDING": 0, "VERIFIED": 0, "APPROVED": 0, "SUBJECT_TO_REVISION": 0, "RECORDED": 1},
         )
         self.assertNotIn("farmer", breakdown)
         self.assertNotIn("name", breakdown)
@@ -174,7 +192,7 @@ class ForecastReadinessDiagnosticsTests(TestCase):
         self.assertEqual(breakdown["total_records"], 0)
         self.assertEqual(
             {item["status"]: item["count"] for item in breakdown["statuses"]},
-            {"PENDING": 0, "VERIFIED": 0, "APPROVED": 0, "SUBJECT_TO_REVISION": 0},
+            {"PENDING": 0, "VERIFIED": 0, "APPROVED": 0, "SUBJECT_TO_REVISION": 0, "RECORDED": 0},
         )
 
         self.sibat_user.assigned_barangay = self.barangay
@@ -189,8 +207,8 @@ class ForecastReadinessDiagnosticsTests(TestCase):
         breakdown = get_forecast_readiness_diagnostics(
             "production", "MILK", "LITERS", user=self.sibat_user
         )["progress"]["approval_status_breakdown"]
-        self.assertEqual(breakdown["total_records"], 1)
-        self.assertEqual(next(row["count"] for row in breakdown["statuses"] if row["status"] == "PENDING"), 1)
+        self.assertEqual(breakdown["total_records"], 0)
+        self.assertEqual(next(row["count"] for row in breakdown["statuses"] if row["status"] == "PENDING"), 0)
 
     def test_decoupled_unvalidated_forecast(self):
         """

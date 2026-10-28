@@ -33,10 +33,7 @@ export default function FarmerStats({
   const activeAlerts = data?.active_health_alerts ?? 0;
   const milkLiters = data?.milk_production_liters ?? null;
   const milkGrowth = data?.milk_growth_pct ?? null;
-  const milkApprovedLiters = data?.milk_approved_liters ?? 0;
   const milkRecordedLiters = data?.milk_recorded_liters ?? 0;
-  const milkVerifiedLiters = data?.milk_verified_liters ?? 0;
-  const milkPendingLiters = data?.milk_pending_liters ?? 0;
 
   const livestockBadge =
     cattleCount === 0
@@ -45,12 +42,9 @@ export default function FarmerStats({
       ? `${approvedCount} APPROVED • ${verifiedCount} VERIFIED • ${pendingCount} PENDING`
       : `${approvedCount} APPROVED • ${verifiedCount} VERIFIED`;
 
-  const milkBadge =
-    (milkLiters ?? 0) === 0
-      ? "NO RECORDED YIELD"
-      : milkPendingLiters > 0
-      ? `${formatQty(milkRecordedLiters)} RECORDED • ${formatQty(milkApprovedLiters)} HISTORICALLY APPROVED • ${formatQty(milkPendingLiters)} HISTORICALLY PENDING`
-      : `${formatQty(milkRecordedLiters)} RECORDED • ${formatQty(milkApprovedLiters)} HISTORICALLY APPROVED • ${formatQty(milkVerifiedLiters)} HISTORICALLY VERIFIED`;
+  const milkBadge = (milkLiters ?? 0) === 0
+    ? "NO RECORDED YIELD"
+    : `${formatQty(milkRecordedLiters)} RECORDED`;
 
   const reviewPercent = cattleCount > 0
     ? Math.round(((approvedCount + verifiedCount) / cattleCount) * 100)

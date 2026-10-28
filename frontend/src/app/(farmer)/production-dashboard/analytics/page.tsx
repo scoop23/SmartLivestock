@@ -140,7 +140,7 @@ interface FeedingAnalytics {
 
 interface MilkForecastResponse {
   status: "READY" | "NOT_READY";
-  data_source: "approved_livestock_records" | "synthetic_demo";
+  data_source: "farmer_recorded_livestock_logs" | "approved_livestock_records" | "synthetic_demo";
   demonstration_available?: boolean;
   livestock: {
     id: number;
@@ -339,8 +339,8 @@ export default function ProductionAnalyticsPage() {
     summary: analytics.by_type[type]?.summary,
   }));
 
-  const totalCount = records.length;
-  const completedCount = records.filter((r) => ["RECORDED", "APPROVED"].includes(r.status)).length;
+  const totalCount = records.filter((r) => r.status !== "APPROVED").length;
+  const completedCount = records.filter((r) => r.status === "RECORDED").length;
   const pendingCount = records.filter((r) => ["PENDING", "VERIFIED"].includes(r.status)).length;
   const revisionCount = records.filter((r) => r.status === "SUBJECT_TO_REVISION").length;
 
@@ -354,6 +354,7 @@ export default function ProductionAnalyticsPage() {
 
   const totalEstimatedValue = useMemo(() => {
     return records.reduce((sum, r) => {
+      if (r.status !== "RECORDED") return sum;
       if (r.valuationSnapshot?.estimated_value) {
         return sum + Number(r.valuationSnapshot.estimated_value);
       }
@@ -391,7 +392,7 @@ export default function ProductionAnalyticsPage() {
   const projectedCarcassRevenue = Math.round(projectedCarcassKg * 280);
 
   // Milk yield forecasting
-  const milkRecords = records.filter((r) => r.productionType === "milk");
+  const milkRecords = records.filter((r) => r.productionType === "milk" && r.status === "RECORDED");
   const totalMilkRecent = milkRecords.reduce((acc, r) => acc + Number(r.quantity), 0);
   const femaleCattleCount = activeAnimals.filter(
     (i) =>
@@ -399,7 +400,7 @@ export default function ProductionAnalyticsPage() {
       (i.livestockTypeName?.toLowerCase().includes("cattle") || i.livestockTypeName?.toLowerCase().includes("carabao"))
   ).length;
 
-  // Real milk run-rate from actual approved production records
+  // Farmer-owned run-rate from current recorded milk logs only.
   const avgDailyMilk = milkRecords.length > 0
     ? totalMilkRecent / Math.max(milkRecords.length, 1)
     : 0;
@@ -451,7 +452,7 @@ export default function ProductionAnalyticsPage() {
     queryKey: [
       "livestock-milk-forecast",
       selectedCowId,
-      showDemo ? "synthetic_demo" : "approved_livestock_records",
+      showDemo ? "synthetic_demo" : "farmer_recorded_livestock_logs",
     ],
     queryFn: async () => {
       if (!selectedCowId) return null;
@@ -507,7 +508,7 @@ export default function ProductionAnalyticsPage() {
       }).length;
 
       // 2. Milk yield:
-      // Real daily baseline from approved records or selected ML model
+      // Real daily baseline from eligible production logs or selected ML model
       let dailyLiters = avgForecastDaily || avgDailyMilk;
 
       // When a pregnant dam delivers in month idx, early lactation adds ~12 L/day
@@ -696,14 +697,14 @@ export default function ProductionAnalyticsPage() {
                   title="Production Output"
                   variant="emerald"
                   icon={<Milk className="size-5" />}
-                  badge={`${completedCount} APPROVED • ${pendingCount} PENDING`}
+                  badge={`${completedCount} LOGGED • ${pendingCount} LEGACY`}
                   badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
                   value={
                     <div className="flex items-baseline gap-2 mt-0.5">
                       <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                         {completedCount.toLocaleString()}
                       </span>
-                      <span className="text-xs font-mono text-emerald-700 font-bold">Approved Logs</span>
+                      <span className="text-xs font-mono text-emerald-700 font-bold">Recorded Logs</span>
                     </div>
                   }
                   description={`${totalCount} total production records logged`}
@@ -711,20 +712,20 @@ export default function ProductionAnalyticsPage() {
                 />
 
                 <KpiCard
-                  title="Pending Certification"
+                  title="Legacy Review Statuses"
                   variant="amber"
                   icon={<Clock className="size-5" />}
-                  badge={revisionCount > 0 ? `${revisionCount} NEEDS REVISION` : "REVIEW QUEUE"}
+                  badge={revisionCount > 0 ? `${revisionCount} RETURNED` : "HISTORICAL ONLY"}
                   badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
                   value={
                     <div className="flex items-baseline gap-2 mt-0.5">
                       <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                         {pendingCount.toLocaleString()}
                       </span>
-                      <span className="text-xs font-mono text-amber-700 font-bold">Awaiting Review</span>
+                      <span className="text-xs font-mono text-amber-700 font-bold">Legacy Records</span>
                     </div>
                   }
-                  description="Pending field or MAO inspection"
+                  description="Older pending, verified, or returned statuses are shown for context; new routine logs do not require review."
                   wrapText
                 />
 
@@ -1085,18 +1086,18 @@ export default function ProductionAnalyticsPage() {
                   <Card className="overflow-hidden rounded-3xl border-slate-200/90 bg-white/95 shadow-holo-card">
                     <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-emerald-50/60 p-5">
                       <CardTitle className="font-display text-base font-bold text-slate-900">
-                        Validation &amp; Certification Status
+                        Production Record Status Context
                       </CardTitle>
                       <CardDescription className="text-xs text-slate-500 font-medium">
-                        State of your saved entries in the official municipal registry
+                        New production logs are farmer-managed; older review statuses remain visible as history.
                       </CardDescription>
                     </CardHeader>
 
                     <CardContent className="space-y-3 p-5">
                       {[
-                        { label: "Recorded / Approved", value: completedCount, color: "bg-emerald-500" },
-                        { label: "Pending / Verified", value: pendingCount, color: "bg-amber-400" },
-                        { label: "Needs Revision", value: revisionCount, color: "bg-rose-500" },
+                        { label: "Recorded production logs", value: completedCount, color: "bg-emerald-500" },
+                        { label: "Legacy Pending / Verified", value: pendingCount, color: "bg-amber-400" },
+                        { label: "Legacy Returned for Revision", value: revisionCount, color: "bg-rose-500" },
                       ].map((item) => (
                         <div
                           key={item.label}
@@ -1374,7 +1375,7 @@ export default function ProductionAnalyticsPage() {
 
                       <p className="text-xs text-slate-700 leading-relaxed font-medium">
                         {milkForecast.reason ||
-                          `This animal currently has ${milkForecast.observation_count} approved daily milk observation(s). A minimum of ${milkForecast.minimum_history_required} consecutive dated records are required to train lag features (t-1, t-2, t-3, t-7) and chronological cross-validation without temporal leakage.`}
+                          `This animal currently has ${milkForecast.observation_count} eligible daily milk observation(s). A minimum of ${milkForecast.minimum_history_required} consecutive dated records are required to train lag features (t-1, t-2, t-3, t-7) and chronological cross-validation without temporal leakage.`}
                       </p>
 
                       <div className="space-y-1 pt-1">

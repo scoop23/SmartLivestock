@@ -231,10 +231,10 @@ class AskSmartLivestockQueryTests(TestCase):
         self.other_cattle_record = self.make_inventory(self.other_farmer, self.cattle, 11, "APPROVED", "ACTIVE")
         self.make_inventory(self.other_farmer, self.goat, 7, "APPROVED", "SOLD")
 
-        self.make_production(self.cattle_record, self.farmer, "MILK", "LITERS", "20", date(2026, 6, 10), "APPROVED")
-        self.make_production(self.cattle_record, self.farmer, "MILK", "LITERS", "5", date(2026, 5, 10), "APPROVED")
+        self.make_production(self.cattle_record, self.farmer, "MILK", "LITERS", "20", date(2026, 6, 10), "RECORDED")
+        self.make_production(self.cattle_record, self.farmer, "MILK", "LITERS", "5", date(2026, 5, 10), "RECORDED")
         self.make_production(self.cattle_record, self.farmer, "MILK", "LITERS", "99", date(2026, 6, 10), "PENDING")
-        self.make_production(self.cattle_record, self.farmer, "EGGS", "PIECES", "12", date(2026, 6, 10), "APPROVED")
+        self.make_production(self.cattle_record, self.farmer, "EGGS", "PIECES", "12", date(2026, 6, 10), "RECORDED")
         self.make_production(self.cattle_record, self.farmer, "MILK", "LITERS", "3", date(2026, 6, 10), "VERIFIED")
 
         DiseaseCase.objects.create(
@@ -315,11 +315,16 @@ class AskSmartLivestockQueryTests(TestCase):
         # Approved active heads are 3 in San Roque and 11 in Banaba Ibaba.
         self.assertIn("approved active", result["coverage_note"])
 
-    def test_production_trend_uses_approved_rows_and_keeps_missing_months_absent(self):
+    def test_production_trend_uses_recorded_rows_only(self):
+        self.make_production(self.cattle_record, self.farmer, "MILK", "LITERS", "3",
+                             date(2026, 6, 10), "RECORDED")
+        self.make_production(self.cattle_record, self.farmer, "MILK", "LITERS", "900",
+                             date(2026, 6, 10), "APPROVED")
         result = self.ask(self.mao, "Show monthly milk production for the last six months.")
-        self.assertEqual(sum(row["quantity"] for row in result["results"]), 25)
+        self.assertEqual(sum(row["quantity"] for row in result["results"]), 28)
         self.assertEqual(len(result["results"]), 2)
         self.assertEqual([row["label"] for row in result["results"]], ["May 2026", "Jun 2026"])
+        self.assertIn("farmer-recorded", result["answer"])
         # The result carries the real recorded months; the API does not fill absent months with zero.
 
     def test_disease_by_barangay_excludes_pending_records_and_out_of_period_events(self):
@@ -345,7 +350,7 @@ class AskSmartLivestockQueryTests(TestCase):
 
     def test_pending_mao_queue_reuses_workload_service_and_reports_domain_counts(self):
         result = self.ask(self.mao, "Which production records are pending MAO review?")
-        self.assertEqual(result["results"], [{"submission_type": "Production", "waiting_for_mao": 1}])
+        self.assertEqual(result["results"], [])
         self.assertIsNotNone(result["as_of"])
 
     def test_sibat_all_barangays_request_stays_within_assignment(self):
@@ -403,7 +408,7 @@ class AskSmartLivestockQueryTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], "answered")
-        self.assertEqual(response.data["answer"], "Approved production quantities grouped by recorded month and livestock type.")
+        self.assertEqual(response.data["answer"], "Eligible farmer-recorded production quantities grouped by month and livestock type; slaughter-linked projections are excluded.")
         self.assertEqual(response.data["ai_explanation"]["status"], "generated")
         self.assertEqual(provider.call_count, 1)
 
@@ -498,7 +503,7 @@ class AskSmartLivestockQueryTests(TestCase):
 
     def test_sibat_production_and_health_scopes_and_missing_assignment(self):
         self.make_production(self.other_cattle_record, self.other_farmer, "MILK", "LITERS",
-                             "400", date(2026, 6, 1), "APPROVED")
+                             "400", date(2026, 6, 1), "RECORDED")
         result = self.ask(self.sibat, "Show milk production this quarter")
         self.assertEqual(sum(row["quantity"] for row in result["results"]), 25)
         result = self.ask(self.sibat, "Show disease cases across all barangays this quarter")
@@ -543,14 +548,14 @@ class AskSmartLivestockQueryTests(TestCase):
 
     def test_mixed_units_are_not_merged_into_a_line_chart(self):
         self.make_production(self.cattle_record, self.farmer, "MILK", "KILOGRAMS",
-                             "6", date(2026, 6, 10), "APPROVED")
+                             "6", date(2026, 6, 10), "RECORDED")
         result = self.ask(self.mao, "Show monthly milk production this quarter")
         self.assertEqual(result["visualization"]["type"], "table")
         self.assertEqual({row["unit"] for row in result["results"]}, {"LITERS", "KILOGRAMS"})
 
     def test_production_barangay_filter_follows_owner_at_record(self):
         self.make_production(self.cattle_record, self.other_farmer, "MILK", "LITERS",
-                             "400", date(2026, 6, 10), "APPROVED")
+                             "400", date(2026, 6, 10), "RECORDED")
         result = self.ask(self.mao, "Show milk production by barangay in San Roque this quarter")
         self.assertEqual(result["results"], [{"production_type": "MILK", "unit": "LITERS",
                                              "quantity": 25.0, "records": 2, "barangay": "San Roque"}])

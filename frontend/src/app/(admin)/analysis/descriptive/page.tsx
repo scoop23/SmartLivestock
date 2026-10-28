@@ -196,7 +196,7 @@ export default function DescriptiveAnalyticsLandingPage() {
                 </Badge>
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                Approved census snapshots, production outputs, vaccination coverage, and live transfers. Simple by default, detailed on demand.
+                Approved census snapshots, farmer-recorded production, reviewed operational data, and live transfers. Simple by default, detailed on demand.
               </p>
             </div>
 
@@ -345,7 +345,7 @@ export default function DescriptiveAnalyticsLandingPage() {
                 <CardTitle className="text-base sm:text-lg font-bold text-slate-900">
                   {selectedDomain === 'sales' && 'Approved Live Animal Transfers Timeline'}
                   {selectedDomain === 'population' && 'Approved Population Distribution by Livestock Species'}
-                  {selectedDomain === 'production' && 'Approved Commodity Yield Output Breakdown'}
+                  {selectedDomain === 'production' && 'Recorded Commodity Yield Output Breakdown'}
                   {selectedDomain === 'vaccination' && 'Vaccination Coverage & Biological Protection Meter'}
                 </CardTitle>
               </div>
@@ -715,7 +715,7 @@ export default function DescriptiveAnalyticsLandingPage() {
                 {data?.production.records?.toLocaleString('en-PH') ?? '0'}
               </div>
               <p className="mt-1 text-[11px] text-slate-500 leading-tight">
-                Approved production batches in system
+                Eligible farmer production logs in system
               </p>
             </div>
           </Card>

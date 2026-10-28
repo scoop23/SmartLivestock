@@ -95,7 +95,7 @@ class Command(BaseCommand):
             self.stdout.write(f"Farmer: {farmer_user.email} — Tangob, Padre Garcia; synthetic historical reviewer: {mao_user.email}")
             for key, cow in cows.items():
                 forecast = self._forecast(cow)
-                self.stdout.write(f"Cow {cow.tag_number}: {history_counts[key]} approved synthetic daily records; forecast {forecast['status']} ({len(forecast.get('forecast') or [])}/7 days).")
+                self.stdout.write(f"Cow {cow.tag_number}: {history_counts[key]} recorded synthetic daily logs; forecast {forecast['status']} ({len(forecast.get('forecast') or [])}/7 days).")
             for key, record in scenarios.items():
                 record.refresh_from_db()
                 self.stdout.write(
@@ -226,16 +226,15 @@ class Command(BaseCommand):
                     unit=ProductionRecord.UnitType.LITERS,
                     record_date=record_date,
                     milking_session=ProductionRecord.MilkingSession.MORNING,
-                    status=ProductionRecord.ProductionStatus.APPROVED,
+                    status=ProductionRecord.ProductionStatus.RECORDED,
                     next_review_queue=ProductionRecord.ReviewQueue.NONE,
                     anomaly_assessment_status=ProductionRecord.AnomalyAssessmentStatus.NOT_APPLICABLE,
-                    notes="DEMO synthetic approved daily history; not real farmer data.",
-                    created_by=farmer_user, reviewed_by=mao_user, reviewed_at=timezone.now(),
-                    review_remarks="Approved synthetic demonstration history.",
+                    notes="DEMO synthetic recorded daily history; not real farmer data.",
+                    created_by=farmer_user,
                 )
                 self._track(identifier, MilkAnomalyDemoOwnership.ObjectType.PRODUCTION_RECORD, record)
-            elif record.livestock_id != cow.pk or record.record_date != record_date or record.status != ProductionRecord.ProductionStatus.APPROVED:
-                raise CommandError(f"Tracked synthetic history row {identifier} no longer satisfies the approved daily-history invariant.")
+            elif record.livestock_id != cow.pk or record.record_date != record_date or record.status != ProductionRecord.ProductionStatus.RECORDED:
+                raise CommandError(f"Tracked synthetic history row {identifier} no longer satisfies the recorded daily-history invariant.")
             elif record.milking_session is None:
                 record.milking_session = ProductionRecord.MilkingSession.MORNING
                 record.save(update_fields=["milking_session"])
@@ -280,7 +279,7 @@ class Command(BaseCommand):
         rows = list(ProductionRecord.objects.filter(
             livestock=cow,
             production_type=ProductionRecord.ProductionType.MILK,
-            status=ProductionRecord.ProductionStatus.APPROVED,
+            status=ProductionRecord.ProductionStatus.RECORDED,
         ).values("record_date").annotate(total=Sum("quantity")).order_by("record_date"))
         daily = [{"date": row["record_date"], "milk_liters": float(row["total"])} for row in rows]
         calvings = list(CalvingRecord.objects.filter(dam=cow, status=CalvingRecord.StatusType.APPROVED).values_list("calving_date", "reviewed_at", "created_at"))

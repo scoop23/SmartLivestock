@@ -145,8 +145,8 @@ class PredictiveAnalyticsTests(TestCase):
         self.assertEqual(len(result["models"]), 0)
         self.assertIn("Insufficient historical data", result["message"])
 
-    def test_milk_monthly_total_sums_sessions_and_missing_approval_time_stays_unknown(self):
-        """Monthly milk totals sum distinct session records without inventing approval history."""
+    def test_milk_monthly_total_sums_recorded_sessions_and_excludes_approved_rows(self):
+        """Monthly milk totals sum current farmer logs and ignore historical approvals."""
         from dateutil.relativedelta import relativedelta
         from analytics.services.predictive.data import extract_monthly_series
 
@@ -154,17 +154,17 @@ class PredictiveAnalyticsTests(TestCase):
         morning = ProductionRecord.objects.create(
             livestock=self.inventory, production_type="MILK", quantity=Decimal("8.00"),
             unit="LITERS", record_date=event_date, milking_session="MORNING",
-            status="APPROVED", created_by=self.farmer_user,
+            status="RECORDED", created_by=self.farmer_user,
         )
         ProductionRecord.objects.create(
             livestock=self.inventory, production_type="MILK", quantity=Decimal("5.00"),
             unit="LITERS", record_date=event_date, milking_session="AFTERNOON",
-            status="APPROVED", created_by=self.farmer_user,
+            status="RECORDED", created_by=self.farmer_user,
         )
         duplicate_conflict = ProductionRecord.objects.create(
             livestock=self.inventory, production_type="MILK", quantity=Decimal("99.00"),
             unit="LITERS", record_date=event_date, milking_session="EVENING",
-            status="APPROVED", created_by=self.farmer_user,
+            status="RECORDED", created_by=self.farmer_user,
         )
         ProductionRecord.objects.filter(pk=duplicate_conflict.pk).update(session_conflict=True)
 
@@ -174,20 +174,39 @@ class PredictiveAnalyticsTests(TestCase):
         self.assertEqual(metadata["excluded_milk_session_conflict_records"], 1)
         self.assertTrue(metadata["approval_cutoff_reconstructable"])
 
-        ProductionRecord.objects.filter(pk=morning.pk).update(approved_at=None)
-        _, metadata_without_approval_time = extract_monthly_series(
-            domain="production", target="MILK", unit="LITERS"
+        self.assertEqual(metadata["approval_cutoff_reconstructable"], True)
+
+    def test_recorded_milk_log_is_forecast_eligible_from_submission_time(self):
+        from analytics.services.predictive.data import extract_monthly_series
+
+        event_date = timezone.localdate().replace(day=1) - timedelta(days=1)
+        record = ProductionRecord.objects.create(
+            livestock=self.inventory, production_type="MILK", quantity=Decimal("7.00"),
+            unit="LITERS", record_date=event_date, milking_session="MORNING",
+            status=ProductionRecord.ProductionStatus.RECORDED, created_by=self.farmer_user,
         )
-        self.assertFalse(metadata_without_approval_time["approval_cutoff_reconstructable"])
+        ProductionRecord.objects.create(
+            livestock=self.inventory, production_type="MILK", quantity=Decimal("900.00"),
+            unit="LITERS", record_date=event_date, milking_session="AFTERNOON",
+            status=ProductionRecord.ProductionStatus.APPROVED, created_by=self.farmer_user,
+        )
+        _, metadata = extract_monthly_series(domain="production", target="MILK", unit="LITERS")
+        self.assertEqual(metadata["total_records"], 1)
+        self.assertEqual(metadata["historical_trend"][0]["actual"], 7.0)
+        self.assertEqual(
+            metadata["approval_timeline"][0]["available_to_model_on"],
+            record.created_at.astimezone(timezone.get_current_timezone()).date().isoformat(),
+        )
+        self.assertIn("RECORDED", metadata["target_definition"]["eligible_status"])
 
     def test_milk_availability_cutoff_uses_local_calendar_date(self):
-        """A UTC timestamp crossing midnight is assigned to its Asia/Manila approval day."""
+        """A UTC timestamp crossing midnight is assigned to its Asia/Manila submission day."""
         from analytics.services.predictive.data import extract_monthly_series
 
         record = ProductionRecord.objects.create(
             livestock=self.inventory, production_type="MILK", quantity=Decimal("8.00"),
             unit="LITERS", record_date=date(2026, 1, 31), milking_session="MORNING",
-            status="APPROVED", created_by=self.farmer_user,
+            status="RECORDED", created_by=self.farmer_user,
         )
         boundary_timestamp = datetime.fromisoformat("2026-01-31T16:30:00+00:00")
         ProductionRecord.objects.filter(pk=record.pk).update(
@@ -216,7 +235,7 @@ class PredictiveAnalyticsTests(TestCase):
                 quantity=Decimal("0.00") if offset == zero_index else Decimal("5.00"),
                 unit=ProductionRecord.UnitType.LITERS,
                 record_date=month + timedelta(days=4),
-                status=ProductionRecord.ProductionStatus.APPROVED,
+                status=ProductionRecord.ProductionStatus.RECORDED,
                 created_by=self.farmer_user,
             )
 
@@ -303,11 +322,11 @@ class PredictiveAnalyticsTests(TestCase):
         event_date = timezone.localdate().replace(day=1) - relativedelta(days=1)
         ProductionRecord.objects.create(
             farmer_at_record=self.farmer_profile, production_type="MILK", quantity=Decimal("10.00"),
-            unit="LITERS", record_date=event_date, status="APPROVED", created_by=self.farmer_user,
+            unit="LITERS", record_date=event_date, status="RECORDED", created_by=self.farmer_user,
         )
         ProductionRecord.objects.create(
             farmer_at_record=other_farmer, production_type="MILK", quantity=Decimal("999.00"),
-            unit="LITERS", record_date=event_date, status="APPROVED", created_by=other_farmer_user,
+            unit="LITERS", record_date=event_date, status="RECORDED", created_by=other_farmer_user,
         )
 
         factory = APIRequestFactory()
@@ -476,11 +495,10 @@ class PredictiveAnalyticsTests(TestCase):
             quantity=Decimal("50.00"),
             unit=ProductionRecord.UnitType.KILOGRAMS,
             record_date=date(2026, 8, 1),
-            status=ProductionRecord.ProductionStatus.APPROVED,
+            status=ProductionRecord.ProductionStatus.RECORDED,
             slaughter=None,
             notes="On-farm processed meat",
             created_by=self.farmer_user,
-            reviewed_by=self.mao_user,
         )
 
         # 2. Create a slaughter record (abattoir meat)
@@ -667,7 +685,7 @@ class PredictiveAnalyticsTests(TestCase):
             ProductionRecord.objects.create(
                 livestock=self.inventory, production_type="MILK", quantity=Decimal("100.00"),
                 unit="LITERS", record_date=base_date + relativedelta(months=i),
-                status="APPROVED", notes="Constant test record", created_by=self.farmer_user,
+                status="RECORDED", notes="Constant test record", created_by=self.farmer_user,
             )
         result = evaluate_all_models(production_type="MILK", unit="LITERS")
         self.assertEqual(result["status"], "unvalidated")

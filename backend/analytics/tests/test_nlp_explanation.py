@@ -16,7 +16,7 @@ def verified_result():
         "status": "answered",
         "question": "Show milk production for the last six months.",
         "intent": "production_trend",
-        "answer": "Approved production quantities grouped by month.",
+        "answer": "Eligible farmer-recorded production quantities grouped by month.",
         "interpreted": {"metric": "production_trend", "group_by": "month",
                          "filters": {"farmer": None}},
         "period": {"start": "2026-01-01", "end": "2026-06-30", "label": "Last six months"},
@@ -55,7 +55,7 @@ class NLPExplanationTests(SimpleTestCase):
         original = verified_result()
         result = add_optional_explanation(original)
 
-        self.assertEqual(original["answer"], "Approved production quantities grouped by month.")
+        self.assertEqual(original["answer"], "Eligible farmer-recorded production quantities grouped by month.")
         self.assertEqual(result["ai_explanation"]["status"], "generated")
         self.assertEqual(result["ai_explanation"]["prompt_version"], PROMPT_VERSION)
         request = urlopen.call_args.args[0]

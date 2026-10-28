@@ -1,7 +1,7 @@
 """Cow-specific advisory milk anomaly assessment for farmer logs.
 
 Assesses an individual cow's submitted milk ProductionRecord against that same
-cow's recorded or historically approved milk records using a transparent,
+cow's recorded milk records using a transparent,
 rule-based rolling baseline (median, mean, MAD, standard deviation, and
 percentage/absolute deviation), and attaches advisory 7-day forecast context
 when date-aligned and ready.
@@ -94,17 +94,17 @@ def _build_forecast_comparison(
             "model_used": None,
         }
 
-    approved_qs = ProductionRecord.objects.filter(
+    history_qs = ProductionRecord.objects.filter(
         livestock_id=livestock.pk,
         production_type=ProductionRecord.ProductionType.MILK,
-        status=ProductionRecord.ProductionStatus.APPROVED,
+        status=ProductionRecord.ProductionStatus.RECORDED,
         record_date__lt=submitted_date,
     )
     if exclude_record_id is not None:
-        approved_qs = approved_qs.exclude(pk=exclude_record_id)
+        history_qs = history_qs.exclude(pk=exclude_record_id)
 
     raw_daily = list(
-        approved_qs.values("record_date")
+        history_qs.values("record_date")
         .annotate(total_liters=Sum("quantity"))
         .order_by("record_date")
     )
@@ -289,18 +289,18 @@ def assess_milk_production_record(
             "assessed_at": assessed_at, "history": history_trail,
         }
 
-    approved_qs = ProductionRecord.objects.filter(
+    history_qs = ProductionRecord.objects.filter(
         livestock_id=livestock.pk,
         production_type=ProductionRecord.ProductionType.MILK,
-        status__in=[ProductionRecord.ProductionStatus.APPROVED, ProductionRecord.ProductionStatus.RECORDED],
+        status=ProductionRecord.ProductionStatus.RECORDED,
         milking_session=milking_session,
         session_conflict=False,
         record_date__lt=record_date,
     )
     if exclude_record_id is not None:
-        approved_qs = approved_qs.exclude(pk=exclude_record_id)
+        history_qs = history_qs.exclude(pk=exclude_record_id)
 
-    prior_session_rows = list(approved_qs.order_by("record_date").values("record_date", "quantity"))
+    prior_session_rows = list(history_qs.order_by("record_date").values("record_date", "quantity"))
     forecast_comparison = {
         "available": False, "status": "INCOMPATIBLE_TARGET",
         "reason": "The seven-day forecast predicts daily totals and cannot be compared with one session's yield.",

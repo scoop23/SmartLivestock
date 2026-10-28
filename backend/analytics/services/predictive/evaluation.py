@@ -82,6 +82,7 @@ def evaluate_rolling_origins(
     requested_horizon: int = 6,
     max_windows: int = 8,
     exact_horizon: bool = False,
+    history_label: str = "approved",
 ) -> Dict[str, Any]:
     """Compare models through repeated fixed-origin forecasts, without test peeking.
 
@@ -132,11 +133,11 @@ def evaluate_rolling_origins(
         forecast_cutoff = pd.Timestamp(df.iloc[origin]["month"])
         historical_candidates = df.iloc[:origin].copy()
         missing_availability_count = 0
-        approved_after_cutoff_count = 0
+        available_at_or_after_cutoff_count = 0
         history = historical_candidates
         if "available_at" in history.columns:
             missing_availability_count = int(history["available_at"].isna().sum())
-            approved_after_cutoff_count = int(
+            available_at_or_after_cutoff_count = int(
                 (history["available_at"].notna() & (history["available_at"] >= forecast_cutoff)).sum()
             )
             history = history.loc[history["available_at"] < forecast_cutoff].copy()
@@ -145,7 +146,7 @@ def evaluate_rolling_origins(
             "cutoff_date": forecast_cutoff.strftime("%Y-%m-%d"),
             "available_training_months": len(history),
             "prior_months_missing_availability_timestamp": missing_availability_count,
-            "prior_months_approved_at_or_after_cutoff": approved_after_cutoff_count,
+            "prior_months_available_at_or_after_cutoff": available_at_or_after_cutoff_count,
             "earliest_training_month": (
                 history["month"].min().strftime("%Y-%m") if not history.empty else None
             ),
@@ -154,8 +155,8 @@ def evaluate_rolling_origins(
             ),
         }
         backtest_diagnostics.append(diagnostic)
-        # Reconstruct only information that had actually cleared review by the
-        # first day of this test window. Unknown or later approvals are excluded.
+        # Reconstruct only information available by the first day of this test
+        # window. Unknown or later submissions/reviews are excluded.
         if len(history) < 8:
             diagnostic["status"] = "NOT_ENOUGH_APPROVED_HISTORY"
             diagnostic["reason_code"] = (
@@ -164,9 +165,9 @@ def evaluate_rolling_origins(
                 else "NOT_ENOUGH_APPROVED_HISTORY"
             )
             diagnostic["reason"] = (
-                f"Fewer than 8 approved training months were available by this cutoff. "
-                f"{missing_availability_count} prior month(s) have no reconstructable approval timestamp, "
-                f"and {approved_after_cutoff_count} were approved at or after the cutoff."
+                f"Fewer than 8 {history_label} training months were available by this cutoff. "
+                f"{missing_availability_count} prior month(s) have no reconstructable availability timestamp, "
+                f"and {available_at_or_after_cutoff_count} became available at or after the cutoff."
             )
             continue
         months = history["month"].dt.to_period("M")
@@ -175,7 +176,7 @@ def evaluate_rolling_origins(
             # A cutoff with unreviewed months cannot support monthly lags.
             diagnostic["status"] = "GAPS_IN_APPROVED_HISTORY"
             diagnostic["reason_code"] = "GAPS_IN_APPROVED_HISTORY"
-            diagnostic["reason"] = "The approved training history had missing calendar months at this cutoff."
+            diagnostic["reason"] = f"The {history_label} training history had missing calendar months at this cutoff."
             continue
         window = df.iloc[origin:origin + horizon].copy()
         if len(window) != horizon:
@@ -248,7 +249,7 @@ def evaluate_all_models(
     horizon_months: int = 6,
 ) -> Dict[str, Any]:
     """
-    Extracts approved records and compares six candidates over chronological,
+    Extracts eligible source records and compares six candidates over chronological,
     fixed-origin forecast windows across any supported domain.
     """
     # Backward compatibility with callers passing production_type
@@ -363,6 +364,7 @@ def evaluate_all_models(
         [item["name"] for item in models_results],
         requested_horizon=horizon_months,
         exact_horizon=exact_event_horizon,
+        history_label="eligible production" if (domain or "").lower() == "production" else "approved",
     )
     final_window = rolling.get("final_window")
     if final_window:

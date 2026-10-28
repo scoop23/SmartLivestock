@@ -6,7 +6,7 @@ import re
 import unicodedata
 from datetime import date, timedelta
 
-from django.db.models import Case, CharField, Count, DecimalField, F, Q, Sum, Value, When
+from django.db.models import CharField, Count, Q, Sum, Value
 from django.db.models.functions import Coalesce, TruncMonth
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -474,7 +474,7 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     if not queue_request and any(_contains(normalized, word) for word in ("sales", "sold", "revenue", "profit", "benta", "sold animals")):
         return {"status": "unsupported", "message": "Sales and sold-animal summaries are not implemented in this assistant. Use the existing trade records interface."}
     if any(_contains(normalized, word) for word in ("slaughter", "slaughtered", "katay")):
-        return {"status": "unsupported", "message": "A separate slaughter summary is not implemented here. Ask for meat production to view approved recorded meat output, including linked slaughter yield."}
+        return {"status": "unsupported", "message": "A separate slaughter summary is not implemented here. Ask for meat production to view farmer-reported yield; official slaughter output remains in the slaughter report."}
     if any(_contains(normalized, word) for word in ("rate", "rates", "percentage", "predict", "forecast")):
         return {"status": "unsupported", "message": "This assistant reports recorded counts and quantities, not rates, percentages, or forecasts."}
     signals = {
@@ -513,7 +513,7 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     else:
         return {"status": "unsupported", "reason": "unrecognized_intent", "message": "I can answer livestock population, production, disease, mortality, and MAO review-queue questions. Try one of the examples."}
     if intent != "pending_reviews" and any(_contains(normalized, word) for word in ("pending", "verified", "rejected", "declarations")):
-        return {"status": "clarification", "message": "Analytics use approved records. For pending submissions, ask about the current MAO review queue."}
+        return {"status": "clarification", "message": "Production analytics use eligible farmer-recorded logs; official operational analytics use approved records. For current MAO queues, ask which submissions are pending review."}
     if intent == "production":
         breakdown = any(_contains(normalized, phrase) for phrase in (
             "breakdown", "break down", "by barangay", "per barangay", "sa bawat barangay", "by type", "by livestock type", "by species", "distribution", "composition", "production mix", "grouped", "group production", "product category", "product categories", "product types", "output categories",
@@ -654,9 +654,15 @@ def _apply_species(queryset, species_name):
 
 def _activity_query(queryset, *, user, period, barangay_id, species_name):
     scoped = scope_reviewer_queryset(queryset, user).filter(
-        status="APPROVED",
         record_date__range=(date.fromisoformat(period["start"]), date.fromisoformat(period["end"])),
     )
+    if queryset.model is ProductionRecord:
+        scoped = scoped.filter(
+            status=ProductionRecord.ProductionStatus.RECORDED,
+            slaughter__isnull=True,
+        )
+    else:
+        scoped = scoped.filter(status="APPROVED")
     if barangay_id is not None:
         barangay_filter = Q(livestock__farmer__barangay_id=barangay_id) | Q(batch__farmer__barangay_id=barangay_id)
         if queryset.model is ProductionRecord:
@@ -697,6 +703,8 @@ def _result_response(*, question, parsed, answer, results, visualization, covera
 
 
 def _empty_answer(metric, period):
+    if metric == "production":
+        return f"No eligible farmer production logs were returned for {period}. This does not establish that no activity occurred; record coverage may be incomplete."
     return f"No matching approved {metric} records were returned for {period}. This does not establish that no activity occurred; record coverage may be incomplete."
 
 
@@ -748,12 +756,6 @@ def _production_results(parameters, user):
     queryset = _activity_query(
         ProductionRecord.objects.all(), user=user, period=period,
         barangay_id=parameters["barangay_id"], species_name=parameters["species"],
-    ).annotate(
-        output_quantity=Case(
-            When(slaughter__isnull=False, then=F("slaughter__carcass_weight")),
-            default=F("quantity"),
-            output_field=DecimalField(max_digits=10, decimal_places=2),
-        ),
     )
     production_type = parameters["production_type"]
     if production_type:
@@ -772,7 +774,7 @@ def _production_results(parameters, user):
             }
             for row in queryset.annotate(month=TruncMonth("record_date"), species=_species_expression())
             .values("month", "species", "unit")
-            .annotate(quantity=Sum("output_quantity"), records=Count("id"))
+            .annotate(quantity=Sum("quantity"), records=Count("id"))
             .order_by("month", "species")
         ]
         # Do not plot different units on one numeric axis or overwrite series.
@@ -789,7 +791,7 @@ def _production_results(parameters, user):
     else:
         grouped = queryset.values("production_type", "unit")
     rows = []
-    for row in grouped.annotate(quantity=Sum("output_quantity"), records=Count("id")).order_by("production_type", "unit"):
+    for row in grouped.annotate(quantity=Sum("quantity"), records=Count("id")).order_by("production_type", "unit"):
         result = {
             "production_type": row["production_type"],
             "unit": row["unit"],
@@ -1033,12 +1035,12 @@ def execute_question(question, *, user, today=None):
         series_key = None
     elif intent == "production_trend":
         rows, chart_type, x_key, y_key, series_key = _production_results(parameters, user)
-        answer = _empty_answer("production", parameters["period"]["label"]) if not rows else "Approved production quantities grouped by recorded month and livestock type."
-        metric_label = "approved production"
+        answer = _empty_answer("production", parameters["period"]["label"]) if not rows else "Eligible farmer-recorded production quantities grouped by month and livestock type; slaughter-linked projections are excluded."
+        metric_label = "farmer-recorded production"
     elif intent == "production_breakdown":
         rows, chart_type, x_key, y_key, series_key = _production_results(parameters, user)
-        answer = _empty_answer("production", parameters["period"]["label"]) if not rows else "Approved production quantities grouped using the selected breakdown. Units stay separate by production category."
-        metric_label = "approved production"
+        answer = _empty_answer("production", parameters["period"]["label"]) if not rows else "Eligible farmer-recorded production quantities grouped using the selected breakdown. Units stay separate by production category; slaughter-linked projections are excluded."
+        metric_label = "farmer-recorded production"
     elif intent == "disease_by_barangay":
         rows = _disease_results(parameters, user)
         chart_type, x_key, y_key, series_key = "bar", "barangay", "disease_cases", None
@@ -1060,6 +1062,10 @@ def execute_question(question, *, user, today=None):
         question=question, parsed=parsed, answer=answer, results=rows,
         visualization=visualization,
         coverage_note=(
+            f"Based on eligible farmer-recorded production logs for the selected dates. {parameters['period']['label']} is shown above. "
+            "Slaughter-linked projections are excluded from this production metric; official slaughter is a separate source. "
+            "The system cannot establish whether every real-world event was submitted. Missing periods are not treated as zero."
+            if intent in {"production_trend", "production_breakdown"} else
             f"Based on approved records in SmartLivestock for the selected dates. {parameters['period']['label']} is shown above. "
             "The system cannot establish whether every real-world event was submitted. Missing periods are not treated as zero."
             if parameters["period"] else

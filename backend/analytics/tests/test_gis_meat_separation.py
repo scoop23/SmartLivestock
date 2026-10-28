@@ -96,8 +96,28 @@ class GISMeatSeparationTestCase(TestCase):
             role=self.role_slaughter,
         )
 
-    def test_farmer_meat_isolated_from_slaughter_yield(self):
-        """Approved on-farm meat production appears under farmer_meat, not slaughter_yield."""
+    def test_recorded_farmer_meat_isolated_from_slaughter_yield(self):
+        """Recorded on-farm meat production appears under farmer_meat, not slaughter_yield."""
+        ProductionRecord.objects.create(
+            livestock=self.inventory,
+            production_type=ProductionRecord.ProductionType.MEAT,
+            quantity=Decimal("150.00"),
+            unit=ProductionRecord.UnitType.KILOGRAMS,
+            record_date=timezone.localdate(),
+            status=ProductionRecord.ProductionStatus.RECORDED,
+            created_by=self.farmer_user,
+        )
+
+        data = get_gis_aggregated_data(user=self.admin_user)
+        cawongan = data["barangays_dict"]["Cawongan"]
+
+        self.assertEqual(cawongan["farmer_meat"], 150.0)
+        self.assertEqual(cawongan["slaughter_yield"], 0.0)
+        self.assertEqual(cawongan["meat"], 0.0)
+        self.assertEqual(data["summary"]["total_farmer_meat"], 150.0)
+        self.assertEqual(data["summary"]["total_slaughter_yield"], 0.0)
+
+    def test_historical_approved_farmer_meat_is_excluded_from_gis(self):
         ProductionRecord.objects.create(
             livestock=self.inventory,
             production_type=ProductionRecord.ProductionType.MEAT,
@@ -110,12 +130,8 @@ class GISMeatSeparationTestCase(TestCase):
 
         data = get_gis_aggregated_data(user=self.admin_user)
         cawongan = data["barangays_dict"]["Cawongan"]
-
-        self.assertEqual(cawongan["farmer_meat"], 150.0)
-        self.assertEqual(cawongan["slaughter_yield"], 0.0)
-        self.assertEqual(cawongan["meat"], 0.0)
-        self.assertEqual(data["summary"]["total_farmer_meat"], 150.0)
-        self.assertEqual(data["summary"]["total_slaughter_yield"], 0.0)
+        self.assertEqual(cawongan["farmer_meat"], 0.0)
+        self.assertEqual(data["summary"]["total_farmer_meat"], 0.0)
 
     def test_slaughter_yield_isolated_from_farmer_meat(self):
         """Approved slaughterhouse carcass weight appears under slaughter_yield, not farmer_meat."""
@@ -192,14 +208,14 @@ class GISMeatSeparationTestCase(TestCase):
         self.assertEqual(self.inventory.operational_status, LivestockInventory.OperationalStatus.ACTIVE)
 
     def test_coexistence_never_summed_together(self):
-        """Both approved farmer meat and slaughter yield exist; metrics remain strictly separated."""
+        """Recorded farmer meat and official slaughter yield remain strictly separated."""
         ProductionRecord.objects.create(
             livestock=self.inventory,
             production_type=ProductionRecord.ProductionType.MEAT,
             quantity=Decimal("100.00"),
             unit=ProductionRecord.UnitType.KILOGRAMS,
             record_date=timezone.localdate(),
-            status=ProductionRecord.ProductionStatus.APPROVED,
+            status=ProductionRecord.ProductionStatus.RECORDED,
             created_by=self.farmer_user,
         )
         SlaughterRecord.objects.create(
@@ -230,7 +246,7 @@ class GISMeatSeparationTestCase(TestCase):
             quantity=Decimal("75.00"),
             unit=ProductionRecord.UnitType.KILOGRAMS,
             record_date=timezone.localdate(),
-            status=ProductionRecord.ProductionStatus.APPROVED,
+            status=ProductionRecord.ProductionStatus.RECORDED,
             created_by=self.farmer_user,
         )
         SlaughterRecord.objects.create(

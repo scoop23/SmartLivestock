@@ -132,6 +132,51 @@ class DescriptiveSummaryTests(TestCase):
         self.assertEqual(sum(point["reported_heads"] for point in result["surveillance_series"]), data["disease"]["affected_heads"])
         self.assertEqual(sum(point["deaths"] for point in result["surveillance_series"]), data["mortality"]["deaths"])
 
+    def test_recorded_production_is_in_municipal_analytics_but_not_mixed_with_slaughter(self):
+        from production.models import SlaughterRecord
+
+        animal = self.animal()
+        for kind, quantity, status in (
+            ("MILK", "6.00", "RECORDED"),
+            ("MILK", "2.00", "APPROVED"),
+            ("MILK", "500.00", "PENDING"),
+            ("MEAT", "30.00", "RECORDED"),
+        ):
+            ProductionRecord.objects.create(
+                livestock=animal, production_type=kind,
+                unit="LITERS" if kind == "MILK" else "KILOGRAMS",
+                quantity=Decimal(quantity), record_date=self.today,
+                status=status, created_by=self.user,
+            )
+
+        slaughter = SlaughterRecord.objects.create(
+            livestock_type=self.cattle, quantity=1, carcass_weight=Decimal("50.00"),
+            record_date=self.today, status="APPROVED", created_by=self.user,
+        )
+        ProductionRecord.objects.create(
+            livestock=animal, production_type="MEAT", unit="KILOGRAMS",
+            quantity=Decimal("50.00"), record_date=self.today,
+            status="RECORDED", slaughter=slaughter, created_by=self.user,
+        )
+
+        data = descriptive_summary(self.today)["descriptive"]
+        by_type = {(row["type"], row["unit"]): row for row in data["production"]["by_type"]}
+        self.assertEqual(by_type[("MILK", "LITERS")]["quantity"], 6.0)
+        self.assertEqual(by_type[("MEAT", "KILOGRAMS")]["quantity"], 30.0)
+        self.assertEqual(by_type[("MILK", "LITERS")]["records"], 1)
+        self.assertEqual(data["slaughter"]["total_carcass_weight_kg"], 50.0)
+
+    def test_overview_milk_includes_recorded_logs(self):
+        animal = self.animal()
+        ProductionRecord.objects.create(
+            livestock=animal, production_type="MILK", unit="LITERS",
+            quantity=Decimal("12.50"), record_date=self.today,
+            status="RECORDED", created_by=self.user,
+        )
+        from analytics.services.overview import overview_summary
+        summary = overview_summary(user=None, today=self.today)
+        self.assertEqual(summary["population"]["by_barangay"][0]["monthly_milk_l"], 12.5)
+
     def test_batch_event_location_units_and_future_vaccination(self):
         batch = LivestockBatch.objects.create(
             farmer=self.farmer, livestock_type=self.goat,
@@ -141,7 +186,7 @@ class DescriptiveSummaryTests(TestCase):
         for kind, unit, quantity in [("MILK", "LITERS", "2.50"), ("MEAT", "KILOGRAMS", "3.25")]:
             ProductionRecord.objects.create(
                 batch=batch, production_type=kind, unit=unit, quantity=Decimal(quantity),
-                record_date=self.today, status="APPROVED", created_by=self.user,
+                record_date=self.today, status="RECORDED", created_by=self.user,
             )
         DiseaseCase.objects.create(batch=batch, name="FMD", affected_count=1, record_date=self.today, status="APPROVED", created_by=self.user)
         data = descriptive_summary(self.today)["descriptive"]

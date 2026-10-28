@@ -1,6 +1,6 @@
-"""Forecast approved milk records for one currently authorized cow.
+"""Forecast eligible milk records for one currently authorized cow.
 
-Flow: the view supplies this service with one livestock row and its approved,
+Flow: the view supplies this service with one livestock row and its eligible,
 date-aggregated milk records -> this module checks readiness -> builds features
 from earlier records -> compares models chronologically -> recursively creates
 seven expected daily yields. It never queries or writes the demo tables.
@@ -99,7 +99,7 @@ def _evaluate(frame, numeric_features):
     actual = test["milk_liters"].to_numpy(dtype=float)
     results = [{
         "name": "Naive Baseline",
-        "description": "Repeats the most recent approved daily milk quantity.",
+        "description": "Repeats the most recent eligible daily milk quantity.",
         **_metrics(actual, test["lag_1"].to_numpy(dtype=float)),
     }]
     feature_columns = numeric_features + CATEGORICAL_FEATURES
@@ -156,7 +156,7 @@ def forecast_livestock_milk(
                     missing_dates.append((previous["date"] + timedelta(days=offset)).isoformat())
     result = {
         "status": "NOT_READY",
-        "data_source": "approved_livestock_records",
+        "data_source": "farmer_recorded_livestock_logs",
         "livestock": {
             "id": livestock.pk,
             "tag_number": livestock.tag_number,
@@ -167,7 +167,7 @@ def forecast_livestock_milk(
             "days_since_calving": _days_since_calving(latest_calving, latest_date),
         },
         "observation_count": len(daily_records),
-        "observation_unit": "recorded daily total (sum of approved sessions on that date)",
+        "observation_unit": "recorded daily total (sum of eligible sessions on that date)",
         "session_coverage": {
             "days_with_one_session": sum(1 for row in daily_records if row.get("session_count") == 1),
             "days_with_two_sessions": sum(1 for row in daily_records if row.get("session_count") == 2),
@@ -185,7 +185,7 @@ def forecast_livestock_milk(
         "forecast": [],
         "evaluation": None,
         "features_used": [
-            "Approved historical milk production",
+            "Eligible historical milk production",
             "Breed and sex",
             "Calendar date features",
         ],
@@ -198,24 +198,24 @@ def forecast_livestock_milk(
             "message": weather_message or "Weather is unavailable for this request; weather features were omitted.",
         },
         "limitations": (
-            "Experimental estimate based on this animal's approved records. It is not a guaranteed biological prediction. "
+            "Experimental estimate based on this animal's recorded production logs and approved calving history. It is not a guaranteed biological prediction. "
             "Historical weight uses the latest weigh-in measured and recorded before each target date; its age is also provided to the model. Disease history is excluded because available events are not reliably time-aligned to daily milk records; feed, pregnancy, and milking frequency are not modeled."
         ),
     }
     if len(daily_records) < MIN_REAL_HISTORY_DAYS:
         result["reason"] = (
-            f"Insufficient approved daily milk history: {MIN_REAL_HISTORY_DAYS} dated observations are required; "
+            f"Insufficient recorded daily milk history: {MIN_REAL_HISTORY_DAYS} dated observations are required; "
             f"this animal has {len(daily_records)}."
         )
         return result
 
     if (today - latest_date).days > 7:
-        result["reason"] = "The latest approved milk record is more than seven days old. Record current production before forecasting the coming week."
+        result["reason"] = "The latest eligible milk log is more than seven days old. Record current production before forecasting the coming week."
         return result
 
     if calendar_gaps:
         result["reason"] = (
-            f"Forecast withheld: {len(calendar_gaps)} calendar interval(s), covering {missing_date_count} unrecorded date(s), exist in the approved daily history. "
+            f"Forecast withheld: {len(calendar_gaps)} calendar interval(s), covering {missing_date_count} unrecorded date(s), exist in the eligible daily history. "
             "Missing dates are not filled with zero, and lag features require consecutive dates."
         )
         return result
@@ -278,7 +278,7 @@ def forecast_livestock_milk(
     if not uses_ml_model:
         # The naive baseline predicts from the latest yield alone, so report that
         # actual input rather than characteristics/weather used by other candidates.
-        result["features_used"] = ["Most recent approved milk quantity (naive baseline)"]
+        result["features_used"] = ["Most recent eligible milk quantity (naive baseline)"]
 
     model = None
     if selected_name != "Naive Baseline":

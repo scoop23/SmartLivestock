@@ -29,7 +29,7 @@ YAxis,
 
 type MilkForecastResponse = {
   status: "READY" | "NOT_READY";
-  data_source: "approved_livestock_records" | "synthetic_demo";
+  data_source: "farmer_recorded_livestock_logs" | "approved_livestock_records" | "synthetic_demo";
   demonstration_available?: boolean;
   livestock: {
     id: number;
@@ -101,14 +101,14 @@ function thiColor(thi: number | null) {
   return "#ef4444";
 }
 
-/** Render the selected animal's approved-record forecast and optional explicit demo view. */
+/** Render this animal's farmer-recorded milk forecast and optional explicit demo view. */
 export function LivestockMilkForecastTab({ livestockId }: { livestockId: number }) {
   // Synthetic data is an explicit view choice; it is never used as a fallback for real records.
   const [showDemo, setShowDemo] = useState(false);
   // React Query keeps real and demo responses under different cache keys, so switching
   // sources cannot accidentally keep showing the previous source's chart or readiness.
   const { data, isLoading, error } = useQuery({
-    queryKey: ["livestock-milk-forecast", livestockId, showDemo ? "synthetic_demo" : "approved_livestock_records"],
+    queryKey: ["livestock-milk-forecast", livestockId, showDemo ? "synthetic_demo" : "farmer_recorded_livestock_logs"],
     queryFn: async () => (await api.get<MilkForecastResponse>(
       `analytics/livestock/${livestockId}/milk-forecast/`,
       { timeout: 60_000, params: showDemo ? { source: "synthetic_demo" } : undefined },
@@ -182,7 +182,7 @@ export function LivestockMilkForecastTab({ livestockId }: { livestockId: number 
             {data.data_source === "synthetic_demo" ? (
               <Badge variant="outline" className="border-amber-300 bg-amber-100 text-amber-950">DEMONSTRATION DATA</Badge>
             ) : (
-              <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-900">APPROVED REAL RECORDS</Badge>
+              <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-900">RECORDED FARMER LOGS</Badge>
             )}
           </div>
         </div>
@@ -192,10 +192,10 @@ export function LivestockMilkForecastTab({ livestockId }: { livestockId: number 
           <Info label="Breed" value={data.livestock.breed || "Not recorded"} />
           <Info label="Age" value={data.livestock.age_years == null ? "Not recorded" : `${data.livestock.age_years.toFixed(1)} years`} />
           <Info label="Days since calving" value={data.livestock.days_since_calving == null ? "Not recorded" : `${data.livestock.days_since_calving} days`} />
-          <Info label={data.data_source === "synthetic_demo" ? "Demo observations" : "Approved daily records"} value={String(data.observation_count)} />
+          <Info label={data.data_source === "synthetic_demo" ? "Demo observations" : "Eligible daily records"} value={String(data.observation_count)} />
         </div>
 
-        {data.data_source === "approved_livestock_records" && data.session_coverage && (
+        {data.data_source !== "synthetic_demo" && data.session_coverage && (
           <div className="rounded-xl border border-sky-100 bg-sky-50/70 p-3 text-xs text-slate-700">
             <p className="font-semibold text-slate-900">Recorded milking sessions by day</p>
             <p className="mt-1">
@@ -207,16 +207,16 @@ export function LivestockMilkForecastTab({ livestockId }: { livestockId: number 
 
         {data.status === "NOT_READY" ? (
           <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-            {data.data_source === "approved_livestock_records" && data.observation_count < data.minimum_history_required ? (
+            {data.data_source !== "synthetic_demo" && data.observation_count < data.minimum_history_required ? (
               <>
                 <strong>Milk prediction progress</strong>
                 <p className="mt-1">
-                  {data.observation_count} of {data.minimum_history_required} approved daily milk dates recorded.
+                  {data.observation_count} of {data.minimum_history_required} eligible daily milk dates recorded.
                   {" "}{data.minimum_history_required - data.observation_count} more distinct {data.minimum_history_required - data.observation_count === 1 ? "date" : "dates"} needed.
                 </p>
                 <div
                   role="progressbar"
-                  aria-label="Approved daily milk dates toward prediction"
+                  aria-label="Eligible recorded daily milk dates toward prediction"
                   aria-valuemin={0}
                   aria-valuemax={data.minimum_history_required}
                   aria-valuenow={data.observation_count}
@@ -224,14 +224,14 @@ export function LivestockMilkForecastTab({ livestockId }: { livestockId: number 
                 >
                   <div className="h-full rounded-full bg-amber-600" style={{ width: `${Math.min(100, (data.observation_count / data.minimum_history_required) * 100)}%` }} />
                 </div>
-                <p className="mt-2 text-xs">Only this animal’s approved milk records count. Multiple records on one date count as one day.</p>
+                <p className="mt-2 text-xs">This forecast uses this animal’s recorded milk logs only. Multiple sessions on one date count as one daily total.</p>
               </>
             ) : (
               <>
                 <p><strong>Prediction not ready.</strong> {data.reason}</p>
                 {!!data.missing_calendar_days && (
                   <div className="mt-2 rounded-lg border border-amber-200 bg-white/80 p-3">
-                    <p className="font-semibold">Dates without an approved milk record: {data.missing_calendar_days}</p>
+                    <p className="font-semibold">Dates without an eligible milk record: {data.missing_calendar_days}</p>
                     <p className="mt-1 text-xs">These dates are unknown, not zero-liter days. They are omitted so daily lag features are not shifted across gaps.</p>
                     <p className="mt-1 text-xs">{data.missing_calendar_dates?.join(", ")}{data.missing_calendar_dates_truncated ? ", …" : ""}</p>
                   </div>
@@ -333,7 +333,7 @@ export function LivestockMilkForecastTab({ livestockId }: { livestockId: number 
               onClick={() => setShowDemo(false)}
               className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-amber-300 bg-white px-4 py-2 font-semibold hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
             >
-              <RotateCcw className="size-4" /> Return to approved records
+              <RotateCcw className="size-4" /> Return to production records
             </button>
           </div>
         )}

@@ -1,9 +1,9 @@
-"""Approved municipal records aggregated for descriptive dashboards."""
+"""Municipal records aggregated for descriptive dashboards."""
 
 import calendar
 from datetime import date
 
-from django.db.models import Avg, Case, CharField, Count, DecimalField, F, Q, Sum, Value, When
+from django.db.models import Avg, CharField, Count, DecimalField, F, Q, Sum, Value
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast, Coalesce, TruncMonth
 from django.utils import timezone
@@ -21,6 +21,9 @@ from production.models import ProductionRecord, SlaughterRecord
 
 
 WINDOW_MONTHS = 12
+PRODUCTION_ANALYTICS_STATUSES = (
+    ProductionRecord.ProductionStatus.RECORDED,
+)
 
 
 def _window_start(today):
@@ -62,35 +65,31 @@ def descriptive_summary(today=None, *, user=None):
         for row in population["by_barangay"]
     ]
 
-    # VERIFIED means SIBAT checked the submission; APPROVED is MAO's final
-    # decision. All dated event totals use the event date, never created_at.
+    # Farmer production analytics use current self-managed logs only. Historical
+    # approval-state rows remain stored but are not part of these metrics.
     production = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-        status=ProductionRecord.ProductionStatus.APPROVED,
+        status__in=PRODUCTION_ANALYTICS_STATUSES,
+        slaughter__isnull=True,
         record_date__range=(start, today),
     )
-    # Linked meat entries are queue projections: use their slaughter weight once,
-    # never add the same event's ProductionRecord and SlaughterRecord weights.
-    production = production.annotate(output_quantity=Case(
-        When(slaughter__isnull=False, then=F("slaughter__carcass_weight")),
-        default=F("quantity"), output_field=DecimalField(max_digits=10, decimal_places=2)))
     # Keep units separate: liters, kilograms, and pieces cannot be added together.
     production_by_type = [
         {"type": row["production_type"], "unit": row["unit"],
          "quantity": float(row["quantity"] or 0), "records": row["records"]}
         for row in production.values("production_type", "unit")
-        .annotate(quantity=Sum("output_quantity"), records=Count("id"))
+        .annotate(quantity=Sum("quantity"), records=Count("id"))
         .order_by("production_type", "unit")
     ]
     production_monthly = list(
         production.annotate(month=TruncMonth("record_date"))
         .values("month", "production_type", "unit")
-        .annotate(quantity=Sum("output_quantity"), records=Count("id"))
+        .annotate(quantity=Sum("quantity"), records=Count("id"))
         .order_by("month", "production_type", "unit")
     )
     # Farmer-reported meat is separate from slaughter output. Slaughter-linked
-    # ProductionRecords are projections of SlaughterRecord and must not be added twice.
+    # ProductionRecords are projections of SlaughterRecord and are excluded.
     farmer_meat_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-        status=ProductionRecord.ProductionStatus.APPROVED,
+        status__in=PRODUCTION_ANALYTICS_STATUSES,
         production_type=ProductionRecord.ProductionType.MEAT,
         unit=ProductionRecord.UnitType.KILOGRAMS,
         slaughter__isnull=True,
@@ -139,7 +138,7 @@ def descriptive_summary(today=None, *, user=None):
     # Keep commodity output grouped by livestock type so the dashboard can switch
     # between milk, wool, eggs, and meat without mixing incompatible units.
     production_by_species_monthly = list(
-        production.filter(slaughter__isnull=True).annotate(
+        production.annotate(
             month=TruncMonth("record_date"),
             species=Coalesce(
                 "livestock__livestock_type__name",
@@ -171,7 +170,7 @@ def descriptive_summary(today=None, *, user=None):
             barangay_id=F("farmer_at_record__barangay_id"),
             barangay=F("farmer_at_record__barangay__barangay_name"),
         ).values("barangay_id", "barangay", "production_type", "unit")
-        .annotate(quantity=Sum("output_quantity"))
+        .annotate(quantity=Sum("quantity"))
         .order_by("barangay", "production_type", "unit")
     ]
     # The consolidated report displays farmer meat and slaughter yield in their

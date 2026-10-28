@@ -204,7 +204,6 @@ class Command(BaseCommand):
 
     def _production_row(self, *, marker, user, day, kind, amount, status, session=None,
                         approved_time=None, review_time=None, note=""):
-        approved = status == ProductionRecord.ProductionStatus.APPROVED
         record = ProductionRecord(
             livestock=None,
             batch=None,
@@ -217,10 +216,10 @@ class Command(BaseCommand):
             session_conflict=False,
             status=status,
             slaughter=None,
-            approved_at=approved_time if approved else None,
-            reviewed_by=user if review_time else None,
-            reviewed_at=review_time,
-            next_review_queue=(ProductionRecord.ReviewQueue.NONE if approved else
+            approved_at=None,
+            reviewed_by=None,
+            reviewed_at=None,
+            next_review_queue=(ProductionRecord.ReviewQueue.NONE if status == ProductionRecord.ProductionStatus.RECORDED else
                                ProductionRecord.ReviewQueue.FARMER if status == ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION
                                else ProductionRecord.ReviewQueue.MAO),
             notes=f"{SEED_MARKER_PRODUCTION_V2} {marker} Synthetic forecast scenario; {note}"[:500],
@@ -311,17 +310,15 @@ class Command(BaseCommand):
                     production_rows.append(self._production_row(
                         marker=marker, user=user, day=production_day, kind="MILK",
                         amount=round((base + variation) * annual * trend, 2),
-                        status=ProductionRecord.ProductionStatus.APPROVED,
-                        session=session, approved_time=aware_at(production_day, 17),
-                        review_time=aware_at(production_day, 17), note="complete daily session report",
+                        status=ProductionRecord.ProductionStatus.RECORDED,
+                        session=session, note="complete daily session report",
                     ))
             for event_index, day_number in enumerate((6, 16, 26)):
                 event_day = date(month.year, month.month, min(day_number, days))
                 kg = round((135 + 16 * event_index + month_index * 1.8) * annual, 2)
                 meat_rows.append(self._production_row(
                     marker=marker, user=user, day=event_day, kind="MEAT", amount=kg,
-                    status=ProductionRecord.ProductionStatus.APPROVED,
-                    approved_time=aware_at(event_day, 17), review_time=aware_at(event_day, 17),
+                    status=ProductionRecord.ProductionStatus.RECORDED,
                     note="farmer-reported event yield in kilograms",
                 ))
             for event_index, day_number in enumerate((9, 23)):
@@ -372,14 +369,14 @@ class Command(BaseCommand):
         for observed_number, month_index in enumerate(observed_indexes):
             month = months[month_index]
             event_day = date(month.year, month.month, 12)
-            approved = ProductionRecord.ProductionStatus.APPROVED
+            recorded = ProductionRecord.ProductionStatus.RECORDED
             # Sparse milk reporting: some dates omit a session label, and one
             # approved session in every second month lacks a current approval time.
             for session_number, session in enumerate(("MORNING", None)):
                 review_time = aware_at(event_day + timedelta(days=40), 17) if observed_number % 2 else None
                 production_rows.append(self._production_row(
                     marker=marker, user=user, day=event_day + timedelta(days=session_number), kind="MILK",
-                    amount=(48 if session_number == 0 else 21), status=approved,
+                    amount=(48 if session_number == 0 else 21), status=recorded,
                     session=session, approved_time=review_time, review_time=review_time,
                     note="sparse session entry; timestamps are intentionally incomplete/late",
                 ))
@@ -387,7 +384,7 @@ class Command(BaseCommand):
             meat_review = None if observed_number % 3 == 0 else aware_at(event_day + timedelta(days=45), 17)
             meat_rows.append(self._production_row(
                 marker=marker, user=user, day=event_day, kind="MEAT", amount=meat_kg,
-                status=approved, approved_time=meat_review, review_time=meat_review,
+                status=recorded,
                 note="sparse event history with a suspicious high observation",
             ))
             slaughter_review = None if observed_number % 3 == 0 else aware_at(event_day + timedelta(days=50), 17)

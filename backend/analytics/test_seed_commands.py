@@ -94,7 +94,7 @@ class SeedCommandsTests(TestCase):
         self.assertEqual(milk_qs.count(), 12)
         for r in milk_qs:
             self.assertEqual(r.unit, ProductionRecord.UnitType.LITERS)
-            self.assertEqual(r.status, ProductionRecord.ProductionStatus.APPROVED)
+            self.assertEqual(r.status, ProductionRecord.ProductionStatus.RECORDED)
 
         # 2. Farmer-Reported Meat in Kilograms (slaughter=None)
         meat_qs = ProductionRecord.objects.filter(
@@ -105,7 +105,7 @@ class SeedCommandsTests(TestCase):
         for r in meat_qs:
             self.assertEqual(r.unit, ProductionRecord.UnitType.KILOGRAMS)
             self.assertIsNone(r.slaughter, "Farmer-reported meat must have slaughter=None!")
-            self.assertEqual(r.status, ProductionRecord.ProductionStatus.APPROVED)
+            self.assertEqual(r.status, ProductionRecord.ProductionStatus.RECORDED)
 
         # 3. Eggs in Pieces
         eggs_qs = ProductionRecord.objects.filter(

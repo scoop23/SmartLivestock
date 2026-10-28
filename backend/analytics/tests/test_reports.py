@@ -45,9 +45,9 @@ class OfficialReportApiTests(TestCase):
         self.client.force_authenticate(self.mao)
 
         ProductionRecord.objects.create(livestock=self.animal, production_type="MILK", quantity=Decimal("12.5"),
-                                        unit="LITERS", record_date=self.today, status="APPROVED", created_by=self.farmer_user)
+                                        unit="LITERS", record_date=self.today, status="RECORDED", created_by=self.farmer_user)
         ProductionRecord.objects.create(livestock=self.animal, production_type="EGGS", quantity=Decimal("8"),
-                                        unit="PIECES", record_date=self.today, status="APPROVED", created_by=self.farmer_user)
+                                        unit="PIECES", record_date=self.today, status="RECORDED", created_by=self.farmer_user)
         ProductionRecord.objects.create(livestock=self.animal, production_type="MILK", quantity=Decimal("99"),
                                         unit="LITERS", record_date=self.today, status="PENDING", created_by=self.farmer_user)
         DiseaseCase.objects.create(livestock=self.animal, name="Foot and mouth disease", affected_count=2,
@@ -130,6 +130,33 @@ class OfficialReportApiTests(TestCase):
         self.assertEqual(sum(row["record_kind"] == "MOVEMENT" for row in movement["rows"]), 2)
         self.assertEqual({row["direction"] for row in movement["rows"] if row["record_kind"] == "MOVEMENT"}, {"INTERNAL"})
         self.assertTrue(all(row["clearance_status"] == "APPROVED" for row in movement["rows"]))
+
+    def test_production_report_includes_recorded_logs_but_not_slaughter_projections(self):
+        ProductionRecord.objects.create(
+            livestock=self.animal, production_type="MILK", quantity=Decimal("4.5"),
+            unit="LITERS", record_date=self.today, status="RECORDED", created_by=self.farmer_user,
+        )
+        ProductionRecord.objects.create(
+            livestock=self.animal, production_type="MILK", quantity=Decimal("900"),
+            unit="LITERS", record_date=self.today, status="APPROVED", created_by=self.farmer_user,
+        )
+        slaughter = SlaughterRecord.objects.create(
+            livestock=self.animal, livestock_type=self.cattle, quantity=1,
+            carcass_weight=Decimal("180.5"), record_date=self.today,
+            status="PENDING", created_by=self.farmer_user,
+        )
+        ProductionRecord.objects.create(
+            livestock=self.animal, production_type="MEAT", quantity=Decimal("180.5"),
+            unit="KILOGRAMS", record_date=self.today, status="RECORDED",
+            slaughter=slaughter, created_by=self.farmer_user,
+        )
+
+        report = self.preview("production").data
+        self.assertEqual(report["record_count"], 3)
+        self.assertEqual(report["summary"]["totals_by_type_and_unit"]["MILK (LITERS)"], 17.0)
+        self.assertNotIn("MEAT (KILOGRAMS)", report["summary"]["totals_by_type_and_unit"])
+        recorded = next(row for row in report["rows"] if row["status"] == "RECORDED")
+        self.assertEqual(recorded["source"], "Farmer-reported production")
 
     def test_filters_and_empty_date_range_are_applied_to_preview(self):
         response = self.preview("movement", species="Goat", direction="INTERNAL", purpose="SLAUGHTER")
@@ -268,7 +295,7 @@ class OfficialReportApiTests(TestCase):
             ProductionRecord(livestock=self.animal,
                              production_type="REGRESSION-LAST-ROW" if index == 204 else "MILK",
                              quantity=Decimal("1"),
-                             unit="LITERS", record_date=self.today, status="APPROVED", created_by=self.farmer_user)
+                             unit="LITERS", record_date=self.today, status="RECORDED", created_by=self.farmer_user)
             for index in range(205)
         ])
         preview = self.preview("production")
@@ -399,7 +426,7 @@ class OfficialReportApiTests(TestCase):
         previous_day = self.today - timedelta(days=1)
         ProductionRecord.objects.create(
             livestock=self.animal, production_type="MILK", quantity=Decimal("5"), unit="LITERS",
-            record_date=previous_day, status="APPROVED", created_by=self.farmer_user,
+            record_date=previous_day, status="RECORDED", created_by=self.farmer_user,
         )
         report = self.preview("production", barangay="Poblacion").data
         comparison = report["analysis"]["comparison"]

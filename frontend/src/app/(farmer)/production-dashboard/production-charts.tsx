@@ -115,11 +115,11 @@ export default function ProductionCharts({
   // Dynamic chart config based on current production type color
   const dynamicChartConfig = {
     quantity: { label: "Total Recorded Volume", color: unitInfo.color },
-    verifiedQuantity: { label: "Recorded or historically approved yield", color: unitInfo.color },
+    verifiedQuantity: { label: "Recorded farmer yield", color: unitInfo.color },
     pendingQuantity: { label: "Historical records awaiting review", color: "#f59e0b" },
     revisionQuantity: { label: "Needs Revision", color: "#ef4444" },
     value: { label: "Estimated Reference Value", color: "#059669" },
-    verifiedValue: { label: "Recorded or historically approved value", color: "#059669" },
+    verifiedValue: { label: "Recorded production value", color: "#059669" },
     pendingValue: { label: "Historical pending value", color: "#f59e0b" },
   } satisfies ChartConfig;
 

@@ -211,7 +211,7 @@ class Command(BaseCommand):
             )
             return
 
-        # Reviewer: MAO user for authoritative APPROVED status
+        # Use an existing authorized account only as the synthetic record creator.
         mao_user = (
             User.objects.filter(role__role_name__icontains="MAO").first()
             or User.objects.filter(is_superuser=True).first()
@@ -237,21 +237,21 @@ class Command(BaseCommand):
             cfg = COMMODITY_CONFIGS[commodity]
             unit = unit_override or cfg["unit"]
 
-            # A real approved observation already covers its month. In gap-fill
+            # A real recorded observation already covers its month. In gap-fill
             # mode we skip it so synthetic output is never added to real output.
             existing_months = set()
             skipped_months = 0
             if fill_gaps:
                 first_day_after_range = shift_month(first_month, months)
-                approved_dates = ProductionRecord.objects.filter(
+                recorded_dates = ProductionRecord.objects.filter(
                     production_type=commodity,
                     unit=unit,
-                    status=ProductionRecord.ProductionStatus.APPROVED,
+                    status=ProductionRecord.ProductionStatus.RECORDED,
                     slaughter__isnull=True,
                     record_date__gte=first_month,
                     record_date__lt=first_day_after_range,
                 ).values_list("record_date", flat=True)
-                existing_months = {(record_date.year, record_date.month) for record_date in approved_dates}
+                existing_months = {(record_date.year, record_date.month) for record_date in recorded_dates}
 
             # Locate appropriate anchor inventory for this commodity species
             anchor_inventory = (
@@ -305,12 +305,10 @@ class Command(BaseCommand):
                     quantity=Decimal(str(monthly_qty)),
                     unit=unit,
                     record_date=obs_date,
-                    status=ProductionRecord.ProductionStatus.APPROVED,
+                    status=ProductionRecord.ProductionStatus.RECORDED,
                     slaughter=None,  # Intentionally NULL for farmer-reported output
                     notes=f"{SEED_MARKER_PRODUCTION_V2} [{commodity}] Month {step + 1}/{months} (Yield: {monthly_qty} {unit})",
-                    reviewed_by=mao_user,
-                    reviewed_at=timezone.now(),
-                    review_remarks="Approved synthetic test observation for ML predictive analytics verification.",
+                    review_remarks="Synthetic farmer-recorded observation for predictive analytics testing.",
                     created_by=creator_user,
                 )
                 records_to_create.append(record)
@@ -318,13 +316,13 @@ class Command(BaseCommand):
             if dry_run:
                 self.stdout.write(
                     f"  -> Would create {len(records_to_create)} {commodity} records; "
-                    f"preserve existing approved months: {skipped_months}"
+                    f"preserve existing recorded months: {skipped_months}"
                 )
             else:
                 ProductionRecord.objects.bulk_create(records_to_create)
                 self.stdout.write(
                     f"  -> Seeded {len(records_to_create)} monthly records for {commodity} ({unit}); "
-                    f"preserved {skipped_months} existing approved month(s)"
+                    f"preserved {skipped_months} existing recorded month(s)"
                 )
             total_created += len(records_to_create)
 

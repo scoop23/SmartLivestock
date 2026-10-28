@@ -61,17 +61,14 @@ export interface FarmerDashboardAnalytics {
   avg_carcass_weight_kg: number | null;
   /** Active DiseaseCase count (PENDING / VERIFIED) for the farmer. */
   active_health_alerts: number;
-  /** MILK liters from approved, verified, and pending records this month; NULL if none. */
+  /** RECORDED farmer MILK liters this month; NULL if none. */
   milk_production_liters: number | null;
-  milk_approved_liters: number;
   milk_recorded_liters: number;
-  milk_verified_liters: number;
-  milk_pending_liters: number;
   /** Month-over-month growth % of milk production; NULL if not calculable. */
   milk_growth_pct: number | null;
   /** Historical cattle trend */
   cattle_trend: FarmerTrendPoint[];
-  /** Approved MILK production (liters) per month, most recent months first. */
+  /** RECORDED MILK production (liters) per month, most recent months first. */
   milk_trend: FarmerTrendPoint[];
   /** Primary livestock species distribution for the two-level pie chart inner ring. */
   herd_categories: HerdCategoryPoint[];
@@ -200,10 +197,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
   let currentMonthMilk = 0;
   let prevMonthMilk = 0;
   let hasMilkData = false;
-  let currentMonthApprovedMilk = 0;
   let currentMonthRecordedMilk = 0;
-  let currentMonthVerifiedMilk = 0;
-  let currentMonthPendingMilk = 0;
 
   const monthlyMilkMap = new Map<string, number>();
 
@@ -214,7 +208,11 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     const dateStr = String(prod.record_date || prod.created_at || "");
     const monthKey = dateStr.slice(0, 7); // "YYYY-MM"
 
-    if (type !== "MILK" || !["RECORDED", "APPROVED", "VERIFIED", "PENDING"].includes(status)) return;
+    if (type !== "MILK") return;
+
+    // Personal analytics use current farmer-recorded logs only. Historical
+    // approval-state rows stay stored but are excluded from totals.
+    if (status !== "RECORDED") return;
 
     hasMilkData = true;
     if (monthKey) {
@@ -222,10 +220,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     }
     if (monthKey === currentMonthStr) {
       currentMonthMilk += qty;
-      if (status === "APPROVED") currentMonthApprovedMilk += qty;
-      if (status === "RECORDED") currentMonthRecordedMilk += qty;
-      if (status === "VERIFIED") currentMonthVerifiedMilk += qty;
-      if (status === "PENDING") currentMonthPendingMilk += qty;
+      currentMonthRecordedMilk += qty;
     } else if (monthKey === prevMonthStr) {
       prevMonthMilk += qty;
     }
@@ -362,10 +357,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     avg_carcass_weight_kg: null,
     active_health_alerts: activeAlerts,
     milk_production_liters: hasMilkData ? currentMonthMilk : null,
-    milk_approved_liters: currentMonthApprovedMilk,
     milk_recorded_liters: currentMonthRecordedMilk,
-    milk_verified_liters: currentMonthVerifiedMilk,
-    milk_pending_liters: currentMonthPendingMilk,
     milk_growth_pct,
     cattle_trend,
     milk_trend,

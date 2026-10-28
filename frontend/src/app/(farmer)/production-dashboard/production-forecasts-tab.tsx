@@ -40,7 +40,7 @@ export default function ProductionForecastsTab({
   ).length;
 
   // Recent milk production daily average
-  const milkRecords = records.filter((r) => r.productionType === "milk" && r.status === "APPROVED");
+  const milkRecords = records.filter((r) => r.productionType === "milk" && r.status === "RECORDED");
   const totalMilkRecent = milkRecords.reduce((acc, r) => acc + Number(r.quantity), 0);
   const avgDailyMilk = milkRecords.length > 0 ? totalMilkRecent / Math.max(milkRecords.length, 1) : femaleCattleCount * 6;
 

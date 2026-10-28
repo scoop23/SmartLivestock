@@ -242,7 +242,7 @@ def _report_chart_specs(report):
         units = sorted({str(row.get("unit") or "Unknown") for row in rows})
         for unit in units:
             unit_rows = [row for row in rows if str(row.get("unit") or "Unknown") == unit]
-            line(f"Production Over Time ({unit})", _monthly_rows(unit_rows, "quantity"), unit.lower(), "Monthly approved output.")
+            line(f"Production Over Time ({unit})", _monthly_rows(unit_rows, "quantity"), unit.lower(), "Monthly farmer-recorded output.")
             distribution = _chart_rows(unit_rows, "production_type", "quantity")
             bar(f"Production by Type ({unit})", distribution, unit.lower(), "Production types compared only within the same unit.")
             if len(distribution) > 1:
@@ -255,7 +255,7 @@ def _report_chart_specs(report):
                               "data": type_months, "series": types, "unit": unit.lower(),
                               "description": "Monthly output by type; only types recorded in this same unit share an axis."})
         bar("Number of Production Records by Barangay", _chart_rows(rows, "barangay", "", count=True), "records",
-            "Counts approved submissions, not production volume.")
+            "Counts eligible farmer production submissions, not production volume.")
     elif kind == "disease_mortality":
         diseases = [row for row in rows if row.get("record_kind") == "DISEASE"]
         deaths = [row for row in rows if row.get("record_kind") == "MORTALITY"]
@@ -558,7 +558,7 @@ def pdf_report(report):
     if analysis["key_findings"]:
         story.extend(Paragraph("• " + escape(finding), normal) for finding in analysis["key_findings"])
     else:
-        story.append(Paragraph("There is not enough approved data in this selection to identify a key finding.", normal))
+        story.append(Paragraph("There is not enough eligible data in this selection to identify a key finding.", normal))
     story.extend([Spacer(1, 7), Paragraph("Previous-Period Comparison", section_style)])
     comparison = analysis["comparison"]
     if comparison["available"]:
@@ -593,13 +593,13 @@ def pdf_report(report):
     story.extend([Paragraph("Charts &amp; Analysis", ParagraphStyle("ChartSection", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#1E4D2B"))), Spacer(1, 5)])
     interpretations = {
         "inventory": "This report summarizes approved livestock inventory in the selected period. Species and barangay charts show how recorded heads are distributed.",
-        "production": "This report summarizes approved production records. Each chart keeps its original unit, so liters, kilograms, and pieces are not combined.",
+        "production": "This report summarizes RECORDED farmer logs only. Historical approval-state production rows are excluded. Each chart keeps its original unit, so liters, kilograms, and pieces are not combined.",
         "disease_mortality": "This report describes approved disease and mortality records. Case counts and affected animals are distinct measures; the charts are descriptive, not predictive.",
         "slaughter": "This report summarizes approved slaughter activity and recorded carcass weights. Animal counts and kilograms are charted separately.",
         "movement": "Auction Activity describes sale operations; Movement Analysis describes geographic direction. These are separate records and measures.",
         "inspection": "This report summarizes approved inspection and clearance records. Statuses shown are only those present in the filtered dataset.",
     }
-    story.extend([Paragraph(escape(interpretations.get(report["report_type"], "Charts are based on approved records matching the selected filters.")), normal), Spacer(1, 6)])
+    story.extend([Paragraph(escape(interpretations.get(report["report_type"], "Charts are based on eligible records matching the selected filters.")), normal), Spacer(1, 6)])
     section = None
     for spec in _report_chart_specs(report):
         chart_section = "Auction Activity" if spec["title"].startswith("Auction") else "Movement Analysis" if spec["title"].startswith("Movement") or spec["title"].startswith("Top ") else None

@@ -47,7 +47,7 @@ class IndividualMilkForecastTests(TestCase):
             farmer=farmer,
             livestock_type=cattle,
             tag_number="REAL-COW-001",
-            status="APPROVED",
+            status="RECORDED",
             created_by=self.farmer_user,
         )
         self.real_production = ProductionRecord.objects.create(

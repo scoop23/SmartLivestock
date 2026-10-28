@@ -20,7 +20,10 @@ def overview_summary(*, user=None, today=None):
         location = Coalesce(*location_paths) if len(location_paths) > 1 else F(location_paths[0])
         return dict(queryset.annotate(location=location).values("location").annotate(value=value).values_list("location", "value"))
     milk = grouped(scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-        status="APPROVED", production_type="MILK", unit="LITERS", record_date__range=(start, today)), Sum("quantity"),
+            status=ProductionRecord.ProductionStatus.RECORDED,
+        production_type=ProductionRecord.ProductionType.MILK,
+        unit=ProductionRecord.UnitType.LITERS,
+        record_date__range=(start, today)), Sum("quantity"),
         location_paths=["farmer_at_record__barangay_id"])
     meat = grouped(scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(
         status="APPROVED", record_date__range=(start, today)), Sum("carcass_weight"), fallback="barangay_id")

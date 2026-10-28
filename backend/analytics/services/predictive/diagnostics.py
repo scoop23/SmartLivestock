@@ -20,7 +20,7 @@ from datetime import date, timedelta
 from django.utils import timezone
 import pandas as pd
 import numpy as np
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.utils.timezone import localdate
 
 from livestock.models import LivestockOwnershipTransfer
@@ -51,7 +51,7 @@ CORE_DIAGNOSTIC_TARGETS = [
         "label": "Milk Production",
         "commodity_type": "MILK",
         "reporting_type": "RECURRING_MONTHLY",
-        "description": "Dairy output in Liters from approved records across Padre Garcia farms.",
+        "description": "Farmer-recorded dairy output in liters across Padre Garcia farms.",
     },
     {
         "id": "farmer_meat",
@@ -61,7 +61,7 @@ CORE_DIAGNOSTIC_TARGETS = [
         "label": "Farmer Meat Yield",
         "commodity_type": "MEAT",
         "reporting_type": "EVENT_BASED",
-        "description": "Farmer on-farm meat output (slaughter=NULL) to prevent abattoir double-counting.",
+        "description": "Farmer-recorded meat yield not linked to an official slaughter record.",
     },
     {
         "id": "slaughter_meat",
@@ -97,14 +97,15 @@ def _approval_status_breakdown(domain: str, target: str, unit: str, user=None) -
         queryset = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
             production_type=target,
             unit=unit,
+            status=ProductionRecord.ProductionStatus.RECORDED,
             record_date__lt=current_month,
         )
         if target == ProductionRecord.ProductionType.MEAT:
             queryset = queryset.filter(slaughter__isnull=True)
         model = ProductionRecord
         scope_note = (
-            "Current workflow status for production records dated before the current month; farmer meat excludes records linked to slaughter. "
-            "Status totals count source rows, not usable forecast months."
+            "Status context for production records dated before the current month; routine RECORDED farmer logs do not require review. "
+            "Farmer meat excludes records linked to slaughter. Counts are source rows, not forecast months."
         )
     elif domain == "slaughter":
         queryset = scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(
@@ -181,22 +182,44 @@ def _build_readiness_checklist(
         "status": "PASSED" if total_records > 0 else "BLOCKED",
         "actual_value": f"{total_records} record(s)",
         "expected_requirement": "At least 1 record",
-        "explanation": f"Official municipal database contains recorded {domain} entries for {target} ({unit}).",
-        "action_needed": "Submit records through the standard municipal encoder workflow." if total_records == 0 else None,
+        "explanation": (
+            f"Municipal analytics contain eligible farmer-recorded {target} production ({unit})."
+            if domain == "production" else
+            f"Official municipal database contains recorded {domain} entries for {target} ({unit})."
+        ),
+        "action_needed": (
+            "Farmers can submit production through their production log."
+            if domain == "production" and total_records == 0 else
+            "Submit records through the standard municipal encoder workflow."
+            if total_records == 0 else None
+        ),
         "resolution_type": "DATA_COLLECTION",
     })
 
-    # 2. Eligible Approved Records
-    # Note: extract_monthly_series base_qs only contains APPROVED records.
+    # Production forecasting uses RECORDED farmer logs only. Other forecast
+    # domains continue to require their own approved source records.
+    production_source = domain == "production"
     checklist.append({
         "id": "approved_records",
-        "title": "Eligible Approved Records",
+        "title": "Eligible Production Logs" if production_source else "Eligible Approved Records",
         "category": "DATA_COLLECTION",
         "status": "PASSED" if total_records > 0 else "BLOCKED",
-        "actual_value": f"{total_records} approved record(s)",
-        "expected_requirement": "Only APPROVED status records qualify",
-        "explanation": "Drafts, pending reviews, and returned submissions are excluded to ensure official accuracy.",
-        "action_needed": "Complete MAO administrative review and approval for pending records." if total_records == 0 else None,
+        "actual_value": f"{total_records} eligible record(s)" if production_source else f"{total_records} approved record(s)",
+        "expected_requirement": (
+            "Only RECORDED farmer logs qualify"
+            if production_source else "Only APPROVED status records qualify"
+        ),
+        "explanation": (
+            "Routine production logs are farmer-managed. Historical approval-state, pending, verified, and returned rows are excluded."
+            if production_source else
+            "Drafts, pending reviews, and returned submissions are excluded to ensure official accuracy."
+        ),
+        "action_needed": (
+            "Record production logs through the farmer production workflow."
+            if production_source and total_records == 0 else
+            "Complete the source workflow's required review and approval for pending records."
+            if not production_source and total_records == 0 else None
+        ),
         "resolution_type": "DATA_COLLECTION",
     })
 
@@ -277,16 +300,20 @@ def _build_readiness_checklist(
         "resolution_type": "DATA_COLLECTION",
     })
 
-    # 8. Historical Timestamp Reliability
+    # 8. Historical availability timestamp reliability
+    production_source = domain == "production"
     checklist.append({
         "id": "timestamp_reliability",
-        "title": "Historical Approval Timestamp Integrity",
+        "title": "Historical Availability Timestamp Integrity",
         "category": "VALIDATION_INTEGRITY",
         "status": "PASSED" if approval_reconstructable else "WARNING",
-        "actual_value": "Verified review timestamps present" if approval_reconstructable else "Some records lack review timestamps",
-        "expected_requirement": "All approved records retain system creation & review timestamps",
-        "explanation": "Chronological backtesting requires knowing when a record became visible to avoid data leakage (using future approvals to predict past months).",
-        "action_needed": "The system records genuine timestamps automatically for all new reviews; past timestamps cannot be backfilled." if not approval_reconstructable else None,
+        "actual_value": "Availability timestamps present" if approval_reconstructable else "Some records lack availability timestamps",
+        "expected_requirement": (
+            "Eligible production logs retain their submission timestamps"
+            if production_source else "Approved records retain system creation and review timestamps"
+        ),
+        "explanation": "Chronological backtesting requires knowing when a record became available, so later entries cannot leak into earlier forecast cutoffs.",
+        "action_needed": "New records receive system timestamps; historical timestamps cannot be safely backfilled." if not approval_reconstructable else None,
         "resolution_type": "DATA_COLLECTION",
     })
 
@@ -299,8 +326,16 @@ def _build_readiness_checklist(
         "status": "PASSED" if has_cutoffs else ("WARNING" if total_cutoffs > 0 else "BLOCKED"),
         "actual_value": f"{valid_cutoffs} of {total_cutoffs} cutoff(s) qualified",
         "expected_requirement": f"At least {minimum_valid_windows} cutoffs meeting training history & availability",
-        "explanation": "A historical cutoff qualifies only if sufficient training data had already been approved prior to that cutoff date.",
-        "action_needed": "As real municipal records continue to be approved on time, future cutoffs will qualify automatically." if not has_cutoffs else None,
+        "explanation": (
+            "A historical cutoff qualifies only if sufficient production data had become available before that cutoff date."
+            if production_source else
+            "A historical cutoff qualifies only if sufficient training data had already been approved prior to that cutoff date."
+        ),
+        "action_needed": (
+            "As timestamped production logs are recorded, future cutoffs can qualify automatically."
+            if production_source else
+            "As real municipal records continue to be approved on time, future cutoffs will qualify automatically."
+        ) if not has_cutoffs else None,
         "resolution_type": "DATA_COLLECTION",
     })
 
@@ -541,18 +576,23 @@ def get_forecast_readiness_diagnostics(
             unit=ProductionRecord.UnitType.LITERS,
             record_date__lt=cutoff_month,
         )
-        approved_records = scoped.filter(
-            status=ProductionRecord.ProductionStatus.APPROVED,
+        eligible_records = scoped.filter(
+            status=ProductionRecord.ProductionStatus.RECORDED,
             session_conflict=False,
         )
         session_days = list(
-            approved_records.values("record_date")
+            eligible_records.values("record_date")
             .annotate(session_count=Count("milking_session", distinct=True), record_count=Count("pk"))
         )
         milk_diagnostics = {
-            "usable_records": approved_records.count(),
-            "usable_production_days": approved_records.values("record_date").distinct().count(),
-            "records_with_approval_timestamp": approved_records.filter(approved_at__isnull=False).count(),
+            "usable_records": eligible_records.count(),
+            "usable_production_days": eligible_records.values("record_date").distinct().count(),
+            "records_with_approval_timestamp": eligible_records.filter(
+                Q(status=ProductionRecord.ProductionStatus.RECORDED, created_at__isnull=False)
+            ).count(),
+            "records_with_availability_timestamp": eligible_records.filter(
+                Q(status=ProductionRecord.ProductionStatus.RECORDED, created_at__isnull=False)
+            ).count(),
             "monthly_observations": usable_observations,
             "months_with_records": usable_observations,
             "months_without_records": missing_month_count,
@@ -564,17 +604,18 @@ def get_forecast_readiness_diagnostics(
             "pending_records": scoped.filter(status__in=["PENDING", "VERIFIED"]).count(),
             "returned_records": scoped.filter(status=ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION).count(),
             "missing_approval_timestamp_records": scoped.filter(
-                status=ProductionRecord.ProductionStatus.APPROVED, approved_at__isnull=True
+                Q(status=ProductionRecord.ProductionStatus.RECORDED, created_at__isnull=True)
             ).count(),
             "excluded_duplicate_conflict_records": scoped.filter(
-                status=ProductionRecord.ProductionStatus.APPROVED, session_conflict=True
+                status=ProductionRecord.ProductionStatus.RECORDED,
+                session_conflict=True,
             ).count(),
             "session_completeness_note": (
                 "These counts show recorded sessions only. A missing session is not treated as zero, "
                 "and the system does not record whether a session was skipped or not applicable."
             ),
             "monthly_completeness_note": (
-                "A month with approved records is an observed total, not proof that every milking session was reported. "
+                "A month with eligible records is an observed total, not proof that every milking session was reported. "
                 "A month without records does not prove zero production; no coverage log exists."
             ),
         }
@@ -584,19 +625,24 @@ def get_forecast_readiness_diagnostics(
             unit=ProductionRecord.UnitType.KILOGRAMS,
             record_date__lt=localdate().replace(day=1),
         )
-        approved = scoped.filter(status=ProductionRecord.ProductionStatus.APPROVED)
-        usable = approved.filter(slaughter__isnull=True)
+        eligible = scoped.filter(
+            status=ProductionRecord.ProductionStatus.RECORDED
+        )
+        usable = eligible.filter(slaughter__isnull=True)
         source_diagnostics = {
             "source_record_type": "Farmer-reported ProductionRecord events",
-            "approved_source_records": approved.count(),
-            "approved_records_used": usable.count(),
-            "linked_to_slaughter_excluded": approved.filter(slaughter__isnull=False).count(),
+            "eligible_source_records": eligible.count(),
+            "eligible_records_used": usable.count(),
+            "recorded_source_records": eligible.filter(status=ProductionRecord.ProductionStatus.RECORDED).count(),
+            "linked_to_slaughter_excluded": eligible.filter(slaughter__isnull=False).count(),
             "pending_or_verified_records": scoped.filter(status__in=["PENDING", "VERIFIED"]).count(),
             "returned_records": scoped.filter(status=ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION).count(),
-            "missing_approval_timestamp_records": usable.filter(approved_at__isnull=True).count(),
+            "missing_approval_timestamp_records": usable.filter(
+                Q(status=ProductionRecord.ProductionStatus.RECORDED, created_at__isnull=True)
+            ).count(),
             "synthetic_records": usable.filter(notes__contains="AI_SEED").count(),
             "period_coverage_note": "Meat entries are event-based. Months without entries are unknown, not confirmed zero production.",
-            "availability_note": "ProductionRecord has an approval timestamp and workflow event history for new workflow actions; older imported records may not have reconstructable history.",
+            "availability_note": "RECORDED logs become available at submission. Historical approval-state and other legacy review statuses are excluded.",
         }
     elif domain == "slaughter":
         scoped = scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(
@@ -639,6 +685,7 @@ def get_forecast_readiness_diagnostics(
             ["Naive Baseline", "Seasonal Naive", "Linear Regression", "Random Forest", "ARIMA", "Holt-Winters"],
             requested_horizon=horizon_months,
             exact_horizon=(domain == "slaughter" or (domain == "production" and target_clean == "MEAT")),
+            history_label="eligible production" if domain == "production" else "approved",
         )
         valid_cutoffs_count = rolling.get("windows", 0)
         total_attempted_cutoffs = rolling.get("requested_windows", 0)
@@ -692,7 +739,8 @@ def get_forecast_readiness_diagnostics(
     elif missing_month_count > 0:
         forecast_available = False
         forecast_status = "UNAVAILABLE"
-        forecast_blocker = f"There are {missing_month_count} calendar month(s) without approved records."
+        source_word = "eligible" if domain == "production" else "approved"
+        forecast_blocker = f"There are {missing_month_count} calendar month(s) without {source_word} records."
         forecast_next_step = "Ensure complete monthly reporting so historical months are contiguous."
     elif unmeasured_records > 0:
         forecast_available = False
@@ -714,8 +762,12 @@ def get_forecast_readiness_diagnostics(
         # Has sufficient observations (>= min_required) but validation_status is NOT_YET_VALIDATED
         forecast_available = True
         forecast_status = "AVAILABLE_UNVALIDATED"
-        forecast_blocker = "Historical backtesting cutoffs had late approval timestamps relative to historical simulation dates."
-        forecast_next_step = "Forecast is available from current data. Future cutoffs will validate automatically as real-time approvals accumulate."
+        if domain == "production":
+            forecast_blocker = "Some production log submission or historical approval timestamps cannot establish past data availability."
+            forecast_next_step = "The current projection can use eligible logs; more timestamped records will strengthen future historical validation."
+        else:
+            forecast_blocker = "Historical backtesting cutoffs had late approval timestamps relative to historical simulation dates."
+            forecast_next_step = "Forecast is available from current data. Future cutoffs will validate automatically as real-time approvals accumulate."
 
     # Step 5: Generate Forecast & Chart Data if available
     forecast_points: List[Dict[str, Any]] = []

@@ -513,10 +513,10 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             b_entry["disease_risk"] = "low"
 
     # 7. Aggregate Production (Milk in Liters)
-    # Farmer-reported layer: new routine logs are RECORDED; APPROVED is retained
-    # for legacy logs. This is contextual reporting, not a municipal certification.
+    # Farmer-reported layer uses current RECORDED logs only. Historical approval-
+    # state rows remain stored but are not presented as current production totals.
     production_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-        status__in=[ProductionRecord.ProductionStatus.RECORDED, ProductionRecord.ProductionStatus.APPROVED],
+        status=ProductionRecord.ProductionStatus.RECORDED,
         production_type=ProductionRecord.ProductionType.MILK,
     )
     milk_grouped = (
@@ -539,9 +539,9 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     # This is a farmer-reported layer. It is intentionally separate from official
     # SlaughterRecord aggregation below; quantities are never combined into total_meat.
     # - Associated with farmer's registered barangay.
-    # - DATA TRUST: Only recorded farmer reports and legacy approved records.
+    # - DATA TRUST: Only current recorded farmer reports.
     farmer_meat_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-        status__in=[ProductionRecord.ProductionStatus.RECORDED, ProductionRecord.ProductionStatus.APPROVED],
+        status=ProductionRecord.ProductionStatus.RECORDED,
         production_type=ProductionRecord.ProductionType.MEAT,
         unit=ProductionRecord.UnitType.KILOGRAMS,
     )
@@ -782,12 +782,12 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         my_total_livestock = my_inv.aggregate(s=Sum("quantity"))["s"] or 0
         my_milk = ProductionRecord.objects.filter(
             farmer_at_record=fp,
-            status__in=[ProductionRecord.ProductionStatus.RECORDED, ProductionRecord.ProductionStatus.APPROVED],
+            status=ProductionRecord.ProductionStatus.RECORDED,
             production_type=ProductionRecord.ProductionType.MILK,
         ).aggregate(s=Sum("quantity"))["s"] or 0.0
         my_farmer_meat = ProductionRecord.objects.filter(
             farmer_at_record=fp,
-            status__in=[ProductionRecord.ProductionStatus.RECORDED, ProductionRecord.ProductionStatus.APPROVED],
+            status=ProductionRecord.ProductionStatus.RECORDED,
             production_type=ProductionRecord.ProductionType.MEAT,
             unit=ProductionRecord.UnitType.KILOGRAMS,
         ).aggregate(s=Sum("quantity"))["s"] or 0.0

@@ -155,6 +155,7 @@ export interface TargetDiagnosticDetail {
       usable_records: number;
       usable_production_days: number;
       records_with_approval_timestamp: number;
+      records_with_availability_timestamp?: number;
       monthly_observations: number;
       months_with_records: number;
       months_without_records: number;
@@ -328,6 +329,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 const APPROVAL_COLORS: Record<string, string> = {
+  RECORDED: "#0f766e",
   APPROVED: "#15803d",
   PENDING: "#d97706",
   VERIFIED: "#2563eb",
@@ -341,6 +343,12 @@ const CUTOFF_LABELS: Record<string, string> = {
   INCOMPLETE_TEST_WINDOW: "Incomplete Test Window",
   MISSING_AVAILABILITY_TIMESTAMPS: "Missing Availability Timestamps",
   MODEL_FAILURE: "Model Failure",
+};
+
+const PRODUCTION_CUTOFF_LABELS: Record<string, string> = {
+  ...CUTOFF_LABELS,
+  NOT_ENOUGH_APPROVED_HISTORY: "Insufficient Eligible History",
+  GAPS_IN_APPROVED_HISTORY: "Gaps in Eligible History",
 };
 
 // ---------------------------------------------------------------------------
@@ -373,6 +381,7 @@ export function ForecastReadinessDashboard({
 
   const summaryCards = data?.summary_cards || [];
   const selectedDiagnostic = data?.diagnostics?.[selectedTargetId];
+  const isProductionTarget = selectedDiagnostic?.domain === "production";
   const observationLabel = selectedDiagnostic?.frequency === "WEEKLY" ? "week(s)" : "month(s)";
   const approvalBreakdown = selectedDiagnostic?.progress.approval_status_breakdown;
   const approvalRows = approvalBreakdown?.statuses || [];
@@ -391,14 +400,16 @@ export function ForecastReadinessDashboard({
         ? "Forecast Needs Attention"
         : "Forecast Not Yet Available";
 
-  const nextAction = returnedCount > 0
+  const nextAction = !isProductionTarget && returnedCount > 0
     ? "Review returned records, correct them, and resubmit where appropriate."
-    : pendingCount + verifiedCount > 0
+    : !isProductionTarget && pendingCount + verifiedCount > 0
       ? selectedDiagnostic?.forecast_available
         ? "Review pending submissions when appropriate; they are not included in approved forecasting history."
         : "Review pending submissions and continue collecting approved history. Later approvals cannot change what was known at past cutoffs."
       : evaluatedCount < requiredWindows
-        ? "Continue collecting complete, approved periods and inspect skipped cutoff reasons."
+        ? isProductionTarget
+          ? "Continue recording complete production logs and inspect skipped cutoff reasons."
+          : "Continue collecting complete, approved periods and inspect skipped cutoff reasons."
         : selectedDiagnostic?.next_step || "Refresh diagnostics after relevant data changes.";
 
   // Filter checklist items
@@ -626,33 +637,30 @@ export function ForecastReadinessDashboard({
         )}
       </div>
 
-      {selectedDiagnostic && <section aria-label="Approval status and forecast readiness" className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,1fr)]">
+      {selectedDiagnostic && <section aria-label="Source record status and forecast readiness" className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,1fr)]">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h4 className="text-sm font-bold text-slate-900">Record approval status</h4>
-              <p className="mt-1 text-xs text-slate-600">Counts are source records in this target’s authorized scope, not forecast periods or quantities.</p>
+              <h4 className="text-sm font-bold text-slate-900">{isProductionTarget ? "Production analytics eligibility" : "Record approval status"}</h4>
+              <p className="mt-1 text-xs text-slate-600">{isProductionTarget ? "Only current RECORDED farmer logs qualify; historical approval-state rows are excluded." : "Counts are source records in this target’s authorized scope, not forecast periods or quantities."}</p>
             </div>
             {approvalBreakdown?.available && <Badge variant="outline">{approvalBreakdown.source_model}</Badge>}
           </div>
           {approvalBreakdown?.available ? (
             <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-2">
-                {[
-                  ["Approved", approvalCount("APPROVED"), "APPROVED"],
-                  ["Pending review", pendingCount, "PENDING"],
-                  ["Verified", verifiedCount, "VERIFIED"],
-                  ["Returned for revision", returnedCount, "SUBJECT_TO_REVISION"],
-                  ["Total records", approvalBreakdown.total_records || 0, "TOTAL"],
-                ].map(([label, count, code]) => (
-                  <div key={String(code)} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2" title={code === "VERIFIED" ? "Field-verified; still not MAO-approved for forecasting." : `${label}: source record count`}>
+                {(isProductionTarget
+                  ? [["Farmer-recorded logs", approvalCount("RECORDED"), "RECORDED"], ["Eligible records", approvalBreakdown.total_records || 0, "TOTAL"]]
+                  : [["Approved", approvalCount("APPROVED"), "APPROVED"], ["Pending review", pendingCount, "PENDING"], ["Verified", verifiedCount, "VERIFIED"], ["Returned for revision", returnedCount, "SUBJECT_TO_REVISION"], ["Total records", approvalBreakdown.total_records || 0, "TOTAL"]]
+                ).map(([label, count, code]) => (
+                  <div key={String(code)} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2" title={isProductionTarget ? "Status context only; routine farmer production logs do not require review." : code === "VERIFIED" ? "Field-verified; still not MAO-approved for forecasting." : `${label}: source record count`}>
                     <p className="text-[11px] text-slate-600">{label}</p>
                     <p className="text-lg font-bold text-slate-900">{Number(count).toLocaleString()}</p>
                           {code !== "TOTAL" && <p className="text-[10px] text-slate-500">{approvalBreakdown.total_records ? `${Math.round(Number(count) / approvalBreakdown.total_records * 100)}% of records` : "0% of records"}</p>}
                   </div>
                 ))}
               </div>
-              <div className="relative mx-auto h-36 w-36" role="img" aria-label={`Approval status chart for ${approvalBreakdown.total_records || 0} total records`}>
+              <div className="relative mx-auto h-36 w-36" role="img" aria-label={`${isProductionTarget ? "Production record status" : "Approval status"} chart for ${approvalBreakdown.total_records || 0} total records`}>
                 {(approvalBreakdown.total_records || 0) > 0 ? <>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -677,7 +685,12 @@ export function ForecastReadinessDashboard({
             <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">Approval-status counts are not available for this source.</p>
           )}
           {approvalBreakdown?.scope_note && <p className="mt-2 text-[11px] text-slate-500">{approvalBreakdown.scope_note}</p>}
-          {(pendingCount + verifiedCount + returnedCount > 0) && (
+          {isProductionTarget && (pendingCount + verifiedCount + returnedCount > 0) && (
+            <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950">
+              Legacy pending, verified, or returned statuses are shown for historical context and are excluded from forecasting. Routine farmer production records do not wait for review.
+            </div>
+          )}
+          {!isProductionTarget && (pendingCount + verifiedCount + returnedCount > 0) && (
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
               {returnedCount > 0 && <p>There {returnedCount === 1 ? "is" : "are"} {returnedCount} record(s) returned for revision. Review the remarks, correct, and resubmit where appropriate.</p>}
               {(pendingCount + verifiedCount > 0) && <p className={returnedCount ? "mt-1" : ""}>{pendingCount + verifiedCount} record(s) are pending final approval and are excluded from approved forecasting history. Their later approval will not retroactively make them available at past backtest cutoffs.</p>}
@@ -808,14 +821,14 @@ export function ForecastReadinessDashboard({
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   {[
-                    ["Approved records used", selectedDiagnostic.progress.milk_diagnostics.usable_records],
-                    ["With approval timestamp", selectedDiagnostic.progress.milk_diagnostics.records_with_approval_timestamp],
+                    ["Eligible records used", selectedDiagnostic.progress.milk_diagnostics.usable_records],
+                    ["With availability timestamp", selectedDiagnostic.progress.milk_diagnostics.records_with_availability_timestamp ?? selectedDiagnostic.progress.milk_diagnostics.records_with_approval_timestamp],
                     ["Dates with records", selectedDiagnostic.progress.milk_diagnostics.usable_production_days],
-                    ["Months with approved records", selectedDiagnostic.progress.milk_diagnostics.months_with_records],
-                    ["Months without approved records", selectedDiagnostic.progress.milk_diagnostics.months_without_records],
-                    ["Pending review", selectedDiagnostic.progress.milk_diagnostics.pending_records],
-                    ["Returned for revision", selectedDiagnostic.progress.milk_diagnostics.returned_records],
-                    ["Missing approval time", selectedDiagnostic.progress.milk_diagnostics.missing_approval_timestamp_records],
+                    ["Months with eligible records", selectedDiagnostic.progress.milk_diagnostics.months_with_records],
+                    ["Months without eligible records", selectedDiagnostic.progress.milk_diagnostics.months_without_records],
+                    ["Legacy pending", selectedDiagnostic.progress.milk_diagnostics.pending_records],
+                    ["Legacy returned", selectedDiagnostic.progress.milk_diagnostics.returned_records],
+                    ["Missing availability time", selectedDiagnostic.progress.milk_diagnostics.missing_approval_timestamp_records],
                     ["Duplicate-session conflicts excluded", selectedDiagnostic.progress.milk_diagnostics.excluded_duplicate_conflict_records],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-sky-100 bg-white px-3 py-2">
@@ -965,7 +978,7 @@ export function ForecastReadinessDashboard({
                         Historical Observations vs Forward Horizon Projection
                       </h4>
                       <p className="text-xs text-slate-500">
-                        Solid line represents approved recorded values; dashed line shows {selectedDiagnostic.frequency === "WEEKLY" ? selectedDiagnostic.forecast.horizon_weeks : selectedDiagnostic.forecast.horizon_months}-{selectedDiagnostic.frequency === "WEEKLY" ? "week" : "month"} forward forecast.
+                        Solid line represents {isProductionTarget ? "eligible farmer-recorded values" : "approved recorded values"}; dashed line shows {selectedDiagnostic.frequency === "WEEKLY" ? selectedDiagnostic.forecast.horizon_weeks : selectedDiagnostic.forecast.horizon_months}-{selectedDiagnostic.frequency === "WEEKLY" ? "week" : "month"} forward forecast.
                       </p>
                     </div>
                   </div>
@@ -1196,7 +1209,7 @@ export function ForecastReadinessDashboard({
                                   : "bg-slate-200 text-slate-700 border-slate-300"
                               }`}
                             >
-                              {CUTOFF_LABELS[code] || cutoff.status}
+                              {(isProductionTarget ? PRODUCTION_CUTOFF_LABELS[code] : CUTOFF_LABELS[code]) || cutoff.status}
                             </Badge>
                           </summary>
 
@@ -1284,9 +1297,11 @@ export function ForecastReadinessDashboard({
                         </span>
                       </div>
                       <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50">
-                        <span className="text-slate-600">Approval Timestamps Reconstructable:</span>
+                        <span className="text-slate-600">{isProductionTarget ? "Availability Timestamps Reconstructable:" : "Approval Timestamps Reconstructable:"}</span>
                         <span className={`font-bold ${selectedDiagnostic.progress.approval_reconstructable ? "text-emerald-700" : "text-amber-700"}`}>
-                          {selectedDiagnostic.progress.approval_reconstructable ? "Yes (Verified)" : "Pending accumulating reviews"}
+                          {selectedDiagnostic.progress.approval_reconstructable
+                            ? (isProductionTarget ? "Yes (submission / review timestamps)" : "Yes (review timestamps)")
+                            : (isProductionTarget ? "Some timestamps unavailable" : "Pending accumulating reviews")}
                         </span>
                       </div>
                     </div>

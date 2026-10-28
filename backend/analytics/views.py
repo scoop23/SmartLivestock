@@ -96,8 +96,8 @@ def reports_export(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated, isMAO | isSibat])
 def dashboard_summary(request):
-    # The service owns the DB -> ORM calculations. This view only publishes
-    # approved municipal aggregates to authorized dashboard users.
+    # The service owns DB -> ORM calculations. Production uses eligible
+    # farmer logs; official operational domains retain their own review filters.
     return Response(descriptive_summary(user=request.user))
 
 
@@ -695,7 +695,7 @@ def livestock_milk_forecast(request, livestock_id):
 def _livestock_milk_forecast_response(request, livestock_id):
     """Authorize one animal, then route to real history or an explicit demo.
 
-    Normal requests use approved ProductionRecord rows. The optional demo source
+    Normal requests use eligible farmer production rows. The optional demo source
     is a separate branch so synthetic observations can never satisfy real-data
     readiness or silently replace an insufficient real history.
     """
@@ -739,7 +739,9 @@ def _livestock_milk_forecast_response(request, livestock_id):
     # after the authorized owner explicitly selects the synthetic demonstration.
     demo_source = request.query_params.get("source") == "synthetic_demo"
     demo_cow = None
-    if demo_source or request.query_params.get("source") not in (None, "", "approved_livestock_records"):
+    if demo_source or request.query_params.get("source") not in (
+        None, "", "approved_livestock_records", "farmer_recorded_livestock_logs"
+    ):
         if not demo_source:
             return Response({"detail": "Unsupported milk forecast data source."}, status=status.HTTP_400_BAD_REQUEST)
         from analytics.models import IndividualMilkDemoCow
@@ -784,14 +786,14 @@ def _livestock_milk_forecast_response(request, livestock_id):
         demo_result["weather"]["location_name"] = animal.farmer.barangay.barangay_name if animal.farmer.barangay_id else None
         return Response(demo_result)
 
-    # Keep real data eligibility strict: draft, unrelated, future, or other-unit
-    # records must not count toward this animal's approved milk history.
+    # Keep real data eligibility strict: only this animal's recorded milk logs
+    # count. Historical approval states, future dates,
+    # session conflicts, and other units remain excluded.
     records = ProductionRecord.objects.filter(
         livestock=animal,
         production_type=ProductionRecord.ProductionType.MILK,
         unit=ProductionRecord.UnitType.LITERS,
-        status=ProductionRecord.ProductionStatus.APPROVED,
-        approved_at__isnull=False,
+        status=ProductionRecord.ProductionStatus.RECORDED,
         session_conflict=False,
         record_date__lte=timezone.localdate(),
     )
@@ -806,13 +808,12 @@ def _livestock_milk_forecast_response(request, livestock_id):
             livestock=animal,
             production_type=ProductionRecord.ProductionType.MILK,
             unit=ProductionRecord.UnitType.LITERS,
-            status=ProductionRecord.ProductionStatus.APPROVED,
-            approved_at__isnull=False,
+            status=ProductionRecord.ProductionStatus.RECORDED,
             session_conflict=False,
             record_date__lte=timezone.localdate(),
         )
 
-    # Several approved entries may exist on one date. Sum them into one daily
+    # Several eligible sessions may exist on one date. Sum them into one daily
     # observation because the model predicts daily milk totals.
     daily_records = list(
         records.values("record_date")
@@ -857,7 +858,7 @@ def _livestock_milk_forecast_response(request, livestock_id):
     # Weather is fetched only when the real milk history is otherwise forecast-ready.
     # Open-Meteo gets the farmer's barangay centroid, not private farm coordinates.
     weather_rows = {}
-    weather_message = "Weather is omitted until this animal has sufficient recent approved milk history."
+    weather_message = "Weather is omitted until this animal has sufficient recent recorded milk history."
     today = timezone.localdate()
     if (
         len(daily_records) >= 60

@@ -10,7 +10,7 @@ export default function MunicipalRecordsPage() {
     <>
       <PageHeader
         title="Municipal Records"
-        subtitle="Authoritative approved head counts, monthly production yields, and barangay-level reports for Padre Garcia"
+        subtitle="Approved head counts and operational records alongside farmer-recorded production and barangay-level reports for Padre Garcia"
         variant="admin"
         maxWidthClass="w-full"
         icon={<FileSpreadsheet className="size-5 text-emerald-800" />}

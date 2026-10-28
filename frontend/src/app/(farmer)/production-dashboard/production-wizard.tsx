@@ -289,7 +289,7 @@ function ProductionWizardContent({
     ? productionRecords.filter((record) =>
         record.livestockId === Number(clickedInventory.id)
         && record.productionType === "milk"
-        && (record.status === "APPROVED" || record.status === "RECORDED")
+        && record.status === "RECORDED"
         && record.id !== editingRecord?.id
         && record.recordDate < String(formState.prodDate ?? new Date().toISOString().slice(0, 10)),
       )

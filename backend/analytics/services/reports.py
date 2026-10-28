@@ -1,9 +1,9 @@
-"""Build approved, role-authorized report datasets shared by preview and exports."""
+"""Build role-authorized municipal report datasets shared by preview and exports."""
 
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.db.models import Count, DecimalField, F, Q, Sum, When, Case
+from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -63,8 +63,8 @@ def _base(report_type, start, end, filters):
     barangay = filters.get("barangay", "").strip()
     purpose = filters.get("purpose", "").strip()
     direction = filters.get("direction", "").strip().upper()
-    # These report querysets intentionally use official records. A submitted or
-    # returned record can still change during review, so it is not reportable yet.
+    # Official operations remain approval-gated. Farmer production is a
+    # separate personal-record source and can be reported as recorded.
     approved = "APPROVED"
 
     if report_type == "inventory":
@@ -99,19 +99,22 @@ def _base(report_type, start, end, filters):
                  "heads_by_species": by_species, "heads_by_operational_status": by_status}
 
     if report_type == "production":
-        query = ProductionRecord.objects.filter(status=approved, record_date__range=(start, end))
+        query = ProductionRecord.objects.filter(
+            status=ProductionRecord.ProductionStatus.RECORDED,
+            slaughter__isnull=True,
+            record_date__range=(start, end),
+        )
         query = _apply_species(query, species, "livestock__livestock_type__name", "batch__livestock_type__name")
         query = _apply_barangay(query, barangay, "farmer_at_record__barangay")
         query = query.annotate(
-            output_quantity=Case(When(slaughter__isnull=False, then=F("slaughter__carcass_weight")),
-                                 default=F("quantity"), output_field=DecimalField(max_digits=10, decimal_places=2)),
             species_name=Coalesce("livestock__livestock_type__name", "batch__livestock_type__name", output_field=None),
             farmer_name=F("farmer_at_record__user__first_name"),
             barangay_name=F("farmer_at_record__barangay__barangay_name"),
         ).select_related("livestock__farmer__user", "batch__farmer__user", "farmer_at_record__user").order_by("record_date", "pk")
         rows = [{
             "record_date": obj.record_date.isoformat(), "production_type": obj.production_type,
-            "species": obj.species_name or "", "quantity": _number(obj.output_quantity), "unit": obj.unit,
+            "species": obj.species_name or "", "quantity": _number(obj.quantity), "unit": obj.unit,
+            "source": "Farmer-reported production",
             "farmer": (obj.farmer_at_record.user.get_full_name() or obj.farmer_at_record.user.username)
                 if obj.farmer_at_record_id else "",
             "barangay": obj.barangay_name or "", "status": obj.status,
@@ -130,8 +133,8 @@ def _base(report_type, start, end, filters):
             totals[key] = totals.get(key, 0) + row["quantity"]
         return (
             [("record_date", "Date"), ("production_type", "Production type"), ("species", "Species"),
-             ("quantity", "Quantity"), ("unit", "Unit"), ("farmer", "Farmer"),
-             ("barangay", "Barangay"), ("status", "Approval status")],
+             ("quantity", "Quantity"), ("unit", "Unit"), ("source", "Source"), ("farmer", "Farmer"),
+             ("barangay", "Barangay"), ("status", "Record status")],
             rows,
             {"records": len(rows), "contributing_farmers": len(farmer_ids - {None}),
              "totals_by_type_and_unit": totals},
@@ -470,6 +473,13 @@ def _build_analysis(report_type, rows, previous_rows, previous_period, summary):
         else:
             coverage = ("No approved livestock registrations match this registration-date range and filter selection. "
                         "Historical monthly inventory snapshots are not available.")
+    elif report_type == "production" and not rows:
+        coverage = "No eligible farmer-reported production logs were available for this report and filter selection."
+    elif report_type == "production" and summary.get("records", len(rows)) < 10:
+        count = summary.get("records", len(rows))
+        coverage = f"Only {count} eligible farmer-reported production logs were available during the selected period; interpret patterns with caution."
+    elif report_type == "production":
+        coverage = f"{summary.get('records', len(rows)):,} eligible farmer-reported production logs were available during the selected period."
     elif not rows:
         coverage = "No approved records were available for this report and filter selection."
     elif summary.get("records", len(rows)) < 10:
@@ -487,7 +497,7 @@ def _build_analysis(report_type, rows, previous_rows, previous_period, summary):
 
     methodologies = {
         "inventory": "Inventory rows are approved livestock registrations selected by their registration date. Operational status reflects the latest saved state. The model does not store historical inventory snapshots, so this report cannot reconstruct holdings as of past dates.",
-        "production": "Production statistics use approved production records. Quantities remain grouped by recorded unit; liters, kilograms, pieces, and heads are not combined.",
+        "production": "Production statistics use RECORDED farmer logs only. Historical approval-state rows and slaughter-linked projections are excluded; official carcass weights appear in the separate slaughter report. Quantities remain grouped by recorded unit.",
         "disease_mortality": "Disease statistics represent reported approved case records, not clinical diagnoses or epidemiological predictions. Mortality records are counted separately.",
         "slaughter": "Slaughter statistics use approved slaughter records; animal counts and carcass kilograms are separate measures.",
         "movement": "Auction activity comes from approved sale records. Movement direction and volume come from approved inspection/clearance records and remain separate from auction activity.",

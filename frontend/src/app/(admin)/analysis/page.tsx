@@ -255,11 +255,11 @@ export default function AnalysisOverviewPage() {
             </div>
           </div>
 
-          {/* Metric 3: Verified Production Records */}
+          {/* Metric 3: Recorded farmer production logs */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-                Verified Production
+                Recorded Production
               </span>
               <div className="flex size-7 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
                 <Layers className="size-4" />
@@ -273,11 +273,11 @@ export default function AnalysisOverviewPage() {
                   {descriptive?.production.records?.toLocaleString('en-PH') ?? '0'}
                 </span>
               )}
-              <span className="text-xs font-semibold text-amber-700">records</span>
+              <span className="text-xs font-semibold text-amber-700">logs</span>
             </div>
             <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-              <span>Milk, meat, honey, and eggs</span>
-              <span className="font-mono font-bold text-slate-700">Approved</span>
+              <span>Current farmer-recorded logs</span>
+              <span className="font-mono font-bold text-slate-700">Recorded</span>
             </div>
           </div>
 
@@ -350,7 +350,7 @@ export default function AnalysisOverviewPage() {
                     Census &amp; Historical Records
                   </p>
                   <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                    Verified head counts, monthly commodity yields, registered livestock trade, and barangay population distributions.
+                    Approved head counts, farmer-recorded monthly commodity yields, registered livestock trade, and barangay population distributions.
                   </p>
                 </div>
 
@@ -361,7 +361,7 @@ export default function AnalysisOverviewPage() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
-                    <span>Monthly milk, meat, and egg yields</span>
+                    <span>Recorded milk, meat, and egg yields</span>
                   </div>
                 </div>
               </div>
@@ -610,7 +610,7 @@ export default function AnalysisOverviewPage() {
                   Municipal Records Matrix
                 </h3>
                 <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                  Historical and current approved records, production trends, and barangay matrices.
+                  Historical records, farmer production trends, approved municipal operations, and barangay matrices.
                 </p>
               </div>
               <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-800">
@@ -716,11 +716,11 @@ export default function AnalysisOverviewPage() {
                   Authoritative Municipal Data Scope
                 </span>
                 <Badge variant="outline" className="bg-white text-emerald-800 border-emerald-300 text-[10px] font-bold">
-                  Approved Records Only
+                  Source-Appropriate Records
                 </Badge>
               </div>
               <p className="text-xs text-slate-500 mt-0.5 leading-snug">
-                All analytics, forecasts, and decision-support rules derive strictly from verified records reviewed and approved by MAO officers and certified field inspectors.
+                Farmer production summaries and forecasts use current recorded farmer logs only. Historical approval-state production logs are excluded. Official slaughter, inventory, disease, mortality, inspection, and movement metrics retain their own review and authorization rules.
               </p>
             </div>
           </div>

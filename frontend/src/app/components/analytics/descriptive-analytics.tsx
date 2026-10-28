@@ -16,7 +16,7 @@ Download,HeartPulse,Info,Layers,MapPin,
 RefreshCw,ShieldCheck,ShoppingBag,
 Syringe,type LucideIcon
 } from "lucide-react";
-import { useEffect,useState,type ReactNode } from "react";
+import { useState,type ReactNode } from "react";
 import {
 Area,AreaChart,Bar,BarChart,CartesianGrid,Cell,LabelList,Legend,Line,LineChart,
 Pie,PieChart,ResponsiveContainer,Tooltip,XAxis,YAxis,
@@ -421,7 +421,7 @@ export default function DescriptiveAnalytics() {
   if (loading) {
     return (
       <div role="status" aria-label="Loading descriptive analytics" className="space-y-6">
-        <span className="sr-only">Loading approved municipal records...</span>
+        <span className="sr-only">Loading municipal analytics...</span>
         {/* Header Skeleton */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3 shadow-2xs">
           <Skeleton className="h-5 w-48 rounded-md" />
@@ -549,7 +549,7 @@ export default function DescriptiveAnalytics() {
       scopeType: "12-Month Period",
       label: "Production Records",
       value: number(data.production.records),
-      description: "Approved records in period",
+      description: "Farmer-recorded logs in period",
       icon: Layers,
       accentColor: "#4a7c36",
       tagBg: "bg-green-50",
@@ -609,7 +609,7 @@ export default function DescriptiveAnalytics() {
       ? [`${leadingSpecies.species} constitutes the largest share at ${number(share(leadingSpecies.heads))}% (${number(leadingSpecies.heads)} heads) of recorded livestock.`]
       : []),
     ...(product
-      ? [`${titleCase(product.type)} output totals ${number(product.quantity)} ${product.unit.toLowerCase()} across ${number(product.records)} approved records during this reporting window.`]
+      ? [`${titleCase(product.type)} output totals ${number(product.quantity)} ${product.unit.toLowerCase()} across ${number(product.records)} eligible farmer production logs during this reporting window.`]
       : []),
     `${number(data.disease.cases)} approved disease cases were documented affecting ${number(data.disease.affected_heads)} heads, alongside ${number(data.mortality.deaths)} recorded deaths.`
   ];
@@ -628,14 +628,14 @@ export default function DescriptiveAnalytics() {
               </span>
               <Badge variant="outline" className="gap-1.5 border-emerald-700/20 bg-emerald-50 text-emerald-800 font-bold text-xs">
                 <ShieldCheck className="size-3.5 text-emerald-700" />
-                Approved records only
+                Source-appropriate data
               </Badge>
             </div>
             <h1 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
               Descriptive Analytics & Municipal Inventory
             </h1>
             <p className="text-xs font-medium text-slate-600 sm:text-sm">
-              Authoritative overview of approved livestock counts, monthly production yields, health surveillance, and commercial sales.
+              Municipal overview of approved livestock counts, farmer-recorded production, reviewed health surveillance, official slaughter, and commercial sales.
             </p>
           </div>
 
@@ -961,13 +961,13 @@ export default function DescriptiveAnalytics() {
         <SectionHeader
           icon={BarChart3}
           title="Recorded Production Overview"
-          description="Approved reported output during the period, grouped by type and unit. This does not measure all municipal production."
+          description="Current farmer-recorded output during the period, grouped by type and unit. Historical approval-state logs are excluded; official slaughter is reported separately."
         />
         <div className="grid gap-5 xl:grid-cols-12">
           {/* Main Trend Chart */}
           <Panel
             title={product ? `Recorded ${titleCase(product.type)} Production Trend` : "Monthly Production Trend"}
-            subtitle="12-month timeline of approved production volume; current month reflects partial records"
+            subtitle="12-month timeline of eligible farmer-reported production; current month reflects partial records"
             action={
               product && (
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -1026,7 +1026,7 @@ export default function DescriptiveAnalytics() {
                   </div>
                   <div>
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Approved Records
+                      Farmer-Recorded Logs
                     </span>
                     <p className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums mt-0.5">
                       {number(product.records)}
@@ -1078,18 +1078,18 @@ export default function DescriptiveAnalytics() {
                   </ResponsiveContainer>
                 </div>
                 <p className="text-xs text-slate-500 font-medium">
-                  Note: A zero value indicates no approved production records were registered in that month.
+                  Note: A zero value means no eligible production logs were recorded for that month; it does not confirm zero production.
                 </p>
               </div>
             ) : (
-              <EmptyState message="No approved production records were found for this period." />
+              <EmptyState message="No eligible farmer production logs were found for this period." />
             )}
           </Panel>
 
           {/* Production By Barangay */}
           <Panel
             title="Production by Barangay"
-            subtitle={product ? `Recorded ${product.unit.toLowerCase()} of ${product.type.toLowerCase()}` : "Locations of approved output"}
+            subtitle={product ? `Recorded ${product.unit.toLowerCase()} of ${product.type.toLowerCase()}` : "Locations of eligible farmer-reported output"}
             className="xl:col-span-4"
           >
             {productLocations.length ? (
@@ -1115,14 +1115,14 @@ export default function DescriptiveAnalytics() {
                 })}
               </div>
             ) : (
-              <EmptyState message="No approved production records recorded by barangay for this selection." />
+              <EmptyState message="No eligible farmer production logs were recorded by barangay for this selection." />
             )}
           </Panel>
         </div>
 
         <MonthlySpeciesTrend
           title="Monthly Production by Livestock Type"
-          subtitle={product ? `Approved ${product.type.toLowerCase()} output in ${product.unit.toLowerCase()} by month` : "Choose a production type to view monthly output by livestock type"}
+          subtitle={product ? `Eligible recorded ${product.type.toLowerCase()} output in ${product.unit.toLowerCase()} by month` : "Choose a production type to view monthly output by livestock type"}
           rows={productionSpeciesTrend}
           months={response.surveillance_series.map(({ month, label }) => ({ month, label }))}
           unit={product?.unit.toLowerCase() ?? "units"}
@@ -1138,7 +1138,7 @@ export default function DescriptiveAnalytics() {
           />
           <LivestockTypeBreakdown
             title="Farmer-Reported Meat Yield by Livestock Type"
-            subtitle="Approved farmer meat production, excluding slaughter-linked outputs"
+            subtitle="Farmer-reported meat yield, excluding slaughter-linked outputs"
             rows={data.production.farmer_meat_by_species.map((row) => ({ species: row.species, quantity: row.quantity_kg }))}
             unit="kg"
             metricName="Farmer-reported meat"
@@ -1564,7 +1564,7 @@ export default function DescriptiveAnalytics() {
         <SectionHeader
           icon={MapPin}
           title="Per Barangay Report"
-          description={`Approved production, health, slaughter, and sales activity for ${dateLabel(data.period.start)} to ${dateLabel(data.period.end)}; active livestock and vaccination are current snapshots.`}
+          description={`Farmer-recorded production, reviewed health and official slaughter activity for ${dateLabel(data.period.start)} to ${dateLabel(data.period.end)}; active livestock and vaccination are current snapshots.`}
           accentColor="text-sky-700 bg-sky-50"
         />
         <Panel
@@ -1643,9 +1643,9 @@ export default function DescriptiveAnalytics() {
             <div className="border-t border-slate-200/80 p-4 sm:p-5 pt-3 text-xs leading-relaxed text-slate-600 space-y-3">
               <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <strong className="font-bold text-slate-900">1. Approved Records Only:</strong>
+                  <strong className="font-bold text-slate-900">1. Source-Appropriate Records:</strong>
                   <p>
-                    All analytics strictly query records possessing final Municipal Agriculture Office (MAO) approval. Drafts, pending farmer submissions, and returned forms are excluded.
+                    Farmer production analytics include RECORDED logs only. Historical approval-state, pending, verified, and returned production rows are excluded. Official inventory, slaughter, disease, mortality, inspection, and movement metrics keep their own authorization and review rules.
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -1657,7 +1657,7 @@ export default function DescriptiveAnalytics() {
                 <div className="space-y-1">
                   <strong className="font-bold text-slate-900">3. Event-Date Attribution:</strong>
                   <p>
-                    Production, disease surveillance, mortality, and sales trends are grouped by their verified event record dates, not the system data entry timestamp.
+                    Production, disease surveillance, mortality, and sales trends are grouped by their event record dates, not the system data entry timestamp.
                   </p>
                 </div>
                 <div className="space-y-1">

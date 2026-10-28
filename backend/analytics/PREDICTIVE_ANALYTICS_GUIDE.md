@@ -12,8 +12,8 @@ This guide is designed for student developers, municipal agriculture data office
                            DATABASE (PostgreSQL)
                                      │
                                      ▼
-                        Approved ProductionRecords
-                        (Only status='APPROVED')
+                        Farmer ProductionRecords
+                 (RECORDED only)
                                      │
                                      ▼
                              Data Preparation
@@ -106,9 +106,9 @@ If an algorithm combined 500 liters of milk, 200 kilograms of meat, and 1,000 eg
 - `created_at` is the original server-recorded submission time and is also exposed as `submitted_at`.
 - `approved_at` is recorded when the review workflow approves the record. `reviewed_at` continues to mean the latest reviewer action.
 - Returned records keep their original submission time. A workflow event records each resubmission and review with its own server timestamp and a data snapshot.
-- Monthly forecasting sums eligible approved session rows into the month named by `record_date`. A flagged legacy duplicate session is excluded until its conflict is resolved; no row is silently chosen or deleted.
-- The seven-day animal forecast still predicts daily totals by summing approved sessions on each date. Missing sessions and missing dates are not filled with zero. Session coverage is shown as observed entry counts because the system does not record whether a missing session was skipped, not applicable, or unreported.
-- Historical backtesting admits a month only when its records' original submission and approval times show they were available before that simulated cutoff. Missing approval timestamps stay unknown. A forward projection may still be produced from currently approved totals, but it is labeled unvalidated when no historical cutoff qualifies.
+- Monthly forecasting sums eligible farmer production rows into the month named by `record_date`: `RECORDED` rows only. Historical approval-state logs are excluded. A flagged duplicate session is excluded until its conflict is resolved; no row is silently chosen or deleted.
+- The seven-day animal forecast predicts daily totals by summing eligible sessions on each date. Missing sessions and dates are not filled with zero. Session coverage is shown as observed entry counts because the system does not record whether a missing session was skipped, not applicable, or unreported.
+- Historical backtesting admits a month only when its recorded farmer logs became available before that simulated cutoff, using `created_at`. Historical approval-state rows are excluded. Missing availability timestamps stay unknown. A forward projection may still be produced from currently eligible totals, but it is labeled unvalidated when no historical cutoff qualifies.
 
 ---
 
@@ -127,7 +127,7 @@ class ProductionRecord(models.Model):
 ```
 
 To transform these rows into an ML time series:
-1. **Filter by Authoritative Status:** We query only `status='APPROVED'`. Draft, pending, or returned records are excluded because they have not undergone SIBAT verification or MAO final review.
+1. **Filter by Source-Appropriate Status:** Routine farmer production analytics use `RECORDED` rows only. Historical approval-state, pending, verified, and returned statuses are excluded; official slaughter and municipal operational sources keep their own approval rules.
 2. **Filter by Target & Unit:** We strictly filter `production_type='MILK'` and `unit='LITERS'`.
 3. **Monthly Truncation:** We annotate each date with `TruncMonth('record_date')`.
 4. **Aggregate Sum:** Multiple daily or weekly entries in the same month are aggregated with `Sum('quantity')`.
@@ -348,24 +348,24 @@ The predictive API uses monthly aggregates for production targets and weekly com
 
 | Dashboard target | Authoritative records | Event date | Included statuses | Unit | Minimum history |
 | --- | --- | --- | --- | --- | --- |
-| Milk production | `ProductionRecord`, `production_type=MILK` | `record_date` | `APPROVED` | liters | 24 monthly observations to span two annual cycles |
-| Farmer-reported meat yield | `ProductionRecord`, `production_type=MEAT`, `slaughter=NULL` | `record_date` | `APPROVED` | kilograms | 18 months: 12 training months plus a 6-month holdout |
+| Milk production | `ProductionRecord`, `production_type=MILK` | `record_date` | `RECORDED` | liters | 24 monthly observations to span two annual cycles |
+| Farmer-reported meat yield | `ProductionRecord`, `production_type=MEAT`, `slaughter=NULL` | `record_date` | `RECORDED` | kilograms | 18 months: 12 training months plus a 6-month holdout |
 | Slaughterhouse meat yield | `SlaughterRecord.carcass_weight` | `record_date` | `APPROVED` | kilograms | 18 months: 12 training months plus a 6-month holdout |
 | Livestock sales | `LivestockOwnershipTransfer` | `transfer_date` | `APPROVED` | transfer-event count, distinct heads, or recorded PHP purchase price | 12 contiguous complete weeks for a projection |
 
-Farmer meat is `ProductionRecord` kilograms with `slaughter=NULL`; slaughter output is `SlaughterRecord` carcass kilograms or heads. Linked farmer records are excluded to avoid counting the same slaughter output twice. Event totals in either domain are observations of approved recorded output, not proof that a no-record month had zero production. Slaughter weight forecasts are withheld if an approved slaughter event lacks a weight.
+Farmer meat is `ProductionRecord` kilograms with `slaughter=NULL`; slaughter output is `SlaughterRecord` carcass kilograms or heads. Linked farmer records are excluded to avoid counting the same slaughter output twice. Event totals in either domain are observations of recorded output, not proof that a no-record month had zero production. Slaughter weight forecasts are withheld if an approved slaughter event lacks a weight.
 
 Live animal sales analytics use approved `LivestockOwnershipTransfer` events. The approval workflow marks the seller-side animal as `SOLD`; that inventory status and a buyer's later inventory submission are not separate sale events. The model represents one animal per transfer row. It therefore reports approved transfer-event counts, distinct animals, and sums/averages of known `purchase_price` values separately. Missing prices are excluded from value and average calculations; a PHP forecast is withheld when any approved price needed for its weekly total is missing. All weekdays are included and `transfer_date` determines the reporting week. The service requires 12 contiguous complete weeks and never turns a missing week into zero. This forecasts approved transfers captured by SmartLivestock, not all market activity; the application has no market-session or reporting-coverage ledger. Weekday diagnostics show recorded approved transfers only and do not estimate a weekday effect without complete weekday coverage. The separate `LiveAnimalSale` model remains available to its own auction/reporting workflow and does not feed completed-transfer analytics or forecasts.
 
-Backtesting also needs to know when a value became available to an analyst. For farmer production, forecasts use the stored approval timestamp and new workflow event history where available. Slaughter and sale records use their current `reviewed_at`; neither model has an immutable approval-event log, so historical edits and re-approvals are not fully reconstructable. A missing timestamp, late approval, or discontinuous training history can prevent a fold from being scored. Models train only on records approved before the cutoff; later outcomes are held out. For farmer meat and slaughter forecasts, every requested month of the holdout must exist. Each cutoff is assessed independently, and skipped cutoffs retain a reason.
+Backtesting also needs to know when a value became available to an analyst. Farmer production uses only `RECORDED` logs and their submission (`created_at`) timestamp. Historical approval-state rows are excluded. Slaughter and sale records retain their current approval/review timing. A missing timestamp, late availability, or discontinuous training history can prevent a fold from being scored. Models train only on observations available before the cutoff; later outcomes are held out. For farmer meat and slaughter forecasts, every requested month of the holdout must exist. Each cutoff is assessed independently, and skipped cutoffs retain a reason.
 
-The comparison endpoint reports aggregate availability timelines and the status of each attempted cutoff. These dates summarize records currently approved; except for newly captured farmer production workflow events, they are not an immutable approval history. Farmer meat and slaughter require three valid full-horizon cutoffs before validation is labeled established; one or two are preliminary. Auction uses the same three-cutoff evidence label. MAO/Admin cannot recreate missing historical availability dates by changing current records; continue real submissions and reviews, then wait for complete future outcomes. Do not backdate or add synthetic zero values to make a forecast appear ready.
+The comparison endpoint reports aggregate availability timelines and the status of each attempted cutoff. These dates summarize current record timestamps and are not an immutable audit history. Farmer meat and slaughter require three valid full-horizon cutoffs before validation is labeled established; one or two are preliminary. Auction uses the same three-cutoff evidence label. MAO/Admin cannot recreate missing historical availability dates by changing current records; continue real submissions and reviews, then wait for complete future outcomes. Do not backdate or add synthetic zero values to make a forecast appear ready.
 
 The shared candidate set contains persistence and seasonal-naive baselines, linear regression, random forest, ARIMA, and Holt-Winters. Linear regression and random forest use elapsed calendar time and month-cycle features; the random forest also uses past target lags and a past-only rolling mean. Calendar values are known at forecast time and lagged target values are recursively generated. The system does **not** currently use milk-producing animal counts, individual milk-curve states, species composition, carcass weights as a predictor for animal counts, future auction attendance, realized future prices, weather, or other external operational covariates. Those inputs either lack a stable definition for the requested target or are not known for the future horizon. Consequently, the current “multivariate” candidates are limited autoregressive/calendar regressions, not a validated cross-domain multivariate model.
 
 Monthly production models compare naive, seasonal-naive, linear regression, random forest, ARIMA, and Holt-Winters candidates; farmer meat and slaughter also compare a three-period moving-average baseline. Auction weekly models compare persistence, a four-week moving average, an optional 52-week seasonal-naive baseline when a year of weekly history exists, and linear trend. Comparisons use common full test periods and MAE/RMSE; R-squared is omitted for constant test outcomes. Auction projections are time-based, but current data gaps can correctly withhold them. The local weekday display is descriptive only until the system has reliable market-session or reporting-coverage data. Individual-animal milk forecasts remain a separate workflow and must not be summed into a municipal forecast without a coverage and authorization design.
 
-MAE and RMSE are reported in the target's unit. R² is omitted when the held-out target has no variance. MAPE is not used because zero values make it undefined or unstable. A forecast is a planning estimate of approved records captured by SmartLivestock, not complete municipal production, confirmed future sales, or an accuracy guarantee.
+MAE and RMSE are reported in the target's unit. R² is omitted when the held-out target has no variance. MAPE is not used because zero values make it undefined or unstable. A production forecast is a planning estimate from eligible farmer-recorded logs captured by SmartLivestock. Official slaughter and approved transfer forecasts use their own approved source records. None represents complete municipal activity, confirmed future events, or an accuracy guarantee.
 
 ## 21. Forecast data-quality demonstration seeds
 

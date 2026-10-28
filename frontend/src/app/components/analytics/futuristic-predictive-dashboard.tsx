@@ -1106,7 +1106,9 @@ export function FuturisticPredictiveDashboard() {
                       ? `Model "${winningModel}" was evaluated across ${backtestInfo?.valid_cutoffs_count ?? 0} valid rolling-origin cutoffs and outperformed naive persistence.`
                       : isAvailableUnvalidated
                       ? "A forward projection is available from current data. However, chronological backtesting was not fully established across past cutoff dates."
-                      : "Insufficient contiguous approved records exist to establish empirical validation or projection."}
+                      : targetDetail?.domain === "production"
+                        ? "Insufficient contiguous eligible farmer production logs exist to establish empirical validation or projection."
+                        : "Insufficient contiguous approved records exist to establish empirical validation or projection."}
                   </p>
 
                   <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3 mt-2 space-y-1.5">

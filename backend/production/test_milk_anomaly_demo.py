@@ -59,8 +59,9 @@ class MilkAnomalyDemoSeedCommandTests(TestCase):
         self.assertEqual([cow.tag_number for cow in cows], ["DEMO-MILK-ANOMALY", "DEMO-MILK-CLEAN"])
         for cow in cows:
             history = ProductionRecord.objects.filter(
-                livestock=cow, status=ProductionRecord.ProductionStatus.APPROVED,
+                livestock=cow, status=ProductionRecord.ProductionStatus.RECORDED,
                 production_type=ProductionRecord.ProductionType.MILK,
+                record_date__lte=timezone.localdate(),
             )
             self.assertEqual(history.count(), 60)
             self.assertEqual(history.values("record_date").distinct().count(), 60)

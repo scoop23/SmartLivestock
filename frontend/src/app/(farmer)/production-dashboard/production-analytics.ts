@@ -301,6 +301,9 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
   const groupedByType: Record<string, ProductionRecordItem[]> = {};
 
   records.forEach((rec) => {
+    // Exclude legacy approval-state entries from production analytics while
+    // allowing the history screen to keep showing the original records.
+    if (rec.status === "APPROVED") return;
     const t = rec.productionType;
     typesFound.add(t);
     if (!groupedByType[t]) {
@@ -338,22 +341,20 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
 
     typeRecords.forEach((r) => {
       const qty = r.quantity;
-      totalQty += qty;
-
-      if (r.status === "APPROVED" || r.status === "RECORDED") {
+      if (r.status === "RECORDED") {
+        totalQty += qty;
         verifiedQty += qty;
       } else if (r.status === "SUBJECT_TO_REVISION") {
         revisionQty += qty;
-      } else {
-        // Historical records still awaiting a reviewer decision.
+      } else if (r.status === "PENDING" || r.status === "VERIFIED") {
         pendingQty += qty;
       }
 
       const mStr = (r.recordDate || "").slice(0, 7);
       if (mStr) {
         const cur = monthlyMap.get(mStr) || { total: 0, verified: 0, pending: 0, revision: 0 };
-        cur.total += qty;
-        if (r.status === "APPROVED" || r.status === "RECORDED") {
+        if (r.status === "RECORDED") {
+          cur.total += qty;
           cur.verified += qty;
         } else if (r.status === "SUBJECT_TO_REVISION") {
           cur.revision += qty;
@@ -385,31 +386,21 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
       }));
 
     // Sum backend snapshots only; price matching and monetary rounding stay on the server.
-    const valuedRecords = typeRecords.filter((record) => record.valuationSnapshot != null);
+    const valuedRecords = typeRecords.filter((record) => record.status === "RECORDED" && record.valuationSnapshot != null);
     const valueMap = new Map<string, { total: number; verified: number; pending: number }>();
     let totalEstimatedValue = 0;
     let verifiedEstimatedValue = 0;
-    let pendingEstimatedValue = 0;
 
     valuedRecords.forEach((record) => {
       const month = record.recordDate.slice(0, 7);
       const val = Number(record.valuationSnapshot!.estimated_value) || 0;
       totalEstimatedValue += val;
 
-      const isApproved = record.status === "APPROVED" || record.status === "RECORDED";
-      if (isApproved) {
-        verifiedEstimatedValue += val;
-      } else {
-        pendingEstimatedValue += val;
-      }
+      verifiedEstimatedValue += val;
 
       const cur = valueMap.get(month) ?? { total: 0, verified: 0, pending: 0 };
       cur.total += val;
-      if (isApproved) {
-        cur.verified += val;
-      } else {
-        cur.pending += val;
-      }
+      cur.verified += val;
       valueMap.set(month, cur);
     });
 
@@ -422,7 +413,7 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
         pendingValue: valData.pending,
       }));
 
-    const verifiedRecords = typeRecords.filter((r) => r.status === "APPROVED" || r.status === "RECORDED");
+    const verifiedRecords = typeRecords.filter((r) => r.status === "RECORDED");
     const pendingRecords = typeRecords.filter((r) => r.status === "PENDING" || r.status === "VERIFIED");
     const revisionRecords = typeRecords.filter((r) => r.status === "SUBJECT_TO_REVISION");
 
@@ -437,8 +428,8 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
         pending_record_count: pendingRecords.length,
         revision_record_count: revisionRecords.length,
         estimated_value: valuedRecords.length ? totalEstimatedValue : null,
-        verified_estimated_value: valuedRecords.some((r) => r.status === "APPROVED" || r.status === "RECORDED") ? verifiedEstimatedValue : null,
-        pending_estimated_value: valuedRecords.some((r) => r.status !== "APPROVED" && r.status !== "RECORDED") ? pendingEstimatedValue : null,
+        verified_estimated_value: valuedRecords.length ? verifiedEstimatedValue : null,
+        pending_estimated_value: null,
         valued_record_count: valuedRecords.length,
         reference_periods: [...new Set(valuedRecords.map(record => record.valuationSnapshot!.reference_period))],
         // Keep distinct prices visible when reports use different commodities or periods.
@@ -527,11 +518,11 @@ export function formatProductionStatus(status: ProductionStatus): string {
     case "RECORDED":
       return "Recorded in your farm log";
     case "APPROVED":
-      return "Approved by MAO";
+      return "Historical MAO approval";
     case "VERIFIED":
-      return "Verified by SIBAT";
+      return "Legacy field verification";
     case "PENDING":
-      return "Awaiting Verification";
+      return "Legacy pending status";
     case "SUBJECT_TO_REVISION":
       return "Needs Revision";
     case "REJECTED":

@@ -1322,7 +1322,7 @@ export default function PredictiveAnalyticsView() {
                     : failed
                       ? "This method could not complete its evaluation."
                       : "No successful evaluation result is available.";
-                const sourceLabel = evalData.data?.is_seeded === undefined ? "Unavailable" : evalData.data.is_seeded ? "Demo data" : "Approved records";
+                const sourceLabel = evalData.data?.is_seeded === undefined ? "Unavailable" : evalData.data.is_seeded ? "Demo data" : activeDomain === "production" ? "Eligible farmer production" : "Approved records";
                 const trainingRecords = evalData.data?.training_observations ?? evalData.data_provenance?.train_period?.observations;
                 const ModelIcon = [Activity, Calendar, Scale, CloudSun, Database, Sparkles][index % 6];
                 return (
@@ -1848,7 +1848,7 @@ export default function PredictiveAnalyticsView() {
                 </p>
                 {(evalData?.data?.missing_month_count ?? evalData?.data?.missing_week_count ?? 0) > 0 && (
                   <p className="text-[11px] font-medium text-amber-700">
-                    {evalData?.data?.missing_month_count ?? evalData?.data?.missing_week_count} {periodUnit}(s) have no approved records
+                    {evalData?.data?.missing_month_count ?? evalData?.data?.missing_week_count} {periodUnit}(s) have no {activeDomain === "production" ? "eligible production" : "approved"} records
                   </p>
                 )}
               </div>

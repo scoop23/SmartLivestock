@@ -130,7 +130,7 @@ export default function PrescriptiveAnalyticsView() {
                 </Badge>
               </div>
               <p className="text-xs text-emerald-100 mt-1">
-                Deterministic rule evaluation connecting approved records, evaluated forecasts, and disease surveillance to administrative municipal actions.
+                Deterministic rules use farmer-recorded production, evaluated forecasts, and reviewed operational records to inform municipal actions.
               </p>
             </div>
           </div>
@@ -162,7 +162,7 @@ export default function PrescriptiveAnalyticsView() {
       {data?.status === "partial" && (
         <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-950 space-y-1">
           <p className="font-bold text-sm">Some indicators could not be fully evaluated</p>
-          {data.rule_readiness.production !== "ready" && <p>• Production guidance requires sufficient approved history to generate an evaluated forecast.</p>}
+          {data.rule_readiness.production !== "ready" && <p>• Production guidance requires sufficient eligible farmer-recorded history to generate an evaluated forecast.</p>}
           {data.rule_readiness.vaccination_records !== "ready" && <p>• Vaccination record coverage requires approved active inventory records.</p>}
           <p className="pt-1 text-slate-600 font-medium">Available rules are shown below. Missing data does not imply that conditions are normal.</p>
         </div>
