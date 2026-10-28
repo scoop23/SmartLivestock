@@ -268,15 +268,7 @@ def production_record_detail(request, pk):
                 {"error": "Only the farmer may delete their production record."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if record.status not in (
-            ProductionRecord.ProductionStatus.PENDING,
-            ProductionRecord.ProductionStatus.RECORDED,
-        ):
-            return Response(
-                {"error": "Only pending or recorded production records can be deleted."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        if record.slaughter_id:
+        if record.slaughter_id and record.slaughter.status == SlaughterRecord.StatusType.APPROVED:
             return Response(
                 {"error": "Production records linked to an official slaughter report cannot be deleted directly."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -288,15 +280,6 @@ def production_record_detail(request, pk):
         if user_role != "FARMER":
             return Response(
                 {"error": "Only the farmer may edit their production record."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        if record.status not in (
-            ProductionRecord.ProductionStatus.PENDING,
-            ProductionRecord.ProductionStatus.RECORDED,
-            ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION,
-        ):
-            return Response(
-                {"error": "Only pending or returned production records can be edited."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         was_returned = record.status == ProductionRecord.ProductionStatus.SUBJECT_TO_REVISION
