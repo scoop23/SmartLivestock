@@ -196,6 +196,8 @@ export interface ProductionRecordItem {
   livestockId: number;
   livestockTagNumber?: string | null;
   livestockTypeName: string | null;
+  batchId?: number | null;
+  batchCode?: string | null;
   productionType: ProductionType;
   quantity: number;
   unit: string; // "LITERS" | "PIECES" | "KILOGRAMS"
@@ -228,6 +230,8 @@ export interface ApiProductionRecord {
   livestock: number;
   livestock_tag_number?: string | null;
   livestock_type_name?: string | null;
+  batch?: number | null;
+  batch_code?: string | null;
   production_type?: string;
   quantity: string | number;
   unit: string;
@@ -260,6 +264,8 @@ export const mapProductionRecord = (item: ApiProductionRecord): ProductionRecord
   livestockId: item.livestock,
   livestockTagNumber: item.livestock_tag_number ?? null,
   livestockTypeName: item.livestock_type_name ?? null,
+  batchId: item.batch ?? null,
+  batchCode: item.batch_code ?? null,
   productionType: (item.production_type ?? "milk").toLowerCase() as ProductionType,
   quantity: Number(item.quantity) || 0,
   unit: item.unit,
