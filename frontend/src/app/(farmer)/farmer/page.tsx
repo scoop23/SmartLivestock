@@ -25,6 +25,7 @@ import ReportDetailDialog from "../report-observation/components/report-detail-d
 import ReportIllnessDialog from "../report-observation/components/report-illness-dialog";
 import { FarmerReport } from "../report-observation/report-observation-types";
 import FarmerProgramsVisits from "./components/farmer-programs-visits";
+import BarangayWeatherWidget from "./components/barangay-weather-widget";
 import FarmerActivityFeed from "./farmer-activity-feed";
 import { useFarmerDashboardAnalytics } from "./farmer-analytics";
 import FarmerCharts from "./farmer-charts";
@@ -282,6 +283,16 @@ export default function FarmerDashboard() {
             },
           },
           {
+            element: '[data-tour="barangay-weather"]',
+            popover: {
+              title: "Barangay weather forecast",
+              description:
+                "Check real-time Open-Meteo weather, heat index advisory, and rainfall probability for your barangay centroid.",
+              side: "top",
+              align: "start",
+            },
+          },
+          {
             element: '[data-tour="programs-visits"]',
             popover: {
               title: "Programs and visits",
@@ -532,12 +543,37 @@ export default function FarmerDashboard() {
                   <FarmerStats data={analytics} />
                 </div>
               )}
+              {!isLoading && !isError && (analytics?.source_warnings.length ?? 0) > 0 && (
+                <div className="flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between" role="status">
+                  <div>
+                    <p className="font-semibold">Some farm information could not be loaded.</p>
+                    <p className="mt-1">Figures may be incomplete. Check these sources: {analytics?.source_warnings.join(", ")}.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 border-amber-400 bg-white text-amber-950 hover:bg-amber-100"
+                    disabled={isFetching}
+                    onClick={() => void refetch()}
+                  >
+                    <RefreshCw className={`mr-2 size-4 ${isFetching ? "animate-spin" : ""}`} />
+                    Retry farm data
+                  </Button>
+                </div>
+              )}
 
               {/* SECTION 3: RECENT FARM ACTIVITY (Holographic Feed) */}
               <div data-tour="recent-activity">
                 <FarmerActivityFeed
                   activities={analytics?.recent_activities}
                   isLoading={isLoading}
+                />
+              </div>
+
+              {/* SECTION 4: BARANGAY WEATHER FORECAST (Open-Meteo Centroid API) */}
+              <div data-tour="barangay-weather">
+                <BarangayWeatherWidget
+                  barangayName={user?.barangay || user?.assignedBarangayName}
                 />
               </div>
 

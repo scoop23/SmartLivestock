@@ -30,7 +30,10 @@ export default function FarmerStats({
   const approvedCount = data?.approved_count ?? 0;
   const verifiedCount = data?.verified_count ?? 0;
   const pendingCount = data?.pending_count ?? 0;
-  const activeAlerts = data?.active_health_alerts ?? 0;
+  const revisionCount = data?.revision_count ?? 0;
+  const rejectedCount = data?.rejected_count ?? 0;
+  const diseaseReportsThisMonth = data?.disease_reports_this_month ?? 0;
+  const diseaseReportsAwaitingReview = data?.disease_reports_awaiting_review_this_month ?? 0;
   const milkLiters = data?.milk_production_liters ?? null;
   const milkGrowth = data?.milk_growth_pct ?? null;
   const milkRecordedLiters = data?.milk_recorded_liters ?? 0;
@@ -48,13 +51,14 @@ export default function FarmerStats({
 
   const reviewPercent = cattleCount > 0
     ? Math.round(((approvedCount + verifiedCount) / cattleCount) * 100)
-    : 100;
+    : null;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
       {/* KPI 1: Current active livestock */}
-      <div data-tour="my-livestock-stat">
+      <div data-tour="my-livestock-stat" className="h-full">
         <KpiCard
+          className="h-full"
           title="Active Livestock"
           variant="emerald"
           icon={<Icon iconNode={cowHead} className="size-5" />}
@@ -74,8 +78,9 @@ export default function FarmerStats({
       </div>
 
       {/* KPI 2: Production This Month */}
-      <div data-tour="production-stat">
+      <div data-tour="production-stat" className="h-full">
         <KpiCard
+          className="h-full"
           title="Production This Month"
           variant="sky"
           icon={<Milk className="size-5" />}
@@ -101,52 +106,65 @@ export default function FarmerStats({
       </div>
 
       {/* KPI 3: Animal Health Reports */}
-      <div data-tour="health-stat">
+      <div data-tour="health-stat" className="h-full">
         <KpiCard
-          title="Animal Health Reports"
-          variant={activeAlerts > 0 ? "rose" : "stone"}
+          className="h-full"
+          title="Disease Reports This Month"
+          variant={diseaseReportsAwaitingReview > 0 ? "rose" : "stone"}
           icon={<AlertTriangle className="size-5" />}
-          badge={activeAlerts > 0 ? `${activeAlerts} WAITING REVIEW` : "NO ACTIVE REPORTS"}
+          badge={diseaseReportsAwaitingReview > 0 ? `${diseaseReportsAwaitingReview} NEED REVIEW` : "THIS MONTH"}
           badgeClassName={
-            activeAlerts > 0
+            diseaseReportsAwaitingReview > 0
               ? "font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200 tracking-wider"
               : "font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-emerald-800 border border-slate-200 tracking-wider"
           }
           value={
             <div className="flex items-baseline gap-2 mt-0.5">
               <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                {activeAlerts}
+                {diseaseReportsThisMonth.toLocaleString()}
               </span>
               <span
                 className={`text-xs font-mono font-bold ${
-                  activeAlerts > 0 ? "text-rose-700" : "text-emerald-700"
+                  diseaseReportsAwaitingReview > 0 ? "text-rose-700" : "text-emerald-700"
                 }`}
               >
-                {activeAlerts > 0 ? "Review Needed" : "Clear"}
+                {diseaseReportsThisMonth === 1 ? "Report" : "Reports"}
               </span>
             </div>
           }
-          description="Reports needing attention"
+          description={
+            diseaseReportsAwaitingReview > 0
+              ? `${diseaseReportsAwaitingReview} awaiting SIBAT or MAO review`
+              : "0 awaiting SIBAT or MAO review"
+          }
           wrapText
         />
       </div>
 
       {/* KPI 4: Record Status */}
-      <div data-tour="record-status-stat">
+      <div data-tour="record-status-stat" className="h-full">
         <KpiCard
-          title="Record Status"
+          className="h-full"
+          title="Livestock Review Status"
           variant="amber"
           icon={<ShieldCheck className="size-5" />}
-          badge={pendingCount === 0 ? "ALL REVIEWED" : `${pendingCount} WAITING FOR REVIEW`}
+          badge={cattleCount === 0 ? "NO ACTIVE HEADS" : pendingCount === 0 ? "NO PENDING HEADS" : `${pendingCount} HEADS PENDING`}
           badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
           value={
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                {reviewPercent}%
+                {reviewPercent === null ? "—" : `${reviewPercent}%`}
               </span>
             </div>
           }
-          description="Your records reviewed by the livestock office"
+          description={
+            cattleCount === 0
+              ? "No active livestock heads to review"
+              : `${approvedCount + verifiedCount} of ${cattleCount} active heads approved or verified` +
+                (revisionCount || rejectedCount
+                  ? ` · ${revisionCount} need revision · ${rejectedCount} rejected`
+                  : "")
+          }
           wrapText
         />
       </div>

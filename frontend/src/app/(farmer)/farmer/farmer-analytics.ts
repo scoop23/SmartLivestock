@@ -57,10 +57,16 @@ export interface FarmerDashboardAnalytics {
   approved_count: number;
   verified_count: number;
   pending_count: number;
+  revision_count: number;
+  rejected_count: number;
+  /** Names of farmer-scoped data sources that failed or returned an unexpected payload. */
+  source_warnings: string[];
   /** Avg SlaughterRecord.carcass_weight for farmer-owned records; NULL if none. */
   avg_carcass_weight_kg: number | null;
-  /** Active DiseaseCase count (PENDING / VERIFIED) for the farmer. */
-  active_health_alerts: number;
+  /** Disease report entries whose event date falls in the current calendar month. */
+  disease_reports_this_month: number;
+  /** Current-month disease reports still moving through PENDING / VERIFIED review. */
+  disease_reports_awaiting_review_this_month: number;
   /** RECORDED farmer MILK liters this month; NULL if none. */
   milk_production_liters: number | null;
   milk_recorded_liters: number;
@@ -106,6 +112,13 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     api.get("diseases/mortality/"),
   ]);
 
+  const sourceWarnings: string[] = [];
+  if (invRes.status === "rejected" || !Array.isArray(invRes.value.data)) sourceWarnings.push("livestock inventory");
+  if (batchRes.status === "rejected" || !Array.isArray(batchRes.value.data)) sourceWarnings.push("herd batches");
+  if (prodRes.status === "rejected" || !Array.isArray(prodRes.value.data)) sourceWarnings.push("production records");
+  if (diseaseRes.status === "rejected" || !Array.isArray(diseaseRes.value.data)) sourceWarnings.push("disease reports");
+  if (mortRes.status === "rejected" || !Array.isArray(mortRes.value.data)) sourceWarnings.push("mortality reports");
+
   const inventories: InventoryApiItem[] = invRes.status === "fulfilled" && Array.isArray(invRes.value.data) ? invRes.value.data : [];
   const batches: BatchApiItem[] = batchRes.status === "fulfilled" && Array.isArray(batchRes.value.data) ? batchRes.value.data : [];
   const productions: ApiProductionRecord[] = prodRes.status === "fulfilled" && Array.isArray(prodRes.value.data) ? prodRes.value.data : [];
@@ -123,6 +136,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
   let verifiedHeads = 0;
   let pendingHeads = 0;
   let revisionHeads = 0;
+  let rejectedHeads = 0;
 
   const speciesMap = new Map<string, number>();
   const breedMap = new Map<string, { category: string; count: number }>();
@@ -138,8 +152,10 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
       approvedHeads += qty;
     } else if (st === "VERIFIED") {
       verifiedHeads += qty;
-    } else if (st === "SUBJECT_TO_REVISION" || st === "REJECTED") {
+    } else if (st === "SUBJECT_TO_REVISION") {
       revisionHeads += qty;
+    } else if (st === "REJECTED") {
+      rejectedHeads += qty;
     } else {
       pendingHeads += qty;
     }
@@ -168,7 +184,8 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     { name: "MAO Certified", value: approvedHeads, color: "#10b981" },
     { name: "SIBAT Verified", value: verifiedHeads, color: "#0284c7" },
     { name: "Pending Review", value: pendingHeads, color: "#f59e0b" },
-    { name: "Needs Revision", value: revisionHeads, color: "#ef4444" },
+    { name: "Needs Revision", value: revisionHeads, color: "#f59e0b" },
+    { name: "Rejected", value: rejectedHeads, color: "#ef4444" },
   ].filter((p) => p.value > 0);
 
   const herd_categories: HerdCategoryPoint[] = Array.from(speciesMap.entries()).map(([name, value], i) => {
@@ -235,12 +252,16 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     milk_growth_pct = ((currentMonthMilk - prevMonthMilk) / prevMonthMilk) * 100;
   }
 
-  // 3. Health & Disease Alerts
-  let activeAlerts = 0;
-  diseaseCases.forEach((dc) => {
+  // 3. Disease reports use the same current-month window as production.
+  // Count report records, not affected heads, and leave missing event dates out.
+  const currentMonthDiseaseCases = diseaseCases.filter((dc) =>
+    typeof dc.record_date === "string" && dc.record_date.startsWith(currentMonthStr),
+  );
+  let diseaseReportsAwaitingReview = 0;
+  currentMonthDiseaseCases.forEach((dc) => {
     const st = String(dc.status || "PENDING").toUpperCase();
     if (st === "PENDING" || st === "VERIFIED") {
-      activeAlerts += 1;
+      diseaseReportsAwaitingReview += 1;
     }
   });
 
@@ -354,8 +375,12 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     approved_count: approvedHeads,
     verified_count: verifiedHeads,
     pending_count: pendingHeads,
+    revision_count: revisionHeads,
+    rejected_count: rejectedHeads,
+    source_warnings: sourceWarnings,
     avg_carcass_weight_kg: null,
-    active_health_alerts: activeAlerts,
+    disease_reports_this_month: currentMonthDiseaseCases.length,
+    disease_reports_awaiting_review_this_month: diseaseReportsAwaitingReview,
     milk_production_liters: hasMilkData ? currentMonthMilk : null,
     milk_recorded_liters: currentMonthRecordedMilk,
     milk_growth_pct,

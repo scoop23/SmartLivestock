@@ -116,8 +116,8 @@ export const KpiCard: React.FC<KpiCardProps> = ({
     }
 
     return (
-      <Card className={cn("border-2 border-stone-200/60 bg-white/70 shadow-xs rounded-2xl", isSm ? "p-0" : "", className)}>
-        <CardContent className={cn("space-y-2.5", isSm ? "p-3.5" : "p-4 space-y-3")}>
+      <Card className={cn("border-2 border-stone-200/60 bg-white/70 shadow-xs rounded-2xl h-full", isSm ? "p-0" : "", className)}>
+        <CardContent className={cn("space-y-2.5 h-full", isSm ? "p-3.5" : "p-4 space-y-3")}>
           <div className="flex items-center justify-between">
             <Skeleton className={cn("rounded-xl", isSm ? "size-7" : "size-9")} />
             <Skeleton className="h-4 w-20 rounded-full" />
@@ -196,7 +196,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
     <Card
       onClick={onClick}
       className={cn(
-        "group relative overflow-hidden rounded-2xl border-2 shadow-xs transition-all duration-300",
+        "group relative overflow-hidden rounded-2xl border-2 shadow-xs transition-all duration-300 h-full",
         "hover:-translate-y-1",
         styles.card,
         onClick && "cursor-pointer",

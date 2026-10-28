@@ -70,9 +70,10 @@ export default function FarmerCharts({
   const healthTrend = data?.health_incident_trend ?? [];
 
   const totalHerdCount = data?.cattle_count ?? 0;
-  const approvedCount = data?.approved_count ?? 0;
-  const complianceRate =
-    totalHerdCount > 0 ? Math.round((approvedCount / totalHerdCount) * 100) : 100;
+  const reviewedHeadCount = (data?.approved_count ?? 0) + (data?.verified_count ?? 0);
+  const reviewedShare = totalHerdCount > 0
+    ? Math.round((reviewedHeadCount / totalHerdCount) * 100)
+    : null;
 
   return (
     <div className="space-y-4">
@@ -296,7 +297,7 @@ export default function FarmerCharts({
           </CardContent>
         </Card>
 
-        {/* ── 3. INSPECTION & CERTIFICATION STATUS (COMPLIANCE DONUT) ── */}
+        {/* ── 3. LIVESTOCK REVIEW STATUS (STATUS DONUT) ── */}
         <Card className="border-2 border-emerald-900/10 bg-white shadow-xs rounded-3xl flex flex-col justify-between overflow-hidden hover:border-emerald-700/30 transition-all">
           <CardHeader className="p-5 pb-2">
             <div className="flex items-center justify-between">
@@ -306,22 +307,22 @@ export default function FarmerCharts({
                 </div>
                 <div>
                   <CardTitle className="text-sm font-bold text-slate-900">
-                    Inspection & Certification Status
+                    Livestock Review Status
                   </CardTitle>
                   <CardDescription className="text-xs text-slate-500">
-                    Records reviewed
+                    Active animal heads by review status
                   </CardDescription>
                 </div>
               </div>
 
               <Badge
                 className={`text-[10px] font-bold px-2 py-0.5 border-0 ${
-                  complianceRate >= 80
+                  (reviewedShare ?? 0) >= 80
                     ? "bg-emerald-100 text-emerald-800"
                     : "bg-amber-100 text-amber-900"
                 }`}
               >
-                {complianceRate}% Certified
+                {reviewedShare === null ? "No active heads" : `${reviewedShare}% reviewed`}
               </Badge>
             </div>
           </CardHeader>
@@ -367,8 +368,8 @@ export default function FarmerCharts({
                   </ResponsiveContainer>
                   {/* Center compliance score */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-lg font-black text-emerald-900">{complianceRate}%</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Valid</span>
+                    <span className="text-lg font-black text-emerald-900">{reviewedShare === null ? "—" : `${reviewedShare}%`}</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reviewed</span>
                   </div>
                 </div>
 
