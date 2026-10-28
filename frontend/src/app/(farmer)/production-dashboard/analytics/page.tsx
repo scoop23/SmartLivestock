@@ -304,11 +304,39 @@ export default function ProductionAnalyticsPage() {
   const {
     data: feedingAnalytics,
     isLoading: isFeedingLoading,
+    isError: isFeedingError,
     refetch: refetchFeeding,
   } = useQuery<FeedingAnalytics>({
     queryKey: ["feeding_analytics"],
     queryFn: async () => (await api.get("production/feedings/analytics/")).data,
   });
+
+  const feedingTrendChartData = useMemo(
+    () => (feedingAnalytics?.daily_trend ?? []).map((point) => ({
+      ...point,
+      day: new Date(`${point.date}T12:00:00`).toLocaleDateString("en-PH", {
+        month: "short",
+        day: "numeric",
+      }),
+    })),
+    [feedingAnalytics?.daily_trend],
+  );
+
+  const feedingTypeChartData = useMemo(() => {
+    const shortLabels: Record<string, string> = {
+      FORAGE: "Forage",
+      SILAGE_HAY: "Silage / Hay",
+      CONCENTRATE: "Concentrate",
+      BYPRODUCTS: "Byproducts",
+      MINERALS: "Minerals",
+    };
+    return Object.entries(feedingAnalytics?.by_feed_type ?? {}).map(([key, item]) => ({
+      type: FEED_TYPE_LABELS[key] || item.label,
+      shortType: shortLabels[key] || item.label,
+      quantity_kg: Number(item.quantity_kg) || 0,
+      cost_php: Number(item.cost_php) || 0,
+    }));
+  }, [feedingAnalytics?.by_feed_type]);
 
   // 5. Fetch Weight Records
   const { data: weightRecords = [], refetch: refetchWeights } = useQuery<Array<{
@@ -1267,6 +1295,148 @@ export default function ProductionAnalyticsPage() {
                     </div>
                   </CardContent>
                 </Card>
+              )}
+
+              {isFeedingLoading ? (
+                <section aria-label="Loading feeding charts" className="grid gap-5 lg:grid-cols-2">
+                  <Skeleton className="h-[340px] rounded-3xl" />
+                  <Skeleton className="h-[340px] rounded-3xl" />
+                  <Skeleton className="h-[340px] rounded-3xl" />
+                  <Skeleton className="h-[340px] rounded-3xl" />
+                </section>
+              ) : isFeedingError || !feedingAnalytics ? (
+                <Card className="rounded-3xl border-rose-200 bg-rose-50/60 shadow-holo-card">
+                  <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
+                    <AlertTriangle className="size-8 text-rose-600" />
+                    <div>
+                      <p className="font-display font-bold text-slate-900">Feeding analytics could not be loaded</p>
+                      <p className="mt-1 text-xs text-slate-600">Retry to load the daily trends and feed category charts.</p>
+                    </div>
+                    <Button type="button" variant="outline" onClick={() => void refetchFeeding()}>
+                      <RefreshCw className="mr-2 size-4" /> Retry
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <section aria-label="Daily feeding trends" className="grid gap-5 lg:grid-cols-2">
+                    <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="font-display text-base font-bold text-slate-900">Daily Feed Intake</CardTitle>
+                        <CardDescription className="text-xs">Recorded feed quantity over the last 14 days (kg).</CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[280px] px-3 pb-4 sm:px-5">
+                        {feedingTrendChartData.some((point) => point.quantity_kg > 0) ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={feedingTrendChartData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                              <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(value: number) => `${value} kg`} />
+                              <Tooltip
+                                contentStyle={{ borderRadius: 12, borderColor: "#e2e8f0" }}
+                                formatter={(value) => [`${Number(value).toLocaleString()} kg`, "Feed logged"]}
+                              />
+                              <Line type="monotone" dataKey="quantity_kg" name="Feed logged" stroke="#059669" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-xs text-slate-500">
+                            No feeding quantities were logged in the last 14 days.
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="font-display text-base font-bold text-slate-900">Daily Recorded Feed Cost</CardTitle>
+                        <CardDescription className="text-xs">Cost amounts entered on feeding logs over the last 14 days.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[280px] px-3 pb-4 sm:px-5">
+                        {feedingTrendChartData.some((point) => point.cost_php > 0) ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={feedingTrendChartData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                              <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(value: number) => `₱${value}`} />
+                              <Tooltip
+                                contentStyle={{ borderRadius: 12, borderColor: "#e2e8f0" }}
+                                formatter={(value) => [`₱${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "Recorded cost"]}
+                              />
+                              <Line type="monotone" dataKey="cost_php" name="Recorded cost" stroke="#d97706" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-xs text-slate-500">
+                            No feeding costs were recorded in the last 14 days.
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </section>
+
+                  <section aria-label="Feed category charts" className="grid gap-5 lg:grid-cols-2">
+                    <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="font-display text-base font-bold text-slate-900">Quantity by Feed Type</CardTitle>
+                        <CardDescription className="text-xs">Cumulative logged feed quantity by ration category (kg).</CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[300px] px-3 pb-4 sm:px-5">
+                        {feedingTypeChartData.some((item) => item.quantity_kg > 0) ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={feedingTypeChartData} layout="vertical" margin={{ top: 4, right: 16, left: 4, bottom: 4 }}>
+                              <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(value: number) => `${value} kg`} />
+                              <YAxis type="category" dataKey="shortType" width={96} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                              <Tooltip
+                                contentStyle={{ borderRadius: 12, borderColor: "#e2e8f0" }}
+                                labelFormatter={(_label, payload) => payload?.[0]?.payload?.type || _label}
+                                formatter={(value) => [`${Number(value).toLocaleString()} kg`, "Feed logged"]}
+                              />
+                              <Bar dataKey="quantity_kg" name="Feed logged" fill="#059669" radius={[0, 6, 6, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-xs text-slate-500">
+                            Feed type totals will appear after feeding logs are recorded.
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="font-display text-base font-bold text-slate-900">Recorded Cost by Feed Type</CardTitle>
+                        <CardDescription className="text-xs">Cumulative costs entered on logs, grouped by ration category.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[300px] px-3 pb-4 sm:px-5">
+                        {feedingTypeChartData.some((item) => item.cost_php > 0) ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={feedingTypeChartData} layout="vertical" margin={{ top: 4, right: 16, left: 4, bottom: 4 }}>
+                              <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(value: number) => `₱${value}`} />
+                              <YAxis type="category" dataKey="shortType" width={96} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                              <Tooltip
+                                contentStyle={{ borderRadius: 12, borderColor: "#e2e8f0" }}
+                                labelFormatter={(_label, payload) => payload?.[0]?.payload?.type || _label}
+                                formatter={(value) => [`₱${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "Recorded cost"]}
+                              />
+                              <Bar dataKey="cost_php" name="Recorded cost" fill="#d97706" radius={[0, 6, 6, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-xs text-slate-500">
+                            No feeding cost amounts have been entered for these categories.
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </section>
+
+                  <p className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3 text-xs leading-relaxed text-amber-900">
+                    Charts show saved feeding logs. A day without a log does not prove that no feed was provided, and cost totals include only amounts entered on those logs.
+                  </p>
+                </>
               )}
             </div>
           )}
