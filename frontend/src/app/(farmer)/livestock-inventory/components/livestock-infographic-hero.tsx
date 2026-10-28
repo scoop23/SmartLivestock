@@ -41,7 +41,7 @@ interface LivestockInfographicHeroProps {
   activeItem: LivestockInventoryItem;
   latestWeight: number;
   latestAdg: number | null;
-  targetWeight: number;
+  targetWeight?: number | null;
   projectedCarcassKg: number;
   meatDressingPct: number;
   totalCalves: number;
@@ -676,7 +676,7 @@ function LivestockInfographicHeroContent({
               </div>
               <p className="text-2xl font-black text-white">{latestWeight} kg</p>
               <p className="text-[11px] text-emerald-200/70 font-medium">
-                Target: {targetWeight} kg &bull; Click to log weight
+                {targetWeight ? `Target: ${targetWeight} kg • Click to log weight` : "Target weight optional • Click to log weight"}
               </p>
             </div>
 

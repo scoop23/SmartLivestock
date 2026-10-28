@@ -64,11 +64,14 @@ Heart,
 Info,
 Layers,
 Milk,
+Pill,
 Plus,
 Printer,
 Scale,
 ShieldCheck,
 Stethoscope,
+Syringe,
+Target,
   Trash2,
   TrendingUp,
   Wheat,
@@ -77,7 +80,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams,useRouter } from "next/navigation";
 import QRCode from "qrcode";
-import React,{ useEffect,useMemo,useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import {
 CartesianGrid,
 Line,
@@ -275,6 +279,7 @@ export default function LivestockDetailPage() {
         batchId: directInventory.batch || null,
         batchCode: directInventory.batch_code || null,
         batchName: directInventory.batch_name || null,
+        batchTargetWeight: directInventory.batch_target_weight ? Number(directInventory.batch_target_weight) : null,
       } as LivestockInventoryItem;
     }
     return null;
@@ -493,6 +498,42 @@ export default function LivestockDetailPage() {
     enabled: Boolean(activeItem),
   });
 
+  // 7. Real Clinical Treatment Records from Backend API
+  const { data: allTreatmentRecords = [], refetch: refetchTreatments } = useQuery<Array<{
+    id: number;
+    livestock: number;
+    livestock_tag?: string;
+    treatment_date: string;
+    treatment_type: string;
+    treatment_type_label?: string;
+    medication_name: string;
+    reason: string;
+    dosage: string;
+    route_of_administration: string;
+    administered_by: string;
+    notes: string;
+    follow_up_date: string | null;
+    created_at?: string;
+  }>>({
+    queryKey: ["treatment_records", activeItem?.id],
+    queryFn: async () => {
+      if (!activeItem?.id) return [];
+      try {
+        const res = await api.get(`production/treatments/?livestock=${activeItem.id}`);
+        return Array.isArray(res.data) ? res.data : [];
+      } catch {
+        return [];
+      }
+    },
+    enabled: Boolean(activeItem?.id),
+  });
+
+  const animalTreatments = useMemo(() => {
+    return [...allTreatmentRecords].sort(
+      (a, b) => new Date(b.treatment_date).getTime() - new Date(a.treatment_date).getTime()
+    );
+  }, [allTreatmentRecords]);
+
   // Filter weight logs for this specific animal
   const weightLogs: WeightLog[] = useMemo(() => {
     if (!activeItem) return [];
@@ -645,16 +686,32 @@ export default function LivestockDetailPage() {
     return getBirthingTerminology(activeItem?.livestockTypeName);
   }, [activeItem?.livestockTypeName]);
 
-  // Target weight calculation by species
-  const targetWeight = useMemo(() => {
-    const s = (activeItem?.livestockTypeName || "").toLowerCase();
-    if (s.includes("cattle") || s.includes("cow") || s.includes("baka")) return 420;
-    if (s.includes("carabao") || s.includes("kalabaw")) return 450;
-    if (s.includes("swine") || s.includes("pig") || s.includes("baboy")) return 90;
-    if (s.includes("goat") || s.includes("kambing") || s.includes("sheep")) return 40;
-    if (s.includes("poultry") || s.includes("chicken")) return 2.2;
-    return 100;
-  }, [activeItem?.livestockTypeName]);
+  // Target weight: optional benchmark for market or slaughter readiness
+  const [targetWeightOverride, setTargetWeightOverride] = useState<{ id: string; val: number | null } | null>(null);
+  const [isTargetWeightDialogOpen, setIsTargetWeightDialogOpen] = useState(false);
+  const [targetWeightInput, setTargetWeightInput] = useState<string>("");
+  const [weighTargetWeight, setWeighTargetWeight] = useState<string>("");
+
+  const activeItemId = activeItem?.id;
+  const activeBatchTargetWeight = activeItem?.batchTargetWeight;
+
+  const targetWeight: number | null = useMemo(() => {
+    if (!activeItemId) return null;
+    if (targetWeightOverride && targetWeightOverride.id === activeItemId) {
+      return targetWeightOverride.val;
+    }
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(`livestock_target_weight_${activeItemId}`);
+      if (stored !== null && stored.trim() !== "") {
+        const num = Number(stored);
+        if (!isNaN(num) && num > 0) return num;
+      }
+    }
+    if (activeBatchTargetWeight != null && activeBatchTargetWeight > 0) {
+      return activeBatchTargetWeight;
+    }
+    return null;
+  }, [activeItemId, activeBatchTargetWeight, targetWeightOverride]);
 
   // Meat Dressing % calculation
   const meatDressingPct = useMemo(() => {
@@ -678,6 +735,191 @@ export default function LivestockDetailPage() {
   const [isCalvingDialogOpen, setIsCalvingDialogOpen] = useState(false);
   const [activeProfileTab, setActiveProfileTab] = useState("growth");
   const [isOwnershipFormOpen, setIsOwnershipFormOpen] = useState(false);
+
+  // Treatment Form States & Mutation
+  const [isTreatmentDialogOpen, setIsTreatmentDialogOpen] = useState(false);
+  const [treatmentDate, setTreatmentDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [treatmentType, setTreatmentType] = useState("ANTIBIOTIC");
+  const [medicationName, setMedicationName] = useState("");
+  const [dosage, setDosage] = useState("");
+  const [route, setRoute] = useState("Intramuscular (IM)");
+  const [treatmentReason, setTreatmentReason] = useState("");
+  const [administeredBy, setAdministeredBy] = useState("");
+  const [treatmentNotes, setTreatmentNotes] = useState("");
+  const [treatmentFollowUpDate, setTreatmentFollowUpDate] = useState("");
+
+  const addTreatmentMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeItem?.id) throw new Error("No livestock selected");
+      const res = await api.post("production/treatments/", {
+        livestock: Number(activeItem.id),
+        treatment_date: treatmentDate,
+        treatment_type: treatmentType,
+        medication_name: medicationName,
+        dosage,
+        route_of_administration: route,
+        reason: treatmentReason,
+        administered_by: administeredBy,
+        notes: treatmentNotes,
+        follow_up_date: treatmentFollowUpDate || null,
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Clinical treatment record logged successfully!");
+      setIsTreatmentDialogOpen(false);
+      setMedicationName("");
+      setDosage("");
+      setTreatmentReason("");
+      setTreatmentNotes("");
+      setTreatmentFollowUpDate("");
+      refetchTreatments();
+      queryClient.invalidateQueries({ queryKey: ["treatment_records"] });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.medication_name || err?.response?.data?.error || "Failed to log treatment.";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
+    },
+  });
+
+  // ═══ Desktop Profile Tabs Horizontal Scrollbar State & Handlers ═══
+  const desktopTabsContainerRef = useRef<HTMLDivElement>(null);
+  const desktopTrackRef = useRef<HTMLDivElement>(null);
+  const isDesktopDraggingRef = useRef(false);
+  const desktopDragStartRef = useRef<{ startX: number; startScrollLeft: number }>({ startX: 0, startScrollLeft: 0 });
+  const [desktopScrollInfo, setDesktopScrollInfo] = useState({
+    canScroll: false,
+    thumbWidthPct: 100,
+    thumbLeftPct: 0,
+  });
+
+  const updateDesktopScrollMetrics = useCallback(() => {
+    const el = desktopTabsContainerRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const maxScroll = scrollWidth - clientWidth;
+    const canScroll = maxScroll > 1 && scrollWidth > 0;
+
+    if (!canScroll || scrollWidth === 0) {
+      setDesktopScrollInfo({ canScroll: false, thumbWidthPct: 100, thumbLeftPct: 0 });
+      return;
+    }
+
+    const rawRatio = clientWidth / scrollWidth;
+    const thumbWidthPct = Math.min(100, Math.max(18, rawRatio * 100));
+    const scrollProgress = maxScroll > 0 ? Math.max(0, Math.min(1, scrollLeft / maxScroll)) : 0;
+    const thumbLeftPct = scrollProgress * (100 - thumbWidthPct);
+
+    setDesktopScrollInfo({ canScroll: true, thumbWidthPct, thumbLeftPct });
+  }, []);
+
+  useEffect(() => {
+    const el = desktopTabsContainerRef.current;
+    if (!el) return;
+
+    const rafId = requestAnimationFrame(() => {
+      updateDesktopScrollMetrics();
+    });
+
+    const ro = new ResizeObserver(() => {
+      updateDesktopScrollMetrics();
+    });
+    ro.observe(el);
+    Array.from(el.children).forEach((child) => {
+      ro.observe(child);
+      if (child.children) {
+        Array.from(child.children).forEach((grandchild) => ro.observe(grandchild));
+      }
+    });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+    };
+  }, [updateDesktopScrollMetrics, activeProfileTab, animalTreatments.length]);
+
+  const handleDesktopThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = desktopTabsContainerRef.current;
+    if (!el) return;
+
+    isDesktopDraggingRef.current = true;
+    desktopDragStartRef.current = {
+      startX: e.clientX,
+      startScrollLeft: el.scrollLeft,
+    };
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handleDesktopThumbPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDesktopDraggingRef.current) return;
+    const el = desktopTabsContainerRef.current;
+    const track = desktopTrackRef.current;
+    if (!el || !track) return;
+
+    const deltaX = e.clientX - desktopDragStartRef.current.startX;
+    const trackWidth = track.clientWidth;
+    const thumbWidthPx = (desktopScrollInfo.thumbWidthPct / 100) * trackWidth;
+    const scrollableTrack = trackWidth - thumbWidthPx;
+    const scrollableTabs = el.scrollWidth - el.clientWidth;
+
+    if (scrollableTrack > 0 && scrollableTabs > 0) {
+      const scrollDelta = (deltaX / scrollableTrack) * scrollableTabs;
+      el.scrollLeft = desktopDragStartRef.current.startScrollLeft + scrollDelta;
+    }
+  };
+
+  const handleDesktopThumbPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDesktopDraggingRef.current) {
+      isDesktopDraggingRef.current = false;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
+
+  const handleDesktopTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isDesktopDraggingRef.current) return;
+    const el = desktopTabsContainerRef.current;
+    const track = desktopTrackRef.current;
+    if (!el || !track || !desktopScrollInfo.canScroll) return;
+
+    const rect = track.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const trackWidth = rect.width;
+    const thumbWidthPx = (desktopScrollInfo.thumbWidthPct / 100) * trackWidth;
+    const scrollableTrack = trackWidth - thumbWidthPx;
+    const scrollableTabs = el.scrollWidth - el.clientWidth;
+
+    if (scrollableTrack > 0 && scrollableTabs > 0) {
+      const targetRatio = Math.max(0, Math.min(1, (clickX - thumbWidthPx / 2) / scrollableTrack));
+      el.scrollTo({ left: targetRatio * scrollableTabs, behavior: "smooth" });
+    }
+  };
+
+  const handleDesktopTabsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const el = desktopTabsContainerRef.current;
+    if (!el || !desktopScrollInfo.canScroll) return;
+
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && el.scrollWidth > el.clientWidth) {
+      el.scrollLeft += e.deltaY;
+    }
+  };
+
+  const handleSelectProfileTab = (tabValue: string, e?: React.MouseEvent) => {
+    setActiveProfileTab(tabValue);
+    if (e?.currentTarget) {
+      (e.currentTarget as HTMLElement).scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "nearest",
+      });
+    }
+  };
   const [livestockQrResult, setLivestockQrResult] = useState<{
     animalId: string;
     dataUrl: string | null;
@@ -838,6 +1080,18 @@ export default function LivestockDetailPage() {
       toast.error("Please enter a valid weight in kilograms.");
       return;
     }
+
+    if (activeItem.id && typeof window !== "undefined") {
+      const parsedTarget = parseFloat(weighTargetWeight);
+      if (!isNaN(parsedTarget) && parsedTarget > 0) {
+        localStorage.setItem(`livestock_target_weight_${activeItem.id}`, String(parsedTarget));
+        setTargetWeightOverride({ id: activeItem.id, val: parsedTarget });
+      } else if (weighTargetWeight.trim() === "") {
+        localStorage.removeItem(`livestock_target_weight_${activeItem.id}`);
+        setTargetWeightOverride({ id: activeItem.id, val: null });
+      }
+    }
+
     logWeightMutation.mutate({
       livestock: Number(activeItem.id),
       weight: val,
@@ -961,11 +1215,10 @@ export default function LivestockDetailPage() {
       && ["FEMALE", "F"].includes(activeItem.sex.trim().toUpperCase())
   );
 
-  useEffect(() => {
-    if ((!canShowMilkPredictionTab && activeProfileTab === "milk-prediction")
-      || (!canProduceMilk && activeProfileTab === "production")) {
-      setActiveProfileTab("growth");
-    }
+  const effectiveProfileTab = useMemo(() => {
+    if (!canShowMilkPredictionTab && activeProfileTab === "milk-prediction") return "growth";
+    if (!canProduceMilk && activeProfileTab === "production") return "growth";
+    return activeProfileTab;
   }, [activeProfileTab, canShowMilkPredictionTab, canProduceMilk]);
 
   // Calving stats
@@ -1028,6 +1281,12 @@ export default function LivestockDetailPage() {
         icon: <Stethoscope className="size-3.5 text-rose-600" />,
       },
       {
+        id: "treatments",
+        label: "Treatments",
+        count: animalTreatments.length > 0 ? animalTreatments.length : undefined,
+        icon: <Pill className="size-3.5 text-teal-600" />,
+      },
+      {
         id: "pedigree",
         label: "Pedigree & Lineage",
         icon: <Heart className="size-3.5 text-purple-600" />,
@@ -1038,7 +1297,7 @@ export default function LivestockDetailPage() {
         icon: <Layers className="size-3.5 text-slate-600" />,
       },
     ],
-    [canProduceMilk, canShowMilkPredictionTab, terms.eventName, totalCalves, breedingFollowUps.length, animalFeedingRecords.length]
+    [canProduceMilk, canShowMilkPredictionTab, terms.eventName, totalCalves, breedingFollowUps.length, animalFeedingRecords.length, animalTreatments.length]
   );
 
   // Loading state
@@ -1176,6 +1435,7 @@ export default function LivestockDetailPage() {
           }}
           onOpenWeigh={() => {
             setNewWeight(String(latestWeight || "70.0"));
+            setWeighTargetWeight(targetWeight != null ? String(targetWeight) : "");
             setIsWeighDialogOpen(true);
           }}
           onOpenProduction={openProductionDialog}
@@ -1307,15 +1567,21 @@ export default function LivestockDetailPage() {
 
         {/* ── EXPANDABLE BOTTOM SHEET / DRAGGABLE SLIDING PANEL (MOBILE) & DASHBOARD TABS (DESKTOP) ── */}
         <LivestockSlidingPanel
-          activeTab={activeProfileTab}
+          activeTab={effectiveProfileTab}
           onSelectTab={setActiveProfileTab}
           tabItems={tabItems}
         >
-          <Tabs value={activeProfileTab === "breeding-care" ? "breeding" : activeProfileTab} onValueChange={setActiveProfileTab} className="w-full space-y-6">
-            <div className="hidden lg:block w-full overflow-x-auto scroll-smooth scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400 scrollbar-track-transparent py-1.5">
+          <Tabs value={effectiveProfileTab === "breeding-care" ? "breeding" : effectiveProfileTab} onValueChange={setActiveProfileTab} className="w-full space-y-6">
+            <div
+              ref={desktopTabsContainerRef}
+              onScroll={updateDesktopScrollMetrics}
+              onWheel={handleDesktopTabsWheel}
+              className="hidden lg:block w-full overflow-x-auto scroll-smooth no-scrollbar py-1.5"
+            >
               <TabsList data-tour="profile-tabs-desktop" className="h-12 flex w-full min-w-max items-center justify-between gap-1 rounded-2xl border border-slate-200/90 bg-slate-100/90 p-1.5 shadow-2xs">
                 <TabsTrigger
                   value="growth"
+                  onClick={(e) => handleSelectProfileTab("growth", e)}
                   className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <TrendingUp className="size-3.5 shrink-0 text-emerald-600" />
@@ -1325,6 +1591,7 @@ export default function LivestockDetailPage() {
                 {canProduceMilk && (
                   <TabsTrigger
                     value="production"
+                    onClick={(e) => handleSelectProfileTab("production", e)}
                     className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                   >
                     <Milk className="size-3.5 shrink-0 text-sky-600" />
@@ -1335,6 +1602,7 @@ export default function LivestockDetailPage() {
                 {canShowMilkPredictionTab && (
                   <TabsTrigger
                     value="milk-prediction"
+                    onClick={(e) => handleSelectProfileTab("milk-prediction", e)}
                     className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                   >
                     <Milk className="size-3.5 shrink-0 text-amber-500" />
@@ -1344,6 +1612,7 @@ export default function LivestockDetailPage() {
 
                 <TabsTrigger
                   value="calving"
+                  onClick={(e) => handleSelectProfileTab("calving", e)}
                   className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Baby className="size-3.5 shrink-0 text-pink-600" />
@@ -1355,6 +1624,7 @@ export default function LivestockDetailPage() {
 
                 <TabsTrigger
                   value="breeding"
+                  onClick={(e) => handleSelectProfileTab("breeding", e)}
                   className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <CalendarClock className="size-3.5 shrink-0 text-indigo-600" />
@@ -1368,6 +1638,7 @@ export default function LivestockDetailPage() {
 
                 <TabsTrigger
                   value="feeding"
+                  onClick={(e) => handleSelectProfileTab("feeding", e)}
                   className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Wheat className="size-3.5 shrink-0 text-amber-600" />
@@ -1381,6 +1652,7 @@ export default function LivestockDetailPage() {
 
                 <TabsTrigger
                   value="health"
+                  onClick={(e) => handleSelectProfileTab("health", e)}
                   className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Stethoscope className="size-3.5 shrink-0 text-rose-600" />
@@ -1388,8 +1660,23 @@ export default function LivestockDetailPage() {
                 </TabsTrigger>
 
                 <TabsTrigger
+                  value="treatments"
+                  onClick={(e) => handleSelectProfileTab("treatments", e)}
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                >
+                  <Pill className="size-3.5 shrink-0 text-teal-600" />
+                  <span>Treatments</span>
+                  {animalTreatments.length > 0 && (
+                    <span className="rounded-full bg-teal-100 px-1.5 py-0.5 text-[10px] font-black text-teal-800">
+                      {animalTreatments.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+
+                <TabsTrigger
                   value="pedigree"
                   data-tour="profile-pedigree-tab-desktop"
+                  onClick={(e) => handleSelectProfileTab("pedigree", e)}
                   className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Heart className="size-3.5 shrink-0 text-purple-600" />
@@ -1398,12 +1685,46 @@ export default function LivestockDetailPage() {
 
                 <TabsTrigger
                   value="ownership"
+                  onClick={(e) => handleSelectProfileTab("ownership", e)}
                   className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Layers className="size-3.5 shrink-0 text-slate-600" />
                   <span>Ownership History</span>
                 </TabsTrigger>
               </TabsList>
+            </div>
+
+            {/* ═══ INTERACTIVE HORIZONTAL SCROLLBAR FOR DESKTOP PROFILE TABS ═══ */}
+            <div
+              ref={desktopTrackRef}
+              onClick={handleDesktopTrackClick}
+              className={cn(
+                "hidden lg:block w-full h-1.5 sm:h-2 bg-slate-100 hover:bg-slate-200/70 rounded-full -mt-2 mb-4 relative transition-all duration-200 select-none group",
+                desktopScrollInfo.canScroll ? "cursor-pointer" : "opacity-40 cursor-default"
+              )}
+              role="scrollbar"
+              aria-controls="profile-tabs-desktop"
+              aria-valuenow={Math.round(desktopScrollInfo.thumbLeftPct)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Horizontal scrollbar for profile tabs"
+              title={desktopScrollInfo.canScroll ? "Click or drag to scroll tabs horizontally" : undefined}
+            >
+              {desktopScrollInfo.canScroll ? (
+                <div
+                  onPointerDown={handleDesktopThumbPointerDown}
+                  onPointerMove={handleDesktopThumbPointerMove}
+                  onPointerUp={handleDesktopThumbPointerUp}
+                  onPointerCancel={handleDesktopThumbPointerUp}
+                  style={{
+                    left: `${desktopScrollInfo.thumbLeftPct}%`,
+                    width: `${desktopScrollInfo.thumbWidthPct}%`,
+                  }}
+                  className="absolute top-0 bottom-0 bg-slate-400 group-hover:bg-slate-500 active:bg-slate-700 rounded-full transition-colors cursor-grab active:cursor-grabbing shadow-2xs"
+                />
+              ) : (
+                <div className="h-full bg-slate-200/90 rounded-full w-full" />
+              )}
             </div>
 
           {/* ── TAB 1: GROWTH & WEIGHT LOGS ───────────────────────────────── */}
@@ -1417,7 +1738,9 @@ export default function LivestockDetailPage() {
                       Weight Gain &amp; Growth Progression
                     </CardTitle>
                     <CardDescription className="text-xs text-slate-500">
-                      Historical body weight recordings compared against target market weight ({targetWeight} kg).
+                      {targetWeight
+                        ? `Historical body weight recordings compared against target market weight (${targetWeight} kg).`
+                        : "Historical body weight recordings over time."}
                     </CardDescription>
                   </div>
                   <Button
@@ -1425,6 +1748,7 @@ export default function LivestockDetailPage() {
                     title={isDeceased ? "Deceased animals are read-only" : "Log weight"}
                     onClick={() => {
                       setNewWeight(String(latestWeight || "70.0"));
+                      setWeighTargetWeight(targetWeight != null ? String(targetWeight) : "");
                       setIsWeighDialogOpen(true);
                     }}
                     size="sm"
@@ -1488,20 +1812,61 @@ export default function LivestockDetailPage() {
                     </p>
                   </div>
 
-                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-500">
-                      Progress to Target ({targetWeight} kg)
-                    </span>
-                    <p className="text-base font-black text-slate-900">
-                      {Math.round((latestWeight / targetWeight) * 100)}% Completed
-                    </p>
-                    <div className="w-full bg-slate-200 rounded-full h-1.5">
-                      <div
-                        className="bg-emerald-600 h-1.5 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min((latestWeight / targetWeight) * 100, 100)}%` }}
-                      />
+                  {targetWeight !== null ? (
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-bold text-slate-500">
+                          Progress to Target ({targetWeight} kg)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTargetWeightInput(String(targetWeight));
+                            setIsTargetWeightDialogOpen(true);
+                          }}
+                          className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                      <p className="text-base font-black text-slate-900">
+                        {Math.round((latestWeight / targetWeight) * 100)}% Completed
+                      </p>
+                      <div className="w-full bg-slate-200 rounded-full h-1.5">
+                        <div
+                          className="bg-emerald-600 h-1.5 rounded-full transition-all duration-500"
+                          style={{ width: `${Math.min((latestWeight / targetWeight) * 100, 100)}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-bold text-slate-500">
+                          Target Market Weight
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-600 bg-slate-200/70 px-1.5 py-0.5 rounded-md">
+                          Optional
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-slate-600">Not Configured</p>
+                      <p className="text-slate-400 text-[11px]">
+                        Optional benchmark for slaughter or market readiness tracking.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setTargetWeightInput("");
+                          setIsTargetWeightDialogOpen(true);
+                        }}
+                        className="w-full mt-1 h-7 rounded-lg text-xs font-bold border-slate-300 hover:bg-slate-100 cursor-pointer"
+                      >
+                        <Plus className="size-3 mr-1" /> Set Target Weight (Optional)
+                      </Button>
+                    </div>
+                  )}
 
                   <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
                     <span className="text-[10px] uppercase font-bold text-slate-500">
@@ -1988,6 +2353,172 @@ export default function LivestockDetailPage() {
             </Card>
           </TabsContent>
 
+          {/* ── TAB: CLINICAL TREATMENTS & MEDICATIONS ──────────────────────── */}
+          <TabsContent value="treatments" className="space-y-6">
+            <Card className="rounded-3xl border-slate-200 shadow-sm bg-white p-6 space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div className="flex items-center gap-3">
+                  <div className="size-11 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700 shadow-2xs">
+                    <Pill className="size-5.5 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base font-black text-slate-900">
+                        Clinical Treatments &amp; Medications
+                      </CardTitle>
+                      <Badge variant="outline" className="text-xs font-bold bg-teal-50 text-teal-800 border-teal-200">
+                        {animalTreatments.length} Logged
+                      </Badge>
+                    </div>
+                    <CardDescription className="text-xs text-slate-500 font-medium mt-0.5">
+                      Individual veterinary interventions, antibiotic regimens, dewormers, vitamins, and therapeutic logs.
+                    </CardDescription>
+                  </div>
+                </div>
+
+                <Button
+                  disabled={isDeceased}
+                  title={isDeceased ? "Deceased animals are read-only" : "Log a clinical treatment"}
+                  onClick={() => setIsTreatmentDialogOpen(true)}
+                  size="sm"
+                  className="rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white cursor-pointer shadow-2xs gap-1.5 shrink-0"
+                >
+                  <Plus className="size-3.5" /> Log Treatment
+                </Button>
+              </div>
+
+              {/* Treatment KPI Overview Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Total Treatments
+                  </span>
+                  <p className="text-xl font-black text-slate-900">
+                    {animalTreatments.length}
+                  </p>
+                  <p className="text-[11px] text-slate-500">Lifetime recorded interventions</p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-teal-50/60 border border-teal-200/80 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-teal-700">
+                    Latest Treatment
+                  </span>
+                  <p className="text-sm font-bold text-teal-950 truncate">
+                    {animalTreatments[0]?.medication_name || "None recorded"}
+                  </p>
+                  <p className="text-[11px] text-teal-800 font-medium">
+                    {animalTreatments[0]?.treatment_date ? formatCalendarDate(animalTreatments[0].treatment_date) : "No clinical history"}
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Active Follow-Ups
+                  </span>
+                  <p className="text-xl font-black text-slate-900">
+                    {animalTreatments.filter((t) => t.follow_up_date && new Date(t.follow_up_date) >= new Date()).length}
+                  </p>
+                  <p className="text-[11px] text-slate-500">Pending scheduled re-checks</p>
+                </div>
+              </div>
+
+              {/* Treatments History Table */}
+              {animalTreatments.length === 0 ? (
+                <div className="p-10 rounded-2xl bg-slate-50/60 border border-dashed border-slate-200 text-center space-y-3">
+                  <div className="size-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                    <Pill className="size-6" />
+                  </div>
+                  <div className="space-y-1 max-w-sm mx-auto">
+                    <p className="text-sm font-bold text-slate-800">No clinical treatments logged</p>
+                    <p className="text-xs text-slate-500">
+                      Record veterinary interventions, administered antibiotics, dewormers, or vitamins to track health history.
+                    </p>
+                  </div>
+                  <Button
+                    disabled={isDeceased}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsTreatmentDialogOpen(true)}
+                    className="rounded-xl text-xs font-bold border-slate-300 hover:bg-slate-100 cursor-pointer"
+                  >
+                    <Plus className="size-3.5 mr-1" /> Record First Treatment
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-slate-200/90 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-50/80">
+                      <TableRow>
+                        <TableHead className="font-bold text-xs text-slate-700">Date</TableHead>
+                        <TableHead className="font-bold text-xs text-slate-700">Type</TableHead>
+                        <TableHead className="font-bold text-xs text-slate-700">Medication &amp; Dosage</TableHead>
+                        <TableHead className="font-bold text-xs text-slate-700">Route</TableHead>
+                        <TableHead className="font-bold text-xs text-slate-700">Practitioner</TableHead>
+                        <TableHead className="font-bold text-xs text-slate-700">Reason &amp; Notes</TableHead>
+                        <TableHead className="font-bold text-xs text-slate-700">Follow-up</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {animalTreatments.map((record) => (
+                        <TableRow key={record.id} className="hover:bg-slate-50/50">
+                          <TableCell className="font-semibold text-xs text-slate-800 whitespace-nowrap">
+                            {formatCalendarDate(record.treatment_date)}
+                          </TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              "px-2 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap",
+                              record.treatment_type === "ANTIBIOTIC"
+                                ? "bg-rose-50 text-rose-800 border-rose-200"
+                                : record.treatment_type === "DEWORMER"
+                                ? "bg-sky-50 text-sky-800 border-sky-200"
+                                : record.treatment_type === "VITAMIN_MINERAL"
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : record.treatment_type === "VACCINE"
+                                ? "bg-purple-50 text-purple-800 border-purple-200"
+                                : "bg-slate-100 text-slate-700 border-slate-200"
+                            )}>
+                              {record.treatment_type_label || record.treatment_type}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-xs font-bold text-slate-900">{record.medication_name}</div>
+                            {record.dosage && (
+                              <div className="text-[11px] text-slate-500 font-mono">{record.dosage}</div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-600 whitespace-nowrap">
+                            {record.route_of_administration || "—"}
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-700 font-medium whitespace-nowrap">
+                            {record.administered_by || "Self / Farm Staff"}
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-600 max-w-xs">
+                            {record.reason && (
+                              <div className="font-semibold text-slate-800">{record.reason}</div>
+                            )}
+                            {record.notes && (
+                              <div className="text-[11px] text-slate-500 truncate" title={record.notes}>
+                                {record.notes}
+                              </div>
+                            )}
+                            {!record.reason && !record.notes && "—"}
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-600 whitespace-nowrap">
+                            {record.follow_up_date ? (
+                              <span className="font-semibold text-amber-700">
+                                {formatCalendarDate(record.follow_up_date)}
+                              </span>
+                            ) : "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+
           {/* ── TAB 5: PEDIGREE & LINEAGE ─────────────────────────────────── */}
           <TabsContent value="pedigree" className="space-y-6">
             <Card className="rounded-3xl border-slate-200 shadow-sm bg-white p-6 space-y-4">
@@ -2198,6 +2729,24 @@ export default function LivestockDetailPage() {
               />
             </div>
 
+            <div className="space-y-1.5 pt-1 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <Label className="font-bold text-slate-700">Target Market Weight (kg)</Label>
+                <span className="text-[10px] text-slate-400 font-medium">Optional</span>
+              </div>
+              <Input
+                type="number"
+                step="0.5"
+                value={weighTargetWeight}
+                onChange={(e) => setWeighTargetWeight(e.target.value)}
+                placeholder="Leave blank if no target market weight"
+                className="rounded-xl border-slate-300"
+              />
+              <p className="text-[11px] text-slate-400">
+                Optional market or slaughter benchmark for this animal.
+              </p>
+            </div>
+
             <DialogFooter className="gap-2 sm:gap-0 pt-2">
               <Button
                 type="button"
@@ -2216,6 +2765,91 @@ export default function LivestockDetailPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── MODAL: TARGET MARKET WEIGHT (OPTIONAL) ────────────────────────── */}
+      <Dialog open={isTargetWeightDialogOpen} onOpenChange={setIsTargetWeightDialogOpen}>
+        <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <Target className="size-5 text-emerald-600" />
+              <span>Target Market Weight</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Target weight is completely optional. For dairy stock, breeders, or draft animals, you can leave this blank.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3 text-xs">
+            <div className="space-y-1.5">
+              <Label className="font-bold text-slate-700">Target Weight (kg, optional)</Label>
+              <Input
+                type="number"
+                step="0.5"
+                placeholder="e.g. 420 (or leave empty)"
+                value={targetWeightInput}
+                onChange={(e) => setTargetWeightInput(e.target.value)}
+                className="rounded-xl border-slate-300 font-bold text-base h-11"
+              />
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2 flex items-center justify-between">
+              {targetWeight !== null ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    if (activeItem?.id && typeof window !== "undefined") {
+                      localStorage.removeItem(`livestock_target_weight_${activeItem.id}`);
+                      setTargetWeightOverride({ id: activeItem.id, val: null });
+                    }
+                    setWeighTargetWeight("");
+                    setIsTargetWeightDialogOpen(false);
+                    toast.success("Target weight cleared (set to optional).");
+                  }}
+                  className="rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-bold mr-auto"
+                >
+                  Clear Target
+                </Button>
+              ) : <div />}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsTargetWeightDialogOpen(false)}
+                  className="rounded-xl font-bold text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const val = parseFloat(targetWeightInput);
+                    if (!isNaN(val) && val > 0) {
+                      if (activeItem?.id && typeof window !== "undefined") {
+                        localStorage.setItem(`livestock_target_weight_${activeItem.id}`, String(val));
+                        setTargetWeightOverride({ id: activeItem.id, val });
+                      }
+                      setWeighTargetWeight(String(val));
+                      toast.success(`Target weight set to ${val} kg.`);
+                    } else {
+                      if (activeItem?.id && typeof window !== "undefined") {
+                        localStorage.removeItem(`livestock_target_weight_${activeItem.id}`);
+                        setTargetWeightOverride({ id: activeItem.id, val: null });
+                      }
+                      setWeighTargetWeight("");
+                      toast.success("Target weight cleared.");
+                    }
+                    setIsTargetWeightDialogOpen(false);
+                  }}
+                  className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
+                >
+                  Save
+                </Button>
+              </div>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -2543,6 +3177,165 @@ export default function LivestockDetailPage() {
               <Printer className="size-3.5" /> Print Animal ID
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── MODAL: LOG TREATMENT ─────────────────────────────────────────── */}
+      <Dialog open={isTreatmentDialogOpen && !isDeceased} onOpenChange={setIsTreatmentDialogOpen}>
+        <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <Pill className="size-5 text-teal-600" />
+              <span>Log Treatment for {activeItem?.tagNumber}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Record medication, antibiotic treatments, deworming, or therapeutic care administered to this animal.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              addTreatmentMutation.mutate();
+            }}
+            className="space-y-4 pt-2"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Treatment Date *</Label>
+                <Input
+                  type="date"
+                  value={treatmentDate}
+                  onChange={(e) => setTreatmentDate(e.target.value)}
+                  max={localCalendarDateToday()}
+                  className="rounded-xl mt-1 text-xs"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Treatment Category *</Label>
+                <Select value={treatmentType} onValueChange={setTreatmentType}>
+                  <SelectTrigger className="rounded-xl mt-1 text-xs">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="ANTIBIOTIC">Antibiotic</SelectItem>
+                    <SelectItem value="DEWORMER">Dewormer / Anthelmintic</SelectItem>
+                    <SelectItem value="VITAMIN_MINERAL">Vitamin / Mineral Supplement</SelectItem>
+                    <SelectItem value="VACCINE">Vaccine</SelectItem>
+                    <SelectItem value="ANTI_INFLAMMATORY">Anti-inflammatory / Pain</SelectItem>
+                    <SelectItem value="TOPICAL_WOUND">Topical / Wound Care</SelectItem>
+                    <SelectItem value="HORMONAL">Hormonal Therapy</SelectItem>
+                    <SelectItem value="OTHER">Other Intervention</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Medication / Product *</Label>
+                <Input
+                  placeholder="e.g. Penicillin, Ivermectin"
+                  value={medicationName}
+                  onChange={(e) => setMedicationName(e.target.value)}
+                  className="rounded-xl mt-1 text-xs"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Dosage</Label>
+                <Input
+                  placeholder="e.g. 10 mL, 2 boluses"
+                  value={dosage}
+                  onChange={(e) => setDosage(e.target.value)}
+                  className="rounded-xl mt-1 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Route of Administration</Label>
+                <Select value={route} onValueChange={setRoute}>
+                  <SelectTrigger className="rounded-xl mt-1 text-xs">
+                    <SelectValue placeholder="Select route" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="Intramuscular (IM)">Intramuscular (IM)</SelectItem>
+                    <SelectItem value="Subcutaneous (SC)">Subcutaneous (SC)</SelectItem>
+                    <SelectItem value="Oral (Drench/Bolus)">Oral (Drench/Bolus)</SelectItem>
+                    <SelectItem value="Topical / Pour-on">Topical / Pour-on</SelectItem>
+                    <SelectItem value="Intravenous (IV)">Intravenous (IV)</SelectItem>
+                    <SelectItem value="Intrauterine">Intrauterine</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Administered By</Label>
+                <Input
+                  placeholder="e.g. Dr. Santos / Self"
+                  value={administeredBy}
+                  onChange={(e) => setAdministeredBy(e.target.value)}
+                  className="rounded-xl mt-1 text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold text-slate-700">Reason / Diagnosis</Label>
+              <Input
+                placeholder="e.g. Coughing, routine parasite prevention"
+                value={treatmentReason}
+                onChange={(e) => setTreatmentReason(e.target.value)}
+                className="rounded-xl mt-1 text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Follow-up Date (Optional)</Label>
+                <Input
+                  type="date"
+                  value={treatmentFollowUpDate}
+                  onChange={(e) => setTreatmentFollowUpDate(e.target.value)}
+                  min={localCalendarDateToday()}
+                  className="rounded-xl mt-1 text-xs"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Field Notes</Label>
+                <Input
+                  placeholder="Observations, withdrawal period"
+                  value={treatmentNotes}
+                  onChange={(e) => setTreatmentNotes(e.target.value)}
+                  className="rounded-xl mt-1 text-xs"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsTreatmentDialogOpen(false)}
+                className="rounded-xl text-xs font-bold border-slate-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={addTreatmentMutation.isPending || !medicationName.trim()}
+                className="rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white"
+              >
+                {addTreatmentMutation.isPending ? "Logging..." : "Save Treatment"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </>

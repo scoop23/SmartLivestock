@@ -193,6 +193,13 @@ class LivestockInventorySerializer(serializers.Serializer):
     batch_name = serializers.CharField(
         source="batch.batch_name", read_only=True, allow_null=True
     )
+    batch_target_weight = serializers.DecimalField(
+        source="batch.target_weight",
+        max_digits=6,
+        decimal_places=2,
+        read_only=True,
+        allow_null=True,
+    )
     livestock_type = serializers.PrimaryKeyRelatedField(
         queryset=LivestockType.objects.all()
     )
