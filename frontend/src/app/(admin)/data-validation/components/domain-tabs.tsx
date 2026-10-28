@@ -67,7 +67,7 @@ export function DomainTabs({
         className="w-full space-y-2.5"
       >
         <TabsList className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 min-[1800px]:grid-cols-5 gap-2.5 p-2 bg-slate-100/90 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs h-auto">
-          {VALIDATION_DOMAINS.map((domain) => {
+          {VALIDATION_DOMAINS.filter((domain) => domain.id !== "production").map((domain) => {
             const config = DOMAIN_CARD_CONFIG[domain.id];
             const pendingCount = pendingCounts[domain.id];
             const verifiedCount = verifiedCounts[domain.id];
@@ -135,7 +135,7 @@ export function DomainTabs({
               </div>
               <div className="text-left min-w-0">
                 <p className="text-xs sm:text-sm font-black tracking-tight leading-tight text-slate-900 whitespace-normal break-words">Slaughter Review</p>
-                <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-slate-500 whitespace-normal break-words mt-0.5">Facility Totals & Weights</p>
+                <p className="text-[10px] font-medium text-slate-400 group-data-[state=active]:text-slate-500 whitespace-normal break-words mt-0.5">Farmer &amp; Facility Reports</p>
               </div>
             </div>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 font-mono shrink-0">MAO Queue</span>

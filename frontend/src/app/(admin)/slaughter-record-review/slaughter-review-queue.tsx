@@ -82,7 +82,7 @@ export function SlaughterReviewQueue() {
     <div className="flex flex-col items-center justify-center space-y-2 py-10">
       <CheckCircle2 className="size-10 text-green-500" />
       <p className="text-sm font-bold text-gray-800">Review queue is clear</p>
-      <p className="text-xs font-medium text-gray-400">Pending slaughterhouse submissions will appear here.</p>
+      <p className="text-xs font-medium text-gray-400">Farmer-reported slaughter reports and facility submissions awaiting review will appear here.</p>
     </div>
   );
 

@@ -126,9 +126,10 @@ function AdminDataValidationContent() {
     isInventoryRequested
       ? "inventory"
       : requestedDomain === "census" ||
-        requestedDomain === "production" ||
         requestedDomain === "incidents"
       ? requestedDomain
+      : requestedDomain === "production"
+        ? "incidents"
       : "census"
   );
   const [domainFilters, setDomainFilters] = useState<Record<ValidationDomain, DomainFilterState>>({
@@ -145,9 +146,13 @@ function AdminDataValidationContent() {
       setActiveValidationView("records");
     } else if (requestedDomain === "slaughter") {
       setActiveValidationView("slaughter");
+    } else if (requestedDomain === "production") {
+      // Production yields are informational. Keep legacy notification links
+      // working by opening their detail dialog over the incidents workspace.
+      setActiveDomain("incidents");
+      setActiveValidationView("records");
     } else if (
       requestedDomain === "census" ||
-      requestedDomain === "production" ||
       requestedDomain === "incidents"
     ) {
       setActiveDomain(requestedDomain);
