@@ -36,7 +36,7 @@ export default function FarmerStats({
   const diseaseReportsAwaitingReview = data?.disease_reports_awaiting_review_this_month ?? 0;
   const milkLiters = data?.milk_production_liters ?? null;
   const milkGrowth = data?.milk_growth_pct ?? null;
-  const milkRecordedLiters = data?.milk_recorded_liters ?? 0;
+  const milkRecordsThisMonth = data?.milk_records_this_month ?? 0;
 
   const livestockBadge =
     cattleCount === 0
@@ -45,9 +45,9 @@ export default function FarmerStats({
       ? `${approvedCount} APPROVED • ${verifiedCount} VERIFIED • ${pendingCount} PENDING`
       : `${approvedCount} APPROVED • ${verifiedCount} VERIFIED`;
 
-  const milkBadge = (milkLiters ?? 0) === 0
-    ? "NO RECORDED YIELD"
-    : `${formatQty(milkRecordedLiters)} RECORDED`;
+  const milkBadge = milkRecordsThisMonth === 0
+    ? "NO ENTRIES"
+    : `${milkRecordsThisMonth} ${milkRecordsThisMonth === 1 ? "ENTRY" : "ENTRIES"}`;
 
   const reviewPercent = cattleCount > 0
     ? Math.round(((approvedCount + verifiedCount) / cattleCount) * 100)

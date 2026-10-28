@@ -69,7 +69,8 @@ export interface FarmerDashboardAnalytics {
   disease_reports_awaiting_review_this_month: number;
   /** RECORDED farmer MILK liters this month; NULL if none. */
   milk_production_liters: number | null;
-  milk_recorded_liters: number;
+  /** Number of RECORDED farmer MILK entries dated in the current month. */
+  milk_records_this_month: number;
   /** Month-over-month growth % of milk production; NULL if not calculable. */
   milk_growth_pct: number | null;
   /** Historical cattle trend */
@@ -214,7 +215,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
   let currentMonthMilk = 0;
   let prevMonthMilk = 0;
   let hasMilkData = false;
-  let currentMonthRecordedMilk = 0;
+  let currentMonthMilkRecords = 0;
 
   const monthlyMilkMap = new Map<string, number>();
 
@@ -237,7 +238,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     }
     if (monthKey === currentMonthStr) {
       currentMonthMilk += qty;
-      currentMonthRecordedMilk += qty;
+      currentMonthMilkRecords += 1;
     } else if (monthKey === prevMonthStr) {
       prevMonthMilk += qty;
     }
@@ -382,7 +383,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
     disease_reports_this_month: currentMonthDiseaseCases.length,
     disease_reports_awaiting_review_this_month: diseaseReportsAwaitingReview,
     milk_production_liters: hasMilkData ? currentMonthMilk : null,
-    milk_recorded_liters: currentMonthRecordedMilk,
+    milk_records_this_month: currentMonthMilkRecords,
     milk_growth_pct,
     cattle_trend,
     milk_trend,
