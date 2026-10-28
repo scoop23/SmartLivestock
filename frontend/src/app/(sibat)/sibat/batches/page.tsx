@@ -336,18 +336,18 @@ function HerdProfileGallery({ batch }: { batch: BatchItem }) {
 
   if (photos.length === 0) {
     return (
-      <div className="relative overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-slate-900 via-slate-900/95 to-emerald-950/80 p-6 shadow-holo-glow-emerald flex flex-col items-center justify-center text-center min-h-[280px] h-full text-white">
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-6 shadow-sm flex flex-col items-center justify-center text-center min-h-[280px] h-full text-slate-800">
         {/* HUD grid */}
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(16,185,129,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,185,129,0.06)_1px,transparent_1px)] bg-[size:24px_24px]" />
-        <div className="size-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-3xl mb-3 shadow-inner">
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(16,185,129,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,185,129,0.035)_1px,transparent_1px)] bg-[size:24px_24px]" />
+        <div className="size-16 rounded-2xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-3xl mb-3">
           {avatar.emoji}
         </div>
-        <h3 className="text-sm font-bold font-mono tracking-wide text-emerald-300 uppercase">NO OPTICAL SCANS STORED</h3>
-        <p className="text-xs text-slate-400 max-w-xs mt-1.5 font-sans leading-relaxed">
+        <h3 className="text-sm font-bold font-mono tracking-wide text-emerald-800 uppercase">NO HERD PHOTOS ADDED</h3>
+        <p className="text-xs text-slate-600 max-w-xs mt-1.5 font-sans leading-relaxed">
           The farmer has not uploaded photographic specimens for this cohort or housing pen.
         </p>
-        <span className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-emerald-500/30 text-[11px] font-mono text-emerald-400">
-          <Scan className="size-3 text-emerald-400 animate-pulse" /> OPTICAL SCAN: 0 FRAMES
+        <span className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-emerald-200 text-[11px] font-mono text-emerald-800">
+          <Scan className="size-3 text-emerald-600" /> NO PHOTOS AVAILABLE
         </span>
       </div>
     );
@@ -915,7 +915,7 @@ function SibatHerdSplitCard({
             className={`h-8.5 px-3.5 rounded-xl text-xs font-mono font-bold shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer ${
               isSelected
                 ? "bg-emerald-700 text-white hover:bg-emerald-800 shadow-holo-glow-emerald"
-                : "bg-slate-900 text-white hover:bg-emerald-700 hover:shadow-holo-glow-emerald"
+                : "bg-white text-emerald-800 border border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300"
             }`}
           >
             <span>INSPECT COHORT</span>
@@ -1472,54 +1472,51 @@ function SibatBatchesVerificationContent() {
   return (
     <div className="w-full space-y-6 pb-28">
       {/* ── 1. FUTURISTIC CYBERNETIC COMMAND CENTER HEADER ─────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 p-6 sm:p-8 text-white shadow-2xl">
-        {/* Glowing cyber orbs */}
-        <div className="pointer-events-none absolute -right-20 -top-20 size-80 rounded-full bg-emerald-500/20 blur-3xl animate-pulse" />
-        <div className="pointer-events-none absolute -left-20 -bottom-20 size-80 rounded-full bg-teal-500/15 blur-3xl" />
-        {/* Micro-grid scan overlay */}
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(16,185,129,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,185,129,0.07)_1px,transparent_1px)] bg-[size:32px_32px]" />
+      <div className="relative overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-teal-50 p-6 sm:p-8 text-slate-900 shadow-sm">
+        <div className="pointer-events-none absolute -right-20 -top-20 size-80 rounded-full bg-emerald-200/35 blur-3xl" />
+        <div className="pointer-events-none absolute -left-20 -bottom-20 size-80 rounded-full bg-teal-200/30 blur-3xl" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(16,185,129,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,185,129,0.035)_1px,transparent_1px)] bg-[size:32px_32px]" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
             {/* Live Node Telemetry Breadcrumb */}
             <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 uppercase tracking-wider font-bold shadow-xs">
+              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider font-bold shadow-xs">
                 <span className="relative flex size-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex rounded-full size-2 bg-emerald-500" />
                 </span>
                 LIVE NODE // SIBAT
               </span>
-              <span className="text-slate-500">::</span>
-              <span className="text-slate-300 font-semibold flex items-center gap-1">
-                <Compass className="size-3.5 text-emerald-400" />
+              <span className="text-slate-300">/</span>
+              <span className="text-slate-700 font-semibold flex items-center gap-1">
+                <Compass className="size-3.5 text-emerald-700" />
                 SECTOR: {user?.accessScope === "ALL_BARANGAYS" ? "ALL BARANGAYS (MUNICIPAL MATRIX)" : user?.assignedBarangayName || "UNASSIGNED"}
               </span>
-              <span className="text-slate-500">::</span>
-              <span className="text-emerald-400/90 font-bold">
+              <span className="text-slate-300">/</span>
+              <span className="text-emerald-800 font-bold">
                 TELEMETRY v4.2
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-sans text-white flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-sans text-slate-900 flex items-center gap-3">
               {isDrilldownOpen && selectedBatch ? (
                 <>
                   <span className="truncate">{selectedBatch.batch_name}</span>
-                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-mono text-xs font-bold">
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-mono text-xs font-bold">
                     {selectedBatch.batch_code}
                   </Badge>
                 </>
               ) : (
                 <>
                   Bio-Batch Operations Matrix
-                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-mono text-xs font-bold">
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-mono text-xs font-bold">
                     CORE HUB
                   </Badge>
                 </>
               )}
             </h1>
 
-            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
               {isDrilldownOpen && selectedBatch
                 ? `Operator: ${selectedBatch.farmer_name} • Sector ${selectedBatch.barangay_name} • Enrolled Cohort: ${selectedBatch.animals?.length || selectedBatch.total_animals} Heads`
                 : "Real-time livestock cohort surveillance, biometric tracking, and field validation ledger for SIBAT inspectors."}
@@ -1534,9 +1531,9 @@ function SibatBatchesVerificationContent() {
                 size="sm"
                 onClick={() => exportHerdRosterCsv(filteredBatches)}
                 disabled={isLoading || filteredBatches.length === 0}
-                className="h-10 rounded-xl bg-slate-900/80 border-emerald-500/30 text-white font-mono text-xs font-bold hover:bg-emerald-950/60 hover:border-emerald-500 transition-all shadow-sm gap-2 cursor-pointer"
+                className="h-10 rounded-xl bg-white border-slate-200 text-slate-700 font-mono text-xs font-bold hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-xs gap-2 cursor-pointer"
               >
-                <Download className="size-3.5 text-emerald-400" />
+                <Download className="size-3.5 text-emerald-700" />
                 CSV DATA LEDGER ({filteredBatches.length})
               </Button>
 
@@ -1545,21 +1542,21 @@ function SibatBatchesVerificationContent() {
                 size="sm"
                 onClick={() => refetch()}
                 disabled={isRefetching}
-                className="h-10 rounded-xl bg-slate-900/80 border-emerald-500/30 text-white font-mono text-xs font-bold hover:bg-emerald-950/60 hover:border-emerald-500 transition-all shadow-sm gap-2 cursor-pointer"
+                className="h-10 rounded-xl bg-white border-slate-200 text-slate-700 font-mono text-xs font-bold hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-xs gap-2 cursor-pointer"
               >
-                <RefreshCw className={`size-3.5 text-emerald-400 ${isRefetching ? "animate-spin" : ""}`} />
+                <RefreshCw className={`size-3.5 text-emerald-700 ${isRefetching ? "animate-spin" : ""}`} />
                 SYNC TELEMETRY
               </Button>
 
               {/* Grid / Matrix Segmented Switcher */}
-              <div className="flex items-center bg-black/60 p-1 rounded-xl border border-emerald-500/30">
+              <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
                 <button
                   type="button"
                   onClick={() => setViewMode("grid")}
                   className={`h-8 px-3 rounded-lg font-mono text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                     viewMode === "grid"
-                      ? "bg-emerald-500 text-slate-950 font-black shadow-holo-glow-emerald"
-                      : "text-slate-400 hover:text-white"
+                      ? "bg-white text-emerald-800 font-black shadow-xs"
+                      : "text-slate-500 hover:text-slate-900"
                   }`}
                 >
                   <LayoutGrid className="size-3.5" />
@@ -1570,8 +1567,8 @@ function SibatBatchesVerificationContent() {
                   onClick={() => setViewMode("table")}
                   className={`h-8 px-3 rounded-lg font-mono text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                     viewMode === "table"
-                      ? "bg-emerald-500 text-slate-950 font-black shadow-holo-glow-emerald"
-                      : "text-slate-400 hover:text-white"
+                      ? "bg-white text-emerald-800 font-black shadow-xs"
+                      : "text-slate-500 hover:text-slate-900"
                   }`}
                 >
                   <List className="size-3.5" />
@@ -1874,30 +1871,30 @@ function SibatBatchesVerificationContent() {
             <div className="overflow-hidden rounded-2xl border border-emerald-500/25 bg-white shadow-sm">
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader className="bg-slate-900 text-white">
+                  <TableHeader className="bg-emerald-50 text-emerald-950">
                     <TableRow className="hover:bg-transparent border-emerald-500/30">
-                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
                         [COHORT_ID]
                       </TableHead>
-                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
                         [SPECIMEN & HERD]
                       </TableHead>
-                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
                         [OPERATOR & SECTOR]
                       </TableHead>
-                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300 text-center">
+                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900 text-center">
                         [HEAD_COUNT]
                       </TableHead>
-                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
                         [FACILITY & FEED]
                       </TableHead>
-                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
                         [BIOMASS_SCALE]
                       </TableHead>
-                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
                         [REGULATORY_STATUS]
                       </TableHead>
-                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300 text-right">
+                      <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900 text-right">
                         [COMMAND]
                       </TableHead>
                     </TableRow>
@@ -1968,7 +1965,7 @@ function SibatBatchesVerificationContent() {
                                 e.stopPropagation();
                                 openHerdDrilldown(batch);
                               }}
-                              className="h-8 px-3 rounded-lg bg-slate-900 text-white font-mono text-xs font-bold hover:bg-emerald-600 transition-colors shadow-2xs gap-1.5 cursor-pointer"
+                              className="h-8 px-3 rounded-lg bg-emerald-700 text-white font-mono text-xs font-bold hover:bg-emerald-800 transition-colors shadow-2xs gap-1.5 cursor-pointer"
                             >
                               <Eye className="size-3.5" />
                               <span>INSPECT</span>
@@ -2051,7 +2048,7 @@ function SibatBatchesVerificationContent() {
                     variant="outline"
                     size="sm"
                     onClick={closeHerdDrilldown}
-                    className="h-9 gap-2 rounded-xl border-emerald-500/30 bg-slate-900 text-white px-3.5 text-xs font-mono font-bold hover:bg-emerald-600 cursor-pointer shadow-xs shrink-0 transition-colors"
+                    className="h-9 gap-2 rounded-xl border-slate-200 bg-white text-slate-700 px-3.5 text-xs font-mono font-bold hover:bg-emerald-50 cursor-pointer shadow-xs shrink-0 transition-colors"
                   >
                     <ArrowLeft className="size-3.5" />
                     <span>RETURN TO MATRIX</span>
@@ -2099,7 +2096,7 @@ function SibatBatchesVerificationContent() {
                           <span>Chip: <code className="bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded text-[11px] border border-emerald-200">{selectedBatch.batch_code}</code></span>
                         </div>
                       </div>
-                      <div className="size-12 rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-700 to-slate-900 text-white flex items-center justify-center text-2xl shadow-holo-glow-emerald shrink-0">
+                      <div className="size-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-2xl border border-emerald-200 shrink-0">
                         {getDefaultAvatarForSpecies(selectedBatch.livestock_type_name).emoji}
                       </div>
                     </div>
@@ -2189,13 +2186,13 @@ function SibatBatchesVerificationContent() {
               </div>
 
               {/* Protocol Directive Guidance Banner */}
-              <div className="flex items-center gap-3.5 p-4 rounded-2xl bg-emerald-950 text-white border border-emerald-500/30 shadow-holo-glow-emerald">
-                <div className="size-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shrink-0 shadow-inner">
+              <div className="flex items-center gap-3.5 p-4 rounded-2xl bg-emerald-50 text-slate-800 border border-emerald-200 shadow-xs">
+                <div className="size-10 rounded-xl bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center shrink-0">
                   <ShieldCheck className="size-5" />
                 </div>
                 <div className="space-y-0.5 text-xs font-mono">
-                  <p className="font-bold text-emerald-300 uppercase tracking-wider">FIELD AUDIT PROTOCOL // SIBAT DIRECTIVE</p>
-                  <p className="text-slate-300 leading-relaxed font-sans text-xs">
+                  <p className="font-bold text-emerald-900 uppercase tracking-wider">FIELD AUDIT PROTOCOL // SIBAT DIRECTIVE</p>
+                  <p className="text-slate-600 leading-relaxed font-sans text-xs">
                     Inspect physical ear tags and biometric health on site. Select checked animals using checkboxes for batch verification, or click individual review buttons to inspect vaccination and historical telemetry.
                   </p>
                 </div>
@@ -2416,17 +2413,17 @@ function SibatBatchesVerificationContent() {
                 ) : (
                   <div className="w-full overflow-x-auto rounded-2xl border border-emerald-500/25 bg-white">
                     <Table className="min-w-[1050px]">
-                      <TableHeader className="bg-slate-900 text-white">
+                      <TableHeader className="bg-emerald-50 text-emerald-950">
                         <TableRow className="hover:bg-transparent border-emerald-500/30">
-                          <TableHead className="w-12 text-center text-xs font-mono font-bold text-emerald-300">SEL</TableHead>
-                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">EAR TAG #</TableHead>
-                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">BREED</TableHead>
-                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">SEX</TableHead>
-                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">AGE (MOS)</TableHead>
-                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">WEIGHT (KG)</TableHead>
-                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">VACCINATION</TableHead>
-                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300">STATUS</TableHead>
-                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-300 text-right sticky right-0 z-10 bg-slate-900 border-l border-emerald-500/30">ACTIONS</TableHead>
+                          <TableHead className="w-12 text-center text-xs font-mono font-bold text-emerald-900">SEL</TableHead>
+                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">EAR TAG #</TableHead>
+                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">BREED</TableHead>
+                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">SEX</TableHead>
+                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">AGE (MOS)</TableHead>
+                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">WEIGHT (KG)</TableHead>
+                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">VACCINATION</TableHead>
+                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">STATUS</TableHead>
+                          <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900 text-right sticky right-0 z-10 bg-emerald-50 border-l border-emerald-200">ACTIONS</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -2608,7 +2605,7 @@ function SibatBatchesVerificationContent() {
 
                 {showBatchNotes && (
                   <div className="pt-2 space-y-3 border-t border-slate-100">
-                    <pre className="text-xs text-slate-700 font-mono whitespace-pre-wrap leading-relaxed bg-slate-950 text-emerald-300 border border-emerald-500/30 rounded-xl p-4 max-h-40 overflow-y-auto">
+                    <pre className="text-xs text-slate-700 font-mono whitespace-pre-wrap leading-relaxed bg-slate-50 border border-slate-200 rounded-xl p-4 max-h-40 overflow-y-auto">
                       {selectedBatch.notes || "NO AUDIT ENTRIES LOGGED FOR THIS COHORT RECORD."}
                     </pre>
                     <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-start">
@@ -2641,12 +2638,12 @@ function SibatBatchesVerificationContent() {
 
           {/* Floating Sticky Bottom Verification Bar */}
           {selectedAnimalIds.length > 0 && (
-            <div className="fixed bottom-10 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center justify-between gap-3 bg-slate-950/95 text-white backdrop-blur-xl px-4 py-3 rounded-2xl shadow-holo-glow-emerald border border-emerald-500/40 animate-in slide-in-from-bottom-4 duration-200 w-[calc(100%-2rem)] sm:w-auto sm:min-w-[440px] max-w-lg">
+            <div className="fixed bottom-10 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center justify-between gap-3 bg-white text-slate-800 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-lg border border-emerald-200 animate-in slide-in-from-bottom-4 duration-200 w-[calc(100%-2rem)] sm:w-auto sm:min-w-[440px] max-w-lg">
               <div className="flex items-center gap-2.5 min-w-0 font-mono">
                 <span className="size-6 rounded-lg bg-emerald-500 text-slate-950 text-xs font-black flex items-center justify-center shrink-0">
                   {selectedAnimalIds.length}
                 </span>
-                <span className="text-xs text-slate-200 truncate">
+                <span className="text-xs text-slate-600 truncate">
                   SPECIMENS READY FOR FIELD VALIDATION
                 </span>
               </div>
@@ -2656,7 +2653,7 @@ function SibatBatchesVerificationContent() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedAnimalIds([])}
-                  className="h-8 px-2.5 text-xs font-mono text-slate-400 hover:text-white hover:bg-white/10 rounded-lg cursor-pointer"
+                  className="h-8 px-2.5 text-xs font-mono text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   CLEAR
                 </Button>
