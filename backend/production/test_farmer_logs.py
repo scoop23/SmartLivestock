@@ -72,70 +72,30 @@ class FarmerLogWorkflowTests(APITestCase):
         self.client.force_authenticate(user=self.other_farmer_user)
         self.assertEqual(len(self.client.get("/production/records/").data), 0)
 
-    def test_farmer_meat_yield_log_does_not_create_an_official_slaughter_report(self):
+    def test_farmer_meat_yield_reconciles_individual_inventory_without_mao_review(self):
         result = self.submit(self.bull, "MEAT", "180.00", "KILOGRAMS")
         self.assertEqual(result.status_code, 201, result.data)
         self.assertEqual(result.data["status"], "RECORDED")
         record = ProductionRecord.objects.get(pk=result.data["id"])
         self.assertIsNone(record.slaughter_id)
         self.bull.refresh_from_db()
-        self.assertEqual(self.bull.operational_status, "ACTIVE")
+        self.assertEqual(self.bull.operational_status, "SLAUGHTERED")
+        self.assertIsNotNone(self.bull.operational_status_changed_at)
         self.assertEqual(SlaughterRecord.objects.count(), 0)
         self.assertFalse(Notification.objects.filter(related_entity_type="slaughter_record").exists())
+        self.assertEqual(
+            self.client.post(f"/production/records/{record.pk}/review/", {"status": "APPROVED"}).status_code,
+            404,
+        )
+        self.assertEqual(self.submit(self.bull, "MEAT", "180.00", "KILOGRAMS").status_code, 400)
 
-    def test_farmer_can_explicitly_submit_a_separate_slaughter_report(self):
+    def test_farmer_meat_yield_rejects_legacy_mao_slaughter_request(self):
         result = self.submit(self.bull, "MEAT", "180.00", "KILOGRAMS", submit_slaughter_report=True,
                              selected_animals=[self.bull.pk])
-        self.assertEqual(result.status_code, 201, result.data)
-        record = ProductionRecord.objects.get(pk=result.data["id"])
-        slaughter = record.slaughter
-        self.assertEqual(slaughter.status, "PENDING")
+        self.assertEqual(result.status_code, 400, result.data)
         self.bull.refresh_from_db()
         self.assertEqual(self.bull.operational_status, "ACTIVE")
-        self.assertEqual(SlaughterRecord.objects.count(), 1)
-        self.assertTrue(Notification.objects.filter(user=self.cbat_user, related_entity_type="slaughter_record", related_entity_id=slaughter.pk).exists())
-        self.assertTrue(Notification.objects.filter(user=self.sibat_user, related_entity_type="slaughter_record", related_entity_id=slaughter.pk).exists())
-        self.assertFalse(Notification.objects.filter(user=self.other_cbat, related_entity_id=slaughter.pk).exists())
-        self.assertTrue(Notification.objects.filter(user=self.mao_user, related_entity_type="slaughter_record", related_entity_id=slaughter.pk).exists())
-
-        self.client.force_authenticate(user=self.cbat_user)
-        self.assertEqual(len(self.client.get("/production/slaughterhouse/records/").data), 1)
-        self.assertEqual(self.client.post(f"/production/slaughterhouse/records/{slaughter.pk}/review/", {"status": "APPROVED"}).status_code, 403)
-        self.client.force_authenticate(user=self.other_cbat)
-        self.assertEqual(len(self.client.get("/production/slaughterhouse/records/").data), 0)
-
-    def test_mao_approval_reconciles_inventory_once_without_approving_personal_log(self):
-        result = self.submit(self.bull, "MEAT", "180.00", "KILOGRAMS", submit_slaughter_report=True,
-                             selected_animals=[self.bull.pk])
-        slaughter_id = result.data["slaughter_details"]["id"]
-        self.client.force_authenticate(user=self.mao_user)
-        review = self.client.post(f"/production/slaughterhouse/records/{slaughter_id}/review/", {"status": "APPROVED"})
-        self.assertEqual(review.status_code, 200, review.data)
-        self.bull.refresh_from_db()
-        self.assertEqual(self.bull.operational_status, "SLAUGHTERED")
-        self.assertEqual(self.client.post(f"/production/slaughterhouse/records/{slaughter_id}/review/", {"status": "APPROVED"}).status_code, 400)
-        self.assertEqual(ProductionRecord.objects.get(pk=result.data["id"]).status, "RECORDED")
-
-    def test_returned_slaughter_is_corrected_in_same_report(self):
-        result = self.submit(self.bull, "MEAT", "180.00", "KILOGRAMS", submit_slaughter_report=True,
-                             selected_animals=[self.bull.pk])
-        record_id = result.data["id"]
-        slaughter_id = result.data["slaughter_details"]["id"]
-        self.client.force_authenticate(user=self.mao_user)
-        returned = self.client.post(f"/production/slaughterhouse/records/{slaughter_id}/review/", {
-            "status": "SUBJECT_TO_REVISION", "remarks": "Correct carcass weight",
-        })
-        self.assertEqual(returned.status_code, 200, returned.data)
-        self.client.force_authenticate(user=self.farmer_user)
-        corrected = self.client.patch(f"/production/records/{record_id}/", {"quantity": "175.00"}, format="json")
-        self.assertEqual(corrected.status_code, 200, corrected.data)
-        self.assertEqual(ProductionRecord.objects.get(pk=record_id).status, "RECORDED")
-        slaughter = SlaughterRecord.objects.get(pk=slaughter_id)
-        self.assertEqual(slaughter.status, "PENDING")
-        self.assertEqual(slaughter.carcass_weight, 175)
-        self.assertEqual(SlaughterRecord.objects.count(), 1)
-        self.bull.refresh_from_db()
-        self.assertEqual(self.bull.operational_status, "ACTIVE")
+        self.assertEqual(SlaughterRecord.objects.count(), 0)
 
     def test_calving_keeps_existing_field_review(self):
         self.client.force_authenticate(user=self.farmer_user)
@@ -225,15 +185,11 @@ class FarmerLogWorkflowTests(APITestCase):
         self.assertEqual(del_res.status_code, 204)
         self.assertFalse(ProductionRecord.objects.filter(pk=record_id).exists())
 
-        # Meat log with approved slaughter cannot be deleted
-        meat_res = self.submit(self.bull, "MEAT", "190.00", "KILOGRAMS", submit_slaughter_report=True,
-                               selected_animals=[self.bull.pk])
+        # A meat log that reconciled its animal is retained as lifecycle history.
+        meat_res = self.submit(self.bull, "MEAT", "190.00", "KILOGRAMS")
         meat_id = meat_res.data["id"]
-        slaughter_id = meat_res.data["slaughter_details"]["id"]
-        self.client.force_authenticate(user=self.mao_user)
-        self.client.post(f"/production/slaughterhouse/records/{slaughter_id}/review/", {"status": "APPROVED"})
 
-        # Farmer attempt to delete approved slaughter production record is forbidden
+        # Farmer cannot delete the record that explains the animal's slaughtered status.
         self.client.force_authenticate(user=self.farmer_user)
         self.assertEqual(self.client.delete(f"/production/records/{meat_id}/").status_code, 403)
         self.assertTrue(ProductionRecord.objects.filter(pk=meat_id).exists())

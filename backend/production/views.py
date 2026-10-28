@@ -268,6 +268,16 @@ def production_record_detail(request, pk):
                 {"error": "Only the farmer may delete their production record."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        if (
+            record.production_type == ProductionRecord.ProductionType.MEAT
+            and record.livestock_id
+            and record.livestock.operational_status == LivestockInventory.OperationalStatus.SLAUGHTERED
+            and not record.slaughter_id
+        ):
+            return Response(
+                {"error": "This meat-yield record is the history for an animal marked slaughtered and cannot be deleted."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         if record.slaughter_id and record.slaughter.status == SlaughterRecord.StatusType.APPROVED:
             return Response(
                 {"error": "Production records linked to an official slaughter report cannot be deleted directly."},

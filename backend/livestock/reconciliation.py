@@ -1,4 +1,4 @@
-"""Atomic inventory updates triggered by approved livestock events."""
+"""Atomic inventory updates triggered by recorded or approved livestock events."""
 
 from django.db import transaction
 from django.utils import timezone
@@ -19,6 +19,54 @@ def _require_active(inventory: LivestockInventory, event_name: str) -> None:
                 )
             }
         )
+
+
+@transaction.atomic
+def reconcile_recorded_meat_yield(record):
+    """Mark the specifically selected individual animal slaughtered on farmer submission.
+
+    Aggregate inventory and herd-level yield records do not identify an exact animal,
+    so they must not change individual operational statuses.
+    """
+    if record.production_type != "MEAT" or not record.livestock_id:
+        return record
+
+    source_animal = record.livestock
+    if (
+        source_animal.entry_type != LivestockInventory.EntryType.INDIVIDUAL
+        or source_animal.quantity != 1
+    ):
+        return record
+
+    if record.status != record.ProductionStatus.RECORDED:
+        raise ValidationError({"status": "Only a farmer-recorded meat yield can update livestock inventory."})
+
+    herd = (
+        LivestockBatch.objects.select_for_update().get(pk=source_animal.batch_id)
+        if source_animal.batch_id
+        else None
+    )
+    # Lock the herd before its member, matching sale and slaughter lock order.
+    animal = LivestockInventory.objects.select_for_update().get(pk=record.livestock_id)
+    if animal.batch_id != source_animal.batch_id:
+        raise ValidationError({"livestock": "The selected animal changed herds during submission. Refresh and retry."})
+    if (
+        animal.entry_type != LivestockInventory.EntryType.INDIVIDUAL
+        or animal.quantity != 1
+    ):
+        raise ValidationError({"livestock": "Only one specifically identified animal can be reconciled from a meat-yield record."})
+    _require_active(animal, "Meat yield")
+
+    changed_at = timezone.now()
+    animal.operational_status = LivestockInventory.OperationalStatus.SLAUGHTERED
+    animal.operational_status_changed_at = changed_at
+    animal.save(update_fields=["operational_status", "operational_status_changed_at"])
+    if herd and not herd.animals.filter(
+        operational_status=LivestockInventory.OperationalStatus.ACTIVE
+    ).exists():
+        herd.status = LivestockBatch.StatusType.HARVESTED
+        herd.save(update_fields=["status", "updated_at"])
+    return record
 
 
 @transaction.atomic

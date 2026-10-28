@@ -98,8 +98,8 @@ class ProductionRecord(models.Model):
         default=ProductionStatus.PENDING,
     )
 
-    # Optional link used only when the farmer explicitly submits an official
-    # slaughter report alongside a meat-yield log. Ordinary yield logs stay unlinked.
+    # Legacy link for farmer meat-yield rows with a separate slaughter report.
+    # New meat-yield rows reconcile an individual animal directly without MAO review.
     slaughter = models.OneToOneField("SlaughterRecord", on_delete=models.PROTECT,
         null=True, blank=True, related_name="production_output")
 
