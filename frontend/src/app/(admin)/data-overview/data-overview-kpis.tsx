@@ -4,13 +4,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { cowHead } from "@lucide/lab";
-import { AlertTriangle,Boxes,Icon,Maximize2,Milk,Minimize2,TrendingUp,Users } from "lucide-react";
+import { AlertTriangle,Boxes,Icon,Maximize2,Minimize2,ShieldCheck,TrendingUp,Users } from "lucide-react";
 import { useState } from "react";
 
 interface DataOverviewKpisProps {
   totalLivestock: number;
   totalBatches?: number;
-  totalMilkVolume: number;
+  vaccinationCoveragePct: number;
+  vaccinatedHeads: number;
+  totalHeads: number;
   totalTransferValue: number | null;
   activeIncidents: number;
   totalFarmers: number;
@@ -21,7 +23,9 @@ interface DataOverviewKpisProps {
 export function DataOverviewKpis({
   totalLivestock,
   totalBatches = 0,
-  totalMilkVolume,
+  vaccinationCoveragePct,
+  vaccinatedHeads,
+  totalHeads,
   totalTransferValue,
   activeIncidents,
   totalFarmers,
@@ -98,18 +102,17 @@ export function DataOverviewKpis({
             </div>
           </div>
 
-          {/* 3. Dairy */}
-          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-sky-50/80 border border-sky-200/70 hover:bg-sky-50 transition-colors shadow-2xs">
-            <div className="p-1.5 rounded-lg bg-sky-700 text-white shrink-0 shadow-2xs">
-              <Milk className="size-3.5" />
+          {/* 3. Vaccination coverage */}
+          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-teal-50/80 border border-teal-200/70 hover:bg-teal-50 transition-colors shadow-2xs">
+            <div className="p-1.5 rounded-lg bg-teal-700 text-white shrink-0 shadow-2xs">
+              <ShieldCheck className="size-3.5" />
             </div>
             <div className="min-w-0">
-              <span className="text-[9px] uppercase font-extrabold text-sky-800/80 block leading-tight truncate">
-                Dairy
+              <span className="text-[9px] uppercase font-extrabold text-teal-800/80 block leading-tight truncate">
+                Vaccination
               </span>
-              <p className="text-xs sm:text-sm font-black text-sky-950 leading-tight tabular-nums truncate">
-                {totalMilkVolume.toLocaleString()}{" "}
-                <span className="text-[10px] font-bold text-sky-700">L</span>
+              <p className="text-xs sm:text-sm font-black text-teal-950 leading-tight tabular-nums truncate">
+                {vaccinationCoveragePct}%
               </p>
             </div>
           </div>
@@ -230,14 +233,14 @@ export function DataOverviewKpis({
           isLoading={isLoading}
         />
 
-        {/* 3. Monthly Milk Yield */}
+        {/* 3. Current inventory vaccination coverage */}
         <KpiCard
-          title="Monthly Dairy Yield"
-          value={`${totalMilkVolume.toLocaleString()} L`}
-          icon={<Milk className="size-5" />}
-          description="Farmer-recorded milk liters this month"
-          badge="This Month"
-          variant="sky"
+          title="Vaccination Coverage"
+          value={`${vaccinationCoveragePct}%`}
+          icon={<ShieldCheck className="size-5" />}
+          description={`${vaccinatedHeads.toLocaleString()} of ${totalHeads.toLocaleString()} current heads have vaccination recorded`}
+          badge="Current Inventory"
+          variant="emerald"
           isLoading={isLoading}
         />
 

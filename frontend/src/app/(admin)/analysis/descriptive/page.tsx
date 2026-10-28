@@ -22,7 +22,6 @@ import {
   Clock,
   FileSpreadsheet,
   Info,
-  Layers,
   LineChart as LineChartIcon,
   MapPin,
   RefreshCw,
@@ -59,9 +58,11 @@ interface DescriptiveResponse {
       by_barangay: Array<{ barangay_id: number | null; barangay: string | null; heads: number; registered_farmers: number }>;
       by_species: Array<{ species_id: number; species: string; heads: number }>;
     };
-    production: {
+    slaughter: {
       records: number;
-      by_type: Array<{ type: string; unit: string; quantity: number; records: number }>;
+      total_heads: number;
+      total_carcass_weight_kg: number;
+      monthly_trend: Array<{ month: string; label: string; heads: number; carcass_weight_kg: number }>;
     };
     sales: {
       sales: number;
@@ -111,7 +112,7 @@ function MissionControlTooltip({ active, payload, label, unit }: any) {
 
 export default function DescriptiveAnalyticsLandingPage() {
   const { user } = useAuth();
-  const [selectedDomain, setSelectedDomain] = useState<'sales' | 'population' | 'production' | 'vaccination'>('sales');
+  const [selectedDomain, setSelectedDomain] = useState<'sales' | 'population' | 'slaughter' | 'vaccination'>('sales');
   const [showTableView, setShowTableView] = useState(false);
 
   const query = useQuery<DescriptiveResponse>({
@@ -153,7 +154,7 @@ export default function DescriptiveAnalyticsLandingPage() {
     <>
       <PageHeader
         title="Descriptive Intelligence"
-        subtitle="Understand livestock populations, commodity yields, and barangay distributions from official Padre Garcia records"
+        subtitle="Understand livestock populations, approved slaughter activity, health coverage, and barangay distributions from official Padre Garcia records"
         variant="admin"
         maxWidthClass="w-full"
         icon={<BarChart3 className="size-5 text-emerald-800" />}
@@ -196,7 +197,7 @@ export default function DescriptiveAnalyticsLandingPage() {
                 </Badge>
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                Approved census snapshots, farmer-recorded production, reviewed operational data, and live transfers. Simple by default, detailed on demand.
+                Approved census snapshots, reviewed slaughter activity, health coverage, and live transfers. Simple by default, detailed on demand.
               </p>
             </div>
 
@@ -252,13 +253,13 @@ export default function DescriptiveAnalyticsLandingPage() {
               badge: `${species.length} species`,
             },
             {
-              id: 'production' as const,
-              label: 'Approved Yields',
-              domain: 'Production',
-              reporting: 'Commodity Logs',
-              icon: Layers,
-              metric: `${data?.production.records ?? 0} records`,
-              badge: `${data?.production.by_type?.length ?? 0} commodities`,
+              id: 'slaughter' as const,
+              label: 'Slaughter Activity',
+              domain: 'Operations',
+              reporting: 'Approved Records',
+              icon: Scale,
+              metric: `${data?.slaughter.total_heads ?? 0} heads`,
+              badge: `${(data?.slaughter.total_carcass_weight_kg ?? 0).toLocaleString('en-PH')} kg`,
             },
             {
               id: 'vaccination' as const,
@@ -339,13 +340,13 @@ export default function DescriptiveAnalyticsLandingPage() {
                 <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800">
                   {selectedDomain === 'sales' && <ShoppingBag className="size-4 text-emerald-700" />}
                   {selectedDomain === 'population' && <Beef className="size-4 text-emerald-700" />}
-                  {selectedDomain === 'production' && <Layers className="size-4 text-emerald-700" />}
+                  {selectedDomain === 'slaughter' && <Scale className="size-4 text-emerald-700" />}
                   {selectedDomain === 'vaccination' && <ShieldCheck className="size-4 text-emerald-700" />}
                 </div>
                 <CardTitle className="text-base sm:text-lg font-bold text-slate-900">
                   {selectedDomain === 'sales' && 'Approved Live Animal Transfers Timeline'}
                   {selectedDomain === 'population' && 'Approved Population Distribution by Livestock Species'}
-                  {selectedDomain === 'production' && 'Recorded Commodity Yield Output Breakdown'}
+                  {selectedDomain === 'slaughter' && 'Approved Slaughter Activity by Month'}
                   {selectedDomain === 'vaccination' && 'Vaccination Coverage & Biological Protection Meter'}
                 </CardTitle>
               </div>
@@ -454,26 +455,24 @@ export default function DescriptiveAnalyticsLandingPage() {
                   </Table>
                 )}
 
-                {selectedDomain === 'production' && (
+                {selectedDomain === 'slaughter' && (
                   <Table>
                     <TableHeader className="bg-slate-50">
                       <TableRow className="border-slate-200 hover:bg-transparent">
-                        <TableHead className="font-mono text-xs text-slate-600">Commodity Type</TableHead>
-                        <TableHead className="font-mono text-xs text-slate-600">Measurement Unit</TableHead>
-                        <TableHead className="font-mono text-xs text-slate-600 text-right">Observed Yield</TableHead>
-                        <TableHead className="font-mono text-xs text-slate-600 text-right">Approved Entries</TableHead>
+                        <TableHead className="font-mono text-xs text-slate-600">Month</TableHead>
+                        <TableHead className="font-mono text-xs text-slate-600 text-right">Animals Slaughtered</TableHead>
+                        <TableHead className="font-mono text-xs text-slate-600 text-right">Approved Carcass Weight (kg)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(data?.production.by_type ?? []).map((row) => (
-                        <TableRow key={row.type} className="border-slate-100 hover:bg-slate-50/70">
-                          <TableCell className="font-bold text-xs text-slate-900">{row.type}</TableCell>
-                          <TableCell className="font-mono text-xs text-slate-500">{row.unit}</TableCell>
+                      {(data?.slaughter.monthly_trend ?? []).map((row) => (
+                        <TableRow key={row.month} className="border-slate-100 hover:bg-slate-50/70">
+                          <TableCell className="font-bold text-xs text-slate-900">{row.label}</TableCell>
                           <TableCell className="font-mono text-xs text-right font-bold text-emerald-800">
-                            {row.quantity.toLocaleString('en-PH')}
+                            {row.heads.toLocaleString('en-PH')}
                           </TableCell>
                           <TableCell className="font-mono text-xs text-right text-slate-700">
-                            {row.records.toLocaleString('en-PH')}
+                            {row.carcass_weight_kg.toLocaleString('en-PH', { maximumFractionDigits: 1 })}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -616,22 +615,23 @@ export default function DescriptiveAnalyticsLandingPage() {
                   </div>
                 )}
 
-                {selectedDomain === 'production' && (
+                {selectedDomain === 'slaughter' && (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {(data?.production.by_type ?? []).map((row) => (
-                        <div key={row.type} className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-1">
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
-                            Commodity: {row.type}
-                          </span>
-                          <div className="text-xl font-mono font-extrabold text-slate-900">
-                            {row.quantity.toLocaleString('en-PH')} <span className="text-xs font-sans text-slate-500">{row.unit}</span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 font-mono">
-                            {row.records.toLocaleString('en-PH')} approved record entries
-                          </p>
-                        </div>
-                      ))}
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-mono text-slate-600 pb-2 border-b border-slate-100">
+                      <span>Approved Records: <strong className="text-slate-900">{data?.slaughter.records.toLocaleString('en-PH') ?? 0}</strong></span>
+                      <span>Animals Slaughtered: <strong className="text-slate-900">{data?.slaughter.total_heads.toLocaleString('en-PH') ?? 0}</strong></span>
+                      <span>Carcass Weight: <strong className="text-emerald-800">{(data?.slaughter.total_carcass_weight_kg ?? 0).toLocaleString('en-PH', { maximumFractionDigits: 1 })} kg</strong></span>
+                    </div>
+                    <div className="h-72 sm:h-80 w-full" role="img" aria-label="Monthly approved slaughtered animal counts">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data?.slaughter.monthly_trend ?? []} margin={{ top: 10, right: 15, left: -10, bottom: 20 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                          <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: "#64748b", fontSize: 11, fontFamily: "monospace" }} axisLine={{ stroke: "#e2e8f0" }} tickLine={{ stroke: "#e2e8f0" }} />
+                          <YAxis stroke="#94a3b8" tick={{ fill: "#64748b", fontSize: 11, fontFamily: "monospace" }} axisLine={{ stroke: "#e2e8f0" }} tickLine={{ stroke: "#e2e8f0" }} tickFormatter={(value) => Number(value).toLocaleString("en-PH")} />
+                          <Tooltip content={<MissionControlTooltip unit="Animals" />} />
+                          <Bar dataKey="heads" name="Animals Slaughtered" fill="#0f766e" radius={[5, 5, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
                 )}
@@ -704,18 +704,18 @@ export default function DescriptiveAnalyticsLandingPage() {
           <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-cyan-300 transition-all relative overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">
-                Approved Yield Entries
+                Approved Slaughter Records
               </span>
               <div className="size-8 rounded-lg bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-800">
-                <Layers className="size-4" />
+                <Scale className="size-4" />
               </div>
             </div>
             <div className="mt-3">
               <div className="text-2xl font-mono font-extrabold text-slate-900 tracking-tight">
-                {data?.production.records?.toLocaleString('en-PH') ?? '0'}
+                {data?.slaughter.records?.toLocaleString('en-PH') ?? '0'}
               </div>
               <p className="mt-1 text-[11px] text-slate-500 leading-tight">
-                Eligible farmer production logs in system
+                Slaughterhouse records in the displayed reporting period
               </p>
             </div>
           </Card>
@@ -857,10 +857,10 @@ export default function DescriptiveAnalyticsLandingPage() {
         <div className="rounded-2xl border border-emerald-300 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
           <div className="space-y-1.5 text-center sm:text-left">
             <h3 className="text-base sm:text-lg font-bold text-slate-900">
-              Need complete monthly logs, slaughter records, or CSV exports?
+              Need detailed livestock, slaughter, or disease records?
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 max-w-2xl">
-              Access the complete Municipal Records matrix to inspect monthly production trends, commodity valuation, disease and mortality causes, and export official municipal CSV reports.
+              Open the Municipal Records matrix to review livestock, slaughter, transfer, disease, and mortality records, or export municipal CSV reports.
             </p>
           </div>
 

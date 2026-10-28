@@ -22,7 +22,7 @@ import {
   Icon,
   LayoutDashboard,
   Map,
-  Milk,
+  ShieldCheck,
   Scale,
   TrendingUp,
   Users
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
           <ValidationLoadingScreen
             isLoading={isLoading}
             title="Synchronizing Executive Analytics Dashboard"
-            subtitle="Aggregating municipal livestock registries, 17-barangay census surveys, dairy production records, and biosecurity surveillance telemetry..."
+            subtitle="Aggregating municipal livestock registries, 17-barangay census surveys, and biosecurity surveillance telemetry..."
             badgeLabel="Executive Stream Sync"
             authorityText="Municipal Agriculture Office • Padre Garcia, Batangas"
             items={[
@@ -98,13 +98,6 @@ export default function AdminDashboard() {
                 label: "Barangay Census Records",
                 sublabel: "17-Barangay household surveys",
                 icon: <FileSpreadsheet className="size-4 shrink-0 text-sky-700" />,
-                loaded: !dashboardSummaryQuery.isLoading && dashboardSummaryQuery.data !== undefined,
-              },
-              {
-                id: "production",
-                label: "Dairy & Production Yields",
-                sublabel: "Milk output & cold chain data",
-                icon: <Milk className="size-4 shrink-0 text-blue-700" />,
                 loaded: !dashboardSummaryQuery.isLoading && dashboardSummaryQuery.data !== undefined,
               },
               {
@@ -142,6 +135,10 @@ export default function AdminDashboard() {
   };
 
   // --- Executive Stats ---
+  const vaccinationCoveragePct = data.vaccinationTotals.total
+    ? Math.round((data.vaccinationTotals.vaccinated / data.vaccinationTotals.total) * 1000) / 10
+    : 0;
+
   const statsCards: {
     label: string;
     value: string;
@@ -159,14 +156,12 @@ export default function AdminDashboard() {
         description: `Approved, active heads across ${data.totalBarangaysCount} barangays`
       },
       {
-        label: 'Monthly Dairy Yield',
-        value: data.monthlyDairyYieldL >= 1000
-          ? `${(data.monthlyDairyYieldL / 1000).toFixed(1)}k L`
-          : `${Math.round(data.monthlyDairyYieldL)} L`,
-        change: 'This Month',
-        icon: <Milk className="w-5 h-5" />,
-        variant: 'sky',
-        description: 'Certified milk intake'
+        label: 'Vaccination Coverage',
+        value: `${vaccinationCoveragePct}%`,
+        change: 'Current Inventory',
+        icon: <ShieldCheck className="w-5 h-5" />,
+        variant: 'emerald',
+        description: `${data.vaccinationTotals.vaccinated.toLocaleString()} of ${data.vaccinationTotals.total.toLocaleString()} current heads have vaccination recorded`
       },
       {
         label: 'Pending Inventory Review',

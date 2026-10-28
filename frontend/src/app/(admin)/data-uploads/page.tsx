@@ -74,8 +74,12 @@ const completeColumnMapping = (
 
 export default function DataUploadsPage() {
   const { user } = useAuth();
+  const isMao = user?.role?.toUpperCase() === "MAO";
   const datasetsQuery = useQuery({ queryKey: ["import-datasets", user?.email], queryFn: fetchDatasets });
   const datasets = datasetsQuery.data ?? [];
+  // MAO reviews and approves farmer production submissions; bulk production entry
+  // is kept for system administrators, so hide that domain in the MAO interface.
+  const visibleDatasets = datasets.filter((dataset) => !isMao || dataset.code !== "production");
   const [selectedDataset, setSelectedDataset] = useState<string>("livestock_inventory");
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState<boolean>(false);
@@ -106,6 +110,7 @@ export default function DataUploadsPage() {
 
   const historyQuery = useQuery({ queryKey: ["import-history", user?.email], queryFn: fetchBatches });
   const history = historyQuery.data ?? [];
+  const visibleHistory = history.filter((batch) => !isMao || batch.dataset_type !== "production");
   const isLoadingHistory = historyQuery.isFetching;
   const loadHistory = () => historyQuery.refetch();
   useEffect(() => {
@@ -335,7 +340,7 @@ export default function DataUploadsPage() {
     : 1;
 
   // Filter preview rows
-  const currentDatasetInfo = datasets.find((d) => d.code === selectedDataset);
+  const currentDatasetInfo = visibleDatasets.find((d) => d.code === selectedDataset);
   const hasLivestockTypeField = currentDatasetInfo?.available_fields.includes("livestock_type") ?? false;
   const requiredFields = currentDatasetInfo?.required_fields ?? [];
   const availableFields = currentDatasetInfo?.available_fields ?? [];
@@ -400,7 +405,7 @@ export default function DataUploadsPage() {
 
           {/* Dataset Cards Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-            {datasets.map((d) => {
+            {visibleDatasets.map((d) => {
               const isSelected = selectedDataset === d.code;
               return (
                 <button
@@ -1003,14 +1008,14 @@ export default function DataUploadsPage() {
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-slate-100">
-              {history.length === 0 ? (
+              {visibleHistory.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center py-8 text-slate-400 text-xs">
                     {isLoadingHistory ? "Loading audit logs..." : "No bulk imports logged yet."}
                   </TableCell>
                 </TableRow>
               ) : (
-                history.map((log) => (
+                visibleHistory.map((log) => (
                   <TableRow key={log.id} className="hover:bg-slate-50/80 transition-colors">
                     <TableCell className="px-5 py-3 text-xs font-mono font-bold text-[#1E4D2B]">
                       #{log.id}

@@ -1,10 +1,12 @@
 "use client";
 
 import type { OverviewRecord } from "./data-overview-types";
+import { useQuery } from "@tanstack/react-query";
 import { QrCodePass } from "@/components/qr-code-pass";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { printElement } from "@/lib/print-element";
+import { useAuth } from "@/contexts/auth-context";
 import {
 Dialog,
 DialogContent,
@@ -15,6 +17,7 @@ DialogTitle,
 import { Tabs,TabsList,TabsTrigger } from "@/components/ui/tabs";
 import { formatAgeClassification,formatCalendarDate,formatLivestockAge } from "@/lib/livestock-age";
 import { livestockBatchQrPayload,livestockIdentityQrPayload } from "@/lib/livestock-identity";
+import { municipalRead } from "@/lib/municipal-read";
 import { cowHead } from "@lucide/lab";
 import {
 AlertTriangle,
@@ -28,6 +31,7 @@ Icon,
 Info,
 Layers,
 MapPin,
+Pill,
 Phone,
 Printer,
 ShieldCheck,
@@ -35,7 +39,7 @@ Tag,
 User
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect,useState } from "react";
 import { toast } from "sonner";
 import { DataTab } from "./data-overview-types";
 
@@ -46,14 +50,48 @@ interface DataOverviewDetailModalProps {
   domain: DataTab;
 }
 
+interface TreatmentRecord {
+  id: number;
+  treatment_date: string;
+  treatment_type: string;
+  medication_name: string;
+  reason: string;
+  dosage: string;
+  route_of_administration: string;
+  administered_by: string;
+  notes: string;
+  follow_up_date: string | null;
+  created_by_name: string;
+}
+
 export function DataOverviewDetailModal({
   open,
   onOpenChange,
   record,
   domain,
 }: DataOverviewDetailModalProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "origin" | "qr" | "roster">("overview");
+  const { user } = useAuth();
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "origin" | "qr" | "roster" | "health">("overview");
   const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    setActiveSubTab("overview");
+  }, [domain, record?.id]);
+  const treatmentLivestockId = domain === "livestock" && record?.entryType === "INDIVIDUAL"
+    ? String(record.rawId ?? record.id).match(/^\d+$/)?.[0] ?? null
+    : null;
+  const treatmentQuery = useQuery<TreatmentRecord[]>({
+    queryKey: ["admin", "livestock-treatment-history", user?.email, user?.accessScope, user?.assignedBarangayId, treatmentLivestockId],
+    queryFn: async ({ signal }) => {
+      const { data } = await municipalRead<TreatmentRecord[]>("production/treatments/", {
+        params: { livestock: treatmentLivestockId },
+        signal,
+      });
+      if (!Array.isArray(data)) throw new Error("Unexpected treatment history response.");
+      return data;
+    },
+    enabled: open && Boolean(treatmentLivestockId),
+    staleTime: 30_000,
+  });
   const clinicalRecordType = domain === "disease" ? "DISEASE" : domain === "mortality" ? "MORTALITY" : null;
   const clinicalRecordId = clinicalRecordType
     ? String(record?.id ?? "").match(/^(?:DIS|MOR)-(\d+)$/i)?.[1]
@@ -213,7 +251,7 @@ export function DataOverviewDetailModal({
         <div className="px-4 sm:px-6 pt-3 pb-2 border-b border-slate-100 bg-slate-50/80 shrink-0">
           <Tabs
             value={activeSubTab}
-            onValueChange={(val) => { if (val === "overview" || val === "origin" || val === "qr" || val === "roster") setActiveSubTab(val); }}
+            onValueChange={(val) => { if (val === "overview" || val === "origin" || val === "qr" || val === "roster" || val === "health") setActiveSubTab(val); }}
             className="w-full"
           >
             <TabsList className="bg-slate-200/70 p-1.5 rounded-xl h-auto w-full sm:w-auto flex flex-wrap sm:flex-nowrap gap-1.5 border border-slate-300/60 shadow-2xs">
@@ -238,6 +276,18 @@ export function DataOverviewDetailModal({
                 <span className="text-sm">🛡️</span>
                 <span>Digital QR Pass</span>
               </TabsTrigger>
+              {treatmentLivestockId && (
+                <TabsTrigger
+                  value="health"
+                  className="px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer data-[state=active]:bg-teal-700 data-[state=active]:text-white data-[state=active]:shadow-xs data-[state=active]:font-black text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                >
+                  <Pill className="size-3.5" />
+                  <span>Health &amp; Vax</span>
+                  <span className="rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-mono text-teal-800">
+                    {treatmentQuery.data?.length ?? 0}
+                  </span>
+                </TabsTrigger>
+              )}
               {isBatch && record.animals && record.animals.length > 0 && (
                 <TabsTrigger
                   value="roster"
@@ -683,6 +733,75 @@ export function DataOverviewDetailModal({
                   {record.notes && <p className="text-amber-900">{record.notes}</p>}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeSubTab === "health" && treatmentLivestockId && (
+            <div className="space-y-4 animate-in fade-in-50 duration-200">
+              <section className="rounded-2xl border border-teal-200 bg-teal-50/60 p-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="size-4 text-teal-800" />
+                  <h3 className="text-sm font-bold text-slate-900">Official vaccination date</h3>
+                </div>
+                <p className="mt-1 text-xs text-slate-700">
+                  {record.lastVaccinationDate
+                    ? `Recorded on ${formatCalendarDate(record.lastVaccinationDate)}`
+                    : "No official vaccination date is recorded on this livestock profile."}
+                </p>
+              </section>
+
+              <section className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Farmer treatment records</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Includes treatment entries labeled vaccination. These logs are separate from the official vaccination date above.
+                  </p>
+                </div>
+
+                {treatmentQuery.isLoading ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500" role="status">
+                    Loading treatment history…
+                  </div>
+                ) : treatmentQuery.isError ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900" role="alert">
+                    Treatment history could not be loaded. Access may be restricted for this animal or the service may be temporarily unavailable.
+                  </div>
+                ) : treatmentQuery.data?.length ? (
+                  <div className="space-y-2">
+                    {treatmentQuery.data.map((treatment) => (
+                      <article key={treatment.id} className="rounded-xl border border-slate-200 bg-white p-3.5">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="flex items-start gap-2.5">
+                            <Pill className="mt-0.5 size-4 shrink-0 text-teal-700" />
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900">{treatment.medication_name}</h4>
+                              <Badge className="mt-1 border border-teal-200 bg-teal-50 text-[10px] font-semibold text-teal-800">
+                                {treatment.treatment_type.replaceAll("_", " ")}
+                              </Badge>
+                            </div>
+                          </div>
+                          <span className="text-xs font-semibold text-slate-500">{formatCalendarDate(treatment.treatment_date)}</span>
+                        </div>
+                        <div className="mt-2 space-y-1 pl-6 text-xs text-slate-600">
+                          {(treatment.dosage || treatment.route_of_administration) && (
+                            <p>{[treatment.dosage, treatment.route_of_administration].filter(Boolean).join(" · ")}</p>
+                          )}
+                          {(treatment.administered_by || treatment.created_by_name) && (
+                            <p>Administered by: {treatment.administered_by || treatment.created_by_name}</p>
+                          )}
+                          {treatment.reason && <p>Reason: {treatment.reason}</p>}
+                          {treatment.follow_up_date && <p>Follow-up: {formatCalendarDate(treatment.follow_up_date)}</p>}
+                          {treatment.notes && <p className="italic text-slate-500">{treatment.notes}</p>}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-xs text-slate-500">
+                    No treatment records have been logged for this animal.
+                  </div>
+                )}
+              </section>
             </div>
           )}
 

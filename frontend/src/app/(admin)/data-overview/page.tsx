@@ -26,7 +26,7 @@ SlaughterRecord
 import { fetchInspections } from "@/app/(auction)/auction-inspections/auction-analytics";
 import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components/validation-loading-screen";
 import api from "@/lib/axios";
-import { Activity,Boxes,Database,FileSpreadsheet,Layers,Milk } from "lucide-react";
+import { Activity,Boxes,Database,FileSpreadsheet,Layers } from "lucide-react";
 import { DataOverviewCards } from "./data-overview-cards";
 import { DataOverviewDetailModal } from "./data-overview-detail-modal";
 import { DataOverviewKpis } from "./data-overview-kpis";
@@ -159,7 +159,6 @@ export default function DataOverviewPage() {
     summaryQuery.isLoading ||
     (isInvLoading && !rawInventory) ||
     (isBatchLoading && !rawBatches) ||
-    (isProdLoading && !rawProduction) ||
     (isSlaughterLoading && !rawSlaughter) ||
     (isCenLoading && !rawCensus) ||
     (isIncLoading && !rawIncidents);
@@ -891,7 +890,10 @@ export default function DataOverviewPage() {
 
   // Overall KPI aggregates (Synced directly with canonical backend analytics population)
   const totalLivestockPopulation = summary?.population.total_heads ?? 0;
-  const totalMilkVolume = barangayMasterSummaries.reduce((sum, row) => sum + row.monthlyMilkLiters, 0);
+  const vaccinatedHeads = summary?.population.by_barangay.reduce((sum, row) => sum + row.vaccinated, 0) ?? 0;
+  const vaccinationCoveragePct = totalLivestockPopulation
+    ? Math.round((vaccinatedHeads / totalLivestockPopulation) * 1000) / 10
+    : 0;
   const totalTransferValue = summary?.approved_transfer_value ?? null;
   const activeIncidentsCount = barangayMasterSummaries.reduce((sum, row) => sum + row.activeIncidents, 0);
   const totalFarmersCount = summary?.population.registered_farmers ?? 0;
@@ -1122,7 +1124,7 @@ export default function DataOverviewPage() {
       <>
         <PageHeader
           title="Municipal System Data Overview"
-          subtitle="Consolidated livestock master registry, dairy yields, market trades & biosecurity intelligence — Padre Garcia MAO"
+          subtitle="Consolidated livestock master registry, market trades & biosecurity intelligence — Padre Garcia MAO"
           variant="admin"
           maxWidthClass="w-full"
           icon={<Database className="size-5 text-slate-800" />}
@@ -1131,7 +1133,7 @@ export default function DataOverviewPage() {
           <ValidationLoadingScreen
             isLoading={isInitialLoading}
             title="Synchronizing Municipal System Data Overview"
-            subtitle="Aggregating live animal registries, herds, dairy production, biosecurity alerts, and barangay census..."
+            subtitle="Aggregating live animal registries, herds, biosecurity alerts, and barangay census..."
             badgeLabel="Live Ledger Sync"
             authorityText="Padre Garcia Municipal Agriculture Office • Batangas"
             items={[
@@ -1148,13 +1150,6 @@ export default function DataOverviewPage() {
                 sublabel: "Housing pens & feeding programs",
                 icon: <Boxes className="size-4 shrink-0 text-[#2D5A27]" />,
                 loaded: rawBatches !== undefined,
-              },
-              {
-                id: "production",
-                label: "Production & Dairy",
-                sublabel: "Milk yield logs & collection hubs",
-                icon: <Milk className="size-4 shrink-0 text-sky-700" />,
-                loaded: rawProduction !== undefined,
               },
               {
                 id: "census",
@@ -1181,7 +1176,7 @@ export default function DataOverviewPage() {
     <>
       <PageHeader
         title="Municipal System Data Overview"
-        subtitle="Consolidated livestock master registry, dairy yields, market trades & biosecurity intelligence — Padre Garcia MAO"
+        subtitle="Consolidated livestock master registry, market trades & biosecurity intelligence — Padre Garcia MAO"
         variant="admin"
         maxWidthClass="w-full"
         icon={<Database className="size-5 text-slate-800" />}
@@ -1213,7 +1208,9 @@ export default function DataOverviewPage() {
         <DataOverviewKpis
           totalLivestock={totalLivestockPopulation}
           totalBatches={barangayMasterSummaries.reduce((sum, row) => sum + (row.batchCount ?? 0), 0)}
-          totalMilkVolume={totalMilkVolume}
+          vaccinationCoveragePct={vaccinationCoveragePct}
+          vaccinatedHeads={vaccinatedHeads}
+          totalHeads={totalLivestockPopulation}
           totalTransferValue={totalTransferValue}
           activeIncidents={activeIncidentsCount}
           totalFarmers={totalFarmersCount}

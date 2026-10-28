@@ -6,7 +6,7 @@ import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dial
 import api from "@/lib/axios";
 import { useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { QrCode,ShieldCheck } from "lucide-react";
+import { Activity,FileSpreadsheet,QrCode,ShieldCheck,Tag } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -100,6 +100,46 @@ function splitHerdInventoryIds(
     processableIds.push(id);
   });
   return { processableIds, blockedHerdIds };
+}
+
+function AdminValidationLoadingScreen({
+  censusLoaded = false,
+  inventoryLoaded = false,
+  incidentLoaded = false,
+}: {
+  censusLoaded?: boolean;
+  inventoryLoaded?: boolean;
+  incidentLoaded?: boolean;
+}) {
+  return (
+    <ValidationLoadingScreen
+      title="Synchronizing Municipal Validation Records"
+      subtitle="Retrieving barangay census submissions, livestock inventory, and field health declarations..."
+      items={[
+        {
+          id: "census",
+          label: "Barangay Census",
+          sublabel: "Household livestock surveys",
+          icon: <FileSpreadsheet className="size-4" />,
+          loaded: censusLoaded,
+        },
+        {
+          id: "inventory",
+          label: "Livestock Inventory",
+          sublabel: "Individual tags and herd pens",
+          icon: <Tag className="size-4" />,
+          loaded: inventoryLoaded,
+        },
+        {
+          id: "incidents",
+          label: "Field Declarations",
+          sublabel: "Health reports and mortality",
+          icon: <Activity className="size-4" />,
+          loaded: incidentLoaded,
+        },
+      ]}
+    />
+  );
 }
 
 function AdminDataValidationContent() {
@@ -215,8 +255,7 @@ function AdminDataValidationContent() {
   // domain request must not keep the requested record hidden behind the loader.
   const isInitialLoading = requestedRecordType
     ? notificationDataset === undefined
-    : rawCensusData === undefined || rawProductionData === undefined ||
-      rawInventoryData === undefined || rawIncidentData === undefined;
+    : rawCensusData === undefined || rawInventoryData === undefined || rawIncidentData === undefined;
 
   // Local state overlays for optimistic updates
   const [localCensusOverrides, setLocalCensusOverrides] = useState<
@@ -940,9 +979,8 @@ function AdminDataValidationContent() {
           maxWidthClass="w-full"
           icon={<ShieldCheck className="size-5 text-slate-800" />}
         />
-        <ValidationLoadingScreen
+        <AdminValidationLoadingScreen
           censusLoaded={rawCensusData !== undefined}
-          productionLoaded={rawProductionData !== undefined}
           inventoryLoaded={rawInventoryData !== undefined}
           incidentLoaded={rawIncidentData !== undefined}
         />
@@ -1176,7 +1214,7 @@ function AdminDataValidationRoute() {
 
 export default function AdminDataValidationPage() {
   return (
-    <Suspense fallback={<ValidationLoadingScreen />}>
+    <Suspense fallback={<AdminValidationLoadingScreen />}>
       <AdminDataValidationRoute />
     </Suspense>
   );
