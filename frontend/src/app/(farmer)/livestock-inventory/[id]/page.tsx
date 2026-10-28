@@ -56,6 +56,7 @@ import {
   ArrowLeft,
   Baby,
   Calendar,
+  CalendarClock,
   CheckCircle2,
   Clock,
 Download,
@@ -69,7 +70,8 @@ Scale,
 ShieldCheck,
 Stethoscope,
   Trash2,
-TrendingUp
+  TrendingUp,
+  Wheat,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -167,6 +169,28 @@ interface ApiWeightRecord {
   weighing_date: string;
   notes?: string;
   created_at: string;
+}
+
+interface ApiBreedingRecord {
+  id: number;
+  dam: number;
+  breeding_date: string;
+  breeding_type: string;
+  expected_due_date?: string | null;
+  status: "PENDING_CHECK" | "PREGNANT" | "CALVED" | "OPEN" | string;
+  sire_tag_or_code?: string;
+  notes?: string;
+}
+
+interface ApiFeedingRecord {
+  id: number;
+  livestock?: number | null;
+  feeding_date: string;
+  feed_type: string;
+  feed_name?: string;
+  quantity_kg: string | number;
+  feeding_time?: string;
+  notes?: string;
 }
 
 interface ApiDiseaseCase {
@@ -437,6 +461,24 @@ export default function LivestockDetailPage() {
     },
   });
 
+  const { data: allBreedingRecords = [] } = useQuery<ApiBreedingRecord[]>({
+    queryKey: ["breeding_records"],
+    queryFn: async () => {
+      const res = await api.get("production/breeding/");
+      return Array.isArray(res.data) ? res.data : [];
+    },
+    enabled: Boolean(activeItem),
+  });
+
+  const { data: allFeedingRecords = [] } = useQuery<ApiFeedingRecord[]>({
+    queryKey: ["feeding_records"],
+    queryFn: async () => {
+      const res = await api.get("production/feedings/");
+      return Array.isArray(res.data) ? res.data : [];
+    },
+    enabled: Boolean(activeItem),
+  });
+
   // 6. Real Disease Cases from Backend API
   const { data: allDiseaseCases = [] } = useQuery<ApiDiseaseCase[]>({
     queryKey: ["disease_cases"],
@@ -550,6 +592,36 @@ export default function LivestockDetailPage() {
     const animalIdNum = Number(activeItem.id);
     return allCalvingRecords.filter((c) => Number(c.dam) === animalIdNum);
   }, [allCalvingRecords, activeItem]);
+
+  const animalBreedingRecords = useMemo(() => {
+    if (!activeItem) return [];
+    return allBreedingRecords
+      .filter((record) => String(record.dam) === String(activeItem.id))
+      .sort((a, b) => b.breeding_date.localeCompare(a.breeding_date));
+  }, [allBreedingRecords, activeItem]);
+
+  const animalFeedingRecords = useMemo(() => {
+    if (!activeItem) return [];
+    return allFeedingRecords
+      .filter((record) => String(record.livestock) === String(activeItem.id))
+      .sort((a, b) => b.feeding_date.localeCompare(a.feeding_date));
+  }, [allFeedingRecords, activeItem]);
+
+  const recentSevenDayProduction = useMemo(() => {
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    const start = new Date(end);
+    start.setDate(start.getDate() - 6);
+    const rows = productionLogs.filter((record) => {
+      const date = new Date(`${record.date}T12:00:00`);
+      return date >= start && date <= end;
+    });
+    return { rows, total: rows.reduce((sum, row) => sum + row.quantity, 0) };
+  }, [productionLogs]);
+
+  const breedingFollowUps = useMemo(() => animalBreedingRecords.filter((record) =>
+    record.status === "PENDING_CHECK" || record.status === "PREGNANT"
+  ), [animalBreedingRecords]);
 
   // Check if this animal itself was recorded as an offspring in municipal registry
   const selfLineage = useMemo(() => {
@@ -913,7 +985,7 @@ export default function LivestockDetailPage() {
     () => [
       {
         id: "growth",
-        label: "Growth & Weight Logs",
+        label: "Growth & Weight",
         icon: <TrendingUp className="size-3.5 text-emerald-600" />,
       },
       ...(canProduceMilk
@@ -927,7 +999,7 @@ export default function LivestockDetailPage() {
         ? [
             {
               id: "milk-prediction",
-              label: "Milk Production Prediction",
+              label: "Milk Prediction",
               icon: <Milk className="size-3.5 text-amber-500" />,
             },
           ]
@@ -937,6 +1009,18 @@ export default function LivestockDetailPage() {
         label: `${terms.eventName} & Offspring`,
         count: totalCalves,
         icon: <Baby className="size-3.5 text-pink-600" />,
+      },
+      {
+        id: "breeding",
+        label: "Breeding",
+        count: breedingFollowUps.length > 0 ? breedingFollowUps.length : undefined,
+        icon: <CalendarClock className="size-3.5 text-indigo-600" />,
+      },
+      {
+        id: "feeding",
+        label: "Feeding",
+        count: animalFeedingRecords.length > 0 ? animalFeedingRecords.length : undefined,
+        icon: <Wheat className="size-3.5 text-amber-600" />,
       },
       {
         id: "health",
@@ -954,7 +1038,7 @@ export default function LivestockDetailPage() {
         icon: <Layers className="size-3.5 text-slate-600" />,
       },
     ],
-    [canProduceMilk, canShowMilkPredictionTab, terms.eventName, totalCalves]
+    [canProduceMilk, canShowMilkPredictionTab, terms.eventName, totalCalves, breedingFollowUps.length, animalFeedingRecords.length]
   );
 
   // Loading state
@@ -1227,21 +1311,21 @@ export default function LivestockDetailPage() {
           onSelectTab={setActiveProfileTab}
           tabItems={tabItems}
         >
-          <Tabs value={activeProfileTab} onValueChange={setActiveProfileTab} className="w-full space-y-6">
-            <div className="hidden lg:block w-full overflow-x-auto no-scrollbar py-1.5">
-              <TabsList data-tour="profile-tabs-desktop" className="h-12 flex w-full min-w-max items-center justify-between gap-1.5 rounded-2xl border border-slate-200/90 bg-slate-100/90 p-1.5 shadow-2xs">
+          <Tabs value={activeProfileTab === "breeding-care" ? "breeding" : activeProfileTab} onValueChange={setActiveProfileTab} className="w-full space-y-6">
+            <div className="hidden lg:block w-full overflow-x-auto scroll-smooth scrollbar-thin scrollbar-thumb-slate-300 hover:scrollbar-thumb-slate-400 scrollbar-track-transparent py-1.5">
+              <TabsList data-tour="profile-tabs-desktop" className="h-12 flex w-full min-w-max items-center justify-between gap-1 rounded-2xl border border-slate-200/90 bg-slate-100/90 p-1.5 shadow-2xs">
                 <TabsTrigger
                   value="growth"
-                  className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <TrendingUp className="size-3.5 shrink-0 text-emerald-600" />
-                  <span>Growth &amp; Weight Logs</span>
+                  <span>Growth &amp; Weight</span>
                 </TabsTrigger>
 
                 {canProduceMilk && (
                   <TabsTrigger
                     value="production"
-                    className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                    className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                   >
                     <Milk className="size-3.5 shrink-0 text-sky-600" />
                     <span>Production</span>
@@ -1251,7 +1335,7 @@ export default function LivestockDetailPage() {
                 {canShowMilkPredictionTab && (
                   <TabsTrigger
                     value="milk-prediction"
-                    className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                    className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                   >
                     <Milk className="size-3.5 shrink-0 text-amber-500" />
                     <span>Milk Prediction</span>
@@ -1260,7 +1344,7 @@ export default function LivestockDetailPage() {
 
                 <TabsTrigger
                   value="calving"
-                  className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Baby className="size-3.5 shrink-0 text-pink-600" />
                   <span>{terms.eventName} &amp; Offspring</span>
@@ -1270,8 +1354,34 @@ export default function LivestockDetailPage() {
                 </TabsTrigger>
 
                 <TabsTrigger
+                  value="breeding"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                >
+                  <CalendarClock className="size-3.5 shrink-0 text-indigo-600" />
+                  <span>Breeding</span>
+                  {breedingFollowUps.length > 0 && (
+                    <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-black text-indigo-800">
+                      {breedingFollowUps.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="feeding"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                >
+                  <Wheat className="size-3.5 shrink-0 text-amber-600" />
+                  <span>Feeding</span>
+                  {animalFeedingRecords.length > 0 && (
+                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-800">
+                      {animalFeedingRecords.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+
+                <TabsTrigger
                   value="health"
-                  className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Stethoscope className="size-3.5 shrink-0 text-rose-600" />
                   <span>Health &amp; Vaccines</span>
@@ -1280,7 +1390,7 @@ export default function LivestockDetailPage() {
                 <TabsTrigger
                   value="pedigree"
                   data-tour="profile-pedigree-tab-desktop"
-                  className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Heart className="size-3.5 shrink-0 text-purple-600" />
                   <span>Pedigree &amp; Lineage</span>
@@ -1288,7 +1398,7 @@ export default function LivestockDetailPage() {
 
                 <TabsTrigger
                   value="ownership"
-                  className="flex-1 h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Layers className="size-3.5 shrink-0 text-slate-600" />
                   <span>Ownership History</span>
@@ -1480,7 +1590,13 @@ export default function LivestockDetailPage() {
                     {productionLogs.reduce((acc, curr) => acc + curr.quantity, 0).toFixed(1)}{" "}
                     {productionLogs[0]?.unit || "Units"}
                   </p>
-                  <p className="text-slate-500 text-[11px]">Across {productionLogs.length} verified production recordings</p>
+                  <p className="text-slate-500 text-[11px]">Across {productionLogs.length} recorded production entries</p>
+                </div>
+
+                <div className="p-4 bg-sky-50 rounded-2xl border border-sky-100 space-y-1">
+                  <span className="text-[10px] font-bold uppercase text-sky-700">Recorded in the last 7 days</span>
+                  <p className="text-2xl font-black text-sky-900">{recentSevenDayProduction.total.toFixed(1)} {recentSevenDayProduction.rows[0]?.unit || "Units"}</p>
+                  <p className="text-slate-500 text-[11px]">{recentSevenDayProduction.rows.length} entries · includes the last 7 calendar days</p>
                 </div>
 
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
@@ -1668,6 +1784,111 @@ export default function LivestockDetailPage() {
                           </TableCell>
                           <TableCell className="text-xs text-slate-500 font-medium">
                             {calving.notes || "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="breeding" className="space-y-6">
+            <Card className="rounded-3xl border-indigo-100 bg-white p-5 shadow-sm space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><CalendarClock className="size-5" /></div>
+                <div><CardTitle className="text-base font-black">Follow-ups</CardTitle><CardDescription>Use these reminders to update the animal&apos;s record after a check or birth.</CardDescription></div>
+              </div>
+              {breedingFollowUps.length === 0 ? (
+                <p className="rounded-xl border border-dashed p-5 text-sm text-slate-500">No open breeding follow-ups recorded for this animal.</p>
+              ) : (
+                <div className="space-y-3">
+                  {breedingFollowUps.map((record) => {
+                    const estimatedDate = record.expected_due_date;
+                    const duePassed = Boolean(estimatedDate && estimatedDate < localCalendarDateToday());
+                    return <div key={record.id} className="flex flex-col gap-1 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div><p className="font-bold text-sm text-slate-900">{record.status === "PENDING_CHECK" ? "Record the pregnancy check outcome" : "Check for calving and record the birth"}</p><p className="text-xs text-slate-600">{record.breeding_type.replaceAll("_", " ")} · recorded {formatCalendarDate(record.breeding_date)}</p></div>
+                      {estimatedDate && <Badge className={duePassed ? "border-amber-200 bg-amber-100 text-amber-900" : "border-indigo-200 bg-white text-indigo-800"}>{duePassed ? "Estimated date passed" : "Estimated due"}: {formatCalendarDate(estimatedDate)}</Badge>}
+                    </div>;
+                  })}
+                  <p className="text-xs text-slate-500">Due dates are estimates based on the recorded breeding date and gestation length. They are reminders to check and update records, not a prediction or veterinary assessment.</p>
+                </div>
+              )}
+            </Card>
+
+            <Card className="rounded-3xl border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <CardHeader className="p-0"><CardTitle className="text-base font-black">Breeding &amp; Insemination History</CardTitle></CardHeader>
+              {animalBreedingRecords.length === 0 ? <p className="rounded-xl border border-dashed p-5 text-sm text-slate-500">No breeding records linked to this animal yet.</p> : <div className="overflow-x-auto rounded-xl border"><Table><TableHeader><TableRow><TableHead>Breeding date</TableHead><TableHead>Method</TableHead><TableHead>Status</TableHead><TableHead>Estimated due date</TableHead><TableHead>Sire / code</TableHead></TableRow></TableHeader><TableBody>{animalBreedingRecords.map((record) => <TableRow key={record.id}><TableCell>{formatCalendarDate(record.breeding_date)}</TableCell><TableCell>{record.breeding_type.replaceAll("_", " ")}</TableCell><TableCell>{record.status.replaceAll("_", " ")}</TableCell><TableCell>{record.expected_due_date ? formatCalendarDate(record.expected_due_date) : "—"}</TableCell><TableCell>{record.sire_tag_or_code || "—"}</TableCell></TableRow>)}</TableBody></Table></div>}
+            </Card>
+          </TabsContent>
+
+          {/* ── TAB: FEEDING & RATIONS ──────────────────────────────────── */}
+          <TabsContent value="feeding" className="space-y-6">
+            <Card className="rounded-3xl border-amber-100 bg-white p-6 shadow-sm space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                    <Wheat className="size-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-black text-slate-900">
+                      Feeding &amp; Rations
+                    </CardTitle>
+                    <CardDescription className="text-xs text-slate-500">
+                      Individual feed entries linked to Tag #{activeItem.tagNumber}.
+                    </CardDescription>
+                  </div>
+                </div>
+
+                <Link href="/production-dashboard">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl border-amber-300 text-amber-800 hover:bg-amber-50 font-bold text-xs gap-1.5 self-start sm:self-auto"
+                  >
+                    <Wheat className="size-3.5" /> Production Dashboard
+                  </Button>
+                </Link>
+              </div>
+
+              {animalFeedingRecords.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-amber-200 bg-amber-50/30 p-8 text-center space-y-2">
+                  <Wheat className="size-8 text-amber-400 mx-auto" />
+                  <p className="font-bold text-sm text-slate-800">No Individual Feeding Records</p>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    No individual feeding logs have been recorded for this animal yet. Herd and batch feeding entries can be managed from the Production Dashboard.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-2xs">
+                  <Table>
+                    <TableHeader className="bg-slate-50/80">
+                      <TableRow>
+                        <TableHead className="font-bold text-xs">Date</TableHead>
+                        <TableHead className="font-bold text-xs">Feed</TableHead>
+                        <TableHead className="font-bold text-xs">Quantity</TableHead>
+                        <TableHead className="font-bold text-xs">Time</TableHead>
+                        <TableHead className="font-bold text-xs">Notes</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {animalFeedingRecords.map((record) => (
+                        <TableRow key={record.id} className="hover:bg-slate-50/50">
+                          <TableCell className="font-medium text-xs">
+                            {formatCalendarDate(record.feeding_date)}
+                          </TableCell>
+                          <TableCell className="font-bold text-xs text-slate-900">
+                            {record.feed_name || record.feed_type.replaceAll("_", " ")}
+                          </TableCell>
+                          <TableCell className="font-mono font-bold text-xs text-amber-700">
+                            {Number(record.quantity_kg).toFixed(2)} kg
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-600">
+                            {record.feeding_time?.replaceAll("_", " ") || "—"}
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-500">
+                            {record.notes || "—"}
                           </TableCell>
                         </TableRow>
                       ))}

@@ -23,10 +23,13 @@ export interface LivestockType {
 export interface LivestockInventoryItem {
   id: string;
   farmerName: string;
+  barangayName?: string | null;
+  barangayId?: number | null;
   livestockTypeName: string;
   entryType: EntryType;
   quantity: number;
   tagNumber: string;
+  ownershipCertificateNumber?: string | null;
   breed: string;
   sex: string;
   birthDate: string | null;
@@ -57,6 +60,9 @@ export interface InventoryApiItem {
   livestock_type?: number;
   date_acquired?: string | null;
   farmer_name: string;
+  barangay_name?: string | null;
+  barangay_id?: number | null;
+  ownership_certificate_number?: string | null;
   livestock_type_name: string;
   entry_type: EntryType;
   quantity: number;
@@ -496,10 +502,13 @@ export function getAvatarById(avatarId?: string | null, speciesName?: string): L
 export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => ({
   id: String(item.id),
   farmerName: item.farmer_name,
+  barangayName: item.barangay_name || null,
+  barangayId: item.barangay_id || null,
   livestockTypeName: item.livestock_type_name,
   entryType: item.entry_type,
   quantity: item.quantity,
   tagNumber: item.tag_number,
+  ownershipCertificateNumber: item.ownership_certificate_number || null,
   breed: item.breed,
   sex: item.sex,
   birthDate: item.birth_date ?? null,
