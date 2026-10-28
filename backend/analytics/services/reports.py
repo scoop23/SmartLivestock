@@ -12,7 +12,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from diseases.models import DiseaseCase, MortalityRecord
 from livestock.models import LivestockInventory
 from movements.models import LivestockInspection, LivestockInspectionClearance
-from production.models import LiveAnimalSale, ProductionRecord, SlaughterRecord
+from production.models import LiveAnimalSale, SlaughterRecord
 from smartlivestock.workflows import ADMIN, MAO, has_all_barangay_access, role_name
 
 from .movement_direction import classify_movement_direction
@@ -20,7 +20,6 @@ from .gis import OFFICIAL_BARANGAYS
 
 REPORT_TITLES = {
     "inventory": "Livestock Inventory Report",
-    "production": "Production Report",
     "disease_mortality": "Disease and Mortality Report",
     "slaughter": "Slaughter Report",
     "movement": "Auction and Movement Report",
@@ -97,48 +96,6 @@ def _base(report_type, start, end, filters):
         ], rows, {"records": len(rows), "total_heads": sum(row["quantity"] for row in rows),
                  "barangays_represented": len({row["barangay"] for row in rows if row["barangay"]}),
                  "heads_by_species": by_species, "heads_by_operational_status": by_status}
-
-    if report_type == "production":
-        query = ProductionRecord.objects.filter(
-            status=ProductionRecord.ProductionStatus.RECORDED,
-            slaughter__isnull=True,
-            record_date__range=(start, end),
-        )
-        query = _apply_species(query, species, "livestock__livestock_type__name", "batch__livestock_type__name")
-        query = _apply_barangay(query, barangay, "farmer_at_record__barangay")
-        query = query.annotate(
-            species_name=Coalesce("livestock__livestock_type__name", "batch__livestock_type__name", output_field=None),
-            farmer_name=F("farmer_at_record__user__first_name"),
-            barangay_name=F("farmer_at_record__barangay__barangay_name"),
-        ).select_related("livestock__farmer__user", "batch__farmer__user", "farmer_at_record__user").order_by("record_date", "pk")
-        rows = [{
-            "record_date": obj.record_date.isoformat(), "production_type": obj.production_type,
-            "species": obj.species_name or "", "quantity": _number(obj.quantity), "unit": obj.unit,
-            "source": "Farmer-reported production",
-            "farmer": (obj.farmer_at_record.user.get_full_name() or obj.farmer_at_record.user.username)
-                if obj.farmer_at_record_id else "",
-            "barangay": obj.barangay_name or "", "status": obj.status,
-        } for obj in query]
-        # Count distinct foreign-key identities rather than farmer display names,
-        # which can collide when two farmers share the same name.
-        farmer_ids = {
-            obj.farmer_at_record_id
-            for obj in query
-        }
-        # Keep totals separate by unit: liters, kilograms, and pieces cannot be
-        # added together into one meaningful production number.
-        totals = {}
-        for row in rows:
-            key = f"{row['production_type']} ({row['unit']})"
-            totals[key] = totals.get(key, 0) + row["quantity"]
-        return (
-            [("record_date", "Date"), ("production_type", "Production type"), ("species", "Species"),
-             ("quantity", "Quantity"), ("unit", "Unit"), ("source", "Source"), ("farmer", "Farmer"),
-             ("barangay", "Barangay"), ("status", "Record status")],
-            rows,
-            {"records": len(rows), "contributing_farmers": len(farmer_ids - {None}),
-             "totals_by_type_and_unit": totals},
-        )
 
     if report_type == "disease_mortality":
         diseases = DiseaseCase.objects.filter(status=approved, record_date__range=(start, end))
@@ -310,13 +267,6 @@ def _analysis_metrics(report_type, rows):
         # Registration timestamps do not preserve past stock snapshots, so a
         # registration cohort must never be presented as historical holdings.
         return {}
-    if report_type == "production":
-        # There is deliberately one metric per unit: liters cannot be compared to pieces.
-        totals = {}
-        for row in rows:
-            unit = row.get("unit") or "Unknown unit"
-            totals[unit] = totals.get(unit, 0) + row["quantity"]
-        return {f"production:{unit}": (value, unit) for unit, value in totals.items()}
     if report_type == "disease_mortality":
         return {
             "disease_cases": (sum(row.get("record_kind") == "DISEASE" for row in rows), "cases"),
@@ -373,24 +323,6 @@ def _build_analysis(report_type, rows, previous_rows, previous_period, summary):
             kpi("Largest barangay", barangays[0][0], f"{barangays[0][1]:,} heads")
             findings.append(f"{barangays[0][0]} had the highest registered livestock count in this selection ({barangays[0][1]:,} heads).")
         ranking("Top 5 Barangays by Registered Livestock", barangays, "heads")
-    elif report_type == "production":
-        units = sorted({str(row.get("unit") or "Unknown") for row in rows})
-        kpi("Production records", len(rows))
-        if rows:
-            kpi("Contributing farmers", summary["contributing_farmers"])
-        for unit in units:
-            unit_rows = [row for row in rows if str(row.get("unit") or "Unknown") == unit]
-            total = sum(row["quantity"] for row in unit_rows)
-            kpi(f"Total production ({unit})", total, unit)
-            by_barangay = _sum_by([row for row in unit_rows if row.get("barangay")], "barangay", "quantity")
-            by_type = _sum_by(unit_rows, "production_type", "quantity")
-            ranking(f"Top 5 Barangays by Production ({unit})", by_barangay, unit)
-            if by_barangay:
-                findings.append(f"{by_barangay[0][0]} recorded the highest production measured in {unit.lower()} ({_format_analysis_number(by_barangay[0][1])} {unit.lower()}).")
-            if by_type:
-                findings.append(f"{by_type[0][0]} was the highest recorded production type within the {unit.lower()} unit group.")
-        if not rows:
-            kpi("Production records", 0)
     elif report_type == "disease_mortality":
         diseases = [row for row in rows if row.get("record_kind") == "DISEASE"]
         deaths = [row for row in rows if row.get("record_kind") == "MORTALITY"]
@@ -473,13 +405,6 @@ def _build_analysis(report_type, rows, previous_rows, previous_period, summary):
         else:
             coverage = ("No approved livestock registrations match this registration-date range and filter selection. "
                         "Historical monthly inventory snapshots are not available.")
-    elif report_type == "production" and not rows:
-        coverage = "No eligible farmer-reported production logs were available for this report and filter selection."
-    elif report_type == "production" and summary.get("records", len(rows)) < 10:
-        count = summary.get("records", len(rows))
-        coverage = f"Only {count} eligible farmer-reported production logs were available during the selected period; interpret patterns with caution."
-    elif report_type == "production":
-        coverage = f"{summary.get('records', len(rows)):,} eligible farmer-reported production logs were available during the selected period."
     elif not rows:
         coverage = "No approved records were available for this report and filter selection."
     elif summary.get("records", len(rows)) < 10:
@@ -497,7 +422,6 @@ def _build_analysis(report_type, rows, previous_rows, previous_period, summary):
 
     methodologies = {
         "inventory": "Inventory rows are approved livestock registrations selected by their registration date. Operational status reflects the latest saved state. The model does not store historical inventory snapshots, so this report cannot reconstruct holdings as of past dates.",
-        "production": "Production statistics use RECORDED farmer logs only. Historical approval-state rows and slaughter-linked projections are excluded; official carcass weights appear in the separate slaughter report. Quantities remain grouped by recorded unit.",
         "disease_mortality": "Disease statistics represent reported approved case records, not clinical diagnoses or epidemiological predictions. Mortality records are counted separately.",
         "slaughter": "Slaughter statistics use approved slaughter records; animal counts and carcass kilograms are separate measures.",
         "movement": "Auction activity comes from approved sale records. Movement direction and volume come from approved inspection/clearance records and remain separate from auction activity.",
@@ -521,7 +445,7 @@ def _build_analysis(report_type, rows, previous_rows, previous_period, summary):
             if previous_value == 0:
                 continue
             comparison_rows.append({
-                "label": key.split(":", 1)[1].title() if key.startswith("production:") else key.replace("_", " ").title(),
+                "label": key.replace("_", " ").title(),
                 "current": current_value, "previous": previous_value, "unit": unit,
                 "change_percent": round((current_value - previous_value) / previous_value * 100, 1),
             })

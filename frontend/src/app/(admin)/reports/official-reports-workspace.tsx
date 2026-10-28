@@ -77,12 +77,6 @@ const REPORT_OPTIONS: { value: ReportType; label: string; description: string; i
     icon: BarChart3,
   },
   {
-    value: "production",
-    label: "Production",
-    description: "Approved production records.",
-    icon: ClipboardCheck,
-  },
-  {
     value: "disease_mortality",
     label: "Disease and mortality",
     description: "Health and mortality records.",
@@ -111,7 +105,6 @@ const REPORT_OPTIONS: { value: ReportType; label: string; description: string; i
 const REPORT_SUMMARY_DESCRIPTIONS: Record<ReportType, string> = {
   slaughter: "Based on approved slaughter records from slaughterhouses.",
   inventory: "Based on approved livestock population and inventory records.",
-  production: "Based on approved production records from local producers.",
   disease_mortality: "Based on approved disease surveillance and mortality records.",
   movement: "Based on approved auction and livestock movement records.",
   inspection: "Based on approved inspection and clearance activity records.",
@@ -140,13 +133,6 @@ const CHART_CONFIGS: Record<
     speciesTitle: "Inventory by Species",
     speciesSubtitle: "Approved registered livestock.",
     unit: "heads",
-  },
-  production: {
-    trendTitle: "Production Trend",
-    trendSubtitle: "Approved production output per month.",
-    speciesTitle: "Production Distribution",
-    speciesSubtitle: "Output by production type and species.",
-    unit: "units",
   },
   disease_mortality: {
     trendTitle: "Surveillance Trend",
@@ -300,46 +286,6 @@ function deriveSummaryKpis(report: OfficialReport, reportType: ReportType) {
           label: "Barangays represented",
           value: barangays.toLocaleString(),
           detail: "barangays",
-          icon: PieIcon,
-          bgClass: "bg-purple-100/70",
-          textClass: "text-purple-700",
-        },
-      ];
-    }
-    case "production": {
-      const totalOutput = sumAmount("quantity");
-      const records = report.record_count ?? rows.length;
-      const farmers = Number(summary.contributing_farmers ?? countDistinct("farmer_name"));
-      const types = countDistinct("production_type");
-      return [
-        {
-          label: "Total production output",
-          value: totalOutput.toLocaleString(),
-          detail: "volume / items",
-          icon: ClipboardCheck,
-          bgClass: "bg-emerald-100/70",
-          textClass: "text-emerald-800",
-        },
-        {
-          label: "Production records",
-          value: records.toLocaleString(),
-          detail: "approved records",
-          icon: FileText,
-          bgClass: "bg-emerald-100/70",
-          textClass: "text-emerald-800",
-        },
-        {
-          label: "Contributing producers",
-          value: farmers.toLocaleString(),
-          detail: "farmers / producers",
-          icon: Scale,
-          bgClass: "bg-blue-100/70",
-          textClass: "text-blue-700",
-        },
-        {
-          label: "Production types",
-          value: types.toLocaleString(),
-          detail: "types recorded",
           icon: PieIcon,
           bgClass: "bg-purple-100/70",
           textClass: "text-purple-700",

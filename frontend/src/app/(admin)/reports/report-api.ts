@@ -1,6 +1,6 @@
 import api from "@/lib/axios";
 
-export type ReportType = "inventory" | "production" | "disease_mortality" | "slaughter" | "movement" | "inspection";
+export type ReportType = "inventory" | "disease_mortality" | "slaughter" | "movement" | "inspection";
 export type ReportFilters = { species: string; barangay: string; purpose: string; direction: string };
 export type ReportAnalysis = {
   executive_summary: { label: string; value: string | number; detail?: string }[];

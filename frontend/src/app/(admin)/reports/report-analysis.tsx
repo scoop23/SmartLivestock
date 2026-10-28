@@ -45,7 +45,7 @@ export function ReportAnalysis({ report }: { report: OfficialReport }) {
     </section>
 
     {!!analysis.rankings.length && <section className="space-y-3" aria-labelledby="rankings-heading">
-      <div><h3 id="rankings-heading" className="font-bold text-slate-900">Top Rankings</h3><p className="text-xs text-slate-500">Production rankings are separated by unit to keep measurements comparable.</p></div>
+      <div><h3 id="rankings-heading" className="font-bold text-slate-900">Top Rankings</h3><p className="text-xs text-slate-500">Rankings are separated by unit and category to keep measurements comparable.</p></div>
       <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {analysis.rankings.map((ranking) => <article key={ranking.title} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4"><h4 className="text-sm font-bold text-slate-800">{ranking.title}</h4><ol className="mt-2 space-y-1.5">{ranking.items.map((item, index) => <li key={item.name} className="flex min-w-0 items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate text-slate-700">{index + 1}. {item.name}</span><span className="shrink-0 font-semibold text-slate-900">{showNumber(item.value)} {ranking.unit}</span></li>)}</ol></article>)}
       </div>

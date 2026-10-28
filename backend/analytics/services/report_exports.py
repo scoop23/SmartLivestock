@@ -179,21 +179,6 @@ def _distinct_count_rows(rows, label_key, identity_key):
     return sorted(((name, len(identities)) for name, identities in groups.items()), key=lambda pair: pair[1], reverse=True)
 
 
-def _monthly_type_rows(rows):
-    """Build per-type monthly series; callers pass rows sharing one physical unit."""
-    months = {}
-    types = set()
-    for row in rows:
-        month = str(row.get("record_date") or "")[:7]
-        if len(month) != 7:
-            continue
-        production_type = str(row.get("production_type") or "Unknown")
-        types.add(production_type)
-        values = months.setdefault(month, {})
-        values[production_type] = values.get(production_type, 0) + float(row.get("quantity") or 0)
-    return sorted(types), [(month, values) for month, values in sorted(months.items())]
-
-
 def _stacked_rows(rows, category_key, series_key, value_key):
     """Aggregate additive quantities into category-by-series rows for stacked bars."""
     categories = {}
@@ -238,24 +223,6 @@ def _report_chart_specs(report):
         species, composition = _stacked_rows(rows, "barangay", "species", "quantity")
         stacked("Species Composition by Barangay", species, composition, "heads",
                 "Stacked approved head counts show how livestock mix differs by barangay.")
-    elif kind == "production":
-        units = sorted({str(row.get("unit") or "Unknown") for row in rows})
-        for unit in units:
-            unit_rows = [row for row in rows if str(row.get("unit") or "Unknown") == unit]
-            line(f"Production Over Time ({unit})", _monthly_rows(unit_rows, "quantity"), unit.lower(), "Monthly farmer-recorded output.")
-            distribution = _chart_rows(unit_rows, "production_type", "quantity")
-            bar(f"Production by Type ({unit})", distribution, unit.lower(), "Production types compared only within the same unit.")
-            if len(distribution) > 1:
-                pie(f"Production Distribution by Type ({unit})", distribution, f"Share of production measured in {unit.lower()}; units remain separate.")
-            bar(f"Production by Barangay ({unit})", _chart_rows(unit_rows, "barangay", "quantity"), unit.lower(),
-                f"Recorded production volume by barangay, measured only in {unit.lower()}.")
-            types, type_months = _monthly_type_rows(unit_rows)
-            if len(types) > 1 and len(type_months) > 1:
-                specs.append({"title": f"Production Type Trends ({unit})", "type": "multi_line",
-                              "data": type_months, "series": types, "unit": unit.lower(),
-                              "description": "Monthly output by type; only types recorded in this same unit share an axis."})
-        bar("Number of Production Records by Barangay", _chart_rows(rows, "barangay", "", count=True), "records",
-            "Counts eligible farmer production submissions, not production volume.")
     elif kind == "disease_mortality":
         diseases = [row for row in rows if row.get("record_kind") == "DISEASE"]
         deaths = [row for row in rows if row.get("record_kind") == "MORTALITY"]
@@ -593,7 +560,6 @@ def pdf_report(report):
     story.extend([Paragraph("Charts &amp; Analysis", ParagraphStyle("ChartSection", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#1E4D2B"))), Spacer(1, 5)])
     interpretations = {
         "inventory": "This report summarizes approved livestock inventory in the selected period. Species and barangay charts show how recorded heads are distributed.",
-        "production": "This report summarizes RECORDED farmer logs only. Historical approval-state production rows are excluded. Each chart keeps its original unit, so liters, kilograms, and pieces are not combined.",
         "disease_mortality": "This report describes approved disease and mortality records. Case counts and affected animals are distinct measures; the charts are descriptive, not predictive.",
         "slaughter": "This report summarizes approved slaughter activity and recorded carcass weights. Animal counts and kilograms are charted separately.",
         "movement": "Auction Activity describes sale operations; Movement Analysis describes geographic direction. These are separate records and measures.",

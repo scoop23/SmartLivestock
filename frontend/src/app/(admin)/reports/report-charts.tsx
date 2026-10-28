@@ -51,21 +51,6 @@ const monthlyRecords = (rows: Row[], dateKey = "record_date", identityKey?: stri
   });
   return [...totals].sort(([a], [b]) => a.localeCompare(b)).map(([month, values]) => ({ month, value: values.size }));
 };
-const groupedByTypeAndMonth = (rows: Row[]) => {
-  const months = new Map<string, Record<string, number>>();
-  const types = new Set<string>();
-  for (const row of rows) {
-    const date = String(row.record_date ?? "");
-    if (!/^\d{4}-\d{2}/.test(date)) continue;
-    const month = date.slice(0, 7);
-    const type = label(row, "production_type");
-    types.add(type);
-    const values = months.get(month) ?? {};
-    values[type] = (values[type] ?? 0) + amount(row, "quantity");
-    months.set(month, values);
-  }
-  return { types: [...types].sort(), data: [...months].sort(([a], [b]) => a.localeCompare(b)).map(([month, values]) => ({ month, ...values })) };
-};
 
 function ChartCard({ title, note, children, empty = false, emptyMessage = "No data available for the selected filters." }: { title: string; note?: string; children: ReactNode; empty?: boolean; emptyMessage?: string }) {
   return <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
@@ -82,15 +67,6 @@ function Bars({ data, horizontal = false, unit }: { data: { name: string; value:
     <Tooltip formatter={(v) => [`${Number(v).toLocaleString()}${unit ? ` ${unit}` : ""}`, "Total"]} />
     <Bar dataKey="value" fill="#047857" radius={[4, 4, 0, 0]} />
   </BarChart></ResponsiveContainer>;
-}
-
-function MultiTrend({ data, series, unit }: { data: Record<string, string | number>[]; series: string[]; unit: string }) {
-  if (!data.length || !series.length) return null;
-  return <ResponsiveContainer width="100%" height="100%"><LineChart data={data} margin={{ top: 8, right: 14, left: -12, bottom: 4 }}>
-    <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="month" tick={{ fontSize: 10 }} /><YAxis width={48} tickFormatter={(v) => Number(v).toLocaleString()} />
-    <Tooltip labelFormatter={(v) => new Intl.DateTimeFormat("en", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${v}-01T00:00:00Z`))} formatter={(v) => [`${Number(v).toLocaleString()} ${unit}`, "Output"]} /><Legend />
-    {series.map((name, index) => <Line key={name} type="monotone" dataKey={name} stroke={COLORS[index % COLORS.length]} strokeWidth={2} dot={{ r: 2 }} />)}
-  </LineChart></ResponsiveContainer>;
 }
 
 function Donut({ data, force = false }: { data: { name: string; value: number }[]; force?: boolean }) {
@@ -120,7 +96,6 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
   const records = (kind: string) => rows.filter((row) => row.record_kind === kind);
   const descriptions: Record<ReportType, string> = {
     inventory: "This report summarizes approved livestock inventory in the selected period. Charts break down recorded heads by species, sex, and operational status.",
-    production: "This report summarizes approved production records in the selected period. Production types stay grouped by their original unit, so liters, kilograms, and pieces are never combined into one percentage.",
     disease_mortality: "This report summarizes approved disease and mortality records. Disease charts describe reported case counts and affected heads, while mortality charts show recorded deaths over time and by species.",
     slaughter: "This report summarizes approved slaughter records, including animals processed and recorded carcass weights. Species distribution and monthly trends describe activity without combining head counts with kilograms.",
     movement: "This report separates auction activity from livestock movement. Auction charts describe sale activity; movement charts describe origin, destination, and direction, including unresolved UNKNOWN locations.",
@@ -133,29 +108,6 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
       <ChartCard title="Livestock Distribution by Species" note="Share of registered livestock heads. Pie charts suit a small set of categories that make up a whole." empty={!rows.length}><Donut data={sumBy(rows, "species", "quantity")} /></ChartCard>
       <ChartCard title="Historical Inventory Trend" note="The current inventory records do not contain dated historical stock snapshots." empty emptyMessage="No historical inventory trend available." ><p /></ChartCard>
       <ChartCard title="Livestock by Operational Status" note="Approved heads grouped by their current operational status." empty={!rows.length}><Bars data={sumBy(rows, "operational_status", "quantity")} horizontal unit="heads" /></ChartCard>
-    </div></div>;
-  }
-  if (reportType === "production") {
-    const units = [...new Set(rows.map((row) => label(row, "unit")))];
-    if (!units.length) return <ChartCard title="Production Visualizations" empty><p /></ChartCard>;
-    const typeCharts = units.map((unit) => {
-      const unitRows = rows.filter((row) => label(row, "unit") === unit);
-      const distribution = sumBy(unitRows, "production_type", "quantity");
-      return <div key={unit} className="contents"><ChartCard title={`Production by Type (${unit})`} note="Types are compared only within the same unit." empty={!unitRows.length}><Bars data={distribution} unit={unit.toLowerCase()} /></ChartCard>
-        {distribution.length > 1 && <ChartCard title={`Production Distribution by Type (${unit})`} note={`Share of production measured in ${unit.toLowerCase()}. Different units are never combined.`}><Donut data={distribution} /></ChartCard>}</div>;
-    });
-    const extraTypeTrends = units.map((unit) => {
-      const grouped = groupedByTypeAndMonth(rows.filter((row) => label(row, "unit") === unit));
-      if (grouped.types.length < 2 || grouped.data.length < 2) return null;
-      return <ChartCard key={`type-trend-${unit}`} title={`Production Type Trends (${unit})`} note="Monthly output by type; only types recorded in this same unit share an axis."><MultiTrend data={grouped.data} series={grouped.types} unit={unit.toLowerCase()} /></ChartCard>;
-    });
-    const trends = units.map((unit) => <ChartCard key={unit} title={`Production Over Time (${unit})`} note="Monthly approved output." empty={!rows.some((row) => label(row, "unit") === unit)}><Trend data={monthly(rows.filter((row) => label(row, "unit") === unit), "quantity")} unit={unit.toLowerCase()} /></ChartCard>);
-    // Volume rankings are unit-specific; record counts are comparable because they count submissions, not quantities.
-    const barangayRecordCount = countBy(rows, "barangay", "id");
-    return <div className="space-y-4">{description}<div className="grid min-w-0 gap-4 lg:grid-cols-2">{trends}{typeCharts}
-      {units.map((unit) => { const unitRows = rows.filter((row) => label(row, "unit") === unit); return <ChartCard key={`barangay-${unit}`} title={`Production by Barangay (${unit})`} note={`Recorded production volume by barangay, measured only in ${unit.toLowerCase()}.`} empty={!unitRows.length}><Bars data={sumBy(unitRows, "barangay", "quantity")} horizontal unit={unit.toLowerCase()} /></ChartCard>; })}
-      <ChartCard title="Number of Production Records by Barangay" note="Counts approved submissions, not production volume." empty={!rows.length}><Bars data={barangayRecordCount} horizontal unit="records" /></ChartCard>
-      {extraTypeTrends}
     </div></div>;
   }
   if (reportType === "disease_mortality") {
