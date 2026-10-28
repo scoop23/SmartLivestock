@@ -48,6 +48,7 @@ from datetime import date
 import pandas as pd
 import numpy as np
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 from livestock.models import LivestockOwnershipTransfer
 
 from django.db.models import Case, Count, DateTimeField, F, Max, Sum, When
@@ -226,6 +227,8 @@ def extract_monthly_series(
                     and sufficiency explanation.
     """
     domain = (domain or "production").lower()
+    if domain == "production":
+        raise ValidationError({"domain": "Farmer production forecasting has been retired."})
     target_clean = (target or "MILK").upper()
     unit_clean = (unit or "LITERS").upper()
 

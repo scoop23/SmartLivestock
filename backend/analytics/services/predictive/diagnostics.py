@@ -25,6 +25,7 @@ from django.utils.timezone import localdate
 
 from livestock.models import LivestockOwnershipTransfer
 from production.models import ProductionRecord, SlaughterRecord
+from diseases.models import DiseaseCase, MortalityRecord
 from smartlivestock.workflows import scope_reviewer_queryset
 from .data import (
     extract_monthly_series,
@@ -44,24 +45,19 @@ from .auction_weekly import evaluate_weekly_auction, generate_weekly_auction_for
 # The four authoritative dashboard targets
 CORE_DIAGNOSTIC_TARGETS = [
     {
-        "id": "milk",
-        "domain": "production",
-        "target": "MILK",
-        "unit": "LITERS",
-        "label": "Milk Production",
-        "commodity_type": "MILK",
-        "reporting_type": "RECURRING_MONTHLY",
-        "description": "Farmer-recorded dairy output in liters across Padre Garcia farms.",
+        "id": "disease_reports", "domain": "disease", "target": "ALL", "unit": "CASES",
+        "label": "Disease Reports", "commodity_type": "DISEASE_REPORTS", "reporting_type": "EVENT_BASED",
+        "description": "Approved disease report counts by event month; reporting activity does not establish disease prevalence.",
     },
     {
-        "id": "farmer_meat",
-        "domain": "production",
-        "target": "MEAT",
-        "unit": "KILOGRAMS",
-        "label": "Farmer Meat Yield",
-        "commodity_type": "MEAT",
-        "reporting_type": "EVENT_BASED",
-        "description": "Farmer-recorded meat yield not linked to an official slaughter record.",
+        "id": "disease_heads", "domain": "disease", "target": "ALL", "unit": "HEADS",
+        "label": "Disease Affected Heads", "commodity_type": "AFFECTED_HEADS", "reporting_type": "EVENT_BASED",
+        "description": "Affected-head counts recorded in approved disease reports; repeated episodes may involve the same animal.",
+    },
+    {
+        "id": "mortality_deaths", "domain": "mortality", "target": "ALL", "unit": "HEADS",
+        "label": "Mortality Deaths", "commodity_type": "DEATHS", "reporting_type": "EVENT_BASED",
+        "description": "Recorded death counts in approved mortality reports; missing periods are unknown and no historical population rate is implied.",
     },
     {
         "id": "slaughter_meat",
@@ -107,6 +103,10 @@ def _approval_status_breakdown(domain: str, target: str, unit: str, user=None) -
             "Status context for production records dated before the current month; routine RECORDED farmer logs do not require review. "
             "Farmer meat excludes records linked to slaughter. Counts are source rows, not forecast months."
         )
+    elif domain in ("disease", "mortality"):
+        model = DiseaseCase if domain == "disease" else MortalityRecord
+        queryset = scope_reviewer_queryset(model.objects.all(), user).filter(record_date__lt=current_month)
+        scope_note = "Workflow totals count source reports before the current month. Forecasting uses approved records; reports, affected heads, and deaths remain separate targets."
     elif domain == "slaughter":
         queryset = scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(
             record_date__lt=current_month,

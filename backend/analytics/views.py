@@ -500,8 +500,8 @@ def predictive_model_comparison(request):
     on chronological train/test split of approved municipal data across production, disease, mortality,
     slaughter, and auction domains.
     """
-    domain = request.query_params.get("domain", "production").lower()
-    target = request.query_params.get("target") or request.query_params.get("production_type", "MILK")
+    domain = request.query_params.get("domain", "disease").lower()
+    target = request.query_params.get("target") or request.query_params.get("production_type", "ALL")
     target = target.upper()
 
     default_unit = "LITERS" if domain == "production" else (
@@ -550,8 +550,8 @@ def predictive_forecast(request):
     """
     Generates out-of-sample future projections using the best evaluated model across any domain.
     """
-    domain = request.query_params.get("domain", "production").lower()
-    target = request.query_params.get("target") or request.query_params.get("production_type", "MILK")
+    domain = request.query_params.get("domain", "disease").lower()
+    target = request.query_params.get("target") or request.query_params.get("production_type", "ALL")
     target = target.upper()
 
     default_unit = "LITERS" if domain == "production" else (
@@ -605,6 +605,8 @@ def predictive_readiness_diagnostics(request):
     and cutoff timeline for MAO/Admin decision support.
     """
     domain = request.query_params.get("domain")
+    if domain and domain.lower() == "production":
+        return Response({"detail": "Farmer production forecasting has been retired."}, status=status.HTTP_400_BAD_REQUEST)
     target = request.query_params.get("target") or request.query_params.get("production_type")
     unit = request.query_params.get("unit")
     parameters = ForecastHorizonSerializer(data=request.query_params)
@@ -651,6 +653,7 @@ def predictive_readiness_diagnostics(request):
 @permission_classes([IsAuthenticated, isMAO | isSibat])
 def individual_milk_forecast(request):
     """List isolated demo cows or forecast one selected demo cow for seven days."""
+    return Response({"detail": "Individual milk forecasting has been retired."}, status=status.HTTP_410_GONE)
     from .services.predictive.individual_milk import get_individual_milk_forecast, list_demo_cows
 
     try:
@@ -682,6 +685,7 @@ def individual_milk_forecast(request):
 @permission_classes([IsAuthenticated])
 def livestock_milk_forecast(request, livestock_id):
     """Return a safe service error if any part of the database-backed request fails."""
+    return Response({"detail": "Individual milk forecasting has been retired."}, status=status.HTTP_410_GONE)
     try:
         return _livestock_milk_forecast_response(request, livestock_id)
     except DatabaseError:

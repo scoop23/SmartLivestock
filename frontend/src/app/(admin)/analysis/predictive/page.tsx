@@ -30,7 +30,7 @@ export default function PredictiveAnalyticsLandingPage() {
             <p className="text-[11px] text-slate-500">
               {activeTab === 'evaluated'
                 ? 'Empirical holdout validation, baseline comparisons, and commodity projections'
-                : 'Interactive domain explorer for disease surveillance, mortality, weather sensitivity, and livestock milk'}
+                : 'Interactive domain explorer for disease surveillance, mortality, official slaughter, and livestock sales'}
             </p>
           </div>
 

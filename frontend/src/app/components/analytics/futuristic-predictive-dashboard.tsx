@@ -300,7 +300,7 @@ function MissionControlTooltip({ active, payload, label, unit }: any) {
 // ---------------------------------------------------------------------------
 
 export function FuturisticPredictiveDashboard() {
-  const [selectedTargetId, setSelectedTargetId] = useState<string>("milk");
+  const [selectedTargetId, setSelectedTargetId] = useState<string>("slaughter_meat");
   const [horizonMonths, setHorizonMonths] = useState<number>(6);
   const [viewMode, setViewMode] = useState<"overview" | "backtest" | "models" | "checklist">("overview");
   const [showTableView, setShowTableView] = useState<boolean>(false);

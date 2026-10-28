@@ -1205,15 +1205,7 @@ export default function LivestockDetailPage() {
   // Milk forecasting is currently supported for individually identified female cattle and carabao.
   // The backend still decides whether its status, age, and approved history
   // are sufficient to return a forecast.
-  const canShowMilkPredictionTab = Boolean(
-    activeItem
-      && ["cattle", "cow", "baka", "carabao", "buffalo"].some((term) => normalizedLivestockType.includes(term))
-      && activeItem.operationalStatus === "ACTIVE"
-      && activeItem.entryType === "INDIVIDUAL"
-      && activeItem.quantity === 1
-      && canProduceMilk
-      && ["FEMALE", "F"].includes(activeItem.sex.trim().toUpperCase())
-  );
+  const canShowMilkPredictionTab = false;
 
   const effectiveProfileTab = useMemo(() => {
     if (!canShowMilkPredictionTab && activeProfileTab === "milk-prediction") return "growth";

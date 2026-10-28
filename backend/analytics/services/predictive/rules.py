@@ -36,7 +36,6 @@ from django.db.models import Sum
 from diseases.models import DiseaseCase
 from smartlivestock.workflows import scope_reviewer_queryset
 from ..population import population_summary
-from .forecasting import generate_future_forecast
 
 
 def generate_prescriptive_recommendations(
@@ -49,90 +48,6 @@ def generate_prescriptive_recommendations(
     actionable recommendations.
     """
     recommendations: List[Dict[str, Any]] = []
-
-    # 1. Fetch Forecast & Baseline Data
-    forecast_data = generate_future_forecast(production_type=production_type, unit=unit, horizon_months=3, user=user)
-
-    forecast_status = forecast_data.get("status")
-    recent_baseline = 0.0
-    forecast_avg = 0.0
-    pct_change = 0.0
-
-    if forecast_status == "ready":
-        meta = forecast_data.get("metadata", {})
-        recent_baseline = meta.get("recent_baseline_avg", 0.0)
-        forecast_avg = meta.get("forecast_period_avg", 0.0)
-        pct_change = meta.get("projected_change_pct", 0.0)
-
-        # -------------------------------------------------------------
-        # Rule 1: Significant Production Decline
-        # Condition: Forecasted production drops > 10% below recent baseline
-        # -------------------------------------------------------------
-        if pct_change <= -10.0 and recent_baseline > 0:
-            severity = "HIGH" if pct_change <= -20.0 else "MEDIUM"
-            recommendations.append({
-                "rule": "PRODUCTION_DECLINE_ALERT",
-                "category": "Production Monitoring",
-                "severity": severity,
-                "title": f"Projected {abs(pct_change)}% Production Decline",
-                "reason": (
-                    f"Forecasted monthly average ({forecast_avg} {unit}) is trending significantly "
-                    f"below the recent 3-month baseline ({recent_baseline} {unit})."
-                ),
-                "evidence": {
-                    "recent_baseline": f"{recent_baseline} {unit}",
-                    "forecasted_average": f"{forecast_avg} {unit}",
-                    "change_percentage": f"{pct_change}%",
-                    "threshold_applied": "-10.0%",
-                },
-                "recommendation": (
-                    "Schedule field visits with dairy/livestock technologists to inspect feed quality, "
-                    "water availability, and seasonal calving cycles in affected farmer clusters."
-                ),
-                "action_type": "FIELD_VISIT",
-            })
-
-        # -------------------------------------------------------------
-        # Rule 2: Production Surge / High Yield Outlook
-        # Condition: Forecasted production increases > 10% above recent baseline
-        # -------------------------------------------------------------
-        elif pct_change >= 10.0 and recent_baseline > 0:
-            recommendations.append({
-                "rule": "PRODUCTION_SURGE_PREPARATION",
-                "category": "Logistics & Storage",
-                "severity": "LOW",
-                "title": f"Anticipated +{pct_change}% Production Surge",
-                "reason": (
-                    f"Forecasted monthly yield ({forecast_avg} {unit}) indicates strong growth "
-                    f"compared to the recent baseline ({recent_baseline} {unit})."
-                ),
-                "evidence": {
-                    "recent_baseline": f"{recent_baseline} {unit}",
-                    "forecasted_average": f"{forecast_avg} {unit}",
-                    "change_percentage": f"+{pct_change}%",
-                    "threshold_applied": "+10.0%",
-                },
-                "recommendation": (
-                    "Coordinate with municipal collection centers and dairy cooperatives to ensure "
-                    "adequate cold-storage capacity, milk transport containers, and marketing channels."
-                ),
-                "action_type": "LOGISTICS_PREPARATION",
-            })
-        else:
-            recommendations.append({
-                "rule": "STABLE_PRODUCTION_OUTLOOK",
-                "category": "Production Monitoring",
-                "severity": "LOW",
-                "title": "Stable Production Trajectory",
-                "reason": f"Forecasted yield ({forecast_avg} {unit}) aligns closely with recent baseline ({recent_baseline} {unit}).",
-                "evidence": {
-                    "recent_baseline": f"{recent_baseline} {unit}",
-                    "forecasted_average": f"{forecast_avg} {unit}",
-                    "change_percentage": f"{pct_change}%",
-                },
-                "recommendation": "Maintain standard rotational monitoring and quarterly census verification.",
-                "action_type": "ROUTINE_MONITORING",
-            })
 
     # -------------------------------------------------------------
     # Rule 3: Active Disease Surveillance & Biosecurity
@@ -205,15 +120,11 @@ def generate_prescriptive_recommendations(
         })
 
     return {
-        "status": "ready" if forecast_status == "ready" and total_approved_heads > 0 else "partial",
+        "status": "ready" if total_approved_heads > 0 else "partial",
         "rule_readiness": {
-            "production": "ready" if forecast_status == "ready" else "unavailable",
             "disease": "ready",
             "vaccination_records": "ready" if total_approved_heads > 0 else "unavailable",
         },
-        "target": {"production_type": production_type, "unit": unit},
-        "forecast_status": forecast_status,
-        "is_seeded": forecast_data.get("metadata", {}).get("is_seeded", False),
         "total_recommendations": len(recommendations),
         "recommendations": recommendations,
     }
