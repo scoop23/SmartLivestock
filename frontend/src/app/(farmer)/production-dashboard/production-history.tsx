@@ -22,24 +22,20 @@ ArrowUpDown,
 ChevronRight,
 Filter,
 Search,
-SlidersHorizontal,
 Trash2,
 } from "lucide-react";
 import { startTransition,useEffect,useMemo,useRef,useState } from "react";
 import { toast } from "sonner";
-import { STATUS_CHIPS,type SortKey } from "../livestock-inventory/livestock-record-list";
+import { type SortKey } from "../livestock-inventory/livestock-record-list";
 
-import { Separator } from "@/components/ui/separator";
 import api from "@/lib/axios";
 import {
 PRODUCTION_TYPE_LABELS,
 deleteProductionRecord,
 fetchProductionRecords,
-formatProductionStatus,
 mapProductionRecord,
 type ApiProductionRecord,
 type ProductionRecordItem,
-type ProductionStatus,
 type ProductionType,
 } from "./production-analytics";
 import ProductionDeleteDialog from "./production-delete-dialog";
@@ -57,18 +53,6 @@ const SORT_OPTIONS: { value: SortKey; label: string; icon: React.ElementType }[]
   { value: "quantity_desc", label: "Most Heads", icon: ArrowDownWideNarrow },
   { value: "quantity_asc", label: "Fewest Heads", icon: ArrowUpDown },
 ];
-
-const statusClasses: Record<ProductionStatus, string> = {
-  RECORDED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
-  APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
-  VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
-  PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
-  SUBJECT_TO_REVISION: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-300",
-  REJECTED: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-300",
-};
-
-const DEFAULT_STATUS_CLASS =
-  "bg-slate-100 text-slate-700 hover:bg-slate-100 border-slate-200";
 
 const typeClasses: Record<string, string> = {
   milk: "bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200",
@@ -111,7 +95,6 @@ export default function ProductionHistory({
 
   const [deleteTarget, setDeleteTarget] = useState<ProductionRecordItem | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>(initialTypeFilter);
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<ProductionRecordItem | null>(null);
   const [dialogRecord, setDialogRecord] = useState<ProductionRecordItem | null>(null);
@@ -209,10 +192,6 @@ export default function ProductionHistory({
   });
 
   const handleDelete = (record: ProductionRecordItem) => {
-    if (record.status !== "PENDING") {
-      toast.error("Farm history and reviewed records cannot be deleted.");
-      return;
-    }
     setDialogRecord(null);
     setDeleteTarget(record);
   };
@@ -229,15 +208,6 @@ export default function ProductionHistory({
     );
   }, [userProductions, speciesFilter]);
 
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { ALL: scopedProductions.length, RECORDED: 0, APPROVED: 0, PENDING: 0, SUBJECT_TO_REVISION: 0, REJECTED: 0 };
-    scopedProductions.forEach((item) => {
-      counts[item.status] = (counts[item.status] ?? 0) + 1;
-    });
-    counts["SUBJECT_TO_REVISION"] = (counts["SUBJECT_TO_REVISION"] ?? 0) + (counts["REJECTED"] ?? 0);
-    return counts;
-  }, [scopedProductions]);
-
   const filtered = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
 
@@ -246,12 +216,10 @@ export default function ProductionHistory({
         !query ||
         item.notes?.toLowerCase().includes(query) ||
         item.productionType?.toLowerCase().includes(query) ||
-        item.status?.toLowerCase().includes(query) ||
         item.livestockTypeName?.toLowerCase().includes(query);
 
-      const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
       const matchesType = typeFilter === "ALL" || item.productionType === typeFilter;
-      return matchedSearch && matchesStatus && matchesType;
+      return matchedSearch && matchesType;
     });
 
     result = [...result].sort((a, b) => {
@@ -270,14 +238,14 @@ export default function ProductionHistory({
     });
 
     return result;
-  }, [scopedProductions, searchQuery, statusFilter, typeFilter, sortBy]);
+  }, [scopedProductions, searchQuery, typeFilter, sortBy]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const [prevFilterKey, setPrevFilterKey] = useState(`${searchQuery}:${statusFilter}:${typeFilter}:${sortBy}:${speciesFilter}`);
-  const currentFilterKey = `${searchQuery}:${statusFilter}:${typeFilter}:${sortBy}:${speciesFilter}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(`${searchQuery}:${typeFilter}:${sortBy}:${speciesFilter}`);
+  const currentFilterKey = `${searchQuery}:${typeFilter}:${sortBy}:${speciesFilter}`;
   if (prevFilterKey !== currentFilterKey) {
     setPrevFilterKey(currentFilterKey);
     setCurrentPage(1);
@@ -344,46 +312,6 @@ export default function ProductionHistory({
             )}
           </div>
         </div>
-
-        <Separator className="opacity-60" />
-
-        <div className="px-3 py-2.5 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400 mr-0.5 shrink-0 hidden sm:block" />
-            {[STATUS_CHIPS[0], { value: "RECORDED", label: "Recorded", activeClass: "bg-emerald-700 text-white border-emerald-700", dotClass: "bg-emerald-500" }, ...STATUS_CHIPS.slice(1)].map((chip) => {
-              const isActive = statusFilter === chip.value;
-              const count = statusCounts[chip.value] ?? 0;
-              return (
-                <button
-                  key={chip.value}
-                  type="button"
-                  onClick={() => setStatusFilter(chip.value)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
-                  border transition-all duration-200 active:scale-95 ${
-                    isActive
-                      ? chip.activeClass
-                      : "bg-white border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50"
-                  }`}
-                >
-                  {!isActive && <span className={`w-1.5 h-1.5 rounded-full ${chip.dotClass}`}></span>}
-                  {chip.value === "APPROVED" ? "Approved by MAO" : chip.label}
-                  <span
-                    className={`
-                    text-[10px] font-extrabold tabular-nums ml-0.5 px-1.5 py-0.5 rounded-full leading-none
-                    ${
-                      isActive
-                        ? "bg-white/25 text-white"
-                        : "bg-slate-100 text-slate-500"
-                    }
-                  `}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       {/* Main Content Area */}
@@ -418,13 +346,12 @@ export default function ProductionHistory({
                 Showing {filtered.length} {filtered.length === 1 ? "Record" : "Records"}
               </p>
               <p className="text-xs text-slate-400 hidden md:block">
-                Click any record to view its approval and remark details
+                Click any record to view details
               </p>
             </div>
 
             {paginatedRecords.map((record: ProductionRecordItem, index: number) => {
               const isSelected = selected?.id === record.id;
-              const isApproved = record.status === "APPROVED";
 
               return (
                 <div
@@ -462,12 +389,8 @@ export default function ProductionHistory({
                             >
                               {PRODUCTION_TYPE_LABELS[record.productionType]}
                             </Badge>
-                            <Badge
-                              className={`uppercase tracking-wider ${
-                                statusClasses[record.status] ?? DEFAULT_STATUS_CLASS
-                              }`}
-                            >
-                              {formatProductionStatus(record.status)}
+                            <Badge className="uppercase tracking-wider bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100">
+                              Recorded
                             </Badge>
                           </div>
 
@@ -495,36 +418,22 @@ export default function ProductionHistory({
                           <p className="text-xs text-slate-600 italic truncate max-w-md">
                             {record.notes ? `"${record.notes}"` : "No notes added"}
                           </p>
-
-                          {/* Inline preview for approved remarks if present */}
-                          {isApproved && record.reviewRemarks && (
-                            <div className="mt-2.5 p-2 rounded-lg bg-emerald-50/80 border border-emerald-200/80 text-[11px] text-emerald-950 flex items-center gap-1.5">
-                              <span className="font-bold text-emerald-800 shrink-0">
-                                Remark:
-                              </span>
-                              <span className="truncate italic font-medium">
-                                &ldquo;{record.reviewRemarks}&rdquo;
-                              </span>
-                            </div>
-                          )}
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0 mt-1">
-                          {record.status === "PENDING" && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(record);
-                              }}
-                              title="Delete / cancel record"
-                              className="rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 h-8 w-8"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(record);
+                            }}
+                            title="Delete production log"
+                            className="rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 h-8 w-8"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                           <ChevronRight
                             className={`w-4 h-4 transition-transform ${
                               isSelected

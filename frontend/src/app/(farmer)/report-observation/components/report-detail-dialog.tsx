@@ -40,6 +40,7 @@ import React from "react";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
 import { FarmerReport } from "../report-observation-types";
 
 const BIOSECURITY_LABELS: Record<string, string> = {
@@ -66,6 +67,7 @@ export default function ReportDetailDialog({
   onOpenChange,
   onEditReport,
 }: ReportDetailDialogProps) {
+  const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const startDetailsTour = React.useCallback(() => {
     const isMortalityReport = report?.reportType === "MORTALITY";
     const steps: DriveStep[] = [
@@ -246,9 +248,11 @@ export default function ReportDetailDialog({
             </div>
           </div>
 
-          <Button type="button" variant="ghost" size="icon" onClick={startDetailsTour} aria-label="Start report details tutorial" className="size-9 shrink-0 rounded-full text-slate-500 hover:bg-emerald-50 hover:text-emerald-800">
-            <Sparkles className="size-4" aria-hidden="true" />
-          </Button>
+          {tutorialsEnabled && (
+            <Button type="button" variant="ghost" size="icon" onClick={startDetailsTour} aria-label="Start report details tutorial" className="size-9 shrink-0 rounded-full text-slate-500 hover:bg-emerald-50 hover:text-emerald-800">
+              <Sparkles className="size-4" aria-hidden="true" />
+            </Button>
+          )}
 
           <DialogClose asChild>
             <Button

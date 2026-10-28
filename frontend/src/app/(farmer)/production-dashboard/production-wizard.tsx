@@ -33,11 +33,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
 import type { WizardMode } from "./production-dashboard-view";
 import ProductionFormFields,{
 ProductionFormState,
 } from "./production-form-fields";
+
+const DEFAULT_FARM_LOG_NOTE = "Your Record has been added to your personal farm log. No approval or Verification is required.";
 import SelectLivestockDialog from "./select-livestock-dialog";
 
 import { type ProductionType,ProductionRecordItem } from "./production-analytics";
@@ -196,6 +199,7 @@ function ProductionWizardContent({
   profileMode = false,
   fixedProductionType,
 }: ProductionWizardProps) {
+  const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const firstStep = profileMode || mode === "edit" ? 2 : 0;
   const minimumStep = profileMode ? 2 : 0;
   const [step, setStep] = useState(firstStep);
@@ -376,7 +380,7 @@ function ProductionWizardContent({
       unit: unitMap[productionType],
       record_date:
         String(formState.prodDate ?? new Date().toISOString().split("T")[0]),
-      notes: String(formState.notes ?? "").trim(),
+      notes: String(formState.notes ?? "").trim() || DEFAULT_FARM_LOG_NOTE,
     };
 
     if (productionType === "milk") {
@@ -455,9 +459,11 @@ function ProductionWizardContent({
               </DialogDescription>
             </div>
           </div>
-          <Button type="button" variant="outline" onClick={startWizardTour} className="min-h-10 shrink-0 gap-1.5 rounded-xl border-white/30 bg-white/10 px-2.5 text-white hover:bg-white/20 hover:text-white sm:px-3">
-            <Sparkles className="size-4" aria-hidden="true" /> <span className="hidden xs:inline">Tutorial</span>
-          </Button>
+          {tutorialsEnabled && (
+            <Button type="button" variant="outline" onClick={startWizardTour} className="min-h-10 shrink-0 gap-1.5 rounded-xl border-white/30 bg-white/10 px-2.5 text-white hover:bg-white/20 hover:text-white sm:px-3">
+              <Sparkles className="size-4" aria-hidden="true" /> <span className="hidden xs:inline">Tutorial</span>
+            </Button>
+          )}
           </div>
         </DialogHeader>
 
@@ -858,9 +864,6 @@ function ProductionWizardContent({
                   ? "Update Record"
                   : "Save Record"}
               </Button>
-              <p className="text-[11px] text-slate-500 text-center leading-normal">
-                Production log: saved to your history{productionType === "meat" && submitSlaughterReport ? "; official slaughter report: review required" : ""}
-              </p>
               <Button
                 type="button"
                 variant="ghost"

@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
 import { useUserInventory } from "../livestock-inventory/livestock-inventory";
 
 import api from "@/lib/axios";
@@ -47,6 +48,7 @@ ReportType,
 type HealthReportFilter = "ALL" | "DISEASE" | "MORTALITY" | "PENDING" | "REVISION" | "VERIFIED" | "APPROVED";
 
 function ReportObservationContent() {
+  const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -511,15 +513,17 @@ function ReportObservationContent() {
         maxWidthClass="w-full"
         action={
           <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={startReportTour}
-              className="h-11 gap-1.5 rounded-xl bg-white/15 px-3 text-xs font-bold text-white hover:bg-white/25 hover:text-white"
-              aria-label="Start report observation tutorial"
-            >
-              <Sparkles className="size-4" aria-hidden="true" /> Tutorial
-            </Button>
+            {tutorialsEnabled && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={startReportTour}
+                className="h-11 gap-1.5 rounded-xl bg-white/15 px-3 text-xs font-bold text-white hover:bg-white/25 hover:text-white"
+                aria-label="Start report observation tutorial"
+              >
+                <Sparkles className="size-4" aria-hidden="true" /> Tutorial
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

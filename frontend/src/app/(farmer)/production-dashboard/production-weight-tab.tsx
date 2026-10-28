@@ -55,6 +55,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
 import {
 CartesianGrid,
 Line,
@@ -91,6 +92,7 @@ export default function ProductionWeightTab({
   autoOpen?: boolean;
   selectedSpecies?: string;
 }) {
+  const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const queryClient = useQueryClient();
   const [isLogOpen, setIsLogOpen] = useState(autoOpen);
   const [selectedLivestockId, setSelectedLivestockId] = useState<string>("");
@@ -622,9 +624,11 @@ export default function ProductionWeightTab({
               Record current scale weight. The system will automatically compute weight gain and ADG from previous logs.
             </DialogDescription>
             </div>
-            <Button type="button" variant="outline" onClick={startWeightTutorial} className="shrink-0 gap-1.5 rounded-xl">
-              <Sparkles className="size-4" aria-hidden="true" /> Tutorial
-            </Button>
+            {tutorialsEnabled && (
+              <Button type="button" variant="outline" onClick={startWeightTutorial} className="shrink-0 gap-1.5 rounded-xl">
+                <Sparkles className="size-4" aria-hidden="true" /> Tutorial
+              </Button>
+            )}
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">

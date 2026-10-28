@@ -11,27 +11,13 @@ DialogDescription,
 DialogHeader,
 DialogTitle,
 } from "@/components/ui/dialog";
-import { Beef,CalendarDays,Egg,Lock,Milk,Package,Pencil,RotateCcw,Trash2 } from "lucide-react";
+import { Beef,CalendarDays,Egg,Milk,Package,Pencil,Trash2 } from "lucide-react";
 import {
 PRODUCTION_TYPE_UNITS,
-formatProductionStatus,
 formatQty,
 formatRecordDate,
 type ProductionRecordItem,
-type ProductionStatus,
 } from "./production-analytics";
-
-const statusClasses: Record<ProductionStatus, string> = {
-  RECORDED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
-  APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
-  VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
-  PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
-  SUBJECT_TO_REVISION: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-300",
-  REJECTED: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-300",
-};
-
-const DEFAULT_STATUS_CLASS =
-  "bg-slate-100 text-slate-700 hover:bg-slate-100 border-slate-200";
 
 const typeMeta = {
   milk: { label: "Milk", icon: Milk },
@@ -76,10 +62,8 @@ export default function ProductionRecordDialog({
   onDelete?: (record: ProductionRecordItem) => void;
   isDeleting?: boolean;
 }) {
-  const isApproved = record?.status === "APPROVED";
-  const isVerified = record?.status === "VERIFIED";
-  const canDelete = record?.status === "PENDING";
-  const canEdit = canDelete || record?.status === "SUBJECT_TO_REVISION" || (record?.status === "RECORDED" && record.slaughterDetails?.status !== "APPROVED");
+  const canDelete = !record?.slaughterDetails || record?.slaughterDetails?.status !== "APPROVED";
+  const canEdit = canDelete;
 
   const meta = typeMeta[record?.productionType ?? "milk"];
   const TypeIcon = meta.icon;
@@ -110,10 +94,8 @@ export default function ProductionRecordDialog({
                     </DialogDescription>
                   </div>
                 </div>
-                <Badge
-                  className={`shrink-0 uppercase tracking-wider bg-white text-slate-800 border-0 hover:bg-white ${(statusClasses[record.status] ?? DEFAULT_STATUS_CLASS).split(" ")[0]}`}
-                >
-                  {formatProductionStatus(record.status)}
+                <Badge className="shrink-0 uppercase tracking-wider bg-white text-emerald-800 border-0 hover:bg-white font-bold">
+                  Recorded
                 </Badge>
               </div>
             </div>
@@ -173,114 +155,37 @@ export default function ProductionRecordDialog({
                 </p>
               </div>
 
-              {/* Approval / Remarks Callouts */}
-              {isApproved && (
-                <div className="space-y-3">
-                  <div className="p-3.5 rounded-xl bg-emerald-50/90 border border-emerald-200 flex items-start gap-3">
-                    <div className="size-8 rounded-lg bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0 mt-0.5">
-                      <Lock className="size-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-black uppercase tracking-wider text-emerald-900">
-                        Validated & Approved
-                      </p>
-                      <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
-                        This production record has been reviewed and saved to your history.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/40 p-4 space-y-1.5">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
-                      Reviewer Remarks
-                    </p>
-                    {record.reviewRemarks && record.reviewRemarks.trim() ? (
-                      <p className="text-sm font-medium text-emerald-950 italic whitespace-pre-wrap">
-                        &ldquo;{record.reviewRemarks}&rdquo;
-                      </p>
-                    ) : (
-                      <p className="text-xs text-slate-500 italic">
-                        Approved with standard validation. No additional remarks noted by the reviewer.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {record.status === "RECORDED" && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-900">
-                  Saved in your farm history. This production log does not need field verification or MAO approval.
-                  {record.anomalyDetected ? <p className="mt-1 font-medium">Unusual milk yield advisory: {record.anomalyReason}</p> : null}
-                  {record.slaughterDetails?.status === "SUBJECT_TO_REVISION" ? <p className="mt-1 font-medium">Official slaughter report returned: {record.slaughterDetails.review_remarks || "Please correct and save this entry."}</p> : null}
-                </div>
-              )}
-
-              {record.status === "VERIFIED" && (
-                <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 text-xs leading-relaxed">
-                  <p className="font-bold uppercase tracking-wider text-sky-800 mb-0.5">
-                    Historical Field Verification
-                  </p>
-                  This legacy review event is retained for history. Current routine production logs do not require field verification or MAO approval.
-                </div>
-              )}
-
-              {record.status === "PENDING" && (
-                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed space-y-1">
-                  <p className="font-bold uppercase tracking-wider text-amber-800 mb-0.5">
-                    Historical Pending Status
-                  </p>
-                  <p>
-                    This older record keeps its original status for audit history. New routine production logs are saved directly to your farm history without a review queue.
-                  </p>
-                </div>
-              )}
-
-              {(record.status === "SUBJECT_TO_REVISION" || record.status === "REJECTED") && (
-                <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-4 space-y-1.5">
-                  <p className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-                    <RotateCcw className="size-3.5 text-amber-700" />
-                    Revision Remarks & Required Corrections
-                  </p>
-                  <p className="text-sm text-amber-950 font-medium italic">
-                    {record.reviewRemarks
-                      ? `"${record.reviewRemarks}"`
-                      : "Please review and correct the declared values according to reviewer instructions."}
-                  </p>
-                </div>
-              )}
+              {/* Saved in farm history callout */}
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-900 leading-relaxed">
+                Saved in your farm history as a recorded production log.
+                {record.anomalyDetected ? <p className="mt-1 font-medium">Unusual milk yield advisory: {record.anomalyReason}</p> : null}
+              </div>
             </div>
 
             {/* Footer */}
             <div className="border-t border-slate-200 bg-slate-50 px-6 py-4">
-              {isApproved || isVerified ? (
-                <div className="flex items-center gap-2 text-emerald-700 text-sm font-medium">
-                  <Lock className="w-4 h-4 shrink-0" />
-                  This historical production record is locked under its original review status and cannot be edited or deleted.
-                </div>
-              ) : (
-                <div className="flex flex-col sm:flex-row items-center justify-end gap-3 w-full">
-                  {canDelete && onDelete ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isDeleting}
-                      onClick={() => onDelete(record)}
-                      className="w-full sm:w-auto border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" /> Delete / Cancel Record
-                    </Button>
-                  ) : null}
-                  {canEdit && onEdit ? (
-                    <Button
-                      type="button"
-                      onClick={() => onEdit(record)}
-                      className="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white gap-2"
-                    >
-                      <Pencil className="w-4 h-4" /> Edit Record
-                    </Button>
-                  ) : null}
-                </div>
-              )}
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-3 w-full">
+                {canDelete && onDelete ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isDeleting}
+                    onClick={() => onDelete(record)}
+                    className="w-full sm:w-auto border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" /> Delete Record
+                  </Button>
+                ) : null}
+                {canEdit && onEdit ? (
+                  <Button
+                    type="button"
+                    onClick={() => onEdit(record)}
+                    className="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white gap-2"
+                  >
+                    <Pencil className="w-4 h-4" /> Edit Record
+                  </Button>
+                ) : null}
+              </div>
             </div>
           </>
         ) : null}

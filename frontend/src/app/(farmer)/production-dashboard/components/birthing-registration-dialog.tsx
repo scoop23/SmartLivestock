@@ -25,6 +25,7 @@ import { useCallback, useEffect, useState } from "react";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
 import type { LivestockInventoryItem } from "../../livestock-inventory/page";
 import { LivestockPickerField } from "../select-livestock-dialog";
 import type { BirthingSpeciesTerminology } from "../production-calving-tab";
@@ -56,6 +57,7 @@ export default function BirthingRegistrationDialog({
   onSubmit,
   isSubmitting,
 }: BirthingRegistrationDialogProps) {
+  const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const [damId, setDamId] = useState<string>("");
   const [calfTag, setCalfTag] = useState("");
   const [calfSex, setCalfSex] = useState<"MALE" | "FEMALE">("FEMALE");
@@ -131,9 +133,11 @@ export default function BirthingRegistrationDialog({
               </DialogDescription>
             </div>
           </div>
-          <Button type="button" variant="outline" onClick={startBirthTutorial} className="shrink-0 gap-1.5 rounded-xl">
-            <Sparkles className="size-4" aria-hidden="true" /> Tutorial
-          </Button>
+          {tutorialsEnabled && (
+            <Button type="button" variant="outline" onClick={startBirthTutorial} className="shrink-0 gap-1.5 rounded-xl">
+              <Sparkles className="size-4" aria-hidden="true" /> Tutorial
+            </Button>
+          )}
           </div>
         </DialogHeader>
 

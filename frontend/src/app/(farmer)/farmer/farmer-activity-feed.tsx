@@ -94,7 +94,16 @@ export default function FarmerActivityFeed({
     return activities;
   }, [activities, filter]);
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, type?: string) => {
+    if (type === "PRODUCTION" || status === "RECORDED") {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
+          <CheckCircle2 className="size-3 text-emerald-600" />
+          Recorded
+        </span>
+      );
+    }
+
     switch (status) {
       case "APPROVED":
         return (
@@ -390,7 +399,7 @@ export default function FarmerActivityFeed({
                         {renderDescriptionPills(item.description)}
 
                         {/* Inspector Remark Callout Card */}
-                        {item.remarks && (
+                        {item.type !== "PRODUCTION" && item.remarks && (
                           <div className="mt-2.5 rounded-xl border border-amber-200/90 bg-amber-50/70 p-2.5 sm:p-3 text-xs text-amber-950 flex items-start gap-2 shadow-2xs">
                             <ShieldAlert className="size-4 text-amber-700 shrink-0 mt-0.5" />
                             <div className="leading-relaxed">
@@ -409,7 +418,7 @@ export default function FarmerActivityFeed({
                           <Calendar className="size-3 text-slate-400" />
                           {formatDate(item.date)}
                         </span>
-                        <div>{getStatusBadge(item.status)}</div>
+                        <div>{getStatusBadge(item.status, item.type)}</div>
                       </div>
 
                       <div className="hidden sm:flex items-center gap-1 text-xs font-bold text-slate-400 group-hover:text-[#2D5A27] transition-colors">

@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
 
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ SpeciesDrilldownView,
 export type { EntryType,InventoryApiItem,LivestockInventoryItem,LivestockType,StatusType };
 
 function LivestockInventoryContent() {
+  const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const queryClient = useQueryClient();
   const pathname = usePathname();
   const router = useRouter();
@@ -515,15 +517,17 @@ function LivestockInventoryContent() {
         maxWidthClass="w-full"
         action={
           <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={startInventoryTour}
-              className="h-11 rounded-xl bg-white/15 px-3 text-xs font-bold text-white hover:bg-white/25 hover:text-white sm:rounded-2xl"
-              aria-label="Start livestock inventory tutorial"
-            >
-              Tutorial
-            </Button>
+            {tutorialsEnabled && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={startInventoryTour}
+                className="h-11 rounded-xl bg-white/15 px-3 text-xs font-bold text-white hover:bg-white/25 hover:text-white sm:rounded-2xl"
+                aria-label="Start livestock inventory tutorial"
+              >
+                Tutorial
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

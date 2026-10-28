@@ -17,24 +17,10 @@ import Link from "next/link";
 import { useMemo,useState } from "react";
 import {
 PRODUCTION_TYPE_LABELS,
-formatProductionStatus,
 formatRecordDate,
 type ProductionRecordItem,
-type ProductionStatus,
 } from "./production-analytics";
 import ProductionRecordDialog from "./production-record-dialog";
-
-const statusClasses: Record<ProductionStatus, string> = {
-  RECORDED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
-  APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
-  VERIFIED: "bg-sky-100 text-sky-800 hover:bg-sky-100 border-sky-200",
-  PENDING: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200",
-  SUBJECT_TO_REVISION: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-300",
-  REJECTED: "bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-300",
-};
-
-const DEFAULT_STATUS_CLASS =
-  "bg-slate-100 text-slate-700 hover:bg-slate-100 border-slate-200";
 
 const formatUnit = (unit: string) =>
   unit === "LITERS" ? "L" : unit === "KILOGRAMS" ? "kg" : unit === "PIECES" ? "pc" : unit;
@@ -166,12 +152,8 @@ export default function ProductionRecent({
                         <span className="text-sm font-bold text-slate-900">
                           {PRODUCTION_TYPE_LABELS[record.productionType] ?? "Production"}
                         </span>
-                        <Badge
-                          className={`text-[10px] font-bold uppercase tracking-wider ${
-                            statusClasses[record.status] ?? DEFAULT_STATUS_CLASS
-                          }`}
-                        >
-                          {formatProductionStatus(record.status)}
+                        <Badge className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100">
+                          Recorded
                         </Badge>
                         <span className="text-xs text-slate-400">
                           • {formatRecordDate(record.recordDate)}

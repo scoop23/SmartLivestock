@@ -13,6 +13,7 @@ import {
 import api from "@/lib/axios";
 import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 import { startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type DriveStep } from "driver.js";
@@ -185,6 +186,7 @@ export default function LivestockDetailsDialog({
   open,
   onOpenChange,
 }: LivestockDetailsDialogProps) {
+  const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const router = useRouter();
   const animalId = livestock?.id ? Number(livestock.id) : null;
   const [activeTab, setActiveTab] = useState<"overview" | "yields" | "weight" | "calves" | "medical">("overview");
@@ -766,14 +768,16 @@ export default function LivestockDetailsDialog({
             {/* Right: Badges & Actions + Close Button */}
             <div className="flex items-center gap-2 flex-wrap shrink-0">
               {/* Tutorial Button */}
-              <button
-                type="button"
-                onClick={startDetailsTour}
-                className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <HelpCircle className="size-3.5 text-slate-400" />
-                <span>Tutorial</span>
-              </button>
+              {tutorialsEnabled && (
+                <button
+                  type="button"
+                  onClick={startDetailsTour}
+                  className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <HelpCircle className="size-3.5 text-slate-400" />
+                  <span>Tutorial</span>
+                </button>
+              )}
 
               {/* Status Badges */}
               <span

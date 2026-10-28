@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
 import FarmerReportsListDialog from "../components/farmer-reports-list-dialog";
 import ReportDetailDialog from "../report-observation/components/report-detail-dialog";
 import ReportIllnessDialog from "../report-observation/components/report-illness-dialog";
@@ -32,6 +33,7 @@ import FarmerCharts from "./farmer-charts";
 import FarmerStats from "./farmer-stats";
 
 export default function FarmerDashboard() {
+  const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const router = useRouter();
   const { user } = useAuth();
 
@@ -384,16 +386,18 @@ export default function FarmerDashboard() {
                 <span className="truncate">Brgy. {user.barangay}</span>
               </span>
             ) : null}
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={startDashboardTour}
-              className="h-11 rounded-xl bg-white/15 px-3 text-xs font-bold text-white hover:bg-white/25 hover:text-white sm:rounded-2xl cursor-pointer"
-              aria-label="Start farmer dashboard tutorial"
-            >
-              <Sparkles className="mr-1.5 size-4" />
-              Tutorial
-            </Button>
+            {tutorialsEnabled && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={startDashboardTour}
+                className="h-11 rounded-xl bg-white/15 px-3 text-xs font-bold text-white hover:bg-white/25 hover:text-white sm:rounded-2xl cursor-pointer"
+                aria-label="Start farmer dashboard tutorial"
+              >
+                <Sparkles className="mr-1.5 size-4" />
+                Tutorial
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

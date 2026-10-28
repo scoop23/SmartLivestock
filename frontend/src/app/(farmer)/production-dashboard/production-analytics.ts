@@ -513,21 +513,6 @@ export function formatRecordDate(date: string): string {
   );
 }
 
-export function formatProductionStatus(status: ProductionStatus): string {
-  switch (status) {
-    case "RECORDED":
-      return "Recorded in your farm log";
-    case "APPROVED":
-      return "Historical MAO approval";
-    case "VERIFIED":
-      return "Legacy field verification";
-    case "PENDING":
-      return "Legacy pending status";
-    case "SUBJECT_TO_REVISION":
-      return "Needs Revision";
-    case "REJECTED":
-      return "Rejected";
-    default:
-      return status;
-  }
+export function formatProductionStatus(): string {
+  return "Recorded";
 }

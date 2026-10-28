@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
 import { useUserInventory } from "../livestock-inventory/livestock-inventory";
 import EnterpriseEmptyState from "./components/enterprise-empty-state";
 import type { ProductionType } from "./production-analytics";
@@ -26,6 +27,7 @@ type SelectedRecordActivity = {
 };
 
 export default function ProductionDashboardPage() {
+  const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const [selectedActivity, setSelectedActivity] = useState<SelectedRecordActivity | null>(null);
   const [recordDialogInstance, setRecordDialogInstance] = useState(0);
   const { data: inventories = [], isLoading } = useUserInventory();
@@ -151,11 +153,11 @@ export default function ProductionDashboardPage() {
         variant="farmer"
         maxWidthClass="w-full"
         mobileActionsRow
-        action={
+        action={tutorialsEnabled ? (
           <Button type="button" onClick={startProductionTour} disabled={isLoading} variant="outline" className="min-h-11 gap-2 rounded-xl border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white">
             <Sparkles className="size-4" aria-hidden="true" /> Tutorial
           </Button>
-        }
+        ) : undefined}
       />
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {!isLoading && awaitingSpecies.length > 0 && (

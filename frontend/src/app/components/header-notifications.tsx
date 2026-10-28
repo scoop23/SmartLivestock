@@ -243,7 +243,7 @@ export const resolveNotificationLink = (
     const reviewRoutes: Record<string, (id: number) => string> = {
       livestock_inventory: (id) => `/sibat?tab=inventory&reviewType=INVENTORY&reviewId=${id}`,
       livestock_batch: (id) => `/sibat?tab=inventory&reviewType=BATCH&reviewId=${id}`,
-      production_record: (id) => `/sibat/production-records?reviewType=PRODUCTION&reviewId=${id}`,
+      production_record: () => `/sibat`,
       livestock_sale: (id) => `/sibat?tab=production&reviewType=SALE&reviewId=${id}`,
       calving_record: (id) => `/sibat?tab=calving&reviewType=CALVING&reviewId=${id}`,
       disease_case: (id) => `/sibat-alerts?recordType=DISEASE&recordId=${id}`,

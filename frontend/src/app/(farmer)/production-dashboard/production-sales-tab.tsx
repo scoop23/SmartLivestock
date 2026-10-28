@@ -36,6 +36,7 @@ import { useCallback, useEffect, useState } from "react";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
+import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
 import { toast } from "sonner";
 import type { LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
 import { LivestockPickerField } from "./select-livestock-dialog";
@@ -80,6 +81,7 @@ export default function ProductionSalesTab({
   intentInventories: LivestockInventoryItem[];
   autoOpenIntent?: boolean;
 }) {
+  const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const queryClient = useQueryClient();
   const [isIntentOpen, setIsIntentOpen] = useState(autoOpenIntent);
   // Intent form state
@@ -357,9 +359,11 @@ export default function ProductionSalesTab({
               Tell Auction or your reviewer what you plan to do. This declaration does not mark the animal sold or change its inventory status.
             </DialogDescription>
             </div>
-            <Button type="button" variant="outline" onClick={startIntentTutorial} className="shrink-0 gap-1.5 rounded-xl">
-              <Sparkles className="size-4" aria-hidden="true" /> Tutorial
-            </Button>
+            {tutorialsEnabled && (
+              <Button type="button" variant="outline" onClick={startIntentTutorial} className="shrink-0 gap-1.5 rounded-xl">
+                <Sparkles className="size-4" aria-hidden="true" /> Tutorial
+              </Button>
+            )}
           </DialogHeader>
 
           <form onSubmit={handleIntentSubmit} className="space-y-4 mt-2">

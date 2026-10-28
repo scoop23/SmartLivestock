@@ -300,7 +300,7 @@ async function fetchFarmerDashboardAnalytics(): Promise<FarmerDashboardAnalytics
       type: "PRODUCTION",
       title: `${prod.production_type || "Production"} Logged`,
       description: `${prod.quantity} ${prod.unit || "Units"} • Recorded: ${prod.record_date || "Recent"}`,
-      status: (prod.status || "PENDING").toUpperCase(),
+      status: "RECORDED",
       date: prod.created_at || prod.record_date || new Date().toISOString(),
       remarks: prod.review_remarks,
       rawItem: prod,
