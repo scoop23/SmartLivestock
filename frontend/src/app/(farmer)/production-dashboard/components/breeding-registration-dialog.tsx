@@ -42,6 +42,7 @@ interface BreedingRegistrationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   femaleLivestock: LivestockInventoryItem[];
+  maleLivestock: LivestockInventoryItem[];
   onSubmit: (payload: BreedingPayload) => void;
   isSubmitting: boolean;
 }
@@ -59,6 +60,7 @@ export default function BreedingRegistrationDialog({
   open,
   onOpenChange,
   femaleLivestock,
+  maleLivestock,
   onSubmit,
   isSubmitting,
 }: BreedingRegistrationDialogProps) {
@@ -66,12 +68,18 @@ export default function BreedingRegistrationDialog({
   const [breedingDate, setBreedingDate] = useState(localCalendarDateToday());
   const [breedingType, setBreedingType] = useState<"ARTIFICIAL_INSEMINATION" | "NATURAL" | "EMBRYO_TRANSFER">("ARTIFICIAL_INSEMINATION");
   const [sireTagOrCode, setSireTagOrCode] = useState("");
+  const [selectedSireId, setSelectedSireId] = useState("MANUAL");
   const [sireBreed, setSireBreed] = useState("");
   const [technician, setTechnician] = useState("");
   const [status, setStatus] = useState<"PENDING_CHECK" | "PREGNANT" | "CALVED" | "OPEN">("PENDING_CHECK");
   const [notes, setNotes] = useState("");
 
   const selectedDam = femaleLivestock.find((item) => String(item.id) === damId);
+  const matchingMaleLivestock = useMemo(() => {
+    if (!selectedDam) return [];
+    const damSpecies = selectedDam.livestockTypeName.trim().toLowerCase();
+    return maleLivestock.filter((item) => item.livestockTypeName.trim().toLowerCase() === damSpecies);
+  }, [maleLivestock, selectedDam]);
   const gestationDays = useMemo(
     () => getSpeciesDefaultGestation(selectedDam?.livestockTypeName),
     [selectedDam?.livestockTypeName]
@@ -102,6 +110,7 @@ export default function BreedingRegistrationDialog({
       setBreedingDate(localCalendarDateToday());
       setBreedingType("ARTIFICIAL_INSEMINATION");
       setSireTagOrCode("");
+      setSelectedSireId("MANUAL");
       setSireBreed("");
       setTechnician("");
       setStatus("PENDING_CHECK");
@@ -158,6 +167,9 @@ export default function BreedingRegistrationDialog({
               selectedId={damId}
               onSelect={(item) => {
                 setDamId(String(item.id));
+                setSelectedSireId("MANUAL");
+                setSireTagOrCode("");
+                setSireBreed("");
               }}
               warnOnActiveDisease
               label="Breeding Dam"
@@ -211,8 +223,39 @@ export default function BreedingRegistrationDialog({
           {/* Section 3: Sire Details */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">Registered Sire Bull</Label>
+              <Select
+                value={selectedSireId}
+                onValueChange={(value) => {
+                  setSelectedSireId(value);
+                  const selectedBull = maleLivestock.find((item) => String(item.id) === value);
+                  if (selectedBull) {
+                    setSireTagOrCode(selectedBull.tagNumber || `Livestock #${selectedBull.id}`);
+                    setSireBreed(selectedBull.breed || "");
+                  } else {
+                    setSireTagOrCode("");
+                    setSireBreed("");
+                  }
+                }}
+              >
+                <SelectTrigger className="h-10 rounded-xl text-xs bg-slate-50/70">
+                  <SelectValue placeholder="Choose a registered bull or enter an external sire" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="MANUAL">External sire / AI semen code</SelectItem>
+                  {matchingMaleLivestock.map((bull) => (
+                    <SelectItem key={bull.id} value={String(bull.id)}>
+                      {bull.tagNumber || `Livestock #${bull.id}`} · {bull.breed || "Breed not recorded"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedDam && matchingMaleLivestock.length === 0 && <p className="text-[11px] text-slate-500">No active approved male of this livestock type is registered in your inventory. You can enter an outside sire or semen code below.</p>}
+            </div>
+
+            <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">
-                Sire Bull Tag / AI Semen Straw ID
+                {selectedSireId === "MANUAL" ? "Sire Bull Tag / AI Semen Straw ID" : "Selected sire tag"}
               </Label>
               <div className="relative">
                 <Tag className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
@@ -220,6 +263,7 @@ export default function BreedingRegistrationDialog({
                   placeholder="e.g. PH-BULL-094 or Straw #A12"
                   value={sireTagOrCode}
                   onChange={(e) => setSireTagOrCode(e.target.value)}
+                  readOnly={selectedSireId !== "MANUAL"}
                   className="pl-9 h-10 rounded-xl text-xs bg-slate-50/70"
                 />
               </div>
@@ -227,13 +271,17 @@ export default function BreedingRegistrationDialog({
 
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">Sire Breed</Label>
-              <LivestockBreedField
-                id="breeding-sire-breed"
-                species={selectedDam?.livestockTypeName || "Cattle"}
-                value={sireBreed}
-                onChange={setSireBreed}
-                placeholder="e.g. Brahman, Holstein-Friesian"
-              />
+                {selectedSireId === "MANUAL" ? (
+                  <LivestockBreedField
+                    id="breeding-sire-breed"
+                    species={selectedDam?.livestockTypeName || "Cattle"}
+                    value={sireBreed}
+                    onChange={setSireBreed}
+                    placeholder="e.g. Brahman, Holstein-Friesian"
+                  />
+                ) : (
+                  <Input value={sireBreed || "Breed not recorded"} readOnly className="h-10 rounded-xl bg-slate-100 text-xs" aria-label="Registered sire breed" />
+                )}
             </div>
           </div>
 

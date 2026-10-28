@@ -110,7 +110,7 @@ test("MAO revision retains MAO attribution", () => {
   assert.ok(html.includes("(MAO)"));
 });
 
-test("flagged milk shows yield and cow identity without inventory removal copy", () => {
+test("flagged milk remains advisory with identity and yield but no field approval action", () => {
   const html = render("PENDING", {
     id: "prod-1", sourceType: "PRODUCTION", productionType: "milk",
     tagNumber: "DEMO-MILK-ANOMALY", quantity: 15, quantityDisplay: "15 L",
@@ -121,7 +121,8 @@ test("flagged milk shows yield and cow identity without inventory removal copy",
   assert.match(html, /Milk yield: 15 L on Oct 22 2026/);
   assert.doesNotMatch(html, /Leaves active inventory after MAO approval/);
   assert.doesNotMatch(html, /15 animals/);
-  assert.match(html, /Verify &amp; Forward to MAO/);
+  assert.doesNotMatch(html, /Verify &amp; Forward to MAO/);
+  assert.match(html, /does not need SIBAT\/CBAT verification/);
   assert.doesNotMatch(html, /Approve Production|Final Approval/);
 });
 

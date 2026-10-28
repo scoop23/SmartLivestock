@@ -72,10 +72,21 @@ class FarmerLogWorkflowTests(APITestCase):
         self.client.force_authenticate(user=self.other_farmer_user)
         self.assertEqual(len(self.client.get("/production/records/").data), 0)
 
-    def test_farmer_meat_log_creates_one_pending_official_report_and_scoped_notice(self):
+    def test_farmer_meat_yield_log_does_not_create_an_official_slaughter_report(self):
         result = self.submit(self.bull, "MEAT", "180.00", "KILOGRAMS")
         self.assertEqual(result.status_code, 201, result.data)
         self.assertEqual(result.data["status"], "RECORDED")
+        record = ProductionRecord.objects.get(pk=result.data["id"])
+        self.assertIsNone(record.slaughter_id)
+        self.bull.refresh_from_db()
+        self.assertEqual(self.bull.operational_status, "ACTIVE")
+        self.assertEqual(SlaughterRecord.objects.count(), 0)
+        self.assertFalse(Notification.objects.filter(related_entity_type="slaughter_record").exists())
+
+    def test_farmer_can_explicitly_submit_a_separate_slaughter_report(self):
+        result = self.submit(self.bull, "MEAT", "180.00", "KILOGRAMS", submit_slaughter_report=True,
+                             selected_animals=[self.bull.pk])
+        self.assertEqual(result.status_code, 201, result.data)
         record = ProductionRecord.objects.get(pk=result.data["id"])
         slaughter = record.slaughter
         self.assertEqual(slaughter.status, "PENDING")
@@ -86,7 +97,6 @@ class FarmerLogWorkflowTests(APITestCase):
         self.assertTrue(Notification.objects.filter(user=self.sibat_user, related_entity_type="slaughter_record", related_entity_id=slaughter.pk).exists())
         self.assertFalse(Notification.objects.filter(user=self.other_cbat, related_entity_id=slaughter.pk).exists())
         self.assertTrue(Notification.objects.filter(user=self.mao_user, related_entity_type="slaughter_record", related_entity_id=slaughter.pk).exists())
-        self.assertEqual(self.submit(self.bull, "MEAT", "180.00", "KILOGRAMS").status_code, 400)
 
         self.client.force_authenticate(user=self.cbat_user)
         self.assertEqual(len(self.client.get("/production/slaughterhouse/records/").data), 1)
@@ -95,7 +105,8 @@ class FarmerLogWorkflowTests(APITestCase):
         self.assertEqual(len(self.client.get("/production/slaughterhouse/records/").data), 0)
 
     def test_mao_approval_reconciles_inventory_once_without_approving_personal_log(self):
-        result = self.submit(self.bull, "MEAT", "180.00", "KILOGRAMS")
+        result = self.submit(self.bull, "MEAT", "180.00", "KILOGRAMS", submit_slaughter_report=True,
+                             selected_animals=[self.bull.pk])
         slaughter_id = result.data["slaughter_details"]["id"]
         self.client.force_authenticate(user=self.mao_user)
         review = self.client.post(f"/production/slaughterhouse/records/{slaughter_id}/review/", {"status": "APPROVED"})
@@ -106,7 +117,8 @@ class FarmerLogWorkflowTests(APITestCase):
         self.assertEqual(ProductionRecord.objects.get(pk=result.data["id"]).status, "RECORDED")
 
     def test_returned_slaughter_is_corrected_in_same_report(self):
-        result = self.submit(self.bull, "MEAT", "180.00", "KILOGRAMS")
+        result = self.submit(self.bull, "MEAT", "180.00", "KILOGRAMS", submit_slaughter_report=True,
+                             selected_animals=[self.bull.pk])
         record_id = result.data["id"]
         slaughter_id = result.data["slaughter_details"]["id"]
         self.client.force_authenticate(user=self.mao_user)
@@ -214,7 +226,8 @@ class FarmerLogWorkflowTests(APITestCase):
         self.assertFalse(ProductionRecord.objects.filter(pk=record_id).exists())
 
         # Meat log with approved slaughter cannot be deleted
-        meat_res = self.submit(self.bull, "MEAT", "190.00", "KILOGRAMS")
+        meat_res = self.submit(self.bull, "MEAT", "190.00", "KILOGRAMS", submit_slaughter_report=True,
+                               selected_animals=[self.bull.pk])
         meat_id = meat_res.data["id"]
         slaughter_id = meat_res.data["slaughter_details"]["id"]
         self.client.force_authenticate(user=self.mao_user)

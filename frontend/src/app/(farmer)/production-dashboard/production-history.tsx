@@ -79,13 +79,19 @@ const typeClasses: Record<string, string> = {
 const formatUnit = (unit: string) =>
   unit === "LITERS" ? "L" : unit === "KILOGRAMS" ? "kg" : unit === "PIECES" ? "pc" : unit;
 
+interface ProductionHistoryProps {
+  initialTypeFilter?: "ALL" | ProductionType;
+  initialRecordId?: string | null;
+  speciesFilter?: string | null;
+  hideTypeFilter?: boolean;
+}
+
 export default function ProductionHistory({
   initialTypeFilter = "ALL",
   initialRecordId,
-}: {
-  initialTypeFilter?: "ALL" | ProductionType;
-  initialRecordId?: string | null;
-}) {
+  speciesFilter,
+  hideTypeFilter = false,
+}: ProductionHistoryProps) {
   const queryClient = useQueryClient();
   const pathname = usePathname();
   const router = useRouter();
@@ -215,19 +221,26 @@ export default function ProductionHistory({
     deleteMutation.mutate(deleteTarget.id);
   };
 
+  const scopedProductions = useMemo(() => {
+    if (!speciesFilter || speciesFilter === "ALL") return userProductions;
+    return userProductions.filter(
+      (item) => item.livestockTypeName?.toLowerCase() === speciesFilter.toLowerCase()
+    );
+  }, [userProductions, speciesFilter]);
+
   const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { ALL: userProductions.length, RECORDED: 0, APPROVED: 0, PENDING: 0, SUBJECT_TO_REVISION: 0, REJECTED: 0 };
-    userProductions.forEach((item) => {
+    const counts: Record<string, number> = { ALL: scopedProductions.length, RECORDED: 0, APPROVED: 0, PENDING: 0, SUBJECT_TO_REVISION: 0, REJECTED: 0 };
+    scopedProductions.forEach((item) => {
       counts[item.status] = (counts[item.status] ?? 0) + 1;
     });
     counts["SUBJECT_TO_REVISION"] = (counts["SUBJECT_TO_REVISION"] ?? 0) + (counts["REJECTED"] ?? 0);
     return counts;
-  }, [userProductions]);
+  }, [scopedProductions]);
 
   const filtered = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
 
-    let result = userProductions.filter((item) => {
+    let result = scopedProductions.filter((item) => {
       const matchedSearch =
         !query ||
         item.notes?.toLowerCase().includes(query) ||
@@ -256,7 +269,7 @@ export default function ProductionHistory({
     });
 
     return result;
-  }, [userProductions, searchQuery, statusFilter, typeFilter, sortBy]);
+  }, [scopedProductions, searchQuery, statusFilter, typeFilter, sortBy]);
 
   const activeDialogRecord = useMemo(() => {
     if (!dialogRecord) return null;
@@ -294,19 +307,23 @@ export default function ProductionHistory({
               </SelectContent>
             </Select>
 
-            <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Types</SelectItem>
-                <SelectItem value="milk">Milk</SelectItem>
-                <SelectItem value="meat">Meat & Carcass</SelectItem>
-                <SelectItem value="eggs">Eggs</SelectItem>
-                <SelectItem value="wool">Wool</SelectItem>
-              </SelectContent>
-            </Select>
+            {!hideTypeFilter && (
+              <>
+                <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-full sm:w-40">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Types</SelectItem>
+                    <SelectItem value="milk">Milk</SelectItem>
+                    <SelectItem value="meat">Meat & Carcass</SelectItem>
+                    <SelectItem value="eggs">Eggs</SelectItem>
+                    <SelectItem value="wool">Wool</SelectItem>
+                  </SelectContent>
+                </Select>
+              </>
+            )}
           </div>
         </div>
 

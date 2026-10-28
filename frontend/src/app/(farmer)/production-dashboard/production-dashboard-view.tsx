@@ -47,6 +47,7 @@ getBirthingTerminology,
 import ProductionCharts from "./production-charts";
 import ProductionDeleteDialog from "./production-delete-dialog";
 import ProductionForecastsTab from "./production-forecasts-tab";
+import ProductionHistory from "./production-history";
 import ProductionRecent from "./production-recent";
 import ProductionSalesTab from "./production-sales-tab";
 import ProductionSubmissionSuccessDialog from "./production-submission-success-dialog";
@@ -56,12 +57,13 @@ import ProductionWizard,{ getProductionTypesForLivestock } from "./production-wi
 
 import { useUserInventory,type LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
 import {
-EMPTY_TYPE_ANALYTICS,
-computeProductionAnalytics,
-deleteProductionRecord,
-fetchProductionRecords,
-type ProductionRecordItem,
-type ProductionType,
+  EMPTY_TYPE_ANALYTICS,
+  PRODUCTION_TYPE_LABELS,
+  computeProductionAnalytics,
+  deleteProductionRecord,
+  fetchProductionRecords,
+  type ProductionRecordItem,
+  type ProductionType,
 } from "./production-analytics";
 import type { ProductionPayload } from "./production-wizard";
 
@@ -848,10 +850,36 @@ export default function ProductionDashboardView({
                     </p>
                   </div>
                 ) : (
-                  <ProductionCharts
-                    type={focusedActivity as ProductionType}
-                    data={analytics.by_type[focusedActivity as ProductionType] ?? EMPTY_TYPE_ANALYTICS}
-                  />
+                  <div className="space-y-6">
+                    <ProductionCharts
+                      type={focusedActivity as ProductionType}
+                      data={analytics.by_type[focusedActivity as ProductionType] ?? EMPTY_TYPE_ANALYTICS}
+                    />
+
+                    <div className="pt-2">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                        <div>
+                          <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                            <ClipboardList className="size-4.5 text-emerald-700" />
+                            <span>
+                              {selectedSpecies === "ALL" ? "" : `${selectedSpecies} `}
+                              {PRODUCTION_TYPE_LABELS[focusedActivity as ProductionType] ?? "Production"} Records History
+                            </span>
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Individual submitted daily yield entries, shift sessions, and review verification logs.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <ProductionHistory
+                          initialTypeFilter={focusedActivity as ProductionType}
+                          speciesFilter={selectedSpecies}
+                          hideTypeFilter
+                        />
+                      </div>
+                    </div>
+                  </div>
                 )}
               </>
             )}
@@ -1004,7 +1032,11 @@ export default function ProductionDashboardView({
 
       {/* Tab 3: Weight & Growth Tracker */}
       {activeMainTab === "weights" && (
-        <ProductionWeightTab approvedInventories={focusedActivity ? activityInventories : filteredInventories} autoOpen={focusedActivity === "weights" && focusedMode === "record"} />
+        <ProductionWeightTab
+          approvedInventories={focusedActivity ? activityInventories : filteredInventories}
+          selectedSpecies={selectedSpecies || undefined}
+          autoOpen={focusedActivity === "weights" && focusedMode === "record"}
+        />
       )}
 
       {/* Tab: Feeding & Rations Tracker */}

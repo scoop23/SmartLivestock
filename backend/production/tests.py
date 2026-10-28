@@ -285,7 +285,8 @@ class ProductionRecordAPITests(APITestCase):
         self.client.force_authenticate(user=self.farmer_user)
         response = self.client.post("/production/records/", {
             "livestock": animal.pk, "production_type": "MEAT", "unit": "KILOGRAMS",
-            "quantity": "12.50", "record_date": "2026-01-01",
+            "quantity": "12.50", "record_date": "2026-01-01", "submit_slaughter_report": True,
+            "selected_animals": [animal.pk],
         })
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertEqual(response.data["livestock_type_name"], "Swine")
@@ -631,14 +632,18 @@ class ProductionRecordAPITests(APITestCase):
             "unit": "KILOGRAMS", "quantity": "12.5", "record_date": "2026-01-15"})
         self.assertEqual(response.status_code, 201)
         record_id = response.data["id"]
-        slaughter_id = ProductionRecord.objects.get(pk=record_id).slaughter_id
-        self.client.force_authenticate(user=self.mao_user)
-        self.assertEqual(self.client.post(f"/production/slaughterhouse/records/{slaughter_id}/review/", {"status": "APPROVED"}).status_code, 200)
+        meat_log = ProductionRecord.objects.get(pk=record_id)
+        self.assertIsNone(meat_log.slaughter_id)
+        self.assertEqual(SlaughterRecord.objects.count(), 0)
         animal.refresh_from_db()
-        self.assertEqual(animal.operational_status, "SLAUGHTERED")
-        self.assertEqual(animal.quantity, 1)
+        self.assertEqual(animal.operational_status, "ACTIVE")
+        self.client.force_authenticate(user=self.mao_user)
         self.assertEqual(MortalityRecord.objects.count(), 0)
-        self.assertEqual(SlaughterRecord.objects.count(), 1)
+        self.assertEqual(SlaughterRecord.objects.count(), 0)
+        summary = descriptive_summary(date(2026, 1, 31))["descriptive"]
+        meat_row = next(row for row in summary["production"]["by_type"] if row["type"] == "MEAT")
+        self.assertEqual(meat_row["quantity"], 12.5)
+        self.assertEqual(summary["slaughter"]["records"], 0)
         record_count = ProductionRecord.objects.count()
         animal = self.swine_animal()
         self.client.force_authenticate(user=self.farmer_user)
@@ -653,9 +658,11 @@ class ProductionRecordAPITests(APITestCase):
         animal.refresh_from_db()
         self.assertEqual(animal.operational_status, "DECEASED")
         self.assertEqual(ProductionRecord.objects.count(), record_count)
-        self.assertEqual(SlaughterRecord.objects.count(), 1)
+        self.assertEqual(SlaughterRecord.objects.count(), 0)
         summary = descriptive_summary(date(2026, 1, 31))["descriptive"]
-        self.assertEqual(summary["slaughter"]["total_carcass_weight_kg"], 12.5)
+        self.assertEqual(summary["slaughter"]["records"], 0)
+        meat_row = next(row for row in summary["production"]["by_type"] if row["type"] == "MEAT")
+        self.assertEqual(meat_row["quantity"], 12.5)
         self.assertEqual(summary["mortality"]["deaths"], 1)
         self.assertIsNone(summary["production"]["valuation"]["estimated_value"])
 
@@ -674,7 +681,7 @@ class ProductionRecordAPITests(APITestCase):
     def submit_slaughter(self, herd, animals, weight="210"):
         self.client.force_authenticate(user=self.farmer_user)
         return self.client.post("/production/records/", {"batch": herd.pk, "selected_animals": [a.pk for a in animals],
-            "production_type": "MEAT", "unit": "KILOGRAMS", "quantity": weight, "record_date": "2026-01-15"}, format="json")
+            "submit_slaughter_report": True, "production_type": "MEAT", "unit": "KILOGRAMS", "quantity": weight, "record_date": "2026-01-15"}, format="json")
 
     def test_partial_slaughter_changes_only_selected_animals_after_mao_approval(self):
         from .models import SlaughterRecord
@@ -743,7 +750,7 @@ class ProductionRecordAPITests(APITestCase):
     def test_slaughter_rejects_invalid_or_ambiguous_animal_selection(self):
         herd, animals = self.slaughter_herd(3)
         self.client.force_authenticate(user=self.farmer_user)
-        base = {"batch": herd.pk, "production_type": "MEAT", "unit": "KILOGRAMS", "quantity": "100", "record_date": "2026-01-15"}
+        base = {"batch": herd.pk, "submit_slaughter_report": True, "production_type": "MEAT", "unit": "KILOGRAMS", "quantity": "100", "record_date": "2026-01-15"}
         for ids in ([], [animals[0].pk]*2, [a.pk for a in animals]+[999999,999998]):
             response = self.client.post("/production/records/", dict(base, selected_animals=ids), format="json")
             self.assertEqual(response.status_code, 400, response.data)

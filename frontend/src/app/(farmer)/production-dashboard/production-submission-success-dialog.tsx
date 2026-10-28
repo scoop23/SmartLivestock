@@ -44,7 +44,7 @@ export default function ProductionSubmissionSuccessDialog({
             Saved to your farm log
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-slate-600">
-            Your production entry is in your history. Meat entries also create a separate farmer-reported slaughter notice for official review.
+            Your production entry is in your history. A meat-yield log stays a farmer record; an official slaughter report is created only when you explicitly choose that separate review option.
           </DialogDescription>
         </div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">

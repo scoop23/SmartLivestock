@@ -635,36 +635,15 @@ export default function ProductionAnalyticsPage() {
         variant="farmer"
         maxWidthClass="w-full"
         action={
-          <div className="flex items-center gap-2">
-            <Button
-              asChild
-              variant="outline"
-              className="h-11 rounded-xl bg-white/15 border-white/20 text-white hover:bg-white/25 hover:text-white text-xs font-bold cursor-pointer"
-            >
-              <Link href="/production-dashboard">
-                <ArrowLeft className="mr-1.5 size-4" />
-                <span>Activities</span>
-              </Link>
-            </Button>
-            <Button
-              asChild
-              className="h-11 rounded-xl bg-white text-emerald-950 hover:bg-emerald-50 text-xs font-bold shadow-xs cursor-pointer"
-            >
-              <Link href="/production-dashboard/history">
-                <span>History</span>
-                <ArrowUpRight className="ml-1.5 size-4" />
-              </Link>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRefreshAll}
-              className="w-11 h-11 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
-              title="Refresh Analytics"
-            >
-              <RefreshCw className={`size-4.5 ${isRecordsFetching ? "animate-spin" : ""}`} />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRefreshAll}
+            className="w-11 h-11 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
+            title="Refresh Analytics"
+          >
+            <RefreshCw className={`size-4.5 ${isRecordsFetching ? "animate-spin" : ""}`} />
+          </Button>
         }
       />
 
@@ -689,6 +668,29 @@ export default function ProductionAnalyticsPage() {
       {/* ── LIGHT AMBIENT MATRIX VIEWPORT (IDENTICAL TO /farmer) ─────────────── */}
       <div className="nexus-ambient-bg min-h-screen">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          {/* ── TOP-LEFT NAVIGATION ACTIONS (ACTIVITIES & HISTORY) ───────────── */}
+          <div className="flex items-center gap-2">
+            <Button
+              asChild
+              variant="outline"
+              className="h-10 rounded-xl border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-xs font-bold shadow-xs cursor-pointer"
+            >
+              <Link href="/production-dashboard">
+                <ArrowLeft className="mr-1.5 size-4 text-slate-500" />
+                <span>Activities</span>
+              </Link>
+            </Button>
+            <Button
+              asChild
+              className="h-10 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-950 hover:bg-emerald-100 text-xs font-bold shadow-xs cursor-pointer"
+            >
+              <Link href="/production-dashboard/history">
+                <span>History</span>
+                <ArrowUpRight className="ml-1.5 size-4 text-emerald-700" />
+              </Link>
+            </Button>
+          </div>
+
           {/* ── DOMAIN SELECTION TABS (FUTURISTIC LIGHT CAROUSEL) ───────────── */}
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/90 pb-3">
             {[

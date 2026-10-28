@@ -45,6 +45,7 @@ import { type ProductionType,ProductionRecordItem } from "./production-analytics
 export type ProductionPayload = {
   livestock: number;
   selected_animals?: number[];
+  submit_slaughter_report?: boolean;
   production_type: "MILK" | "MEAT" | "EGGS" | "WOOL";
   quantity: number;
   unit: "LITERS" | "PIECES" | "KILOGRAMS";
@@ -201,6 +202,9 @@ function ProductionWizardContent({
   const autoTutorialStarted = useRef(false);
   const [selectOpen, setSelectOpen] = useState(false);
   const [isCertified, setIsCertified] = useState(false);
+  const [submitSlaughterReport, setSubmitSlaughterReport] = useState(
+    () => Boolean(editingRecord?.slaughterDetails),
+  );
   const [selectedAnimalIds, setSelectedAnimalIds] = useState<number[]>(() =>
     editingRecord?.slaughterDetails?.animals.map(animal => animal.id) ?? (clickedInventory ? [Number(clickedInventory.id)] : []));
 
@@ -227,14 +231,14 @@ function ProductionWizardContent({
             }]
           : step === 2
             ? [
-                { element: '[data-tour="production-wizard-date"]', popover: { title: "Set the record date", description: "Choose when the production was collected or the slaughter happened.", side: "bottom" as const, align: "start" as const } },
-                { element: '[data-tour="production-wizard-fields"]', popover: { title: "Enter production details", description: "Fill in the quantity and activity-specific details. Meat entries also require selecting the individual animals.", side: "top" as const, align: "center" as const } },
+                { element: '[data-tour="production-wizard-date"]', popover: { title: "Set the record date", description: "Choose when this farm production was collected or recorded.", side: "bottom" as const, align: "start" as const } },
+                { element: '[data-tour="production-wizard-fields"]', popover: { title: "Enter production details", description: "Fill in the quantity and activity-specific details. An official slaughter report is an optional separate step for meat entries.", side: "top" as const, align: "center" as const } },
                 { element: '[data-tour="production-wizard-notes"]', popover: { title: "Add optional notes", description: "Add context for your own farm history.", side: "top" as const, align: "start" as const } },
               ]
             : [
                 { element: '[data-tour="production-wizard-review"]', popover: { title: "Review the entry", description: "Check the livestock, date, and production values before saving.", side: "top" as const, align: "center" as const } },
                 { element: '[data-tour="production-wizard-certification"]', popover: { title: "Confirm the declaration", description: "Check this confirmation only when the information reflects what you are reporting.", side: "top" as const, align: "center" as const } },
-                { element: '[data-tour="production-wizard-submit"]', popover: { title: "Save farm log", description: "Your production log is saved for your own history. Meat entries also send a separate slaughter notice for official review.", side: "top" as const, align: "center" as const } },
+                { element: '[data-tour="production-wizard-submit"]', popover: { title: "Save farm log", description: "Your production log is saved to your farm history. An official slaughter report is sent only if you explicitly selected that option.", side: "top" as const, align: "center" as const } },
               ]),
       ...(step < 3
         ? [{
@@ -331,7 +335,7 @@ function ProductionWizardContent({
       : step === 1
         ? !!productionType
         : step === 2
-          ? getEnteredQty() > 0 && !!String(formState.prodDate ?? "").trim() && (productionType !== "meat" || hasEligibleSelection)
+          ? getEnteredQty() > 0 && !!String(formState.prodDate ?? "").trim() && (productionType !== "meat" || !submitSlaughterReport || hasEligibleSelection)
           : true;
 
   const validationMessage =
@@ -341,8 +345,8 @@ function ProductionWizardContent({
         ? "Enter the production date."
         : step === 2 && getEnteredQty() <= 0
           ? "Enter a production quantity greater than zero."
-          : step === 2 && productionType === "meat" && !hasEligibleSelection
-            ? "Select eligible individual animals for this slaughter entry."
+          : step === 2 && productionType === "meat" && submitSlaughterReport && !hasEligibleSelection
+            ? "Select the exact eligible animals for the official slaughter report."
             : null;
 
   const buildPayload = (): ProductionPayload | null => {
@@ -382,7 +386,8 @@ function ProductionWizardContent({
       }
     } else if (productionType === "meat") {
       payload.quantity = Number(formState.meatQty) || 0;
-      payload.selected_animals = selectedAnimalIds;
+      payload.submit_slaughter_report = submitSlaughterReport;
+      if (submitSlaughterReport) payload.selected_animals = selectedAnimalIds;
       if (formState.meatPurpose) {
         payload.notes = `[Purpose: ${formState.meatPurpose}] ${payload.notes}`.trim();
       }
@@ -399,6 +404,7 @@ function ProductionWizardContent({
   const handleBack = () => setStep((s) => Math.max(s - 1, minimumStep));
 
   const handleTypePick = (t: ProductionType) => {
+    if (t !== "meat") setSubmitSlaughterReport(false);
     onTypeChange(t);
     handleNext();
   };
@@ -412,7 +418,7 @@ function ProductionWizardContent({
     productionType === "milk"
       ? "Log Dairy Milk Production"
       : productionType === "meat"
-        ? "Report Slaughter & Carcass Output"
+        ? "Log Meat Yield"
         : productionType === "eggs"
           ? "Log Egg Production"
           : "Log Wool Production";
@@ -716,24 +722,40 @@ function ProductionWizardContent({
               )}
 
               {productionType === "meat" && (
-                <div className="space-y-3">
-                  <Label className="text-xs font-bold text-slate-700">Animals slaughtered ({selectedAnimalIds.length} selected)</Label>
-                  <p className="text-xs text-slate-500 leading-relaxed">Select the exact animals. Their inventory changes only after MAO approval; unselected herd members remain active.</p>
-                  <div className="max-h-56 sm:max-h-64 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
-                    {slaughterCandidates.map(animal => (
-                      <label key={animal.id} className="flex min-h-12 items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50/80 transition-colors">
-                        <Checkbox
-                          checked={selectedAnimalIds.includes(Number(animal.id))}
-                          disabled={animal.id === clickedInventory?.id}
-                          onCheckedChange={checked => setSelectedAnimalIds(ids => checked
-                            ? [...new Set([...ids, Number(animal.id)])] : ids.filter(id => id !== Number(animal.id)))}
-                        />
-                        <span className="text-sm font-medium min-w-0 flex-1 truncate">{animal.tagNumber || `Animal #${animal.id}`}<span className="block text-xs font-normal text-slate-500 truncate">{animal.batchCode || animal.livestockTypeName}</span></span>
-                      </label>
-                    ))}
-                  </div>
-                  {slaughterCandidates.length === 0 && <p className="text-sm text-amber-700">No eligible individual animals are available. Aggregate head counts cannot identify slaughtered animals.</p>}
-                </div>
+                <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3.5" aria-label="Optional official slaughter report">
+                  <label className="flex min-h-11 items-start gap-3 cursor-pointer">
+                    <Checkbox
+                      id="submit-slaughter-report"
+                      checked={submitSlaughterReport}
+                      onCheckedChange={(checked) => setSubmitSlaughterReport(checked === true)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="block text-xs font-bold text-slate-800">Also submit an official slaughter report</span>
+                      <span className="mt-1 block text-xs leading-relaxed text-slate-600">Leave unchecked to save only a farmer-reported meat-yield log. That log does not enter government review or change livestock inventory.</span>
+                    </span>
+                  </label>
+                  {submitSlaughterReport && (
+                    <div className="space-y-2 border-t border-amber-200 pt-3">
+                      <Label className="text-xs font-bold text-slate-700">Animals included in the official report ({selectedAnimalIds.length} selected)</Label>
+                      <p className="text-xs text-slate-600 leading-relaxed">The report goes through the existing review process. Inventory changes only after MAO approval.</p>
+                      <div className="max-h-56 sm:max-h-64 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 bg-white">
+                        {slaughterCandidates.map(animal => (
+                          <label key={animal.id} className="flex min-h-12 items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50/80 transition-colors">
+                            <Checkbox
+                              checked={selectedAnimalIds.includes(Number(animal.id))}
+                              disabled={animal.id === clickedInventory?.id}
+                              onCheckedChange={checked => setSelectedAnimalIds(ids => checked
+                                ? [...new Set([...ids, Number(animal.id)])] : ids.filter(id => id !== Number(animal.id)))}
+                            />
+                            <span className="text-sm font-medium min-w-0 flex-1 truncate">{animal.tagNumber || `Animal #${animal.id}`}<span className="block text-xs font-normal text-slate-500 truncate">{animal.batchCode || animal.livestockTypeName}</span></span>
+                          </label>
+                        ))}
+                      </div>
+                      {slaughterCandidates.length === 0 && <p className="text-sm text-amber-800">No eligible individual animals are available for this official report.</p>}
+                    </div>
+                  )}
+                </section>
               )}
               <div data-tour="production-wizard-fields">
                 <ProductionFormFields
@@ -784,13 +806,8 @@ function ProductionWizardContent({
                 <ReviewRow label="Production Type" value={meta.label} />
                 {productionType === "meat" && (
                   <ReviewRow
-                    label={`Animals slaughtered (${selectedAnimalIds.length})`}
-                    value={
-                      slaughterCandidates
-                        .filter(animal => selectedAnimalIds.includes(Number(animal.id)))
-                        .map(animal => animal.tagNumber || `Animal #${animal.id}`)
-                        .join(", ") || "—"
-                    }
+                    label="Meat entry"
+                    value={submitSlaughterReport ? `Farmer yield log + official report for ${selectedAnimalIds.length} animal(s)` : "Farmer-reported yield only"}
                   />
                 )}
                 <ReviewRow
@@ -824,7 +841,7 @@ function ProductionWizardContent({
                   htmlFor="certify-production"
                   className="min-w-0 flex-1 text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed cursor-pointer select-none"
                 >
-                  I confirm this farm log reflects the information available to me. A meat entry also sends a separate farmer-reported slaughter notice for official review.
+                  I confirm this farm log reflects the information available to me. If I selected an official slaughter report, I confirm the listed animals were slaughtered.
                 </label>
               </div>
 
@@ -842,7 +859,7 @@ function ProductionWizardContent({
                   : "Save Record"}
               </Button>
               <p className="text-[11px] text-slate-500 text-center leading-normal">
-                Production log: saved to your history{productionType === "meat" ? "; slaughter report: separate official review" : ""}
+                Production log: saved to your history{productionType === "meat" && submitSlaughterReport ? "; official slaughter report: review required" : ""}
               </p>
               <Button
                 type="button"

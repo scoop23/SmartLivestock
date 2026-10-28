@@ -51,6 +51,9 @@ test("inconclusive, timeout and expired states give recovery without rejection",
 test("errors never surface sensitive provider payloads", () => {
   const error = { isAxiosError: true, response: { status: 500, data: { secret: "sensitive provider response" } } };
   assert.doesNotMatch(exportsObject.identityError(error), /sensitive provider response/);
-  assert.match(exportsObject.identityError({ ...error, response: { status: 401 } }), /session expired/);
+  const unauthenticated = exportsObject.identityError({ ...error, response: { status: 401, data: error.response.data } });
+  assert.match(unauthenticated, /session could not be authenticated/);
+  assert.match(unauthenticated, /do not register again/);
+  assert.doesNotMatch(unauthenticated, /sensitive provider response/);
   assert.match(exportsObject.identityError({ ...error, response: { status: 429 } }), /Too many attempts/);
 });

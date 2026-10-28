@@ -1,33 +1,55 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-ChartContainer,
-ChartTooltip,
-ChartTooltipContent,
-type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
 } from "@/components/ui/chart";
 import {
-Dialog,
-DialogContent,
-DialogDescription,
-DialogHeader,
-DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Label } from "@/components/ui/label";
-import api from "@/lib/axios";
-import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import {
-Calculator,
-LineChart as LineChartIcon,
-Plus,
-Scale,
-Sparkles,
-TrendingUp,
-Weight
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import api from "@/lib/axios";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowUpDown,
+  Calculator,
+  Calendar,
+  CheckCircle2,
+  Filter,
+  LineChart as LineChartIcon,
+  Plus,
+  Scale,
+  Search,
+  Sparkles,
+  Tag,
+  TrendingUp,
+  Weight,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type DriveStep } from "driver.js";
@@ -63,9 +85,11 @@ const chartConfig = {
 export default function ProductionWeightTab({
   approvedInventories,
   autoOpen = false,
+  selectedSpecies,
 }: {
   approvedInventories: LivestockInventoryItem[];
   autoOpen?: boolean;
+  selectedSpecies?: string;
 }) {
   const queryClient = useQueryClient();
   const [isLogOpen, setIsLogOpen] = useState(autoOpen);
@@ -75,6 +99,9 @@ export default function ProductionWeightTab({
     new Date().toISOString().split("T")[0]
   );
   const [notes, setNotes] = useState("");
+  const [weightSearchQuery, setWeightSearchQuery] = useState("");
+  const [weightSortBy, setWeightSortBy] = useState<string>("newest");
+  const [selectedAnimalFilter, setSelectedAnimalFilter] = useState<string>("ALL");
 
   const startWeightTutorial = useCallback(() => {
     const steps: DriveStep[] = [
@@ -138,10 +165,20 @@ export default function ProductionWeightTab({
     });
   };
 
+  const approvedIds = useMemo(
+    () => new Set(approvedInventories.map((i) => Number(i.id))),
+    [approvedInventories]
+  );
+
+  const scopedWeightRecords = useMemo(() => {
+    if (approvedIds.size === 0) return weightRecords;
+    return weightRecords.filter((r) => approvedIds.has(Number(r.livestock)));
+  }, [approvedIds, weightRecords]);
+
   // Auto-calculated weight gains per animal
   const recordsWithGain = useMemo(() => {
     const byAnimal: Record<number, WeightRecordItem[]> = {};
-    weightRecords.forEach((r) => {
+    scopedWeightRecords.forEach((r) => {
       if (!byAnimal[r.livestock]) byAnimal[r.livestock] = [];
       byAnimal[r.livestock].push(r);
     });
@@ -174,15 +211,61 @@ export default function ProductionWeightTab({
     return enriched.sort(
       (a, b) => new Date(b.weighing_date).getTime() - new Date(a.weighing_date).getTime()
     );
-  }, [weightRecords]);
+  }, [scopedWeightRecords]);
+
+  // Unique animals for filter dropdown
+  const uniqueWeighedAnimals = useMemo(() => {
+    const map = new Map<number, string>();
+    recordsWithGain.forEach((r) => {
+      if (!map.has(r.livestock)) {
+        map.set(r.livestock, r.tag_number || `ID #${r.livestock}`);
+      }
+    });
+    return Array.from(map.entries()).map(([id, label]) => ({ id: String(id), label }));
+  }, [recordsWithGain]);
+
+  // Filtered and sorted records for table list
+  const filteredWeightRecords = useMemo(() => {
+    const q = weightSearchQuery.toLowerCase().trim();
+    let result = recordsWithGain.filter((r) => {
+      const matchAnimal = selectedAnimalFilter === "ALL" || String(r.livestock) === selectedAnimalFilter;
+      const matchQuery =
+        !q ||
+        (r.tag_number || "").toLowerCase().includes(q) ||
+        (r.livestock_type_name || "").toLowerCase().includes(q) ||
+        (r.breed || "").toLowerCase().includes(q) ||
+        (r.notes || "").toLowerCase().includes(q) ||
+        r.weighing_date.includes(q);
+      return matchAnimal && matchQuery;
+    });
+
+    result = [...result].sort((a, b) => {
+      switch (weightSortBy) {
+        case "newest":
+          return new Date(b.weighing_date).getTime() - new Date(a.weighing_date).getTime();
+        case "oldest":
+          return new Date(a.weighing_date).getTime() - new Date(b.weighing_date).getTime();
+        case "weight_desc":
+          return Number(b.weight) - Number(a.weight);
+        case "weight_asc":
+          return Number(a.weight) - Number(b.weight);
+        case "adg_desc":
+          return (b.adg ?? -999) - (a.adg ?? -999);
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [recordsWithGain, weightSearchQuery, selectedAnimalFilter, weightSortBy]);
 
   // KPIs
-  const totalLogs = weightRecords.length;
+  const totalLogs = scopedWeightRecords.length;
   const avgWeight =
-    weightRecords.length > 0
+    scopedWeightRecords.length > 0
       ? (
-          weightRecords.reduce((acc, r) => acc + Number(r.weight), 0) /
-          weightRecords.length
+          scopedWeightRecords.reduce((acc, r) => acc + Number(r.weight), 0) /
+          scopedWeightRecords.length
         ).toFixed(1)
       : "—";
 
@@ -193,7 +276,7 @@ export default function ProductionWeightTab({
       : "+0.65";
 
   // Growth Trend data (sorted by date)
-  const chartData = [...weightRecords]
+  const chartData = [...scopedWeightRecords]
     .sort((a, b) => new Date(a.weighing_date).getTime() - new Date(b.weighing_date).getTime())
     .map((r) => ({
       date: r.weighing_date,
@@ -239,7 +322,7 @@ export default function ProductionWeightTab({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
         <div>
           <h3 className="text-base font-bold text-slate-900">
-            Cattle Weight & Growth Velocity
+            {selectedSpecies ? `${selectedSpecies} ` : ""}Weight & Growth Velocity
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
             Log raw weight measurements. Weight gains and Average Daily Gain (ADG) are <strong>automatically calculated</strong> between weighing dates.
@@ -249,7 +332,7 @@ export default function ProductionWeightTab({
           onClick={() => setIsLogOpen(true)}
           className="bg-emerald-700 hover:bg-[#2D5A27] text-white shadow-sm font-semibold gap-2"
         >
-          <Plus className="size-4" /> Log Cattle Weight
+          <Plus className="size-4" /> Log {selectedSpecies ? `${selectedSpecies} ` : ""}Weight
         </Button>
       </div>
 
@@ -259,7 +342,7 @@ export default function ProductionWeightTab({
         <Card className="lg:col-span-2 border-slate-200 shadow-sm rounded-2xl">
           <CardHeader className="p-5 pb-2">
             <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <LineChartIcon className="size-4 text-emerald-700" /> Herd Weight Progression Curve
+              <LineChartIcon className="size-4 text-emerald-700" /> {selectedSpecies ? `${selectedSpecies} ` : "Herd "}Weight Progression Curve
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
               Historical body weight measurements across weighing sessions (kg)
@@ -299,7 +382,7 @@ export default function ProductionWeightTab({
         <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
           <CardHeader className="p-5 pb-2 border-b border-slate-100">
             <CardTitle className="text-sm font-bold text-slate-900 flex items-center justify-between">
-              <span>Weight Records</span>
+              <span>Recent Measurements</span>
               <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
                 Auto-calculated ADG
               </span>
@@ -349,6 +432,183 @@ export default function ProductionWeightTab({
           </CardContent>
         </Card>
       </div>
+
+      {/* ── FULL HISTORICAL WEIGHT RECORDS LIST UNDER THE CHART ── */}
+      <Card className="rounded-3xl border border-slate-200 shadow-sm bg-white overflow-hidden">
+        <CardHeader className="p-5 sm:p-6 pb-4 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Scale className="size-5 text-emerald-700" />
+                <span>{selectedSpecies ? `${selectedSpecies} ` : ""}Weigh-In Records History</span>
+                <Badge variant="outline" className="ml-2 font-mono text-xs bg-emerald-50 text-emerald-800 border-emerald-200 font-bold">
+                  {filteredWeightRecords.length} {filteredWeightRecords.length === 1 ? "Record" : "Records"}
+                </Badge>
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500 mt-0.5">
+                Complete scale measurements with animal tags, automatic weight gain, and Average Daily Gain (ADG) calculations.
+              </CardDescription>
+            </div>
+            <Button
+              onClick={() => setIsLogOpen(true)}
+              size="sm"
+              className="bg-emerald-700 hover:bg-[#2D5A27] text-white shadow-xs font-semibold gap-1.5 self-start sm:self-auto rounded-xl"
+            >
+              <Plus className="size-3.5" /> Log Weight
+            </Button>
+          </div>
+
+          {/* Filter, Search & Sort Toolbar */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-3 mt-1">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+              <Input
+                placeholder="Search tag number, species, breed, notes, or date..."
+                value={weightSearchQuery}
+                onChange={(e) => setWeightSearchQuery(e.target.value)}
+                className="pl-9 bg-slate-50/70 border-slate-200 rounded-xl h-10 text-xs"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {uniqueWeighedAnimals.length > 1 && (
+                <Select value={selectedAnimalFilter} onValueChange={setSelectedAnimalFilter}>
+                  <SelectTrigger className="w-full sm:w-[170px] rounded-xl h-10 border-slate-200 bg-slate-50/70 text-xs font-medium">
+                    <Filter className="size-3.5 text-slate-400 mr-2 shrink-0" />
+                    <SelectValue placeholder="All Animals" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Animals</SelectItem>
+                    {uniqueWeighedAnimals.map((animal) => (
+                      <SelectItem key={animal.id} value={animal.id}>
+                        {animal.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              <Select value={weightSortBy} onValueChange={setWeightSortBy}>
+                <SelectTrigger className="w-full sm:w-[170px] rounded-xl h-10 border-slate-200 bg-slate-50/70 text-xs font-medium">
+                  <ArrowUpDown className="size-3.5 text-slate-400 mr-2 shrink-0" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest Date</SelectItem>
+                  <SelectItem value="oldest">Oldest Date</SelectItem>
+                  <SelectItem value="weight_desc">Heaviest First</SelectItem>
+                  <SelectItem value="weight_asc">Lightest First</SelectItem>
+                  <SelectItem value="adg_desc">Highest Daily Gain</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="p-12 text-center text-sm text-slate-500">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-3" />
+              Loading weight logs...
+            </div>
+          ) : filteredWeightRecords.length === 0 ? (
+            <div className="p-12 text-center text-slate-400">
+              <Scale className="size-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-slate-600">No weight records found</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {weightSearchQuery || selectedAnimalFilter !== "ALL"
+                  ? "Try clearing filters to view all recorded logs."
+                  : "Click 'Log Weight' to record your first scale measurement."}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-slate-50/75">
+                  <TableRow className="border-slate-100">
+                    <TableHead className="font-bold text-xs text-slate-700">Animal / Tag #</TableHead>
+                    <TableHead className="font-bold text-xs text-slate-700">Weighing Date</TableHead>
+                    <TableHead className="font-bold text-xs text-slate-700">Recorded Weight</TableHead>
+                    <TableHead className="font-bold text-xs text-slate-700">Weight Gain</TableHead>
+                    <TableHead className="font-bold text-xs text-slate-700">Calculated ADG</TableHead>
+                    <TableHead className="font-bold text-xs text-slate-700">Days Elapsed</TableHead>
+                    <TableHead className="font-bold text-xs text-slate-700">Field Notes / Remarks</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-slate-100 text-xs">
+                  {filteredWeightRecords.map((record) => (
+                    <TableRow key={record.id} className="hover:bg-slate-50/70 transition-colors">
+                      <TableCell className="py-3.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/80">
+                            {record.tag_number || `ID #${record.livestock}`}
+                          </span>
+                          {(record.livestock_type_name || record.breed) && (
+                            <span className="text-[11px] text-slate-500 font-medium">
+                              {[record.livestock_type_name, record.breed].filter(Boolean).join(" · ")}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-semibold text-slate-700 py-3.5 whitespace-nowrap">
+                        {record.weighing_date}
+                      </TableCell>
+                      <TableCell className="font-black text-slate-900 py-3.5 whitespace-nowrap">
+                        <span className="text-sm">{Number(record.weight).toFixed(1)}</span>{" "}
+                        <span className="text-[10px] text-slate-500 font-bold">kg</span>
+                      </TableCell>
+                      <TableCell className="py-3.5 whitespace-nowrap">
+                        {record.gainKg !== undefined ? (
+                          <span
+                            className={`font-bold inline-flex items-center gap-1 ${
+                              record.gainKg > 0
+                                ? "text-emerald-700"
+                                : record.gainKg < 0
+                                ? "text-rose-600"
+                                : "text-slate-600"
+                            }`}
+                          >
+                            {record.gainKg > 0 ? `+${record.gainKg}` : record.gainKg} kg
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic text-[11px]">Baseline</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3.5 whitespace-nowrap">
+                        {record.adg !== undefined ? (
+                          <Badge
+                            className={`font-bold text-[10px] px-2 py-0.5 rounded-md ${
+                              record.adg >= 0.7
+                                ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                                : record.adg >= 0
+                                ? "bg-sky-100 text-sky-800 border-sky-200"
+                                : "bg-rose-100 text-rose-800 border-rose-200"
+                            }`}
+                          >
+                            {record.adg >= 0 ? `+${record.adg}` : record.adg} kg/day
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-400 italic text-[11px]">First weigh-in</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3.5 text-slate-500 whitespace-nowrap">
+                        {record.daysElapsed ? `${record.daysElapsed} days` : "—"}
+                      </TableCell>
+                      <TableCell className="py-3.5 text-slate-600 max-w-xs truncate">
+                        {record.notes ? (
+                          <span title={record.notes}>{record.notes}</span>
+                        ) : (
+                          <span className="text-slate-400 italic text-[11px]">No notes</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Log Weight Dialog */}
       <Dialog open={isLogOpen} onOpenChange={setIsLogOpen}>

@@ -131,6 +131,16 @@ export default function ProductionBreedingTab({
     });
   }, [approvedInventories, selectedSpecies]);
 
+  // Only individual, approved male animals of the selected livestock type can
+  // be linked as a registered sire. Batch records do not identify one bull.
+  const maleLivestock = useMemo(() => approvedInventories.filter((item) => {
+    const sex = (item.sex || "").trim().toUpperCase();
+    const isMale = sex.startsWith("M") || sex === "MALE";
+    const matchesSpecies = !selectedSpecies || selectedSpecies === "ALL"
+      || item.livestockTypeName?.toLowerCase() === selectedSpecies.toLowerCase();
+    return isMale && item.entryType === "INDIVIDUAL" && matchesSpecies;
+  }), [approvedInventories, selectedSpecies]);
+
   // Create breeding mutation
   const createMutation = useMutation({
     mutationFn: async (payload: BreedingPayload) => {
@@ -458,6 +468,7 @@ export default function ProductionBreedingTab({
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         femaleLivestock={femaleLivestock}
+        maleLivestock={maleLivestock}
         onSubmit={(payload) => createMutation.mutate(payload)}
         isSubmitting={createMutation.isPending}
       />

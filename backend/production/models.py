@@ -98,7 +98,8 @@ class ProductionRecord(models.Model):
         default=ProductionStatus.PENDING,
     )
 
-    # A meat entry is a projection of one authoritative slaughter event.
+    # Optional link used only when the farmer explicitly submits an official
+    # slaughter report alongside a meat-yield log. Ordinary yield logs stay unlinked.
     slaughter = models.OneToOneField("SlaughterRecord", on_delete=models.PROTECT,
         null=True, blank=True, related_name="production_output")
 

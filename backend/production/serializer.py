@@ -49,12 +49,15 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         - Farmer & Location: farmer_name, barangay_name, livestock_type_name
         - Yield Metrics: production_type (e.g. MILK, MEAT, EGGS), quantity, unit (LITERS, KILOGRAMS),
           record_date, notes
-        - Validation & Review: status (PENDING/APPROVED/SUBJECT_TO_REVISION),
+        - Validation & Review: status (new farmer logs are RECORDED; linked official slaughter reports retain their own review status),
           review_remarks, reviewed_at, reviewed_by_name, created_at
     Used in:
-        Farmer production logging dashboard (/production-dashboard) and MAO municipal yield ledger.
+        Farmer production logging dashboard (/production-dashboard) and municipal yield analytics.
+        A MEAT yield log does not create an official slaughter report unless
+        submit_slaughter_report is explicitly true.
     """
     selected_animals = serializers.PrimaryKeyRelatedField(many=True, queryset=LivestockInventory.objects.all(), required=False, write_only=True)
+    submit_slaughter_report = serializers.BooleanField(write_only=True, required=False, default=False)
     slaughter_details = serializers.SerializerMethodField()
     submitted_at = serializers.DateTimeField(source="created_at", read_only=True)
     workflow_history = serializers.SerializerMethodField(read_only=True)
@@ -152,6 +155,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "valuation_snapshot",
             "slaughter_details",
             "selected_animals",
+            "submit_slaughter_report",
             "unit",
             "record_date",
             "milking_session",
@@ -341,18 +345,25 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         if event_date and event_date > timezone.localdate():
             raise ValidationError({"record_date": "Production record date cannot be in the future."})
 
-        if production_type == "MEAT":
+        submit_slaughter_report = attrs.get("submit_slaughter_report", False)
+        has_existing_slaughter = bool(self.instance and self.instance.slaughter_id)
+        if production_type == "MEAT" and (submit_slaughter_report or has_existing_slaughter):
             animals = attrs.get("selected_animals")
             if "selected_animals" not in self.initial_data:
-                animals = list(self.instance.slaughter.selected_animals.all()) if self.instance and self.instance.slaughter_id else ([livestock] if livestock else [])
+                animals = list(self.instance.slaughter.selected_animals.all()) if has_existing_slaughter else ([livestock] if livestock else [])
             from .services.slaughter import validate_animals
             record = ProductionRecord(livestock=livestock, batch=batch)
             if self.instance:
                 record.slaughter_id = self.instance.slaughter_id
             validate_animals(record, animals)
             attrs["selected_animals"] = animals
-        elif attrs.get("selected_animals") or (self.instance and self.instance.slaughter_id):
+        elif production_type != "MEAT" and (submit_slaughter_report or attrs.get("selected_animals") or has_existing_slaughter):
             raise ValidationError({"production_type": "A slaughter entry must remain MEAT."})
+        else:
+            # A meat-yield log is a farmer record by default. Animal-level
+            # slaughter selection is only meaningful when the farmer explicitly
+            # opts into the separate official slaughter review workflow.
+            attrs.pop("selected_animals", None)
         return attrs
 
     @transaction.atomic
@@ -364,6 +375,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         from .services.milk_anomaly import apply_milk_anomaly_assessment
         from .services.valuation import snapshot_for
         animals = validated_data.pop("selected_animals", [])
+        submit_slaughter_report = validated_data.pop("submit_slaughter_report", False)
         record = ProductionRecord(**validated_data)
         record.status = ProductionRecord.ProductionStatus.RECORDED
         record.valuation_snapshot = snapshot_for(record)
@@ -379,7 +391,7 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
                       "milking_session": record.milking_session,
                       "livestock_id": record.livestock_id, "batch_id": record.batch_id},
         )
-        if record.production_type == "MEAT":
+        if record.production_type == "MEAT" and submit_slaughter_report:
             from .services.slaughter import sync_slaughter
             sync_slaughter(record, animals)
         return record
@@ -398,6 +410,8 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             "milking_session",
             "notes",
         ]
+        animals = validated_data.pop("selected_animals", [])
+        submit_slaughter_report = validated_data.pop("submit_slaughter_report", False)
         for field in allowed:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
@@ -425,9 +439,9 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
                           "milking_session": instance.milking_session,
                           "livestock_id": instance.livestock_id, "batch_id": instance.batch_id},
             )
-        if instance.production_type == "MEAT":
+        if instance.production_type == "MEAT" and (instance.slaughter_id or submit_slaughter_report):
             from .services.slaughter import sync_slaughter
-            sync_slaughter(instance, validated_data.get("selected_animals", []))
+            sync_slaughter(instance, animals)
         return instance
 
 
