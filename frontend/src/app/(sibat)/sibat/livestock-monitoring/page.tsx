@@ -14,8 +14,6 @@ import {
   ClipboardCheck,
   Clock,
   Compass,
-  Cpu,
-  ExternalLink,
   FileSpreadsheet,
   History,
   Layers,
@@ -35,6 +33,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { HeaderMenuButton } from "@/app/components/header-menu-button";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
@@ -57,57 +56,57 @@ interface WorkspaceModule {
   description: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  telemetryTags: string[];
+  capabilityTags: string[];
   primaryAction: string;
   badgeType: "pending" | "alert" | "cohorts" | "schedules" | "static";
   staticBadgeText?: string;
   staticBadgeColor?: "emerald" | "cyan" | "slate" | "amber";
 }
 
-// ── Workspace Matrix Definition ─────────────────────────────────────────────
+// ── Workspace Modules Definition (Farmer & Field Reviewer Terms) ───────────
 
 const WORKSPACE_MODULES: WorkspaceModule[] = [
   {
     id: "field-overview",
     code: "MOD-01",
     category: "VALIDATION",
-    categoryLabel: "FIELD AUDIT",
-    title: "Field Validation & Review Queue",
+    categoryLabel: "FIELD REVIEWS",
+    title: "Field Verification & Review Queue",
     description:
-      "Review incoming farmer livestock registrations, post-approval animal additions, and weight updates. Perform on-site inspection and forward verified records for MAO review.",
+      "Review new animal registrations, herd additions, and weight updates submitted by farmers. Check ear tags and photos on-site before submitting your findings to MAO.",
     href: "/sibat",
     icon: ClipboardCheck,
-    telemetryTags: ["RFID Inspection", "Physical Audit", "Photo Verification"],
-    primaryAction: "OPEN AUDIT QUEUE",
+    capabilityTags: ["Ear Tag Check", "Farm Visit", "Photo Verification"],
+    primaryAction: "OPEN REVIEW QUEUE",
     badgeType: "pending",
   },
   {
     id: "livestock-registry",
     code: "MOD-02",
     category: "REGISTRIES",
-    categoryLabel: "SECTOR REGISTRY",
+    categoryLabel: "ANIMAL LIST",
     title: "Farmers & Registered Animals",
     description:
-      "Search registered farmers, physical RFID ear tags, breed pedigrees, and biometric profiles strictly scoped within your assigned barangay jurisdiction.",
+      "Look up registered farmers and their animals by ear tag number, species, breed, or barangay within your assigned area.",
     href: "/sibat/livestock-registry",
     icon: Users,
-    telemetryTags: ["RFID Ledger", "Owner Profiles", "Biometric Passports"],
-    primaryAction: "SEARCH REGISTRY",
+    capabilityTags: ["Ear Tag Lookup", "Farmer Profiles", "Animal Details"],
+    primaryAction: "VIEW ANIMAL LIST",
     badgeType: "static",
-    staticBadgeText: "SECTOR DIRECTORY",
+    staticBadgeText: "BARANGAY DIRECTORY",
     staticBadgeColor: "cyan",
   },
   {
     id: "batches",
     code: "MOD-03",
     category: "REGISTRIES",
-    categoryLabel: "HERD COHORTS",
-    title: "Herd Cohort Operations Matrix",
+    categoryLabel: "HERDS & BATCHES",
+    title: "Herd & Batch Monitoring",
     description:
-      "Continuous surveillance of registered livestock herds, aggregate cohort telemetry, feeding records, target weight milestones, and bulk batch verification ledgers.",
+      "Monitor groups of animals, track batch feeding and target weights, and verify newly added animals in each herd.",
     href: "/sibat/batches",
     icon: Layers,
-    telemetryTags: ["Cohort Telemetry", "Target Weights", "Pen Management"],
+    capabilityTags: ["Herd Batches", "Target Weights", "Feeding Records"],
     primaryAction: "INSPECT HERDS",
     badgeType: "cohorts",
   },
@@ -115,29 +114,29 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     id: "census-submit",
     code: "MOD-04",
     category: "VALIDATION",
-    categoryLabel: "CENSUS SURVEY",
-    title: "Quarterly Census Headcount Audit",
+    categoryLabel: "CENSUS",
+    title: "Quarterly Livestock Census",
     description:
-      "Conduct on-site headcount enumerations across sector households and submit verified livestock counts through the official municipal census pipeline.",
+      "Count and record farm animals per household during the quarterly barangay livestock census to keep official municipal counts accurate.",
     href: "/sibat/census/submit",
     icon: FileSpreadsheet,
-    telemetryTags: ["Enumeration", "Household Tally", "Species Matrix"],
-    primaryAction: "SUBMIT CENSUS",
+    capabilityTags: ["Headcount", "Household Survey", "Animal Counts"],
+    primaryAction: "RECORD CENSUS",
     badgeType: "static",
-    staticBadgeText: "QUARTERLY AUDIT",
+    staticBadgeText: "QUARTERLY CENSUS",
     staticBadgeColor: "emerald",
   },
   {
     id: "census-history",
     code: "MOD-05",
     category: "VALIDATION",
-    categoryLabel: "AUDIT TRAIL",
-    title: "Census Submissions & Corrections",
+    categoryLabel: "CENSUS HISTORY",
+    title: "Census History & Corrections",
     description:
-      "Inspect historical census filings, monitor MAO approval decisions, and rapidly resolve census survey records returned with field revision notices.",
+      "View past census submissions, check approval status from MAO, and update any census records that were returned for correction.",
     href: "/sibat/census-submissions",
     icon: History,
-    telemetryTags: ["MAO Ratification", "Revision Protocol", "Survey Ledgers"],
+    capabilityTags: ["Past Submissions", "MAO Approvals", "Returned Records"],
     primaryAction: "VIEW CENSUS LOGS",
     badgeType: "static",
     staticBadgeText: "SURVEY ARCHIVE",
@@ -147,60 +146,60 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     id: "health-alerts",
     code: "MOD-06",
     category: "BIOSECURITY",
-    categoryLabel: "BIOSECURITY",
-    title: "Clinical Health & Alert Follow-Up",
+    categoryLabel: "ANIMAL HEALTH",
+    title: "Disease & Mortality Follow-Up",
     description:
-      "Investigate farmer-reported disease symptoms and mortality occurrences. Record biosecurity actions, confirm physical ear tags, and submit clinical findings.",
+      "Check reports of sick or dead livestock from farmers. Visit the farm, check symptoms and ear tags, and report findings to MAO.",
     href: "/sibat-alerts",
     icon: ShieldAlert,
-    telemetryTags: ["Symptom Audit", "Mortality Reports", "Quarantine Protocol"],
-    primaryAction: "BIOSECURITY RADAR",
+    capabilityTags: ["Disease Reports", "Death Notices", "On-Site Check"],
+    primaryAction: "CHECK HEALTH REPORTS",
     badgeType: "alert",
   },
   {
     id: "production-records",
     code: "MOD-07",
     category: "REGISTRIES",
-    categoryLabel: "COMMERCE & YIELD",
-    title: "Yield, Offspring & Sales Ledger",
+    categoryLabel: "PRODUCTION & SALES",
+    title: "Sales, Births & Production Records",
     description:
-      "Review farmer-reported commercial animal sales, calving offspring births, and direct agricultural yields (meat, eggs, wool) without abattoir slaughter dependency.",
+      "Review farmer records for animal sales, newborn calves, and farm production such as meat, eggs, and wool.",
     href: "/sibat/production-records",
     icon: TrendingUp,
-    telemetryTags: ["Live Sales", "Calving Telemetry", "Farmgate Yields"],
-    primaryAction: "INSPECT COMMERCE",
+    capabilityTags: ["Animal Sales", "Calf Births", "Farm Production"],
+    primaryAction: "VIEW PRODUCTION",
     badgeType: "static",
-    staticBadgeText: "COMMERCE LEDGER",
+    staticBadgeText: "SALES & BIRTHS",
     staticBadgeColor: "emerald",
   },
   {
     id: "field-schedules",
     code: "MOD-08",
     category: "FIELD_OPS",
-    categoryLabel: "FIELD LOGISTICS",
-    title: "Field Programs & Veterinary Calendar",
+    categoryLabel: "SCHEDULES",
+    title: "Barangay Programs & Schedules",
     description:
-      "Synchronize with municipal agricultural initiatives, scheduled vaccination drives, deworming operations, and community farmer assistance programs.",
+      "View upcoming municipal schedules for animal vaccination, deworming, farmer meetings, and agricultural assistance.",
     href: "/sibat-scheduling",
     icon: CalendarDays,
-    telemetryTags: ["Vaccination Drives", "Deworming Ops", "Farmer Seminars"],
-    primaryAction: "FIELD CALENDAR",
+    capabilityTags: ["Vaccination Days", "Deworming Schedule", "Farmer Seminars"],
+    primaryAction: "VIEW SCHEDULES",
     badgeType: "schedules",
   },
   {
     id: "gis-radar",
     code: "MOD-09",
     category: "FIELD_OPS",
-    categoryLabel: "GIS RADAR",
-    title: "GIS Sector Monitoring & Movement Map",
+    categoryLabel: "LIVESTOCK MAP",
+    title: "Barangay Livestock Map (GIS)",
     description:
-      "Interactive geospatial radar visualizing farm coordinates, transport clearances, Padre Garcia checkpoint inspections, and sector quarantine boundaries.",
+      "View farm locations, animal movements, checkpoints, and livestock density across Padre Garcia on an interactive map.",
     href: "/sibat-monitoring",
     icon: Compass,
-    telemetryTags: ["Vector Tracking", "Padre Garcia Checkpoints", "Spatial Density"],
-    primaryAction: "LAUNCH GIS RADAR",
+    capabilityTags: ["Farm Locations", "Movement Paths", "Barangay Map"],
+    primaryAction: "OPEN LIVESTOCK MAP",
     badgeType: "static",
-    staticBadgeText: "LIVE 2D RADAR",
+    staticBadgeText: "BARANGAY MAP",
     staticBadgeColor: "cyan",
   },
 ];
@@ -300,12 +299,12 @@ export default function BarangayLivestockMonitoringPage() {
         refetchBatches(),
         refetchSchedules(),
       ]);
-      toast.success("Sector telemetry synchronized", {
-        description: "All cohort states, audit queues, and clinical alerts are up to date.",
+      toast.success("Records updated", {
+        description: "Herds, review items, and health reports are up to date.",
       });
     } catch {
-      toast.error("Failed to sync telemetry", {
-        description: "Please check your network connection and retry.",
+      toast.error("Could not update records", {
+        description: "Please check your connection and try again.",
       });
     } finally {
       setIsSyncing(false);
@@ -326,7 +325,7 @@ export default function BarangayLivestockMonitoringPage() {
         m.description.toLowerCase().includes(q) ||
         m.code.toLowerCase().includes(q) ||
         m.categoryLabel.toLowerCase().includes(q) ||
-        m.telemetryTags.some((tag) => tag.toLowerCase().includes(q));
+        m.capabilityTags.some((tag) => tag.toLowerCase().includes(q));
 
       return matchCategory && matchSearch;
     });
@@ -344,59 +343,62 @@ export default function BarangayLivestockMonitoringPage() {
 
   const assignedSector =
     user?.accessScope === "ALL_BARANGAYS"
-      ? "ALL BARANGAYS (MUNICIPAL MATRIX)"
-      : user?.assignedBarangayName || "PADRE GARCIA SECTOR";
+      ? "All Barangays (Full Access)"
+      : user?.assignedBarangayName || "Padre Garcia";
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="w-full space-y-6 p-4 sm:p-6 lg:p-8 pb-28">
-      {/* ── 1. FUTURISTIC CYBERNETIC COMMAND CENTER HEADER ─────────────────── */}
+      {/* ── 1. FUTURISTIC COMMAND CENTER HEADER ─────────────────────────────── */}
       <div className="relative overflow-hidden rounded-3xl border border-emerald-200/90 bg-gradient-to-r from-emerald-50 via-white to-teal-50 p-6 sm:p-8 text-slate-900 shadow-sm">
-        {/* Holographic Blurred Glow Orbs */}
+        {/* Holographic Glow Orbs */}
         <div className="pointer-events-none absolute -right-20 -top-20 size-80 rounded-full bg-emerald-200/40 blur-3xl" />
         <div className="pointer-events-none absolute -left-20 -bottom-20 size-80 rounded-full bg-teal-200/30 blur-3xl" />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(16,185,129,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,185,129,0.035)_1px,transparent_1px)] bg-[size:32px_32px]" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2.5 max-w-3xl">
-            {/* Live Node Telemetry Breadcrumb */}
+            {/* Status Breadcrumb */}
             <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
               <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 uppercase tracking-wider font-bold shadow-xs">
                 <span className="relative flex size-2">
                   <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
                 </span>
-                LIVE NODE // SIBAT-CBAT
+                FIELD OFFICE // SIBAT-CBAT
               </span>
               <span className="text-slate-300">/</span>
               <span className="text-slate-700 font-semibold flex items-center gap-1">
-                <Compass className="size-3.5 text-emerald-700" />
-                SECTOR: {assignedSector}
+                <MapPin className="size-3.5 text-emerald-700" />
+                BARANGAY: {assignedSector}
               </span>
               <span className="text-slate-300">/</span>
               <span className="text-emerald-800 font-bold flex items-center gap-1">
                 <Zap className="size-3 text-emerald-700" />
-                TELEMETRY v4.2
+                MONITORING HUB
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight font-sans text-slate-900 flex items-center gap-3">
-                Barangay Livestock Telemetry Matrix
-              </h1>
-              <Badge className="bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono text-xs font-bold px-2.5 py-0.5">
-                CORE HUB
-              </Badge>
+            <div className="flex items-center gap-3">
+              <HeaderMenuButton className="lg:hidden shrink-0 size-10 rounded-xl bg-white text-emerald-900 border border-emerald-300 shadow-xs hover:bg-emerald-50 hover:border-emerald-400 transition-colors" />
+              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 min-w-0">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight font-sans text-slate-900">
+                  Barangay Livestock Monitoring
+                </h1>
+                <Badge className="bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono text-xs font-bold px-2.5 py-0.5">
+                  FIELD HUB
+                </Badge>
+              </div>
             </div>
 
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-2xl">
-              Unified command interface for field validation, RFID cohort surveillance,
-              quarterly headcount census, and biosecurity tracking across Padre Garcia livestock raisers.
+              Monitor registered livestock, review farmer submissions, conduct quarterly census,
+              and follow up animal health reports across Padre Garcia.
             </p>
           </div>
 
-          {/* Futuristic Control Deck */}
+          {/* Action Deck */}
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <Button
               type="button"
@@ -406,7 +408,7 @@ export default function BarangayLivestockMonitoringPage() {
               className="h-10 rounded-xl bg-white border-emerald-300 text-emerald-900 font-mono text-xs font-bold hover:bg-emerald-50 hover:border-emerald-400 transition-all shadow-xs gap-2 cursor-pointer"
             >
               <QrCode className="size-4 text-emerald-700" />
-              QUICK RFID SCANNER
+              SCAN ANIMAL QR
             </Button>
 
             <Button
@@ -418,7 +420,7 @@ export default function BarangayLivestockMonitoringPage() {
               className="h-10 rounded-xl bg-white border-slate-200 text-slate-700 font-mono text-xs font-bold hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-xs gap-2 cursor-pointer"
             >
               <RefreshCw className={`size-3.5 text-emerald-700 ${isSyncing ? "animate-spin" : ""}`} />
-              SYNC TELEMETRY
+              REFRESH DATA
             </Button>
 
             <Link href="/sibat/livestock-registry">
@@ -428,19 +430,19 @@ export default function BarangayLivestockMonitoringPage() {
                 className="h-10 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs font-bold shadow-xs transition-all gap-1.5 cursor-pointer"
               >
                 <Users className="size-3.5" />
-                SECTOR REGISTRY
+                ANIMAL LIST
               </Button>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* ── 2. HOLOGRAPHIC TELEMETRY KPI HUD STRIP ─────────────────────────── */}
+      {/* ── 2. HOLOGRAPHIC KPI HUD STRIP ──────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {/* Tile 1: Registered Cohorts */}
+        {/* Tile 1: Registered Herds / Batches */}
         <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-white/95 p-4 shadow-holo-card hover:shadow-holo-glow-emerald transition-all duration-300">
           <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-            <span>REGISTERED COHORTS</span>
+            <span>REGISTERED HERDS</span>
             <Layers className="size-4 text-emerald-600" />
           </div>
           <div className="flex items-baseline justify-between mt-2">
@@ -448,17 +450,17 @@ export default function BarangayLivestockMonitoringPage() {
               {isLoadingBatches ? "--" : kpis.totalBatches}
             </span>
             <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md">
-              ACTIVE
+              BATCHES
             </span>
           </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Grouped herd matrix</p>
+          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Grouped animal batches</p>
         </div>
 
-        {/* Tile 2: Biomass Heads */}
+        {/* Tile 2: Total Registered Animals */}
         <div className="relative overflow-hidden rounded-2xl border border-cyan-500/30 bg-white/95 p-4 shadow-holo-card hover:shadow-holo-glow-cyan transition-all duration-300">
           <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-            <span>BIOMASS TELEMETRY</span>
-            <Cpu className="size-4 text-cyan-600" />
+            <span>REGISTERED ANIMALS</span>
+            <Activity className="size-4 text-cyan-600" />
           </div>
           <div className="flex items-baseline justify-between mt-2">
             <span className="text-2xl sm:text-3xl font-black font-mono text-cyan-900 tracking-tight">
@@ -468,13 +470,13 @@ export default function BarangayLivestockMonitoringPage() {
               HEADS
             </span>
           </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Sector animal tags</p>
+          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Animals in barangay</p>
         </div>
 
-        {/* Tile 3: Pending Field Audits */}
+        {/* Tile 3: Pending Reviews */}
         <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-white/95 p-4 shadow-holo-card hover:shadow-holo-glow-amber transition-all duration-300">
           <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-            <span>PENDING AUDITS</span>
+            <span>PENDING REVIEWS</span>
             <Clock
               className={`size-4 ${
                 kpis.pendingSubmissions > 0
@@ -498,16 +500,16 @@ export default function BarangayLivestockMonitoringPage() {
                   : "text-slate-600 bg-slate-100 border border-slate-200"
               }`}
             >
-              {kpis.pendingSubmissions > 0 ? "ACTION REQ" : "CLEAR"}
+              {kpis.pendingSubmissions > 0 ? "ACTION NEEDED" : "CLEAR"}
             </span>
           </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Farmer review queue</p>
+          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Submissions awaiting review</p>
         </div>
 
-        {/* Tile 4: Biosecurity Alerts */}
+        {/* Tile 4: Health Reports */}
         <div className="relative overflow-hidden rounded-2xl border border-rose-500/30 bg-white/95 p-4 shadow-holo-card hover:shadow-rose-500/20 transition-all duration-300">
           <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-            <span>HEALTH SURVEILLANCE</span>
+            <span>HEALTH REPORTS</span>
             <ShieldAlert
               className={`size-4 ${
                 kpis.activeHealthAlerts > 0
@@ -531,16 +533,16 @@ export default function BarangayLivestockMonitoringPage() {
                   : "text-emerald-800 bg-emerald-100 border border-emerald-300"
               }`}
             >
-              {kpis.activeHealthAlerts > 0 ? "INVESTIGATE" : "STABLE"}
+              {kpis.activeHealthAlerts > 0 ? "CHECK NOW" : "HEALTHY"}
             </span>
           </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Disease & mortality</p>
+          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Disease & death cases</p>
         </div>
 
-        {/* Tile 5: Field Verification Rate */}
+        {/* Tile 5: Verified by SIBAT */}
         <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-white/95 p-4 shadow-holo-card hover:shadow-holo-glow-emerald transition-all duration-300 col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-            <span>VERIFICATION SYNC</span>
+            <span>VERIFIED RATE</span>
             <ShieldCheck className="size-4 text-emerald-600" />
           </div>
           <div className="flex items-baseline justify-between mt-2">
@@ -548,30 +550,30 @@ export default function BarangayLivestockMonitoringPage() {
               {isLoadingBatches ? "--" : `${kpis.syncRate}%`}
             </span>
             <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md">
-              MAO SYNC
+              VERIFIED
             </span>
           </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Sector progress rate</p>
+          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Passed to MAO review</p>
         </div>
       </div>
 
-      {/* ── 3. SEARCH & INTERACTIVE CATEGORY FILTER DECK ───────────────────── */}
+      {/* ── 3. SEARCH & CATEGORY FILTER ────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white/90 backdrop-blur-xs p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
-        {/* Search Bar with Monospace Accent */}
+        {/* Search Bar */}
         <div className="relative flex-1 max-w-lg">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search operations matrix, keywords, or codes (e.g. MOD-01, census, herds)..."
+            placeholder="Search tasks, animal tags, census, herds, or modules (e.g. MOD-01)..."
             className="w-full h-10 pl-10 pr-9 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-md"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-md cursor-pointer"
             >
               <X className="size-3.5" />
             </button>
@@ -582,11 +584,11 @@ export default function BarangayLivestockMonitoringPage() {
         <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
           {(
             [
-              { key: "ALL", label: "ALL MODULES" },
-              { key: "VALIDATION", label: "VALIDATION" },
-              { key: "REGISTRIES", label: "REGISTRIES" },
-              { key: "BIOSECURITY", label: "BIOSECURITY" },
-              { key: "FIELD_OPS", label: "FIELD OPS & GIS" },
+              { key: "ALL", label: "ALL SERVICES" },
+              { key: "VALIDATION", label: "FIELD REVIEWS" },
+              { key: "REGISTRIES", label: "LIVESTOCK & HERDS" },
+              { key: "BIOSECURITY", label: "HEALTH & ALERTS" },
+              { key: "FIELD_OPS", label: "PROGRAMS & MAP" },
             ] as const
           ).map((tab) => {
             const isSelected = selectedCategory === tab.key;
@@ -618,15 +620,15 @@ export default function BarangayLivestockMonitoringPage() {
         </div>
       </div>
 
-      {/* ── 4. FUTURISTIC WORKSPACES MATRIX GRID ───────────────────────────── */}
+      {/* ── 4. WORKSPACES MATRIX GRID ──────────────────────────────────────── */}
       {filteredModules.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 p-12 text-center space-y-3">
           <Radar className="size-10 text-slate-400 mx-auto animate-pulse" />
           <h3 className="text-base font-bold text-slate-900 font-mono">
-            NO MATCHING TELEMETRY MODULES FOUND
+            NO MATCHING SERVICES FOUND
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
-            No operational modules matched your search query &quot;{searchQuery}&quot; in the &quot;{selectedCategory}&quot; category.
+            No monitoring services matched &quot;{searchQuery}&quot; in the &quot;{selectedCategory}&quot; category.
           </p>
           <Button
             type="button"
@@ -636,9 +638,9 @@ export default function BarangayLivestockMonitoringPage() {
               setSearchQuery("");
               setSelectedCategory("ALL");
             }}
-            className="rounded-xl font-mono text-xs font-bold"
+            className="rounded-xl font-mono text-xs font-bold cursor-pointer"
           >
-            RESET MATRIX FILTERS
+            RESET FILTERS
           </Button>
         </div>
       ) : (
@@ -647,12 +649,12 @@ export default function BarangayLivestockMonitoringPage() {
             const Icon = module.icon;
 
             // Dynamic badge text and style
-            let badgeText = module.staticBadgeText || "ONLINE";
+            let badgeText = module.staticBadgeText || "READY";
             let badgeClass = "bg-slate-100 text-slate-700 border-slate-200";
 
             if (module.badgeType === "pending") {
               if (kpis.pendingSubmissions > 0) {
-                badgeText = `${kpis.pendingSubmissions} PENDING REVIEW`;
+                badgeText = `${kpis.pendingSubmissions} AWAITING REVIEW`;
                 badgeClass = "bg-amber-100 text-amber-900 border-amber-300 animate-pulse";
               } else {
                 badgeText = "QUEUE CLEAR";
@@ -660,17 +662,17 @@ export default function BarangayLivestockMonitoringPage() {
               }
             } else if (module.badgeType === "alert") {
               if (kpis.activeHealthAlerts > 0) {
-                badgeText = `${kpis.activeHealthAlerts} ACTIVE ALERTS`;
+                badgeText = `${kpis.activeHealthAlerts} ACTIVE REPORTS`;
                 badgeClass = "bg-rose-100 text-rose-900 border-rose-300 animate-pulse";
               } else {
-                badgeText = "SURVEILLANCE CLEAR";
+                badgeText = "NO ALERTS";
                 badgeClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
               }
             } else if (module.badgeType === "cohorts") {
-              badgeText = `${kpis.totalBatches} COHORTS ENROLLED`;
+              badgeText = `${kpis.totalBatches} BATCHES REGISTERED`;
               badgeClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
             } else if (module.badgeType === "schedules") {
-              badgeText = `${schedules?.length || 0} PROGRAM SCHEDULES`;
+              badgeText = `${schedules?.length || 0} SCHEDULED PROGRAMS`;
               badgeClass = "bg-cyan-100 text-cyan-900 border-cyan-300";
             } else if (module.staticBadgeColor === "emerald") {
               badgeClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
@@ -724,9 +726,9 @@ export default function BarangayLivestockMonitoringPage() {
                     </div>
                   </div>
 
-                  {/* Telemetry Feature Chips */}
+                  {/* Capability Chips */}
                   <div className="flex flex-wrap gap-1.5 pt-2">
-                    {module.telemetryTags.map((tag) => (
+                    {module.capabilityTags.map((tag) => (
                       <span
                         key={tag}
                         className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-0.5 text-[10px] font-mono font-medium text-slate-600 border border-slate-200/70 group-hover:border-emerald-200 group-hover:bg-emerald-50/40 group-hover:text-emerald-900 transition-colors"
@@ -765,17 +767,17 @@ export default function BarangayLivestockMonitoringPage() {
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                  MUNICIPAL FIELD PROTOCOL // JURISDICTION NOTICE
+                  BARANGAY FIELD GUIDELINES // SIBAT & CBAT ROLE
                 </span>
                 <span className="hidden sm:inline-block size-1 rounded-full bg-slate-400" />
                 <span className="hidden sm:inline-block font-mono text-[11px] text-slate-400">
-                  PADRE GARCIA MAO DIRECTIVE
+                  PADRE GARCIA MUNICIPAL AGRICULTURE OFFICE
                 </span>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
-                SIBAT and CBAT field officers perform frontline registration verification,
-                physical RFID ear-tagging confirmation, and quarterly census audits. All official
-                ownership mutations and final registry updates require municipal review and MAO ratification.
+                SIBAT and CBAT field officers perform on-site inspections, ear tag number verification,
+                and quarterly census counts in their assigned barangay. Official approval of registrations,
+                sales, and official certificates will be finalized by the Municipal Agriculture Office (MAO).
               </p>
             </div>
           </div>
@@ -785,14 +787,14 @@ export default function BarangayLivestockMonitoringPage() {
               <span className="relative flex size-2">
                 <span className="relative inline-flex rounded-full size-2 bg-emerald-400" />
               </span>
-              ENCRYPTION ACTIVE
+              SYSTEM CONNECTED
             </div>
-            <div className="text-slate-400 mt-0.5">SHA-256 AGRI-LEDGER PROTOCOL</div>
+            <div className="text-slate-400 mt-0.5">PADRE GARCIA AGRI-NODE</div>
           </div>
         </div>
       </div>
 
-      {/* ── 6. UNIVERSAL QR / RFID SCANNER DIALOG ──────────────────────────── */}
+      {/* ── 6. UNIVERSAL QR SCANNER DIALOG ─────────────────────────────────── */}
       <UniversalQrScannerDialog
         isOpen={isQrScannerOpen}
         onOpenChange={setIsQrScannerOpen}
