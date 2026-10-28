@@ -1,6 +1,7 @@
 "use client";
 
 import type { ApiProductionRecord } from "@/app/(farmer)/production-dashboard/production-analytics";
+import { getProductionTypesForLivestock } from "@/app/(farmer)/production-dashboard/production-wizard";
 import {
   Dialog,
   DialogClose,
@@ -13,7 +14,7 @@ import api from "@/lib/axios";
 import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 import { startGuidedTutorial } from "@/lib/tutorial-preferences";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import {
@@ -22,9 +23,11 @@ import {
   Calendar,
   Check,
   CheckCircle2,
+  Clock,
   Copy,
   Droplets,
   ExternalLink,
+  HeartHandshake,
   HelpCircle,
   Hourglass,
   Info,
@@ -35,14 +38,14 @@ import {
   Radio,
   Scale,
   ShieldCheck,
-  Syringe,
+  Sparkles,
   Tag,
   TrendingUp,
   Users,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getAvatarById, mapInventory, type InventoryApiItem } from "./livestock-inventory";
 import type { LivestockInventoryItem } from "./page";
@@ -91,6 +94,89 @@ interface DiseaseCaseItem {
   created_at: string;
 }
 
+export interface ReproductiveSummary {
+  animal_id: number;
+  tag_number: string;
+  species: string;
+  breed: string;
+  sex: string;
+  batch_id?: number | null;
+  batch_code?: string | null;
+  reproductive_status: {
+    status: "EXPOSED" | "PREGNANT" | "COMPLETE" | "UNKNOWN" | "NOT_APPLICABLE";
+    label: string;
+    badge_variant: string;
+    explanation: string;
+    is_female: boolean;
+    can_breed: boolean;
+    cycle_number: number;
+    days_in_status: number | null;
+    expected_calving_date: string | null;
+    gestation_window: { start: string; end: string } | null;
+  };
+  bull_herd_exposure: {
+    has_exposure: boolean;
+    batch_name: string | null;
+    bull_tags: string[];
+  };
+  breeding_history: Array<{
+    id: number;
+    breeding_date: string;
+    breeding_type: string;
+    breeding_type_label: string;
+    sire_code: string;
+    technician: string;
+    gestation_days: number;
+    expected_due_date: string | null;
+    status: string;
+    status_label: string;
+    pregnancy_confirmed_date: string | null;
+    confirmation_method: string | null;
+    notes: string;
+  }>;
+  calving_history: Array<{
+    id: number;
+    calving_date: string;
+    calf_tag: string;
+    calf_sex: string;
+    birth_weight: number | null;
+    sire_tag: string;
+    calving_ease: string;
+    status: string;
+    notes: string;
+  }>;
+  treatment_history: Array<{
+    id: number;
+    treatment_date: string;
+    treatment_type: string;
+    treatment_type_label: string;
+    medication_name: string;
+    reason: string;
+    dosage: string;
+    route_of_administration: string;
+    administered_by: string;
+    notes: string;
+    follow_up_date: string | null;
+  }>;
+  unified_timeline: Array<{
+    type: "BREEDING" | "PREGNANCY_CHECK" | "CALVING" | "TREATMENT";
+    date: string;
+    title: string;
+    details: string;
+    status: string;
+    badge_color: string;
+  }>;
+  conception_prediction: {
+    prediction_available: boolean;
+    prediction_status: string;
+    conception_likelihood_pct: number | null;
+    model_version: string;
+    message: string;
+    disclaimer: string;
+    is_confirmed_pregnancy: boolean;
+  };
+}
+
 interface LivestockDetailsDialogProps {
   livestock: LivestockInventoryItem | null;
   open: boolean;
@@ -104,7 +190,7 @@ export default function LivestockDetailsDialog({
 }: LivestockDetailsDialogProps) {
   const router = useRouter();
   const animalId = livestock?.id ? Number(livestock.id) : null;
-  const [activeTab, setActiveTab] = useState<"overview" | "yields" | "weight" | "calves" | "medical">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "yields" | "weight" | "calves" | "reproduction" | "medical">("overview");
   const [copiedTag, setCopiedTag] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [prevAnimalId, setPrevAnimalId] = useState<number | null>(null);
@@ -144,6 +230,17 @@ export default function LivestockDetailsDialog({
     }
     return livestock;
   }, [livestock, directInventory]);
+
+  // Determine whether this animal species, sex, and maturity produce milk
+  const canProduceMilk = Boolean(
+    activeLivestock
+      && getProductionTypesForLivestock(activeLivestock.livestockTypeName).includes("milk")
+      && ["FEMALE", "F"].includes((activeLivestock.sex || "").trim().toUpperCase())
+      && !["CALF", "YEARLING"].includes((activeLivestock.ageClassification || "").trim().toUpperCase())
+  );
+
+  // Automatically fallback to overview if yields tab was selected for a non-milking animal
+  const effectiveTab = !canProduceMilk && activeTab === "yields" ? "overview" : activeTab;
 
   // 2. Real production records
   const { data: productionRecords = [] } = useQuery<ProductionRecordItem[]>({
@@ -212,6 +309,59 @@ export default function LivestockDetailsDialog({
     enabled: open && !!animalId,
   });
 
+  // 6. Reproductive Summary & Lifecycle Timeline (Phase 3, 4, 5, 8)
+  const { data: reproSummary, refetch: refetchRepro } = useQuery<ReproductiveSummary | null>({
+    queryKey: ["reproductive_summary", animalId],
+    queryFn: async () => {
+      if (!animalId) return null;
+      const res = await api.get(`production/livestock/${animalId}/reproductive-summary/`);
+      return res.data;
+    },
+    enabled: open && !!animalId,
+  });
+
+  // Treatment Logging Form State (Phase 5)
+  const [isTreatmentFormOpen, setIsTreatmentFormOpen] = useState(false);
+  const [treatmentDate, setTreatmentDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [treatmentType, setTreatmentType] = useState("ANTIBIOTIC");
+  const [medicationName, setMedicationName] = useState("");
+  const [dosage, setDosage] = useState("");
+  const [route, setRoute] = useState("Intramuscular (IM)");
+  const [treatmentReason, setTreatmentReason] = useState("");
+  const [administeredBy, setAdministeredBy] = useState("");
+  const [treatmentNotes, setTreatmentNotes] = useState("");
+
+  const addTreatmentMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post("production/treatments/", {
+        livestock: animalId,
+        treatment_date: treatmentDate,
+        treatment_type: treatmentType,
+        medication_name: medicationName,
+        dosage,
+        route_of_administration: route,
+        reason: treatmentReason,
+        administered_by: administeredBy,
+        notes: treatmentNotes,
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Veterinary treatment record logged successfully!");
+      setIsTreatmentFormOpen(false);
+      setMedicationName("");
+      setDosage("");
+      setTreatmentReason("");
+      setTreatmentNotes("");
+      refetchRepro();
+    },
+    onError: (err: unknown) => {
+      const httpErr = err as { response?: { data?: { medication_name?: string; error?: string } } };
+      const msg = httpErr?.response?.data?.medication_name || httpErr?.response?.data?.error || "Failed to log treatment.";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
+    },
+  });
+
   // Filter for this specific animal
   const animalProductions = useMemo(() => {
     if (!animalId) return [];
@@ -265,12 +415,152 @@ export default function LivestockDetailsDialog({
       : null;
 
   const avgYield = useMemo(() => {
-    if (!animalProductions.length) return null;
+    if (!canProduceMilk || !animalProductions.length) return null;
     const total = animalProductions.reduce((sum, p) => sum + p.quantity, 0);
     return (total / animalProductions.length).toFixed(1);
-  }, [animalProductions]);
+  }, [canProduceMilk, animalProductions]);
 
   const healthCount = (activeLivestock?.lastVaccinationDate ? 1 : 0) + animalDiseaseCases.length;
+
+  // ═══ Horizontal Scrollbar State & Interaction for Detail Tabs ═══
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef<{ startX: number; startScrollLeft: number }>({ startX: 0, startScrollLeft: 0 });
+  const [scrollInfo, setScrollInfo] = useState({
+    canScroll: false,
+    thumbWidthPct: 100,
+    thumbLeftPct: 0,
+  });
+
+  const updateScrollMetrics = useCallback(() => {
+    const el = tabsContainerRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const maxScroll = scrollWidth - clientWidth;
+    const canScroll = maxScroll > 1 && scrollWidth > 0;
+
+    if (!canScroll || scrollWidth === 0) {
+      setScrollInfo({ canScroll: false, thumbWidthPct: 100, thumbLeftPct: 0 });
+      return;
+    }
+
+    const rawRatio = clientWidth / scrollWidth;
+    const thumbWidthPct = Math.min(100, Math.max(18, rawRatio * 100));
+    const scrollProgress = maxScroll > 0 ? Math.max(0, Math.min(1, scrollLeft / maxScroll)) : 0;
+    const thumbLeftPct = scrollProgress * (100 - thumbWidthPct);
+
+    setScrollInfo({ canScroll: true, thumbWidthPct, thumbLeftPct });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = tabsContainerRef.current;
+    if (!el) return;
+
+    const rafId = requestAnimationFrame(() => {
+      updateScrollMetrics();
+    });
+
+    const ro = new ResizeObserver(() => {
+      updateScrollMetrics();
+    });
+    ro.observe(el);
+    Array.from(el.children).forEach((child) => ro.observe(child));
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+    };
+  }, [open, updateScrollMetrics, activeTab, reproSummary, animalProductions.length, animalWeights.length, animalCalves.length, canProduceMilk]);
+
+  const handleThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = tabsContainerRef.current;
+    if (!el) return;
+
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      startX: e.clientX,
+      startScrollLeft: el.scrollLeft,
+    };
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Safe fallback
+    }
+  };
+
+  const handleThumbPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    const el = tabsContainerRef.current;
+    const track = trackRef.current;
+    if (!el || !track) return;
+
+    const deltaX = e.clientX - dragStartRef.current.startX;
+    const trackWidth = track.clientWidth;
+    const thumbWidthPx = (scrollInfo.thumbWidthPct / 100) * trackWidth;
+    const scrollableTrack = trackWidth - thumbWidthPx;
+    const scrollableTabs = el.scrollWidth - el.clientWidth;
+
+    if (scrollableTrack > 0 && scrollableTabs > 0) {
+      const scrollDelta = (deltaX / scrollableTrack) * scrollableTabs;
+      el.scrollLeft = dragStartRef.current.startScrollLeft + scrollDelta;
+    }
+  };
+
+  const handleThumbPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // Safe fallback
+      }
+    }
+  };
+
+  const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isDraggingRef.current) return;
+    const el = tabsContainerRef.current;
+    const track = trackRef.current;
+    if (!el || !track || !scrollInfo.canScroll) return;
+
+    const rect = track.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const trackWidth = rect.width;
+    const thumbWidthPx = (scrollInfo.thumbWidthPct / 100) * trackWidth;
+    const scrollableTrack = trackWidth - thumbWidthPx;
+    const scrollableTabs = el.scrollWidth - el.clientWidth;
+
+    if (scrollableTrack > 0 && scrollableTabs > 0) {
+      const targetRatio = Math.max(0, Math.min(1, (clickX - thumbWidthPx / 2) / scrollableTrack));
+      el.scrollTo({ left: targetRatio * scrollableTabs, behavior: "smooth" });
+    }
+  };
+
+  const handleTabsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const el = tabsContainerRef.current;
+    if (!el || !scrollInfo.canScroll) return;
+
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && el.scrollWidth > el.clientWidth) {
+      el.scrollLeft += e.deltaY;
+    }
+  };
+
+  const handleTabClick = (
+    tab: "overview" | "yields" | "weight" | "calves" | "reproduction" | "medical",
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    setActiveTab(tab);
+    e.currentTarget.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+  };
 
   const handleCopyEarTag = () => {
     if (!titleText) return;
@@ -296,7 +586,9 @@ export default function LivestockDetailsDialog({
         element: '[data-tour="details-tabs"]',
         popover: {
           title: "Interactive Record Sections",
-          description: "Switch between Overview Profile, Yields, Weight Logs, Calves, and Vaccines & Health records.",
+          description: canProduceMilk
+            ? "Switch between Overview Profile, Yields, Weight Logs, Calves, and Vaccines & Health records."
+            : "Switch between Overview Profile, Weight Logs, Calves, and Vaccines & Health records.",
           side: "bottom",
           align: "center",
         },
@@ -331,7 +623,7 @@ export default function LivestockDetailsDialog({
       progressText: "{{current}} of {{total}}",
       steps,
     });
-  }, []);
+  }, [canProduceMilk]);
 
   const isApproved = activeLivestock?.status === "APPROVED";
   const approvalLabel = activeLivestock?.status ? activeLivestock.status.replace(/_/g, " ") : "PENDING";
@@ -446,24 +738,42 @@ export default function LivestockDetailsDialog({
                   </span>
                   <span className="text-slate-300">•</span>
                   <span className="text-slate-700 font-bold">{activeLivestock?.breed || "Breed unrecorded"}</span>
-                  {activeLivestock?.sex && (
-                    <>
-                      <span className="text-slate-300">•</span>
-                      <span className="inline-flex items-center gap-1 text-slate-700 font-semibold bg-slate-100/80 px-1.5 sm:px-2 py-0.5 rounded-md text-[11px] sm:text-xs">
-                        {activeLivestock.sex.toLowerCase().includes("male") ? (
-                          <>
-                            <span className="text-sky-600 font-bold">♂</span> Male
-                          </>
-                        ) : activeLivestock.sex.toLowerCase().includes("female") ? (
-                          <>
-                            <span className="text-rose-500 font-bold">♀</span> Female
-                          </>
-                        ) : (
-                          activeLivestock.sex
-                        )}
-                      </span>
-                    </>
-                  )}
+                  {activeLivestock?.sex && (() => {
+                    const s = activeLivestock.sex.trim().toUpperCase();
+                    const isFemale = s === "FEMALE" || s === "F";
+                    const isMale = s === "MALE" || s === "M";
+                    const isCastrated = s === "CASTRATED";
+                    const badgeClass = isFemale
+                      ? "bg-rose-50 text-rose-800 border-rose-200/70"
+                      : isMale
+                      ? "bg-sky-50 text-sky-800 border-sky-200/70"
+                      : isCastrated
+                      ? "bg-amber-50 text-amber-800 border-amber-200/70"
+                      : "bg-slate-100/80 text-slate-700 border-slate-200/60";
+
+                    return (
+                      <>
+                        <span className="text-slate-300">•</span>
+                        <span className={`inline-flex items-center gap-1 font-semibold px-1.5 sm:px-2 py-0.5 rounded-md text-[11px] sm:text-xs border ${badgeClass}`}>
+                          {isFemale ? (
+                            <>
+                              <span className="text-rose-500 font-bold">♀</span> Female
+                            </>
+                          ) : isMale ? (
+                            <>
+                              <span className="text-sky-600 font-bold">♂</span> Male
+                            </>
+                          ) : isCastrated ? (
+                            <>
+                              <span className="text-amber-600 font-bold">⚲</span> Castrated
+                            </>
+                          ) : (
+                            activeLivestock.sex
+                          )}
+                        </span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -504,20 +814,45 @@ export default function LivestockDetailsDialog({
                 <CheckCircle2 className="size-3.5 text-sky-600" />
                 <span>{operationalLabel === "ACTIVE" ? "ACTIVE HERD" : operationalLabel}</span>
               </span>
+
+              {/* Official Reproductive Status Badge (Phase 3 & 9) */}
+              {reproSummary?.reproductive_status && (
+                <span
+                  className={cn(
+                    "min-h-[34px] sm:min-h-auto px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold tracking-wide inline-flex items-center gap-1.5 shadow-2xs border",
+                    reproSummary.reproductive_status.status === "PREGNANT"
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                      : reproSummary.reproductive_status.status === "EXPOSED"
+                      ? "bg-amber-50 text-amber-800 border-amber-300"
+                      : reproSummary.reproductive_status.status === "COMPLETE"
+                      ? "bg-sky-50 text-sky-800 border-sky-300"
+                      : reproSummary.reproductive_status.status === "NOT_APPLICABLE"
+                      ? "bg-slate-100 text-slate-600 border-slate-200"
+                      : "bg-slate-50 text-slate-700 border-slate-300"
+                  )}
+                  title={reproSummary.reproductive_status.explanation}
+                >
+                  <HeartHandshake className="size-3.5" />
+                  <span>{reproSummary.reproductive_status.label}</span>
+                </span>
+              )}
             </div>
           </div>
 
           {/* ═══ 2. TABS (Swipeable horizontal scroll with edge padding on mobile) ═══ */}
           <div
+            ref={tabsContainerRef}
+            onScroll={updateScrollMetrics}
+            onWheel={handleTabsWheel}
             data-tour="details-tabs"
             className="mt-3.5 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0"
           >
             <button
               type="button"
-              onClick={() => setActiveTab("overview")}
+              onClick={(e) => handleTabClick("overview", e)}
               className={cn(
                 "shrink-0 whitespace-nowrap min-h-[36px] sm:min-h-[38px] px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-tight transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer",
-                activeTab === "overview"
+                effectiveTab === "overview"
                   ? "bg-slate-900 text-white shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
               )}
@@ -526,29 +861,31 @@ export default function LivestockDetailsDialog({
               <span>Overview Profile</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("yields")}
-              className={cn(
-                "shrink-0 whitespace-nowrap min-h-[36px] sm:min-h-[38px] px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-tight transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer",
-                activeTab === "yields"
-                  ? "bg-slate-900 text-white shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
-              )}
-            >
-              <Droplets className="size-3.5" />
-              <span>Yields</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
-                {animalProductions.length}
-              </span>
-            </button>
+            {canProduceMilk && (
+              <button
+                type="button"
+                onClick={(e) => handleTabClick("yields", e)}
+                className={cn(
+                  "shrink-0 whitespace-nowrap min-h-[36px] sm:min-h-[38px] px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-tight transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer",
+                  effectiveTab === "yields"
+                    ? "bg-slate-900 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                )}
+              >
+                <Droplets className="size-3.5" />
+                <span>Yields</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
+                  {animalProductions.length}
+                </span>
+              </button>
+            )}
 
             <button
               type="button"
-              onClick={() => setActiveTab("weight")}
+              onClick={(e) => handleTabClick("weight", e)}
               className={cn(
                 "shrink-0 whitespace-nowrap min-h-[36px] sm:min-h-[38px] px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-tight transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer",
-                activeTab === "weight"
+                effectiveTab === "weight"
                   ? "bg-slate-900 text-white shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
               )}
@@ -562,10 +899,10 @@ export default function LivestockDetailsDialog({
 
             <button
               type="button"
-              onClick={() => setActiveTab("calves")}
+              onClick={(e) => handleTabClick("calves", e)}
               className={cn(
                 "shrink-0 whitespace-nowrap min-h-[36px] sm:min-h-[38px] px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-tight transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer",
-                activeTab === "calves"
+                effectiveTab === "calves"
                   ? "bg-slate-900 text-white shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
               )}
@@ -579,10 +916,36 @@ export default function LivestockDetailsDialog({
 
             <button
               type="button"
-              onClick={() => setActiveTab("medical")}
+              onClick={(e) => handleTabClick("reproduction", e)}
               className={cn(
                 "shrink-0 whitespace-nowrap min-h-[36px] sm:min-h-[38px] px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-tight transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer",
-                activeTab === "medical"
+                effectiveTab === "reproduction"
+                  ? "bg-slate-900 text-white shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+              )}
+            >
+              <HeartHandshake className="size-3.5" />
+              <span>Reproduction</span>
+              {reproSummary?.reproductive_status && (
+                <span className={cn(
+                  "px-1.5 py-0.5 rounded-full text-[10px] font-bold border",
+                  reproSummary.reproductive_status.status === "PREGNANT"
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                    : reproSummary.reproductive_status.status === "EXPOSED"
+                    ? "bg-amber-100 text-amber-800 border-amber-200"
+                    : "bg-slate-100 text-slate-600 border-slate-200"
+                )}>
+                  {reproSummary.reproductive_status.label}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => handleTabClick("medical", e)}
+              className={cn(
+                "shrink-0 whitespace-nowrap min-h-[36px] sm:min-h-[38px] px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-tight transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer",
+                effectiveTab === "medical"
                   ? "bg-slate-900 text-white shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
               )}
@@ -590,21 +953,49 @@ export default function LivestockDetailsDialog({
               <Plus className="size-3.5 stroke-[2.5]" />
               <span>Vaccines & Health</span>
               <span className="px-1.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                {healthCount}
+                {healthCount + (reproSummary?.treatment_history?.length ?? 0)}
               </span>
             </button>
           </div>
 
-          {/* Subtle Progress Track underneath tabs matching screenshot */}
-          <div className="w-full h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden">
-            <div className="h-full bg-slate-200/90 rounded-full w-full" />
+          {/* ═══ INTERACTIVE HORIZONTAL SCROLLBAR FOR TABS (Indicated by user) ═══ */}
+          <div
+            ref={trackRef}
+            onClick={handleTrackClick}
+            className={cn(
+              "w-full h-1.5 sm:h-2 bg-slate-100 hover:bg-slate-200/70 rounded-full mt-3 relative transition-all duration-200 select-none group",
+              scrollInfo.canScroll ? "cursor-pointer" : "opacity-40 cursor-default"
+            )}
+            role="scrollbar"
+            aria-controls="details-tabs"
+            aria-valuenow={Math.round(scrollInfo.thumbLeftPct)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Horizontal scrollbar for detail tabs"
+            title={scrollInfo.canScroll ? "Click or drag to scroll tabs horizontally" : undefined}
+          >
+            {scrollInfo.canScroll ? (
+              <div
+                onPointerDown={handleThumbPointerDown}
+                onPointerMove={handleThumbPointerMove}
+                onPointerUp={handleThumbPointerUp}
+                onPointerCancel={handleThumbPointerUp}
+                style={{
+                  left: `${scrollInfo.thumbLeftPct}%`,
+                  width: `${scrollInfo.thumbWidthPct}%`,
+                }}
+                className="absolute top-0 bottom-0 bg-slate-400 group-hover:bg-slate-500 active:bg-slate-700 rounded-full transition-colors cursor-grab active:cursor-grabbing shadow-2xs"
+              />
+            ) : (
+              <div className="h-full bg-slate-200/90 rounded-full w-full" />
+            )}
           </div>
         </div>
 
         {/* ═══ 3. SCROLLABLE CONTENT BODY (Field responsive spacing) ═══ */}
         <div className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 flex-1 overflow-y-auto max-h-[62vh] sm:max-h-[60vh]">
           {/* TAB 1: OVERVIEW PROFILE */}
-          {activeTab === "overview" && (
+          {effectiveTab === "overview" && (
             <div data-tour="details-profile" className="space-y-3.5 sm:space-y-4">
               {/* Part of Herd Banner / Individual Animal Banner */}
               {activeLivestock?.batchId || activeLivestock?.batchCode ? (
@@ -842,7 +1233,7 @@ export default function LivestockDetailsDialog({
           )}
 
           {/* TAB 2: YIELDS */}
-          {activeTab === "yields" && (
+          {canProduceMilk && effectiveTab === "yields" && (
             <div className="space-y-3.5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 bg-sky-50/70 border border-sky-200/80 p-3 sm:p-3.5 rounded-xl sm:rounded-2xl">
                 <div>
@@ -920,7 +1311,7 @@ export default function LivestockDetailsDialog({
           )}
 
           {/* TAB 3: WEIGHT LOGS */}
-          {activeTab === "weight" && (
+          {effectiveTab === "weight" && (
             <div className="space-y-3">
               <div className="p-3 sm:p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl sm:rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
@@ -990,7 +1381,7 @@ export default function LivestockDetailsDialog({
           )}
 
           {/* TAB 4: CALVES */}
-          {activeTab === "calves" && (
+          {effectiveTab === "calves" && (
             <div className="space-y-3">
               {animalCalves.length > 0 ? (
                 animalCalves.map((c) => (
@@ -1037,9 +1428,332 @@ export default function LivestockDetailsDialog({
             </div>
           )}
 
-          {/* TAB 5: VACCINES & HEALTH */}
-          {activeTab === "medical" && (
-            <div className="space-y-2.5 sm:space-y-3 font-mono text-xs">
+          {/* TAB 5: REPRODUCTION & BREEDING LIFECYCLE (Phases 3, 4, 7, 8) */}
+          {effectiveTab === "reproduction" && (
+            <div className="space-y-4 font-mono text-xs">
+              {/* Reproductive Status Overview Card */}
+              {reproSummary?.reproductive_status ? (
+                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900 text-sm">Authoritative Reproductive Status</span>
+                      <span className={cn(
+                        "px-2.5 py-0.5 rounded-full text-xs font-bold border",
+                        reproSummary.reproductive_status.status === "PREGNANT"
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                          : reproSummary.reproductive_status.status === "EXPOSED"
+                          ? "bg-amber-100 text-amber-800 border-amber-300"
+                          : reproSummary.reproductive_status.status === "COMPLETE"
+                          ? "bg-sky-100 text-sky-800 border-sky-300"
+                          : reproSummary.reproductive_status.status === "NOT_APPLICABLE"
+                          ? "bg-slate-100 text-slate-600 border-slate-200"
+                          : "bg-slate-100 text-slate-700 border-slate-300"
+                      )}>
+                        {reproSummary.reproductive_status.label}
+                      </span>
+                    </div>
+                    {reproSummary.reproductive_status.cycle_number > 0 && (
+                      <span className="text-[11px] text-slate-500 font-semibold">
+                        Reproductive Cycle #{reproSummary.reproductive_status.cycle_number}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {reproSummary.reproductive_status.explanation}
+                  </p>
+
+                  {/* Gestation Window & Calving Prediction (Phase 8) */}
+                  {reproSummary.reproductive_status.expected_calving_date && (
+                    <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between font-bold text-amber-950">
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="size-4 text-amber-700" />
+                          Estimated Calving Date:
+                        </span>
+                        <span className="text-sm font-black text-amber-900">
+                          {formatCalendarDate(reproSummary.reproductive_status.expected_calving_date)}
+                        </span>
+                      </div>
+                      {reproSummary.reproductive_status.gestation_window && (
+                        <p className="text-[11px] text-amber-800">
+                          Expected Window: {formatCalendarDate(reproSummary.reproductive_status.gestation_window.start)} – {formatCalendarDate(reproSummary.reproductive_status.gestation_window.end)}
+                          {" "}(Biological variance: ±10 days based on species reference).
+                        </p>
+                      )}
+                      <p className="text-[10px] text-amber-700 italic">
+                        * Note: This date is a biological estimate derived from the recorded breeding date. It does not replace clinical ultrasound confirmation.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Herd Bull Exposure Check (Phase 4) */}
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+                    <div className="flex items-center justify-between font-bold text-slate-800">
+                      <span className="flex items-center gap-1.5">
+                        <Users className="size-3.5 text-slate-600" />
+                        Current Herd Bull Exposure:
+                      </span>
+                      <span className={reproSummary.bull_herd_exposure.has_exposure ? "text-amber-800" : "text-slate-500"}>
+                        {reproSummary.bull_herd_exposure.has_exposure
+                          ? `Exposed in ${reproSummary.bull_herd_exposure.batch_name || "Herd"}`
+                          : "No Active Sire Bull in Current Pen"}
+                      </span>
+                    </div>
+                    {reproSummary.bull_herd_exposure.bull_tags.length > 0 && (
+                      <p className="text-[11px] text-slate-600">
+                        Active Sire Bull(s): <strong className="text-slate-800">{reproSummary.bull_herd_exposure.bull_tags.join(", ")}</strong>
+                      </p>
+                    )}
+                    <p className="text-[10px] text-slate-400 italic">
+                      SmartLivestock enforces strict pen/herd boundaries. Exposure is never inferred merely because animals share a farm or barangay.
+                    </p>
+                  </div>
+
+                  {/* AI Conception Prediction Governance Banner (Phase 7) */}
+                  <div className="p-3 rounded-xl bg-sky-50/60 border border-sky-200 text-xs space-y-1">
+                    <div className="flex items-center justify-between font-bold text-sky-950">
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="size-3.5 text-sky-600" />
+                        Conception Likelihood Model:
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-sky-100 text-sky-800">
+                        {reproSummary.conception_prediction.prediction_status === "BLOCKED_PENDING_DATA" ? "Deferred (Data Collection)" : "Active"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-sky-800">
+                      {reproSummary.conception_prediction.message}
+                    </p>
+                    <p className="text-[10px] text-sky-700 italic">
+                      {reproSummary.conception_prediction.disclaimer}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-400">Loading reproductive profile...</div>
+              )}
+
+              {/* Unified Chronological Timeline (Phase 2 & 5) */}
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
+                <h4 className="font-bold text-slate-900 text-xs sm:text-sm flex items-center gap-2">
+                  <Calendar className="size-4 text-emerald-700" />
+                  <span>Unified Reproductive & Clinical History</span>
+                </h4>
+
+                {reproSummary?.unified_timeline && reproSummary.unified_timeline.length > 0 ? (
+                  <div className="relative pl-6 space-y-3 border-l-2 border-slate-200">
+                    {reproSummary.unified_timeline.map((evt, idx) => (
+                      <div key={idx} className="relative group">
+                        <div className={cn(
+                          "absolute -left-[31px] top-1 size-3.5 rounded-full border-2 border-white",
+                          evt.type === "PREGNANCY_CHECK"
+                            ? "bg-emerald-600"
+                            : evt.type === "CALVING"
+                            ? "bg-sky-600"
+                            : evt.type === "TREATMENT"
+                            ? "bg-purple-600"
+                            : "bg-amber-500"
+                        )} />
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-slate-900">{evt.title}</span>
+                            <span className="text-[10px] text-slate-400">{formatCalendarDate(evt.date)}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 mt-0.5">{evt.details}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic py-2">
+                    No historical breeding, pregnancy diagnoses, calvings, or treatments logged yet for this animal.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: VACCINES & HEALTH (Integrated with Clinical Treatments - Phase 5) */}
+          {effectiveTab === "medical" && (
+            <div className="space-y-3 font-mono text-xs">
+              {/* Top Action to Log Treatment */}
+              <div className="flex items-center justify-between pb-1">
+                <span className="font-bold text-slate-800 text-xs sm:text-sm">Health Observations & Treatments</span>
+                <button
+                  type="button"
+                  onClick={() => setIsTreatmentFormOpen((prev) => !prev)}
+                  className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-mono font-bold transition-all inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                >
+                  <Plus className="size-3.5" />
+                  <span>{isTreatmentFormOpen ? "Close Form" : "Log Treatment"}</span>
+                </button>
+              </div>
+
+              {/* Inline Form to Log Clinical Treatment (Phase 5 & 10) */}
+              {isTreatmentFormOpen && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    addTreatmentMutation.mutate();
+                  }}
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                      <Pill className="size-4 text-emerald-700" />
+                      Log Veterinary or Clinical Treatment
+                    </span>
+                    <span className="text-[10px] text-slate-400">Scoped to this animal</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Treatment Date</label>
+                      <input
+                        type="date"
+                        max={new Date().toISOString().split("T")[0]}
+                        value={treatmentDate}
+                        onChange={(e) => setTreatmentDate(e.target.value)}
+                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Treatment Category</label>
+                      <select
+                        value={treatmentType}
+                        onChange={(e) => setTreatmentType(e.target.value)}
+                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
+                      >
+                        <option value="ANTIBIOTIC">Antibiotic / Anti-infective</option>
+                        <option value="DEWORMER">Anthelmintic / Dewormer</option>
+                        <option value="VITAMINS">Vitamins / Nutritional Supplement</option>
+                        <option value="VACCINE">Vaccine / Immunization</option>
+                        <option value="ANTI_INFLAMMATORY">Anti-inflammatory / Pain Relief</option>
+                        <option value="HORMONAL">Hormonal / Estrus Synchronization</option>
+                        <option value="OTHER">Other Clinical Treatment</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Medication Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Oxytetracycline LA"
+                        value={medicationName}
+                        onChange={(e) => setMedicationName(e.target.value)}
+                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Dosage</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 20 mL"
+                        value={dosage}
+                        onChange={(e) => setDosage(e.target.value)}
+                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Route</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Intramuscular (IM)"
+                        value={route}
+                        onChange={(e) => setRoute(e.target.value)}
+                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Clinical Indication / Reason</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Post-calving uterine cleanse prophylaxis"
+                        value={treatmentReason}
+                        onChange={(e) => setTreatmentReason(e.target.value)}
+                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Administering Vet / Person</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Dr. Dimaano (MAO)"
+                        value={administeredBy}
+                        onChange={(e) => setAdministeredBy(e.target.value)}
+                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsTreatmentFormOpen(false)}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={addTreatmentMutation.isPending}
+                      className="px-4 py-1.5 rounded-xl bg-emerald-800 text-white text-xs font-bold hover:bg-emerald-900"
+                    >
+                      {addTreatmentMutation.isPending ? "Saving..." : "Save Treatment"}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Recorded Treatments List (Phase 5) */}
+              {reproSummary?.treatment_history && reproSummary.treatment_history.length > 0 && (
+                <div className="space-y-2">
+                  <h5 className="font-bold text-slate-700 text-[11px] uppercase tracking-wider">Clinical Treatments Logged</h5>
+                  {reproSummary.treatment_history.map((t) => (
+                    <div
+                      key={t.id}
+                      className="p-3 sm:p-3.5 rounded-xl bg-white border border-slate-200 flex items-start justify-between gap-3"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <Pill className="size-4 text-purple-600 mt-0.5 shrink-0" />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900">{t.medication_name}</span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                              {t.treatment_type_label}
+                            </span>
+                          </div>
+                          <p className="text-slate-600 text-[11px] mt-0.5">
+                            {t.dosage && `Dose: ${t.dosage} · `}
+                            {t.route_of_administration && `Route: ${t.route_of_administration} · `}
+                            {t.administered_by && `By: ${t.administered_by}`}
+                          </p>
+                          {t.reason && (
+                            <p className="text-slate-500 text-[11px] mt-0.5">
+                              Indication: {t.reason}
+                            </p>
+                          )}
+                          {t.notes && (
+                            <p className="text-slate-400 text-[10px] italic mt-0.5">&ldquo;{t.notes}&rdquo;</p>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-slate-400 shrink-0 font-bold">
+                        {formatCalendarDate(t.treatment_date)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Official Vaccination Card */}
               {activeLivestock?.lastVaccinationDate && (
                 <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex items-start gap-2.5 sm:gap-3">
                   <ShieldCheck className="size-4.5 text-emerald-700 mt-0.5 shrink-0" />
@@ -1057,6 +1771,7 @@ export default function LivestockDetailsDialog({
                 </div>
               )}
 
+              {/* Disease Cases */}
               {animalDiseaseCases.length > 0 && (
                 animalDiseaseCases.map((d) => (
                   <div
@@ -1092,7 +1807,7 @@ export default function LivestockDetailsDialog({
                 ))
               )}
 
-              {!activeLivestock?.lastVaccinationDate && animalDiseaseCases.length === 0 && (
+              {!activeLivestock?.lastVaccinationDate && animalDiseaseCases.length === 0 && (!reproSummary?.treatment_history || reproSummary.treatment_history.length === 0) && (
                 <div className="text-center py-8 sm:py-10 space-y-3">
                   <div className="size-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto border border-emerald-100">
                     <ShieldCheck className="size-6 text-emerald-700" />
