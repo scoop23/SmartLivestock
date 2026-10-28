@@ -24,6 +24,7 @@ import {
   Calendar,
   Check,
   CheckCircle2,
+  Clock,
   Copy,
   Droplets,
   ExternalLink,
@@ -36,6 +37,7 @@ import {
   PlusCircle,
   Radio,
   Scale,
+  Shield,
   ShieldCheck,
   Tag,
   TrendingUp,
@@ -596,7 +598,7 @@ export default function LivestockDetailsDialog({
         element: '[data-tour="details-profile"]',
         popover: {
           title: "Overview Profile Grid",
-          description: "Review key biometrics: Ear Tag ID, Assigned Herd, Scale Weight, Birth Date, Age Class, and SIBAT Vaccination status.",
+          description: "Review key biometrics: Ear Tag ID, Assigned Herd, Scale Weight, Birth Date, Age Class, and Vaccination status.",
           side: "top",
           align: "start",
         },
@@ -950,8 +952,8 @@ export default function LivestockDetailsDialog({
           {/* TAB 1: OVERVIEW PROFILE */}
           {effectiveTab === "overview" && (
             <div data-tour="details-profile" className="space-y-3.5 sm:space-y-4">
-              {/* Part of Herd Banner / Individual Animal Banner */}
-              {activeLivestock?.batchId || activeLivestock?.batchCode ? (
+              {/* Part of Herd Banner (only shown when animal belongs to a herd batch) */}
+              {(activeLivestock?.batchId || activeLivestock?.batchCode) && (
                 <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-emerald-50/50 border border-emerald-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                   <div className="flex items-start sm:items-center gap-3">
                     <div className="size-10 sm:size-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg sm:text-xl shrink-0 shadow-2xs">
@@ -988,35 +990,6 @@ export default function LivestockDetailsDialog({
                     className="w-full sm:w-auto min-h-[40px] sm:min-h-auto px-4 py-2 rounded-xl bg-emerald-900 hover:bg-emerald-950 text-white font-mono text-xs font-semibold tracking-wide transition-all shadow-2xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
                   >
                     <span>View Herd Roster</span>
-                    <ExternalLink className="size-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-                  <div className="flex items-start sm:items-center gap-3">
-                    <div className="size-10 sm:size-11 rounded-xl bg-slate-700 text-white flex items-center justify-center text-lg sm:text-xl shrink-0 shadow-2xs">
-                      <Tag className="size-4.5 sm:size-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="font-bold text-slate-900 text-xs sm:text-sm tracking-tight block">
-                        Individual Livestock Registration
-                      </span>
-                      <p className="text-[11px] sm:text-xs text-slate-500 font-normal mt-0.5 leading-snug">
-                        Independent animal record • {activeLivestock?.farmerName ? `Owner: ${activeLivestock.farmerName}` : "Municipal livestock registry"}
-                        {activeLivestock?.barangayName ? ` • Barangay ${activeLivestock.barangayName}` : ""}.
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenChange();
-                      router.push(`/livestock-inventory/${animalId || activeLivestock?.tagNumber}`);
-                    }}
-                    className="w-full sm:w-auto min-h-[40px] sm:min-h-auto px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-mono text-xs font-semibold tracking-wide transition-all shadow-2xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
-                  >
-                    <span>Full Bio Record</span>
                     <ExternalLink className="size-3.5" />
                   </button>
                 </div>
@@ -1143,25 +1116,82 @@ export default function LivestockDetailsDialog({
                 </div>
 
                 {/* Tile 6: Vaccination Status */}
-                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-emerald-50/30 border border-emerald-300 hover:border-emerald-400 transition-all flex flex-col justify-between shadow-2xs min-h-[96px] sm:min-h-[105px]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold text-emerald-800 uppercase tracking-wider">
-                      VACCINATION STATUS
-                    </span>
-                    <ShieldCheck className="size-4 text-emerald-600" />
-                  </div>
-                  <div className="mt-1">
-                    <span className="text-sm sm:text-base font-bold text-slate-900 tracking-tight block truncate">
-                      {activeLivestock?.lastVaccinationDate
-                        ? `Vaccinated (${formatCalendarDate(activeLivestock.lastVaccinationDate)})`
-                        : "Unvaccinated / Pending"}
-                    </span>
-                    <span className="text-[11px] font-mono text-emerald-700 font-medium mt-0.5 flex items-center gap-1">
-                      <Check className="size-3 text-emerald-600 stroke-[3]" />
-                      {activeLivestock?.lastVaccinationDate ? "SIBAT Field Certified" : "No vaccination logged yet"}
-                    </span>
-                  </div>
-                </div>
+                {(() => {
+                  const hasVaccine = !!activeLivestock?.lastVaccinationDate;
+                  const isApproved = activeLivestock?.status === "APPROVED";
+                  const isVerified = activeLivestock?.status === "VERIFIED" || isApproved;
+
+                  return (
+                    <div
+                      className={cn(
+                        "p-3.5 sm:p-4 rounded-xl sm:rounded-2xl transition-all flex flex-col justify-between shadow-2xs min-h-[96px] sm:min-h-[105px]",
+                        hasVaccine && isVerified
+                          ? "bg-emerald-50/40 border border-emerald-300 hover:border-emerald-400"
+                          : hasVaccine
+                          ? "bg-amber-50/40 border border-amber-200/90 hover:border-amber-300"
+                          : "bg-white border border-slate-200/80 hover:border-slate-300"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={cn(
+                            "text-[10px] font-mono font-bold uppercase tracking-wider",
+                            hasVaccine && isVerified
+                              ? "text-emerald-800"
+                              : hasVaccine
+                              ? "text-amber-800"
+                              : "text-slate-400"
+                          )}
+                        >
+                          VACCINATION STATUS
+                        </span>
+                        {hasVaccine && isVerified ? (
+                          <ShieldCheck className="size-4 text-emerald-600" />
+                        ) : hasVaccine ? (
+                          <Clock className="size-4 text-amber-600" />
+                        ) : (
+                          <Shield className="size-4 text-slate-400" />
+                        )}
+                      </div>
+                      <div className="mt-1">
+                        <span className="text-sm sm:text-base font-bold text-slate-900 tracking-tight block truncate">
+                          {hasVaccine
+                            ? `Vaccinated (${formatCalendarDate(activeLivestock!.lastVaccinationDate!)})`
+                            : "Unvaccinated / Pending"}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-[11px] font-mono font-medium mt-0.5 flex items-center gap-1",
+                            hasVaccine && isVerified
+                              ? "text-emerald-700"
+                              : hasVaccine
+                              ? "text-amber-700"
+                              : "text-slate-500"
+                          )}
+                        >
+                          {hasVaccine && isApproved ? (
+                            <>
+                              <Check className="size-3 text-emerald-600 stroke-[3]" />
+                              MAO Approved Record
+                            </>
+                          ) : hasVaccine && isVerified ? (
+                            <>
+                              <Check className="size-3 text-emerald-600 stroke-[3]" />
+                              SIBAT Verified Record
+                            </>
+                          ) : hasVaccine ? (
+                            <>
+                              <Clock className="size-3 text-amber-600" />
+                              Self-Reported (Pending SIBAT Review)
+                            </>
+                          ) : (
+                            "No vaccination logged yet"
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Remarks If Present */}
@@ -1563,20 +1593,45 @@ export default function LivestockDetailsDialog({
                 </div>
               )}
 
-              {/* Official Vaccination Card */}
+              {/* Recorded Vaccination Card */}
               {activeLivestock?.lastVaccinationDate && (
-                <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex items-start gap-2.5 sm:gap-3">
-                  <ShieldCheck className="size-4.5 text-emerald-700 mt-0.5 shrink-0" />
+                <div
+                  className={cn(
+                    "p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border flex items-start gap-2.5 sm:gap-3",
+                    activeLivestock.status === "APPROVED" || activeLivestock.status === "VERIFIED"
+                      ? "bg-emerald-50/70 border-emerald-200/80"
+                      : "bg-amber-50/60 border-amber-200/80"
+                  )}
+                >
+                  {activeLivestock.status === "APPROVED" || activeLivestock.status === "VERIFIED" ? (
+                    <ShieldCheck className="size-4.5 text-emerald-700 mt-0.5 shrink-0" />
+                  ) : (
+                    <Clock className="size-4.5 text-amber-700 mt-0.5 shrink-0" />
+                  )}
                   <div className="flex-1">
                     <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
-                      Official Municipal Vaccination
+                      {activeLivestock.status === "APPROVED" || activeLivestock.status === "VERIFIED"
+                        ? "Municipal Vaccination Record"
+                        : "Farmer-Reported Vaccination"}
                     </h4>
                     <p className="text-slate-600 text-xs mt-0.5">
-                      Administered / Verified: {formatCalendarDate(activeLivestock.lastVaccinationDate)}
+                      {activeLivestock.status === "APPROVED" || activeLivestock.status === "VERIFIED"
+                        ? `Administered / Verified: ${formatCalendarDate(activeLivestock.lastVaccinationDate)}`
+                        : `Declared Date: ${formatCalendarDate(activeLivestock.lastVaccinationDate)}`}
                     </p>
-                    <span className="inline-block mt-1.5 px-2 py-0.5 bg-emerald-100/90 text-emerald-800 rounded font-bold text-[10px]">
-                      CERTIFIED BY MAO / SIBAT
-                    </span>
+                    {activeLivestock.status === "APPROVED" ? (
+                      <span className="inline-block mt-1.5 px-2 py-0.5 bg-emerald-100/90 text-emerald-800 rounded font-bold text-[10px]">
+                        APPROVED BY MAO
+                      </span>
+                    ) : activeLivestock.status === "VERIFIED" ? (
+                      <span className="inline-block mt-1.5 px-2 py-0.5 bg-blue-100/90 text-blue-800 rounded font-bold text-[10px]">
+                        VERIFIED BY SIBAT
+                      </span>
+                    ) : (
+                      <span className="inline-block mt-1.5 px-2 py-0.5 bg-amber-100/90 text-amber-800 rounded font-bold text-[10px]">
+                        PENDING SIBAT FIELD VALIDATION
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
