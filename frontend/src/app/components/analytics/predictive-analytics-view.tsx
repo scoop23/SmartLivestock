@@ -413,6 +413,12 @@ const DOMAINS: Array<{
   description: string;
 }> = [
   {
+    id: "production",
+    label: "Production",
+    icon: "🥛",
+    description: "Commodity outputs: Milk, Farmer Meat, Eggs, Wool",
+  },
+  {
     id: "disease",
     label: "Disease Surveillance",
     icon: "🦠",

@@ -363,11 +363,13 @@ export default function LivestockDetailPage() {
       && activeItem.quantity === 1
   );
   const isDeceased = activeItem?.operationalStatus === "DECEASED";
+  const isSlaughtered = activeItem?.operationalStatus === "SLAUGHTERED";
+  const isInactive = isDeceased || isSlaughtered;
 
   const correctionMutation = useMutation({
     mutationFn: async (payload: UpdateInventoryPayload) => {
       if (!activeItem) throw new Error("No livestock record is selected.");
-      if (activeItem.operationalStatus === "DECEASED") throw new Error("Deceased animals are read-only.");
+      if (isInactive) throw new Error(`${isDeceased ? "Deceased" : "Slaughtered"} animals are read-only.`);
       const response = await api.put(`livestock/inventory/${activeItem.id}/`, payload);
       return response.data;
     },
@@ -970,7 +972,7 @@ export default function LivestockDetailPage() {
   const [profileProductionForm, setProfileProductionForm] = useState<ProductionFormState>({});
   const [productionWizardResetSignal, setProductionWizardResetSignal] = useState(0);
   const openProductionDialog = () => {
-    if (isDeceased || !canProduceMilk) return;
+    if (isInactive || !canProduceMilk) return;
     if (availableProductionTypes.length > 0) {
       const defaultType = availableProductionTypes.includes("MILK") ? "MILK" : availableProductionTypes[0];
       setProfileProductionType(defaultType.toLowerCase() as ProductionType);
@@ -1008,7 +1010,7 @@ export default function LivestockDetailPage() {
       weighing_date: string;
       notes?: string;
     }) => {
-      if (activeItem?.operationalStatus === "DECEASED") throw new Error("Deceased animals are read-only.");
+      if (isInactive) throw new Error(`${isDeceased ? "Deceased" : "Slaughtered"} animals are read-only.`);
       const res = await api.post("production/weights/", payload);
       return res.data;
     },
@@ -1045,7 +1047,7 @@ export default function LivestockDetailPage() {
   const updateBirthDateMutation = useMutation({
     mutationFn: async (birthDateStr: string | null) => {
       if (!activeItem) throw new Error("No livestock record selected.");
-      if (isDeceased) throw new Error("Deceased animals are read-only.");
+      if (isInactive) throw new Error(`${isDeceased ? "Deceased" : "Slaughtered"} animals are read-only.`);
       const res = await api.patch(`livestock/inventory/${activeItem.id}/`, {
         birth_date: birthDateStr || null,
       });
@@ -1074,7 +1076,7 @@ export default function LivestockDetailPage() {
   const handleAddWeight = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeItem) return;
-    if (isDeceased) return;
+    if (isInactive) return;
     const val = parseFloat(newWeight);
     if (isNaN(val) || val <= 0) {
       toast.error("Please enter a valid weight in kilograms.");
@@ -1110,7 +1112,7 @@ export default function LivestockDetailPage() {
       record_date: string;
       notes?: string;
     }) => {
-      if (activeItem?.operationalStatus === "DECEASED") throw new Error("Deceased animals are read-only.");
+      if (isInactive) throw new Error(`${isDeceased ? "Deceased" : "Slaughtered"} animals are read-only.`);
       if (payload.production_type === "MILK" && !canProduceMilk) {
         throw new Error("Milk production can only be recorded for a female animal.");
       }
@@ -1142,7 +1144,7 @@ export default function LivestockDetailPage() {
       calving_ease: string;
       notes: string;
     }) => {
-      if (activeItem?.operationalStatus === "DECEASED") throw new Error("Deceased animals are read-only.");
+      if (isInactive) throw new Error(`${isDeceased ? "Deceased" : "Slaughtered"} animals are read-only.`);
       const res = await api.post("production/calving/", payload);
       return res.data;
     },
@@ -1173,7 +1175,7 @@ export default function LivestockDetailPage() {
   const handleRecordCalving = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeItem) return;
-    if (isDeceased) return;
+    if (isInactive) return;
     if (newCalfData.date > localCalendarDateToday()) {
       toast.error("Calving / birth date cannot be in the future.");
       return;
@@ -1205,7 +1207,15 @@ export default function LivestockDetailPage() {
   // Milk forecasting is currently supported for individually identified female cattle and carabao.
   // The backend still decides whether its status, age, and approved history
   // are sufficient to return a forecast.
-  const canShowMilkPredictionTab = false;
+  const canShowMilkPredictionTab = Boolean(
+    activeItem
+      && ["cattle", "cow", "baka", "carabao", "buffalo"].some((term) => normalizedLivestockType.includes(term))
+      && activeItem.operationalStatus === "ACTIVE"
+      && activeItem.entryType === "INDIVIDUAL"
+      && activeItem.quantity === 1
+      && canProduceMilk
+      && ["FEMALE", "F"].includes(activeItem.sex.trim().toUpperCase())
+  );
 
   const effectiveProfileTab = useMemo(() => {
     if (!canShowMilkPredictionTab && activeProfileTab === "milk-prediction") return "growth";
@@ -1378,8 +1388,15 @@ export default function LivestockDetailPage() {
         </div>
       )}
 
-      <div className={`w-full max-w-none space-y-6 p-4 md:p-6 xl:p-8 pb-36 lg:pb-8 ${isDeceased ? "grayscale-[0.75]" : ""}`}>
-        {canCorrectIndividual && !isDeceased && (
+      {isSlaughtered && (
+        <div className="mx-4 mt-4 flex items-start gap-3 rounded-2xl border border-stone-300 bg-stone-100 px-4 py-3 text-slate-700 md:mx-6 xl:mx-8" role="status">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-stone-600" />
+          <p className="text-sm font-semibold">Slaughtered record — read-only. Production, weight, calving, and correction actions are disabled; existing history remains available.</p>
+        </div>
+      )}
+
+      <div className={`w-full max-w-none space-y-6 p-4 md:p-6 xl:p-8 pb-36 lg:pb-8 ${isInactive ? "grayscale-[0.75]" : ""}`}>
+        {canCorrectIndividual && !isInactive && (
           <section className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-rose-950 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-5" aria-labelledby="livestock-revision-title">
             <div className="flex min-w-0 items-start gap-3">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700">
@@ -1408,7 +1425,7 @@ export default function LivestockDetailPage() {
         )}
 
         {/* ── INTERACTIVE LIVESTOCK SILHOUETTE INFOGRAPHIC HERO ── */}
-        <div data-tour="livestock-profile-overview" className={isDeceased ? "pointer-events-none grayscale opacity-75" : undefined} aria-disabled={isDeceased}>
+        <div data-tour="livestock-profile-overview" className={isInactive ? "pointer-events-none grayscale opacity-75" : undefined} aria-disabled={isInactive}>
         <LivestockInfographicHero
           activeItem={activeItem}
           latestWeight={latestWeight}
@@ -1736,8 +1753,8 @@ export default function LivestockDetailPage() {
                     </CardDescription>
                   </div>
                   <Button
-                    disabled={isDeceased}
-                    title={isDeceased ? "Deceased animals are read-only" : "Log weight"}
+                    disabled={isInactive}
+                    title={isDeceased ? "Deceased animals are read-only" : isSlaughtered ? "Slaughtered animals are read-only" : "Log weight"}
                     onClick={() => {
                       setNewWeight(String(latestWeight || "70.0"));
                       setWeighTargetWeight(targetWeight != null ? String(targetWeight) : "");
@@ -1930,8 +1947,8 @@ export default function LivestockDetailPage() {
                 </div>
 
                 <Button
-                  disabled={isDeceased}
-                  title={isDeceased ? "Deceased animals are read-only" : "Record production"}
+                  disabled={isInactive}
+                  title={isDeceased ? "Deceased animals are read-only" : isSlaughtered ? "Slaughtered animals are read-only" : "Record production"}
                   onClick={openProductionDialog}
                   size="sm"
                   className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-sm"
@@ -2047,8 +2064,8 @@ export default function LivestockDetailPage() {
                 </div>
 
                 <Button
-                  disabled={isDeceased}
-                  title={isDeceased ? "Deceased animals are read-only" : `Record new ${terms.eventName.toLowerCase()}`}
+                  disabled={isInactive}
+                  title={isDeceased ? "Deceased animals are read-only" : isSlaughtered ? "Slaughtered animals are read-only" : `Record new ${terms.eventName.toLowerCase()}`}
                   onClick={() => setIsCalvingDialogOpen(true)}
                   size="sm"
                   className="rounded-xl bg-pink-700 hover:bg-pink-800 text-white font-bold text-xs gap-1.5 shadow-sm cursor-pointer"
@@ -2369,8 +2386,8 @@ export default function LivestockDetailPage() {
                 </div>
 
                 <Button
-                  disabled={isDeceased}
-                  title={isDeceased ? "Deceased animals are read-only" : "Log a clinical treatment"}
+                  disabled={isInactive}
+                  title={isDeceased ? "Deceased animals are read-only" : isSlaughtered ? "Slaughtered animals are read-only" : "Log a clinical treatment"}
                   onClick={() => setIsTreatmentDialogOpen(true)}
                   size="sm"
                   className="rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white cursor-pointer shadow-2xs gap-1.5 shrink-0"
@@ -2427,7 +2444,7 @@ export default function LivestockDetailPage() {
                     </p>
                   </div>
                   <Button
-                    disabled={isDeceased}
+                    disabled={isInactive}
                     size="sm"
                     variant="outline"
                     onClick={() => setIsTreatmentDialogOpen(true)}
@@ -2589,7 +2606,7 @@ export default function LivestockDetailPage() {
       />
 
       {/* ── MODAL: EDIT BIRTH DATE ────────────────────────────────────────── */}
-      <Dialog open={isBirthDateDialogOpen && !isDeceased} onOpenChange={setIsBirthDateDialogOpen}>
+      <Dialog open={isBirthDateDialogOpen && !isInactive} onOpenChange={setIsBirthDateDialogOpen}>
         <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
@@ -2675,7 +2692,7 @@ export default function LivestockDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isWeighDialogOpen && !isDeceased} onOpenChange={setIsWeighDialogOpen}>
+      <Dialog open={isWeighDialogOpen && !isInactive} onOpenChange={setIsWeighDialogOpen}>
         <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
@@ -2860,7 +2877,7 @@ export default function LivestockDetailPage() {
         isSubmitting={logProductionMutation.isPending}
         resetSignal={productionWizardResetSignal}
         onSubmit={(payload: ProductionPayload) => logProductionMutation.mutate(payload)}
-        open={isProductionDialogOpen && !isDeceased && canProduceMilk}
+        open={isProductionDialogOpen && !isInactive && canProduceMilk}
         onClose={() => setIsProductionDialogOpen(false)}
         mode="create"
         editingRecord={null}
@@ -2887,7 +2904,7 @@ export default function LivestockDetailPage() {
         recordId={submittedProductionId}
       />
 
-      <Dialog open={isCalvingDialogOpen && !isDeceased} onOpenChange={setIsCalvingDialogOpen}>
+      <Dialog open={isCalvingDialogOpen && !isInactive} onOpenChange={setIsCalvingDialogOpen}>
         <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
@@ -3173,7 +3190,7 @@ export default function LivestockDetailPage() {
       </Dialog>
 
       {/* ── MODAL: LOG TREATMENT ─────────────────────────────────────────── */}
-      <Dialog open={isTreatmentDialogOpen && !isDeceased} onOpenChange={setIsTreatmentDialogOpen}>
+      <Dialog open={isTreatmentDialogOpen && !isInactive} onOpenChange={setIsTreatmentDialogOpen}>
         <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">

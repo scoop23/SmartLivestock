@@ -45,6 +45,26 @@ from .auction_weekly import evaluate_weekly_auction, generate_weekly_auction_for
 # The four authoritative dashboard targets
 CORE_DIAGNOSTIC_TARGETS = [
     {
+        "id": "milk",
+        "domain": "production",
+        "target": "MILK",
+        "unit": "LITERS",
+        "label": "Milk Production",
+        "commodity_type": "MILK",
+        "reporting_type": "RECURRING_MONTHLY",
+        "description": "Farmer-recorded dairy output in liters across Padre Garcia farms.",
+    },
+    {
+        "id": "farmer_meat",
+        "domain": "production",
+        "target": "MEAT",
+        "unit": "KILOGRAMS",
+        "label": "Farmer Meat Yield",
+        "commodity_type": "MEAT",
+        "reporting_type": "EVENT_BASED",
+        "description": "Farmer-recorded meat yield not linked to an official slaughter record.",
+    },
+    {
         "id": "disease_reports", "domain": "disease", "target": "ALL", "unit": "CASES",
         "label": "Disease Reports", "commodity_type": "DISEASE_REPORTS", "reporting_type": "EVENT_BASED",
         "description": "Approved disease report counts by event month; reporting activity does not establish disease prevalence.",

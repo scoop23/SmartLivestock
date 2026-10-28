@@ -47,6 +47,7 @@ import { type ProductionType,ProductionRecordItem } from "./production-analytics
 
 export type ProductionPayload = {
   livestock: number;
+  selected_animals?: number[];
   production_type: "MILK" | "MEAT" | "EGGS" | "WOOL";
   quantity: number;
   unit: "LITERS" | "PIECES" | "KILOGRAMS";
@@ -391,7 +392,6 @@ function ProductionWizardContent({
   const handleBack = () => setStep((s) => Math.max(s - 1, minimumStep));
 
   const handleTypePick = (t: ProductionType) => {
-    if (t !== "meat") setSubmitSlaughterReport(false);
     onTypeChange(t);
     handleNext();
   };

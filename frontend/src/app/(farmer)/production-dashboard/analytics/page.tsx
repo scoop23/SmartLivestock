@@ -484,7 +484,7 @@ export default function ProductionAnalyticsPage() {
       );
       return res.data;
     },
-    enabled: false,
+    enabled: activeTab === "forecasts" && !!effectiveCowId,
     retry: false,
   });
 
@@ -688,6 +688,7 @@ export default function ProductionAnalyticsPage() {
               { id: "yields", label: "Daily Output Yields", icon: Milk },
               { id: "breeding", label: "Breeding & Gestation Predictions", icon: HeartHandshake },
               { id: "feeding", label: "Feeding & Nutrition Analytics", icon: Wheat },
+              { id: "forecasts", label: "Predictive Projections (AI)", icon: LineChartIcon },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
