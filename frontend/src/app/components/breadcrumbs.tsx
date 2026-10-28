@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import React from "react";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -90,7 +90,6 @@ const ROUTE_LABELS: Record<string, string> = {
   "auction-ownership-transfers": "Ownership Transfers",
 
   // Slaughterhouse Routes
-  history: "Slaughter History",
   announcements: "Activities",
 
   // Subpaths & Common actions
@@ -105,7 +104,22 @@ const ROUTE_LABELS: Record<string, string> = {
   "clearance-verification": "Clearance Verification",
 };
 
-function formatSegmentLabel(segment: string): string {
+function formatSegmentLabel(
+  segment: string,
+  parentPath = "",
+  isProductionHistory = false,
+): string {
+  if (isProductionHistory && parentPath.endsWith("/production-dashboard")) {
+    return "Production History";
+  }
+
+  if (segment === "history") {
+    if (parentPath.endsWith("/slaughterhouse")) return "Slaughter History";
+    if (parentPath.endsWith("/production-dashboard")) return "Production History";
+    if (parentPath.endsWith("/livestock-inventory")) return "Livestock History";
+    return "History";
+  }
+
   if (ROUTE_LABELS[segment]) {
     return ROUTE_LABELS[segment];
   }
@@ -133,6 +147,8 @@ export function Breadcrumbs({
   rootHref,
 }: BreadcrumbsProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isProductionHistory = searchParams.get("mode") === "history";
   const { user } = useAuth();
 
   const resolvedItems: BreadcrumbItem[] = React.useMemo(() => {
@@ -184,18 +200,19 @@ export function Breadcrumbs({
     let accumulatedPath = startIdx > 0 ? `/${segments[0]}` : "";
 
     subSegments.forEach((segment, index) => {
+      const parentPath = accumulatedPath;
       accumulatedPath += `/${segment}`;
       const isLast = index === subSegments.length - 1;
 
       breadcrumbs.push({
-        label: formatSegmentLabel(segment),
+        label: formatSegmentLabel(segment, parentPath, isProductionHistory),
         href: isLast ? undefined : segment === "analysis" ? "/admin/analytics" : accumulatedPath,
         active: isLast,
       });
     });
 
     return breadcrumbs;
-  }, [items, pathname, user?.role, rootLabel, rootHref]);
+  }, [items, pathname, isProductionHistory, user?.role, rootLabel, rootHref]);
 
   if (!resolvedItems || resolvedItems.length === 0) {
     return null;
