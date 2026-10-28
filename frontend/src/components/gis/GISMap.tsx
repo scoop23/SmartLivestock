@@ -906,22 +906,6 @@ export function GISMap({
           border-color: #38bdf8;
         }
 
-        @keyframes lineFlowDash {
-          from {
-            stroke-dashoffset: 40px;
-          }
-          to {
-            stroke-dashoffset: 0px;
-          }
-        }
-        .movement-polyline-flow {
-          animation: lineFlowDash 1.4s linear infinite;
-        }
-        .movement-polyline-flow-selected {
-          animation: lineFlowDash 0.75s linear infinite;
-          filter: drop-shadow(0 0 6px #facc15);
-        }
-
         .leaflet-container {
           background-color: #0f172a !important;
           font-family: inherit !important;

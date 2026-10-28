@@ -735,6 +735,26 @@ html[data-font-scale] .recharts-default-tooltip {
   }
 }
 
+/* Keep Leaflet's 2D movement flow in the statically bundled app stylesheet.
+   Runtime-injected component styles can behave differently in production builds. */
+@keyframes gis-movement-line-flow {
+  from {
+    stroke-dashoffset: 40px;
+  }
+  to {
+    stroke-dashoffset: 0px;
+  }
+}
+
+.leaflet-overlay-pane .movement-polyline-flow {
+  animation: gis-movement-line-flow 1.4s linear infinite;
+}
+
+.leaflet-overlay-pane .movement-polyline-flow-selected {
+  animation: gis-movement-line-flow 0.75s linear infinite;
+  filter: drop-shadow(0 0 6px #facc15);
+}
+
 .animate-line-highlight {
   animation: line-selection-highlight 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
