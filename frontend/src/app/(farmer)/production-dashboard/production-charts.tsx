@@ -234,11 +234,7 @@ export default function ProductionCharts({
                   <span className="font-bold text-slate-900 text-sm mt-0.5 block">
                     {Number(avgMonthlyVolume).toLocaleString()} {unitInfo.unit} / mo
                   </span>
-                  {totalRevisionVolume > 0 && (
-                    <span className="text-[10px] text-rose-600 font-medium block mt-0.5">
-                      {totalRevisionVolume.toLocaleString()} {unitInfo.unit} needs revision
-                    </span>
-                  )}
+                  
                 </div>
                 {peakMonth && (
                   <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 col-span-2 sm:col-span-1">

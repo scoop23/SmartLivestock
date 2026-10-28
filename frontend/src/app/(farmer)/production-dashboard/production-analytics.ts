@@ -301,9 +301,7 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
   const groupedByType: Record<string, ProductionRecordItem[]> = {};
 
   records.forEach((rec) => {
-    // Exclude legacy approval-state entries from production analytics while
-    // allowing the history screen to keep showing the original records.
-    if (rec.status === "APPROVED") return;
+    // All production records are included in analytics
     const t = rec.productionType;
     typesFound.add(t);
     if (!groupedByType[t]) {
@@ -328,8 +326,8 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
 
     let totalQty = 0;
     let verifiedQty = 0;
-    let pendingQty = 0;
-    let revisionQty = 0;
+    const pendingQty = 0;
+    const revisionQty = 0;
 
     let currentMonthQty = 0;
     let prevMonthQty = 0;
@@ -341,26 +339,14 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
 
     typeRecords.forEach((r) => {
       const qty = r.quantity;
-      if (r.status === "RECORDED") {
-        totalQty += qty;
-        verifiedQty += qty;
-      } else if (r.status === "SUBJECT_TO_REVISION") {
-        revisionQty += qty;
-      } else if (r.status === "PENDING" || r.status === "VERIFIED") {
-        pendingQty += qty;
-      }
+      totalQty += qty;
+      verifiedQty += qty;
 
       const mStr = (r.recordDate || "").slice(0, 7);
       if (mStr) {
         const cur = monthlyMap.get(mStr) || { total: 0, verified: 0, pending: 0, revision: 0 };
-        if (r.status === "RECORDED") {
-          cur.total += qty;
-          cur.verified += qty;
-        } else if (r.status === "SUBJECT_TO_REVISION") {
-          cur.revision += qty;
-        } else {
-          cur.pending += qty;
-        }
+        cur.total += qty;
+        cur.verified += qty;
         monthlyMap.set(mStr, cur);
       }
       if (mStr === currentMonthStr) {
@@ -386,7 +372,7 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
       }));
 
     // Sum backend snapshots only; price matching and monetary rounding stay on the server.
-    const valuedRecords = typeRecords.filter((record) => record.status === "RECORDED" && record.valuationSnapshot != null);
+    const valuedRecords = typeRecords.filter((record) => record.valuationSnapshot != null);
     const valueMap = new Map<string, { total: number; verified: number; pending: number }>();
     let totalEstimatedValue = 0;
     let verifiedEstimatedValue = 0;
@@ -413,7 +399,7 @@ export function computeProductionAnalytics(records: ProductionRecordItem[]): Pro
         pendingValue: valData.pending,
       }));
 
-    const verifiedRecords = typeRecords.filter((r) => r.status === "RECORDED");
+    const verifiedRecords = typeRecords;
     const pendingRecords = typeRecords.filter((r) => r.status === "PENDING" || r.status === "VERIFIED");
     const revisionRecords = typeRecords.filter((r) => r.status === "SUBJECT_TO_REVISION");
 
@@ -513,6 +499,6 @@ export function formatRecordDate(date: string): string {
   );
 }
 
-export function formatProductionStatus(): string {
+export function formatProductionStatus(_status?: string | ProductionStatus): string {
   return "Recorded";
 }

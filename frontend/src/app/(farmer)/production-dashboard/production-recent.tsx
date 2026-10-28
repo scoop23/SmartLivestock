@@ -37,13 +37,11 @@ export default function ProductionRecent({
   onDelete?: (record: ProductionRecordItem) => void;
 }) {
   const [selected, setSelected] = useState<ProductionRecordItem | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"ALL" | ProductionStatus>("ALL");
   const [query, setQuery] = useState("");
 
   const filteredRecords = useMemo(() => {
     return records
       .filter((r) => {
-        const matchesStatus = statusFilter === "ALL" || r.status === statusFilter;
         const q = query.toLowerCase().trim();
         const matchesQuery =
           !q ||
@@ -51,10 +49,10 @@ export default function ProductionRecent({
           r.notes.toLowerCase().includes(q) ||
           (r.livestockTypeName || "").toLowerCase().includes(q) ||
           r.recordDate.includes(q);
-        return matchesStatus && matchesQuery;
+        return matchesQuery;
       })
       .slice(0, 7);
-  }, [records, statusFilter, query]);
+  }, [records, query]);
 
   const found = records.find((item) => item.id === selected?.id);
 
@@ -71,7 +69,7 @@ export default function ProductionRecent({
                 Recent Production Output Feed
               </CardTitle>
               <CardDescription className="text-xs text-slate-500 mt-0.5">
-                Your recent production records and their review status
+                Your recent recorded production logs
               </CardDescription>
             </div>
           </div>
@@ -98,23 +96,6 @@ export default function ProductionRecent({
               className="h-8.5 pl-8 text-xs bg-slate-50/70 border-slate-200 rounded-xl"
             />
           </div>
-
-          <div className="flex items-center gap-1 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-            {(["ALL", "RECORDED", "APPROVED", "PENDING", "SUBJECT_TO_REVISION"] as const).map((st) => (
-              <button
-                key={st}
-                type="button"
-                onClick={() => setStatusFilter(st)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  statusFilter === st
-                    ? "bg-slate-900 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                {st === "ALL" ? "All Status" : st === "SUBJECT_TO_REVISION" ? "For Revision" : st}
-              </button>
-            ))}
-          </div>
         </div>
       </CardHeader>
 
@@ -124,16 +105,16 @@ export default function ProductionRecent({
             <Droplets className="size-8 text-slate-300 mx-auto mb-2" />
             <p className="text-sm font-semibold text-slate-700">No records found</p>
             <p className="text-xs text-slate-400 mt-0.5">
-              {query || statusFilter !== "ALL"
-                ? "Try clearing filters to see more results."
+              {query
+                ? "Try adjusting your search query."
                 : "Add your first production record to get started."}
             </p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
             {filteredRecords.map((record) => {
-              const isPending = record.status === "PENDING";
-              const canEdit = isPending || (record.status === "RECORDED" && record.slaughterDetails?.status !== "APPROVED");
+              const canEdit = record.slaughterDetails?.status !== "APPROVED";
+              const canDelete = record.slaughterDetails?.status !== "APPROVED";
               return (
                 <div
                   key={record.id}
@@ -182,7 +163,7 @@ export default function ProductionRecent({
                         Edit
                       </Button>
                     )}
-                    {isPending && onDelete && (
+                    {canDelete && onDelete && (
                       <Button
                         type="button"
                         variant="ghost"

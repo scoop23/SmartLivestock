@@ -367,10 +367,7 @@ export default function ProductionAnalyticsPage() {
     summary: analytics.by_type[type]?.summary,
   }));
 
-  const totalCount = records.filter((r) => r.status !== "APPROVED").length;
-  const completedCount = records.filter((r) => r.status === "RECORDED").length;
-  const pendingCount = records.filter((r) => ["PENDING", "VERIFIED"].includes(r.status)).length;
-  const revisionCount = records.filter((r) => r.status === "SUBJECT_TO_REVISION").length;
+  const totalCount = records.length;
 
   // Real indicative benchmark valuation
   const BENCHMARK_RATES: Record<string, number> = {
@@ -382,7 +379,6 @@ export default function ProductionAnalyticsPage() {
 
   const totalEstimatedValue = useMemo(() => {
     return records.reduce((sum, r) => {
-      if (r.status !== "RECORDED") return sum;
       if (r.valuationSnapshot?.estimated_value) {
         return sum + Number(r.valuationSnapshot.estimated_value);
       }
@@ -420,7 +416,7 @@ export default function ProductionAnalyticsPage() {
   const projectedCarcassRevenue = Math.round(projectedCarcassKg * 280);
 
   // Milk yield forecasting
-  const milkRecords = records.filter((r) => r.productionType === "milk" && r.status === "RECORDED");
+  const milkRecords = records.filter((r) => r.productionType === "milk");
   const totalMilkRecent = milkRecords.reduce((acc, r) => acc + Number(r.quantity), 0);
   const femaleCattleCount = activeAnimals.filter(
     (i) =>
@@ -464,12 +460,7 @@ export default function ProductionAnalyticsPage() {
 
   const [selectedCowId, setSelectedCowId] = useState<number | null>(null);
   const [showDemo, setShowDemo] = useState(false);
-
-  useEffect(() => {
-    if (!selectedCowId && eligibleDairyCows.length > 0) {
-      setSelectedCowId(Number(eligibleDairyCows[0].id));
-    }
-  }, [eligibleDairyCows, selectedCowId]);
+  const effectiveCowId = selectedCowId ?? (eligibleDairyCows.length > 0 ? Number(eligibleDairyCows[0].id) : null);
 
   // Real Machine Learning Out-of-Sample Milk Forecast Query
   const {
@@ -479,13 +470,13 @@ export default function ProductionAnalyticsPage() {
   } = useQuery({
     queryKey: [
       "livestock-milk-forecast",
-      selectedCowId,
+      effectiveCowId,
       showDemo ? "synthetic_demo" : "farmer_recorded_livestock_logs",
     ],
     queryFn: async () => {
-      if (!selectedCowId) return null;
+      if (!effectiveCowId) return null;
       const res = await api.get<MilkForecastResponse>(
-        `analytics/livestock/${selectedCowId}/milk-forecast/`,
+        `analytics/livestock/${effectiveCowId}/milk-forecast/`,
         {
           timeout: 60_000,
           params: showDemo ? { source: "synthetic_demo" } : undefined,
@@ -623,7 +614,7 @@ export default function ProductionAnalyticsPage() {
     refetchFeeding();
     refetchWeights();
     refetchCalving();
-    if (selectedCowId) refetchMilkForecast();
+    if (effectiveCowId) refetchMilkForecast();
   };
 
   return (
@@ -726,12 +717,12 @@ export default function ProductionAnalyticsPage() {
                   title="Production Output"
                   variant="emerald"
                   icon={<Milk className="size-5" />}
-                  badge={`${completedCount} LOGGED • ${pendingCount} LEGACY`}
+                  badge={`${totalCount} LOGS RECORDED`}
                   badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
                   value={
                     <div className="flex items-baseline gap-2 mt-0.5">
                       <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {completedCount.toLocaleString()}
+                        {totalCount.toLocaleString()}
                       </span>
                       <span className="text-xs font-mono text-emerald-700 font-bold">Recorded Logs</span>
                     </div>
@@ -741,20 +732,20 @@ export default function ProductionAnalyticsPage() {
                 />
 
                 <KpiCard
-                  title="Legacy Review Statuses"
-                  variant="amber"
-                  icon={<Clock className="size-5" />}
-                  badge={revisionCount > 0 ? `${revisionCount} RETURNED` : "HISTORICAL ONLY"}
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
+                  title="Active Output Streams"
+                  variant="sky"
+                  icon={<Layers className="size-5" />}
+                  badge={`${summaries.length} CATEGORIES`}
+                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
                   value={
                     <div className="flex items-baseline gap-2 mt-0.5">
                       <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {pendingCount.toLocaleString()}
+                        {summaries.length}
                       </span>
-                      <span className="text-xs font-mono text-amber-700 font-bold">Legacy Records</span>
+                      <span className="text-xs font-mono text-sky-700 font-bold">Active Types</span>
                     </div>
                   }
-                  description="Older pending, verified, or returned statuses are shown for context; new routine logs do not require review."
+                  description="Distinct production harvest categories being logged"
                   wrapText
                 />
 
@@ -1115,30 +1106,33 @@ export default function ProductionAnalyticsPage() {
                   <Card className="overflow-hidden rounded-3xl border-slate-200/90 bg-white/95 shadow-holo-card">
                     <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-emerald-50/60 p-5">
                       <CardTitle className="font-display text-base font-bold text-slate-900">
-                        Production Record Status Context
+                        Farm Output Breakdown
                       </CardTitle>
                       <CardDescription className="text-xs text-slate-500 font-medium">
-                        New production logs are farmer-managed; older review statuses remain visible as history.
+                        Live recorded yield logs and category summary for your farm.
                       </CardDescription>
                     </CardHeader>
 
                     <CardContent className="space-y-3 p-5">
-                      {[
-                        { label: "Recorded production logs", value: completedCount, color: "bg-emerald-500" },
-                        { label: "Legacy Pending / Verified", value: pendingCount, color: "bg-amber-400" },
-                        { label: "Legacy Returned for Revision", value: revisionCount, color: "bg-rose-500" },
-                      ].map((item) => (
-                        <div
-                          key={item.label}
-                          className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3"
-                        >
-                          <span className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                            <span className={`size-2 rounded-full ${item.color}`} />
-                            {item.label}
-                          </span>
-                          <span className="font-mono text-sm font-black text-slate-950">{item.value}</span>
-                        </div>
-                      ))}
+                      {summaries.map((s) => {
+                        const total = s.summary?.total ?? 0;
+                        const label = PRODUCTION_TYPE_LABELS[s.type] ?? s.type;
+                        const count = s.summary?.record_count ?? 0;
+                        return (
+                          <div
+                            key={s.type}
+                            className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3"
+                          >
+                            <span className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                              <span className="size-2 rounded-full bg-emerald-500" />
+                              {label} ({count} {count === 1 ? "log" : "logs"})
+                            </span>
+                            <span className="font-mono text-sm font-black text-slate-950">
+                              {formatQty(total)} {PRODUCTION_TYPE_UNITS[s.type] ?? ""}
+                            </span>
+                          </div>
+                        );
+                      })}
 
                       <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-emerald-50/70 p-4 space-y-1">
                         <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-sky-900">
@@ -1476,7 +1470,7 @@ export default function ProductionAnalyticsPage() {
                           <label htmlFor="cow-select" className="sr-only">Select Dairy Dam</label>
                           <select
                             id="cow-select"
-                            value={selectedCowId ?? ""}
+                            value={effectiveCowId ?? ""}
                             onChange={(e) => setSelectedCowId(Number(e.target.value))}
                             className="bg-transparent font-bold text-slate-800 outline-none text-xs cursor-pointer pr-1"
                           >
