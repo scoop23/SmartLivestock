@@ -103,14 +103,16 @@ class Command(BaseCommand):
 
         now = timezone.now()
         with transaction.atomic():
-            delivery, _ = MonthlyReportDelivery.objects.select_for_update().get_or_create(
+            delivery, created = MonthlyReportDelivery.objects.select_for_update().get_or_create(
                 period_start=first,
                 defaults={"period_end": last, "status": MonthlyReportDelivery.Status.GENERATING},
             )
             if delivery.status == MonthlyReportDelivery.Status.SENT:
                 self.stdout.write(self.style.WARNING(f"Monthly report for {first:%Y-%m} was already sent."))
                 return
-            if (delivery.status == MonthlyReportDelivery.Status.GENERATING
+            # A new row is our own claim. Only an existing fresh claim means
+            # another worker is already generating this month's report.
+            if (not created and delivery.status == MonthlyReportDelivery.Status.GENERATING
                     and delivery.started_at > now - timedelta(hours=1)):
                 raise CommandError(f"A report for {first:%Y-%m} is already being generated.")
             delivery.period_end = last
@@ -127,7 +129,7 @@ class Command(BaseCommand):
             subject = f"SmartLivestock monthly MAO summary — {first:%B %Y}"
             message = (
                 f"Attached is the monthly SmartLivestock summary for {first:%B %Y}. "
-                "It includes approved-record summaries for inventory, production, disease and mortality, "
+                "It includes farmer-recorded production and approved-record summaries for inventory, disease and mortality, "
                 "slaughter, movement, and inspection. Please use the methodology and source notes in each sheet."
             )
             email = EmailMessage(subject, message, to=recipients)
