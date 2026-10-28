@@ -25,6 +25,7 @@ ClipboardList,
 HeartHandshake,
 LineChart as LineChartIcon,
 Milk,
+Pill,
 Plus,
 RefreshCw,
 Scale,
@@ -33,13 +34,15 @@ ShoppingBag,
 Wheat,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo,useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 import SpeciesHeroBanner from "./components/species-hero-banner";
 import SpeciesKpiCards from "./components/species-kpi-cards";
 import ProductionBreedingTab from "./production-breeding-tab";
 import ProductionFeedingTab from "./production-feeding-tab";
+import ProductionTreatmentsTab from "./production-treatments-tab";
 import ProductionCalvingTab,{
 CalvingRecordItem,
 getBirthingTerminology,
@@ -114,11 +117,12 @@ export default function ProductionDashboardView({
 }: ProductionDashboardViewProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const activityTabs: Record<string, "production" | "breeding" | "calving" | "weights" | "sales" | "forecasts" | "feedings"> = {
+  const activityTabs: Record<string, "production" | "breeding" | "calving" | "weights" | "sales" | "forecasts" | "feedings" | "treatments"> = {
     milk: "production", meat: "production", eggs: "production", wool: "production",
     breeding: "breeding", insemination: "breeding",
     calving: "calving", weights: "weights", sales: "sales", intent: "sales",
     feedings: "feedings", feeding: "feedings",
+    treatment: "treatments", treatments: "treatments", health: "treatments", medical: "treatments",
   };
   const focusedProductionType = initialActivity && ["milk", "meat", "eggs", "wool"].includes(initialActivity)
     ? initialActivity as ProductionType
@@ -152,17 +156,151 @@ export default function ProductionDashboardView({
   });
   const [resetSignal, setResetSignal] = useState(0);
 
-  // Main Tabs State: "production" | "breeding" | "calving" | "weights" | "sales" | "forecasts" | "feedings"
+  // Main Tabs State: "production" | "breeding" | "calving" | "weights" | "sales" | "forecasts" | "feedings" | "treatments"
   const [activeMainTab, setActiveMainTab] = useState<
-    "production" | "breeding" | "calving" | "weights" | "sales" | "forecasts" | "feedings"
+    "production" | "breeding" | "calving" | "weights" | "sales" | "forecasts" | "feedings" | "treatments"
   >(initialActivity ? activityTabs[initialActivity] ?? "production" : "production");
 
   const shouldRenderFocusedTab = !focusedActivity
     || focusedMode === "history"
-    || (focusedMode === "record" && ["breeding", "insemination", "calving", "weights", "sales", "intent", "feedings", "feeding"].includes(focusedActivity));
+    || (focusedMode === "record" && ["breeding", "insemination", "calving", "weights", "sales", "intent", "feedings", "feeding", "treatment", "treatments"].includes(focusedActivity));
   const isFocusedProductionHistory = Boolean(
     focusedMode === "history" && ["milk", "meat", "eggs", "wool"].includes(focusedActivity ?? ""),
   );
+
+  // ═══ Horizontal Scrollbar State & Interaction for Production Tabs ═══
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef<{ startX: number; startScrollLeft: number }>({ startX: 0, startScrollLeft: 0 });
+  const [scrollInfo, setScrollInfo] = useState({
+    canScroll: false,
+    thumbWidthPct: 100,
+    thumbLeftPct: 0,
+  });
+
+  const updateScrollMetrics = useCallback(() => {
+    const el = tabsContainerRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const maxScroll = scrollWidth - clientWidth;
+    const canScroll = maxScroll > 1 && scrollWidth > 0;
+
+    if (!canScroll || scrollWidth === 0) {
+      setScrollInfo({ canScroll: false, thumbWidthPct: 100, thumbLeftPct: 0 });
+      return;
+    }
+
+    const rawRatio = clientWidth / scrollWidth;
+    const thumbWidthPct = Math.min(100, Math.max(18, rawRatio * 100));
+    const scrollProgress = maxScroll > 0 ? Math.max(0, Math.min(1, scrollLeft / maxScroll)) : 0;
+    const thumbLeftPct = scrollProgress * (100 - thumbWidthPct);
+
+    setScrollInfo({ canScroll: true, thumbWidthPct, thumbLeftPct });
+  }, []);
+
+  useEffect(() => {
+    const el = tabsContainerRef.current;
+    if (!el) return;
+
+    const rafId = requestAnimationFrame(() => {
+      updateScrollMetrics();
+    });
+
+    const ro = new ResizeObserver(() => {
+      updateScrollMetrics();
+    });
+    ro.observe(el);
+    Array.from(el.children).forEach((child) => ro.observe(child));
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+    };
+  }, [updateScrollMetrics, activeMainTab, selectedSpecies]);
+
+  const handleThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = tabsContainerRef.current;
+    if (!el) return;
+
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      startX: e.clientX,
+      startScrollLeft: el.scrollLeft,
+    };
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handleThumbPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    const el = tabsContainerRef.current;
+    const track = trackRef.current;
+    if (!el || !track) return;
+
+    const deltaX = e.clientX - dragStartRef.current.startX;
+    const trackWidth = track.clientWidth;
+    const thumbWidthPx = (scrollInfo.thumbWidthPct / 100) * trackWidth;
+    const scrollableTrack = trackWidth - thumbWidthPx;
+    const scrollableTabs = el.scrollWidth - el.clientWidth;
+
+    if (scrollableTrack > 0 && scrollableTabs > 0) {
+      const scrollDelta = (deltaX / scrollableTrack) * scrollableTabs;
+      el.scrollLeft = dragStartRef.current.startScrollLeft + scrollDelta;
+    }
+  };
+
+  const handleThumbPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
+
+  const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isDraggingRef.current) return;
+    const el = tabsContainerRef.current;
+    const track = trackRef.current;
+    if (!el || !track || !scrollInfo.canScroll) return;
+
+    const rect = track.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const trackWidth = rect.width;
+    const thumbWidthPx = (scrollInfo.thumbWidthPct / 100) * trackWidth;
+    const scrollableTrack = trackWidth - thumbWidthPx;
+    const scrollableTabs = el.scrollWidth - el.clientWidth;
+
+    if (scrollableTrack > 0 && scrollableTabs > 0) {
+      const targetRatio = Math.max(0, Math.min(1, (clickX - thumbWidthPx / 2) / scrollableTrack));
+      el.scrollTo({ left: targetRatio * scrollableTabs, behavior: "smooth" });
+    }
+  };
+
+  const handleTabsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const el = tabsContainerRef.current;
+    if (!el || !scrollInfo.canScroll) return;
+
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && el.scrollWidth > el.clientWidth) {
+      el.scrollLeft += e.deltaY;
+    }
+  };
+
+  const handleMainTabSelect = (tabKey: typeof activeMainTab, e?: React.MouseEvent) => {
+    setActiveMainTab(tabKey);
+    if (e?.currentTarget) {
+      (e.currentTarget as HTMLElement).scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "nearest",
+      });
+    }
+  };
   // Fetch Inventory with standard hook & mapper
   const { data: inventories = [], isLoading: isInventoryLoading } = useUserInventory();
 
@@ -203,6 +341,21 @@ export default function ProductionDashboardView({
     queryFn: async () => {
       const res = await api.get("production/weights/");
       return res.data;
+    },
+  });
+
+  // Fetch Clinical Treatment Records
+  const { data: treatmentRecords = [] } = useQuery<
+    Array<{ id: number; livestock: number }>
+  >({
+    queryKey: ["production_treatments_all"],
+    queryFn: async () => {
+      try {
+        const res = await api.get("production/treatments/");
+        return Array.isArray(res.data) ? res.data : [];
+      } catch {
+        return [];
+      }
     },
   });
 
@@ -301,6 +454,12 @@ export default function ProductionDashboardView({
     ),
     [kpiMonth, selectedInventoryIds, showOverallKpis, weightRecords],
   );
+
+  const filteredTreatmentCount = useMemo(() => {
+    if (!selectedSpecies || selectedSpecies === "ALL") return treatmentRecords.length;
+    const idSet = new Set(filteredInventories.map((item) => Number(item.id)));
+    return treatmentRecords.filter((t) => idSet.has(Number(t.livestock))).length;
+  }, [filteredInventories, selectedSpecies, treatmentRecords]);
 
   const terms = getBirthingTerminology(selectedSpecies);
 
@@ -592,7 +751,7 @@ export default function ProductionDashboardView({
 
         {/* Quick Enterprise Switcher Pills */}
         {showEnterpriseSwitch && onSpeciesChange && (
-          <div className="flex items-center gap-1.5 overflow-x-auto">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             {ownedSpecies.map((sName) => (
               <button
                 key={sName}
@@ -632,119 +791,183 @@ export default function ProductionDashboardView({
       />
 
       {/* Main Unified Navigation Tabs */}
-      <div className={`flex flex-wrap items-center gap-2 border-b border-slate-200/80 pb-3 ${isFocusedProductionHistory ? "hidden" : ""}`}>
-        <button
-          type="button"
-          onClick={() => setActiveMainTab("production")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs ${
-            activeMainTab === "production"
-              ? "bg-emerald-800 text-white shadow-emerald-950/20"
-              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
-          }`}
+      <div className={cn("space-y-2 pb-1", isFocusedProductionHistory && "hidden")}>
+        <div
+          ref={tabsContainerRef}
+          onScroll={updateScrollMetrics}
+          onWheel={handleTabsWheel}
+          className="w-full flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-1"
         >
-          <Milk className="size-4" />
-          <span>Daily Yield Logs</span>
-          {filteredProductionRecords.length > 0 && (
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                activeMainTab === "production"
-                  ? "bg-emerald-700 text-white"
-                  : "bg-slate-100 text-slate-600"
-              }`}
-            >
-              {filteredProductionRecords.length}
-            </span>
+          <button
+            type="button"
+            onClick={(e) => handleMainTabSelect("production", e)}
+            className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer ${
+              activeMainTab === "production"
+                ? "bg-emerald-800 text-white shadow-emerald-950/20"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+            }`}
+          >
+            <Milk className="size-4" />
+            <span>Daily Yield Logs</span>
+            {filteredProductionRecords.length > 0 && (
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                  activeMainTab === "production"
+                    ? "bg-emerald-700 text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {filteredProductionRecords.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => handleMainTabSelect("breeding", e)}
+            className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer ${
+              activeMainTab === "breeding"
+                ? "bg-emerald-800 text-white shadow-emerald-950/20"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+            }`}
+          >
+            <HeartHandshake className="size-4" />
+            <span>Breeding & Insemination</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => handleMainTabSelect("calving", e)}
+            className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer ${
+              activeMainTab === "calving"
+                ? "bg-emerald-800 text-white shadow-emerald-950/20"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+            }`}
+          >
+            <Baby className="size-4" />
+            <span>{terms.eventName} & Offspring</span>
+            {calvingRecords.length > 0 && (
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                  activeMainTab === "calving"
+                    ? "bg-emerald-700 text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {calvingRecords.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => handleMainTabSelect("weights", e)}
+            className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer ${
+              activeMainTab === "weights"
+                ? "bg-emerald-800 text-white shadow-emerald-950/20"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+            }`}
+          >
+            <Scale className="size-4" />
+            <span>Growth & ADG Tracker</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => handleMainTabSelect("feedings", e)}
+            className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer ${
+              activeMainTab === "feedings"
+                ? "bg-emerald-800 text-white shadow-emerald-950/20"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+            }`}
+          >
+            <Wheat className="size-4" />
+            <span>Feeding & Rations</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => handleMainTabSelect("treatments", e)}
+            className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer ${
+              activeMainTab === "treatments"
+                ? "bg-emerald-800 text-white shadow-emerald-950/20"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+            }`}
+          >
+            <Pill className="size-4" />
+            <span>Clinical Treatments</span>
+            {filteredTreatmentCount > 0 && (
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                  activeMainTab === "treatments"
+                    ? "bg-emerald-700 text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {filteredTreatmentCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => handleMainTabSelect("sales", e)}
+            className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer ${
+              activeMainTab === "sales"
+                ? "bg-emerald-800 text-white shadow-emerald-950/20"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+            }`}
+          >
+            <ShoppingBag className="size-4" />
+            <span>Live Sales & Outlets</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => handleMainTabSelect("forecasts", e)}
+            className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer ${
+              activeMainTab === "forecasts"
+                ? "bg-emerald-800 text-white shadow-emerald-950/20"
+                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+            }`}
+          >
+            <LineChartIcon className="size-4" />
+            <span>Herd Forecasting</span>
+          </button>
+        </div>
+
+        {/* ═══ INTERACTIVE HORIZONTAL SCROLLBAR FOR TABS ═══ */}
+        <div
+          ref={trackRef}
+          onClick={handleTrackClick}
+          className={cn(
+            "w-full h-1.5 sm:h-2 bg-slate-100 hover:bg-slate-200/70 rounded-full relative transition-all duration-200 select-none group",
+            scrollInfo.canScroll ? "cursor-pointer" : "opacity-40 cursor-default"
           )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveMainTab("breeding")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs ${
-            activeMainTab === "breeding"
-              ? "bg-emerald-800 text-white shadow-emerald-950/20"
-              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
-          }`}
+          role="scrollbar"
+          aria-controls="production-tabs"
+          aria-valuenow={Math.round(scrollInfo.thumbLeftPct)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Horizontal scrollbar for production tabs"
+          title={scrollInfo.canScroll ? "Click or drag to scroll tabs horizontally" : undefined}
         >
-          <HeartHandshake className="size-4" />
-          <span>Breeding & Insemination</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveMainTab("calving")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs ${
-            activeMainTab === "calving"
-              ? "bg-emerald-800 text-white shadow-emerald-950/20"
-              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
-          }`}
-        >
-          <Baby className="size-4" />
-          <span>{terms.eventName} & Offspring</span>
-          {calvingRecords.length > 0 && (
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                activeMainTab === "calving"
-                  ? "bg-emerald-700 text-white"
-                  : "bg-slate-100 text-slate-600"
-              }`}
-            >
-              {calvingRecords.length}
-            </span>
+          {scrollInfo.canScroll ? (
+            <div
+              onPointerDown={handleThumbPointerDown}
+              onPointerMove={handleThumbPointerMove}
+              onPointerUp={handleThumbPointerUp}
+              onPointerCancel={handleThumbPointerUp}
+              style={{
+                left: `${scrollInfo.thumbLeftPct}%`,
+                width: `${scrollInfo.thumbWidthPct}%`,
+              }}
+              className="absolute top-0 bottom-0 bg-slate-400 group-hover:bg-slate-500 active:bg-slate-700 rounded-full transition-colors cursor-grab active:cursor-grabbing shadow-2xs"
+            />
+          ) : (
+            <div className="h-full bg-slate-200/90 rounded-full w-full" />
           )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveMainTab("weights")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs ${
-            activeMainTab === "weights"
-              ? "bg-emerald-800 text-white shadow-emerald-950/20"
-              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
-          }`}
-        >
-          <Scale className="size-4" />
-          <span>Growth & ADG Tracker</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveMainTab("feedings")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs cursor-pointer ${
-            activeMainTab === "feedings"
-              ? "bg-emerald-800 text-white shadow-emerald-950/20"
-              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
-          }`}
-        >
-          <Wheat className="size-4" />
-          <span>Feeding & Rations</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveMainTab("sales")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs ${
-            activeMainTab === "sales"
-              ? "bg-emerald-800 text-white shadow-emerald-950/20"
-              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
-          }`}
-        >
-          <ShoppingBag className="size-4" />
-          <span>Live Sales & Outlets</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveMainTab("forecasts")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-xs ${
-            activeMainTab === "forecasts"
-              ? "bg-emerald-800 text-white shadow-emerald-950/20"
-              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
-          }`}
-        >
-          <LineChartIcon className="size-4" />
-          <span>Herd Forecasting</span>
-        </button>
+        </div>
       </div>
       </div>
 
@@ -1045,6 +1268,16 @@ export default function ProductionDashboardView({
           approvedInventories={focusedActivity ? activityInventories : approvedInventories}
           selectedSpecies={selectedSpecies}
           autoOpen={Boolean(["feedings", "feeding"].includes(focusedActivity ?? "") && focusedMode === "record")}
+        />
+      )}
+
+      {/* Tab: Clinical Treatments & Veterinary Care */}
+      {activeMainTab === "treatments" && (
+        <ProductionTreatmentsTab
+          approvedInventories={focusedActivity ? activityInventories : approvedInventories}
+          selectedSpecies={selectedSpecies}
+          autoOpen={Boolean(["treatments", "treatment"].includes(focusedActivity ?? "") && focusedMode === "record")}
+          onClose={returnToActivityChooser}
         />
       )}
 

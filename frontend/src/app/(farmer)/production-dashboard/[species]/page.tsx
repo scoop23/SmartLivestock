@@ -14,8 +14,8 @@ export default function SpeciesProductionPage() {
   const requestedActivity = searchParams.get("activity");
   const requestedType = searchParams.get("type");
   const rawActivity = (requestedActivity || requestedType)?.toLowerCase();
-  const activity = rawActivity && ["milk", "meat", "eggs", "wool", "breeding", "insemination", "calving", "weights", "sales", "intent", "feedings", "feeding"].includes(rawActivity)
-    ? (rawActivity === "insemination" ? "breeding" : (rawActivity === "feeding" ? "feedings" : rawActivity))
+  const activity = rawActivity && ["milk", "meat", "eggs", "wool", "breeding", "insemination", "calving", "weights", "sales", "intent", "feedings", "feeding", "treatments", "treatment"].includes(rawActivity)
+    ? (rawActivity === "insemination" ? "breeding" : (rawActivity === "feeding" ? "feedings" : (["treatments", "treatment"].includes(rawActivity) ? "treatments" : rawActivity)))
     : null;
   const requestedMode = searchParams.get("mode");
   const activityMode = requestedMode === "record" || requestedMode === "history" ? requestedMode : null;
@@ -34,6 +34,7 @@ export default function SpeciesProductionPage() {
     if (activity === "calving") return `${sName} Birthing & Calving Logs`;
     if (activity === "feedings" || activity === "feeding") return `${sName} Feeding & Ration Logs`;
     if (activity === "weights") return `${sName} Weight & Growth Records`;
+    if (activity === "treatments") return `${sName} Clinical Treatment Records`;
     if (activity === "sales" || activity === "intent") return `${sName} Sale Intent Declarations`;
     return `${sName} Production Logs`;
   }, [activity, species]);
@@ -45,6 +46,7 @@ export default function SpeciesProductionPage() {
     if (activity === "wool") return "Wool shearing logs and harvest weights.";
     if (activity === "breeding") return "Artificial insemination (AI), natural service records, and gestation countdowns.";
     if (activity === "feedings" || activity === "feeding") return "Daily feed intake, ration mix, and feed expenditure records.";
+    if (activity === "treatments") return "Medications, vaccines, dewormers, and veterinary care logs.";
     return "Production records, animal births, and weight history";
   }, [activity]);
 

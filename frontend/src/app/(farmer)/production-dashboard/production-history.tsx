@@ -44,6 +44,7 @@ type ProductionType,
 } from "./production-analytics";
 import ProductionDeleteDialog from "./production-delete-dialog";
 import ProductionRecordDialog from "./production-record-dialog";
+import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
 
 export interface ApiError {
   detail?: string;
@@ -271,6 +272,23 @@ export default function ProductionHistory({
     return result;
   }, [scopedProductions, searchQuery, statusFilter, typeFilter, sortBy]);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const [prevFilterKey, setPrevFilterKey] = useState(`${searchQuery}:${statusFilter}:${typeFilter}:${sortBy}:${speciesFilter}`);
+  const currentFilterKey = `${searchQuery}:${statusFilter}:${typeFilter}:${sortBy}:${speciesFilter}`;
+  if (prevFilterKey !== currentFilterKey) {
+    setPrevFilterKey(currentFilterKey);
+    setCurrentPage(1);
+  }
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
+
   const activeDialogRecord = useMemo(() => {
     if (!dialogRecord) return null;
     return filtered.find((item) => item.id === dialogRecord.id) ?? dialogRecord;
@@ -404,7 +422,7 @@ export default function ProductionHistory({
               </p>
             </div>
 
-            {filtered.map((record: ProductionRecordItem, index: number) => {
+            {paginatedRecords.map((record: ProductionRecordItem, index: number) => {
               const isSelected = selected?.id === record.id;
               const isApproved = record.status === "APPROVED";
 
@@ -521,6 +539,21 @@ export default function ProductionHistory({
                 </div>
               );
             })}
+
+            {filtered.length > 0 && (
+              <ValidationPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filtered.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(newSize) => {
+                  setPageSize(newSize);
+                  setCurrentPage(1);
+                }}
+                pageSizeOptions={[5, 10, 25, 50]}
+              />
+            )}
         </div>
       )}
 

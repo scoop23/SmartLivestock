@@ -22,6 +22,7 @@ from .models import (
     AnimalDisposition,
     BreedingRecord,
     FeedingRecord,
+    LivestockTreatmentRecord,
 )
 from .serializer import (
     ProductionRecordSerializer,
@@ -31,8 +32,16 @@ from .serializer import (
     CalvingRecordSerializer,
     BreedingRecordSerializer,
     FeedingRecordSerializer,
+    LivestockTreatmentRecordSerializer,
 )
 from .services.breeding_notifications import notify_breeding_owner
+from .reproductive_service import (
+    resolve_reproductive_status,
+    calculate_conception_analytics,
+    evaluate_conception_prediction_readiness,
+    get_animal_reproductive_profile,
+)
+from livestock.models import LivestockInventory
 from smartlivestock.workflows import (
     FIELD_REVIEWERS,
     require_action,
@@ -901,6 +910,7 @@ def breeding_record_detail(request, pk):
 def breeding_analytics(request):
     """
     GET /production/breeding/analytics/ -> Farmbrite-style breeding & gestation metrics
+    Includes mathematically rigorous conception rate analytics and prediction readiness.
     """
     user = request.user
     role = getattr(getattr(user, "role", None), "role_name", None)
@@ -911,6 +921,26 @@ def breeding_analytics(request):
         )
     else:
         qs = scope_reviewer_queryset(BreedingRecord.objects.all(), user)
+
+    # Date / species filters
+    date_from_str = request.query_params.get("date_from")
+    date_to_str = request.query_params.get("date_to")
+    species_filter = request.query_params.get("species")
+
+    date_from = None
+    date_to = None
+    if date_from_str:
+        try:
+            from datetime import date
+            date_from = date.fromisoformat(date_from_str)
+        except ValueError:
+            pass
+    if date_to_str:
+        try:
+            from datetime import date
+            date_to = date.fromisoformat(date_to_str)
+        except ValueError:
+            pass
 
     today = timezone.localdate()
     in_30_days = today + timedelta(days=30)
@@ -923,28 +953,203 @@ def breeding_analytics(request):
         expected_due_date__lte=in_30_days,
     ).count()
 
-    calved = qs.filter(status="CALVED").count()
-    open_failed = qs.filter(status="OPEN").count()
-    completed = calved + open_failed
-    conception_rate = round((calved / completed) * 100) if completed > 0 else (100 if calved > 0 else None)
+    # Authoritative Conception Rate Analytics (Phase 6)
+    conception_metrics = calculate_conception_analytics(
+        qs, date_from=date_from, date_to=date_to, species_filter=species_filter
+    )
+
+    # Prediction readiness evaluation (Phase 7)
+    prediction_readiness = evaluate_conception_prediction_readiness(user)
 
     ai_count = qs.filter(breeding_type="ARTIFICIAL_INSEMINATION").count()
     natural_count = qs.filter(breeding_type="NATURAL").count()
     embryo_count = qs.filter(breeding_type="EMBRYO_TRANSFER").count()
 
+    calved_count = qs.filter(status=BreedingRecord.BreedingStatus.CALVED).count()
+
     return Response({
         "total_records": total_records,
         "active_gestations": active_gestations,
         "due_soon": due_soon,
-        "calved_count": calved,
-        "open_count": open_failed,
-        "conception_rate_pct": conception_rate,
+        "calved_count": calved_count,
+        "confirmed_conceptions_count": conception_metrics["confirmed_conceptions"],
+        "open_count": conception_metrics["known_unsuccessful_outcomes"],
+        "conception_rate_pct": conception_metrics["observed_conception_rate_pct"],
+        "conception_rate_status": conception_metrics["rate_status"],
+        "conception_rate_message": conception_metrics["status_message"],
+        "conception_analytics": conception_metrics,
+        "prediction_readiness": prediction_readiness,
         "by_type": {
             "artificial_insemination": ai_count,
             "natural_service": natural_count,
             "embryo_transfer": embryo_count,
         },
     }, status=200)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def breeding_record_confirm_pregnancy(request, pk):
+    """
+    POST /production/breeding/<pk>/confirm-pregnancy/
+    Explicitly confirm pregnancy for a recorded breeding event following clinical diagnosis.
+    Updates status to PREGNANT, records confirmation date, technician/vet, and method.
+    """
+    user = request.user
+    role = getattr(getattr(user, "role", None), "role_name", None)
+
+    if role == "FARMER":
+        record = get_object_or_404(
+            BreedingRecord.objects.filter(Q(dam__farmer__user=user) | Q(created_by=user)),
+            pk=pk,
+        )
+    else:
+        record = get_object_or_404(
+            scope_reviewer_queryset(BreedingRecord.objects.all(), user),
+            pk=pk,
+        )
+
+    confirmation_date_str = request.data.get("confirmation_date")
+    confirmation_method = request.data.get("confirmation_method", "Clinical Diagnosis")
+    notes = request.data.get("notes", "")
+
+    conf_date = timezone.localdate()
+    if confirmation_date_str:
+        try:
+            from datetime import date
+            conf_date = date.fromisoformat(confirmation_date_str)
+        except ValueError:
+            return Response({"error": "Invalid confirmation_date format (YYYY-MM-DD required)."}, status=400)
+
+    if conf_date > timezone.localdate():
+        return Response({"error": "Pregnancy confirmation date cannot be in the future."}, status=400)
+
+    if record.breeding_date and conf_date < record.breeding_date:
+        return Response({"error": "Pregnancy confirmation date cannot precede the breeding date."}, status=400)
+
+    record.status = BreedingRecord.BreedingStatus.PREGNANT
+    record.pregnancy_confirmed_date = conf_date
+    record.pregnancy_confirmed_by = user
+    record.confirmation_method = confirmation_method
+    if notes:
+        record.notes = f"{record.notes}\n[Confirmed {conf_date}]: {notes}".strip()
+    record.save()
+
+    notify_breeding_owner(
+        record,
+        title="Pregnancy confirmed for breeding record",
+        message=(
+            f"Pregnancy was officially confirmed for {record.dam.tag_number or 'dam'} "
+            f"via {confirmation_method} on {conf_date:%b %d, %Y}. "
+            f"Estimated due date: {record.expected_due_date:%b %d, %Y}."
+        ),
+    )
+
+    serializer = BreedingRecordSerializer(record, context={"request": request})
+    return Response(serializer.data, status=200)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def animal_reproductive_summary(request, pk):
+    """
+    GET /production/livestock/<pk>/reproductive-summary/
+    Returns authoritative cycle-aware reproductive status, timeline,
+    bull exposure check, treatments, and prediction data for an individual animal.
+    """
+    user = request.user
+    role = getattr(getattr(user, "role", None), "role_name", None)
+
+    if role == "FARMER":
+        animal = get_object_or_404(
+            LivestockInventory.objects.filter(farmer__user=user),
+            pk=pk,
+        )
+    else:
+        animal = get_object_or_404(
+            scope_reviewer_queryset(LivestockInventory.objects.all(), user),
+            pk=pk,
+        )
+
+    profile = get_animal_reproductive_profile(animal)
+    return Response(profile, status=200)
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def treatment_records_list_create(request):
+    """
+    GET  /production/treatments/ -> List treatments scoped by user permissions
+    POST /production/treatments/ -> Log a veterinary or clinical treatment
+    """
+    if request.method == "POST":
+        serializer = LivestockTreatmentRecordSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        treatment = serializer.save()
+        return Response(serializer.data, status=201)
+
+    user = request.user
+    role = getattr(getattr(user, "role", None), "role_name", None)
+
+    if role == "FARMER":
+        qs = LivestockTreatmentRecord.objects.filter(
+            Q(livestock__farmer__user=user) | Q(created_by=user)
+        )
+    else:
+        qs = scope_reviewer_queryset(LivestockTreatmentRecord.objects.all(), user)
+
+    # Optional animal filter
+    livestock_id = request.query_params.get("livestock")
+    if livestock_id:
+        qs = qs.filter(livestock_id=livestock_id)
+
+    qs = qs.select_related("livestock__livestock_type", "livestock__farmer__user", "created_by").order_by("-treatment_date", "-created_at")
+    serializer = LivestockTreatmentRecordSerializer(qs, many=True, context={"request": request})
+    return Response(serializer.data, status=200)
+
+
+@api_view(["GET", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def treatment_record_detail(request, pk):
+    """
+    GET / PATCH / DELETE /production/treatments/<pk>/
+    """
+    user = request.user
+    role = getattr(getattr(user, "role", None), "role_name", None)
+
+    if role == "FARMER":
+        record = get_object_or_404(
+            LivestockTreatmentRecord.objects.filter(
+                Q(livestock__farmer__user=user) | Q(created_by=user)
+            ),
+            pk=pk,
+        )
+    else:
+        record = get_object_or_404(
+            scope_reviewer_queryset(LivestockTreatmentRecord.objects.all(), user),
+            pk=pk,
+        )
+
+    if request.method == "GET":
+        serializer = LivestockTreatmentRecordSerializer(record, context={"request": request})
+        return Response(serializer.data, status=200)
+
+    if request.method == "DELETE":
+        record.delete()
+        return Response(status=204)
+
+    serializer = LivestockTreatmentRecordSerializer(
+        record,
+        data=request.data,
+        partial=True,
+        context={"request": request},
+    )
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data, status=200)
 
 
 # ===========================================================================

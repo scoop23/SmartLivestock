@@ -11,6 +11,7 @@ from .models import (
     AnimalDisposition,
     BreedingRecord,
     FeedingRecord,
+    LivestockTreatmentRecord,
 )
 from livestock.models import LivestockInventory, LivestockBatch
 from rest_framework.exceptions import ValidationError
@@ -869,6 +870,8 @@ class BreedingRecordSerializer(serializers.ModelSerializer):
     dam_breed = serializers.CharField(source="dam.breed", read_only=True)
     livestock_type_name = serializers.CharField(source="dam.livestock_type.name", read_only=True)
     farmer_name = serializers.CharField(source="dam.farmer.user.get_full_name", read_only=True)
+    sire_livestock_tag = serializers.CharField(source="sire_livestock.tag_number", read_only=True)
+    pregnancy_confirmed_by_name = serializers.CharField(source="pregnancy_confirmed_by.get_full_name", read_only=True)
     days_until_due = serializers.SerializerMethodField()
     gestation_progress_pct = serializers.SerializerMethodField()
 
@@ -883,6 +886,8 @@ class BreedingRecordSerializer(serializers.ModelSerializer):
             "farmer_name",
             "breeding_date",
             "breeding_type",
+            "sire_livestock",
+            "sire_livestock_tag",
             "sire_tag_or_code",
             "sire_breed",
             "technician_or_inseminator",
@@ -890,11 +895,16 @@ class BreedingRecordSerializer(serializers.ModelSerializer):
             "expected_due_date",
             "days_until_due",
             "gestation_progress_pct",
+            "pregnancy_confirmed_date",
+            "pregnancy_confirmed_by",
+            "pregnancy_confirmed_by_name",
+            "confirmation_method",
+            "calving_record",
             "status",
             "notes",
             "created_at",
         )
-        read_only_fields = ("created_at",)
+        read_only_fields = ("created_at", "pregnancy_confirmed_by_name")
 
     def get_days_until_due(self, obj):
         if not obj.expected_due_date:
@@ -913,8 +923,10 @@ class BreedingRecordSerializer(serializers.ModelSerializer):
 
     def validate_dam(self, value):
         user = self.context["request"].user
-        if not value or not value.farmer or value.farmer.user_id != user.pk:
-            raise ValidationError("You may only record breeding for your own livestock.")
+        role = getattr(getattr(user, "role", None), "role_name", None)
+        if role == "FARMER":
+            if not value or not value.farmer or value.farmer.user_id != user.pk:
+                raise ValidationError("You may only record breeding for your own livestock.")
         if value.status not in (
             LivestockInventory.StatusType.APPROVED,
             LivestockInventory.StatusType.VERIFIED,
@@ -931,6 +943,98 @@ class BreedingRecordSerializer(serializers.ModelSerializer):
         if value > timezone.localdate():
             raise ValidationError("Breeding date cannot be in the future.")
         return value
+
+    def validate(self, attrs):
+        dam = attrs.get("dam") or (self.instance.dam if self.instance else None)
+        sire_livestock = attrs.get("sire_livestock") or (self.instance.sire_livestock if self.instance else None)
+        breeding_date = attrs.get("breeding_date") or (self.instance.breeding_date if self.instance else None)
+        confirmed_date = attrs.get("pregnancy_confirmed_date") or (self.instance.pregnancy_confirmed_date if self.instance else None)
+
+        if sire_livestock:
+            if dam and sire_livestock.id == dam.id:
+                raise ValidationError({"sire_livestock": "Dam and sire cannot be the same animal."})
+            sire_sex = (sire_livestock.sex or "").upper()
+            if not (sire_sex.startswith("M") or sire_sex == "MALE"):
+                raise ValidationError({"sire_livestock": "Selected sire animal must be male."})
+            if dam and sire_livestock.livestock_type_id != dam.livestock_type_id:
+                raise ValidationError({"sire_livestock": "Sire must be of the same species as the dam."})
+
+        if confirmed_date:
+            if confirmed_date > timezone.localdate():
+                raise ValidationError({"pregnancy_confirmed_date": "Pregnancy confirmation date cannot be in the future."})
+            if breeding_date and confirmed_date < breeding_date:
+                raise ValidationError({"pregnancy_confirmed_date": "Pregnancy confirmation date cannot precede the breeding date."})
+
+        return attrs
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+        validated_data["created_by"] = user
+        if validated_data.get("status") == BreedingRecord.BreedingStatus.PREGNANT and not validated_data.get("pregnancy_confirmed_by"):
+            validated_data["pregnancy_confirmed_by"] = user
+            if not validated_data.get("pregnancy_confirmed_date"):
+                validated_data["pregnancy_confirmed_date"] = timezone.localdate()
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        user = self.context["request"].user
+        if validated_data.get("status") == BreedingRecord.BreedingStatus.PREGNANT and not instance.pregnancy_confirmed_by:
+            validated_data["pregnancy_confirmed_by"] = user
+            if not validated_data.get("pregnancy_confirmed_date") and not instance.pregnancy_confirmed_date:
+                validated_data["pregnancy_confirmed_date"] = timezone.localdate()
+        return super().update(instance, validated_data)
+
+
+class LivestockTreatmentRecordSerializer(serializers.ModelSerializer):
+    livestock_tag = serializers.CharField(source="livestock.tag_number", read_only=True)
+    livestock_type_name = serializers.CharField(source="livestock.livestock_type.name", read_only=True)
+    farmer_name = serializers.CharField(source="livestock.farmer.user.get_full_name", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+
+    class Meta:
+        model = LivestockTreatmentRecord
+        fields = (
+            "id",
+            "livestock",
+            "livestock_tag",
+            "livestock_type_name",
+            "farmer_name",
+            "treatment_date",
+            "treatment_type",
+            "medication_name",
+            "reason",
+            "dosage",
+            "route_of_administration",
+            "administered_by",
+            "related_disease_case",
+            "related_breeding_record",
+            "notes",
+            "follow_up_date",
+            "created_by",
+            "created_by_name",
+            "created_at",
+        )
+        read_only_fields = ("created_by", "created_at")
+
+    def validate_livestock(self, value):
+        user = self.context["request"].user
+        role = getattr(getattr(user, "role", None), "role_name", None)
+        if role == "FARMER":
+            if not value or not value.farmer or value.farmer.user_id != user.pk:
+                raise ValidationError("You may only record treatments for your own livestock.")
+        return value
+
+    def validate_treatment_date(self, value):
+        if value > timezone.localdate():
+            raise ValidationError("Treatment date cannot be in the future.")
+        return value
+
+    def validate(self, attrs):
+        treatment_date = attrs.get("treatment_date")
+        follow_up_date = attrs.get("follow_up_date")
+        if follow_up_date and treatment_date and follow_up_date < treatment_date:
+            raise ValidationError({"follow_up_date": "Follow-up date cannot be earlier than the treatment date."})
+        return attrs
 
     def create(self, validated_data):
         validated_data["created_by"] = self.context["request"].user

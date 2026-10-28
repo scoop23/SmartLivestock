@@ -3,6 +3,14 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +19,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Calendar,
+  Check,
   CheckCircle2,
   Clock,
   Dna,
@@ -18,6 +27,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  ShieldCheck,
   Sparkles,
   Tag,
   Trash2,
@@ -25,8 +35,10 @@ import {
   UserCheck,
   Users,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
 import type { LivestockInventoryItem } from "../livestock-inventory/page";
 import BreedingRegistrationDialog, { type BreedingPayload } from "./components/breeding-registration-dialog";
 
@@ -51,13 +63,43 @@ export interface BreedingRecordItem {
   created_at: string;
 }
 
+export interface ConceptionAnalytics {
+  total_eligible_events: number;
+  events_with_known_outcomes: number;
+  confirmed_conceptions: number;
+  known_unsuccessful_outcomes: number;
+  pending_outcomes_excluded: number;
+  observed_conception_rate_pct: number | null;
+  rate_status: "SUFFICIENT" | "INSUFFICIENT_DATA" | "LOW_SAMPLE_SIZE";
+  status_message: string;
+  formula_explanation: string;
+}
+
+export interface PredictionReadiness {
+  status: "ACTIVE" | "BLOCKED_PENDING_DATA";
+  is_ready: boolean;
+  prediction_state: string;
+  verdict: string;
+  total_recorded_breeding_events: number;
+  events_with_known_outcomes: number;
+  minimum_required_for_model: number;
+  is_data_sufficient: boolean;
+  rationale: string;
+  guidance: string;
+}
+
 export interface BreedingAnalyticsData {
   total_records: number;
   active_gestations: number;
   due_soon: number;
   calved_count: number;
+  confirmed_conceptions_count?: number;
   open_count: number;
   conception_rate_pct: number | null;
+  conception_rate_status?: string;
+  conception_rate_message?: string;
+  conception_analytics?: ConceptionAnalytics;
+  prediction_readiness?: PredictionReadiness;
   by_type: {
     artificial_insemination: number;
     natural_service: number;
@@ -79,9 +121,9 @@ const statusBadgeClasses: Record<BreedingRecordItem["status"], string> = {
 };
 
 const statusLabels: Record<BreedingRecordItem["status"], string> = {
-  PREGNANT: "Confirmed Pregnant",
-  PENDING_CHECK: "Awaiting Check",
-  CALVED: "Calved / Delivered",
+  PENDING_CHECK: "Exposed",
+  PREGNANT: "Pregnant — Confirmed",
+  CALVED: "Complete",
   OPEN: "Open / Failed",
 };
 
@@ -94,6 +136,166 @@ export default function ProductionBreedingTab({
   const [isDialogOpen, setIsDialogOpen] = useState(autoOpen);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | BreedingRecordItem["status"]>("ALL");
+
+  // Filter chips horizontal scroll management
+  const filterContainerRef = useRef<HTMLDivElement>(null);
+  const filterTrackRef = useRef<HTMLDivElement>(null);
+  const isFilterDraggingRef = useRef(false);
+  const filterDragStartRef = useRef({ startX: 0, startScrollLeft: 0 });
+  const [filterScrollInfo, setFilterScrollInfo] = useState({
+    canScroll: false,
+    thumbWidthPct: 100,
+    thumbLeftPct: 0,
+  });
+
+  const updateFilterScrollMetrics = useCallback(() => {
+    const el = filterContainerRef.current;
+    if (!el) return;
+
+    const { scrollWidth, clientWidth, scrollLeft } = el;
+    const canScroll = scrollWidth > clientWidth + 2;
+
+    if (!canScroll) {
+      setFilterScrollInfo({
+        canScroll: false,
+        thumbWidthPct: 100,
+        thumbLeftPct: 0,
+      });
+      return;
+    }
+
+    const thumbWidthPct = Math.max(12, Math.min(100, (clientWidth / scrollWidth) * 100));
+    const maxScrollLeft = scrollWidth - clientWidth;
+    const scrollRatio = maxScrollLeft > 0 ? scrollLeft / maxScrollLeft : 0;
+    const thumbLeftPct = scrollRatio * (100 - thumbWidthPct);
+
+    setFilterScrollInfo({
+      canScroll: true,
+      thumbWidthPct,
+      thumbLeftPct,
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = filterContainerRef.current;
+    if (!el) return;
+
+    const rafId = requestAnimationFrame(() => {
+      updateFilterScrollMetrics();
+    });
+
+    const ro = new ResizeObserver(() => {
+      updateFilterScrollMetrics();
+    });
+    ro.observe(el);
+    Array.from(el.children).forEach((child) => ro.observe(child));
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+    };
+  }, [updateFilterScrollMetrics]);
+
+  const handleFilterThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = filterContainerRef.current;
+    if (!el) return;
+
+    isFilterDraggingRef.current = true;
+    filterDragStartRef.current = {
+      startX: e.clientX,
+      startScrollLeft: el.scrollLeft,
+    };
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handleFilterThumbPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isFilterDraggingRef.current) return;
+    const el = filterContainerRef.current;
+    const track = filterTrackRef.current;
+    if (!el || !track) return;
+
+    const deltaX = e.clientX - filterDragStartRef.current.startX;
+    const trackWidth = track.clientWidth;
+    const thumbWidthPx = (filterScrollInfo.thumbWidthPct / 100) * trackWidth;
+    const scrollableTrack = trackWidth - thumbWidthPx;
+    const scrollableTabs = el.scrollWidth - el.clientWidth;
+
+    if (scrollableTrack > 0 && scrollableTabs > 0) {
+      const scrollDelta = (deltaX / scrollableTrack) * scrollableTabs;
+      el.scrollLeft = filterDragStartRef.current.startScrollLeft + scrollDelta;
+    }
+  };
+
+  const handleFilterThumbPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isFilterDraggingRef.current) {
+      isFilterDraggingRef.current = false;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
+
+  const handleFilterTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isFilterDraggingRef.current) return;
+    const el = filterContainerRef.current;
+    const track = filterTrackRef.current;
+    if (!el || !track || !filterScrollInfo.canScroll) return;
+
+    const rect = track.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const trackWidth = rect.width;
+    const thumbWidthPx = (filterScrollInfo.thumbWidthPct / 100) * trackWidth;
+    const scrollableTrack = trackWidth - thumbWidthPx;
+    const scrollableTabs = el.scrollWidth - el.clientWidth;
+
+    if (scrollableTrack > 0 && scrollableTabs > 0) {
+      const targetRatio = Math.max(0, Math.min(1, (clickX - thumbWidthPx / 2) / scrollableTrack));
+      el.scrollTo({ left: targetRatio * scrollableTabs, behavior: "smooth" });
+    }
+  };
+
+  const handleFilterWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const el = filterContainerRef.current;
+    if (!el || !filterScrollInfo.canScroll) return;
+
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && el.scrollWidth > el.clientWidth) {
+      el.scrollLeft += e.deltaY;
+    }
+  };
+
+  // Pregnancy confirmation modal state
+  const [confirmPregnancyRecord, setConfirmPregnancyRecord] = useState<BreedingRecordItem | null>(null);
+  const [confirmationDate, setConfirmationDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [confirmationMethod, setConfirmationMethod] = useState("Transrectal Palpation");
+  const [confirmationNotes, setConfirmationNotes] = useState("");
+
+  const confirmPregnancyMutation = useMutation({
+    mutationFn: async ({ id, date, method, notes }: { id: number; date: string; method: string; notes: string }) => {
+      const res = await api.post(`production/breeding/${id}/confirm-pregnancy/`, {
+        confirmation_date: date,
+        confirmation_method: method,
+        notes,
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Pregnancy confirmed and recorded in official registry!");
+      setConfirmPregnancyRecord(null);
+      setConfirmationNotes("");
+      queryClient.invalidateQueries({ queryKey: ["breeding_records"] });
+      queryClient.invalidateQueries({ queryKey: ["breeding_analytics"] });
+    },
+    onError: (err: unknown) => {
+      const httpErr = err as { response?: { data?: { error?: string } } };
+      const msg = httpErr?.response?.data?.error || "Failed to confirm pregnancy.";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
+    },
+  });
 
   // Fetch breeding records
   const {
@@ -153,8 +355,9 @@ export default function ProductionBreedingTab({
       queryClient.invalidateQueries({ queryKey: ["breeding_records"] });
       queryClient.invalidateQueries({ queryKey: ["breeding_analytics"] });
     },
-    onError: (err: any) => {
-      const message = err?.response?.data?.dam || err?.response?.data?.breeding_date || "Failed to record breeding event.";
+    onError: (err: unknown) => {
+      const httpErr = err as { response?: { data?: { dam?: string; breeding_date?: string } } };
+      const message = httpErr?.response?.data?.dam || httpErr?.response?.data?.breeding_date || "Failed to record breeding event.";
       toast.error(typeof message === "string" ? message : JSON.stringify(message));
     },
   });
@@ -211,6 +414,23 @@ export default function ProductionBreedingTab({
     });
   }, [breedingRecords, statusFilter, query, selectedSpecies]);
 
+  // Pagination state for breeding history
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(8);
+
+  const [prevFilterKey, setPrevFilterKey] = useState(`${query}:${statusFilter}:${selectedSpecies}`);
+  const currentFilterKey = `${query}:${statusFilter}:${selectedSpecies}`;
+  if (prevFilterKey !== currentFilterKey) {
+    setPrevFilterKey(currentFilterKey);
+    setCurrentPage(1);
+  }
+
+  const totalPages = Math.ceil(filteredRecords.length / pageSize) || 1;
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredRecords.slice(start, start + pageSize);
+  }, [filteredRecords, currentPage, pageSize]);
+
   return (
     <div className="space-y-6">
       {/* 1. Farmbrite-Style KPI Telemetry Cards */}
@@ -231,9 +451,17 @@ export default function ProductionBreedingTab({
         />
         <KpiCard
           title="Conception Success Rate"
-          value={analytics?.conception_rate_pct !== null && analytics?.conception_rate_pct !== undefined ? `${analytics.conception_rate_pct}%` : "—"}
+          value={
+            analytics?.conception_rate_pct !== null && analytics?.conception_rate_pct !== undefined
+              ? `${analytics.conception_rate_pct}%`
+              : "—"
+          }
           icon={<TrendingUp className="size-4.5" />}
-          badge={`${analytics?.calved_count ?? 0} calved / ${analytics?.total_records ?? 0} total breedings`}
+          badge={
+            analytics?.conception_analytics?.events_with_known_outcomes
+              ? `${analytics.conception_analytics.confirmed_conceptions} confirmed ÷ ${analytics.conception_analytics.events_with_known_outcomes} known outcomes`
+              : "Insufficient verified outcomes"
+          }
           variant="sky"
         />
         <KpiCard
@@ -245,35 +473,47 @@ export default function ProductionBreedingTab({
         />
       </div>
 
+      {/* Conception Rate Governance & Prediction Readiness Card (Phases 6 & 7) */}
+      <div className="p-4 rounded-2xl border border-slate-200/90 bg-gradient-to-r from-slate-50 via-white to-sky-50/40 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-900 flex items-center gap-1.5">
+              <Sparkles className="size-3.5 text-sky-600" />
+              Observed Conception Rate Methodology:
+            </span>
+            <Badge variant="outline" className="text-[10px] bg-sky-50 text-sky-800 border-sky-200">
+              Verified Denominator
+            </Badge>
+          </div>
+          <p className="text-slate-600">
+            Formula: <code className="font-mono font-bold text-slate-800">Confirmed Conceptions ÷ Events with Known Outcomes × 100</code>.
+            Awaiting-check events ({analytics?.conception_analytics?.pending_outcomes_excluded ?? 0} pending) are excluded from the denominator so they are never falsely penalized as failures.
+          </p>
+        </div>
+        <div className="shrink-0 p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-[11px] space-y-0.5">
+          <div className="flex items-center gap-1.5 font-bold text-amber-900">
+            <Clock className="size-3 text-amber-700" />
+            <span>Conception Likelihood Model:</span>
+            <Badge className="text-[9px] bg-amber-200 text-amber-900 border-0">
+              {analytics?.prediction_readiness?.verdict || "Deferred (Data Collection)"}
+            </Badge>
+          </div>
+          <p className="text-amber-800 text-[10px] max-w-xs">
+            Model training is held until ≥ 30 verified field breeding outcomes accumulate. SmartLivestock prohibits synthetic or unverified AI estimations.
+          </p>
+        </div>
+      </div>
+
       {/* 2. Top Controls & Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center gap-2 flex-1 max-w-md">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-            <Input
-              placeholder="Search dam, sire tag, technician..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="pl-9 h-10 rounded-xl text-xs bg-slate-50/70 border-slate-200"
-            />
-          </div>
-
-          <div className="flex items-center gap-1 overflow-x-auto">
-            {(["ALL", "PREGNANT", "PENDING_CHECK", "CALVED", "OPEN"] as const).map((st) => (
-              <button
-                key={st}
-                type="button"
-                onClick={() => setStatusFilter(st)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                  statusFilter === st
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                {st === "ALL" ? "All" : st === "PENDING_CHECK" ? "Awaiting Check" : st === "PREGNANT" ? "Pregnant" : st === "CALVED" ? "Calved" : "Open"}
-              </button>
-            ))}
-          </div>
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+          <Input
+            placeholder="Search dam, sire tag, technician..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9 h-10 rounded-xl text-xs bg-slate-50/70 border-slate-200"
+          />
         </div>
 
         <div className="flex items-center gap-2 self-end sm:self-auto">
@@ -297,6 +537,76 @@ export default function ProductionBreedingTab({
             <span>Log Insemination / Mating</span>
           </Button>
         </div>
+      </div>
+
+      {/* 2.5 Status Filter Chips Strip with Interactive Horizontal Scrollbar */}
+      <div className="space-y-1.5">
+        <div
+          ref={filterContainerRef}
+          onScroll={updateFilterScrollMetrics}
+          onWheel={handleFilterWheel}
+          className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-1"
+        >
+          {(["ALL", "PENDING_CHECK", "PREGNANT", "CALVED", "OPEN"] as const).map((st) => {
+            const label = st === "ALL" ? "All" : statusLabels[st];
+            const count =
+              st === "ALL"
+                ? breedingRecords.length
+                : breedingRecords.filter((r) => r.status === st).length;
+
+            return (
+              <button
+                key={st}
+                type="button"
+                onClick={() => setStatusFilter(st)}
+                className={`shrink-0 whitespace-nowrap min-h-[36px] inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  statusFilter === st
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+                }`}
+              >
+                <span>{label}</span>
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                    statusFilter === st
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-100 text-slate-600 border border-slate-200"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Interactive Custom Horizontal Scrollbar Track */}
+        {filterScrollInfo.canScroll && (
+          <div
+            ref={filterTrackRef}
+            onClick={handleFilterTrackClick}
+            className="w-full h-1.5 bg-slate-100 hover:bg-slate-200/70 rounded-full relative transition-all duration-200 select-none group cursor-pointer"
+            role="scrollbar"
+            aria-controls="breeding-status-filters"
+            aria-valuenow={Math.round(filterScrollInfo.thumbLeftPct)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Horizontal scrollbar for status filters"
+            title="Click or drag to scroll filters horizontally"
+          >
+            <div
+              onPointerDown={handleFilterThumbPointerDown}
+              onPointerMove={handleFilterThumbPointerMove}
+              onPointerUp={handleFilterThumbPointerUp}
+              onPointerCancel={handleFilterThumbPointerUp}
+              style={{
+                left: `${filterScrollInfo.thumbLeftPct}%`,
+                width: `${filterScrollInfo.thumbWidthPct}%`,
+              }}
+              className="absolute top-0 bottom-0 bg-slate-400 group-hover:bg-slate-500 active:bg-slate-700 rounded-full transition-colors cursor-grab active:cursor-grabbing shadow-2xs"
+            />
+          </div>
+        )}
       </div>
 
       {/* 3. Gestation Roster & Cards */}
@@ -324,8 +634,9 @@ export default function ProductionBreedingTab({
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredRecords.map((record) => {
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {paginatedRecords.map((record) => {
             const isDueSoon = (record.days_until_due ?? 999) <= 30 && (record.days_until_due ?? 999) >= 0;
             const isOverdue = (record.days_until_due ?? 999) < 0 && record.status === "PREGNANT";
             const progress = record.gestation_progress_pct ?? 0;
@@ -419,7 +730,7 @@ export default function ProductionBreedingTab({
 
                   {record.notes && (
                     <p className="text-xs text-slate-600 italic bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                      "{record.notes}"
+                      &ldquo;{record.notes}&rdquo;
                     </p>
                   )}
 
@@ -430,10 +741,16 @@ export default function ProductionBreedingTab({
                       {record.status !== "PREGNANT" && (
                         <button
                           type="button"
-                          onClick={() => updateStatusMutation.mutate({ id: record.id, status: "PREGNANT" })}
-                          className="px-2 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 transition cursor-pointer"
+                          onClick={() => {
+                            setConfirmPregnancyRecord(record);
+                            setConfirmationDate(new Date().toISOString().split("T")[0]);
+                            setConfirmationMethod("Transrectal Palpation");
+                            setConfirmationNotes("");
+                          }}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 transition cursor-pointer flex items-center gap-1"
                         >
-                          Confirm Pregnant
+                          <CheckCircle2 className="size-3 text-emerald-600" />
+                          <span>Confirm Pregnant</span>
                         </button>
                       )}
                       {record.status !== "CALVED" && (
@@ -461,6 +778,22 @@ export default function ProductionBreedingTab({
             );
           })}
         </div>
+
+        {filteredRecords.length > 0 && (
+          <ValidationPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredRecords.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[4, 8, 16, 24]}
+          />
+        )}
+      </div>
       )}
 
       {/* Modal Dialog for Recording Breeding */}
@@ -472,6 +805,92 @@ export default function ProductionBreedingTab({
         onSubmit={(payload) => createMutation.mutate(payload)}
         isSubmitting={createMutation.isPending}
       />
+
+      {/* Modal Dialog for Clinical Pregnancy Confirmation (Phases 2 & 9) */}
+      <Dialog open={!!confirmPregnancyRecord} onOpenChange={(open) => !open && setConfirmPregnancyRecord(null)}>
+        <DialogContent className="sm:max-w-md rounded-3xl bg-white border-slate-200 p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="size-5 text-emerald-600" />
+              <span>Confirm Clinical Pregnancy</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Officially verify pregnancy for dam{" "}
+              <strong className="text-slate-800">{confirmPregnancyRecord?.dam_tag || `Dam #${confirmPregnancyRecord?.dam}`}</strong>{" "}
+              (Bred on {confirmPregnancyRecord?.breeding_date}). Herd exposure alone never confirms conception.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (confirmPregnancyRecord) {
+                confirmPregnancyMutation.mutate({
+                  id: confirmPregnancyRecord.id,
+                  date: confirmationDate,
+                  method: confirmationMethod,
+                  notes: confirmationNotes,
+                });
+              }
+            }}
+            className="space-y-4 pt-2 text-xs"
+          >
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">Confirmation / Exam Date</label>
+              <Input
+                type="date"
+                max={new Date().toISOString().split("T")[0]}
+                value={confirmationDate}
+                onChange={(e) => setConfirmationDate(e.target.value)}
+                className="h-10 text-xs rounded-xl"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">Diagnostic Confirmation Method</label>
+              <select
+                value={confirmationMethod}
+                onChange={(e) => setConfirmationMethod(e.target.value)}
+                className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              >
+                <option value="Transrectal Palpation">Transrectal Palpation (Veterinary Rectal Exam)</option>
+                <option value="Veterinary Ultrasound Scan">Transrectal / Transabdominal Ultrasound</option>
+                <option value="Blood Progesterone Assay">Blood / Milk Progesterone Diagnostic Assay</option>
+                <option value="Visual & Estrus Non-Return Check">Non-Return to Estrus & External Signs (Veterinary Verified)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">Clinical Remarks & Notes</label>
+              <textarea
+                value={confirmationNotes}
+                onChange={(e) => setConfirmationNotes(e.target.value)}
+                placeholder="Fetal membrane slip felt, viable heartbeat observed, examining vet..."
+                className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl resize-none h-20 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              />
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmPregnancyRecord(null)}
+                className="rounded-xl text-xs font-bold"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={confirmPregnancyMutation.isPending}
+                className="rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white"
+              >
+                {confirmPregnancyMutation.isPending ? "Confirming..." : "Confirm & Update Registry"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -32,6 +32,12 @@ urlpatterns = [
     path("breeding/", views.breeding_records_list_create, name="breeding_list_create"),
     path("breeding/analytics/", views.breeding_analytics, name="breeding_analytics"),
     path("breeding/<int:pk>/", views.breeding_record_detail, name="breeding_detail"),
+    path("breeding/<int:pk>/confirm-pregnancy/", views.breeding_record_confirm_pregnancy, name="breeding_confirm_pregnancy"),
+
+    # Reproductive Lifecycle Profile & Treatments (Phases 2, 3, 5)
+    path("livestock/<int:pk>/reproductive-summary/", views.animal_reproductive_summary, name="animal_reproductive_summary"),
+    path("treatments/", views.treatment_records_list_create, name="treatment_list_create"),
+    path("treatments/<int:pk>/", views.treatment_record_detail, name="treatment_detail"),
 
     # Feeding Logs & Rations
     path("feedings/", views.feeding_records_list_create, name="feeding_list_create"),

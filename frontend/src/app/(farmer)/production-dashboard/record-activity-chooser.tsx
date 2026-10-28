@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Baby,BarChart3,Beef,Egg,HeartHandshake,Milk,Scale,Scissors,ShoppingBag,Wheat } from "lucide-react";
+import { Baby,BarChart3,Beef,Egg,HeartHandshake,Milk,Pill,Scale,Scissors,ShoppingBag,Wheat } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
@@ -92,6 +92,13 @@ export default function RecordActivityChooser({
         title: "Feeding & Rations",
         description: "Log daily forage, concentrates, rations, and feed costs.",
         icon: Wheat,
+        species,
+      });
+      items.push({
+        id: "treatments",
+        title: "Clinical Treatments",
+        description: "Log medications, vaccines, dewormers, and veterinary care.",
+        icon: Pill,
         species,
       });
     }

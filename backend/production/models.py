@@ -751,6 +751,14 @@ class BreedingRecord(models.Model):
         choices=BreedingType.choices,
         default=BreedingType.ARTIFICIAL_INSEMINATION,
     )
+    sire_livestock = models.ForeignKey(
+        "livestock.LivestockInventory",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sire_breeding_events",
+        help_text="Optional link to sire bull in inventory if bull is registered on-farm/herd.",
+    )
     sire_tag_or_code = models.CharField(
         max_length=100,
         blank=True,
@@ -765,6 +773,32 @@ class BreedingRecord(models.Model):
         max_length=120,
         blank=True,
         help_text="Technician, AI officer, or farmer who performed insemination.",
+    )
+    pregnancy_confirmed_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date pregnancy was officially confirmed by palpation, ultrasound, or authorized tech.",
+    )
+    pregnancy_confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="confirmed_breeding_pregnancies",
+    )
+    confirmation_method = models.CharField(
+        max_length=60,
+        blank=True,
+        default="",
+        help_text="Method of pregnancy diagnosis (e.g., Rectal Palpation, Ultrasound, Vet Exam).",
+    )
+    calving_record = models.ForeignKey(
+        "CalvingRecord",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="breeding_events",
+        help_text="Link to resulting calving event that completed this cycle.",
     )
     gestation_days = models.PositiveIntegerField(
         default=283,
@@ -802,6 +836,94 @@ class BreedingRecord(models.Model):
 
     def __str__(self):
         return f"Breeding {self.dam.tag_number or self.dam.id} on {self.breeding_date} ({self.breeding_type})"
+
+
+class LivestockTreatmentRecord(models.Model):
+    """
+    Veterinary and health management tracker:
+    Connects individual livestock to clinical treatments, medications, deworming,
+    reproductive therapies, and vaccinations with dosage, route, and follow-up.
+    """
+    class TreatmentType(models.TextChoices):
+        VACCINATION = "VACCINATION", "Vaccination / Immunization"
+        ANTIBIOTIC = "ANTIBIOTIC", "Antibiotic / Anti-infective"
+        DEWORMING = "DEWORMING", "Deworming / Antiparasitic"
+        VITAMIN_SUPPLEMENT = "VITAMIN_SUPPLEMENT", "Vitamin / Mineral Supplement"
+        REPRODUCTIVE_THERAPY = "REPRODUCTIVE_THERAPY", "Reproductive Therapy / Hormone"
+        WOUND_CARE = "WOUND_CARE", "Wound Care / Antiseptic"
+        OTHER = "OTHER", "Other Clinical Treatment"
+
+    livestock = models.ForeignKey(
+        "livestock.LivestockInventory",
+        on_delete=models.PROTECT,
+        related_name="treatment_records",
+        help_text="Animal receiving treatment.",
+    )
+    treatment_date = models.DateField(help_text="Date treatment was administered.")
+    treatment_type = models.CharField(
+        max_length=32,
+        choices=TreatmentType.choices,
+        default=TreatmentType.OTHER,
+    )
+    medication_name = models.CharField(
+        max_length=150,
+        help_text="Medication, vaccine, or active compound administered.",
+    )
+    reason = models.TextField(
+        blank=True,
+        default="",
+        help_text="Clinical indication, diagnosis reason, or preventive purpose.",
+    )
+    dosage = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Administered dosage (e.g., '10 mL', '500 mg').",
+    )
+    route_of_administration = models.CharField(
+        max_length=60,
+        blank=True,
+        default="",
+        help_text="Administration route (e.g., Intramuscular (IM), Subcutaneous (SC), Oral, Topical, IV).",
+    )
+    administered_by = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        help_text="Veterinarian, livestock inspector, or farmer who administered treatment.",
+    )
+    related_disease_case = models.ForeignKey(
+        "diseases.DiseaseCase",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="treatment_records",
+        help_text="Optional link to diagnosed disease case.",
+    )
+    related_breeding_record = models.ForeignKey(
+        BreedingRecord,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="treatment_records",
+        help_text="Optional link to reproductive cycle / breeding event.",
+    )
+    notes = models.TextField(blank=True, default="", max_length=1000)
+    follow_up_date = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_treatment_records",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-treatment_date", "-created_at"]
+        verbose_name = "Livestock Treatment Record"
+        verbose_name_plural = "Livestock Treatment Records"
+
+    def __str__(self):
+        return f"{self.medication_name} on {self.treatment_date} for {self.livestock}"
 
 
 class FeedingRecord(models.Model):
