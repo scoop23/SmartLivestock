@@ -673,15 +673,8 @@ function ReportObservationContent() {
                       ? "No records match your active search or filter criteria."
                       : "You haven't submitted any disease or mortality reports yet."}
                   </p>
-                  <div className="mt-4 flex flex-wrap justify-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleOpenReportIllness()}
-                      className="bg-[#2D5A27] hover:bg-[#23471f] text-white text-xs font-bold rounded-xl h-8 px-3.5"
-                    >
-                      + File Incident Report
-                    </Button>
-                    {activeReports.length === 0 && reportsInHistory.length === 0 && (
+                  <div className="mt-4 flex justify-center">
+                    {activeReports.length === 0 && reportsInHistory.length === 0 ? (
                       <Button
                         data-tour="report-details-preview"
                         type="button"
@@ -692,6 +685,21 @@ function ReportObservationContent() {
                       >
                         Preview report details
                       </Button>
+                    ) : (
+                      (searchQuery || filterType !== "ALL") && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSearchQuery("");
+                            setFilterType("ALL");
+                          }}
+                          className="rounded-xl text-xs font-bold text-[#2D5A27] hover:bg-emerald-50"
+                        >
+                          Clear search & filters
+                        </Button>
+                      )
                     )}
                   </div>
                 </div>
