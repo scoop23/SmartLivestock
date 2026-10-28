@@ -398,7 +398,7 @@ function SibatPortalContent() {
       router.push(`/sibat/batches?batchId=${item.rawId}`);
       return;
     }
-    router.push(`/sibat/production-records?reviewType=${item.sourceType}&reviewId=${item.rawId}`);
+    router.push(`/sibat/livestock-registry`);
   };
 
   const reviewCategories = [
