@@ -7,18 +7,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cowHead } from "@lucide/lab";
 import {
   Activity,
+  Beef,
   Calendar,
   CheckCircle2,
   ChevronRight,
   Clock,
+  Egg,
   ExternalLink,
   Icon,
   Milk,
+  Package,
   RotateCcw,
   ShieldAlert,
   Skull,
   Stethoscope,
   Tag,
+  TrendingUp,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FarmerActivityItem } from "./farmer-analytics";
@@ -51,18 +55,73 @@ const TYPE_CONFIG = {
   },
   PRODUCTION: {
     label: "Production Record",
+    badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200/90",
+    iconBg: "bg-emerald-100/80 text-emerald-700 border-emerald-200",
+    icon: <TrendingUp className="size-4" />,
+  },
+};
+
+const COMMODITY_CONFIG: Record<
+  string,
+  { label: string; badgeClass: string; iconBg: string; icon: React.ReactNode }
+> = {
+  meat: {
+    label: "Meat Production",
+    badgeClass: "bg-rose-50 text-rose-800 border-rose-200/90",
+    iconBg: "bg-rose-100/80 text-rose-700 border-rose-200",
+    icon: <Beef className="size-4" />,
+  },
+  eggs: {
+    label: "Egg Production",
+    badgeClass: "bg-amber-50 text-amber-800 border-amber-200/90",
+    iconBg: "bg-amber-100/80 text-amber-700 border-amber-200",
+    icon: <Egg className="size-4" />,
+  },
+  wool: {
+    label: "Wool Production",
+    badgeClass: "bg-stone-100 text-stone-800 border-stone-300",
+    iconBg: "bg-stone-100 text-stone-700 border-stone-200",
+    icon: <Package className="size-4" />,
+  },
+  milk: {
+    label: "Milk Production",
     badgeClass: "bg-sky-50 text-sky-800 border-sky-200/90",
     iconBg: "bg-sky-100/80 text-sky-700 border-sky-200",
     icon: <Milk className="size-4" />,
   },
 };
 
+function getProductionCommodity(item: FarmerActivityItem): string {
+  if (item.rawItem && "production_type" in item.rawItem && typeof item.rawItem.production_type === "string") {
+    const rawType = item.rawItem.production_type.toLowerCase();
+    if (rawType === "egg") return "eggs";
+    return rawType;
+  }
+  if (item.title) {
+    const t = item.title.toLowerCase();
+    if (t.includes("meat")) return "meat";
+    if (t.includes("egg")) return "eggs";
+    if (t.includes("wool")) return "wool";
+    if (t.includes("milk")) return "milk";
+  }
+  return "";
+}
+
+function getProductionConfig(item: FarmerActivityItem) {
+  const commodity = getProductionCommodity(item);
+  return COMMODITY_CONFIG[commodity] || TYPE_CONFIG.PRODUCTION;
+}
+
 function cleanItemTitle(title: string): string {
-  return title
+  const cleaned = title
     .replace(/^Observation:\s*/i, "")
     .replace(/^Mortality Record:\s*/i, "")
     .replace(/^Production:\s*/i, "")
     .trim();
+
+  return cleaned.replace(/\b(MEAT|MILK|EGGS|WOOL)\b/gi, (match) => {
+    return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
+  });
 }
 
 export default function FarmerActivityFeed({
@@ -319,7 +378,10 @@ export default function FarmerActivityFeed({
           <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1 sm:pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
             {filteredActivities.map((item) => {
               const isHealth = item.type === "DISEASE" || item.type === "MORTALITY";
-              const typeConfig = TYPE_CONFIG[item.type] || TYPE_CONFIG.INVENTORY;
+              const typeConfig =
+                item.type === "PRODUCTION"
+                  ? getProductionConfig(item)
+                  : TYPE_CONFIG[item.type] || TYPE_CONFIG.INVENTORY;
               const displayTitle = cleanItemTitle(item.title);
 
               const openActivity = () => {
@@ -339,11 +401,7 @@ export default function FarmerActivityFeed({
                   );
                 } else if (item.type === "PRODUCTION") {
                   const recordId = String(item.id).replace(/^prod-/, "");
-                  const productionType = String(
-                    item.rawItem && "production_type" in item.rawItem
-                      ? item.rawItem.production_type
-                      : ""
-                  ).toLowerCase();
+                  const productionType = getProductionCommodity(item);
                   const params = new URLSearchParams({ recordId });
                   if (["milk", "meat", "eggs", "wool"].includes(productionType)) {
                     params.set("type", productionType);
