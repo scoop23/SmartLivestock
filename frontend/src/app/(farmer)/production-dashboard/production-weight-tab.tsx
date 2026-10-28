@@ -292,28 +292,28 @@ export default function ProductionWeightTab({
           title="Average Herd Weight"
           value={avgWeight !== "—" ? `${avgWeight} kg` : "—"}
           icon={<Scale className="size-4.5" />}
-          badge="Live scale baseline"
+          badge="Current average weight"
           variant="emerald"
         />
         <KpiCard
           title="Avg Daily Gain (ADG)"
           value={`${Number(avgHerdAdg) >= 0 ? "+" : ""}${avgHerdAdg} kg/day`}
           icon={<Calculator className="size-4.5" />}
-          badge="Calculated growth rate"
+          badge="Daily growth rate"
           variant="sky"
         />
         <KpiCard
           title="Target Market Weight"
           value="380 - 450 kg"
           icon={<TrendingUp className="size-4.5" />}
-          badge="Optimal fattening target"
+          badge="Ready for market"
           variant="amber"
         />
         <KpiCard
-          title="Weighing Points"
+          title="Weighing Records"
           value={totalLogs.toString()}
           icon={<Weight className="size-4.5" />}
-          badge="Logged measurements"
+          badge="Total scale logs"
           variant="orange"
         />
       </div>
@@ -322,7 +322,7 @@ export default function ProductionWeightTab({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
         <div>
           <h3 className="text-base font-bold text-slate-900">
-            {selectedSpecies ? `${selectedSpecies} ` : ""}Weight & Growth Velocity
+            {selectedSpecies ? `${selectedSpecies} ` : ""}Weight & Growth Tracking
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
             Log raw weight measurements. Weight gains and Average Daily Gain (ADG) are <strong>automatically calculated</strong> between weighing dates.

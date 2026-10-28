@@ -233,7 +233,7 @@ export default function SpeciesKpiCards({
             title="Avg Grower Weight"
             value={metrics.avgWeight ? `${metrics.avgWeight} kg` : "—"}
             icon={<Scale className="size-4.5" />}
-            badge="Fattening velocity"
+            badge="Weight gain rate"
             variant="amber"
           />
           <KpiCard
@@ -611,7 +611,7 @@ export default function SpeciesKpiCards({
           title="Avg Grower Weight"
           value={metrics.avgWeight ? `${metrics.avgWeight} kg` : "—"}
           icon={<Scale className="size-4.5" />}
-          badge="Fattening velocity"
+          badge="Weight gain rate"
           variant="stone"
         />
       </div>
@@ -728,7 +728,7 @@ export default function SpeciesKpiCards({
         title="Legacy Review Statuses"
         value={metrics.legacyReviewCount.toString()}
         icon={<ClipboardList className="size-4.5" />}
-        badge="Historical entries outside production analytics"
+        badge="Past records outside production"
         variant="stone"
       />
     </div>

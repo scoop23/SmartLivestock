@@ -85,10 +85,10 @@ export default function ProductionForecastsTab({
           variant="amber"
         />
         <KpiCard
-          title="Lactating Capacity"
+          title="Milking Cows"
           value={`${femaleCattleCount} heads`}
           icon={<Users className="size-4.5" />}
-          badge="Active dairy cows"
+          badge="Active dairy herd"
           variant="orange"
         />
       </div>
@@ -100,7 +100,7 @@ export default function ProductionForecastsTab({
             Production Forecasts & Herd Projections
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Statistical estimates based on active milking heads, biological lactation curves, and market price baselines.
+            Estimated milk yield and expected revenue based on your milking cows and local market prices.
           </p>
         </div>
         <Button

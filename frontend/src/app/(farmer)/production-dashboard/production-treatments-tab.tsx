@@ -291,122 +291,118 @@ export default function ProductionTreatmentsTab({
 
   return (
     <div className="space-y-6">
-      {/* ── 1. Telemetry KPI Cards using KpiCard (Compact Size) ── */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+      {/* ── 1. Telemetry KPI Cards using KpiCard ── */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <KpiCard
-          size="sm"
           title="Total Treatments"
-          value={isLoading ? <Skeleton className="h-6 w-16" /> : `${totalTreatmentsCount} Regimens`}
-          icon={<Pill className="size-4" />}
-          badge="Lifetime"
-          description="Recorded across herd"
+          value={isLoading ? <Skeleton className="h-8 w-20" /> : `${totalTreatmentsCount} Records`}
+          icon={<Pill className="size-4.5" />}
+          badge="All-time health records"
+          description="Logged across your herd"
           variant="emerald"
         />
 
         <KpiCard
-          size="sm"
-          title="Antibiotic Stewardship"
-          value={isLoading ? <Skeleton className="h-6 w-16" /> : `${antibioticCount} Courses`}
-          icon={<Syringe className="size-4" />}
-          badge="DA-BAI Monitored"
-          description="Antimicrobial regimens"
+          title="Antibiotic Treatments"
+          value={isLoading ? <Skeleton className="h-8 w-20" /> : `${antibioticCount} Given`}
+          icon={<Syringe className="size-4.5" />}
+          badge="Safety Monitored"
+          description="Antibiotics administered"
           variant="rose"
         />
 
         <KpiCard
-          size="sm"
           title="Deworming & Parasites"
-          value={isLoading ? <Skeleton className="h-6 w-16" /> : `${dewormerCount} Doses`}
+          value={isLoading ? <Skeleton className="h-8 w-20" /> : `${dewormerCount} Doses`}
           icon={<ShieldCheck className="size-4.5" />}
-          badge="Anthelmintic"
-          description="Internal parasite control"
+          badge="Deworming protection"
+          description="Parasite & worm prevention"
           variant="sky"
         />
 
         <KpiCard
-          size="sm"
-          title="Active Re-checks"
-          value={isLoading ? <Skeleton className="h-6 w-16" /> : `${activeFollowUps} Pending`}
-          icon={<Clock className="size-4" />}
-          badge="Scheduled"
-          description="Clinical observation"
+          title="Checkups Needed"
+          value={isLoading ? <Skeleton className="h-8 w-20" /> : `${activeFollowUps} Due`}
+          icon={<Clock className="size-4.5" />}
+          badge="Scheduled follow-ups"
+          description="Animals to check again"
           variant="amber"
         />
       </div>
 
       {/* ── 2. Pharmacovigilance & Food Safety Governance Card ── */}
-      <div className="p-3.5 rounded-2xl border border-slate-200/90 bg-gradient-to-r from-slate-50 via-white to-teal-50/40 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
-        <div className="space-y-0.5">
+      <div className="p-4 rounded-2xl border border-slate-200/90 bg-gradient-to-r from-slate-50 via-white to-teal-50/40 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+        <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+            <span className="font-bold text-slate-900 flex items-center gap-1.5">
               <Sparkles className="size-3.5 text-teal-600" />
-              Antimicrobial Stewardship &amp; Withdrawal Protocol:
+              Medicine Withdrawal &amp; Food Safety:
             </span>
-            <Badge variant="outline" className="text-[9px] bg-teal-50 text-teal-800 border-teal-200 font-bold px-1.5 py-0.2">
-              DA-BAI Standards
+            <Badge variant="outline" className="text-[10px] bg-teal-50 text-teal-800 border-teal-200 font-bold">
+              DA-BAI Meat Safety
             </Badge>
           </div>
-          <p className="text-slate-600 text-[11px] leading-relaxed">
-            Regimen logs enforce withdrawal safety for milk and meat marketing. Therapeutic courses are tracked per animal tag to prevent antibiotic residue in Padre Garcia auctions.
+          <p className="text-slate-600">
+            Medicine withdrawal days ensure meat and milk are free of drug residues before animals can be sold at Padre Garcia auctions or sent to the slaughterhouse.
           </p>
         </div>
-        <div className="shrink-0 p-2 rounded-xl bg-teal-50/80 border border-teal-200/80 text-[10px] space-y-0.5">
+        <div className="shrink-0 p-2.5 rounded-xl bg-teal-50/80 border border-teal-200/80 text-[11px] space-y-0.5">
           <div className="flex items-center gap-1.5 font-bold text-teal-900">
             <ShieldCheck className="size-3.5 text-teal-700" />
-            <span>Food Safety Status:</span>
-            <Badge className="text-[9px] bg-teal-200 text-teal-900 border-0 font-bold px-1.5 py-0.2">
-              {activeWithdrawalCount > 0 ? `${activeWithdrawalCount} Under Withdrawal Hold` : "Optimal Clearance"}
+            <span>Market Clearance Status:</span>
+            <Badge className="text-[9px] bg-teal-200 text-teal-900 border-0 font-bold">
+              {activeWithdrawalCount > 0 ? `${activeWithdrawalCount} Waiting for Withdrawal` : "No Active Holds Recorded"}
             </Badge>
           </div>
-          <p className="text-teal-800 text-[9px] max-w-xs">
+          <p className="text-teal-800 text-[10px] max-w-xs">
             {activeWithdrawalCount > 0
-              ? "Animals under active withdrawal must not enter slaughterhouse or dairy distribution until hold expires."
-              : "Zero animals under active withdrawal hold. Full commercial clearance verified."}
+              ? "Animals still under medicine withdrawal cannot be sold for meat or milk until their waiting period ends."
+              : "No active medicine withdrawal holds are recorded. Check treatment instructions before selling meat or milk."}
           </p>
         </div>
       </div>
 
-      {/* ── 3. Treatment Category Distribution Breakdown (Compact) ── */}
-      <Card className="rounded-2xl border-slate-200/90 shadow-2xs bg-gradient-to-br from-teal-50/30 via-white to-slate-50">
-        <CardHeader className="p-3.5 pb-2">
+      {/* ── 3. Treatment Category Distribution Breakdown ── */}
+      <Card className="rounded-3xl border-slate-200/90 shadow-xs bg-gradient-to-br from-teal-50/30 via-white to-slate-50">
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Layers className="size-3.5 text-teal-600" />
-                <span>Clinical Category Distribution</span>
+              <CardTitle className="text-base font-black text-slate-900 flex items-center gap-2">
+                <Layers className="size-4 text-teal-600" />
+                <span>Treatment Category Distribution</span>
               </CardTitle>
-              <CardDescription className="text-[11px] text-slate-500">
-                Therapeutic breakdown across antibiotics, anthelmintics, vitamins, vaccines, and topical care
+              <CardDescription className="text-xs text-slate-500">
+                Breakdown across antibiotics, dewormers, vitamins, vaccines, and wound care
               </CardDescription>
             </div>
-            <Badge variant="outline" className="text-[10px] font-bold text-teal-800 bg-teal-50 border-teal-200 px-2 py-0.5">
-              Pharmacology Analytics
+            <Badge variant="outline" className="text-[11px] font-bold text-teal-800 bg-teal-50 border-teal-200">
+              Treatment Breakdown
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="p-3.5 pt-1">
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
             {categoryOptions.filter((c) => c.key !== "ALL").map((cat) => {
               const total = totalTreatmentsCount || 1;
               const pct = Math.round((cat.count / total) * 100);
               return (
                 <div
                   key={cat.key}
-                  className="rounded-xl border border-slate-200/80 bg-white p-2 space-y-0.5 shadow-2xs hover:shadow-xs transition-all"
+                  className="rounded-2xl border border-slate-200/80 bg-white p-3 space-y-1 shadow-2xs hover:shadow-xs transition-all"
                 >
-                  <span className="text-[10px] font-bold text-slate-500 block truncate">
+                  <span className="text-[11px] font-bold text-slate-500 block truncate">
                     {cat.label}
                   </span>
-                  <p className="text-base font-black text-slate-900 leading-tight">
-                    {cat.count} <span className="text-[9px] font-semibold text-slate-400">events</span>
+                  <p className="text-lg font-black text-slate-900">
+                    {cat.count} <span className="text-[10px] font-semibold text-slate-400">events</span>
                   </p>
-                  <div className="flex items-center justify-between text-[9px] text-slate-500">
+                  <div className="flex items-center justify-between text-[10px] text-slate-500">
                     <span>{pct}% of herd</span>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
+                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                     <div
                       style={{ width: `${pct}%` }}
-                      className="bg-teal-600 h-1 rounded-full transition-all"
+                      className="bg-teal-600 h-1.5 rounded-full transition-all"
                     />
                   </div>
                 </div>
@@ -681,13 +677,13 @@ export default function ProductionTreatmentsTab({
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
                     <SelectItem value="ANTIBIOTIC">Antibiotic</SelectItem>
-                    <SelectItem value="DEWORMER">Dewormer / Anthelmintic</SelectItem>
+                    <SelectItem value="DEWORMER">Dewormer / Parasite Control</SelectItem>
                     <SelectItem value="VITAMIN_MINERAL">Vitamin / Mineral Supplement</SelectItem>
                     <SelectItem value="VACCINE">Vaccine</SelectItem>
                     <SelectItem value="ANTI_INFLAMMATORY">Anti-inflammatory / Pain</SelectItem>
                     <SelectItem value="TOPICAL_WOUND">Topical / Wound Care</SelectItem>
                     <SelectItem value="HORMONAL">Hormonal Therapy</SelectItem>
-                    <SelectItem value="OTHER">Other Intervention</SelectItem>
+                    <SelectItem value="OTHER">Other Care / Medicine</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

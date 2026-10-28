@@ -799,7 +799,7 @@ export default function ProductionAnalyticsPage() {
             {activeTab === "breeding" && (
               <>
                 <KpiCard
-                  title="Active Gestations"
+                  title="Pregnant Animals (Dams)"
                   value={
                     <div className="flex items-baseline gap-2 mt-0.5">
                       <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -812,30 +812,30 @@ export default function ProductionAnalyticsPage() {
                   badge="PREGNANT / BRED"
                   badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
                   variant="emerald"
-                  description="Currently pregnant or awaiting check"
+                  description="Confirmed pregnant or awaiting check"
                   wrapText
                 />
 
                 <KpiCard
-                  title="Parturition Imminent (≤ 30d)"
+                  title="Due Soon (≤ 30 Days)"
                   value={
                     <div className="flex items-baseline gap-2 mt-0.5">
                       <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                         {isBreedingLoading ? "..." : (breedingAnalytics?.due_soon ?? 0)}
                       </span>
-                      <span className="text-xs font-mono text-amber-700 font-bold">Dams Due</span>
+                      <span className="text-xs font-mono text-amber-700 font-bold">Giving Birth Soon</span>
                     </div>
                   }
                   icon={<Clock className="size-5" />}
-                  badge="IMMINENT PARTURITION"
+                  badge="GIVING BIRTH SOON"
                   badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
                   variant="amber"
-                  description="Expected calving within 30 days"
+                  description="Expected to give birth within 30 days"
                   wrapText
                 />
 
                 <KpiCard
-                  title="Conception Success Rate"
+                  title="Pregnancy Success Rate"
                   value={
                     <div className="flex items-baseline gap-2 mt-0.5">
                       <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -846,15 +846,15 @@ export default function ProductionAnalyticsPage() {
                     </div>
                   }
                   icon={<TrendingUp className="size-5" />}
-                  badge={`${breedingAnalytics?.calved_count ?? 0} CONFIRMED DELIVERIES`}
+                  badge={`${breedingAnalytics?.calved_count ?? 0} SUCCESSFUL BIRTHS`}
                   badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
                   variant="sky"
-                  description={`${breedingAnalytics?.total_records ?? 0} total registered breeding events`}
+                  description={`${breedingAnalytics?.total_records ?? 0} total breeding records logged`}
                   wrapText
                 />
 
                 <KpiCard
-                  title="Insemination Methods"
+                  title="Breeding Methods"
                   value={
                     <div className="flex items-baseline gap-2 mt-0.5">
                       <span className="font-display text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
@@ -865,7 +865,7 @@ export default function ProductionAnalyticsPage() {
                     </div>
                   }
                   icon={<Dna className="size-5" />}
-                  badge="PROTOCOL DISTRIBUTION"
+                  badge="AI VS NATURAL BULL"
                   badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200 tracking-wider"
                   variant="stone"
                   description={`${breedingAnalytics?.by_type.embryo_transfer ?? 0} embryo transfers registered`}
@@ -1169,10 +1169,10 @@ export default function ProductionAnalyticsPage() {
                     <div>
                       <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
                         <Clock className="size-4.5 text-amber-600" />
-                        <span>Predictive Parturition &amp; Delivery Timeline</span>
+                        <span>Expected Delivery &amp; Birthing Timeline</span>
                       </CardTitle>
                       <CardDescription className="text-xs text-slate-500 font-medium">
-                        AI gestation tracker based on species biological cycles (Cattle 283d, Carabao 310d, Goat 150d, Swine 114d)
+                        Birth countdown tracker based on species biological cycles (Cattle 283d, Carabao 310d, Goat 150d, Swine 114d)
                       </CardDescription>
                     </div>
                     <Badge variant="outline" className="font-mono text-[10px] text-amber-800 bg-amber-50 border-amber-200">
@@ -1185,7 +1185,7 @@ export default function ProductionAnalyticsPage() {
                   {activePregnantList.length === 0 ? (
                     <div className="text-center py-10 space-y-2">
                       <HeartHandshake className="size-10 text-slate-300 mx-auto" />
-                      <p className="font-display font-bold text-sm text-slate-800">No active gestations recorded</p>
+                      <p className="font-display font-bold text-sm text-slate-800">No active pregnancies recorded</p>
                       <p className="text-xs text-slate-500 font-medium">
                         Record mating or artificial insemination logs in the Breeding tab to track countdowns and expected due dates.
                       </p>
@@ -1223,7 +1223,7 @@ export default function ProductionAnalyticsPage() {
 
                             <div className="space-y-1">
                               <div className="flex items-center justify-between text-[11px] text-slate-600 font-medium">
-                                <span>Gestation Progress</span>
+                                <span>Pregnancy Progress</span>
                                 <span className="font-mono font-bold text-emerald-700">{progress}%</span>
                               </div>
                               <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
@@ -1974,10 +1974,10 @@ export default function ProductionAnalyticsPage() {
                         <span>3. Deterministic Biological Models</span>
                       </div>
                       <p className="font-display text-sm font-bold text-slate-900">
-                        Gestation &amp; Dressing Equations
+                        Pregnancy &amp; Meat Yield Calculations
                       </p>
                       <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                        Applies biological species constants (Cattle: 283d, Carabao: 310d, Goat: 150d, Swine: 114d) for parturition countdowns, and standard carcass dressing factors (58% cattle, 74% swine) for meat yield.
+                        Applies standard pregnancy days (Cattle: 283d, Carabao: 310d, Goat: 150d, Swine: 114d) for birth countdowns, and carcass dressing percentages (58% cattle, 74% swine) for clean meat yield.
                       </p>
                     </div>
                   </div>

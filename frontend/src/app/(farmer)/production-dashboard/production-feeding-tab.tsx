@@ -272,14 +272,14 @@ export default function ProductionFeedingTab({
           }
           icon={<DollarSign className="size-4.5" />}
           description={`₱${(analytics?.current_month_cost_php || 0).toLocaleString()} spent this month`}
-          badge="Lifetime cost"
+          badge="All-time cost"
         />
 
         <KpiCard
           title="Top Feed Category"
           value={isAnalyticsLoading ? <Skeleton className="h-8 w-28" /> : topFeedCategory}
           icon={<Scale className="size-4.5" />}
-          description="Most fed ration type"
+          description="Most used feed type"
           badge="By total weight"
         />
       </div>

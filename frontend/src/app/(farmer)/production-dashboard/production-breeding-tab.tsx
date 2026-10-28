@@ -436,21 +436,21 @@ export default function ProductionBreedingTab({
       {/* 1. Farmbrite-Style KPI Telemetry Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard
-          title="Active Gestations"
+          title="Pregnant Animals (Dams)"
           value={analytics ? `${analytics.active_gestations} Dams` : "0 Dams"}
           icon={<HeartHandshake className="size-4.5" />}
-          badge={analytics?.due_soon ? `${analytics.due_soon} due in ≤ 30 days` : "Currently pregnant or awaiting check"}
+          badge={analytics?.due_soon ? `${analytics.due_soon} due in ≤ 30 days` : "Pregnant or awaiting check"}
           variant="emerald"
         />
         <KpiCard
           title="Due Soon (≤ 30 Days)"
           value={analytics ? `${analytics.due_soon} Dams` : "0 Dams"}
           icon={<Clock className="size-4.5" />}
-          badge="Imminent parturition"
+          badge="Giving birth soon"
           variant="amber"
         />
         <KpiCard
-          title="Conception Success Rate"
+          title="Pregnancy Success Rate"
           value={
             analytics?.conception_rate_pct !== null && analytics?.conception_rate_pct !== undefined
               ? `${analytics.conception_rate_pct}%`
@@ -459,16 +459,16 @@ export default function ProductionBreedingTab({
           icon={<TrendingUp className="size-4.5" />}
           badge={
             analytics?.conception_analytics?.events_with_known_outcomes
-              ? `${analytics.conception_analytics.confirmed_conceptions} confirmed ÷ ${analytics.conception_analytics.events_with_known_outcomes} known outcomes`
-              : "Insufficient verified outcomes"
+              ? `${analytics.conception_analytics.confirmed_conceptions} pregnant of ${analytics.conception_analytics.events_with_known_outcomes} checked`
+              : "Need checked outcomes"
           }
           variant="sky"
         />
         <KpiCard
-          title="Insemination Methods"
+          title="Breeding Methods"
           value={analytics ? `${analytics.by_type.artificial_insemination} AI / ${analytics.by_type.natural_service} Natural` : "—"}
           icon={<Dna className="size-4.5" />}
-          badge="Breeding protocol breakdown"
+          badge="AI vs Natural Bull"
           variant="stone"
         />
       </div>
@@ -479,27 +479,27 @@ export default function ProductionBreedingTab({
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-900 flex items-center gap-1.5">
               <Sparkles className="size-3.5 text-sky-600" />
-              Observed Conception Rate Methodology:
+              Pregnancy Success Rate Calculation:
             </span>
             <Badge variant="outline" className="text-[10px] bg-sky-50 text-sky-800 border-sky-200">
-              Verified Denominator
+              Fair Count
             </Badge>
           </div>
           <p className="text-slate-600">
-            Formula: <code className="font-mono font-bold text-slate-800">Confirmed Conceptions ÷ Events with Known Outcomes × 100</code>.
-            Awaiting-check events ({analytics?.conception_analytics?.pending_outcomes_excluded ?? 0} pending) are excluded from the denominator so they are never falsely penalized as failures.
+            Formula: <code className="font-mono font-bold text-slate-800">Confirmed Pregnant ÷ Checked Breedings × 100</code>.
+            Animals waiting for pregnancy checks ({analytics?.conception_analytics?.pending_outcomes_excluded ?? 0} pending) are not counted as failures.
           </p>
         </div>
         <div className="shrink-0 p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-[11px] space-y-0.5">
           <div className="flex items-center gap-1.5 font-bold text-amber-900">
             <Clock className="size-3 text-amber-700" />
-            <span>Conception Likelihood Model:</span>
+            <span>Smart Breeding Predictor:</span>
             <Badge className="text-[9px] bg-amber-200 text-amber-900 border-0">
-              {analytics?.prediction_readiness?.verdict || "Deferred (Data Collection)"}
+              {analytics?.prediction_readiness?.verdict || "Collecting Farm Records"}
             </Badge>
           </div>
           <p className="text-amber-800 text-[10px] max-w-xs">
-            Model training is held until ≥ 30 verified field breeding outcomes accumulate. SmartLivestock prohibits synthetic or unverified AI estimations.
+            Needs at least 30 verified breeding outcomes before unlocking smart predictions. SmartLivestock uses only real farm records.
           </p>
         </div>
       </div>

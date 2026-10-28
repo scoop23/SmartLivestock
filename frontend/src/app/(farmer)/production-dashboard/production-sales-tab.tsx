@@ -174,28 +174,28 @@ export default function ProductionSalesTab({
           title="Total Live Animals Sold"
           value={`${totalSoldHeads} heads`}
           icon={<ShoppingBag className="size-4.5" />}
-          badge="Commercial realization"
+          badge="Sold animals"
           variant="emerald"
         />
         <KpiCard
           title="Total Sales Value"
           value={`₱${totalRevenue.toLocaleString()}`}
           icon={<PhilippinePeso className="size-4.5" />}
-          badge="Gross farm proceeds"
+          badge="Total earnings"
           variant="sky"
         />
         <KpiCard
           title="Avg Selling Price"
           value={avgSalePrice !== "—" ? `₱${Number(avgSalePrice).toLocaleString()} / hd` : "—"}
           icon={<BadgeDollarSign className="size-4.5" />}
-          badge="Live price realized"
+          badge="Average per head"
           variant="amber"
         />
         <KpiCard
           title="Declared For Sale"
           value={`${forSaleCount} heads`}
           icon={<Truck className="size-4.5" />}
-          badge="Auction / Market pipeline"
+          badge="Ready to sell"
           variant="orange"
         />
       </div>

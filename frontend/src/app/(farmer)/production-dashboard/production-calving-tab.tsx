@@ -233,7 +233,7 @@ export default function ProductionCalvingTab({
           title="Avg Birth Weight"
           value={avgBirthWeight !== "—" ? `${avgBirthWeight} kg` : "—"}
           icon={<Scale className="size-4.5" />}
-          badge="Baseline vitality"
+          badge="Healthy newborn size"
           variant="amber"
         />
       </div>
