@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
@@ -202,7 +203,7 @@ export default function FarmerDashboard() {
             );
           }
         },
-        steps: [
+        steps: ([
           ...sidebarSteps,
           {
             element: '[data-tour="record-activity"]',
@@ -237,9 +238,9 @@ export default function FarmerDashboard() {
           {
             element: '[data-tour="my-livestock-stat"]',
             popover: {
-              title: "Livestock count",
+              title: "Active livestock",
               description:
-                "See how many livestock are registered to your farm and whether any are still awaiting review.",
+                "See the number of active livestock heads currently on your farm.",
               side: "bottom",
               align: "center",
             },
@@ -257,9 +258,9 @@ export default function FarmerDashboard() {
           {
             element: '[data-tour="health-stat"]',
             popover: {
-              title: "Animal health reports",
+              title: "Disease reports this month",
               description:
-                "Keep an eye on animal health reports that are waiting for review.",
+                "This card counts your disease reports for the month and shows how many are awaiting SIBAT or MAO review.",
               side: "bottom",
               align: "center",
             },
@@ -267,9 +268,9 @@ export default function FarmerDashboard() {
           {
             element: '[data-tour="record-status-stat"]',
             popover: {
-              title: "Record status",
+              title: "Livestock review status",
               description:
-                "See how much of your livestock information has been reviewed by the livestock office.",
+                "See how many active livestock heads are approved or verified, plus any that need review or revision.",
               side: "bottom",
               align: "center",
             },
@@ -279,7 +280,7 @@ export default function FarmerDashboard() {
             popover: {
               title: "Recent activity",
               description:
-                "Follow updates to your submitted records and see whether they are pending, verified, or approved.",
+                "Review recent updates from your livestock, production, and health records.",
               side: "top",
               align: "start",
             },
@@ -289,7 +290,7 @@ export default function FarmerDashboard() {
             popover: {
               title: "Barangay weather forecast",
               description:
-                "Check real-time Open-Meteo weather, heat index advisory, and rainfall probability for your barangay centroid.",
+                "Check current conditions and the forecast for your barangay when weather data is available. Advisories are general guidance for farm planning.",
               side: "top",
               align: "start",
             },
@@ -324,7 +325,17 @@ export default function FarmerDashboard() {
               align: "start",
             },
           },
-        ],
+        ] as DriveStep[]).filter((step) => {
+          const configuredElement = typeof step.element === "function" ? step.element() : step.element;
+          const target = typeof configuredElement === "string"
+            ? document.querySelector(configuredElement)
+            : configuredElement;
+          if (!(target instanceof Element) || !target.isConnected || target.getClientRects().length === 0) {
+            return false;
+          }
+          const targetStyle = window.getComputedStyle(target);
+          return targetStyle.display !== "none" && targetStyle.visibility !== "hidden";
+        }),
       });
 
     if (shouldPinSidebar) window.setTimeout(runTour, 250);
