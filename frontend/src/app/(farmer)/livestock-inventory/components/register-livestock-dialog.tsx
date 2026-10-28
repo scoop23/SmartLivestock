@@ -1175,10 +1175,10 @@ function RegisterLivestockDialogContent({
                         id="tagNumber"
                         placeholder="e.g. NAME-001"
                         value={formData.tagNumber}
-                        onChange={(e) => setFormData({ ...formData, tagNumber: e.target.value.toUpperCase() })}
+                        readOnly
                         className={`h-11 rounded-xl font-mono font-bold ${
                           tagError(formData.tagNumber, [], false) ? "border-rose-500 focus-visible:ring-rose-500" : ""
-                        }`}
+                        } bg-slate-50 text-slate-800 cursor-not-allowed`}
                         required
                       />
                       {tagError(formData.tagNumber, [], false) ? (
