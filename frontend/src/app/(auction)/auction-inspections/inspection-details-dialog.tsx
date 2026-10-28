@@ -120,7 +120,7 @@ export function InspectionDetailsDialog({
 
   return (
     <Dialog open={!!inspection} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl p-0 shadow-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl p-0 shadow-2xl [&>button]:z-20 [&>button]:rounded-full [&>button]:bg-white/15 [&>button]:p-2 [&>button]:text-white [&>button]:opacity-100 hover:[&>button]:bg-white/25 hover:[&>button]:opacity-100">
         {inspection.status === "APPROVED" && <section id="livestock-clearance-print" className="hidden p-8 text-slate-900 print:block">
           <header className="border-b-2 border-slate-900 pb-4 text-center">
             <p className="text-sm font-bold uppercase tracking-widest">Municipal Agriculture Office</p>
