@@ -33,15 +33,18 @@ def livestock_tag_prefix_for_user(user):
 
 
 def validate_livestock_tag(tag_number, user, *, exclude_pk=None):
-    """Enforce the owner's NAME-001 tag pattern and reject reused identities."""
+    """Enforce the owner's NAME-001 tag pattern or a valid custom tag, and reject reused identities."""
     normalized_tag = (tag_number or "").strip()
     if not normalized_tag:
         return
 
     expected_prefix = livestock_tag_prefix_for_user(user)
-    if not expected_prefix or not re.fullmatch(rf"{re.escape(expected_prefix)}-\d{{3,}}", normalized_tag, re.IGNORECASE):
+    is_standard = bool(expected_prefix and re.fullmatch(rf"{re.escape(expected_prefix)}-\d{{3,}}", normalized_tag, re.IGNORECASE))
+    is_valid_custom = bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9\-_]{1,49}", normalized_tag))
+
+    if not (is_standard or is_valid_custom):
         raise serializers.ValidationError({
-            "tag_number": f"Use your name followed by a hyphen and number, for example {expected_prefix or 'YOUR-NAME'}-001."
+            "tag_number": f"Enter a valid ear tag (e.g., {expected_prefix or 'NAME'}-001 or a custom name like BESSIE-001)."
         })
 
     existing_animals = LivestockInventory.objects.filter(tag_number__iexact=normalized_tag)

@@ -123,6 +123,8 @@ const initialFormData = {
   livestockType: "Cattle",
   quantity: 1,
   tagNumber: "",
+  isCustomTag: false,
+  customTagName: "",
   batchId: "",
   batchName: "",
   housingPen: "",
@@ -350,16 +352,31 @@ function RegisterLivestockDialogContent({
     }
   };
 
-  const tagError = (tag: string, otherTags: string[] = []) => {
+  const tagError = (tag: string, otherTags: string[] = [], isCustom: boolean = false) => {
     const normalizedTag = tag.trim().toUpperCase();
-    if (!ownerTagPrefix) return "Your account name is unavailable. Refresh the page and try again.";
-    if (!new RegExp(`^${ownerTagPrefix}-\\d{3,}$`).test(normalizedTag)) {
-      return `Use ${ownerTagPrefix}-001 format for your ear tag.`;
+    if (!normalizedTag) {
+      return "Ear tag / identifier is required.";
     }
     if ([...existingTags, ...otherTags].some((existing) => existing.trim().toUpperCase() === normalizedTag)) {
       return "This ear tag is already registered, including pending or approved records. Please change it.";
     }
-    return "";
+    if (isCustom) {
+      if (normalizedTag.length < 2) {
+        return "Custom name or tag must be at least 2 characters.";
+      }
+      if (!/^[A-Z0-9][A-Z0-9\-_]{0,49}$/.test(normalizedTag)) {
+        return "Use letters, numbers, and hyphens (up to 50 characters).";
+      }
+      return "";
+    }
+    if (!ownerTagPrefix) return "Your account name is unavailable. Refresh the page and try again.";
+    if (new RegExp(`^${ownerTagPrefix}-\\d{3,}$`).test(normalizedTag)) {
+      return "";
+    }
+    if (/^[A-Z0-9][A-Z0-9\-_]{1,49}$/.test(normalizedTag)) {
+      return "";
+    }
+    return `Use ${ownerTagPrefix}-001 format for your ear tag, or select Custom from the dropdown.`;
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -858,7 +875,7 @@ function RegisterLivestockDialogContent({
     setFormError("");
 
     if (formData.entryType === "INDIVIDUAL") {
-      const earTagError = tagError(formData.tagNumber);
+      const earTagError = tagError(formData.tagNumber, [], formData.isCustomTag);
       if (earTagError) {
         setFormError(earTagError);
         return;
@@ -1083,45 +1100,132 @@ function RegisterLivestockDialogContent({
             {/* CONDITIONAL FORM FIELDS BASED ON REGISTRATION MODE */}
             {formData.entryType === "INDIVIDUAL" ? (
               <div className="space-y-4">
-                {/* Ear Tag / RFID Number */}
-                <div className="space-y-1.5">
+                {/* Ear Tag / RFID Number & Custom Name */}
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <Label
-                        htmlFor="tagNumber"
+                        htmlFor="tagNamingSelect"
                         className="text-xs font-black uppercase tracking-wider text-slate-500"
                       >
-                        Ear Tag / RFID Number
+                        Ear Tag / Identification Name
                       </Label>
-                      <InfoTooltip text="Unique identification number placed on the animal's ear tag or RFID chip (e.g. YOURNAME-001)." />
+                      <InfoTooltip text="Unique identification placed on the animal's ear tag or RFID chip. Keep the standard name-number format or select Custom to enter an optional custom name." />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData({
-                          ...formData,
-                          tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
-                        })
-                      }
-                      className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
-                    >
-                      <Wand2 className="w-3 h-3" /> Auto-generate Tag
-                    </button>
+                    <span className="text-[10px] text-slate-400 font-semibold">
+                      {formData.isCustomTag ? "Custom Name Mode" : "Standard Name-Number"}
+                    </span>
                   </div>
-                  <Input
-                    id="tagNumber"
-                    placeholder="e.g. NAME-001"
-                    value={formData.tagNumber}
-                    onChange={(e) => setFormData({ ...formData, tagNumber: e.target.value.toUpperCase() })}
-                    className={`h-11 rounded-xl font-mono font-bold ${tagError(formData.tagNumber) ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
-                    required
-                  />
-                  {tagError(formData.tagNumber) ? (
-                    <p className="text-xs font-medium text-rose-700" role="alert">{tagError(formData.tagNumber)}</p>
+
+                  {/* Dropdown with Standard Name-Number & Custom */}
+                  <Select
+                    value={formData.isCustomTag ? "CUSTOM" : "STANDARD"}
+                    onValueChange={(val) => {
+                      if (val === "CUSTOM") {
+                        setFormData((prev) => ({
+                          ...prev,
+                          isCustomTag: true,
+                          tagNumber: prev.customTagName || "",
+                        }));
+                      } else {
+                        setFormData((prev) => ({
+                          ...prev,
+                          isCustomTag: false,
+                          tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
+                        }));
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="tagNamingSelect" className="h-11 rounded-xl bg-white font-medium">
+                      <SelectValue placeholder="Select tag naming format..." />
+                    </SelectTrigger>
+                    <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl">
+                      <SelectItem value="STANDARD" className="font-medium">
+                        🏷️ Standard ({ownerTagPrefix ? `${ownerTagPrefix}-###` : "NAME-001"})
+                      </SelectItem>
+                      <SelectItem value="CUSTOM" className="font-bold text-emerald-800">
+                        ➕ Custom (Specify custom name or tag)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {!formData.isCustomTag ? (
+                    <div className="space-y-1.5 pt-0.5">
+                      <div className="flex items-center justify-between">
+                        <Label
+                          htmlFor="tagNumber"
+                          className="text-[11px] font-bold text-slate-600"
+                        >
+                          Tag Number ({ownerTagPrefix || "NAME"}-001):
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
+                            })
+                          }
+                          className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Wand2 className="w-3 h-3" /> Auto-generate Tag
+                        </button>
+                      </div>
+                      <Input
+                        id="tagNumber"
+                        placeholder="e.g. NAME-001"
+                        value={formData.tagNumber}
+                        onChange={(e) => setFormData({ ...formData, tagNumber: e.target.value.toUpperCase() })}
+                        className={`h-11 rounded-xl font-mono font-bold ${
+                          tagError(formData.tagNumber, [], false) ? "border-rose-500 focus-visible:ring-rose-500" : ""
+                        }`}
+                        required
+                      />
+                      {tagError(formData.tagNumber, [], false) ? (
+                        <p className="text-xs font-medium text-rose-700" role="alert">
+                          {tagError(formData.tagNumber, [], false)}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-500">
+                          Use your name followed by a number, such as {ownerTagPrefix || "YOUR-NAME"}-001. The next number is generated for you.
+                        </p>
+                      )}
+                    </div>
                   ) : (
-                    <p className="text-xs text-slate-500">
-                      Use your name followed by a number, such as {ownerTagPrefix || "YOUR-NAME"}-001. The next number is generated for you.
-                    </p>
+                    <div className="space-y-1.5 pt-0.5 animate-in fade-in-50 duration-200">
+                      <Label
+                        htmlFor="customTagName"
+                        className="text-[11px] font-bold text-emerald-800 flex items-center gap-1"
+                      >
+                        <span>Specify Custom Name or Ear Tag:</span>
+                      </Label>
+                      <Input
+                        id="customTagName"
+                        placeholder="e.g. BESSIE-001, BELLA, or TAG-99"
+                        value={formData.tagNumber}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            tagNumber: e.target.value.toUpperCase(),
+                            customTagName: e.target.value.toUpperCase(),
+                          })
+                        }
+                        className={`h-11 rounded-xl font-mono font-bold border-emerald-300 focus-visible:ring-emerald-500/20 bg-emerald-50/20 ${
+                          tagError(formData.tagNumber, [], true) ? "border-rose-500 focus-visible:ring-rose-500" : ""
+                        }`}
+                        required
+                        autoFocus
+                      />
+                      {tagError(formData.tagNumber, [], true) ? (
+                        <p className="text-xs font-medium text-rose-700" role="alert">
+                          {tagError(formData.tagNumber, [], true)}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-500">
+                          Enter an optional custom name or identifier for this animal (letters, numbers, hyphens).
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
 
