@@ -32,15 +32,15 @@ class Command(BaseCommand):
         sibat_user = User.objects.filter(role__role_name="SIBAT").first() or User.objects.first()
 
         sample_diseases = [
-            ("Limping / Weak Legs", 1, "PENDING", None, None),
+            ("Limping / Weak Legs", 1, "VERIFIED", sibat_user, "Joint palpation performed. Minor sprain on left hind leg. Applied liniment; stall rest advised. [Severity: MILD] [Action: PEN_ISOLATION]"),
             ("Coughing / Runny Nose", 2, "VERIFIED", sibat_user, "On-farm physical check completed. Mild pneumonic wheezing. Prescribed oral electrolytes and temporary stall isolation. [Severity: MODERATE] [Action: PEN_ISOLATION] [Temp: 39.8°C]"),
-            ("Skin Sores / Blisters", 1, "PENDING", None, None),
+            ("Skin Sores / Blisters", 1, "VERIFIED", sibat_user, "Inspected skin lesions on neck and flanks. No oral or hoof lesions found; ruled out vesicular diseases. Prescribed topical antiseptic wash. [Severity: MILD] [Action: TREATMENT_PRESCRIBED]"),
             ("High Fever / Hot Ears", 1, "VERIFIED", sibat_user, "Hot ears and elevated body temperature. Antipyretic administered. [Severity: MILD] [Action: TREATMENT_PRESCRIBED] [Temp: 40.1°C]"),
         ]
 
         sample_mortalities = [
             ("Sudden Death / Severe Bloat", 1, "APPROVED", sibat_user, "Carcass verified on site. Severe tympany/bloat with no signs of anthrax. Supervised 2m deep pit burial with lime. [Severity: CRITICAL] [Action: BIOSECURE_BURIAL]"),
-            ("Calving / Birthing Complications", 1, "PENDING", None, None),
+            ("Calving / Birthing Complications", 1, "VERIFIED", sibat_user, "Dystocia with uterine rupture verified on site. Carcass inspected and cleared for disposal. [Severity: SEVERE] [Action: BIOSECURE_BURIAL]"),
             ("Physical Injury / Severe Fracture", 1, "VERIFIED", sibat_user, "Severe unrecoverable pelvic injury following ravine fall. [Severity: SEVERE]"),
         ]
 
