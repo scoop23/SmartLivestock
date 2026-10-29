@@ -840,7 +840,6 @@ function RegisterLivestockDialogContent({
       setCurrentStep(1);
       setIsReviewConfirmed(false);
       setPhotoFile(null);
-      clearSidePhotos();
 
       try {
         localStorage.removeItem(draftStorageKey);
@@ -1118,38 +1117,19 @@ function RegisterLivestockDialogContent({
                 </div>
               )}
 
-              {/* Auto-saved draft notification */}
+              {/* Discard / Start Fresh Action */}
               {hasDraft && currentStep === 1 && (
-                <div className="p-3 sm:p-3.5 bg-emerald-50/90 border border-emerald-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs animate-in fade-in-50 duration-200">
-                  <div className="flex items-center gap-2.5">
-                    <div className="size-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                      <Check className="size-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs font-black text-emerald-950">
-                          Auto-Saved Draft Active
-                        </p>
-                        <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-800 border-emerald-300 font-bold">
-                          Auto-Saved
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] text-emerald-800">
-                        Your inputs are automatically saved{draftSavedAt ? ` (last saved ${new Date(draftSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})` : ""}.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleStartFresh}
-                      className="h-8 px-2.5 rounded-xl text-rose-700 hover:bg-rose-100/60 text-xs font-bold gap-1 cursor-pointer"
-                    >
-                      <Trash2 className="size-3.5" /> Discard / Start Fresh
-                    </Button>
-                  </div>
+                <div className="flex items-center justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleStartFresh}
+                    className="h-8 px-2.5 rounded-xl text-rose-700 hover:bg-rose-50 text-xs font-bold gap-1.5 cursor-pointer border border-rose-200/80 hover:border-rose-300 shadow-2xs transition-colors"
+                  >
+                    <Trash2 className="size-3.5 text-rose-600" />
+                    <span>Discard / Start Fresh</span>
+                  </Button>
                 </div>
               )}
 
@@ -2437,7 +2417,7 @@ function RegisterLivestockDialogContent({
                   title="Clear all fields and discard draft"
                 >
                   <Trash2 className="size-3.5 text-slate-400" />
-                  Clear All
+                  Discard / Start Fresh
                 </Button>
                 <div className="flex items-center gap-2 text-xs">
                   {autoSaveStatus === "saving" ? (
