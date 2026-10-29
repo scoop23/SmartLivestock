@@ -99,6 +99,7 @@ import ProductionSubmissionSuccessDialog from "../../production-dashboard/produc
 import { LivestockInfographicHero } from "../components/livestock-infographic-hero";
 import { LivestockLineageTree } from "../components/livestock-lineage-tree";
 import { LivestockSlidingPanel } from "../components/livestock-sliding-panel";
+import { ManageHerdDialog } from "../components/manage-herd-dialog";
 import LivestockEditDialog from "../livestock-edit-dialog";
 import {
 getAvatarById,
@@ -214,6 +215,7 @@ export default function LivestockDetailPage() {
   const queryClient = useQueryClient();
   const rawId = params?.id ? decodeURIComponent(String(params.id)) : "";
   const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = useState(false);
+  const [isManageHerdOpen, setIsManageHerdOpen] = useState(false);
   const { data: livestockTypes = {} } = useLivestockTypes();
 
   // 1. Fetch user inventories
@@ -1451,6 +1453,7 @@ export default function LivestockDetailPage() {
           onOpenCalving={() => setIsCalvingDialogOpen(true)}
           onOpenCorrection={() => setIsCorrectionDialogOpen(true)}
           canCorrectIndividual={canCorrectIndividual}
+          onOpenManageHerd={() => setIsManageHerdOpen(true)}
           onSelectTab={(tabKey) => setActiveProfileTab(tabKey)}
           photoUrl={photoUrl}
           avatar={avatar}
@@ -1500,6 +1503,25 @@ export default function LivestockDetailPage() {
         />
         </div>
 
+        {activeItem.entryType === "INDIVIDUAL" && (
+          <ManageHerdDialog
+            open={isManageHerdOpen}
+            onOpenChange={setIsManageHerdOpen}
+            animal={{
+              id: activeItem.id,
+              tagNumber: activeItem.tagNumber,
+              livestockType: activeItem.livestockType,
+              livestockTypeName: activeItem.livestockTypeName,
+              breed: activeItem.breed,
+              sex: activeItem.sex,
+              operationalStatus: activeItem.operationalStatus,
+              batchId: activeItem.batchId ?? null,
+              batchCode: activeItem.batchCode ?? null,
+              batchName: activeItem.batchName ?? null,
+              herdMembershipHistory: activeItem.herdMembershipHistory,
+            }}
+          />
+        )}
         {activeItem.entryType === "INDIVIDUAL" && (
           <Card data-tour="livestock-profile-side-photos" className="rounded-2xl border-slate-200 bg-white shadow-sm">
             <CardHeader className="p-4 pb-2 sm:p-5 sm:pb-3">

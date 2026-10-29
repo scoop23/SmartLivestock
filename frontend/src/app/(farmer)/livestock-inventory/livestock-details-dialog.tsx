@@ -47,6 +47,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ManageHerdDialog } from "./components/manage-herd-dialog";
 import { getAvatarById, mapInventory, type InventoryApiItem } from "./livestock-inventory";
 import type { LivestockInventoryItem } from "./page";
 
@@ -242,6 +243,7 @@ export default function LivestockDetailsDialog({
 
   // Automatically fallback to overview if yields tab was selected for a non-milking animal
   const effectiveTab = !canProduceMilk && activeTab === "yields" ? "overview" : activeTab;
+  const [isManageHerdOpen, setIsManageHerdOpen] = useState(false);
 
   // 2. Real production records
   const { data: productionRecords = [] } = useQuery<ProductionRecordItem[]>({
@@ -998,21 +1000,35 @@ export default function LivestockDetailsDialog({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenChange();
-                      const rosterParams = new URLSearchParams();
-                      if (activeLivestock.batchId) rosterParams.set("batch", String(activeLivestock.batchId));
-                      if (activeLivestock.id) rosterParams.set("animalId", String(activeLivestock.id));
-                      if (activeLivestock.tagNumber) rosterParams.set("tag", activeLivestock.tagNumber);
-                      router.push(`/livestock-inventory/batches?${rosterParams.toString()}`);
-                    }}
-                    className="w-full sm:w-auto min-h-[40px] sm:min-h-auto px-4 py-2 rounded-xl bg-emerald-900 hover:bg-emerald-950 text-white font-mono text-xs font-semibold tracking-wide transition-all shadow-2xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
-                  >
-                    <span>View Herd Roster</span>
-                    <ExternalLink className="size-3.5" />
-                  </button>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                    {(!activeLivestock.operationalStatus || activeLivestock.operationalStatus === "ACTIVE") &&
+                      (!activeLivestock.entryType || activeLivestock.entryType === "INDIVIDUAL") && (
+                        <button
+                          type="button"
+                          onClick={() => setIsManageHerdOpen(true)}
+                          className="w-full sm:w-auto min-h-[40px] sm:min-h-auto px-3.5 py-2 rounded-xl bg-white hover:bg-emerald-100 text-emerald-950 border border-emerald-300 font-mono text-xs font-bold tracking-wide transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Layers className="size-3.5 text-emerald-700" />
+                          <span>Manage Herd</span>
+                        </button>
+                      )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenChange();
+                        const rosterParams = new URLSearchParams();
+                        if (activeLivestock.batchId) rosterParams.set("batch", String(activeLivestock.batchId));
+                        if (activeLivestock.id) rosterParams.set("animalId", String(activeLivestock.id));
+                        if (activeLivestock.tagNumber) rosterParams.set("tag", activeLivestock.tagNumber);
+                        router.push(`/livestock-inventory/batches?${rosterParams.toString()}`);
+                      }}
+                      className="w-full sm:w-auto min-h-[40px] sm:min-h-auto px-4 py-2 rounded-xl bg-emerald-900 hover:bg-emerald-950 text-white font-mono text-xs font-semibold tracking-wide transition-all shadow-2xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                    >
+                      <span>View Herd Roster</span>
+                      <ExternalLink className="size-3.5" />
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -1041,11 +1057,23 @@ export default function LivestockDetailsDialog({
 
                 {/* Tile 2: Assigned Herd */}
                 <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 hover:border-slate-300 transition-all flex flex-col justify-between shadow-2xs min-h-[96px] sm:min-h-[105px]">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
                       ASSIGNED HERD
                     </span>
-                    <Users className="size-3.5 text-slate-400" />
+                    {(!activeLivestock?.operationalStatus || activeLivestock?.operationalStatus === "ACTIVE") &&
+                    (!activeLivestock?.entryType || activeLivestock?.entryType === "INDIVIDUAL") ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsManageHerdOpen(true)}
+                        className="px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Layers className="size-2.5 text-emerald-700" />
+                        <span>{activeLivestock?.batchId ? "Move / Remove" : "Add to Herd"}</span>
+                      </button>
+                    ) : (
+                      <Users className="size-3.5 text-slate-400" />
+                    )}
                   </div>
                   <div className="mt-1">
                     <span className="text-base sm:text-lg font-bold text-slate-900 tracking-tight font-mono block truncate">
@@ -1827,6 +1855,27 @@ export default function LivestockDetailsDialog({
           </div>
         </div>
       </DialogContent>
+      <ManageHerdDialog
+        open={isManageHerdOpen}
+        onOpenChange={setIsManageHerdOpen}
+        animal={
+          activeLivestock
+            ? {
+                id: activeLivestock.id,
+                tagNumber: activeLivestock.tagNumber,
+                livestockType: activeLivestock.livestockType,
+                livestockTypeName: activeLivestock.livestockTypeName,
+                breed: activeLivestock.breed,
+                sex: activeLivestock.sex,
+                operationalStatus: activeLivestock.operationalStatus,
+                batchId: activeLivestock.batchId ?? null,
+                batchCode: activeLivestock.batchCode ?? null,
+                batchName: activeLivestock.batchName ?? null,
+                herdMembershipHistory: activeLivestock.herdMembershipHistory,
+              }
+            : null
+        }
+      />
     </Dialog>
   );
 }

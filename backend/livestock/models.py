@@ -529,3 +529,55 @@ class CensusSubmissionItem(models.Model):
     )
     number_of_heads = models.PositiveIntegerField()
     remarks = models.TextField(blank=True)
+
+
+class LivestockHerdMembershipHistory(models.Model):
+    """
+    Append-only audit history of internal farmer herd assignments for an individual animal.
+    Records when an animal is added to a herd, moved between herds, or removed from a herd
+    without misclassifying internal herd changes as ownership transfers or movement clearances.
+    """
+
+    class ActionType(models.TextChoices):
+        ADDED = "ADDED", "Added to Herd"
+        MOVED = "MOVED", "Moved Between Herds"
+        REMOVED = "REMOVED", "Removed from Herd"
+
+    livestock = models.ForeignKey(
+        "LivestockInventory",
+        on_delete=models.CASCADE,
+        related_name="herd_membership_history",
+    )
+    previous_batch = models.ForeignKey(
+        "LivestockBatch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="departed_membership_history",
+    )
+    new_batch = models.ForeignKey(
+        "LivestockBatch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="joined_membership_history",
+    )
+    action = models.CharField(
+        max_length=16,
+        choices=ActionType.choices,
+        db_index=True,
+    )
+    acted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="herd_membership_actions",
+    )
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+    def __str__(self):
+        return f"{self.livestock_id} {self.action} ({self.previous_batch_id} -> {self.new_batch_id})"
+

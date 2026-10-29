@@ -69,6 +69,7 @@ import Link from "next/link";
 import { useRouter,useSearchParams } from "next/navigation";
 import React,{ useEffect,useMemo,useRef,useState } from "react";
 import { toast } from "sonner";
+import { ManageHerdDialog } from "../components/manage-herd-dialog";
 import {
 getDefaultAvatarForSpecies,
 INVENTORY_QUERY_KEYS,
@@ -470,6 +471,7 @@ export default function BatchOverviewPage() {
   const [isWeighModalOpen, setIsWeighModalOpen] = useState(false);
   const [weighTarget, setWeighTarget] = useState<BatchIndividual | null>(null);
   const [newWeightInput, setNewWeightInput] = useState<string>("");
+  const [manageHerdTarget, setManageHerdTarget] = useState<BatchIndividual | null>(null);
 
   // Gallery photo management handlers
   const handleReplacePhoto = async (batchId: string, replaceIndex: number, file: File) => {
@@ -1900,7 +1902,7 @@ export default function BatchOverviewPage() {
                                     </div>
                                   </div>
 
-                                  <div className="mt-2.5 flex flex-col gap-1.5 sm:flex-row">
+                                  <div className="mt-2.5 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap">
                                     {animal.operationalStatus === "ACTIVE" && hasInventoryRecord && (
                                       <Button
                                         onClick={() => handleOpenWeighModal(animal)}
@@ -1909,6 +1911,18 @@ export default function BatchOverviewPage() {
                                       >
                                         <Scale className="mr-1.5 size-3.5 text-emerald-700" />
                                         Record Weight
+                                      </Button>
+                                    )}
+
+                                    {animal.operationalStatus === "ACTIVE" && hasInventoryRecord && (
+                                      <Button
+                                        onClick={() => setManageHerdTarget(animal)}
+                                        variant="outline"
+                                        className="h-8 flex-1 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-900 hover:bg-slate-50"
+                                        title="Move to another herd or remove from this herd"
+                                      >
+                                        <Layers className="mr-1.5 size-3.5 text-emerald-700" />
+                                        Move / Remove
                                       </Button>
                                     )}
 
@@ -2088,6 +2102,21 @@ export default function BatchOverviewPage() {
                                           >
                                             <Scale className="size-3 mr-1 text-emerald-700" />
                                             Record Weight
+                                          </Button>
+                                        )}
+
+                                        {animal.operationalStatus === "ACTIVE" && hasInventoryRecord && (
+                                          <Button
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              setManageHerdTarget(animal);
+                                            }}
+                                            variant="outline"
+                                            className="h-7 px-2 text-xs rounded-md font-bold border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+                                            title="Move to another herd or remove from this herd"
+                                          >
+                                            <Layers className="size-3 mr-1 text-emerald-700" />
+                                            Move / Remove
                                           </Button>
                                         )}
 
@@ -2562,6 +2591,28 @@ export default function BatchOverviewPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      <ManageHerdDialog
+        open={Boolean(manageHerdTarget)}
+        onOpenChange={(open) => {
+          if (!open) setManageHerdTarget(null);
+        }}
+        animal={
+          manageHerdTarget && currentBatch
+            ? {
+                id: Number(manageHerdTarget.id),
+                tagNumber: manageHerdTarget.tagNumber,
+                livestockTypeName: currentBatch.species,
+                breed: currentBatch.breed || undefined,
+                sex: manageHerdTarget.sex,
+                operationalStatus: manageHerdTarget.operationalStatus,
+                batchId: Number(currentBatch.id),
+                batchCode: currentBatch.batchCode,
+                batchName: currentBatch.batchName,
+              }
+            : null
+        }
+      />
     </>
   );
 }

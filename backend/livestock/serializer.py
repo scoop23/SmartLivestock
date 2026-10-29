@@ -11,6 +11,7 @@ from .models import (
     Farmer,
     LivestockBatch,
     LivestockBatchPhoto,
+    LivestockHerdMembershipHistory,
     LivestockInventory,
     LivestockInventoryReviewHistory,
     LivestockOwnershipTransfer,
@@ -161,6 +162,49 @@ class LivestockInventoryReviewHistorySerializer(serializers.ModelSerializer):
         return name or obj.reviewer.username
 
 
+class LivestockHerdMembershipHistorySerializer(serializers.ModelSerializer):
+    action_label = serializers.CharField(source="get_action_display", read_only=True)
+    previous_batch_code = serializers.CharField(
+        source="previous_batch.batch_code", read_only=True, allow_null=True
+    )
+    previous_batch_name = serializers.CharField(
+        source="previous_batch.batch_name", read_only=True, allow_null=True
+    )
+    new_batch_code = serializers.CharField(
+        source="new_batch.batch_code", read_only=True, allow_null=True
+    )
+    new_batch_name = serializers.CharField(
+        source="new_batch.batch_name", read_only=True, allow_null=True
+    )
+    acted_by_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = LivestockHerdMembershipHistory
+        fields = (
+            "id",
+            "action",
+            "action_label",
+            "previous_batch",
+            "previous_batch_code",
+            "previous_batch_name",
+            "new_batch",
+            "new_batch_code",
+            "new_batch_name",
+            "acted_by",
+            "acted_by_name",
+            "notes",
+            "created_at",
+        )
+        read_only_fields = fields
+
+    def get_acted_by_name(self, obj):
+        try:
+            name = obj.acted_by.get_full_name().strip()
+            return name or obj.acted_by.username
+        except Exception:
+            return "Farmer"
+
+
 class LivestockInventorySerializer(serializers.Serializer):
     """
     Returns:
@@ -237,6 +281,7 @@ class LivestockInventorySerializer(serializers.Serializer):
     reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
     review_history = LivestockInventoryReviewHistorySerializer(many=True, read_only=True)
+    herd_membership_history = LivestockHerdMembershipHistorySerializer(many=True, read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
 
     def get_farmer_name(self, obj):
@@ -320,14 +365,11 @@ class LivestockInventorySerializer(serializers.Serializer):
         if entry_type == "INDIVIDUAL" and quantity != 1:
             raise serializers.ValidationError({"quantity": "An individual animal must represent exactly one head."})
 
-        current_batch_id = self.instance.batch_id if self.instance else None
         batch = attrs.get("batch", self.instance.batch if self.instance else None)
-        if current_batch_id and (batch is None or batch.pk != current_batch_id):
-            raise serializers.ValidationError(
-                {"batch": "A herd member cannot be moved to another herd or detached."}
-            )
         if batch and (entry_type != "INDIVIDUAL" or quantity != 1):
             raise serializers.ValidationError({"quantity": "Herd members must be individual animals with one head each."})
+        if self.instance and "batch" in attrs and self.instance.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
+            raise serializers.ValidationError({"batch": "Only active livestock can be assigned to, moved between, or removed from a herd."})
         if batch:
             batch = LivestockBatch.objects.select_for_update().get(pk=batch.pk)
             if batch.farmer_id != farmer.pk:  # type: ignore[attr-defined]
@@ -349,9 +391,20 @@ class LivestockInventorySerializer(serializers.Serializer):
         user = self.context["request"].user
         validated_data["created_by"] = user
         validated_data["farmer"] = user.farmer_profile
-        return LivestockInventory.objects.create(**validated_data)
+        instance = LivestockInventory.objects.create(**validated_data)
+        if instance.batch_id:
+            LivestockHerdMembershipHistory.objects.create(
+                livestock=instance,
+                previous_batch=None,
+                new_batch=instance.batch,
+                action=LivestockHerdMembershipHistory.ActionType.ADDED,
+                acted_by=user,
+                notes="Assigned to herd upon registration.",
+            )
+        return instance
 
     def update(self, instance, validated_data):
+        previous_batch = instance.batch if instance.batch_id else None
         allowed = [
             "batch",
             "livestock_type",
@@ -372,6 +425,25 @@ class LivestockInventorySerializer(serializers.Serializer):
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
         instance.save()
+
+        new_batch = instance.batch if instance.batch_id else None
+        prev_id = previous_batch.pk if previous_batch else None
+        new_id = new_batch.pk if new_batch else None
+        if prev_id != new_id:
+            user = self.context["request"].user
+            if prev_id is None and new_id is not None:
+                action = LivestockHerdMembershipHistory.ActionType.ADDED
+            elif prev_id is not None and new_id is not None:
+                action = LivestockHerdMembershipHistory.ActionType.MOVED
+            else:
+                action = LivestockHerdMembershipHistory.ActionType.REMOVED
+            LivestockHerdMembershipHistory.objects.create(
+                livestock=instance,
+                previous_batch=previous_batch,
+                new_batch=new_batch,
+                action=action,
+                acted_by=user,
+            )
 
         return instance
 

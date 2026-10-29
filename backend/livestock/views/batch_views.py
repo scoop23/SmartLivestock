@@ -11,7 +11,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 
-from livestock.models import LivestockBatch, LivestockInventory, LivestockType, LivestockBatchPhoto
+from livestock.models import (
+    LivestockBatch,
+    LivestockBatchPhoto,
+    LivestockHerdMembershipHistory,
+    LivestockInventory,
+    LivestockType,
+)
 from livestock.list_queries import LivestockListPagination, batch_list_annotations, filter_livestock_list
 from livestock.serializer import (
     LivestockBatchListSerializer,
@@ -141,7 +147,7 @@ def batch_list_create(request):
             # If animals roster is supplied, create individual LivestockInventory items
             if animals_data and isinstance(animals_data, list):
                 for animal in animals_data:
-                    created_animals.append(LivestockInventory.objects.create(
+                    created_animal = LivestockInventory.objects.create(
                         batch=batch,
                         farmer=batch.farmer,
                         livestock_type=batch.livestock_type,
@@ -156,7 +162,16 @@ def batch_list_create(request):
                         last_vaccination_date=animal.get("last_vaccination_date") or None,
                         status=default_animal_status,
                         created_by=user,
-                    ))
+                    )
+                    LivestockHerdMembershipHistory.objects.create(
+                        livestock=created_animal,
+                        previous_batch=None,
+                        new_batch=batch,
+                        action=LivestockHerdMembershipHistory.ActionType.ADDED,
+                        acted_by=user,
+                        notes="Added to herd upon herd creation.",
+                    )
+                    created_animals.append(created_animal)
 
         serializer = LivestockBatchSerializer(batch, context={"request": request})
         farmer_name = user.get_full_name() or user.username
@@ -552,6 +567,14 @@ def batch_add_animals(request, pk):
                 is_post_approval_addition=is_post_approval_addition,
             )
             created_animals.append(created)
+            LivestockHerdMembershipHistory.objects.create(
+                livestock=created,
+                previous_batch=None,
+                new_batch=batch,
+                action=LivestockHerdMembershipHistory.ActionType.ADDED,
+                acted_by=user,
+                notes="Added to herd roster.",
+            )
 
             animal_label = created.tag_number or created.livestock_type.name
             notify_role(

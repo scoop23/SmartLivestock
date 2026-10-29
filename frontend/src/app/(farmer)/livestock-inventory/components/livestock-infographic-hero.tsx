@@ -59,6 +59,7 @@ interface LivestockInfographicHeroProps {
   onOpenCalving: () => void;
   onOpenCorrection?: () => void;
   canCorrectIndividual?: boolean;
+  onOpenManageHerd?: () => void;
   onSelectTab: (tab: string) => void;
   photoSlot?: React.ReactNode;
   photoUrl?: string | null;
@@ -88,6 +89,7 @@ function LivestockInfographicHeroContent({
   onOpenCalving,
   onOpenCorrection,
   canCorrectIndividual,
+  onOpenManageHerd,
   onSelectTab,
   photoSlot,
   photoUrl,
@@ -174,6 +176,26 @@ function LivestockInfographicHeroContent({
                 {activeItem.batchId ? `View Herd ${activeItem.batchCode ? `(${activeItem.batchCode})` : ""}` : `View ${activeItem.livestockTypeName || "Cattle"} Herds`}
               </Button>
             </Link>
+
+            {onOpenManageHerd &&
+              (!activeItem.operationalStatus || activeItem.operationalStatus === "ACTIVE") &&
+              (!activeItem.entryType || activeItem.entryType === "INDIVIDUAL") && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onOpenManageHerd}
+                  className="h-8 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border-emerald-400/50 text-xs font-bold gap-1.5 cursor-pointer shadow-xs"
+                  title={
+                    activeItem.batchId
+                      ? "Move to another herd or remove from current herd"
+                      : "Assign this animal to a herd"
+                  }
+                >
+                  <Layers className="size-3.5 text-emerald-300" />
+                  {activeItem.batchId ? "Manage Herd" : "Add to Herd"}
+                </Button>
+              )}
 
             <span className="text-xl sm:text-2xl font-black tracking-tight text-white font-mono">
               {activeItem.tagNumber}

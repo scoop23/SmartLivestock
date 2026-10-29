@@ -15,6 +15,22 @@ export interface InventoryReviewHistoryEntry {
   is_backfilled: boolean;
 }
 
+export interface HerdMembershipHistoryEntry {
+  id: number;
+  action: "ADDED" | "MOVED" | "REMOVED";
+  action_label: string;
+  previous_batch: number | null;
+  previous_batch_code: string | null;
+  previous_batch_name: string | null;
+  new_batch: number | null;
+  new_batch_code: string | null;
+  new_batch_name: string | null;
+  acted_by: number;
+  acted_by_name: string;
+  notes: string;
+  created_at: string;
+}
+
 export interface LivestockType {
   id: number;
   name: string;
@@ -45,6 +61,7 @@ export interface LivestockInventoryItem {
   reviewedByName?: string | null;
   reviewedAt?: string | null;
   reviewHistory: InventoryReviewHistoryEntry[];
+  herdMembershipHistory?: HerdMembershipHistoryEntry[];
   createdAt: string;
   photoUrl?: string | null;
   leftSidePhotoUrl?: string | null;
@@ -83,6 +100,7 @@ export interface InventoryApiItem {
   reviewed_by_name?: string | null;
   reviewed_at?: string | null;
   review_history?: InventoryReviewHistoryEntry[];
+  herd_membership_history?: HerdMembershipHistoryEntry[];
   created_at: string;
   photo?: string | null;
   photo_url?: string | null;
@@ -526,6 +544,7 @@ export const mapInventory = (item: InventoryApiItem): LivestockInventoryItem => 
   reviewedByName: item.reviewed_by_name,
   reviewedAt: item.reviewed_at,
   reviewHistory: item.review_history ?? [],
+  herdMembershipHistory: item.herd_membership_history ?? [],
   createdAt: item.created_at,
   photoUrl: item.photo_url || item.photo || null,
   leftSidePhotoUrl: item.left_side_photo_url || item.left_side_photo || null,
@@ -674,6 +693,44 @@ export function useCreateLivestockBatch() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
       queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.inventory });
+    },
+  });
+}
+
+export interface ManageInventoryHerdPayload {
+  id: string | number;
+  action?: "ADD" | "MOVE" | "REMOVE";
+  batch?: number | null;
+  notes?: string;
+}
+
+export async function manageInventoryHerd({
+  id,
+  action,
+  batch,
+  notes,
+}: ManageInventoryHerdPayload): Promise<LivestockInventoryItem> {
+  const res = await api.post<InventoryApiItem>(`livestock/inventory/${id}/herd/`, {
+    action,
+    batch,
+    notes,
+  });
+  return mapInventory(res.data);
+}
+
+export function useManageInventoryHerd() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: manageInventoryHerd,
+    onSuccess: (updatedItem, variables) => {
+      queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.inventory });
+      queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
+      queryClient.invalidateQueries({ queryKey: ["inventory_item", Number(variables.id)] });
+      queryClient.invalidateQueries({ queryKey: ["inventory_item", String(variables.id)] });
+      if (updatedItem?.tagNumber) {
+        queryClient.invalidateQueries({ queryKey: ["inventory_item", updatedItem.tagNumber] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["reproductive_summary", Number(variables.id)] });
     },
   });
 }

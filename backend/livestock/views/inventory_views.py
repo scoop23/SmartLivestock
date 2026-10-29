@@ -15,6 +15,7 @@ from livestock.models import (
     Barangay,
     Farmer,
     LivestockBatch,
+    LivestockHerdMembershipHistory,
     LivestockInventory,
     LivestockInventoryReviewHistory,
     LivestockType,
@@ -118,7 +119,12 @@ def inventory_list_create(request):
         "batch",
         "reviewed_by__role",
         "created_by",
-    ).prefetch_related("review_history__reviewer").only(
+    ).prefetch_related(
+        "review_history__reviewer",
+        "herd_membership_history__previous_batch",
+        "herd_membership_history__new_batch",
+        "herd_membership_history__acted_by",
+    ).only(
         "id", "tag_number", "ownership_certificate_number", "breed", "sex", "birth_date", "weight", "entry_type", "quantity",
         "is_post_approval_addition",
         "last_vaccination_date", "status", "operational_status", "operational_status_changed_at",
@@ -174,7 +180,12 @@ def inventory_detail(request, pk):
         "batch",
         "reviewed_by__role",
         "created_by",
-    ).prefetch_related("review_history__reviewer")
+    ).prefetch_related(
+        "review_history__reviewer",
+        "herd_membership_history__previous_batch",
+        "herd_membership_history__new_batch",
+        "herd_membership_history__acted_by",
+    )
 
     if request.method != "GET":
         base_qs = base_qs.select_for_update(of=("self",))
@@ -195,9 +206,10 @@ def inventory_detail(request, pk):
         require_action(user, "inventory", "edit_own")
 
         # Approved/Verified identity data is locked, but the owning farmer may update
-        # photo/avatar or routine profile maintenance fields (birth date, last vaccination date).
+        # photo/avatar, routine profile maintenance fields (birth date, last vaccination date),
+        # or herd membership (`batch`).
         media_fields = {"photo", "left_side_photo", "right_side_photo", "avatar_key"}
-        profile_maintenance_fields = media_fields | {"birth_date", "last_vaccination_date"}
+        profile_maintenance_fields = media_fields | {"birth_date", "last_vaccination_date", "batch"}
 
         if (
             request.method == "PATCH"
@@ -503,3 +515,278 @@ def public_telemetry_summary(request):
         },
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def manage_inventory_herd(request, pk):
+    """
+    POST / PATCH / DELETE /livestock/inventory/<int:pk>/herd/
+    Allows an authenticated Farmer to add an individual animal to a herd,
+    move an animal between eligible herds, or remove an animal from its current herd
+    without deleting the animal or altering its operational/review status.
+    """
+    user = request.user
+    require_action(user, "inventory", "edit_own")
+
+    user_role = role_name(user)
+    if user_role != "FARMER":
+        return Response(
+            {"error": "Only farmers can manage herd assignments for their livestock."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    farmer_profile = getattr(user, "farmer_profile", None)
+    if not farmer_profile:
+        return Response(
+            {"error": "Farmer profile not found for current user."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    with transaction.atomic():
+        inventory = (
+            LivestockInventory.objects.select_for_update(of=("self",))
+            .select_related(
+                "livestock_type",
+                "farmer__user",
+                "farmer__barangay",
+                "batch",
+                "reviewed_by__role",
+                "created_by",
+            )
+            .filter(pk=pk)
+            .first()
+        )
+        if inventory is None:
+            return Response(
+                {"error": "Livestock record not found.", "livestock": ["Livestock record not found."]},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if inventory.farmer_id != farmer_profile.pk:
+            return Response(
+                {
+                    "error": "You are not authorized to manage another farmer's livestock.",
+                    "livestock": ["You do not own this livestock record."],
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if inventory.entry_type != LivestockInventory.EntryType.INDIVIDUAL or inventory.quantity != 1:
+            return Response(
+                {
+                    "error": "Only individual livestock records (1 head) can be assigned to or managed in a herd.",
+                    "livestock": ["Only individual livestock records can be managed in a herd."],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if inventory.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
+            return Response(
+                {
+                    "error": (
+                        f"Cannot change herd membership for an animal with operational status "
+                        f"'{inventory.operational_status}'. Only ACTIVE livestock can be added, moved, or removed."
+                    ),
+                    "livestock": ["Only active livestock can be assigned to, moved between, or removed from a herd."],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        data = request.data if hasattr(request, "data") and isinstance(request.data, dict) else {}
+        notes = str(data.get("notes") or data.get("reason") or "").strip()[:500]
+
+        if request.method == "DELETE":
+            requested_action = "REMOVE"
+            has_batch_key = True
+            raw_batch_id = None
+        else:
+            requested_action = str(data.get("action") or "").strip().upper()
+            has_batch_key = any(k in data for k in ("batch", "batch_id", "destination_batch_id"))
+            if "batch" in data:
+                raw_batch_id = data.get("batch")
+            elif "batch_id" in data:
+                raw_batch_id = data.get("batch_id")
+            else:
+                raw_batch_id = data.get("destination_batch_id")
+
+            if raw_batch_id in ("", None):
+                raw_batch_id = None
+
+        is_remove_operation = requested_action in {"REMOVE", "REMOVED", "DETACH"} or (
+            not requested_action and has_batch_key and raw_batch_id is None
+        )
+
+        if is_remove_operation:
+            if raw_batch_id is not None:
+                return Response(
+                    {
+                        "error": "Remove operation must not specify a destination herd.",
+                        "batch": ["Do not specify a destination herd when removing an animal from its herd."],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if inventory.batch_id is None:
+                return Response(
+                    {
+                        "error": "This animal is not currently assigned to any herd.",
+                        "batch": ["This animal is not currently assigned to any herd."],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            previous_batch = LivestockBatch.objects.select_for_update(of=("self",)).get(pk=inventory.batch_id)
+            inventory.batch = None
+            inventory.save(update_fields=["batch"])
+
+            LivestockHerdMembershipHistory.objects.create(
+                livestock=inventory,
+                previous_batch=previous_batch,
+                new_batch=None,
+                action=LivestockHerdMembershipHistory.ActionType.REMOVED,
+                acted_by=user,
+                notes=notes,
+            )
+        else:
+            if raw_batch_id is None:
+                return Response(
+                    {
+                        "error": "Please select a destination herd.",
+                        "batch": ["A valid destination herd ID is required."],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                target_batch_id = int(raw_batch_id)
+                if target_batch_id <= 0:
+                    raise ValueError
+            except (TypeError, ValueError):
+                return Response(
+                    {
+                        "error": "Invalid herd ID.",
+                        "batch": ["Enter a valid herd ID."],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            batch_pks_to_lock = sorted(
+                {pk_val for pk_val in (inventory.batch_id, target_batch_id) if pk_val is not None}
+            )
+            locked_batches = {
+                b.pk: b
+                for b in LivestockBatch.objects.select_for_update(of=("self",))
+                .select_related("livestock_type")
+                .filter(pk__in=batch_pks_to_lock)
+            }
+
+            new_batch = locked_batches.get(target_batch_id)
+            previous_batch = locked_batches.get(inventory.batch_id) if inventory.batch_id else None
+
+            if new_batch is None:
+                return Response(
+                    {
+                        "error": "Selected herd does not exist.",
+                        "batch": ["Selected herd does not exist."],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if new_batch.farmer_id != farmer_profile.pk:
+                return Response(
+                    {
+                        "error": "You cannot assign or move livestock to a herd owned by another farmer.",
+                        "batch": ["This herd belongs to another farmer."],
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            if new_batch.status != LivestockBatch.StatusType.ACTIVE:
+                return Response(
+                    {
+                        "error": "Livestock can only be assigned or moved to an active herd.",
+                        "batch": ["This herd is no longer active."],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if new_batch.livestock_type_id != inventory.livestock_type_id:
+                return Response(
+                    {
+                        "error": (
+                            f"Species mismatch: {inventory.livestock_type.name} cannot be assigned "
+                            f"to a {new_batch.livestock_type.name} herd."
+                        ),
+                        "batch": ["The animal species must match its herd."],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if inventory.batch_id == new_batch.pk:
+                return Response(
+                    {
+                        "error": (
+                            f"{inventory.tag_number or 'This animal'} is already assigned to "
+                            f"{new_batch.batch_name or new_batch.batch_code}."
+                        ),
+                        "batch": ["This animal is already a member of the selected herd."],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if requested_action in {"ADD", "ADDED"} and inventory.batch_id is not None:
+                return Response(
+                    {
+                        "error": "This animal already belongs to a herd. Use Move to transfer it to another herd.",
+                        "batch": ["This animal already belongs to a herd. Use Move to transfer it to another herd."],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if requested_action in {"MOVE", "MOVED"} and inventory.batch_id is None:
+                return Response(
+                    {
+                        "error": "This animal does not currently belong to a herd. Use Add to Herd to assign it.",
+                        "batch": ["This animal does not currently belong to a herd."],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            history_action = (
+                LivestockHerdMembershipHistory.ActionType.MOVED
+                if previous_batch is not None
+                else LivestockHerdMembershipHistory.ActionType.ADDED
+            )
+
+            inventory.batch = new_batch
+            inventory.save(update_fields=["batch"])
+
+            LivestockHerdMembershipHistory.objects.create(
+                livestock=inventory,
+                previous_batch=previous_batch,
+                new_batch=new_batch,
+                action=history_action,
+                acted_by=user,
+                notes=notes,
+            )
+
+        refreshed = (
+            LivestockInventory.objects.select_related(
+                "livestock_type",
+                "farmer__user",
+                "farmer__barangay",
+                "batch",
+                "reviewed_by__role",
+                "created_by",
+            )
+            .prefetch_related(
+                "review_history__reviewer",
+                "herd_membership_history__previous_batch",
+                "herd_membership_history__new_batch",
+                "herd_membership_history__acted_by",
+            )
+            .get(pk=inventory.pk)
+        )
+        serializer = LivestockInventorySerializer(refreshed, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+

@@ -1,6 +1,7 @@
 from .inventory_views import (
     inventory_list_create,
     inventory_detail,
+    manage_inventory_herd,
     review_inventory,
     list_livestock_types,
     get_barangays,
@@ -33,6 +34,7 @@ from .gate_views import gate_registration_list_create, gate_verification_list_cr
 __all__ = [
     "inventory_list_create",
     "inventory_detail",
+    "manage_inventory_herd",
     "review_inventory",
     "list_livestock_types",
     "get_barangays",

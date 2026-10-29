@@ -5,6 +5,7 @@ urlpatterns = [
     # Livestock Inventory
     path("inventory/", views.inventory_list_create, name="inventory_list_create"),
     path("inventory/<int:pk>/", views.inventory_detail, name="inventory_detail"),
+    path("inventory/<int:pk>/herd/", views.manage_inventory_herd, name="manage_inventory_herd"),
     path("inventory/<int:pk>/review/", views.review_inventory, name="review_inventory"),
     path("livestock_types/", views.list_livestock_types, name="list_livestock_types"),
     path("gate-registrations/", views.gate_registration_list_create, name="gate_registration_list_create"),

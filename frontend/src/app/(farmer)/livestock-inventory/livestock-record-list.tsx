@@ -78,6 +78,7 @@ import React,{ useMemo,useState } from "react";
 import { toast } from "sonner";
 import type { OperationalStatus } from "./livestock-inventory";
 import { getAvatarById } from "./livestock-inventory";
+import { ManageHerdDialog } from "./components/manage-herd-dialog";
 import { OperationalStatusBadge } from "./operational-status-badge";
 import type { LivestockInventoryItem,StatusType } from "./page";
 
@@ -276,6 +277,7 @@ function LivestockSplitCard({
   onEdit,
   onDelete,
   onQr,
+  onManageHerd,
   handleCopyTag,
 }: {
   item: LivestockInventoryItem;
@@ -283,6 +285,7 @@ function LivestockSplitCard({
   onEdit: (item: LivestockInventoryItem) => void;
   onDelete: (item: LivestockInventoryItem) => void;
   onQr: (item: LivestockInventoryItem) => void;
+  onManageHerd: (item: LivestockInventoryItem) => void;
   handleCopyTag: (tag: string) => void;
 }) {
   const [photoIndex, setPhotoIndex] = useState(0);
@@ -524,9 +527,16 @@ function LivestockSplitCard({
                   </Link>
                 )}
                 {item.entryType === "INDIVIDUAL" && !item.batchCode && (
-                  <Badge className="hidden sm:inline-flex shrink-0 border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-slate-100">
-                    INDIVIDUAL
-                  </Badge>
+                  <button
+                    type="button"
+                    onClick={() => onManageHerd(item)}
+                    disabled={item.operationalStatus !== "ACTIVE"}
+                    className="hidden sm:inline-flex items-center gap-1 shrink-0 rounded-full border border-slate-300 bg-slate-100 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-800 px-2 py-0.5 text-[10px] font-bold text-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+                    title="Assign this individual animal to a herd"
+                  >
+                    <Layers className="size-2.5 text-emerald-700" />
+                    <span>+ Add to Herd</span>
+                  </button>
                 )}
               </div>
 
@@ -674,6 +684,28 @@ function LivestockSplitCard({
               <span>Details</span>
             </Button>
 
+            {item.entryType === "INDIVIDUAL" && item.operationalStatus === "ACTIVE" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={
+                  item.batchId
+                    ? `Manage herd for ${item.tagNumber || `livestock ${item.id}`}`
+                    : `Add ${item.tagNumber || `livestock ${item.id}`} to a herd`
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onManageHerd(item);
+                }}
+                className="h-8 gap-1 rounded-lg border-teal-200 bg-teal-50/60 px-2.5 text-xs font-semibold text-teal-900 hover:border-teal-300 hover:bg-teal-100 cursor-pointer shadow-2xs transition-colors"
+                title={item.batchId ? `Manage Herd (${item.batchCode || "Assigned"})` : "Add to Herd"}
+              >
+                <Layers className="size-3.5 text-teal-700" />
+                <span>{item.batchId ? "Manage Herd" : "Add to Herd"}</span>
+              </Button>
+            )}
+
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -819,6 +851,7 @@ export default function LivestockRecordList({
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [qrItem, setQrItem] = useState<LivestockInventoryItem | null>(null);
+  const [herdManageItem, setHerdManageItem] = useState<LivestockInventoryItem | null>(null);
   const pageSize = 12;
 
   /* Count active filters */
@@ -1384,6 +1417,7 @@ export default function LivestockRecordList({
               onEdit={onEdit}
               onDelete={onDelete}
               onQr={setQrItem}
+              onManageHerd={setHerdManageItem}
               handleCopyTag={handleCopyTag}
             />
           ))}
@@ -1593,6 +1627,23 @@ export default function LivestockRecordList({
                           <Eye className="w-3.5 h-3.5" />
                           <span>Details</span>
                         </Button>
+                        {item.entryType === "INDIVIDUAL" && item.operationalStatus === "ACTIVE" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label={
+                              item.batchId
+                                ? `Manage herd for ${item.tagNumber || `livestock ${item.id}`}`
+                                : `Add ${item.tagNumber || `livestock ${item.id}`} to a herd`
+                            }
+                            onClick={() => setHerdManageItem(item)}
+                            className="h-8 gap-1 rounded-lg border-teal-200 bg-teal-50/60 px-2 text-xs font-semibold text-teal-900 hover:border-teal-300 hover:bg-teal-100"
+                            title={item.batchId ? `Manage Herd (${item.batchCode || "Assigned"})` : "Add to Herd"}
+                          >
+                            <Layers className="w-3.5 h-3.5 text-teal-700" />
+                            <span>{item.batchId ? "Manage Herd" : "Add to Herd"}</span>
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
@@ -1765,6 +1816,13 @@ export default function LivestockRecordList({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ═══ Individual Herd Management Dialog (Add / Move / Remove) ═══ */}
+      <ManageHerdDialog
+        item={herdManageItem}
+        open={Boolean(herdManageItem)}
+        onOpenChange={(open) => !open && setHerdManageItem(null)}
+      />
     </div>
   );
 }
