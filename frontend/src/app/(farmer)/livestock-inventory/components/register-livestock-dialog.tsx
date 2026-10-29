@@ -1448,10 +1448,10 @@ function RegisterLivestockDialogContent({
                     onValueChange={(val) => setFormData({ ...formData, batchId: val === "none" ? "" : val })}
                   >
                     <SelectTrigger id="assignedBatch" className="h-11 rounded-xl">
-                      <SelectValue placeholder="Standalone Animal (No Batch)" />
+                      <SelectValue placeholder="Individual Animal (No Batch)" />
                     </SelectTrigger>
                     <SelectContent className="z-[var(--z-popover-dialog)]">
-                      <SelectItem value="none">Standalone Animal (No Batch)</SelectItem>
+                      <SelectItem value="none">Individual Animal (No Batch)</SelectItem>
                       {matchingBatches.map((b) => (
                         <SelectItem key={b.id} value={String(b.id)}>
                           {b.batchCode} ({b.batchName || b.livestockTypeName})
