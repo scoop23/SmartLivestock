@@ -488,3 +488,59 @@ class HerdMembershipManagementTests(APITestCase):
         self.assertEqual(history[2]["action"], "ADDED")
         self.assertIsNone(history[2]["previous_batch_code"])
         self.assertEqual(history[2]["new_batch_code"], "HRD-A01")
+
+    def test_13_logging_castration_treatment_updates_sex_and_revokes_bull_exposure(self):
+        bull = LivestockInventory.objects.create(
+            farmer=self.farmer,
+            livestock_type=self.cattle_type,
+            batch=self.herd_a,
+            entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+            quantity=1,
+            tag_number="BULL-200",
+            breed="Brahman",
+            sex="MALE",
+            status=LivestockInventory.StatusType.APPROVED,
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+            created_by=self.farmer_user,
+        )
+
+        # Before castration, cow_in_herd_a is exposed to BULL-200 in Herd A
+        self.assertTrue(check_active_bull_herd_exposure(self.cow_in_herd_a)["has_exposure"])
+
+        self.client.force_authenticate(user=self.farmer_user)
+        # Female cow cannot be castrated
+        bad_res = self.client.post(
+            "/production/treatments/",
+            {
+                "livestock": self.cow_in_herd_a.pk,
+                "treatment_date": str(date.today()),
+                "treatment_type": "CASTRATION",
+                "medication_name": "Burdizzo Castration",
+            },
+            format="json",
+        )
+        self.assertEqual(bad_res.status_code, 400)
+
+        # Log castration treatment on BULL-200 (Step A)
+        res = self.client.post(
+            "/production/treatments/",
+            {
+                "livestock": bull.pk,
+                "treatment_date": str(date.today()),
+                "treatment_type": "CASTRATION",
+                "medication_name": "Burdizzo Castration & Antiseptic",
+                "route_of_administration": "Surgical / Physical Procedure",
+                "administered_by": "MAO Veterinarian",
+                "reason": "Conversion to beef steer",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 201, res.data)
+
+        # Bull's sex is automatically updated to Castrated and herd bull exposure is revoked
+        bull.refresh_from_db()
+        self.assertEqual(bull.sex, "Castrated")
+        self.assertFalse(check_active_bull_herd_exposure(self.cow_in_herd_a)["has_exposure"])
+        repro_bull = resolve_reproductive_status(bull)
+        self.assertEqual(repro_bull["status"], "NOT_APPLICABLE")
+        self.assertFalse(repro_bull["can_breed"])

@@ -779,6 +779,12 @@ export default function LivestockDetailPage() {
       setTreatmentFollowUpDate("");
       refetchTreatments();
       queryClient.invalidateQueries({ queryKey: ["treatment_records"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory_item", rawId] });
+      queryClient.invalidateQueries({ queryKey: ["livestock_batches"] });
+      if (activeItem?.id) {
+        queryClient.invalidateQueries({ queryKey: ["reproductive_summary", activeItem.id] });
+      }
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.medication_name || err?.response?.data?.error || "Failed to log treatment.";
@@ -2926,7 +2932,10 @@ export default function LivestockDetailPage() {
       />
 
       <Dialog open={isCalvingDialogOpen && !isInactive} onOpenChange={setIsCalvingDialogOpen}>
-        <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
+        <DialogContent
+          style={{ maxWidth: "680px" }}
+          className="w-[calc(100vw-1rem)] sm:w-[92vw] sm:max-w-[680px] max-h-[90dvh] overflow-y-auto rounded-2xl sm:rounded-3xl p-4 sm:p-6 bg-white border-slate-100 shadow-2xl"
+        >
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
               <Baby className="size-5 text-pink-600" />
@@ -3212,7 +3221,10 @@ export default function LivestockDetailPage() {
 
       {/* ── MODAL: LOG TREATMENT ─────────────────────────────────────────── */}
       <Dialog open={isTreatmentDialogOpen && !isInactive} onOpenChange={setIsTreatmentDialogOpen}>
-        <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
+        <DialogContent
+          style={{ maxWidth: "680px" }}
+          className="w-[calc(100vw-1rem)] sm:w-[92vw] sm:max-w-[680px] max-h-[90dvh] overflow-y-auto rounded-2xl sm:rounded-3xl p-4 sm:p-6 bg-white border-slate-100 shadow-2xl"
+        >
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
               <Pill className="size-5 text-teal-600" />
@@ -3257,6 +3269,9 @@ export default function LivestockDetailPage() {
                     <SelectItem value="ANTI_INFLAMMATORY">Anti-inflammatory / Pain</SelectItem>
                     <SelectItem value="TOPICAL_WOUND">Topical / Wound Care</SelectItem>
                     <SelectItem value="HORMONAL">Hormonal Therapy</SelectItem>
+                    {["MALE", "M"].includes((activeItem?.sex || "").trim().toUpperCase()) && (
+                      <SelectItem value="CASTRATION">Castration / Surgical Neutering</SelectItem>
+                    )}
                     <SelectItem value="OTHER">Other Intervention</SelectItem>
                   </SelectContent>
                 </Select>
@@ -3265,7 +3280,13 @@ export default function LivestockDetailPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs font-bold text-slate-700">Medication / Product *</Label>
+                {treatmentType === "CASTRATION" && (
+                  <div className="mb-3 rounded-xl border border-purple-200 bg-purple-50/80 p-3 text-xs font-medium text-purple-950">
+                    <strong className="font-bold block mb-0.5">⚲ Automatic Steer Status Update</strong>
+                    Saving this castration procedure logs the veterinary record and automatically updates {activeItem?.tagNumber || "this animal"}&apos;s sex status to <strong>Castrated</strong>, removing him from active bull breeding exposure.
+                  </div>
+                )}
+                <Label className="text-xs font-bold text-slate-700">Medication / Procedure *</Label>
                 <Input
                   placeholder="e.g. Penicillin, Ivermectin"
                   value={medicationName}
@@ -3300,6 +3321,7 @@ export default function LivestockDetailPage() {
                     <SelectItem value="Topical / Pour-on">Topical / Pour-on</SelectItem>
                     <SelectItem value="Intravenous (IV)">Intravenous (IV)</SelectItem>
                     <SelectItem value="Intrauterine">Intrauterine</SelectItem>
+                    <SelectItem value="Surgical / Physical Procedure">Surgical / Physical Procedure</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

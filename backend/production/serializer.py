@@ -1098,6 +1098,7 @@ class LivestockTreatmentRecordSerializer(serializers.ModelSerializer):
         "HORMONAL": LivestockTreatmentRecord.TreatmentType.REPRODUCTIVE_THERAPY,
         "TOPICAL_WOUND": LivestockTreatmentRecord.TreatmentType.WOUND_CARE,
         "ANTI_INFLAMMATORY": LivestockTreatmentRecord.TreatmentType.WOUND_CARE,
+        "NEUTERING": LivestockTreatmentRecord.TreatmentType.CASTRATION,
     }
 
     def to_internal_value(self, data):
@@ -1118,22 +1119,41 @@ class LivestockTreatmentRecordSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         treatment_date = attrs.get("treatment_date")
         follow_up_date = attrs.get("follow_up_date")
+        treatment_type = attrs.get("treatment_type")
+        livestock = attrs.get("livestock") or (self.instance.livestock if self.instance else None)
         if follow_up_date and treatment_date and follow_up_date < treatment_date:
             raise ValidationError({"follow_up_date": "Follow-up date cannot be earlier than the treatment date."})
+        if treatment_type == LivestockTreatmentRecord.TreatmentType.CASTRATION and livestock:
+            if livestock.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
+                raise ValidationError({"livestock": "Only active livestock can undergo castration."})
+            raw_sex = (livestock.sex or "").strip().upper()
+            if raw_sex.startswith("CASTRAT") or raw_sex == "STEER":
+                raise ValidationError({"treatment_type": "This animal is already recorded as castrated."})
+            if not (raw_sex == "MALE" or raw_sex == "M"):
+                raise ValidationError({"treatment_type": "Castration can only be recorded for male livestock."})
         return attrs
 
     def create(self, validated_data):
+        from django.db import transaction
+
         validated_data["created_by"] = self.context["request"].user
-        instance = super().create(validated_data)
-        livestock = instance.livestock
-        if (
-            livestock
-            and instance.treatment_type == LivestockTreatmentRecord.TreatmentType.VACCINATION
-            and instance.treatment_date
-        ):
-            if not livestock.last_vaccination_date or instance.treatment_date >= livestock.last_vaccination_date:
-                livestock.last_vaccination_date = instance.treatment_date
-                livestock.save(update_fields=["last_vaccination_date"])
+        with transaction.atomic():
+            instance = super().create(validated_data)
+            livestock = instance.livestock
+            if (
+                livestock
+                and instance.treatment_type == LivestockTreatmentRecord.TreatmentType.VACCINATION
+                and instance.treatment_date
+            ):
+                if not livestock.last_vaccination_date or instance.treatment_date >= livestock.last_vaccination_date:
+                    livestock.last_vaccination_date = instance.treatment_date
+                    livestock.save(update_fields=["last_vaccination_date"])
+            elif (
+                livestock
+                and instance.treatment_type == LivestockTreatmentRecord.TreatmentType.CASTRATION
+            ):
+                livestock.sex = "Castrated"
+                livestock.save(update_fields=["sex"])
         return instance
 
 

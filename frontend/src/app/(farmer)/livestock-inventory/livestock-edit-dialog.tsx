@@ -50,6 +50,7 @@ const TREATMENT_TYPE_LABELS: Record<string, string> = {
   VITAMIN_SUPPLEMENT: "Vitamin / Mineral Supplement",
   WOUND_CARE: "Wound Care / Antiseptic",
   REPRODUCTIVE_THERAPY: "Reproductive / Hormonal",
+  CASTRATION: "Castration / Surgical Neutering",
   OTHER: "Other Clinical Treatment",
 };
 
@@ -406,8 +407,7 @@ function LivestockEditDialogContent({
                     <SelectContent>
                       <SelectItem value="Female">Female</SelectItem>
                       <SelectItem value="Male">Male</SelectItem>
-
-
+                      <SelectItem value="Castrated">Castrated (Steer)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -522,7 +522,10 @@ function LivestockEditDialogContent({
 
     {/* Treatment Popup Dialog */}
     <Dialog open={isTreatmentPopupOpen && !!item} onOpenChange={setIsTreatmentPopupOpen}>
-      <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-lg p-0 gap-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[90dvh] overflow-y-auto">
+      <DialogContent
+        style={{ maxWidth: "680px" }}
+        className="w-[calc(100vw-1rem)] sm:w-[92vw] sm:max-w-[680px] p-0 gap-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[90dvh] overflow-y-auto"
+      >
         <div className="bg-gradient-to-r from-emerald-800 to-emerald-700 text-white px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-white/15 backdrop-blur-sm">
@@ -571,7 +574,10 @@ function LivestockEditDialogContent({
               <Select
                 value={treatmentForm.treatment_type}
                 onValueChange={(v) =>
-                  setTreatmentForm((p) => ({ ...p, treatment_type: v }))
+                  setTreatmentForm((p) => ({
+                    ...p,
+                    treatment_type: v,
+                  }))
                 }
               >
                 <SelectTrigger className="h-10">
@@ -584,11 +590,23 @@ function LivestockEditDialogContent({
                   <SelectItem value="ANTIBIOTIC">Antibiotic / Anti-infective</SelectItem>
                   <SelectItem value="WOUND_CARE">Wound Care / Antiseptic</SelectItem>
                   <SelectItem value="REPRODUCTIVE_THERAPY">Reproductive / Hormonal</SelectItem>
+                  {["MALE", "M"].includes((item?.sex || "").trim().toUpperCase()) && (
+                    <SelectItem value="CASTRATION">Castration / Surgical Neutering</SelectItem>
+                  )}
                   <SelectItem value="OTHER">Other Clinical Treatment</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
+
+          {treatmentForm.treatment_type === "CASTRATION" && (
+            <div className="rounded-xl border border-purple-200 bg-purple-50/80 p-3 text-xs font-medium text-purple-950">
+              <strong className="font-bold block mb-0.5">⚲ Automatic Steer Status Update</strong>
+              Saving this castration procedure logs the veterinary intervention and automatically updates{" "}
+              <span className="font-semibold">{headerTitle}</span>&apos;s sex to{" "}
+              <strong>Castrated</strong>, removing him from active bull breeding exposure.
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-slate-700">
@@ -638,6 +656,7 @@ function LivestockEditDialogContent({
                   <SelectItem value="Topical / Pour-on">Topical / Pour-on</SelectItem>
                   <SelectItem value="Intravenous (IV)">Intravenous (IV)</SelectItem>
                   <SelectItem value="Intrauterine">Intrauterine</SelectItem>
+                  <SelectItem value="Surgical / Physical Procedure">Surgical / Physical Procedure</SelectItem>
                 </SelectContent>
               </Select>
             </div>

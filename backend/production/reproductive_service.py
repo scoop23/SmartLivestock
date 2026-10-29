@@ -65,8 +65,24 @@ def _resolve_reproductive_status_internal(
     """
     as_of_date = as_of_date or timezone.localdate()
 
-    # Rule 1: Male animals and invalid entries are Not Applicable
+    # Rule 1: Male and castrated animals are Not Applicable for female cycle tracking
     sex_str = (animal.sex or "").strip().upper()
+    if sex_str.startswith("CASTRAT") or sex_str == "STEER":
+        return {
+            "status": ReproductiveStatus.NOT_APPLICABLE,
+            "label": ReproductiveStatus.LABELS[ReproductiveStatus.NOT_APPLICABLE],
+            "badge_variant": ReproductiveStatus.BADGE_VARIANTS[ReproductiveStatus.NOT_APPLICABLE],
+            "explanation": "Animal is a castrated male (steer) and outside reproductive breeding tracking.",
+            "is_female": False,
+            "can_breed": False,
+            "cycle_number": 0,
+            "supporting_event_type": None,
+            "supporting_event_date": None,
+            "days_in_status": None,
+            "expected_calving_date": None,
+            "gestation_window": None,
+            "active_breeding_record_id": None,
+        }
     if sex_str.startswith("M") or sex_str == "MALE":
         return {
             "status": ReproductiveStatus.NOT_APPLICABLE,

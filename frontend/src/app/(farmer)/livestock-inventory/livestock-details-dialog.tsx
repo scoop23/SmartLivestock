@@ -10,12 +10,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import api from "@/lib/axios";
 import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 import { startGuidedTutorial } from "@/lib/tutorial-preferences";
 import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
 import { cn } from "@/lib/utils";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import {
@@ -244,6 +251,7 @@ export default function LivestockDetailsDialog({
   // Automatically fallback to overview if yields tab was selected for a non-milking animal
   const effectiveTab = !canProduceMilk && activeTab === "yields" ? "overview" : activeTab;
   const [isManageHerdOpen, setIsManageHerdOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   // 2. Real production records
   const { data: productionRecords = [] } = useQuery<ProductionRecordItem[]>({
@@ -357,6 +365,10 @@ export default function LivestockDetailsDialog({
       setTreatmentReason("");
       setTreatmentNotes("");
       refetchRepro();
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory_item", animalId] });
+      queryClient.invalidateQueries({ queryKey: ["livestock_batches"] });
+      queryClient.invalidateQueries({ queryKey: ["treatment_records"] });
     },
     onError: (err: unknown) => {
       const httpErr = err as { response?: { data?: { medication_name?: string; error?: string } } };
@@ -1524,12 +1536,12 @@ export default function LivestockDetailsDialog({
           {effectiveTab === "medical" && (
             <div className="space-y-3 font-mono text-xs">
               {/* Top Action to Log Treatment */}
-              <div className="flex items-center justify-between pb-1">
+              <div className="flex items-center justify-between gap-2 flex-wrap pb-1">
                 <span className="font-bold text-slate-800 text-xs sm:text-sm">Health Observations & Treatments</span>
                 <button
                   type="button"
                   onClick={() => setIsTreatmentFormOpen((prev) => !prev)}
-                  className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-mono font-bold transition-all inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                  className="px-3.5 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-mono font-bold transition-all inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
                 >
                   <Plus className="size-3.5" />
                   <span>Log Treatment</span>
@@ -1538,7 +1550,10 @@ export default function LivestockDetailsDialog({
 
               {/* Popup Dialog to Log Clinical Treatment */}
               <Dialog open={isTreatmentFormOpen} onOpenChange={setIsTreatmentFormOpen}>
-                <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-lg p-5 rounded-2xl bg-white border border-slate-200 shadow-2xl">
+                <DialogContent
+                  style={{ maxWidth: "680px" }}
+                  className="w-[calc(100vw-1rem)] sm:w-[92vw] sm:max-w-[680px] max-h-[90dvh] overflow-y-auto p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white border border-slate-200 shadow-2xl"
+                >
                   <DialogHeader className="sr-only">
                     <DialogTitle>Log Veterinary or Clinical Treatment</DialogTitle>
                     <DialogDescription>Record clinical treatment scoped to this animal</DialogDescription>
@@ -1548,115 +1563,135 @@ export default function LivestockDetailsDialog({
                       e.preventDefault();
                       addTreatmentMutation.mutate();
                     }}
-                    className="space-y-3 font-mono text-xs"
+                    className="space-y-4 font-mono text-xs"
                   >
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                    <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                      <Pill className="size-4 text-emerald-700" />
-                      Log Veterinary or Clinical Treatment
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-200 pb-3 pr-6">
+                    <span className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                      <Pill className="size-4.5 text-emerald-700 shrink-0" />
+                      <span>Log Veterinary or Clinical Treatment</span>
                     </span>
-                    <span className="text-[10px] text-slate-400">Scoped to this animal</span>
+                    <span className="text-[11px] text-slate-500">Scoped to {titleText}</span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Treatment Date</label>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1.5">Treatment Date *</label>
                       <input
                         type="date"
                         max={new Date().toISOString().split("T")[0]}
                         value={treatmentDate}
                         onChange={(e) => setTreatmentDate(e.target.value)}
-                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
+                        className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs"
                         required
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Treatment Category</label>
-                      <select
-                        value={treatmentType}
-                        onChange={(e) => setTreatmentType(e.target.value)}
-                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
-                      >
-                        <option value="ANTIBIOTIC">Antibiotic / Anti-infective</option>
-                        <option value="DEWORMER">Anthelmintic / Dewormer</option>
-                        <option value="VITAMINS">Vitamins / Nutritional Supplement</option>
-                        <option value="VACCINE">Vaccine / Immunization</option>
-                        <option value="ANTI_INFLAMMATORY">Anti-inflammatory / Pain Relief</option>
-                        <option value="HORMONAL">Hormonal / Estrus Synchronization</option>
-                        <option value="OTHER">Other Clinical Treatment</option>
-                      </select>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1.5">Treatment Category *</label>
+                      <Select value={treatmentType} onValueChange={setTreatmentType}>
+                        <SelectTrigger className="w-full h-10 rounded-xl border-slate-200 bg-white text-xs font-mono">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl font-mono text-xs">
+                          <SelectItem value="ANTIBIOTIC">Antibiotic / Anti-infective</SelectItem>
+                          <SelectItem value="DEWORMER">Anthelmintic / Dewormer</SelectItem>
+                          <SelectItem value="VITAMINS">Vitamins / Nutritional Supplement</SelectItem>
+                          <SelectItem value="VACCINE">Vaccine / Immunization</SelectItem>
+                          <SelectItem value="ANTI_INFLAMMATORY">Anti-inflammatory / Pain Relief</SelectItem>
+                          <SelectItem value="TOPICAL_WOUND">Wound Care / Antiseptic</SelectItem>
+                          <SelectItem value="HORMONAL">Hormonal / Estrus Synchronization</SelectItem>
+                          {["MALE", "M"].includes((activeLivestock?.sex || "").trim().toUpperCase()) && (
+                            <SelectItem value="CASTRATION">Castration / Surgical Neutering</SelectItem>
+                          )}
+                          <SelectItem value="OTHER">Other Clinical Treatment</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Medication Name</label>
+                  {treatmentType === "CASTRATION" && (
+                    <div className="rounded-xl border border-purple-200 bg-purple-50/80 p-3.5 text-xs font-sans font-medium text-purple-950 leading-relaxed">
+                      <strong className="font-bold block mb-0.5">⚲ Automatic Steer Status Update</strong>
+                      Saving this castration procedure logs the veterinary intervention and automatically updates{" "}
+                      <strong>{titleText}</strong>&apos;s biological sex to <strong>Castrated</strong>, removing him from active bull breeding exposure.
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1.5">Medication / Procedure *</label>
                       <input
                         type="text"
-                        placeholder="e.g. Oxytetracycline LA"
+                        placeholder="e.g. Oxytetracycline LA, Ivermectin, Burdizzo Castration"
                         value={medicationName}
                         onChange={(e) => setMedicationName(e.target.value)}
-                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
+                        className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs"
                         required
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Dosage</label>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1.5">Dosage</label>
                       <input
                         type="text"
-                        placeholder="e.g. 20 mL"
+                        placeholder="e.g. 20 mL, 1 bolus"
                         value={dosage}
                         onChange={(e) => setDosage(e.target.value)}
-                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
+                        className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs"
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Route</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Intramuscular (IM)"
-                        value={route}
-                        onChange={(e) => setRoute(e.target.value)}
-                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
-                      />
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1.5">Route of Administration</label>
+                      <Select value={route} onValueChange={setRoute}>
+                        <SelectTrigger className="w-full h-10 rounded-xl border-slate-200 bg-white text-xs font-mono">
+                          <SelectValue placeholder="Select route" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl font-mono text-xs">
+                          <SelectItem value="Intramuscular (IM)">Intramuscular (IM)</SelectItem>
+                          <SelectItem value="Subcutaneous (SC)">Subcutaneous (SC)</SelectItem>
+                          <SelectItem value="Oral (Drench/Bolus)">Oral (Drench/Bolus)</SelectItem>
+                          <SelectItem value="Topical / Pour-on">Topical / Pour-on</SelectItem>
+                          <SelectItem value="Intravenous (IV)">Intravenous (IV)</SelectItem>
+                          <SelectItem value="Intrauterine">Intrauterine</SelectItem>
+                          <SelectItem value="Surgical / Physical Procedure">Surgical / Physical Procedure</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Clinical Indication / Reason</label>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1.5">Clinical Indication / Reason</label>
                       <input
                         type="text"
-                        placeholder="e.g. Post-calving uterine cleanse prophylaxis"
+                        placeholder="e.g. Post-calving care, parasite control"
                         value={treatmentReason}
                         onChange={(e) => setTreatmentReason(e.target.value)}
-                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
+                        className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs"
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Administering Vet / Person</label>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1.5">Administering Vet / Person</label>
                       <input
                         type="text"
                         placeholder="e.g. Dr. Dimaano (MAO)"
                         value={administeredBy}
                         onChange={(e) => setAdministeredBy(e.target.value)}
-                        className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs"
+                        className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs"
                       />
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-1">
+                  <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2 border-t border-slate-100">
                     <button
                       type="button"
                       onClick={() => setIsTreatmentFormOpen(false)}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600"
+                      className="w-full sm:w-auto min-h-[42px] px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={addTreatmentMutation.isPending}
-                      className="px-4 py-1.5 rounded-xl bg-emerald-800 text-white text-xs font-bold hover:bg-emerald-900"
+                      className="w-full sm:w-auto min-h-[42px] px-5 py-2 rounded-xl bg-emerald-800 text-white text-xs font-bold hover:bg-emerald-900 cursor-pointer"
                     >
                       {addTreatmentMutation.isPending ? "Saving..." : "Save Treatment"}
                     </button>

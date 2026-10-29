@@ -851,6 +851,7 @@ class LivestockTreatmentRecord(models.Model):
         VITAMIN_SUPPLEMENT = "VITAMIN_SUPPLEMENT", "Vitamin / Mineral Supplement"
         REPRODUCTIVE_THERAPY = "REPRODUCTIVE_THERAPY", "Reproductive Therapy / Hormone"
         WOUND_CARE = "WOUND_CARE", "Wound Care / Antiseptic"
+        CASTRATION = "CASTRATION", "Castration / Surgical Neutering"
         OTHER = "OTHER", "Other Clinical Treatment"
 
     livestock = models.ForeignKey(
