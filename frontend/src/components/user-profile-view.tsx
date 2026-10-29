@@ -566,13 +566,13 @@ export function UserProfileView() {
             </Button>
 
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
               onClick={logout}
-              className="h-9.5 rounded-xl border-rose-300/70 bg-rose-600 px-3 text-xs font-bold text-white shadow-md transition-all hover:bg-rose-700 hover:text-white cursor-pointer"
+              className="h-9.5 rounded-xl border border-red-500/80 bg-red-600 px-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-red-700 hover:text-white active:bg-red-800 cursor-pointer gap-1.5"
               title="Sign Out"
             >
-              <LogOut className="size-3.5" />
+              <LogOut className="size-3.5 text-white" />
               <span className="hidden sm:inline">Logout</span>
             </Button>
           </div>
@@ -1427,7 +1427,7 @@ export function UserProfileView() {
                           setActiveSessions((prev) => prev.filter((s) => s.current));
                           toast.success("Other device sessions have been revoked");
                         }}
-                        className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-7 px-2 cursor-pointer"
+                        className="text-[11px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2 cursor-pointer"
                       >
                         Sign Out Other Devices
                       </Button>

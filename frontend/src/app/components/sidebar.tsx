@@ -679,14 +679,14 @@ function SidebarNav({
                   onNavigate?.();
                   onLogout();
                 }}
-                className="w-full min-h-11 flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors group cursor-pointer text-left"
+                className="w-full min-h-11 flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors group cursor-pointer text-left"
               >
-                <div className="size-7 rounded-lg bg-rose-100/70 text-rose-600 flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-colors">
+                <div className="size-7 rounded-lg bg-red-100/70 text-red-600 flex items-center justify-center shrink-0 group-hover:bg-red-600 group-hover:text-white transition-colors">
                   <LogOut className="size-3.5" />
                 </div>
                 <div className="flex flex-col text-left">
                   <span>Sign Out</span>
-                  <span className="text-[10px] text-rose-400 font-normal">End active session</span>
+                  <span className="text-[10px] text-red-400 font-normal">End active session</span>
                 </div>
               </button>
             </div>
