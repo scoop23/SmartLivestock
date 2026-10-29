@@ -22,7 +22,7 @@ getSchedules,
 type ProgramBooking,
 type ProgramSchedule,
 } from "@/lib/community-api";
-import { ArrowRight,CalendarDays,CheckCircle2,Clock3,MapPin,Sparkles } from "lucide-react";
+import { ArrowRight,CalendarDays,Clock3,MapPin,Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useEffect,useState } from "react";
 

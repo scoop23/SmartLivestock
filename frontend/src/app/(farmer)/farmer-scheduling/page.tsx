@@ -61,7 +61,8 @@ Sparkles,
 X,
 } from "lucide-react";
 import Image from "next/image";
-import { useCallback,useEffect,useMemo,useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense,useCallback,useEffect,useMemo,useState } from "react";
 
 function localDateFromIso(value: string): Date {
   const [year, month, day] = value.slice(0, 10).split("-").map(Number);
@@ -77,7 +78,9 @@ function programImageUrl(path: string): string {
   return `${getActiveApiUrl().replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-export default function FarmerSchedulingPage() {
+function FarmerSchedulingContent() {
+  const searchParams = useSearchParams();
+  const urlScheduleParam = searchParams.get("scheduleId") || searchParams.get("schedule");
   const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
   const [bookings, setBookings] = useState<ProgramBooking[]>([]);
   const [scheduleId, setScheduleId] = useState("");
@@ -126,6 +129,21 @@ export default function FarmerSchedulingPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!urlScheduleParam || schedules.length === 0) return;
+    const target = schedules.find((s) => String(s.id) === String(urlScheduleParam));
+    if (target) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCalendarDate(localDateFromIso(target.date));
+      setScheduleId(String(target.id));
+      const frame = window.requestAnimationFrame(() => {
+        const el = document.getElementById(`program-card-${target.id}`) || document.getElementById("program-details-section");
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+  }, [urlScheduleParam, schedules]);
 
   useEffect(() => {
     if (
@@ -626,8 +644,9 @@ export default function FarmerSchedulingPage() {
                     {/* Program Cards Grid */}
                     <div className={`grid gap-4 ${programsOnDate.length > 1 ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1"}`}>
                       {programsOnDate.map((schedule) => {
+                        const isUnlimited = schedule.capacity === 0;
                         const alreadyBooked = confirmedScheduleIds.has(schedule.id);
-                        const isFull = schedule.registration_status === "FULL" || (schedule.capacity > 0 && schedule.remaining_slots === 0);
+                        const isFull = !isUnlimited && (schedule.registration_status === "FULL" || (schedule.capacity > 0 && schedule.remaining_slots === 0));
                         const isClosed = !schedule.is_open || schedule.registration_status === "CLOSED" || schedule.registration_status === "NOT_OPEN" || schedule.registration_status === "CANCELLED" || schedule.registration_status === "COMPLETED";
                         const isSelected = selected?.id === schedule.id;
                         const programPhotos = [
@@ -642,17 +661,21 @@ export default function FarmerSchedulingPage() {
                         return (
                           <div
                             key={schedule.id}
+                            id={`program-card-${schedule.id}`}
                             onClick={() => {
-                              if (isFull || isClosed || alreadyBooked) return;
+                              if (isClosed) return;
+                              if (!isUnlimited && (isFull || alreadyBooked)) return;
                               setScheduleId(String(schedule.id));
                               setTime("");
                             }}
                             className={`group relative flex flex-col justify-between rounded-2xl border p-4.5 transition-all duration-200 ${
-                              isFull || isClosed || alreadyBooked
+                              isClosed || (!isUnlimited && (isFull || alreadyBooked))
                                 ? "cursor-not-allowed border-slate-200 bg-slate-50/60 opacity-80"
                                 : isSelected
                                   ? "cursor-pointer border-emerald-600 bg-emerald-50/30 ring-2 ring-emerald-600 shadow-sm"
-                                  : "cursor-pointer border-slate-200 bg-white hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-xs"
+                                  : isUnlimited
+                                    ? "cursor-pointer border-emerald-200/90 bg-gradient-to-b from-emerald-50/20 to-white hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-xs"
+                                    : "cursor-pointer border-slate-200 bg-white hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-xs"
                             }`}
                           >
                             <div className="-mx-4.5 -mt-4.5 mb-3 overflow-hidden rounded-t-2xl bg-gradient-to-br from-emerald-50 to-slate-100">
@@ -678,12 +701,22 @@ export default function FarmerSchedulingPage() {
                                   className={`shrink-0 text-xs font-bold uppercase tracking-wider ${
                                     isClosed
                                       ? "border-slate-200 bg-slate-100 text-slate-600"
-                                      : isFull
-                                        ? "border-amber-200 bg-amber-50 text-amber-900"
-                                        : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                                      : isUnlimited
+                                        ? "border-emerald-300 bg-emerald-100 text-emerald-950 font-black shadow-2xs"
+                                        : isFull
+                                          ? "border-amber-200 bg-amber-50 text-amber-900"
+                                          : "border-emerald-200 bg-emerald-50 text-emerald-800"
                                   }`}
                                 >
-                                  {alreadyBooked ? "BOOKED" : schedule.registration_status === "NOT_OPEN" ? "REGISTRATION OPENS SOON" : isClosed ? "REGISTRATION CLOSED" : isFull ? "FULL" : "OPEN FOR REGISTRATION"}
+                                  {isClosed
+                                    ? (schedule.registration_status === "NOT_OPEN" ? "OPENS SOON" : "CLOSED")
+                                    : isUnlimited
+                                      ? "OPEN ADMISSION · WALK-IN"
+                                      : alreadyBooked
+                                        ? "BOOKED"
+                                        : isFull
+                                          ? "FULL"
+                                          : "OPEN FOR REGISTRATION"}
                                 </Badge>
                               </div>
 
@@ -722,24 +755,33 @@ export default function FarmerSchedulingPage() {
                               </div>
 
                               {/* Capacity Bar */}
-                              <div className="space-y-1.5 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
-                                <div className="flex items-center justify-between text-xs sm:text-sm">
-                                  <span className="font-medium text-slate-700">
-                                    {schedule.capacity === 0 ? <>Farmers booked: <strong className="font-bold text-slate-900">{schedule.booking_count}</strong> · No limit</> : <>Capacity: <strong className="font-bold text-slate-900">{schedule.booking_count}</strong>/{schedule.capacity}</>}
-                                  </span>
-                                  <span className="font-bold text-emerald-800">
-                                    {schedule.capacity === 0 ? "No limit" : isFull ? (
-                                      <span className="text-amber-800">0 left</span>
-                                    ) : (
-                                      `${schedule.remaining_slots} left`
-                                    )}
-                                  </span>
+                              {isUnlimited ? (
+                                <div className="flex items-center gap-2 rounded-xl bg-emerald-50/90 border border-emerald-200 p-2.5 text-xs text-emerald-950 font-medium">
+                                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                                  <span><strong>No slot limit:</strong> Open walk-in attendance. No reservation needed.</span>
                                 </div>
-                                {schedule.capacity > 0 ? <Progress
-                                  value={bookedPercent}
-                                  className="h-1.5 rounded-full bg-slate-200 [&>div]:bg-emerald-600"
-                                /> : null}
-                              </div>
+                              ) : (
+                                <div className="space-y-1.5 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
+                                  <div className="flex items-center justify-between text-xs sm:text-sm">
+                                    <span className="font-medium text-slate-700">
+                                      Capacity: <strong className="font-bold text-slate-900">{schedule.booking_count}</strong>/{schedule.capacity}
+                                    </span>
+                                    <span className="font-bold text-emerald-800">
+                                      {isFull ? (
+                                        <span className="text-amber-800">0 left</span>
+                                      ) : (
+                                        `${schedule.remaining_slots} left`
+                                      )}
+                                    </span>
+                                  </div>
+                                  {schedule.capacity > 0 ? (
+                                    <Progress
+                                      value={bookedPercent}
+                                      className="h-1.5 rounded-full bg-slate-200 [&>div]:bg-emerald-600"
+                                    />
+                                  ) : null}
+                                </div>
+                              )}
                             </div>
 
                             {/* Select / Active Button State */}
@@ -747,26 +789,36 @@ export default function FarmerSchedulingPage() {
                               <Button
                                 type="button"
                                 size="sm"
-                                disabled={isFull || isClosed || alreadyBooked}
+                                disabled={isClosed || (!isUnlimited && (isFull || alreadyBooked))}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setScheduleId(String(schedule.id));
                                   setTime("");
                                 }}
                                 className={`w-full h-9 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-                                  alreadyBooked
-                                    ? "bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed"
-                                    : isSelected
-                                      ? "bg-emerald-800 text-white shadow-xs"
-                                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                  isSelected
+                                    ? "bg-emerald-800 text-white shadow-xs"
+                                    : isUnlimited
+                                      ? "border border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
+                                      : alreadyBooked
+                                        ? "bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed"
+                                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                                 }`}
                               >
-                                {alreadyBooked ? (
-                                  <span>Already booked</span>
-                                ) : alreadyBooked ? (
-                                  <span>Booked</span>
-                                ) : isClosed ? (
+                                {isClosed ? (
                                   <span>{schedule.registration_status === "NOT_OPEN" ? "Opens soon" : "Registration closed"}</span>
+                                ) : isUnlimited ? (
+                                  isSelected ? (
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <Check className="size-4" /> Viewing Activity Details
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <Sparkles className="size-3.5 text-emerald-700" /> View Activity Details (Walk-in)
+                                    </span>
+                                  )
+                                ) : alreadyBooked ? (
+                                  <span>Already booked</span>
                                 ) : isFull ? (
                                   <span>Fully booked</span>
                                 ) : isSelected ? (
@@ -783,112 +835,298 @@ export default function FarmerSchedulingPage() {
                       })}
                     </div>
 
-                    {/* Step 3: Time Slot Selection & Confirmation Drawer */}
+                    {/* Step 3: Time Slot Selection & Confirmation Drawer OR Open Walk-in Activity Details */}
                     {selected ? (
-                      <div className="mt-6 rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 via-emerald-50/40 to-white p-4 sm:p-6 shadow-xs space-y-4">
-                        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-emerald-200/60 pb-3.5">
-                          <div className="flex items-start gap-3">
-                            {selected.cover_image ? (
-                              <div className="size-14 sm:size-16 rounded-xl overflow-hidden border border-emerald-200/80 shrink-0 relative shadow-2xs bg-slate-100">
-                                <Image
-                                  src={programImageUrl(selected.cover_image)}
-                                  alt={selected.program}
-                                  fill
-                                  unoptimized
-                                  className="object-cover"
-                                />
-                              </div>
-                            ) : null}
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="rounded-full bg-emerald-800 px-2.5 py-0.5 text-xs font-black text-white">
-                                  Step 3
-                                </span>
-                                <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                                  Pick Arrival Time Slot
+                      selected.capacity === 0 ? (
+                        <div
+                          id="program-details-section"
+                          className="mt-6 rounded-3xl border-2 border-emerald-500/50 bg-gradient-to-br from-emerald-50 via-teal-50/20 to-white p-5 sm:p-7 shadow-sm space-y-6 animate-in fade-in-50 duration-200"
+                        >
+                          {/* Top Banner */}
+                          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-emerald-200/80 pb-5">
+                            <div className="flex items-start gap-3.5">
+                              {selected.cover_image ? (
+                                <div className="size-16 sm:size-20 rounded-2xl overflow-hidden border border-emerald-300 shrink-0 relative shadow-xs bg-slate-100">
+                                  <Image
+                                    src={programImageUrl(selected.cover_image)}
+                                    alt={selected.program}
+                                    fill
+                                    unoptimized
+                                    className="object-cover"
+                                  />
+                                </div>
+                              ) : null}
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge className="bg-emerald-800 text-white font-black text-xs px-2.5 py-0.5">
+                                    Open Municipal Program
+                                  </Badge>
+                                  <Badge variant="outline" className="border-emerald-300 bg-white text-emerald-900 font-bold text-xs">
+                                    No Booking Required
+                                  </Badge>
+                                </div>
+                                <h3 className="mt-1.5 text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
+                                  {selected.program}
                                 </h3>
+                                <p className="mt-1 text-xs sm:text-sm font-medium text-slate-600">
+                                  Activity scheduled on <strong className="text-slate-900">{formatLongDate(selected.date)}</strong>
+                                  {selected.location ? <> at <strong className="text-slate-900">{selected.location}</strong></> : ""}.
+                                </p>
                               </div>
-                              <p className="mt-1 text-xs sm:text-sm font-medium text-slate-600">
-                                Reserving for <strong className="text-slate-900">{selected.program}</strong> on{" "}
-                                <strong className="text-slate-900">{formatLongDate(selected.date)}</strong>
-                                {selected.location ? ` at ${selected.location}` : ""}.
+                            </div>
+
+                            <div className="rounded-2xl border border-emerald-300 bg-emerald-100/90 px-4 py-2.5 text-left sm:text-right">
+                              <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-950">Capacity Status</p>
+                              <p className="text-sm sm:text-base font-black text-emerald-900">Open Walk-in · Unlimited</p>
+                            </div>
+                          </div>
+
+                          {/* Direct "No Booking Needed" Encouragement Callout */}
+                          <div className="rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50/80 p-4 sm:p-5 flex items-start gap-3.5 text-emerald-950 shadow-2xs">
+                            <div className="size-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                              <CheckCircle2 className="size-5 stroke-[2.5]" />
+                            </div>
+                            <div className="space-y-1">
+                              <h4 className="text-sm sm:text-base font-black text-emerald-950">
+                                No Booking Needed — Walk-in Welcome!
+                              </h4>
+                              <p className="text-xs sm:text-sm text-emerald-900 leading-relaxed font-medium">
+                                This activity is open to all registered livestock farmers with no participant or slot limits.
+                                You do <strong>not</strong> need to book an appointment slot online—simply arrive directly at the venue during operating hours.
                               </p>
                             </div>
                           </div>
-                          <Badge
-                            variant="outline"
-                            className="border-emerald-300 bg-white text-emerald-900 font-bold text-xs sm:text-sm px-3 py-1"
-                          >
-                            {selected.capacity === 0 ? "No slot limit" : `${selected.remaining_slots} slots available`}
-                          </Badge>
-                        </div>
 
-                        {/* Slot Buttons */}
-                        <div className="space-y-2">
-                          <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700 block">
-                            Choose Your Preferred Arrival Time:
-                          </label>
-                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                            {availableTimes.map((slot) => {
-                              const isSlotActive = time === slot;
-                              return (
-                                <Button
-                                  key={slot}
-                                  type="button"
-                                  variant={isSlotActive ? "default" : "outline"}
-                                  disabled={busy || (selected.capacity > 0 && selected.remaining_slots === 0) || confirmedScheduleIds.has(selected.id)}
-                                  onClick={() => setTime(slot)}
-                                  className={`h-11 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-                                    isSlotActive
-                                      ? "bg-emerald-800 text-white hover:bg-emerald-900 shadow-sm ring-2 ring-emerald-800/30"
-                                      : "border-slate-200 bg-white text-slate-800 hover:bg-emerald-50 hover:border-emerald-300"
-                                  }`}
-                                >
-                                  <Clock className="mr-1.5 size-3.5" />
-                                  <span>{formatTime(slot)}</span>
-                                </Button>
-                              );
-                            })}
+                          {/* Program Activity & Report Details Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Schedule & Hours */}
+                            <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs">
+                              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                                <Clock className="size-4 text-emerald-700" />
+                                <span>Activity Hours / Schedule</span>
+                              </div>
+                              <p className="text-sm font-bold text-slate-900">
+                                {selected.available_times?.length
+                                  ? `${formatTime(selected.available_times[0])} – ${formatTime(selected.available_times[selected.available_times.length - 1])}`
+                                  : "During official office hours (8:00 AM – 5:00 PM)"}
+                              </p>
+                              <div className="flex flex-wrap gap-1.5 pt-1">
+                                {(selected.available_times?.length ? selected.available_times : PROGRAM_TIME_SLOTS).map((timeSlot) => (
+                                  <span
+                                    key={timeSlot}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold"
+                                  >
+                                    {formatTime(timeSlot)}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Location & Venue */}
+                            <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs">
+                              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                                <MapPin className="size-4 text-rose-600" />
+                                <span>Venue / Location</span>
+                              </div>
+                              <p className="text-sm font-bold text-slate-900 break-words">
+                                {selected.location || "Padre Garcia Municipal Agriculture Office (MAO)"}
+                              </p>
+                              <p className="text-xs text-slate-500 font-medium">
+                                {selected.barangay_name ? `Designated for farmers of Barangay ${selected.barangay_name}` : "Open municipality-wide across all barangays of Padre Garcia."}
+                              </p>
+                            </div>
+
+                            {/* Description */}
+                            {selected.description ? (
+                              <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs md:col-span-2">
+                                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                                  <Info className="size-4 text-sky-700" />
+                                  <span>Program Description & Report</span>
+                                </div>
+                                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal whitespace-pre-wrap">
+                                  {selected.description}
+                                </p>
+                              </div>
+                            ) : null}
+
+                            {/* Objectives */}
+                            {selected.objectives ? (
+                              <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs">
+                                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                                  <Sparkles className="size-4 text-amber-600" />
+                                  <span>Objectives & Services Provided</span>
+                                </div>
+                                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal whitespace-pre-wrap">
+                                  {selected.objectives}
+                                </p>
+                              </div>
+                            ) : null}
+
+                            {/* Eligibility & Contact */}
+                            <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs">
+                              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                                <Phone className="size-4 text-emerald-700" />
+                                <span>Eligibility & Inquiries</span>
+                              </div>
+                              {selected.eligibility ? (
+                                <p className="text-xs text-slate-600 leading-relaxed">
+                                  <strong className="text-slate-800">Who can attend:</strong> {selected.eligibility}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-slate-600">
+                                  <strong className="text-slate-800">Eligibility:</strong> Open to all registered livestock farmers in Padre Garcia.
+                                </p>
+                              )}
+                              {selected.contact_information ? (
+                                <p className="text-xs text-slate-600 pt-1">
+                                  <strong className="text-slate-800">Inquiries:</strong> {selected.contact_information}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-slate-600 pt-1">
+                                  <strong className="text-slate-800">Office:</strong> Municipal Agriculture Office (MAO) Padre Garcia
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Farmer Notes / Reminders */}
+                            {selected.farmer_notes ? (
+                              <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4.5 space-y-1.5 shadow-2xs md:col-span-2 text-amber-950">
+                                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-900">
+                                  <Info className="size-4 text-amber-700 shrink-0" />
+                                  <span>Guidelines & What to Bring (Farmer Reminder)</span>
+                                </div>
+                                <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed text-amber-900 font-medium">
+                                  {selected.farmer_notes}
+                                </p>
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {/* Bottom Confirmation Bar */}
+                          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-emerald-200/80 pt-4">
+                            <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-emerald-900">
+                              <Check className="size-4 text-emerald-700 shrink-0" />
+                              <span>You are welcome to attend freely. No registration fee or reservation needed.</span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                setScheduleId("");
+                                setTime("");
+                              }}
+                              className="h-10 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                            >
+                              Close Details
+                            </Button>
                           </div>
                         </div>
-
-                        {confirmedScheduleIds.has(selected.id) ? (
-                          <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs sm:text-sm font-semibold text-amber-900">
-                            You already have an active booking for this program. To modify your time, cancel your existing reservation below first.
-                          </p>
-                        ) : null}
-
-                        {/* Bottom Confirmation Bar */}
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-emerald-200/60 pt-4">
-                          <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-600">
-                            <Info className="size-4 shrink-0 text-emerald-700" />
-                            <span>Official municipal service. Free of charge for registered farmers.</span>
+                      ) : (
+                        <div className="mt-6 rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 via-emerald-50/40 to-white p-4 sm:p-6 shadow-xs space-y-4">
+                          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-emerald-200/60 pb-3.5">
+                            <div className="flex items-start gap-3">
+                              {selected.cover_image ? (
+                                <div className="size-14 sm:size-16 rounded-xl overflow-hidden border border-emerald-200/80 shrink-0 relative shadow-2xs bg-slate-100">
+                                  <Image
+                                    src={programImageUrl(selected.cover_image)}
+                                    alt={selected.program}
+                                    fill
+                                    unoptimized
+                                    className="object-cover"
+                                  />
+                                </div>
+                              ) : null}
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded-full bg-emerald-800 px-2.5 py-0.5 text-xs font-black text-white">
+                                    Step 3
+                                  </span>
+                                  <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                                    Pick Arrival Time Slot
+                                  </h3>
+                                </div>
+                                <p className="mt-1 text-xs sm:text-sm font-medium text-slate-600">
+                                  Reserving for <strong className="text-slate-900">{selected.program}</strong> on{" "}
+                                  <strong className="text-slate-900">{formatLongDate(selected.date)}</strong>
+                                  {selected.location ? ` at ${selected.location}` : ""}.
+                                </p>
+                              </div>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className="border-emerald-300 bg-white text-emerald-900 font-bold text-xs sm:text-sm px-3 py-1"
+                            >
+                              {`${selected.remaining_slots} slots available`}
+                            </Badge>
                           </div>
 
-                          <Button
-                            type="button"
-                            disabled={
-                              busy ||
-                              !time ||
-                              availableTimes.length === 0 ||
-                              confirmedScheduleIds.has(selected.id)
-                            }
-                            onClick={book}
-                            className="h-11 gap-2 rounded-xl bg-emerald-800 px-6 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-emerald-900 active:scale-95 transition-all cursor-pointer"
-                          >
-                            {busy ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : (
-                              <CalendarCheck className="size-4" />
-                            )}
-                            <span>Confirm Reservation</span>
-                          </Button>
+                          {/* Slot Buttons */}
+                          <div className="space-y-2">
+                            <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700 block">
+                              Choose Your Preferred Arrival Time:
+                            </label>
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                              {availableTimes.map((slot) => {
+                                const isSlotActive = time === slot;
+                                return (
+                                  <Button
+                                    key={slot}
+                                    type="button"
+                                    variant={isSlotActive ? "default" : "outline"}
+                                    disabled={busy || (selected.capacity > 0 && selected.remaining_slots === 0) || confirmedScheduleIds.has(selected.id)}
+                                    onClick={() => setTime(slot)}
+                                    className={`h-11 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                                      isSlotActive
+                                        ? "bg-emerald-800 text-white hover:bg-emerald-900 shadow-sm ring-2 ring-emerald-800/30"
+                                        : "border-slate-200 bg-white text-slate-800 hover:bg-emerald-50 hover:border-emerald-300"
+                                    }`}
+                                  >
+                                    <Clock className="mr-1.5 size-3.5" />
+                                    <span>{formatTime(slot)}</span>
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {confirmedScheduleIds.has(selected.id) ? (
+                            <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs sm:text-sm font-semibold text-amber-900">
+                              You already have an active booking for this program. To modify your time, cancel your existing reservation below first.
+                            </p>
+                          ) : null}
+
+                          {/* Bottom Confirmation Bar */}
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-emerald-200/60 pt-4">
+                            <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-600">
+                              <Info className="size-4 shrink-0 text-emerald-700" />
+                              <span>Official municipal service. Free of charge for registered farmers.</span>
+                            </div>
+
+                            <Button
+                              type="button"
+                              disabled={
+                                busy ||
+                                !time ||
+                                availableTimes.length === 0 ||
+                                confirmedScheduleIds.has(selected.id)
+                              }
+                              onClick={book}
+                              className="h-11 gap-2 rounded-xl bg-emerald-800 px-6 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-emerald-900 active:scale-95 transition-all cursor-pointer"
+                            >
+                              {busy ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <CalendarCheck className="size-4" />
+                              )}
+                              <span>Confirm Reservation</span>
+                            </Button>
+                          </div>
                         </div>
-                      </div>
+                      )
                     ) : (
                       <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-5 text-center">
                         <p className="text-xs sm:text-sm font-medium text-slate-500">
-                          Click on any program card above to open its available appointment time slots.
+                          Click on any program card above to open its full activity details or available appointment time slots.
                         </p>
                       </div>
                     )}
@@ -1265,5 +1503,13 @@ export default function FarmerSchedulingPage() {
         </div>
       ) : null}
     </>
+  );
+}
+
+export default function FarmerSchedulingPage() {
+  return (
+    <Suspense fallback={<CommunitySkeleton count={4} />}>
+      <FarmerSchedulingContent />
+    </Suspense>
   );
 }
