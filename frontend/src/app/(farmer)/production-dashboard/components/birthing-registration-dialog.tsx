@@ -29,12 +29,15 @@ import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-en
 import type { LivestockInventoryItem } from "../../livestock-inventory/page";
 import { LivestockPickerField } from "../select-livestock-dialog";
 import type { BirthingSpeciesTerminology } from "../production-calving-tab";
+import type { BreedingRecordItem } from "../production-breeding-tab";
 
 interface BirthingRegistrationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   terms: BirthingSpeciesTerminology;
   femaleLivestock: LivestockInventoryItem[];
+  maleLivestock?: LivestockInventoryItem[];
+  breedingRecords?: BreedingRecordItem[];
   onSubmit: (payload: {
     dam: number;
     calf_tag: string;
@@ -54,6 +57,8 @@ export default function BirthingRegistrationDialog({
   onOpenChange,
   terms,
   femaleLivestock,
+  maleLivestock = [],
+  breedingRecords = [],
   onSubmit,
   isSubmitting,
 }: BirthingRegistrationDialogProps) {
@@ -62,6 +67,7 @@ export default function BirthingRegistrationDialog({
   const [calfTag, setCalfTag] = useState("");
   const [calfSex, setCalfSex] = useState<"MALE" | "FEMALE">("FEMALE");
   const [birthWeight, setBirthWeight] = useState<string>("");
+  const [selectedSireOption, setSelectedSireOption] = useState<string>("NONE"); // "NONE" | "MANUAL" | bullId
   const [sireTag, setSireTag] = useState("");
   const [calvingDate, setCalvingDate] = useState(
     localCalendarDateToday()
@@ -94,12 +100,65 @@ export default function BirthingRegistrationDialog({
 
   const selectedDam = eligibleFemaleLivestock.find((item) => String(item.id) === damId);
 
+  // Available male bulls matching the dam's species
+  const matchingBulls = useMemo(() => {
+    if (!maleLivestock?.length) return [];
+    if (!selectedDam) return maleLivestock;
+    const damSpecies = (selectedDam.livestockTypeName || "").trim().toLowerCase();
+    return maleLivestock.filter(
+      (item) => (item.livestockTypeName || "").trim().toLowerCase() === damSpecies
+    );
+  }, [maleLivestock, selectedDam]);
+
+  // Check if this dam has an active / recent breeding event
+  const activeBreeding = useMemo(() => {
+    if (!damId || !breedingRecords?.length) return null;
+    return (
+      breedingRecords
+        .filter(
+          (b) =>
+            String(b.dam) === damId &&
+            (b.status === "PREGNANT" || b.status === "PENDING_CHECK")
+        )
+        .sort((a, b) => new Date(b.breeding_date).getTime() - new Date(a.breeding_date).getTime())[0] || null
+    );
+  }, [breedingRecords, damId]);
+
+  // Automatically sync sire if the selected dam has an active breeding record
+  useEffect(() => {
+    if (activeBreeding?.sire_tag_or_code) {
+      const match = matchingBulls.find(
+        (b) => b.tagNumber && b.tagNumber.toLowerCase() === activeBreeding.sire_tag_or_code.toLowerCase()
+      );
+      if (match) {
+        setSelectedSireOption(String(match.id));
+        setSireTag(match.tagNumber);
+      } else {
+        setSelectedSireOption("MANUAL");
+        setSireTag(activeBreeding.sire_tag_or_code);
+      }
+    }
+  }, [activeBreeding, matchingBulls]);
+
+  useEffect(() => {
+    if (!open) {
+      setDamId("");
+      setCalfTag("");
+      setBirthWeight("");
+      setSelectedSireOption("NONE");
+      setSireTag("");
+      setBreed("");
+      setCalvingEase("Normal / Unassisted");
+      setNotes("");
+    }
+  }, [open]);
+
   const startBirthTutorial = useCallback(() => {
     const steps: DriveStep[] = [
       { element: '[data-tour="birth-record-dam"]', popover: { title: `Choose the ${terms.damName.toLowerCase()}`, description: "Select the mother from your active female livestock inventory.", side: "bottom", align: "center" } },
       { element: '[data-tour="birth-record-offspring"]', popover: { title: "Enter the newborn details", description: "Add an identifier if available and choose the newborn’s sex. The identifier can be generated automatically when left blank.", side: "bottom", align: "center" } },
       { element: '[data-tour="birth-record-birth-details"]', popover: { title: "Record birth information", description: "Add the birth weight when known and enter the birth date. The date is required.", side: "bottom", align: "center" } },
-      { element: '[data-tour="birth-record-care"]', popover: { title: "Record lineage and delivery", description: "Add the sire details and select how difficult or assisted the delivery was.", side: "bottom", align: "center" } },
+      { element: '[data-tour="birth-record-care"]', popover: { title: "Record lineage and delivery", description: "Choose the sire/father bull from your registered bulls or enter semen/straw tag, and select delivery difficulty.", side: "bottom", align: "center" } },
       { element: '[data-tour="birth-record-breed-notes"]', popover: { title: "Add breed and observations", description: "Set the offspring’s breed and add optional clinical, vitality, or care notes.", side: "top", align: "center" } },
       { element: '[data-tour="birth-record-save"]', popover: { title: "Save the birth record", description: "Save the newborn and its birth details for review.", side: "top", align: "end" } },
     ];
@@ -134,6 +193,7 @@ export default function BirthingRegistrationDialog({
     setDamId("");
     setCalfTag("");
     setBirthWeight("");
+    setSelectedSireOption("NONE");
     setSireTag("");
     setNotes("");
   };
@@ -254,28 +314,121 @@ export default function BirthingRegistrationDialog({
             </div>
           </div>
 
-          <div data-tour="birth-record-care" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Sire / Father Tag */}
+          <div data-tour="birth-record-care" className="space-y-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+            {/* Sire / Father Bull Selection */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                <Dna className="size-3.5 text-purple-600" />
-                {terms.sireName} / Tag
-              </Label>
-              <Input
-                placeholder="e.g. Bull #104 / Artificial Insem"
-                value={sireTag}
-                onChange={(e) => setSireTag(e.target.value)}
-                className="text-xs"
-              />
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Dna className="size-3.5 text-purple-600" />
+                  {terms.sireName} (Father) — Optional
+                </Label>
+                {selectedSireOption !== "NONE" && (
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                    Sire Selected
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Choose a registered bull from your farm, enter an AI straw code, or leave blank if unknown.
+              </p>
+
+              {activeBreeding && (
+                <div className="p-2.5 rounded-xl bg-violet-50/80 border border-violet-200 text-xs text-violet-900 flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <Sparkles className="size-3.5 text-violet-600 shrink-0" />
+                    <span className="truncate">
+                      Linked to breeding on <strong>{activeBreeding.breeding_date}</strong>
+                      {activeBreeding.sire_tag_or_code ? ` (Sire: ${activeBreeding.sire_tag_or_code})` : ""}
+                    </span>
+                  </span>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded bg-violet-200 text-violet-800 uppercase shrink-0">
+                    Active Cycle
+                  </span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                {/* Bull Dropdown */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">
+                    Father Bull Selection
+                  </span>
+                  <Select
+                    value={selectedSireOption}
+                    onValueChange={(val) => {
+                      setSelectedSireOption(val);
+                      if (val === "NONE") {
+                        setSireTag("");
+                      } else if (val === "MANUAL") {
+                        if (activeBreeding?.sire_tag_or_code) {
+                          setSireTag(activeBreeding.sire_tag_or_code);
+                        } else {
+                          setSireTag("");
+                        }
+                      } else {
+                        const bull = matchingBulls.find((b) => String(b.id) === val);
+                        if (bull) {
+                          setSireTag(bull.tagNumber || `Bull #${bull.id}`);
+                          if (!breed && bull.breed) {
+                            setBreed(bull.breed);
+                          }
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full text-xs h-9 bg-white">
+                      <SelectValue placeholder="Choose father bull..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NONE">No Sire / Father Unknown</SelectItem>
+                      <SelectItem value="MANUAL">External Sire / AI Semen Straw</SelectItem>
+                      {matchingBulls.length > 0 && (
+                        <SelectItem disabled value="__divider" className="text-[10px] font-bold text-slate-400 bg-slate-50">
+                          ── Farm Registered Bulls ({matchingBulls.length}) ──
+                        </SelectItem>
+                      )}
+                      {matchingBulls.map((bull) => (
+                        <SelectItem key={bull.id} value={String(bull.id)}>
+                          {bull.tagNumber || `Tag #${bull.id}`} ({bull.livestockTypeName} · {bull.breed || "Standard"})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Sire Tag / Semen Code Input */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">
+                    Sire Ear Tag / Straw Code
+                  </span>
+                  <Input
+                    placeholder={
+                      selectedSireOption === "NONE"
+                        ? "Optional sire tag / identifier"
+                        : selectedSireOption === "MANUAL"
+                        ? "e.g. AI-STRAW-2025 or Bull #42"
+                        : "Registered bull tag"
+                    }
+                    value={sireTag}
+                    onChange={(e) => {
+                      setSireTag(e.target.value);
+                      if (selectedSireOption === "NONE" && e.target.value.trim()) {
+                        setSelectedSireOption("MANUAL");
+                      }
+                    }}
+                    className="text-xs h-9 bg-white"
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Calving Ease */}
-            <div className="space-y-1.5">
+            {/* Delivery Ease */}
+            <div className="space-y-1 pt-2 border-t border-slate-200">
               <Label className="text-xs font-semibold text-slate-700">
                 Delivery Ease
               </Label>
               <Select value={calvingEase} onValueChange={setCalvingEase}>
-                <SelectTrigger className="w-full text-xs">
+                <SelectTrigger className="w-full text-xs h-9 bg-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

@@ -845,7 +845,28 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
-        return CalvingRecord.objects.create(**validated_data)
+        calving = CalvingRecord.objects.create(**validated_data)
+
+        # Automatically link the dam's active breeding event to this birth to complete the cycle
+        active_breeding = (
+            BreedingRecord.objects.filter(
+                dam=calving.dam,
+                breeding_date__lte=calving.calving_date,
+                status__in=[
+                    BreedingRecord.BreedingStatus.PREGNANT,
+                    BreedingRecord.BreedingStatus.PENDING_CHECK,
+                ],
+                calving_record__isnull=True,
+            )
+            .order_by("-breeding_date")
+            .first()
+        )
+        if active_breeding:
+            active_breeding.calving_record = calving
+            active_breeding.status = BreedingRecord.BreedingStatus.CALVED
+            active_breeding.save(update_fields=["calving_record", "status"])
+
+        return calving
 
     def update(self, instance, validated_data):
         allowed = [

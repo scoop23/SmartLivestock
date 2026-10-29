@@ -11,6 +11,7 @@ import type { LivestockInventoryItem } from "../livestock-inventory/page";
 import BirthingRecordsTable from "./components/birthing-records-table";
 import BirthingRegistrationDialog from "./components/birthing-registration-dialog";
 import CalvingResubmitDialog,{ type EditableCalvingFields } from "./components/calving-resubmit-dialog";
+import type { BreedingRecordItem } from "./production-breeding-tab";
 
 export interface CalvingRecordItem {
   id: number;
@@ -138,6 +139,15 @@ export default function ProductionCalvingTab({
     },
   });
 
+  const { data: breedingRecords = [] } = useQuery<BreedingRecordItem[]>({
+    queryKey: ["breeding_records"],
+    queryFn: async () => {
+      const res = await api.get("production/breeding/");
+      return res.data;
+    },
+    staleTime: 30_000,
+  });
+
   const recordCalvingMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       const res = await api.post("production/calving/", payload);
@@ -147,6 +157,7 @@ export default function ProductionCalvingTab({
       toast.success(`${terms.eventName} & birth record logged successfully!`);
       setIsRecordOpen(false);
       queryClient.invalidateQueries({ queryKey: ["calving_records"] });
+      queryClient.invalidateQueries({ queryKey: ["breeding_records"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
     },
     onError: () => {
@@ -198,6 +209,14 @@ export default function ProductionCalvingTab({
       return item.livestockTypeName?.toLowerCase() === selectedSpecies.toLowerCase();
     }
     return true;
+  });
+
+  const maleLivestock = approvedInventories.filter((item) => {
+    if (item.entryType !== "INDIVIDUAL") return false;
+    const sex = (item.sex || "").trim().toUpperCase();
+    const isMale = sex === "M" || sex === "MALE" || sex.startsWith("M");
+    const isActive = !item.operationalStatus || item.operationalStatus === "ACTIVE";
+    return isMale && isActive;
   });
 
   const totalCalves = calvingRecords.length;
@@ -281,6 +300,8 @@ export default function ProductionCalvingTab({
         onOpenChange={setIsRecordOpen}
         terms={terms}
         femaleLivestock={femaleLivestock}
+        maleLivestock={maleLivestock}
+        breedingRecords={breedingRecords}
         onSubmit={(payload) => recordCalvingMutation.mutate(payload)}
         isSubmitting={recordCalvingMutation.isPending}
       />

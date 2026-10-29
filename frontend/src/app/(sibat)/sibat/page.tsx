@@ -382,6 +382,10 @@ function SibatPortalContent() {
       router.push(`/sibat/batches?batchId=${item.rawId}`);
       return;
     }
+    if (item.sourceType === "CALVING") {
+      setSelectedSubmissionForReview(item);
+      return;
+    }
     router.push(`/sibat/livestock-registry`);
   };
 

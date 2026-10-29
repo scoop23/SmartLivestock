@@ -780,14 +780,41 @@ function SibatReviewDialogContent({
                     <span className="text-sky-700">Calf Ear Tag:</span>
                     <span className="font-bold truncate">{submission.calfTag || "Pending"}</span>
                   </div>
+                  {submission.calfSex && (
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-sky-700">Offspring Sex:</span>
+                      <span className="font-bold truncate">{submission.calfSex}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-[11px]">
                     <span className="text-sky-700">Dam (Mother):</span>
-                    <span className="font-bold truncate">{submission.damTag || "Registered Dam"}</span>
+                    <span className="font-bold truncate">
+                      {submission.damTag || "Registered Dam"}
+                      {submission.damBreed ? ` (${submission.damBreed})` : ""}
+                    </span>
                   </div>
+                  {submission.sireTag && (
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-sky-700">Sire (Father):</span>
+                      <span className="font-bold truncate">{submission.sireTag}</span>
+                    </div>
+                  )}
                   {submission.birthWeight && (
                     <div className="flex justify-between text-[11px]">
                       <span className="text-sky-700">Birth Weight:</span>
                       <span className="font-bold">{submission.birthWeight} kg</span>
+                    </div>
+                  )}
+                  {submission.calvingEase && (
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-sky-700">Delivery Ease:</span>
+                      <span className="font-bold capitalize">{submission.calvingEase.toLowerCase()}</span>
+                    </div>
+                  )}
+                  {submission.calvingDate && (
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-sky-700">Calving Date:</span>
+                      <span className="font-bold">{submission.calvingDate}</span>
                     </div>
                   )}
                 </div>
