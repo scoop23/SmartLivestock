@@ -2601,7 +2601,7 @@ export default function BatchOverviewPage() {
           manageHerdTarget && currentBatch
             ? {
                 id: Number(manageHerdTarget.id),
-                tagNumber: manageHerdTarget.tagNumber,
+                tagNumber: manageHerdTarget.tagNumber || undefined,
                 livestockTypeName: currentBatch.species,
                 breed: currentBatch.breed || undefined,
                 sex: manageHerdTarget.sex,
