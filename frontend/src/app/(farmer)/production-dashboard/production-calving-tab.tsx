@@ -177,20 +177,27 @@ export default function ProductionCalvingTab({
   });
 
   const femaleLivestock = approvedInventories.filter((item) => {
+    // 1. Dams must be individual animals with distinct identification, not batches
+    if (item.entryType !== "INDIVIDUAL") return false;
+
+    // 2. Dams must be strictly female (exclude male bulls/steers)
+    const sex = (item.sex || "").trim().toUpperCase();
+    const isFemale = sex === "F" || sex === "FEMALE" || sex.startsWith("FEM");
+    const isMale = sex === "M" || sex === "MALE" || sex.startsWith("M");
+    if (isMale || !isFemale) return false;
+
+    // 3. Dams cannot be calves or immature animals
+    if (item.ageClassification === "CALF") return false;
+    if (item.age?.total_months != null && item.age.total_months < 12) return false;
+
+    // 4. Dams must be active in farm inventory
+    if (item.operationalStatus && item.operationalStatus !== "ACTIVE") return false;
+
+    // 5. Match the active species filter when specified
     if (selectedSpecies && selectedSpecies !== "ALL") {
-      return (
-        item.livestockTypeName?.toLowerCase() === selectedSpecies.toLowerCase() &&
-        (item.sex?.toUpperCase().includes("F") ||
-          item.sex?.toUpperCase().includes("FEMALE") ||
-          item.entryType === "BATCH")
-      );
+      return item.livestockTypeName?.toLowerCase() === selectedSpecies.toLowerCase();
     }
-    return (
-      item.sex?.toUpperCase().includes("F") ||
-      item.sex?.toUpperCase().includes("FEMALE") ||
-      item.entryType === "BATCH" ||
-      item.livestockTypeName?.toLowerCase().includes("cattle")
-    );
+    return true;
   });
 
   const totalCalves = calvingRecords.length;

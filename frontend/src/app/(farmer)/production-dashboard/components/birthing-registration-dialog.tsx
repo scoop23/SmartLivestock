@@ -21,7 +21,7 @@ SelectValue,
 import { Textarea } from "@/components/ui/textarea";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import { Baby,Calendar,Check,Dna,Scale,Sparkles,Tag } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
@@ -69,7 +69,30 @@ export default function BirthingRegistrationDialog({
   const [breed, setBreed] = useState("");
   const [calvingEase, setCalvingEase] = useState("Normal / Unassisted");
   const [notes, setNotes] = useState("");
-  const selectedDam = femaleLivestock.find((item) => String(item.id) === damId);
+
+  const eligibleFemaleLivestock = useMemo(() => {
+    return femaleLivestock.filter((item) => {
+      // Must be an individual animal, not a herd batch
+      if (item.entryType && item.entryType !== "INDIVIDUAL") return false;
+
+      // Must be female (strictly exclude male cattle/animals)
+      const sex = (item.sex || "").trim().toUpperCase();
+      const isFemale = sex === "F" || sex === "FEMALE" || sex.startsWith("FEM");
+      const isMale = sex === "M" || sex === "MALE" || sex.startsWith("M");
+      if (isMale || !isFemale) return false;
+
+      // Calves and immature animals cannot give birth
+      if (item.ageClassification === "CALF") return false;
+      if (item.age?.total_months != null && item.age.total_months < 12) return false;
+
+      // Must be active
+      if (item.operationalStatus && item.operationalStatus !== "ACTIVE") return false;
+
+      return true;
+    });
+  }, [femaleLivestock]);
+
+  const selectedDam = eligibleFemaleLivestock.find((item) => String(item.id) === damId);
 
   const startBirthTutorial = useCallback(() => {
     const steps: DriveStep[] = [
@@ -145,19 +168,19 @@ export default function BirthingRegistrationDialog({
           {/* Mother Selection */}
           <div data-tour="birth-record-dam" className="space-y-1.5">
             <LivestockPickerField
-              items={femaleLivestock}
+              items={eligibleFemaleLivestock}
               id="calving-dam"
               selectedId={damId}
               onSelect={(item) => setDamId(String(item.id))}
               label={`Select ${terms.damName} *`}
               placeholder={`Choose mother (${terms.damName})`}
               dialogTitle={`Choose ${terms.damName}`}
-              dialogDescription={`Select the female livestock linked to this ${terms.eventName.toLowerCase()} record.`}
-              emptyStateText="No active female inventory found for this species. Register female breeding stock in Livestock Inventory first."
+              dialogDescription={`Select an eligible adult female mother (${terms.damName}) from your inventory. Calves and male animals are excluded.`}
+              emptyStateText={`No active, eligible female ${terms.damName.toLowerCase()}s found. Calves and male animals cannot be selected as mothers.`}
             />
-            {femaleLivestock.length === 0 && (
+            {eligibleFemaleLivestock.length === 0 && (
               <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                No active female inventory found for this species. Please register female breeding stock in Livestock Inventory first.
+                No eligible female breeding stock found for this species. Calves and male animals are not eligible to be chosen as mothers.
               </p>
             )}
           </div>

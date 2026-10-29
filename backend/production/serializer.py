@@ -814,8 +814,12 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
             raise ValidationError("Only verified or approved livestock can be used as the dam.")
         if value.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
             raise ValidationError("Only active livestock can be used as the dam.")
-        if value.sex.upper() not in {"FEMALE", "F"}:
-            raise ValidationError("The selected dam must be female.")
+        if value.entry_type != LivestockInventory.EntryType.INDIVIDUAL:
+            raise ValidationError("The dam must be an individual animal, not a batch.")
+        if (value.sex or "").strip().upper() not in {"FEMALE", "F"}:
+            raise ValidationError("The selected dam must be female. Male animals cannot give birth.")
+        if value.age_classification_as_of() == "CALF":
+            raise ValidationError("Calves are not eligible for birthing. The dam must be a mature female.")
         return value
 
     def validate(self, attrs):
@@ -824,6 +828,11 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
         dam = attrs.get("dam", self.instance.dam if self.instance else None)
         self.validate_dam(dam)
         calving_date = attrs.get("calving_date", self.instance.calving_date if self.instance else None)
+        if dam and calving_date:
+            if dam.birth_date and dam.birth_date >= calving_date:
+                raise ValidationError({"calving_date": "Calving date cannot be on or before the dam's own birth date."})
+            if dam.age_classification_as_of(calving_date) == "CALF":
+                raise ValidationError({"dam": "The dam was classified as a calf on the recorded calving date."})
         calf_tag = (attrs.get("calf_tag") or (self.instance.calf_tag if self.instance else "")).strip()
         if not self.instance and dam and calving_date:
             qs = CalvingRecord.objects.filter(dam=dam, calving_date=calving_date)
