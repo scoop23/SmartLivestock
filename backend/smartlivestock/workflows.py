@@ -18,10 +18,10 @@ SLAUGHTERHOUSESTAFF = "SLAUGHTERHOUSESTAFF"
 ROLE_MATRIX = {
     "disease": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, CBAT, MAO, ADMIN}},
     "mortality": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, CBAT, MAO, ADMIN}},
-    "production": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}},
+    "production": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {MAO, ADMIN}},
     "inventory": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}},
     # Farmers may declare sale intent; completed market sales are recorded by Auction as ownership transfers.
-    "sales": {"create": set(), "read_all": {SIBAT, CBAT, MAO, ADMIN, AUCTION}, "review": {SIBAT, CBAT, MAO, ADMIN}, "delete_own": {FARMER}},
+    "sales": {"create": set(), "read_all": {SIBAT, CBAT, MAO, ADMIN, AUCTION}, "review": {MAO, ADMIN}, "delete_own": {FARMER}},
     "calving": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}},
     "batches": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}},
     "census": {"create": {SIBAT, CBAT}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {MAO, ADMIN}, "edit_own": {SIBAT, CBAT}},
@@ -48,7 +48,7 @@ REVIEW_TRANSITIONS: dict[str, tuple[TransitionRule, ...]] = {
         TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
         TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     )
-    for domain in ("inventory", "sales", "calving", "batches", "disease", "mortality")
+    for domain in ("inventory", "calving", "batches", "disease", "mortality")
 }
 
 # Auction encodes the completed transfer certificate; MAO is the sole reviewer.
@@ -60,8 +60,20 @@ REVIEW_TRANSITIONS["ownership_transfers"] = (
     TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
 )
 
-# Production declarations use the same field-verification and municipal-approval steps.
-REVIEW_TRANSITIONS["production"] = REVIEW_TRANSITIONS["inventory"]
+# Live animal sales and routine production are reviewed at municipal level (MAO / Admin).
+REVIEW_TRANSITIONS["sales"] = (
+    TransitionRule(MAO, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(ADMIN, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+)
+
+REVIEW_TRANSITIONS["production"] = (
+    TransitionRule(MAO, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(ADMIN, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+)
 
 # Census has a single transition rule (SIBAT is the source, so a census is born
 # VERIFIED when submitted and only awaits MAO certification).

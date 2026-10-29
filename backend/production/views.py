@@ -67,16 +67,6 @@ def _notify_production_route(record: ProductionRecord, actor: User, *, is_resubm
     if record.status == ProductionRecord.ProductionStatus.RECORDED:
         if record.production_type != ProductionRecord.ProductionType.MEAT or not record.slaughter_id:
             return
-        for role in FIELD_REVIEWERS:
-            notify_role(
-                role_name=role, barangay_id=barangay_id,
-                notification_type=Notification.NotificationType.PRODUCTION,
-                priority=Notification.Priority.MEDIUM,
-                title="Farmer-reported slaughter (unverified)",
-                message=f"{farmer_name} reported slaughter of {record.slaughter.quantity} animal(s). This is a farmer report, not field verification.",
-                link=f"/sibat/production-records?slaughterReportId={record.slaughter_id}",
-                related_entity_type="slaughter_record", related_entity_id=record.slaughter_id,
-            )
         notify_role(
             role_name="MAO", notification_type=Notification.NotificationType.PRODUCTION,
             priority=Notification.Priority.MEDIUM,
@@ -87,62 +77,29 @@ def _notify_production_route(record: ProductionRecord, actor: User, *, is_resubm
         )
         return
 
-    if record.next_review_queue == ProductionRecord.ReviewQueue.MAO:
+    notify_role(
+        role_name="MAO",
+        notification_type=Notification.NotificationType.PRODUCTION,
+        priority=Notification.Priority.MEDIUM,
+        title="Milk Production Ready for MAO Approval" if not is_resubmission else "Resubmitted Milk Record Ready for MAO Approval",
+        message=(
+            f"{farmer_name} {action_word} {record.quantity} {record.unit} of {prod_display}."
+        ),
+        link=f"/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
+        related_entity_type="production_record",
+        related_entity_id=record.pk,
+    )
+    if is_resubmission:
         notify_role(
-            role_name="MAO",
-            notification_type=Notification.NotificationType.PRODUCTION,
+            role_name="ADMIN",
+            notification_type=Notification.NotificationType.GENERAL,
             priority=Notification.Priority.MEDIUM,
-            title="Milk Production Ready for MAO Approval" if not is_resubmission else "Resubmitted Milk Record Ready for MAO Approval",
-            message=(
-                f"{farmer_name} {action_word} {record.quantity} {record.unit} of {prod_display} "
-                f"(no anomaly detected against cow baseline; routed directly to MAO)."
-            ),
+            title="Production Record Resubmitted",
+            message=f"{farmer_name} corrected a {prod_display} production record.",
             link=f"/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
             related_entity_type="production_record",
             related_entity_id=record.pk,
         )
-    elif record.next_review_queue == ProductionRecord.ReviewQueue.CBAT:
-        notify_role(
-            barangay_id=barangay_id,
-            role_name="CBAT",
-            notification_type=Notification.NotificationType.PRODUCTION,
-            priority=Notification.Priority.HIGH,
-            title="Milk Anomaly Flagged for Field Verification" if not is_resubmission else "Resubmitted Milk Record Flagged for Field Verification",
-            message=(
-                f"{farmer_name} {action_word} {record.quantity} {record.unit} of {prod_display}. "
-                f"{record.anomaly_reason or 'Milk yield anomaly detected; field verification required.'}"
-            ),
-            link=f"/sibat/production-records?reviewType=PRODUCTION&reviewId={record.pk}",
-            related_entity_type="production_record",
-            related_entity_id=record.pk,
-        )
-    else:
-        notify_role(
-            barangay_id=barangay_id,
-            role_name="SIBAT",
-            notification_type=Notification.NotificationType.PRODUCTION,
-            priority=Notification.Priority.MEDIUM,
-            title="Production Record Resubmitted" if is_resubmission else "New Production Entry Awaiting Verification",
-            message=(
-                f"{farmer_name} corrected a {prod_display} production record."
-                if is_resubmission
-                else f"{farmer_name} logged {record.quantity} {record.unit} of {prod_display}."
-            ),
-            link=f"/sibat?tab=production&reviewType=PRODUCTION&reviewId={record.pk}",
-            related_entity_type="production_record",
-            related_entity_id=record.pk,
-        )
-        if is_resubmission:
-            notify_role(
-                role_name="ADMIN",
-                notification_type=Notification.NotificationType.GENERAL,
-                priority=Notification.Priority.MEDIUM,
-                title="Production Record Resubmitted",
-                message=f"{farmer_name} corrected a {prod_display} production record.",
-                link=f"/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
-                related_entity_type="production_record",
-                related_entity_id=record.pk,
-            )
 
 
 @api_view(["GET", "POST"])
@@ -359,12 +316,12 @@ def live_animal_sales_list_create(request):
         )
         notify_role(
             barangay_id=(sale.livestock or sale.batch).farmer.barangay_id,
-            role_name="SIBAT",
-            notification_type=Notification.NotificationType.SIBAT,
+            role_name="MAO",
+            notification_type=Notification.NotificationType.GENERAL,
             priority=Notification.Priority.MEDIUM,
-            title="New Livestock Sale Awaiting Verification",
+            title="New Livestock Sale Recorded",
             message=f"{farmer_name} recorded a sale for {sale_reference}.",
-            link=f"/sibat?tab=production&reviewType=SALE&reviewId={sale.pk}",
+            link=f"/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
             related_entity_type="livestock_sale",
             related_entity_id=sale.pk,
         )
@@ -421,13 +378,13 @@ def live_animal_sale_delete(request, pk):
         serializer.is_valid(raise_exception=True)
         sale = serializer.save()
         if returned:
-            notify_role(role_name="SIBAT", barangay_id=(sale.livestock or sale.batch).farmer.barangay_id,
-                notification_type=Notification.NotificationType.PRODUCTION,
-                title="Sale Resubmitted for Verification", message=f"Sale #{sale.pk} was corrected by its farmer.",
-                link=f"/sibat?tab=production&reviewType=SALE&reviewId={sale.pk}",
+            notify_role(role_name="MAO", barangay_id=(sale.livestock or sale.batch).farmer.barangay_id,
+                notification_type=Notification.NotificationType.GENERAL,
+                title="Sale Resubmitted", message=f"Sale #{sale.pk} was corrected by its farmer.",
+                link=f"/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
                 related_entity_type="livestock_sale", related_entity_id=sale.pk)
             notify_role(role_name="ADMIN", notification_type=Notification.NotificationType.GENERAL,
-                title="Sale Resubmitted for Verification", message=f"Sale #{sale.pk} was corrected by its farmer.",
+                title="Sale Resubmitted", message=f"Sale #{sale.pk} was corrected by its farmer.",
                 link=f"/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
                 related_entity_type="livestock_sale", related_entity_id=sale.pk)
         return Response(serializer.data)

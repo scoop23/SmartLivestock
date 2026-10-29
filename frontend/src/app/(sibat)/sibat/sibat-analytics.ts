@@ -773,35 +773,25 @@ export function useClinicalHealthRecords() {
 }
 
 export function useSibatSubmissions() {
-  const prodQuery = useProductionFromFarmers();
-  const salesQuery = useQuery({
-    queryKey: ["sibat-sales-records"],
-    queryFn: fetchSalesFromFarmers,
-    staleTime: 30_000,
-  });
   const invQuery = useInventoryFromFarmers();
   const batchQuery = useBatchesFromFarmers();
   const calvingQuery = useCalvingFromFarmers();
 
   const isLoading =
-    prodQuery.isLoading ||
     invQuery.isLoading ||
     batchQuery.isLoading ||
-    calvingQuery.isLoading || salesQuery.isLoading;
+    calvingQuery.isLoading;
   const isError =
-    prodQuery.isError ||
     invQuery.isError ||
     batchQuery.isError ||
-    calvingQuery.isError || salesQuery.isError;
+    calvingQuery.isError;
   const refetch = () =>
     Promise.all([
-      prodQuery.refetch(),
       invQuery.refetch(),
       batchQuery.refetch(),
-      calvingQuery.refetch(), salesQuery.refetch(),
+      calvingQuery.refetch(),
     ]);
 
-  const productionUnified = (prodQuery.data || []).map(mapProductionToUnified);
   const inventoryUnified = (invQuery.data || [])
     // Every individual animal is a review item, including members of a herd.
     // Legacy aggregate rows remain visible in the registry but cannot be
@@ -811,8 +801,6 @@ export function useSibatSubmissions() {
   const calvingUnified = (calvingQuery.data || []).map(mapCalvingToUnified);
 
   const allSubmissions: UnifiedSubmissionItem[] = [
-    ...(salesQuery.data || []),
-    ...productionUnified,
     ...calvingUnified,
     ...inventoryUnified,
   ].sort((a, b) => new Date(b.createdAt || b.recordDate).getTime() - new Date(a.createdAt || a.recordDate).getTime());
@@ -822,11 +810,9 @@ export function useSibatSubmissions() {
     isLoading,
     isError,
     failedSources: [
-      ...(prodQuery.isError ? ["production records"] : []),
       ...(invQuery.isError ? ["livestock registrations"] : []),
       ...(batchQuery.isError ? ["herd records"] : []),
       ...(calvingQuery.isError ? ["calving records"] : []),
-      ...(salesQuery.isError ? ["sales records"] : []),
     ],
     refetch,
   };
@@ -850,12 +836,11 @@ export function useReviewSubmission() {
       if (item.sourceType === "BATCH" || item.id.startsWith("batch-")) {
         throw new Error("Herds are grouping containers. Review their individual animals instead.");
       }
+      if (item.sourceType === "PRODUCTION" || item.sourceType === "SALE") {
+        throw new Error("Field inspectors only verify livestock inventory and birth records. Sales and production logs are handled by MAO.");
+      }
       let endpoint = `livestock/inventory/${item.rawId}/review/`;
-      if (item.sourceType === "PRODUCTION") {
-        endpoint = `production/records/${item.rawId}/review/`;
-      } else if (item.sourceType === "SALE") {
-        endpoint = `production/sales/${item.rawId}/review/`;
-      } else if (item.sourceType === "CALVING") {
+      if (item.sourceType === "CALVING") {
         endpoint = `production/calving/${item.rawId}/review/`;
       }
 
@@ -866,17 +851,12 @@ export function useReviewSubmission() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sibat-sales-records"] });
-      queryClient.invalidateQueries({ queryKey: ["sales_records"] });
-      queryClient.invalidateQueries({ queryKey: ["sibat-production-records"] });
       queryClient.invalidateQueries({ queryKey: ["sibat-calving-records"] });
       queryClient.invalidateQueries({ queryKey: ["calving_records"] });
       queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
       queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
-      queryClient.invalidateQueries({ queryKey: ["production_records"] });
-      queryClient.invalidateQueries({ queryKey: ["sibat-validation-production"] });
     },
   });
 }

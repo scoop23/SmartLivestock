@@ -937,7 +937,7 @@ function SibatReviewDialogContent({
             </Button>
           )}
 
-          {isPending && !isFarmerProduction ? (
+          {isPending && (submission.sourceType === "INVENTORY" || submission.sourceType === "CALVING") ? (
             <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <Button
                 type="button"
@@ -964,8 +964,8 @@ function SibatReviewDialogContent({
             </div>
           ) : (
             <span className="text-xs text-slate-500 font-medium italic text-center sm:text-right">
-              {isFarmerProduction
-                ? "Farmer production is visible for context only. This screen cannot verify or change its status."
+              {submission.sourceType === "SALE" || submission.sourceType === "PRODUCTION"
+                ? "Sales and production records are reviewed by MAO. Field reviewers verify livestock inventory and birth records."
                 : isReturned
                 ? "Awaiting farmer resubmission. SIBAT review becomes available when Pending."
                 : isVerified
