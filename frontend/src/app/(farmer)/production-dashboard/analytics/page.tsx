@@ -211,9 +211,84 @@ const FEED_TYPE_LABELS: Record<string, string> = {
   MINERALS: "Minerals & Supplements",
 };
 
+type AnalyticsDomain = "milk" | "meat" | "breeding" | "feeding" | "prescriptive";
+
+const DOMAIN_CONFIG: Record<
+  AnalyticsDomain,
+  {
+    title: string;
+    badge: string;
+    badgeClass: string;
+    icon: React.ReactNode;
+    description: string;
+  }
+> = {
+  milk: {
+    title: "Milk Production & Dairy Intelligence",
+    badge: "Dairy Sector",
+    badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    icon: <Milk className="size-6 sm:size-7 text-emerald-700 shrink-0" />,
+    description: "Daily milking session yields, supervised ML out-of-sample forecaster with Open-Meteo weather features, and 6-month dairy revenue trajectory.",
+  },
+  meat: {
+    title: "Meat Yield & Carcass Biomass",
+    badge: "Meat & Biomass",
+    badgeClass: "bg-amber-50 text-amber-800 border-amber-200",
+    icon: <Beef className="size-6 sm:size-7 text-amber-700 shrink-0" />,
+    description: "Recorded meat yields, live herd biomass, official DA carcass dressing percentage calculations, and 6-month meat output trajectory.",
+  },
+  breeding: {
+    title: "Breeding & Gestation Predictions",
+    badge: "Reproduction",
+    badgeClass: "bg-sky-50 text-sky-800 border-sky-200",
+    icon: <HeartHandshake className="size-6 sm:size-7 text-sky-700 shrink-0" />,
+    description: "Active gestations, expected calving countdowns (≤30 days), artificial insemination vs natural bull service, and pregnancy success rates.",
+  },
+  feeding: {
+    title: "Feeding & Nutrition Analytics",
+    badge: "Nutrition & Cost",
+    badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    icon: <Wheat className="size-6 sm:size-7 text-emerald-700 shrink-0" />,
+    description: "Herd daily feed intake trends, 14-day rolling averages, ration category breakdowns, and cumulative feed expenditure tracking.",
+  },
+  prescriptive: {
+    title: "Prescriptive Decision Support",
+    badge: "Decision Engine",
+    badgeClass: "bg-purple-50 text-purple-800 border-purple-200",
+    icon: <CheckCircle2 className="size-6 sm:size-7 text-purple-700 shrink-0" />,
+    description: "Rule-based farm prescriptions evaluated from live herd weights, breeding due dates, ration logs, vaccination history, and weather heat stress.",
+  },
+};
+
 export default function ProductionAnalyticsPage() {
-  const [activeTab, setActiveTab] = useState<"yields" | "breeding" | "feeding" | "forecasts">("yields");
+  const [selectedDomain, setSelectedDomain] = useState<AnalyticsDomain | null>(null);
   const [clockString, setClockString] = useState<string>("");
+
+  const handleSelectDomain = (domain: AnalyticsDomain | null) => {
+    setSelectedDomain(domain);
+    if (typeof window !== "undefined") {
+      const url = domain ? `/production-dashboard/analytics?domain=${domain}` : "/production-dashboard/analytics";
+      window.history.pushState({}, "", url);
+    }
+  };
+
+  useEffect(() => {
+    const syncDomainFromUrl = () => {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const domain = (params.get("domain") || params.get("type")) as AnalyticsDomain | null;
+        if (domain && ["milk", "meat", "breeding", "feeding", "prescriptive"].includes(domain)) {
+          setSelectedDomain(domain);
+        } else {
+          setSelectedDomain(null);
+        }
+      }
+    };
+
+    syncDomainFromUrl();
+    window.addEventListener("popstate", syncDomainFromUrl);
+    return () => window.removeEventListener("popstate", syncDomainFromUrl);
+  }, []);
 
   // Live Manila PHT clock (identical to /farmer)
   useEffect(() => {
@@ -415,8 +490,11 @@ export default function ProductionAnalyticsPage() {
 
   const projectedCarcassRevenue = Math.round(projectedCarcassKg * 280);
 
-  // Milk yield forecasting
+  // Milk & Meat yield forecasting
   const milkRecords = records.filter((r) => r.productionType === "milk");
+  const meatRecords = records.filter((r) => r.productionType === "meat");
+  const milkSummary = analytics.by_type["milk"]?.summary;
+  const meatSummary = analytics.by_type["meat"]?.summary;
   const totalMilkRecent = milkRecords.reduce((acc, r) => acc + Number(r.quantity), 0);
   const femaleCattleCount = activeAnimals.filter(
     (i) =>
@@ -484,7 +562,7 @@ export default function ProductionAnalyticsPage() {
       );
       return res.data;
     },
-    enabled: activeTab === "forecasts" && !!effectiveCowId,
+    enabled: (selectedDomain === "milk" || selectedDomain === "prescriptive" || selectedDomain === null) && !!effectiveCowId,
     retry: false,
   });
 
@@ -906,788 +984,789 @@ export default function ProductionAnalyticsPage() {
       {/* ── LIGHT AMBIENT MATRIX VIEWPORT (IDENTICAL TO /farmer) ─────────────── */}
       <div className="nexus-ambient-bg min-h-screen">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-          {/* ── TOP-LEFT NAVIGATION ACTIONS (ACTIVITIES & HISTORY) ───────────── */}
-          <div className="flex items-center gap-2">
-            <Button
-              asChild
-              variant="outline"
-              className="h-10 rounded-xl border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-xs font-bold shadow-xs cursor-pointer"
-            >
-              <Link href="/production-dashboard">
-                <ArrowLeft className="mr-1.5 size-4 text-slate-500" />
-                <span>Activities</span>
-              </Link>
-            </Button>
+          {/* ── DOMAIN TITLE HEADER (WHEN INSIDE A DOMAIN) ───────────────────── */}
+          {selectedDomain !== null && DOMAIN_CONFIG[selectedDomain] && (
+            <div className="space-y-1.5 pb-2 animate-in fade-in-50 duration-200">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className={`font-mono text-[10px] font-bold uppercase tracking-wider ${DOMAIN_CONFIG[selectedDomain].badgeClass}`}
+                >
+                  {DOMAIN_CONFIG[selectedDomain].badge}
+                </Badge>
+              </div>
+              <h1 className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
+                {DOMAIN_CONFIG[selectedDomain].icon}
+                <span>{DOMAIN_CONFIG[selectedDomain].title}</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-3xl leading-relaxed">
+                {DOMAIN_CONFIG[selectedDomain].description}
+              </p>
+            </div>
+          )}
+
+          {/* ── TOP NAVIGATION ACTIONS (ACTIVITIES ON LEFT, HISTORY ON RIGHT) ───────────── */}
+          <div className="flex items-center justify-between gap-2">
+            {selectedDomain !== null ? (
+              <Button
+                asChild
+                variant="outline"
+                className="h-10 rounded-xl border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-xs font-bold shadow-xs cursor-pointer"
+              >
+                <Link
+                  href="/production-dashboard/analytics"
+                  onClick={() => handleSelectDomain(null)}
+                >
+                  <ArrowLeft className="mr-1.5 size-4 text-slate-500" />
+                  <span>Activities</span>
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                asChild
+                variant="outline"
+                className="h-10 rounded-xl border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 text-xs font-bold shadow-xs cursor-pointer"
+              >
+                <Link href="/production-dashboard">
+                  <ArrowLeft className="mr-1.5 size-4 text-slate-500" />
+                  <span>Activities</span>
+                </Link>
+              </Button>
+            )}
             <Button
               asChild
               className="h-10 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-950 hover:bg-emerald-100 text-xs font-bold shadow-xs cursor-pointer"
             >
-              <Link href="/production-dashboard/history">
+              <Link
+                href={
+                  selectedDomain
+                    ? `/production-dashboard/history?domain=${selectedDomain}${
+                        selectedDomain === "milk" || selectedDomain === "meat" ? `&type=${selectedDomain}` : ""
+                      }`
+                    : "/production-dashboard/history?from=analytics"
+                }
+              >
                 <span>History</span>
                 <ArrowUpRight className="ml-1.5 size-4 text-emerald-700" />
               </Link>
             </Button>
           </div>
 
-          {/* ── DOMAIN SELECTION TABS (FUTURISTIC LIGHT CAROUSEL) ───────────── */}
-          <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/90 pb-3">
-            {[
-              { id: "yields", label: "Daily Output Yields", icon: Milk },
-              { id: "breeding", label: "Breeding & Gestation Predictions", icon: HeartHandshake },
-              { id: "feeding", label: "Feeding & Nutrition Analytics", icon: Wheat },
-              { id: "forecasts", label: "Predictive Projections (AI)", icon: LineChartIcon },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
+
+          {/* ── CONDITIONAL VIEWPORT: DOMAIN PICKER VS ACTIVE DOMAIN ─────────── */}
+          {selectedDomain === null ? (
+            <div className="space-y-6 animate-in fade-in-50 zoom-in-95 duration-300">
+              {/* Domain Picker Hero Banner */}
+              <div className="relative isolate overflow-hidden rounded-[28px] bg-[linear-gradient(120deg,#123b2c_0%,#1f593e_52%,#39734a_100%)] p-6 text-white shadow-[0_18px_50px_rgba(20,83,45,0.16)] sm:p-8">
+                <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-28 -z-10 size-80 rounded-full border-[36px] border-white/[0.06]" />
+                <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 right-1/4 -z-10 size-64 rounded-full bg-lime-200/[0.08] blur-2xl" />
+                <div className="max-w-2xl space-y-2">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-50">
+                    <Sparkles className="size-3.5 text-lime-300" /> Production Intelligence &amp; Forecasts
+                  </span>
+                  <h2 className="font-display text-2xl sm:text-3xl font-black tracking-tight text-white">
+                    Choose an Analytics Domain
+                  </h2>
+                  <p className="text-sm text-emerald-100/90 leading-relaxed font-medium">
+                    Pick a production sector or decision engine below to explore targeted performance indicators, supervised ML forecasts, and output projections.
+                  </p>
+                </div>
+              </div>
+
+              {/* Interactive Domain Selection Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {/* 1. Milk */}
                 <button
-                  key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all shadow-2xs cursor-pointer ${
-                    isActive
-                      ? "bg-emerald-800 text-white shadow-emerald-950/20"
-                      : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/90"
-                  }`}
+                  onClick={() => handleSelectDomain("milk")}
+                  className="group relative cursor-pointer overflow-hidden rounded-3xl border border-slate-200/90 bg-white p-6 text-left shadow-holo-card transition-all duration-300 hover:-translate-y-1.5 hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-950/10 active:scale-[0.99] flex flex-col justify-between"
                 >
-                  <Icon className="size-4" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* ── DYNAMIC 4 KPIS PER ACTIVE TAB ──────────────────────────────── */}
-          <section aria-label="Farm performance metrics" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {activeTab === "yields" && (
-              <>
-                <KpiCard
-                  title="Production Output"
-                  variant="emerald"
-                  icon={<Milk className="size-5" />}
-                  badge={`${totalCount} LOGS RECORDED`}
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
-                  value={
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {totalCount.toLocaleString()}
-                      </span>
-                      <span className="text-xs font-mono text-emerald-700 font-bold">Recorded Logs</span>
-                    </div>
-                  }
-                  description={`${totalCount} total production records logged`}
-                  wrapText
-                />
-
-                <KpiCard
-                  title="Active Output Streams"
-                  variant="sky"
-                  icon={<Layers className="size-5" />}
-                  badge={`${summaries.length} CATEGORIES`}
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
-                  value={
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {summaries.length}
-                      </span>
-                      <span className="text-xs font-mono text-sky-700 font-bold">Active Types</span>
-                    </div>
-                  }
-                  description="Distinct production harvest categories being logged"
-                  wrapText
-                />
-
-                <KpiCard
-                  title="Total Recorded Volume"
-                  variant="stone"
-                  icon={<Scale className="size-5" />}
-                  badge={`${summaries.length} ACTIVE OUTPUT TYPES`}
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200 tracking-wider"
-                  value={
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {formatQty(summaries.reduce((sum, s) => sum + (s.summary?.total || 0), 0))}
-                      </span>
-                      <span className="text-xs font-mono text-slate-700 font-bold">Units Total</span>
-                    </div>
-                  }
-                  description="Cumulative farm harvests across types"
-                  wrapText
-                />
-
-                <KpiCard
-                  title="Benchmark Farm Value"
-                  variant="sky"
-                  icon={<PhilippinePeso className="size-5" />}
-                  badge="OFFICIAL BENCHMARK"
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
-                  value={
-                    <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {totalEstimatedValue > 0 ? formatPeso(totalEstimatedValue) : "₱0"}
-                      </span>
-                    </div>
-                  }
-                  description="Indicative commercial output valuation"
-                  wrapText
-                />
-              </>
-            )}
-
-            {activeTab === "breeding" && (
-              <>
-                <KpiCard
-                  title="Pregnant Animals (Dams)"
-                  value={
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {isBreedingLoading ? "..." : (breedingAnalytics?.active_gestations ?? 0)}
-                      </span>
-                      <span className="text-xs font-mono text-emerald-700 font-bold">Dams Pregnant</span>
-                    </div>
-                  }
-                  icon={<HeartHandshake className="size-5" />}
-                  badge="PREGNANT / BRED"
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
-                  variant="emerald"
-                  description="Confirmed pregnant or awaiting check"
-                  wrapText
-                />
-
-                <KpiCard
-                  title="Due Soon (≤ 30 Days)"
-                  value={
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {isBreedingLoading ? "..." : (breedingAnalytics?.due_soon ?? 0)}
-                      </span>
-                      <span className="text-xs font-mono text-amber-700 font-bold">Giving Birth Soon</span>
-                    </div>
-                  }
-                  icon={<Clock className="size-5" />}
-                  badge="GIVING BIRTH SOON"
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
-                  variant="amber"
-                  description="Expected to give birth within 30 days"
-                  wrapText
-                />
-
-                <KpiCard
-                  title="Pregnancy Success Rate"
-                  value={
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {breedingAnalytics?.conception_rate_pct !== null && breedingAnalytics?.conception_rate_pct !== undefined
-                          ? `${breedingAnalytics.conception_rate_pct}%`
-                          : "—"}
-                      </span>
-                    </div>
-                  }
-                  icon={<TrendingUp className="size-5" />}
-                  badge={`${breedingAnalytics?.calved_count ?? 0} SUCCESSFUL BIRTHS`}
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
-                  variant="sky"
-                  description={`${breedingAnalytics?.total_records ?? 0} total breeding records logged`}
-                  wrapText
-                />
-
-                <KpiCard
-                  title="Breeding Methods"
-                  value={
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="font-display text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                        {breedingAnalytics
-                          ? `${breedingAnalytics.by_type.artificial_insemination} AI • ${breedingAnalytics.by_type.natural_service} Nat`
-                          : "—"}
-                      </span>
-                    </div>
-                  }
-                  icon={<Dna className="size-5" />}
-                  badge="AI VS NATURAL BULL"
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200 tracking-wider"
-                  variant="stone"
-                  description={`${breedingAnalytics?.by_type.embryo_transfer ?? 0} embryo transfers registered`}
-                  wrapText
-                />
-              </>
-            )}
-
-            {activeTab === "feeding" && (
-              <>
-                <KpiCard
-                  title="Total Feed Given"
-                  value={
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {isFeedingLoading ? "..." : (feedingAnalytics?.total_feed_kg || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
-                      </span>
-                      <span className="text-xs font-mono text-emerald-700 font-bold">kg Fed</span>
-                    </div>
-                  }
-                  icon={<Wheat className="size-5" />}
-                  badge="CUMULATIVE RATIONS"
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
-                  variant="emerald"
-                  description="Lifetime recorded feed weight"
-                  wrapText
-                />
-
-                <KpiCard
-                  title="Monthly Intake"
-                  value={
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {isFeedingLoading ? "..." : (feedingAnalytics?.current_month_feed_kg || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
-                      </span>
-                      <span className="text-xs font-mono text-amber-700 font-bold">kg</span>
-                    </div>
-                  }
-                  icon={<Calendar className="size-5" />}
-                  badge="CURRENT MONTH"
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
-                  variant="amber"
-                  description="Rations provided this calendar month"
-                  wrapText
-                />
-
-                <KpiCard
-                  title="Total Feed Cost"
-                  value={
-                    <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {isFeedingLoading
-                          ? "..."
-                          : `₱${(feedingAnalytics?.total_cost_php || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                      </span>
-                    </div>
-                  }
-                  icon={<DollarSign className="size-5" />}
-                  badge={
-                    feedingAnalytics?.current_month_cost_php
-                      ? `₱${Number(feedingAnalytics.current_month_cost_php).toLocaleString()} THIS MONTH`
-                      : "FEED EXPENDITURE"
-                  }
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
-                  variant="sky"
-                  description="Cumulative input ration expenditures"
-                  wrapText
-                />
-
-                <KpiCard
-                  title="Daily Average Ration"
-                  value={
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {feedingAnalytics?.daily_trend && feedingAnalytics.daily_trend.length > 0
-                          ? `${(
-                              feedingAnalytics.daily_trend.reduce((sum, d) => sum + d.quantity_kg, 0) /
-                              feedingAnalytics.daily_trend.length
-                            ).toFixed(1)}`
-                          : "—"}
-                      </span>
-                      <span className="text-xs font-mono text-slate-700 font-bold">kg/day</span>
-                    </div>
-                  }
-                  icon={<Scale className="size-5" />}
-                  badge="14-DAY AVERAGE"
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200 tracking-wider"
-                  variant="stone"
-                  description="Rolling herd daily consumption rate"
-                  wrapText
-                />
-              </>
-            )}
-
-            {activeTab === "forecasts" && (
-              <>
-                <KpiCard
-                  title="30-Day Milk Forecast"
-                  value={
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {liveForecast30DaysMilk.toLocaleString()}
-                      </span>
-                      <span className="text-xs font-mono text-emerald-700 font-bold">Liters</span>
-                    </div>
-                  }
-                  icon={<Milk className="size-5" />}
-                  badge={
-                    milkForecast?.status === "READY"
-                      ? `AI: ${(milkForecast.selected_model || "Random Forest").toUpperCase()}`
-                      : liveForecast30DaysMilk > 0
-                      ? "PREDICTED DAIRY YIELD"
-                      : "NO MILK LOGS"
-                  }
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
-                  variant="emerald"
-                  description={
-                    liveForecast30DaysMilk > 0
-                      ? "30-day projection from biological ML run-rate"
-                      : "Record daily milk sessions or run ML demo"
-                  }
-                  wrapText
-                />
-
-                <KpiCard
-                  title="30-Day Estimated Revenue"
-                  value={
-                    <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        ₱{liveForecast30DaysRevenue.toLocaleString()}
-                      </span>
-                    </div>
-                  }
-                  icon={<PhilippinePeso className="size-5" />}
-                  badge="@ ₱50/L BENCHMARK"
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
-                  variant="sky"
-                  description="Predicted gross monthly dairy cashflow"
-                  wrapText
-                />
-
-                <KpiCard
-                  title="Projected Meat Yield"
-                  value={
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {projectedCarcassKg.toLocaleString()}
-                      </span>
-                      <span className="text-xs font-mono text-amber-700 font-bold">kg Carcass</span>
-                    </div>
-                  }
-                  icon={<Beef className="size-5" />}
-                  badge={`DA DRESSING (${activeAnimals.length} ANIMALS)`}
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
-                  variant="amber"
-                  description="Dressing yield from live animal weights"
-                  wrapText
-                />
-
-                <KpiCard
-                  title="Commercial Meat Value"
-                  value={
-                    <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        ₱{projectedCarcassRevenue.toLocaleString()}
-                      </span>
-                    </div>
-                  }
-                  icon={<DollarSign className="size-5" />}
-                  badge="@ ₱280/kg BENCHMARK"
-                  badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200 tracking-wider"
-                  variant="stone"
-                  description="Padre Garcia municipal meat valuation"
-                  wrapText
-                />
-              </>
-            )}
-          </section>
-
-          {/* ── TAB 1: DAILY OUTPUT YIELDS (FILTERED BY OWNED SPECIES) ───────── */}
-          {activeTab === "yields" && (
-            <div className="space-y-6">
-              {/* Output Type Cards - EGGS AND WOOL ARE REMOVED UNLESS OWNED */}
-              <section aria-label="Output by production type" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {summaries.map(({ type, summary }) => {
-                  const Icon = TYPE_ICON[type];
-                  const isActive = activeType === type;
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setActiveType(type)}
-                      aria-pressed={isActive}
-                      className={`group rounded-2xl border p-4.5 text-left transition-all duration-200 cursor-pointer shadow-holo-card ${
-                        isActive
-                          ? "border-emerald-600 bg-emerald-950 text-white shadow-md shadow-emerald-950/15"
-                          : "border-slate-200/90 bg-white text-slate-900 hover:border-emerald-400 hover:bg-emerald-50/20"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span
-                          className={`flex size-11 items-center justify-center rounded-xl transition-all ${
-                            isActive
-                              ? "bg-white/10 text-emerald-300"
-                              : "bg-emerald-50 text-emerald-800 border border-emerald-100 group-hover:bg-emerald-100"
-                          }`}
-                        >
-                          <Icon className="size-5.5" />
-                        </span>
-                        <Sparkles className={`size-4 ${isActive ? "text-emerald-300" : "text-slate-300"}`} />
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex size-13 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100 group-hover:bg-emerald-100 group-hover:scale-105 transition-all">
+                        <Milk className="size-6.5" />
                       </div>
-
-                      <span className="mt-4 block font-mono text-[10px] font-bold uppercase tracking-wider opacity-75">
-                        {PRODUCTION_TYPE_LABELS[type]}
-                      </span>
-
-                      <span className="mt-1 block font-display text-2xl font-black tracking-tight">
-                        {summary?.has_records ? `${formatQty(summary.total)} ${PRODUCTION_TYPE_UNITS[type]}` : `0 ${PRODUCTION_TYPE_UNITS[type]}`}
-                      </span>
-
-                      <span className="mt-1 block font-mono text-xs opacity-70">
-                        {summary?.record_count ?? 0} {summary?.record_count === 1 ? "record" : "records"} logged
-                      </span>
-                    </button>
-                  );
-                })}
-              </section>
-
-              {totalCount === 0 ? (
-                <Card className="border-dashed border-slate-300 bg-white/95 rounded-3xl shadow-holo-card">
-                  <CardContent className="p-10 text-center space-y-3">
-                    <div className="size-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto">
-                      <Milk className="size-6" />
+                      <Badge variant="outline" className="font-mono text-[10px] font-bold bg-emerald-50 text-emerald-800 border-emerald-200 uppercase tracking-wider">
+                        Dairy Sector
+                      </Badge>
                     </div>
-                    <p className="font-display text-lg font-bold text-slate-900">No production logs recorded yet</p>
-                    <p className="mx-auto max-w-md text-xs text-slate-500 font-medium">
-                      Record daily milking yields, meat processing, or harvest outputs to activate live trend charts.
-                    </p>
-                    <Button asChild className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs cursor-pointer">
-                      <Link href="/production-dashboard">Go to Production Activities</Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-                  <ProductionCharts type={activeType} data={currentAnalytics} />
 
-                  <Card className="overflow-hidden rounded-3xl border-slate-200/90 bg-white/95 shadow-holo-card">
-                    <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-emerald-50/60 p-5">
-                      <CardTitle className="font-display text-base font-bold text-slate-900">
-                        Farm Output Breakdown
-                      </CardTitle>
-                      <CardDescription className="text-xs text-slate-500 font-medium">
-                        Live recorded yield logs and category summary for your farm.
-                      </CardDescription>
-                    </CardHeader>
-
-                    <CardContent className="space-y-3 p-5">
-                      {summaries.map((s) => {
-                        const total = s.summary?.total ?? 0;
-                        const label = PRODUCTION_TYPE_LABELS[s.type] ?? s.type;
-                        const count = s.summary?.record_count ?? 0;
-                        return (
-                          <div
-                            key={s.type}
-                            className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3"
-                          >
-                            <span className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                              <span className="size-2 rounded-full bg-emerald-500" />
-                              {label} ({count} {count === 1 ? "log" : "logs"})
-                            </span>
-                            <span className="font-mono text-sm font-black text-slate-950">
-                              {formatQty(total)} {PRODUCTION_TYPE_UNITS[s.type] ?? ""}
-                            </span>
-                          </div>
-                        );
-                      })}
-
-                      <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/80 via-white to-emerald-50/70 p-4 space-y-1">
-                        <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-sky-900">
-                          Active Metric Focus
-                        </p>
-                        <p className="font-display text-base font-black text-slate-950">
-                          {PRODUCTION_TYPE_LABELS[activeType]}
-                        </p>
-                        <p className="text-xs leading-relaxed text-slate-600 font-medium">
-                          Yield trend and indicative market revenue estimates update dynamically based on official municipal valuation rates.
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </section>
-              )}
-            </div>
-          )}
-
-          {/* ── TAB 2: BREEDING & GESTATION PREDICTIONS ──────────────────────── */}
-          {activeTab === "breeding" && (
-            <div className="space-y-6">
-              {/* Predictive Gestation Timeline Cards */}
-              <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
-                <CardHeader className="border-b border-slate-100 pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
-                        <Clock className="size-4.5 text-amber-600" />
-                        <span>Expected Delivery &amp; Birthing Timeline</span>
-                      </CardTitle>
-                      <CardDescription className="text-xs text-slate-500 font-medium">
-                        Birth countdown tracker based on species biological cycles (Cattle 283d, Carabao 310d, Goat 150d, Swine 114d)
-                      </CardDescription>
-                    </div>
-                    <Badge variant="outline" className="font-mono text-[10px] text-amber-800 bg-amber-50 border-amber-200">
-                      Predictive Model
-                    </Badge>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="p-5">
-                  {activePregnantList.length === 0 ? (
-                    <div className="text-center py-10 space-y-2">
-                      <HeartHandshake className="size-10 text-slate-300 mx-auto" />
-                      <p className="font-display font-bold text-sm text-slate-800">No active pregnancies recorded</p>
-                      <p className="text-xs text-slate-500 font-medium">
-                        Record mating or artificial insemination logs in the Breeding tab to track countdowns and expected due dates.
+                    <div className="space-y-1.5">
+                      <h3 className="font-display text-lg font-bold text-slate-900 group-hover:text-emerald-800 transition-colors">
+                        Milk Production &amp; Dairy Intelligence
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                        Daily milking session yields, supervised ML out-of-sample forecaster with Open-Meteo weather features, and 6-month dairy revenue trajectory.
                       </p>
                     </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200/80">
+                        {milkRecords.length} recorded logs
+                      </span>
+                      {milkForecast?.status === "READY" ? (
+                        <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          {liveForecast30DaysMilk > 0 ? `${liveForecast30DaysMilk.toLocaleString()} L 30d forecast` : "AI Forecaster Ready"}
+                        </span>
+                      ) : milkForecast?.status === "NOT_READY" ? (
+                        <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
+                          {`AI: Needs ${milkForecast.minimum_history_required || 7} daily logs (${milkForecast.observation_count ?? 0}/${milkForecast.minimum_history_required || 7})`}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
+                          AI: Needs 7 daily logs
+                        </span>
+                      )}
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200">
+                        ₱50/L benchmark
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-700 group-hover:text-emerald-800">
+                    <span>Explore Milk Analytics</span>
+                    <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </div>
+                </button>
+
+                {/* 2. Meat */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectDomain("meat")}
+                  className="group relative cursor-pointer overflow-hidden rounded-3xl border border-slate-200/90 bg-white p-6 text-left shadow-holo-card transition-all duration-300 hover:-translate-y-1.5 hover:border-amber-500 hover:shadow-xl hover:shadow-amber-950/10 active:scale-[0.99] flex flex-col justify-between"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex size-13 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 border border-amber-100 group-hover:bg-amber-100 group-hover:scale-105 transition-all">
+                        <Beef className="size-6.5" />
+                      </div>
+                      <Badge variant="outline" className="font-mono text-[10px] font-bold bg-amber-50 text-amber-800 border-amber-200 uppercase tracking-wider">
+                        Meat &amp; Biomass
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <h3 className="font-display text-lg font-bold text-slate-900 group-hover:text-amber-800 transition-colors">
+                        Meat Yield &amp; Carcass Biomass
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                        Recorded meat yields, live herd biomass, official DA carcass dressing percentage calculations, and 6-month meat output trajectory.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200/80">
+                        {meatRecords.length} meat logs
+                      </span>
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
+                        {totalLiveWeightKg.toLocaleString()} kg biomass
+                      </span>
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        {projectedCarcassKg.toLocaleString()} kg carcass
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-700 group-hover:text-amber-800">
+                    <span>Explore Meat Analytics</span>
+                    <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </div>
+                </button>
+
+                {/* 3. Breeding */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectDomain("breeding")}
+                  className="group relative cursor-pointer overflow-hidden rounded-3xl border border-slate-200/90 bg-white p-6 text-left shadow-holo-card transition-all duration-300 hover:-translate-y-1.5 hover:border-sky-500 hover:shadow-xl hover:shadow-sky-950/10 active:scale-[0.99] flex flex-col justify-between"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex size-13 items-center justify-center rounded-2xl bg-sky-50 text-sky-700 border border-sky-100 group-hover:bg-sky-100 group-hover:scale-105 transition-all">
+                        <HeartHandshake className="size-6.5" />
+                      </div>
+                      <Badge variant="outline" className="font-mono text-[10px] font-bold bg-sky-50 text-sky-800 border-sky-200 uppercase tracking-wider">
+                        Reproduction
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <h3 className="font-display text-lg font-bold text-slate-900 group-hover:text-sky-800 transition-colors">
+                        Breeding &amp; Gestation Predictions
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                        Active gestations, expected calving countdowns (≤30 days), artificial insemination vs natural bull service, and pregnancy success rates.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200">
+                        {breedingAnalytics?.active_gestations ?? 0} pregnant dams
+                      </span>
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
+                        {breedingAnalytics?.due_soon ?? 0} due soon
+                      </span>
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200/80">
+                        {breedingAnalytics?.conception_rate_pct != null ? `${breedingAnalytics.conception_rate_pct}% success` : "Gestation registry"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-sky-700 group-hover:text-sky-800">
+                    <span>Explore Breeding Analytics</span>
+                    <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </div>
+                </button>
+
+                {/* 4. Feeding */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectDomain("feeding")}
+                  className="group relative cursor-pointer overflow-hidden rounded-3xl border border-slate-200/90 bg-white p-6 text-left shadow-holo-card transition-all duration-300 hover:-translate-y-1.5 hover:border-emerald-600 hover:shadow-xl hover:shadow-emerald-950/10 active:scale-[0.99] flex flex-col justify-between"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex size-13 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100 group-hover:bg-emerald-100 group-hover:scale-105 transition-all">
+                        <Wheat className="size-6.5" />
+                      </div>
+                      <Badge variant="outline" className="font-mono text-[10px] font-bold bg-emerald-50 text-emerald-800 border-emerald-200 uppercase tracking-wider">
+                        Nutrition &amp; Cost
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <h3 className="font-display text-lg font-bold text-slate-900 group-hover:text-emerald-800 transition-colors">
+                        Feeding &amp; Nutrition Analytics
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                        Herd daily feed intake trends, 14-day rolling averages, ration category breakdowns, and cumulative feed expenditure tracking.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        {(feedingAnalytics?.total_feed_kg || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} kg fed
+                      </span>
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200">
+                        ₱{(feedingAnalytics?.total_cost_php || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} cost
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-700 group-hover:text-emerald-800">
+                    <span>Explore Feeding Analytics</span>
+                    <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </div>
+                </button>
+
+                {/* 5. Prescriptive */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectDomain("prescriptive")}
+                  className="group relative cursor-pointer overflow-hidden rounded-3xl border border-slate-200/90 bg-white p-6 text-left shadow-holo-card transition-all duration-300 hover:-translate-y-1.5 hover:border-purple-500 hover:shadow-xl hover:shadow-purple-950/10 active:scale-[0.99] flex flex-col justify-between"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex size-13 items-center justify-center rounded-2xl bg-purple-50 text-purple-700 border border-purple-100 group-hover:bg-purple-100 group-hover:scale-105 transition-all">
+                        <CheckCircle2 className="size-6.5" />
+                      </div>
+                      <Badge variant="outline" className="font-mono text-[10px] font-bold bg-purple-50 text-purple-800 border-purple-200 uppercase tracking-wider">
+                        Decision Engine
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <h3 className="font-display text-lg font-bold text-slate-900 group-hover:text-purple-800 transition-colors">
+                        Prescriptive Decision Support
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                        Rule-based farm prescriptions evaluated from live herd weights, breeding due dates, ration logs, vaccination history, and weather heat stress.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-purple-50 text-purple-800 border border-purple-200">
+                        {prescriptiveRecommendations.length} active rules
+                      </span>
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-rose-50 text-rose-800 border border-rose-200">
+                        {prescriptiveRecommendations.filter((r) => r.severity === "HIGH").length} high priority
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-purple-700 group-hover:text-purple-800">
+                    <span>Explore Prescriptive Actions</span>
+                    <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </div>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+
+
+              {/* ── DYNAMIC 4 KPIS PER ACTIVE DOMAIN ─────────────────────────── */}
+              <section aria-label="Farm performance metrics" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {selectedDomain === "milk" && (
+                  <>
+                    <KpiCard
+                      title="Milk Production Output"
+                      variant="emerald"
+                      icon={<Milk className="size-5" />}
+                      badge={`${milkSummary?.record_count ?? 0} LOGS RECORDED`}
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {formatQty(milkSummary?.total || 0)}
+                          </span>
+                          <span className="text-xs font-mono text-emerald-700 font-bold">Liters</span>
+                        </div>
+                      }
+                      description="Cumulative recorded farm milking output"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="30-Day Milk Forecast"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {liveForecast30DaysMilk.toLocaleString()}
+                          </span>
+                          <span className="text-xs font-mono text-emerald-700 font-bold">Liters</span>
+                        </div>
+                      }
+                      icon={<Milk className="size-5" />}
+                      badge={
+                        milkForecast?.status === "READY"
+                          ? `AI: ${(milkForecast.selected_model || "Random Forest").toUpperCase()}`
+                          : liveForecast30DaysMilk > 0
+                          ? "PREDICTED DAIRY YIELD"
+                          : "NO MILK LOGS"
+                      }
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
+                      variant="emerald"
+                      description={
+                        liveForecast30DaysMilk > 0
+                          ? "30-day projection from biological ML run-rate"
+                          : "Record daily milk sessions or run ML demo"
+                      }
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="30-Day Estimated Revenue"
+                      value={
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            ₱{liveForecast30DaysRevenue.toLocaleString()}
+                          </span>
+                        </div>
+                      }
+                      icon={<PhilippinePeso className="size-5" />}
+                      badge="@ ₱50/L BENCHMARK"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
+                      variant="sky"
+                      description="Predicted gross monthly dairy cashflow"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="Benchmark Dairy Value"
+                      variant="sky"
+                      icon={<PhilippinePeso className="size-5" />}
+                      badge="OFFICIAL BENCHMARK"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
+                      value={
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            ₱{Math.round((milkSummary?.total || 0) * 50).toLocaleString()}
+                          </span>
+                        </div>
+                      }
+                      description="Historical dairy revenue valuation (@ ₱50/L)"
+                      wrapText
+                    />
+                  </>
+                )}
+
+                {selectedDomain === "meat" && (
+                  <>
+                    <KpiCard
+                      title="Meat Production Output"
+                      variant="amber"
+                      icon={<Beef className="size-5" />}
+                      badge={`${meatSummary?.record_count ?? 0} LOGS RECORDED`}
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {formatQty(meatSummary?.total || 0)}
+                          </span>
+                          <span className="text-xs font-mono text-amber-700 font-bold">kg Dressed</span>
+                        </div>
+                      }
+                      description="Total recorded carcass / dressed meat logs"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="Total Live Biomass"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {totalLiveWeightKg.toLocaleString()}
+                          </span>
+                          <span className="text-xs font-mono text-emerald-700 font-bold">kg Live</span>
+                        </div>
+                      }
+                      icon={<Scale className="size-5" />}
+                      badge="HERD WEIGHT"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
+                      variant="emerald"
+                      description="Cumulative live weight across active herd"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="Dressed Carcass Yield"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {projectedCarcassKg.toLocaleString()}
+                          </span>
+                          <span className="text-xs font-mono text-amber-700 font-bold">kg</span>
+                        </div>
+                      }
+                      icon={<Beef className="size-5" />}
+                      badge="DA DRESSING RATES"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
+                      variant="amber"
+                      description="58% Cattle/Carabao • 74% Swine • 60% Goat"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="Commercial Carcass Value"
+                      value={
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            ₱{projectedCarcassRevenue.toLocaleString()}
+                          </span>
+                        </div>
+                      }
+                      icon={<PhilippinePeso className="size-5" />}
+                      badge="@ ₱280/kg BENCHMARK"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
+                      variant="sky"
+                      description="Padre Garcia farmgate dressed meat valuation"
+                      wrapText
+                    />
+                  </>
+                )}
+
+                {selectedDomain === "breeding" && (
+                  <>
+                    <KpiCard
+                      title="Pregnant Animals (Dams)"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {isBreedingLoading ? "..." : (breedingAnalytics?.active_gestations ?? 0)}
+                          </span>
+                          <span className="text-xs font-mono text-emerald-700 font-bold">Dams Pregnant</span>
+                        </div>
+                      }
+                      icon={<HeartHandshake className="size-5" />}
+                      badge="PREGNANT / BRED"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
+                      variant="emerald"
+                      description="Confirmed pregnant or awaiting check"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="Due Soon (≤ 30 Days)"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {isBreedingLoading ? "..." : (breedingAnalytics?.due_soon ?? 0)}
+                          </span>
+                          <span className="text-xs font-mono text-amber-700 font-bold">Giving Birth Soon</span>
+                        </div>
+                      }
+                      icon={<Clock className="size-5" />}
+                      badge="GIVING BIRTH SOON"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
+                      variant="amber"
+                      description="Expected to give birth within 30 days"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="Pregnancy Success Rate"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {breedingAnalytics?.conception_rate_pct !== null && breedingAnalytics?.conception_rate_pct !== undefined
+                              ? `${breedingAnalytics.conception_rate_pct}%`
+                              : "—"}
+                          </span>
+                        </div>
+                      }
+                      icon={<TrendingUp className="size-5" />}
+                      badge={`${breedingAnalytics?.calved_count ?? 0} SUCCESSFUL BIRTHS`}
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
+                      variant="sky"
+                      description={`${breedingAnalytics?.total_records ?? 0} total breeding records logged`}
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="Breeding Methods"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                            {breedingAnalytics
+                              ? `${breedingAnalytics.by_type.artificial_insemination} AI • ${breedingAnalytics.by_type.natural_service} Nat`
+                              : "—"}
+                          </span>
+                        </div>
+                      }
+                      icon={<Dna className="size-5" />}
+                      badge="AI VS NATURAL BULL"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200 tracking-wider"
+                      variant="stone"
+                      description={`${breedingAnalytics?.by_type.embryo_transfer ?? 0} embryo transfers registered`}
+                      wrapText
+                    />
+                  </>
+                )}
+
+                {selectedDomain === "feeding" && (
+                  <>
+                    <KpiCard
+                      title="Total Feed Given"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {isFeedingLoading ? "..." : (feedingAnalytics?.total_feed_kg || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                          </span>
+                          <span className="text-xs font-mono text-emerald-700 font-bold">kg Fed</span>
+                        </div>
+                      }
+                      icon={<Wheat className="size-5" />}
+                      badge="CUMULATIVE RATIONS"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
+                      variant="emerald"
+                      description="Lifetime recorded feed weight"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="Monthly Intake"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {isFeedingLoading ? "..." : (feedingAnalytics?.current_month_feed_kg || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                          </span>
+                          <span className="text-xs font-mono text-amber-700 font-bold">kg</span>
+                        </div>
+                      }
+                      icon={<Calendar className="size-5" />}
+                      badge="CURRENT MONTH"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
+                      variant="amber"
+                      description="Rations provided this calendar month"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="Total Feed Cost"
+                      value={
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {isFeedingLoading
+                              ? "..."
+                              : `₱${(feedingAnalytics?.total_cost_php || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          </span>
+                        </div>
+                      }
+                      icon={<DollarSign className="size-5" />}
+                      badge={
+                        feedingAnalytics?.current_month_cost_php
+                          ? `₱${Number(feedingAnalytics.current_month_cost_php).toLocaleString()} THIS MONTH`
+                          : "FEED EXPENDITURE"
+                      }
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
+                      variant="sky"
+                      description="Cumulative input ration expenditures"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="Daily Average Ration"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {feedingAnalytics?.daily_trend && feedingAnalytics.daily_trend.length > 0
+                              ? `${(
+                                  feedingAnalytics.daily_trend.reduce((sum, d) => sum + d.quantity_kg, 0) /
+                                  feedingAnalytics.daily_trend.length
+                                ).toFixed(1)}`
+                              : "—"}
+                          </span>
+                          <span className="text-xs font-mono text-slate-700 font-bold">kg/day</span>
+                        </div>
+                      }
+                      icon={<Scale className="size-5" />}
+                      badge="14-DAY AVERAGE"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200 tracking-wider"
+                      variant="stone"
+                      description="Rolling herd daily consumption rate"
+                      wrapText
+                    />
+                  </>
+                )}
+
+                {selectedDomain === "prescriptive" && (
+                  <>
+                    <KpiCard
+                      title="Active Prescriptions"
+                      variant="sky"
+                      icon={<CheckCircle2 className="size-5" />}
+                      badge={`${prescriptiveRecommendations.length} ACTIVE RULES`}
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {prescriptiveRecommendations.length}
+                          </span>
+                          <span className="text-xs font-mono text-sky-700 font-bold">Farm Rules</span>
+                        </div>
+                      }
+                      description="Evaluated from live herd weights &amp; forecasts"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="High Priority Actions"
+                      variant="rose"
+                      icon={<AlertTriangle className="size-5" />}
+                      badge="URGENT ATTENTION"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200 tracking-wider"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {prescriptiveRecommendations.filter((r) => r.severity === "HIGH").length}
+                          </span>
+                          <span className="text-xs font-mono text-rose-700 font-bold">Urgent Actions</span>
+                        </div>
+                      }
+                      description="Immediate intervention recommended"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="Actions Recommended"
+                      variant="amber"
+                      icon={<Clock className="size-5" />}
+                      badge="RECOMMENDED"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {prescriptiveRecommendations.filter((r) => r.severity === "MEDIUM").length}
+                          </span>
+                          <span className="text-xs font-mono text-amber-700 font-bold">Advisories</span>
+                        </div>
+                      }
+                      description="Recommended operational adjustments"
+                      wrapText
+                    />
+
+                    <KpiCard
+                      title="Optimal / Opportunities"
+                      variant="emerald"
+                      icon={<CheckCircle2 className="size-5" />}
+                      badge="OPTIMAL STATE"
+                      badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
+                      value={
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                            {prescriptiveRecommendations.filter((r) => r.severity === "OPTIMAL").length}
+                          </span>
+                          <span className="text-xs font-mono text-emerald-700 font-bold">Optimal</span>
+                        </div>
+                      }
+                      description="Positive market &amp; production benchmarks"
+                      wrapText
+                    />
+                  </>
+                )}
+              </section>
+
+              {/* ── DOMAIN 1: MILK INTELLIGENCE & FORECASTS ─────────────────────── */}
+              {selectedDomain === "milk" && (
+                <div className="space-y-6">
+                  {/* Milk Output & Breakdown */}
+                  {milkRecords.length === 0 ? (
+                    <Card className="border-dashed border-slate-300 bg-white/95 rounded-3xl shadow-holo-card">
+                      <CardContent className="p-8 text-center space-y-3">
+                        <div className="size-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto">
+                          <Milk className="size-6" />
+                        </div>
+                        <p className="font-display text-base font-bold text-slate-900">No milk logs recorded yet</p>
+                        <p className="mx-auto max-w-md text-xs text-slate-500 font-medium">
+                          Record daily milking yields to view live trend charts, or explore the Supervised ML Forecaster below.
+                        </p>
+                        <Button asChild className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs cursor-pointer">
+                          <Link href="/production-dashboard">Go to Production Activities</Link>
+                        </Button>
+                      </CardContent>
+                    </Card>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {activePregnantList.map((item) => {
-                        const progress = item.gestation_progress_pct ?? 0;
-                        const daysLeft = item.days_until_due;
-                        return (
-                          <div
-                            key={item.id}
-                            className="rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 space-y-3 hover:bg-white hover:shadow-xs transition-all"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-display font-black text-sm text-slate-900 flex items-center gap-1.5">
-                                <Tag className="size-3.5 text-emerald-600" />
-                                {item.dam_tag || `Dam #${item.dam}`}
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className={`font-mono text-[10px] font-bold ${
-                                  daysLeft !== undefined && daysLeft !== null && daysLeft <= 30
-                                    ? "bg-amber-100 text-amber-900 border-amber-300"
-                                    : "bg-emerald-100 text-emerald-800 border-emerald-200"
-                                }`}
-                              >
-                                {daysLeft !== undefined && daysLeft !== null
-                                  ? daysLeft <= 0
-                                    ? "Due / Overdue"
-                                    : `${daysLeft}d left`
-                                  : "In Progress"}
-                              </Badge>
-                            </div>
+                    <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+                      <ProductionCharts type="milk" data={analytics.by_type["milk"] ?? EMPTY_TYPE_ANALYTICS} />
 
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between text-[11px] text-slate-600 font-medium">
-                                <span>Pregnancy Progress</span>
-                                <span className="font-mono font-bold text-emerald-700">{progress}%</span>
-                              </div>
-                              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                                <div
-                                  className="bg-emerald-600 h-2 rounded-full transition-all"
-                                  style={{ width: `${Math.min(100, Math.max(5, progress))}%` }}
-                                />
-                              </div>
-                            </div>
+                      <Card className="overflow-hidden rounded-3xl border-slate-200/90 bg-white/95 shadow-holo-card">
+                        <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-emerald-50/60 p-5">
+                          <CardTitle className="font-display text-base font-bold text-slate-900">
+                            Dairy Output Breakdown
+                          </CardTitle>
+                          <CardDescription className="text-xs text-slate-500 font-medium">
+                            Live recorded milking logs and dairy revenue summary for your farm.
+                          </CardDescription>
+                        </CardHeader>
 
-                            <div className="text-[11px] text-slate-600 space-y-0.5 pt-1 border-t border-slate-200/60 font-mono">
-                              <p>Bred: {formatCalendarDate(item.breeding_date)} ({item.breeding_type})</p>
-                              <p>Expected Due: {item.expected_due_date ? formatCalendarDate(item.expected_due_date) : "—"}</p>
-                              {item.sire_tag_or_code && <p>Sire Code: {item.sire_tag_or_code}</p>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* ── TAB 3: FEEDING & NUTRITION TELEMETRY ─────────────────────────── */}
-          {activeTab === "feeding" && (
-            <div className="space-y-6">
-              {/* Feed Distribution Matrix */}
-              {feedingAnalytics?.by_feed_type && (
-                <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
-                  <CardHeader className="pb-3 border-b border-slate-100">
-                    <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
-                      <Layers className="size-4 text-amber-600" />
-                      <span>Ration Mix &amp; Category Expenditure Breakdown</span>
-                    </CardTitle>
-                    <CardDescription className="text-xs text-slate-500 font-medium">
-                      Nutritional allocation across forages, concentrates, byproducts, and minerals
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="p-5">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-                      {Object.entries(feedingAnalytics.by_feed_type).map(([key, data]) => {
-                        const total = feedingAnalytics.total_feed_kg || 1;
-                        const pct = Math.round((data.quantity_kg / total) * 100);
-                        return (
-                          <div
-                            key={key}
-                            className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 space-y-2 hover:bg-white hover:border-emerald-300 transition-all shadow-2xs"
-                          >
-                            <span className="text-xs font-bold text-slate-600 block truncate">
-                              {FEED_TYPE_LABELS[key] || data.label}
+                        <CardContent className="space-y-3 p-5">
+                          <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                            <span className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                              <span className="size-2 rounded-full bg-emerald-500" />
+                              Dairy Milk ({milkSummary?.record_count ?? 0} {milkSummary?.record_count === 1 ? "log" : "logs"})
                             </span>
-                            <p className="font-display text-xl font-black text-slate-900">
-                              {data.quantity_kg.toLocaleString(undefined, { maximumFractionDigits: 1 })}{" "}
-                              <span className="text-xs font-mono font-normal text-slate-500">kg</span>
+                            <span className="font-mono text-sm font-black text-slate-950">
+                              {formatQty(milkSummary?.total ?? 0)} L
+                            </span>
+                          </div>
+
+                          <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/80 via-white to-sky-50/70 p-4 space-y-1">
+                            <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
+                              Dairy Benchmark Metric
                             </p>
-                            <div className="flex items-center justify-between text-[11px] font-mono text-slate-600">
-                              <span>{pct}% share</span>
-                              {data.cost_php > 0 && (
-                                <span className="font-bold text-amber-700">₱{data.cost_php.toLocaleString()}</span>
-                              )}
-                            </div>
-                            <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                              <div className="bg-amber-600 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
-                            </div>
+                            <p className="font-display text-base font-black text-slate-950">
+                              ₱50.00 / Liter
+                            </p>
+                            <p className="text-xs leading-relaxed text-slate-600 font-medium">
+                              Daily yield trend and indicative market revenue estimates update dynamically based on official Padre Garcia municipal farmgate valuation rates.
+                            </p>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                        </CardContent>
+                      </Card>
+                    </section>
+                  )}
 
-              {isFeedingLoading ? (
-                <section aria-label="Loading feeding charts" className="grid gap-5 lg:grid-cols-2">
-                  <Skeleton className="h-[340px] rounded-3xl" />
-                  <Skeleton className="h-[340px] rounded-3xl" />
-                  <Skeleton className="h-[340px] rounded-3xl" />
-                  <Skeleton className="h-[340px] rounded-3xl" />
-                </section>
-              ) : isFeedingError || !feedingAnalytics ? (
-                <Card className="rounded-3xl border-rose-200 bg-rose-50/60 shadow-holo-card">
-                  <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
-                    <AlertTriangle className="size-8 text-rose-600" />
-                    <div>
-                      <p className="font-display font-bold text-slate-900">Feeding analytics could not be loaded</p>
-                      <p className="mt-1 text-xs text-slate-600">Retry to load the daily trends and feed category charts.</p>
-                    </div>
-                    <Button type="button" variant="outline" onClick={() => void refetchFeeding()}>
-                      <RefreshCw className="mr-2 size-4" /> Retry
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <>
-                  <section aria-label="Daily feeding trends" className="grid gap-5 lg:grid-cols-2">
-                    <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="font-display text-base font-bold text-slate-900">Daily Feed Intake</CardTitle>
-                        <CardDescription className="text-xs">Recorded feed quantity over the last 14 days (kg).</CardDescription>
-                      </CardHeader>
-                      <CardContent className="h-[280px] px-3 pb-4 sm:px-5">
-                        {feedingTrendChartData.some((point) => point.quantity_kg > 0) ? (
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={feedingTrendChartData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
-                              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
-                              <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                              <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(value: number) => `${value} kg`} />
-                              <Tooltip
-                                contentStyle={{ borderRadius: 12, borderColor: "#e2e8f0" }}
-                                formatter={(value) => [`${Number(value).toLocaleString()} kg`, "Feed logged"]}
-                              />
-                              <Line type="monotone" dataKey="quantity_kg" name="Feed logged" stroke="#059669" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        ) : (
-                          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-xs text-slate-500">
-                            No feeding quantities were logged in the last 14 days.
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="font-display text-base font-bold text-slate-900">Daily Recorded Feed Cost</CardTitle>
-                        <CardDescription className="text-xs">Cost amounts entered on feeding logs over the last 14 days.</CardDescription>
-                      </CardHeader>
-                      <CardContent className="h-[280px] px-3 pb-4 sm:px-5">
-                        {feedingTrendChartData.some((point) => point.cost_php > 0) ? (
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={feedingTrendChartData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
-                              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
-                              <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                              <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(value: number) => `₱${value}`} />
-                              <Tooltip
-                                contentStyle={{ borderRadius: 12, borderColor: "#e2e8f0" }}
-                                formatter={(value) => [`₱${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "Recorded cost"]}
-                              />
-                              <Line type="monotone" dataKey="cost_php" name="Recorded cost" stroke="#d97706" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        ) : (
-                          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-xs text-slate-500">
-                            No feeding costs were recorded in the last 14 days.
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </section>
-
-                  <section aria-label="Feed category charts" className="grid gap-5 lg:grid-cols-2">
-                    <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="font-display text-base font-bold text-slate-900">Quantity by Feed Type</CardTitle>
-                        <CardDescription className="text-xs">Cumulative logged feed quantity by ration category (kg).</CardDescription>
-                      </CardHeader>
-                      <CardContent className="h-[300px] px-3 pb-4 sm:px-5">
-                        {feedingTypeChartData.some((item) => item.quantity_kg > 0) ? (
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={feedingTypeChartData} layout="vertical" margin={{ top: 4, right: 16, left: 4, bottom: 4 }}>
-                              <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#e2e8f0" />
-                              <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(value: number) => `${value} kg`} />
-                              <YAxis type="category" dataKey="shortType" width={96} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                              <Tooltip
-                                contentStyle={{ borderRadius: 12, borderColor: "#e2e8f0" }}
-                                labelFormatter={(_label, payload) => payload?.[0]?.payload?.type || _label}
-                                formatter={(value) => [`${Number(value).toLocaleString()} kg`, "Feed logged"]}
-                              />
-                              <Bar dataKey="quantity_kg" name="Feed logged" fill="#059669" radius={[0, 6, 6, 0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        ) : (
-                          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-xs text-slate-500">
-                            Feed type totals will appear after feeding logs are recorded.
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="font-display text-base font-bold text-slate-900">Recorded Cost by Feed Type</CardTitle>
-                        <CardDescription className="text-xs">Cumulative costs entered on logs, grouped by ration category.</CardDescription>
-                      </CardHeader>
-                      <CardContent className="h-[300px] px-3 pb-4 sm:px-5">
-                        {feedingTypeChartData.some((item) => item.cost_php > 0) ? (
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={feedingTypeChartData} layout="vertical" margin={{ top: 4, right: 16, left: 4, bottom: 4 }}>
-                              <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#e2e8f0" />
-                              <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(value: number) => `₱${value}`} />
-                              <YAxis type="category" dataKey="shortType" width={96} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                              <Tooltip
-                                contentStyle={{ borderRadius: 12, borderColor: "#e2e8f0" }}
-                                labelFormatter={(_label, payload) => payload?.[0]?.payload?.type || _label}
-                                formatter={(value) => [`₱${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "Recorded cost"]}
-                              />
-                              <Bar dataKey="cost_php" name="Recorded cost" fill="#d97706" radius={[0, 6, 6, 0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        ) : (
-                          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-xs text-slate-500">
-                            No feeding cost amounts have been entered for these categories.
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </section>
-
-                  <p className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3 text-xs leading-relaxed text-amber-900">
-                    Charts show saved feeding logs. A day without a log does not prove that no feed was provided, and cost totals include only amounts entered on those logs.
-                  </p>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* ── TAB 4: PREDICTIVE PROJECTIONS & FORECASTING ──────────────────── */}
-          {activeTab === "forecasts" && (
-            <div className="space-y-6">
-              {/* 1. REAL MACHINE LEARNING DAIRY FORECASTING ENGINE */}
+                  {/* Supervised ML Out-of-Sample Milk Forecaster */}
               <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card overflow-hidden">
                 <CardHeader className="pb-4 border-b border-slate-100 bg-slate-50/50">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -2050,17 +2129,19 @@ export default function ProductionAnalyticsPage() {
                 </CardContent>
               </Card>
 
-              {/* 2. 6-MONTH HERD OUTPUT & REVENUE TRAJECTORY (BAR CHART) */}
+
+                  {/* 6-Month Projected Milk Output & Dairy Revenue Trajectory */}
+              {/* 2. 6-MONTH MILK OUTPUT & REVENUE TRAJECTORY (BAR CHART) */}
               <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
                 <CardHeader className="border-b border-slate-100 pb-3">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
                       <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
                         <BarChart3 className="size-4.5 text-emerald-600" />
-                        <span>6-Month Herd Output &amp; Revenue Trajectory</span>
+                        <span>6-Month Projected Milk Output &amp; Dairy Revenue Trajectory</span>
                       </CardTitle>
                       <CardDescription className="text-xs text-slate-500 font-medium">
-                        Multi-month projection combining live daily run-rates, finished carcass weight, and market benchmarks
+                        Multi-month projection combining live daily milk run-rates, calving due dates, and municipal dairy benchmarks
                       </CardDescription>
                     </div>
                     <Badge variant="outline" className="font-mono text-[10px] text-emerald-800 bg-emerald-50 border-emerald-200 w-fit">
@@ -2070,19 +2151,19 @@ export default function ProductionAnalyticsPage() {
                 </CardHeader>
 
                 <CardContent className="p-5 sm:p-6">
-                  {/* Brief Explanation of How the 6-Month Trajectory is Predicted */}
+                  {/* Brief Explanation of How the 6-Month Dairy Trajectory is Predicted */}
                   <div className="mb-5 rounded-2xl border border-slate-200/90 bg-slate-50/70 p-4 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-display text-xs font-bold text-slate-900 flex items-center gap-1.5">
                         <Sparkles className="size-3.5 text-emerald-600" />
-                        <span>How This 6-Month Trajectory Is Predicted</span>
+                        <span>How This 6-Month Dairy Trajectory Is Predicted</span>
                       </p>
                       <span className="font-mono text-[10px] font-semibold text-slate-500">
                         Deterministic Biological + ML Run-Rate Formula
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                       <div className="rounded-xl border border-emerald-200/80 bg-white p-3 space-y-1">
                         <p className="font-bold text-emerald-800 flex items-center gap-1.5">
                           <span className="size-2 rounded-full bg-[#10b981]" />
@@ -2100,16 +2181,6 @@ export default function ProductionAnalyticsPage() {
                         </p>
                         <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
                           Multiplies each month&apos;s projected milk liters by the Padre Garcia municipal dairy farmgate benchmark (<span className="font-mono font-semibold text-sky-800">Projected Liters × ₱50/L</span>) to estimate gross monthly dairy cashflow.
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl border border-amber-200/80 bg-white p-3 space-y-1">
-                        <p className="font-bold text-amber-800 flex items-center gap-1.5">
-                          <span className="size-2 rounded-full bg-[#f59e0b]" />
-                          3. Projected Monthly Meat (kg)
-                        </p>
-                        <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                          Projects each active animal&apos;s live weight forward using a <span className="font-mono font-semibold text-amber-800">+0.6 kg/day (+18 kg/mo)</span> Average Daily Gain (ADG), filters heads reaching finishing weight (<span className="font-mono">≥260kg</span> cattle, <span className="font-mono">≥80kg</span> swine, <span className="font-mono">≥25kg</span> goat), and applies DA carcass dressing rates (<span className="font-mono">58% / 74% / 60%</span>) across the 6-month window.
                         </p>
                       </div>
                     </div>
@@ -2134,14 +2205,498 @@ export default function ProductionAnalyticsPage() {
                         <Legend />
                         <Bar dataKey="projectedYield" name="Projected Milk Yield (L)" fill="#10b981" radius={[8, 8, 0, 0]} />
                         <Bar dataKey="projectedRevenue" name="Projected Milk Revenue (₱)" fill="#0ea5e9" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+                </div>
+              )}
+
+              {/* ── DOMAIN 2: MEAT BIOMASS & CARCASS PROJECTIONS ────────────────── */}
+              {selectedDomain === "meat" && (
+                <div className="space-y-6">
+                  {/* Meat Output & Breakdown */}
+                  {meatRecords.length === 0 ? (
+                    <Card className="border-dashed border-slate-300 bg-white/95 rounded-3xl shadow-holo-card">
+                      <CardContent className="p-8 text-center space-y-3">
+                        <div className="size-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center mx-auto">
+                          <Beef className="size-6" />
+                        </div>
+                        <p className="font-display text-base font-bold text-slate-900">No meat logs recorded yet</p>
+                        <p className="mx-auto max-w-md text-xs text-slate-500 font-medium">
+                          Record meat yields or review your live herd biomass and carcass dressing projections below.
+                        </p>
+                        <Button asChild className="rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs cursor-pointer">
+                          <Link href="/production-dashboard">Go to Production Activities</Link>
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+                      <ProductionCharts type="meat" data={analytics.by_type["meat"] ?? EMPTY_TYPE_ANALYTICS} />
+
+                      <Card className="overflow-hidden rounded-3xl border-slate-200/90 bg-white/95 shadow-holo-card">
+                        <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-amber-50/60 p-5">
+                          <CardTitle className="font-display text-base font-bold text-slate-900">
+                            Meat Output Breakdown
+                          </CardTitle>
+                          <CardDescription className="text-xs text-slate-500 font-medium">
+                            Live recorded carcass logs and meat valuation summary for your farm.
+                          </CardDescription>
+                        </CardHeader>
+
+                        <CardContent className="space-y-3 p-5">
+                          <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                            <span className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                              <span className="size-2 rounded-full bg-amber-500" />
+                              Carcass Meat ({meatSummary?.record_count ?? 0} {meatSummary?.record_count === 1 ? "log" : "logs"})
+                            </span>
+                            <span className="font-mono text-sm font-black text-slate-950">
+                              {formatQty(meatSummary?.total ?? 0)} kg
+                            </span>
+                          </div>
+
+                          <div className="rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/80 via-white to-sky-50/70 p-4 space-y-1">
+                            <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-amber-900">
+                              Meat Benchmark Metric
+                            </p>
+                            <p className="font-display text-base font-black text-slate-950">
+                              ₱280.00 / kg
+                            </p>
+                            <p className="text-xs leading-relaxed text-slate-600 font-medium">
+                              Yield trend and indicative market revenue estimates update dynamically based on official Padre Garcia municipal dressed meat valuation rates.
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </section>
+                  )}
+
+                  {/* Live Herd Biomass & Carcass Meat Projections Matrix */}
+              <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
+                <CardHeader className="pb-3 border-b border-slate-100">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                        <Beef className="size-4.5 text-amber-600" />
+                        <span>Live Herd Biomass &amp; Carcass Meat Projections</span>
+                      </CardTitle>
+                      <CardDescription className="text-xs text-slate-500 font-medium">
+                        DA livestock carcass dressing percentage calculations applied to measured live herd weights
+                      </CardDescription>
+                    </div>
+                    <Badge variant="outline" className="font-mono text-[10px] text-amber-800 bg-amber-50 border-amber-200 w-fit">
+                      {activeAnimals.length} Active Animals
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 space-y-1">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+                        Total Live Biomass
+                      </span>
+                      <p className="font-display text-2xl font-black text-slate-900">
+                        {totalLiveWeightKg.toLocaleString()} <span className="text-xs font-mono font-normal text-slate-500">kg</span>
+                      </p>
+                      <p className="text-[11px] text-slate-500 font-medium">Cumulative live herd weight</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-amber-200/80 bg-amber-50/50 p-4 space-y-1">
+                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider font-mono">
+                        Dressed Carcass Yield
+                      </span>
+                      <p className="font-display text-2xl font-black text-amber-950">
+                        {projectedCarcassKg.toLocaleString()} <span className="text-xs font-mono font-normal text-amber-700">kg</span>
+                      </p>
+                      <p className="text-[11px] text-amber-800 font-medium">
+                        58% Cattle/Carabao • 74% Swine • 60% Goat
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-sky-200/80 bg-sky-50/50 p-4 space-y-1">
+                      <span className="text-[11px] font-bold text-sky-800 uppercase tracking-wider font-mono">
+                        Commercial Farm Gate Value
+                      </span>
+                      <p className="font-display text-2xl font-black text-sky-950">
+                        ₱{projectedCarcassRevenue.toLocaleString()}
+                      </p>
+                      <p className="text-[11px] text-sky-800 font-medium">@ Padre Garcia benchmark ₱280/kg</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-4 space-y-1">
+                      <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider font-mono">
+                        Finish Ready Potential
+                      </span>
+                      <p className="font-display text-2xl font-black text-emerald-950">
+                        {activeAnimals.filter((a) => (a.weight || 0) >= 280).length} <span className="text-xs font-mono font-normal text-emerald-700">Heads</span>
+                      </p>
+                      <p className="text-[11px] text-emerald-800 font-medium">Heads reaching finishing weight (≥280kg)</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+
+                  {/* 6-Month Projected Meat Output Trajectory */}
+              {/* 2. 6-MONTH MEAT OUTPUT TRAJECTORY (BAR CHART) */}
+              <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
+                <CardHeader className="border-b border-slate-100 pb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                        <BarChart3 className="size-4.5 text-amber-600" />
+                        <span>6-Month Projected Meat Output Trajectory</span>
+                      </CardTitle>
+                      <CardDescription className="text-xs text-slate-500 font-medium">
+                        Multi-month projection combining measured animal weights, average daily gain (ADG), and DA carcass dressing rates
+                      </CardDescription>
+                    </div>
+                    <Badge variant="outline" className="font-mono text-[10px] text-amber-800 bg-amber-50 border-amber-200 w-fit">
+                      6-Month Horizon
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-5 sm:p-6">
+                  {/* Brief Explanation of How the 6-Month Meat Trajectory is Predicted */}
+                  <div className="mb-5 rounded-2xl border border-slate-200/90 bg-slate-50/70 p-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-display text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <Sparkles className="size-3.5 text-amber-600" />
+                        <span>How This 6-Month Meat Output Is Projected</span>
+                      </p>
+                      <span className="font-mono text-[10px] font-semibold text-slate-500">
+                        Biological ADG + Carcass Dressing Formula
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-amber-200/80 bg-white p-3 space-y-1 text-xs">
+                      <p className="font-bold text-amber-800 flex items-center gap-1.5">
+                        <span className="size-2 rounded-full bg-[#f59e0b]" />
+                        Projected Monthly Meat (kg)
+                      </p>
+                      <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                        Projects each active animal&apos;s live weight forward using a <span className="font-mono font-semibold text-amber-800">+0.6 kg/day (+18 kg/mo)</span> Average Daily Gain (ADG), filters heads reaching finishing weight (<span className="font-mono">≥260kg</span> cattle, <span className="font-mono">≥80kg</span> swine, <span className="font-mono">≥25kg</span> goat), and applies DA carcass dressing rates (<span className="font-mono">58% / 74% / 60%</span>) across the 6-month window.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="h-72 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={forecastData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="month" stroke="#64748b" fontSize={11} tickLine={false} />
+                        <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "rgba(255, 255, 255, 0.95)",
+                            borderRadius: "16px",
+                            border: "1px solid #e2e8f0",
+                            color: "#0f172a",
+                            fontSize: "12px",
+                            boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
+                          }}
+                        />
+                        <Legend />
                         <Bar dataKey="projectedMeatKg" name="Projected Monthly Meat (kg)" fill="#f59e0b" radius={[8, 8, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </CardContent>
               </Card>
+                </div>
+              )}
 
-              {/* 2B. REAL PRESCRIPTIVE DECISION SUPPORT & ACTIONABLE FARM RECOMMENDATIONS */}
+              {/* ── DOMAIN 3: BREEDING & GESTATION PREDICTIONS ──────────────────── */}
+              {selectedDomain === "breeding" && (
+                <div className="space-y-6">
+              <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
+                <CardHeader className="border-b border-slate-100 pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                        <Clock className="size-4.5 text-amber-600" />
+                        <span>Expected Delivery &amp; Birthing Timeline</span>
+                      </CardTitle>
+                      <CardDescription className="text-xs text-slate-500 font-medium">
+                        Birth countdown tracker based on species biological cycles (Cattle 283d, Carabao 310d, Goat 150d, Swine 114d)
+                      </CardDescription>
+                    </div>
+                    <Badge variant="outline" className="font-mono text-[10px] text-amber-800 bg-amber-50 border-amber-200">
+                      Predictive Model
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-5">
+                  {activePregnantList.length === 0 ? (
+                    <div className="text-center py-10 space-y-2">
+                      <HeartHandshake className="size-10 text-slate-300 mx-auto" />
+                      <p className="font-display font-bold text-sm text-slate-800">No active pregnancies recorded</p>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Record mating or artificial insemination logs in the Breeding tab to track countdowns and expected due dates.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {activePregnantList.map((item) => {
+                        const progress = item.gestation_progress_pct ?? 0;
+                        const daysLeft = item.days_until_due;
+                        return (
+                          <div
+                            key={item.id}
+                            className="rounded-2xl border border-slate-200/90 bg-slate-50/60 p-4 space-y-3 hover:bg-white hover:shadow-xs transition-all"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-display font-black text-sm text-slate-900 flex items-center gap-1.5">
+                                <Tag className="size-3.5 text-emerald-600" />
+                                {item.dam_tag || `Dam #${item.dam}`}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={`font-mono text-[10px] font-bold ${
+                                  daysLeft !== undefined && daysLeft !== null && daysLeft <= 30
+                                    ? "bg-amber-100 text-amber-900 border-amber-300"
+                                    : "bg-emerald-100 text-emerald-800 border-emerald-200"
+                                }`}
+                              >
+                                {daysLeft !== undefined && daysLeft !== null
+                                  ? daysLeft <= 0
+                                    ? "Due / Overdue"
+                                    : `${daysLeft}d left`
+                                  : "In Progress"}
+                              </Badge>
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-[11px] text-slate-600 font-medium">
+                                <span>Pregnancy Progress</span>
+                                <span className="font-mono font-bold text-emerald-700">{progress}%</span>
+                              </div>
+                              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className="bg-emerald-600 h-2 rounded-full transition-all"
+                                  style={{ width: `${Math.min(100, Math.max(5, progress))}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="text-[11px] text-slate-600 space-y-0.5 pt-1 border-t border-slate-200/60 font-mono">
+                              <p>Bred: {formatCalendarDate(item.breeding_date)} ({item.breeding_type})</p>
+                              <p>Expected Due: {item.expected_due_date ? formatCalendarDate(item.expected_due_date) : "—"}</p>
+                              {item.sire_tag_or_code && <p>Sire Code: {item.sire_tag_or_code}</p>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+                </div>
+              )}
+
+              {/* ── DOMAIN 4: FEEDING & NUTRITION TELEMETRY ─────────────────────── */}
+              {selectedDomain === "feeding" && (
+                <div className="space-y-6">
+              {feedingAnalytics?.by_feed_type && (
+                <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
+                  <CardHeader className="pb-3 border-b border-slate-100">
+                    <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                      <Layers className="size-4 text-amber-600" />
+                      <span>Ration Mix &amp; Category Expenditure Breakdown</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs text-slate-500 font-medium">
+                      Nutritional allocation across forages, concentrates, byproducts, and minerals
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="p-5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+                      {Object.entries(feedingAnalytics.by_feed_type).map(([key, data]) => {
+                        const total = feedingAnalytics.total_feed_kg || 1;
+                        const pct = Math.round((data.quantity_kg / total) * 100);
+                        return (
+                          <div
+                            key={key}
+                            className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 space-y-2 hover:bg-white hover:border-emerald-300 transition-all shadow-2xs"
+                          >
+                            <span className="text-xs font-bold text-slate-600 block truncate">
+                              {FEED_TYPE_LABELS[key] || data.label}
+                            </span>
+                            <p className="font-display text-xl font-black text-slate-900">
+                              {data.quantity_kg.toLocaleString(undefined, { maximumFractionDigits: 1 })}{" "}
+                              <span className="text-xs font-mono font-normal text-slate-500">kg</span>
+                            </p>
+                            <div className="flex items-center justify-between text-[11px] font-mono text-slate-600">
+                              <span>{pct}% share</span>
+                              {data.cost_php > 0 && (
+                                <span className="font-bold text-amber-700">₱{data.cost_php.toLocaleString()}</span>
+                              )}
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                              <div className="bg-amber-600 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {isFeedingLoading ? (
+                <section aria-label="Loading feeding charts" className="grid gap-5 lg:grid-cols-2">
+                  <Skeleton className="h-[340px] rounded-3xl" />
+                  <Skeleton className="h-[340px] rounded-3xl" />
+                  <Skeleton className="h-[340px] rounded-3xl" />
+                  <Skeleton className="h-[340px] rounded-3xl" />
+                </section>
+              ) : isFeedingError || !feedingAnalytics ? (
+                <Card className="rounded-3xl border-rose-200 bg-rose-50/60 shadow-holo-card">
+                  <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
+                    <AlertTriangle className="size-8 text-rose-600" />
+                    <div>
+                      <p className="font-display font-bold text-slate-900">Feeding analytics could not be loaded</p>
+                      <p className="mt-1 text-xs text-slate-600">Retry to load the daily trends and feed category charts.</p>
+                    </div>
+                    <Button type="button" variant="outline" onClick={() => void refetchFeeding()}>
+                      <RefreshCw className="mr-2 size-4" /> Retry
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <section aria-label="Daily feeding trends" className="grid gap-5 lg:grid-cols-2">
+                    <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="font-display text-base font-bold text-slate-900">Daily Feed Intake</CardTitle>
+                        <CardDescription className="text-xs">Recorded feed quantity over the last 14 days (kg).</CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[280px] px-3 pb-4 sm:px-5">
+                        {feedingTrendChartData.some((point) => point.quantity_kg > 0) ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={feedingTrendChartData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                              <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(value: number) => `${value} kg`} />
+                              <Tooltip
+                                contentStyle={{ borderRadius: 12, borderColor: "#e2e8f0" }}
+                                formatter={(value) => [`${Number(value).toLocaleString()} kg`, "Feed logged"]}
+                              />
+                              <Line type="monotone" dataKey="quantity_kg" name="Feed logged" stroke="#059669" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-xs text-slate-500">
+                            No feeding quantities were logged in the last 14 days.
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="font-display text-base font-bold text-slate-900">Daily Recorded Feed Cost</CardTitle>
+                        <CardDescription className="text-xs">Cost amounts entered on feeding logs over the last 14 days.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[280px] px-3 pb-4 sm:px-5">
+                        {feedingTrendChartData.some((point) => point.cost_php > 0) ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={feedingTrendChartData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                              <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(value: number) => `₱${value}`} />
+                              <Tooltip
+                                contentStyle={{ borderRadius: 12, borderColor: "#e2e8f0" }}
+                                formatter={(value) => [`₱${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "Recorded cost"]}
+                              />
+                              <Line type="monotone" dataKey="cost_php" name="Recorded cost" stroke="#d97706" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-xs text-slate-500">
+                            No feeding costs were recorded in the last 14 days.
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </section>
+
+                  <section aria-label="Feed category charts" className="grid gap-5 lg:grid-cols-2">
+                    <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="font-display text-base font-bold text-slate-900">Quantity by Feed Type</CardTitle>
+                        <CardDescription className="text-xs">Cumulative logged feed quantity by ration category (kg).</CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[300px] px-3 pb-4 sm:px-5">
+                        {feedingTypeChartData.some((item) => item.quantity_kg > 0) ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={feedingTypeChartData} layout="vertical" margin={{ top: 4, right: 16, left: 4, bottom: 4 }}>
+                              <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(value: number) => `${value} kg`} />
+                              <YAxis type="category" dataKey="shortType" width={96} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                              <Tooltip
+                                contentStyle={{ borderRadius: 12, borderColor: "#e2e8f0" }}
+                                labelFormatter={(_label, payload) => payload?.[0]?.payload?.type || _label}
+                                formatter={(value) => [`${Number(value).toLocaleString()} kg`, "Feed logged"]}
+                              />
+                              <Bar dataKey="quantity_kg" name="Feed logged" fill="#059669" radius={[0, 6, 6, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-xs text-slate-500">
+                            Feed type totals will appear after feeding logs are recorded.
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="font-display text-base font-bold text-slate-900">Recorded Cost by Feed Type</CardTitle>
+                        <CardDescription className="text-xs">Cumulative costs entered on logs, grouped by ration category.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[300px] px-3 pb-4 sm:px-5">
+                        {feedingTypeChartData.some((item) => item.cost_php > 0) ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={feedingTypeChartData} layout="vertical" margin={{ top: 4, right: 16, left: 4, bottom: 4 }}>
+                              <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(value: number) => `₱${value}`} />
+                              <YAxis type="category" dataKey="shortType" width={96} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                              <Tooltip
+                                contentStyle={{ borderRadius: 12, borderColor: "#e2e8f0" }}
+                                labelFormatter={(_label, payload) => payload?.[0]?.payload?.type || _label}
+                                formatter={(value) => [`₱${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "Recorded cost"]}
+                              />
+                              <Bar dataKey="cost_php" name="Recorded cost" fill="#d97706" radius={[0, 6, 6, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center text-xs text-slate-500">
+                            No feeding cost amounts have been entered for these categories.
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </section>
+
+                  <p className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3 text-xs leading-relaxed text-amber-900">
+                    Charts show saved feeding logs. A day without a log does not prove that no feed was provided, and cost totals include only amounts entered on those logs.
+                  </p>
+                </>
+              )}
+
+                </div>
+              )}
+
+              {/* ── DOMAIN 5: PRESCRIPTIVE DECISION SUPPORT (DEDICATED TAB) ─────── */}
+              {selectedDomain === "prescriptive" && (
+                <div className="space-y-6">
               <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card overflow-hidden">
                 <CardHeader className="pb-3 border-b border-slate-100 bg-gradient-to-r from-emerald-50/70 via-white to-amber-50/50">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -2262,73 +2817,10 @@ export default function ProductionAnalyticsPage() {
                 </CardContent>
               </Card>
 
-              {/* 3. REAL HERD MEAT FINISHING & CARCASS BIOMASS MATRIX */}
-              <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
-                <CardHeader className="pb-3 border-b border-slate-100">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div>
-                      <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
-                        <Beef className="size-4.5 text-amber-600" />
-                        <span>Live Herd Biomass &amp; Carcass Meat Projections</span>
-                      </CardTitle>
-                      <CardDescription className="text-xs text-slate-500 font-medium">
-                        DA livestock carcass dressing percentage calculations applied to measured live herd weights
-                      </CardDescription>
-                    </div>
-                    <Badge variant="outline" className="font-mono text-[10px] text-amber-800 bg-amber-50 border-amber-200 w-fit">
-                      {activeAnimals.length} Active Animals
-                    </Badge>
-                  </div>
-                </CardHeader>
+                </div>
+              )}
 
-                <CardContent className="p-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 space-y-1">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider font-mono">
-                        Total Live Biomass
-                      </span>
-                      <p className="font-display text-2xl font-black text-slate-900">
-                        {totalLiveWeightKg.toLocaleString()} <span className="text-xs font-mono font-normal text-slate-500">kg</span>
-                      </p>
-                      <p className="text-[11px] text-slate-500 font-medium">Cumulative live herd weight</p>
-                    </div>
-
-                    <div className="rounded-2xl border border-amber-200/80 bg-amber-50/50 p-4 space-y-1">
-                      <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider font-mono">
-                        Dressed Carcass Yield
-                      </span>
-                      <p className="font-display text-2xl font-black text-amber-950">
-                        {projectedCarcassKg.toLocaleString()} <span className="text-xs font-mono font-normal text-amber-700">kg</span>
-                      </p>
-                      <p className="text-[11px] text-amber-800 font-medium">
-                        58% Cattle/Carabao • 74% Swine • 60% Goat
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-sky-200/80 bg-sky-50/50 p-4 space-y-1">
-                      <span className="text-[11px] font-bold text-sky-800 uppercase tracking-wider font-mono">
-                        Commercial Farm Gate Value
-                      </span>
-                      <p className="font-display text-2xl font-black text-sky-950">
-                        ₱{projectedCarcassRevenue.toLocaleString()}
-                      </p>
-                      <p className="text-[11px] text-sky-800 font-medium">@ Padre Garcia benchmark ₱280/kg</p>
-                    </div>
-
-                    <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-4 space-y-1">
-                      <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider font-mono">
-                        Finish Ready Potential
-                      </span>
-                      <p className="font-display text-2xl font-black text-emerald-950">
-                        {activeAnimals.filter((a) => (a.weight || 0) >= 280).length} <span className="text-xs font-mono font-normal text-emerald-700">Heads</span>
-                      </p>
-                      <p className="text-[11px] text-emerald-800 font-medium">Heads reaching finishing weight (≥280kg)</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* 4. PREDICTIVE MODELS & ARCHITECTURE OVERVIEW */}
+              {/* ── COMMON FOOTER: PREDICTIVE MODELS & ALGORITHMIC OVERVIEW ─────── */}
               <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card">
                 <CardHeader className="pb-3 border-b border-slate-100">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -2390,6 +2882,7 @@ export default function ProductionAnalyticsPage() {
                   </div>
                 </CardContent>
               </Card>
+
             </div>
           )}
         </div>

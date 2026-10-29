@@ -15,10 +15,19 @@ const PRODUCTION_TYPES: ProductionType[] = ["milk", "meat", "eggs", "wool"];
 function ProductionHistoryPageContent() {
   const searchParams = useSearchParams();
   const requestedType = searchParams.get("type")?.toLowerCase();
+  const domainParam = searchParams.get("domain")?.toLowerCase();
+  const fromParam = searchParams.get("from")?.toLowerCase();
   const typeFilter = requestedType && PRODUCTION_TYPES.includes(requestedType as ProductionType)
     ? requestedType as ProductionType
     : "ALL";
   const title = typeFilter === "ALL" ? "Production History" : `${typeFilter.charAt(0).toUpperCase()}${typeFilter.slice(1)} Production Records`;
+
+  const backHref = domainParam
+    ? `/production-dashboard/analytics?domain=${encodeURIComponent(domainParam)}`
+    : fromParam === "analytics"
+    ? "/production-dashboard/analytics"
+    : "/production-dashboard";
+
   return (
     <>
       <PageHeader
@@ -29,7 +38,7 @@ function ProductionHistoryPageContent() {
       />
 
       <div className="p-4 md:p-8 w-full space-y-6">
-        <Link href="/production-dashboard" className="inline-flex">
+        <Link href={backHref} className="inline-flex">
           <Button type="button" variant="outline" className="min-h-11 gap-2 rounded-xl border-slate-300 bg-white px-4 text-slate-700 hover:bg-slate-50">
             <ArrowLeft className="size-4" /> Back to activities
           </Button>
