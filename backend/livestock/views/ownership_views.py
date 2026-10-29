@@ -61,9 +61,11 @@ def ownership_transfer_farmer_list(request):
 @permission_classes([IsAuthenticated])
 def ownership_transfer_farmer_detail(request, farmer_id):
     """Resolve a scanned SL-FARMER profile QR to an approved Farmer account."""
-    if role_name(request.user) != "AUCTION":
-        return Response({"detail": "Only Auction staff can look up transfer sellers."}, status=status.HTTP_403_FORBIDDEN)
-    farmer = _auction_farmer_queryset().filter(pk=farmer_id).first()
+    actor_role = role_name(request.user)
+    if actor_role not in {"AUCTION", "SIBAT", "CBAT", "MAO", "ADMIN"}:
+        return Response({"detail": "Only authorized staff can look up Farmer profiles."}, status=status.HTTP_403_FORBIDDEN)
+    qs = scope_reviewer_queryset(_auction_farmer_queryset(), request.user, "barangay_id") if actor_role in {"SIBAT", "CBAT"} else _auction_farmer_queryset()
+    farmer = qs.filter(pk=farmer_id).first()
     if farmer is None:
         return Response({"detail": "No approved Farmer profile matches this QR code."}, status=status.HTTP_404_NOT_FOUND)
     return Response(_farmer_lookup_data(farmer))
@@ -73,9 +75,11 @@ def ownership_transfer_farmer_detail(request, farmer_id):
 @permission_classes([IsAuthenticated])
 def ownership_transfer_farmer_livestock(request, farmer_id):
     """Return only that approved Farmer's eligible individual animals for sale selection."""
-    if role_name(request.user) != "AUCTION":
-        return Response({"detail": "Only Auction staff can view seller livestock for transfer."}, status=status.HTTP_403_FORBIDDEN)
-    farmer = _auction_farmer_queryset().filter(pk=farmer_id).first()
+    actor_role = role_name(request.user)
+    if actor_role not in {"AUCTION", "SIBAT", "CBAT", "MAO", "ADMIN"}:
+        return Response({"detail": "Only authorized staff can view Farmer livestock."}, status=status.HTTP_403_FORBIDDEN)
+    qs = scope_reviewer_queryset(_auction_farmer_queryset(), request.user, "barangay_id") if actor_role in {"SIBAT", "CBAT"} else _auction_farmer_queryset()
+    farmer = qs.filter(pk=farmer_id).first()
     if farmer is None:
         return Response({"detail": "No approved Farmer profile matches this ID."}, status=status.HTTP_404_NOT_FOUND)
     sale_intents = AnimalDisposition.objects.filter(

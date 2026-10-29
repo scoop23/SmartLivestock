@@ -60,7 +60,7 @@ export interface UniversalQrScannerDialogProps {
 
 interface ScannedRecord {
   code: string;
-  type: "BATCH" | "INDIVIDUAL" | "PERMIT";
+  type: "BATCH" | "INDIVIDUAL" | "PERMIT" | "FARMER";
   title: string;
   specie: string;
   breed?: string;
@@ -77,6 +77,7 @@ interface ScannedRecord {
   ageClassification?: string;
   photoUrl?: string | null;
   livestockId?: number;
+  farmerId?: number;
   eligible?: boolean;
   biosecurity: "CLEARED" | "FLAGGED" | "UNKNOWN";
   lastVaccination?: string;
@@ -86,6 +87,16 @@ interface ScannedRecord {
   ownerPhone?: string;
   dateRegistered?: string;
   ineligibilityReason?: string;
+}
+
+interface FarmerProfileLookupRecord {
+  id: number;
+  name: string;
+  username: string;
+  email: string;
+  rsbsa_number: string;
+  address: string;
+  barangay: string;
 }
 
 interface BatchLookupRecord {
@@ -281,10 +292,67 @@ export function UniversalQrScannerDialog({
       if (lookupInFlight.current) return;
 
       // Farmer profile QRs identify an account first
-      const farmerQr = input.match(/^SL-FARMER:(\d+)$/i);
-      if (farmerQr && onSelectFarmer) {
-        onSelectFarmer(Number(farmerQr[1]));
-        handleDialogOpenChange(false);
+      const farmerQr = input.match(/^SL-FARMER:(\d+)$/i) || (onSelectFarmer ? input.match(/^(\d+)$/) : null);
+      if (farmerQr) {
+        const farmerId = Number(farmerQr[1]);
+        if (onSelectFarmer) {
+          onSelectFarmer(farmerId);
+          handleDialogOpenChange(false);
+          return;
+        }
+        const requestId = ++lookupRequestId.current;
+        lookupInFlight.current = true;
+        setIsSearching(true);
+        setError("");
+        setActiveResult(null);
+        try {
+          const [farmerRes, livestockRes] = await Promise.all([
+            api.get<FarmerProfileLookupRecord>(`livestock/ownership-transfer-farmers/${farmerId}/`),
+            api.get< unknown[] >(`livestock/ownership-transfer-farmers/${farmerId}/livestock/`).catch(() => ({ data: [] as unknown[] })),
+          ]);
+          if (requestId !== lookupRequestId.current) return;
+          const farmer = farmerRes.data;
+          stopCamera();
+          setActiveResult({
+            code: `SL-FARMER:${farmer.id}`,
+            type: "FARMER",
+            title: farmer.name,
+            specie: "Farmer Account",
+            breed: farmer.rsbsa_number || "RSBSA Not Recorded",
+            sex: farmer.username,
+            owner: farmer.name,
+            barangay: farmer.barangay || "Not recorded",
+            headCount: Array.isArray(livestockRes.data) ? livestockRes.data.length : 0,
+            operationalStatus: "APPROVED",
+            registrationStatus: "Approved Farmer",
+            biosecurity: "UNKNOWN",
+            farmerId: farmer.id,
+            eligible: true,
+            details: "Approved Farmer profile. Open Record Transfer to review eligible livestock for this seller.",
+            ownershipCertificateNumber: farmer.rsbsa_number || `FARMER-${farmer.id}`,
+            ownerPhone: farmer.email || farmer.username,
+            linkUrl:
+              isAuction
+                ? `/auction-ownership-transfers?farmerId=${encodeURIComponent(String(farmer.id))}`
+                : role === "sibat"
+                ? `/sibat/livestock-monitoring`
+                : `/farmer-management`,
+          });
+        } catch (cause: unknown) {
+          if (requestId !== lookupRequestId.current) return;
+          setActiveResult(null);
+          if (axios.isAxiosError(cause)) {
+            const detail = (cause.response?.data as { detail?: string } | undefined)?.detail;
+            setError(detail || "No approved Farmer profile matches this QR code.");
+          } else {
+            setError("No approved Farmer profile matches this QR code.");
+          }
+        } finally {
+          if (requestId === lookupRequestId.current) {
+            lookupInFlight.current = false;
+            setIsSearching(false);
+          }
+        }
         return;
       }
 
@@ -644,16 +712,16 @@ export function UniversalQrScannerDialog({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto rounded-3xl p-5 sm:max-w-xl sm:p-6 bg-white border border-slate-100 shadow-2xl">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] max-h-[94dvh] overflow-y-auto overflow-x-hidden rounded-2xl sm:rounded-3xl p-4 sm:w-[92vw] sm:max-w-2xl md:max-w-3xl sm:p-6 bg-white border border-slate-100 shadow-2xl">
         {/* Header */}
-        <DialogHeader className="space-y-1 pb-1">
+        <DialogHeader className="space-y-1 pb-1 pr-6 text-left">
           <div className="flex items-center gap-2">
             <QrCode className={`size-5 ${theme.headerIcon} shrink-0`} />
-            <DialogTitle className="text-base sm:text-lg font-bold text-slate-900">
+            <DialogTitle className="text-base sm:text-xl font-bold text-slate-900">
               {onSelectFarmer ? "Find a Farmer Profile" : "Scan registered livestock"}
             </DialogTitle>
           </div>
-          <DialogDescription className="text-xs text-slate-500 leading-relaxed">
+          <DialogDescription className="text-xs sm:text-sm text-slate-500 leading-relaxed">
             {onSelectFarmer
               ? "Scan the seller's Farmer profile QR, or enter its Farmer ID. SmartLivestock checks the current account record."
               : "Scan or enter a livestock identifier. SmartLivestock checks the current registry record; the QR does not approve a movement."}
@@ -883,7 +951,7 @@ export function UniversalQrScannerDialog({
                   ? "Enter Farmer Profile ID or QR value"
                   : "Enter Tag Number or Inventory ID"}
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   value={scanInput}
                   onChange={(event) => setScanInput(event.target.value)}
@@ -904,7 +972,7 @@ export function UniversalQrScannerDialog({
                   type="button"
                   onClick={() => void handleLookup(scanInput)}
                   disabled={!scanInput.trim() || isSearching}
-                  className={`h-11 rounded-xl ${theme.lookupButton} font-semibold px-5 gap-1.5 shrink-0 shadow-2xs cursor-pointer`}
+                  className={`h-11 w-full sm:w-auto rounded-xl ${theme.lookupButton} font-semibold px-5 gap-1.5 shrink-0 shadow-2xs cursor-pointer`}
                 >
                   {isSearching ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -941,19 +1009,23 @@ export function UniversalQrScannerDialog({
           /* STATE 2: LIVESTOCK RECORD FOUND VIEW */
           <div className="space-y-4 pt-1">
             {/* Green Success Banner */}
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-3.5 flex items-center justify-between gap-3">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="size-8 rounded-full bg-emerald-600 flex items-center justify-center text-white shrink-0 shadow-2xs">
                   <Check className="size-5 stroke-[2.5]" />
                 </div>
                 <div className="min-w-0">
                   <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
-                    {activeResult.type === "BATCH"
+                    {activeResult.type === "FARMER"
+                      ? "Farmer profile found"
+                      : activeResult.type === "BATCH"
                       ? "Batch record found"
                       : "Livestock record found"}
                   </h4>
                   <p className="text-[11px] text-slate-600 mt-0.5 truncate">
-                    {activeResult.type === "BATCH"
+                    {activeResult.type === "FARMER"
+                      ? `${activeResult.owner} (${activeResult.code}) is an approved Farmer account.`
+                      : activeResult.type === "BATCH"
                       ? `Batch ${activeResult.code} is registered in the system.`
                       : `Tag number ${activeResult.code} is registered in the system.`}
                   </p>
@@ -964,7 +1036,7 @@ export function UniversalQrScannerDialog({
                 variant="outline"
                 size="sm"
                 onClick={handleReset}
-                className="h-8.5 rounded-xl border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 gap-1.5 shrink-0 shadow-2xs cursor-pointer"
+                className="h-9 sm:h-8.5 w-full sm:w-auto rounded-xl border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 gap-1.5 shrink-0 shadow-2xs cursor-pointer"
               >
                 <RotateCcw className="size-3.5" />
                 <span>Scan Another</span>
@@ -1017,7 +1089,9 @@ export function UniversalQrScannerDialog({
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <span className="text-[11px] font-medium text-slate-500 block">
-                      {activeResult.type === "BATCH"
+                      {activeResult.type === "FARMER"
+                        ? "Farmer Profile ID"
+                        : activeResult.type === "BATCH"
                         ? "Batch Code"
                         : "Tag / Inventory ID"}
                     </span>
@@ -1034,7 +1108,7 @@ export function UniversalQrScannerDialog({
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2.5 mt-2 border-t border-slate-100">
                   <div>
                     <span className="text-[11px] text-slate-400 block font-medium">
-                      Species
+                      {activeResult.type === "FARMER" ? "Account Type" : "Species"}
                     </span>
                     <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate">
                       {activeResult.specie || "Cattle"}
@@ -1042,7 +1116,7 @@ export function UniversalQrScannerDialog({
                   </div>
                   <div>
                     <span className="text-[11px] text-slate-400 block font-medium">
-                      Breed
+                      {activeResult.type === "FARMER" ? "RSBSA Number" : "Breed"}
                     </span>
                     <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate">
                       {activeResult.breed || "Brahman"}
@@ -1050,22 +1124,26 @@ export function UniversalQrScannerDialog({
                   </div>
                   <div>
                     <span className="text-[11px] text-slate-400 block font-medium">
-                      {activeResult.type === "BATCH" ? "Head Count" : "Sex"}
+                      {activeResult.type === "FARMER"
+                        ? "Active Livestock"
+                        : activeResult.type === "BATCH"
+                        ? "Head Count"
+                        : "Sex"}
                     </span>
                     <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate">
-                      {activeResult.type === "BATCH"
+                      {activeResult.type === "FARMER" || activeResult.type === "BATCH"
                         ? `${activeResult.headCount} Heads`
                         : activeResult.sex || "Not recorded"}
                     </span>
                   </div>
                   <div>
                     <span className="text-[11px] text-slate-400 block font-medium">
-                      {activeResult.type === "BATCH"
+                      {activeResult.type === "FARMER" || activeResult.type === "BATCH"
                         ? "Status"
                         : "Age (Estimated)"}
                     </span>
                     <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate">
-                      {activeResult.type === "BATCH"
+                      {activeResult.type === "FARMER" || activeResult.type === "BATCH"
                         ? activeResult.operationalStatus || "Active"
                         : formatLivestockAge(activeResult.age) || "2 years"}
                     </span>
@@ -1173,12 +1251,12 @@ export function UniversalQrScannerDialog({
             </div>
 
             {/* Footer Buttons */}
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-2.5 pt-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => handleDialogOpenChange(false)}
-                className="h-10 rounded-xl border border-slate-300 bg-white px-5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs"
+                className="h-10 w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs"
               >
                 Cancel
               </Button>
@@ -1189,7 +1267,7 @@ export function UniversalQrScannerDialog({
                     onSelectFarmer(activeResult.livestockId!);
                     handleDialogOpenChange(false);
                   }}
-                  className={`h-10 rounded-xl ${theme.primaryButton} px-5 text-xs font-semibold flex items-center gap-1.5 shadow-sm cursor-pointer`}
+                  className={`h-10 w-full sm:w-auto rounded-xl ${theme.primaryButton} px-5 text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer`}
                 >
                   <Check className="size-4 stroke-[2.5]" />
                   <span>Select Farmer</span>
@@ -1197,19 +1275,30 @@ export function UniversalQrScannerDialog({
               ) : activeResult.linkUrl ? (
                 <Link
                   href={activeResult.linkUrl}
-                  target={role === "auction" && actionLabel !== "Open Registry Record" ? "_blank" : undefined}
+                  className="w-full sm:w-auto"
+                  target={
+                    activeResult.type !== "FARMER" &&
+                    role === "auction" &&
+                    actionLabel !== "Open Registry Record"
+                      ? "_blank"
+                      : undefined
+                  }
                 >
                   <Button
                     type="button"
                     onClick={() => handleDialogOpenChange(false)}
-                    className={`h-10 rounded-xl ${theme.primaryButton} px-5 text-xs font-semibold flex items-center gap-1.5 shadow-sm cursor-pointer`}
+                    className={`h-10 w-full sm:w-auto rounded-xl ${theme.primaryButton} px-5 text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer`}
                   >
                     <Check className="size-4 stroke-[2.5]" />
                     <span>
-                      {actionLabel ||
-                        (role === "auction"
-                          ? "Confirm Head Count"
-                          : "Open Registry Record")}
+                      {activeResult.type === "FARMER"
+                        ? isAuction
+                          ? "Open Record Transfer"
+                          : "Open Farmer Records"
+                        : actionLabel ||
+                          (role === "auction"
+                            ? "Confirm Head Count"
+                            : "Open Registry Record")}
                     </span>
                   </Button>
                 </Link>
@@ -1217,7 +1306,7 @@ export function UniversalQrScannerDialog({
                 <Button
                   type="button"
                   onClick={() => handleDialogOpenChange(false)}
-                  className={`h-10 rounded-xl ${theme.primaryButton} px-5 text-xs font-semibold flex items-center gap-1.5 shadow-sm cursor-pointer`}
+                  className={`h-10 w-full sm:w-auto rounded-xl ${theme.primaryButton} px-5 text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer`}
                 >
                   <Check className="size-4 stroke-[2.5]" />
                   <span>{effectiveActionLabel}</span>

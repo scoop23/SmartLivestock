@@ -158,6 +158,15 @@ export default function AuctionOwnershipTransfersPage() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const farmerIdParam = params.get("farmerId");
+    if (farmerIdParam && /^\d+$/.test(farmerIdParam)) {
+      void selectFarmerById(Number(farmerIdParam));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { data: transfers = [], isLoading, isError, error: transfersError } = useQuery({
     queryKey: ["auction-ownership-transfers"],
     queryFn: async () => (await api.get<Transfer[]>("livestock/ownership-transfers/")).data,
