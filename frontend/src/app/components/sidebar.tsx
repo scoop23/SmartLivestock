@@ -164,10 +164,25 @@ const slaughterhouseLinks: SidebarLink[] = [
   { path: '/slaughterhouse/announcements', label: 'Activities', icon: Megaphone },
 ];
 
-function getLinks(role: SidebarProps['role']): SidebarLink[] {
+function getLinks(role: SidebarProps['role'], userRole?: string): SidebarLink[] {
   switch (role) {
     case 'farmer': return farmerLinks;
-    case 'sibat': return sibatLinks;
+    case 'sibat': {
+      if (userRole?.toUpperCase() === 'CBAT') {
+        return sibatLinks.map((link) => {
+          if (link.path === '/sibat' && link.subLinks) {
+            return {
+              ...link,
+              subLinks: link.subLinks.map((sub) =>
+                sub.path === '/sibat/batches' ? { ...sub, label: 'Herd' } : sub
+              ),
+            };
+          }
+          return link;
+        });
+      }
+      return sibatLinks;
+    }
     case 'auction': return auctionLinks;
     case 'slaughterhouse': return slaughterhouseLinks;
     default: return adminLinks;
@@ -219,6 +234,7 @@ function SidebarNav({
   role: SidebarProps['role'];
 }) {
   const { user } = useAuth();
+  const isCbatUser = user?.role?.toUpperCase() === 'CBAT';
   const roleBadge = getRoleBadge(role);
 
   const userDisplayName = user?.firstName
@@ -378,6 +394,8 @@ function SidebarNav({
                   <div className="ml-5 pl-2.5 my-1 border-l border-emerald-400/25 space-y-1 transition-all">
                     {link.subLinks?.map((sub) => {
                       const isSubActive = pathname === sub.path;
+                      const subLabel =
+                        isCbatUser && sub.path === "/sibat/batches" ? "Herd" : sub.label;
                       return (
                         <Link
                           key={sub.path}
@@ -391,7 +409,7 @@ function SidebarNav({
                               : "text-emerald-100/70 hover:bg-white/10 hover:text-white"
                           )}
                         >
-                          <span className="truncate">{sub.label}</span>
+                          <span className="truncate">{subLabel}</span>
                           {sub.badge && (
                             <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300">
                               {sub.badge}
@@ -465,7 +483,9 @@ function SidebarNav({
                   Staff
                 </span>
               </div>
-              <span className="text-[10px] text-emerald-200/70 leading-tight">Batches, Tags &amp; Passes</span>
+              <span className="text-[10px] text-emerald-200/70 leading-tight">
+                {isCbatUser ? "Herds, Tags & Passes" : "Batches, Tags & Passes"}
+              </span>
             </div>
           </button>
         )}
@@ -678,6 +698,7 @@ function SidebarNav({
 }
 
 export function Sidebar({ role, onLogout }: SidebarProps) {
+  const { user } = useAuth();
   const pathname = usePathname();
   const { fontScale } = useAccessibilitySettings();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -735,7 +756,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
   const collapsedSidebarWidth = isExtraLargeText ? 80 : fontScale === "comfortable" ? 72 : 64;
   const expandedSidebarWidth = isExtraLargeText ? 360 : 280;
   const isExpanded = isPinned || isHovered || desktopProfilePopoverOpen;
-  const links = getLinks(role);
+  const links = getLinks(role, user?.role ?? undefined);
 
   useEffect(() => {
     const open = () => setMobileOpen(true);

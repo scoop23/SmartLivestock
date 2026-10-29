@@ -90,3 +90,20 @@ class SibatReviewWorkloadScopeTests(TestCase):
         )
         mao_summary = review_workload_summary(user=mao)
         self.assertIn("sales", {row["key"] for row in mao_summary["by_domain"]})
+
+    def test_cbat_workload_excludes_disease_domain(self):
+        cbat_role = Role.objects.create(role_name="CBAT")
+        cbat = User.objects.create_user(
+            username="assigned-cbat", email="cbat@example.test", role=cbat_role,
+            account_status="APPROVED", assigned_barangay=self.assigned,
+            access_scope="ASSIGNED_ONLY",
+        )
+        request = APIRequestFactory().get("/api/analytics/review-workload/")
+        force_authenticate(request, user=cbat)
+        response = review_workload(request)
+
+        self.assertEqual(response.status_code, 200)
+        domain_keys = {row["key"] for row in response.data["by_domain"]}
+        self.assertNotIn("disease", domain_keys)
+        self.assertNotIn("sales", domain_keys)
+        self.assertIn("inventory", domain_keys)

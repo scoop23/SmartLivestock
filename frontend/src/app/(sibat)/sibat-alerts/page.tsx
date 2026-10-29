@@ -106,10 +106,23 @@ function SibatAlertsContent() {
 
   // Filter States matching DiseasesPage design basis
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilterOption>("Needs Review");
+  const [statusFilter, setStatusFilter] = useState<StatusFilterOption | null>(null);
 
   const { records, isLoading, isError } = useClinicalHealthRecords();
   const reviewMutation = useReviewClinicalHealth();
+
+  const isCbat = user?.role === "CBAT";
+  const needsReviewCount = records.filter((record) =>
+    record.status === "PENDING" || record.status === "SUBJECT_TO_REVISION" || record.status === "SUBJECT_FOR_REVISION"
+  ).length;
+  const forwardedCount = records.filter((record) => record.status === "VERIFIED").length;
+
+  const status: StatusFilterOption =
+    statusFilter ??
+    (isCbat && needsReviewCount === 0 && forwardedCount > 0
+      ? "Forwarded to MAO"
+      : "Needs Review");
+  const setStatus = (nextStatus: StatusFilterOption) => setStatusFilter(nextStatus);
 
   const [selectedRecord, setSelectedRecord] = useState<SibatValidationRecord | null>(null);
   const [focusedRecordId, setFocusedRecordId] = useState<string | null>(null);
@@ -238,10 +251,6 @@ function SibatAlertsContent() {
     user?.accessScope === "ALL_BARANGAYS"
       ? "All Barangays"
       : user?.assignedBarangayName || "your assigned barangays";
-  const needsReviewCount = records.filter((record) =>
-    record.status === "PENDING" || record.status === "SUBJECT_TO_REVISION" || record.status === "SUBJECT_FOR_REVISION"
-  ).length;
-  const forwardedCount = records.filter((record) => record.status === "VERIFIED").length;
 
   useEffect(() => {
     if (!highlightedRecordId) return;
@@ -284,14 +293,30 @@ function SibatAlertsContent() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="flex items-center gap-3 rounded-xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white p-3.5 sm:p-4">
+          <button
+            type="button"
+            onClick={() => setStatus("Needs Review")}
+            className={`flex items-center gap-3 rounded-xl border p-3.5 sm:p-4 text-left transition-all ${
+              status === "Needs Review"
+                ? "border-rose-400 bg-rose-50/80 ring-2 ring-rose-300 shadow-xs"
+                : "border-rose-200 bg-gradient-to-r from-rose-50 to-white hover:border-rose-300"
+            }`}
+          >
             <span className="grid size-12 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-600"><Clock className="size-6" /></span>
             <div><p className="text-xs font-bold text-rose-800">Needs Review</p><p className="mt-0.5 text-2xl font-black leading-none text-slate-900">{isLoading ? "—" : needsReviewCount}</p><p className="mt-1 text-xs text-slate-500">Awaiting review or correction</p></div>
-          </div>
-          <div className="flex items-center gap-3 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-white p-3.5 sm:p-4">
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatus("Forwarded to MAO")}
+            className={`flex items-center gap-3 rounded-xl border p-3.5 sm:p-4 text-left transition-all ${
+              status === "Forwarded to MAO"
+                ? "border-sky-400 bg-sky-50/80 ring-2 ring-sky-300 shadow-xs"
+                : "border-sky-200 bg-gradient-to-r from-sky-50 to-white hover:border-sky-300"
+            }`}
+          >
             <span className="grid size-12 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-600"><ShieldCheck className="size-6" /></span>
             <div><p className="text-xs font-bold text-sky-800">Forwarded to MAO</p><p className="mt-0.5 text-2xl font-black leading-none text-slate-900">{isLoading ? "—" : forwardedCount}</p><p className="mt-1 text-xs text-slate-500">Sent for further review</p></div>
-          </div>
+          </button>
         </div>
 
         {/* ── Filter Card ── */}
@@ -592,6 +617,7 @@ function SibatAlertsContent() {
           }}
           onConfirmInspection={handleConfirmInspection}
           isSubmitting={reviewMutation.isPending}
+          readOnly={isCbat || activeRecord.status === "VERIFIED" || activeRecord.status === "APPROVED"}
         />
       )}
     </div>

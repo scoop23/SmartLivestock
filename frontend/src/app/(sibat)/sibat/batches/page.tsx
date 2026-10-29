@@ -927,6 +927,7 @@ function SibatHerdSplitCard({
 
 function SibatBatchesVerificationContent() {
   const { user } = useAuth();
+  const isCbat = user?.role?.toUpperCase() === "CBAT";
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -1497,13 +1498,13 @@ function SibatBatchesVerificationContent() {
         title={
           isDrilldownOpen && selectedBatch ? (
             <>
-              <span className="hidden sm:inline">{selectedBatch.batch_name || "Animal Batch Details"}</span>
-              <span className="sm:hidden">{selectedBatch.batch_name || "Batch Details"}</span>
+              <span className="hidden sm:inline">{selectedBatch.batch_name || (isCbat ? "Herd Details" : "Animal Batch Details")}</span>
+              <span className="sm:hidden">{selectedBatch.batch_name || (isCbat ? "Herd Details" : "Batch Details")}</span>
             </>
           ) : (
             <>
-              <span className="hidden sm:inline">Livestock Groups &amp; Batches</span>
-              <span className="sm:hidden">Livestock Batches</span>
+              <span className="hidden sm:inline">{isCbat ? "Livestock Herds & Groups" : "Livestock Groups & Batches"}</span>
+              <span className="sm:hidden">{isCbat ? "Livestock Herds" : "Livestock Batches"}</span>
             </>
           )
         }
@@ -1520,10 +1521,14 @@ function SibatBatchesVerificationContent() {
           ) : (
             <>
               <span className="hidden sm:inline">
-                Monitor, review, and inspect farmer-registered livestock herds, animal batches, and feeding pens.
+                {isCbat
+                  ? "Monitor, review, and inspect farmer-registered livestock herds, cattle groups, and breeding pens."
+                  : "Monitor, review, and inspect farmer-registered livestock herds, animal batches, and feeding pens."}
               </span>
               <span className="sm:hidden">
-                Inspect registered livestock herds and batches.
+                {isCbat
+                  ? "Inspect registered livestock herds."
+                  : "Inspect registered livestock herds and batches."}
               </span>
             </>
           )
@@ -1577,7 +1582,7 @@ function SibatBatchesVerificationContent() {
               className="h-10 rounded-xl border-emerald-200 bg-white hover:bg-emerald-50 text-emerald-900 text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer"
             >
               <ArrowLeft className="size-4 text-emerald-700" />
-              <span>Back to Batches</span>
+              <span>{isCbat ? "Back to Herds" : "Back to Batches"}</span>
             </Button>
           </div>
         )}
@@ -1642,7 +1647,7 @@ function SibatBatchesVerificationContent() {
             {/* Tile 1: Total Batches */}
             <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-xs hover:border-emerald-300 transition-all">
               <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-                <span>REGISTERED BATCHES</span>
+                <span>{isCbat ? "REGISTERED HERDS" : "REGISTERED BATCHES"}</span>
                 <Layers className="size-4 text-emerald-600" />
               </div>
               <div className="flex items-baseline justify-between mt-2">
@@ -1653,7 +1658,7 @@ function SibatBatchesVerificationContent() {
                   ACTIVE
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1.5">Active animal batches</p>
+              <p className="text-[11px] text-slate-500 mt-1.5">{isCbat ? "Active animal herds" : "Active animal batches"}</p>
             </div>
 
             {/* Tile 2: Total Heads */}
@@ -2106,13 +2111,13 @@ function SibatBatchesVerificationContent() {
                     className="h-9 gap-2 rounded-xl border-slate-200 bg-white text-slate-700 px-3.5 text-xs font-mono font-bold hover:bg-emerald-50 cursor-pointer shadow-xs shrink-0 transition-colors"
                   >
                     <ArrowLeft className="size-3.5" />
-                    <span>BACK TO BATCHES</span>
+                    <span>{isCbat ? "BACK TO HERDS" : "BACK TO BATCHES"}</span>
                   </Button>
 
                   <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono text-slate-500 font-medium min-w-0">
                     <Link href="/sibat" className="hover:text-emerald-700 transition-colors shrink-0">OVERVIEW</Link>
                     <span className="text-slate-300">/</span>
-                    <button type="button" onClick={closeHerdDrilldown} className="hover:text-emerald-700 transition-colors shrink-0 font-medium cursor-pointer">BATCHES</button>
+                    <button type="button" onClick={closeHerdDrilldown} className="hover:text-emerald-700 transition-colors shrink-0 font-medium cursor-pointer">{isCbat ? "HERD" : "BATCHES"}</button>
                     <span className="text-slate-300">/</span>
                     <span className="text-emerald-900 font-bold font-mono truncate">{selectedBatch.batch_code}</span>
                   </nav>

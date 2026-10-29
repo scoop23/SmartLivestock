@@ -1,11 +1,18 @@
 "use client";
 
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle,ClipboardCheck,Clock3,RotateCw } from "lucide-react";
-import { Bar,BarChart,CartesianGrid,Legend,ResponsiveContainer,Tooltip,XAxis,YAxis } from "recharts";
+import { AlertTriangle, ClipboardCheck, Clock3, RotateCw } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useReviewWorkload } from "./review-workload";
+
 export function ReviewWorkloadPanel({ scopeLabel, hideMaoQueue = false }: { scopeLabel?: string; hideMaoQueue?: boolean } = {}) {
+  const { user } = useAuth();
   const { data, isLoading, isError, isFetching, refetch } = useReviewWorkload();
+  const isCbat = user?.role === "CBAT";
+  const chartData = isCbat && data?.by_domain
+    ? data.by_domain.filter((domain) => domain.key !== "disease")
+    : data?.by_domain;
   const agingBuckets = [
     { key: "under_3_days", label: "0-2 days" },
     { key: "3_to_7_days", label: "3-7 days" },
@@ -48,7 +55,7 @@ export function ReviewWorkloadPanel({ scopeLabel, hideMaoQueue = false }: { scop
 
         {(data.overall.sibat.count + (hideMaoQueue ? 0 : data.overall.mao.count) + data.overall.returned) > 0 ? <div className="h-[270px] w-full">
           <ResponsiveContainer width="100%" height="100%" debounce={150}>
-            <BarChart data={data.by_domain} layout="vertical" margin={{ top: 2, right: 12, left: 4, bottom: 2 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ top: 2, right: 12, left: 4, bottom: 2 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
               <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "#64748B" }} axisLine={{ stroke: "#E2E8F0" }} tickLine={false} />
               <YAxis type="category" dataKey="label" width={126} tick={{ fontSize: 11, fill: "#475569", fontWeight: 600 }} axisLine={false} tickLine={false} />

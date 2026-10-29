@@ -377,8 +377,17 @@ export const mapCalvingToUnified = (c: RawCalvingRecord): UnifiedSubmissionItem 
 };
 
 export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationRecord => {
+  const isReviewed = Boolean(
+    dc.reviewed_by_name ||
+    dc.reviewed_at ||
+    dc.review_remarks ||
+    (dc.inspection_details && Object.keys(dc.inspection_details).length > 0)
+  );
 
-  const statusNorm = (dc.status || "PENDING").toUpperCase() as SibatStatus;
+  let statusNorm = (dc.status || "PENDING").toUpperCase() as SibatStatus;
+  if (statusNorm === "PENDING" && isReviewed) {
+    statusNorm = "VERIFIED";
+  }
   const photo = getAttachedPhoto(`DIS-${dc.id}`, dc.tag_number, dc.livestock_type_name, dc.name);
   const resolvedPhotoUrl = dc.photo_url || dc.photo || (photo.isFarmerUpload ? photo.photoUrl : undefined);
   const resolvedPhotoName = dc.photo_url ? "farmer_attached_evidence.jpg" : (photo.isFarmerUpload ? photo.photoName : undefined);
@@ -421,7 +430,17 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
 };
 
 export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidationRecord => {
-  const statusNorm = (m.status || "PENDING").toUpperCase() as SibatStatus;
+  const isReviewed = Boolean(
+    m.reviewed_by_name ||
+    m.reviewed_at ||
+    m.review_remarks ||
+    (m.inspection_details && Object.keys(m.inspection_details).length > 0)
+  );
+
+  let statusNorm = (m.status || "PENDING").toUpperCase() as SibatStatus;
+  if (statusNorm === "PENDING" && isReviewed) {
+    statusNorm = "VERIFIED";
+  }
   const photo = getAttachedPhoto(`MOR-${m.id}`, m.tag_number, m.livestock_type_name, m.cause);
   const resolvedPhotoUrl = m.photo_url || m.photo || (photo.isFarmerUpload ? photo.photoUrl : undefined);
   const resolvedPhotoName = m.photo_url ? "mortality_evidence_photo.jpg" : (photo.isFarmerUpload ? photo.photoName : undefined);

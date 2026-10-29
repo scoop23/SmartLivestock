@@ -231,6 +231,8 @@ def review_workload_summary(*, now=None, user=None):
     for key, label, queryset in standard_domains:
         if (is_sibat or is_cbat) and key == "sales":
             continue
+        if is_cbat and key == "disease":
+            continue
         add_domain(
             key,
             label,

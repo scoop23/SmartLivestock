@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useAuth } from "@/contexts/auth-context";
 import { HeaderMenuButton } from "./header-menu-button";
 import { HeaderNotifications } from "./header-notifications";
 import { Breadcrumbs, type BreadcrumbItem } from "./breadcrumbs";
@@ -70,6 +71,27 @@ export function PageHeader({
   breadcrumbs,
   rootHref,
 }: PageHeaderProps) {
+  const { user } = useAuth();
+  const role = user?.role?.toUpperCase();
+  const isFieldReviewer = role === "SIBAT" || role === "CBAT";
+  const showSibatNodeBar = Boolean(user && (variant === "sibat" || isFieldReviewer));
+
+  const sibatNodeBar = showSibatNodeBar && user ? (
+    <div className="border-b border-emerald-900/10 bg-emerald-50/80 backdrop-blur-xs px-4 py-2 sm:px-6 text-xs sm:text-sm leading-relaxed text-emerald-950 shrink-0 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2.5 flex-wrap">
+        <span className="font-mono text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 border border-emerald-200/80">
+          {role === "CBAT" ? "CBAT Field Node" : "SIBAT Node"}
+        </span>
+        <span className="text-slate-600 font-medium">
+          Sector: <strong className="text-emerald-950 font-bold">{user.accessScope === "ALL_BARANGAYS" ? "All Barangays (Full Municipal Access)" : user.assignedBarangayName || "Unassigned — contact MAO/Admin"}</strong>
+        </span>
+        {user.accessScope === "ALL_BARANGAYS" && user.assignedBarangayName && (
+          <span className="text-slate-400 text-xs">· Primary: {user.assignedBarangayName}</span>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   const breadcrumbsSubBar = showBreadcrumbs ? (
     <div className="border-b border-slate-200/80 bg-white/95 backdrop-blur-xs">
       <div className={`${maxWidthClass} mx-auto px-4 py-1.5 sm:px-6`}>
@@ -155,6 +177,7 @@ export function PageHeader({
             </div>
           </div>
         </header>
+        {sibatNodeBar}
         {breadcrumbsSubBar}
       </div>
     );
@@ -213,6 +236,7 @@ export function PageHeader({
           </div>
         </div>
       </header>
+      {sibatNodeBar}
       {breadcrumbsSubBar}
     </div>
   );
