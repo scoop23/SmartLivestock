@@ -149,9 +149,11 @@ function LivestockInventoryContent() {
 
   useEffect(() => {
     if (!highlightTypeParam || isLoading || isError) return;
-    setActiveTab("types");
-    setSelectedType(null);
-    setHighlightedType(highlightTypeParam);
+    startTransition(() => {
+      setActiveTab("types");
+      setSelectedType(null);
+      setHighlightedType(highlightTypeParam);
+    });
 
     const timer = window.setTimeout(() => {
       const target = Array.from(document.querySelectorAll<HTMLElement>("[data-livestock-type]"))
@@ -433,11 +435,17 @@ function LivestockInventoryContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["livestock-types"] });
       toast.success("Livestock record deleted successfully");
       setDeleteTarget(null);
     },
-    onError: () => {
-      toast.error("Failed to delete livestock record");
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: { error?: string; detail?: string } } };
+      const msg =
+        apiErr?.response?.data?.error ||
+        apiErr?.response?.data?.detail ||
+        "Failed to delete livestock record";
+      toast.error(msg);
     },
   });
 

@@ -331,10 +331,13 @@ function LivestockSplitCard({
   };
 
   const hasVax = Boolean(item.lastVaccinationDate);
-  const isApproved = item.status === "APPROVED";
+  const isApproved = item.status === "APPROVED" || item.status === "VERIFIED";
+  const isPending = item.status === "PENDING" || item.status === "SUBJECT_TO_REVISION";
+  const isIndividual = !item.entryType || item.entryType === "INDIVIDUAL";
   const isDeceased = item.operationalStatus === "DECEASED";
   const isSlaughtered = item.operationalStatus === "SLAUGHTERED";
   const isInactive = isDeceased || isSlaughtered;
+  const canDelete = isIndividual && isPending && !isInactive;
   const speciesTheme = getSpeciesTheme(item.livestockTypeName);
 
   const rawSex = (item.sex || "").trim().toUpperCase();
@@ -767,42 +770,36 @@ function LivestockSplitCard({
               </Tooltip>
             </TooltipProvider>
 
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDelete(item)}
-                      disabled={isApproved || isInactive}
-                      title={
-                        isDeceased
-                          ? "Deceased animals are preserved in history"
-                          : isSlaughtered
-                          ? "Slaughtered animals are preserved in history"
-                          : isApproved
-                          ? "Approved entries cannot be deleted"
-                          : "Delete record"
-                      }
-                      className="size-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  {isDeceased
-                    ? "Deceased animals are preserved in history"
-                    : isSlaughtered
-                    ? "Slaughtered animals are preserved in history"
-                    : isApproved
-                    ? "Approved entries cannot be deleted"
-                    : "Delete record"}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {canDelete && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={Boolean(item.batchId)}
+                        aria-label={`Delete pending record for ${item.tagNumber || `livestock ${item.id}`}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(item);
+                        }}
+                        className="h-8 gap-1.5 rounded-lg border-rose-200 bg-rose-50/70 px-2.5 text-xs font-semibold text-rose-700 hover:border-rose-300 hover:bg-rose-100 hover:text-rose-900 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs transition-colors"
+                      >
+                        <Trash2 className="size-3.5 text-rose-600" />
+                        <span>Delete</span>
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {item.batchId
+                      ? "Herd animals must be removed from the herd before deleting"
+                      : "Delete pending livestock registration"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         </div>
       </div>
@@ -1463,10 +1460,13 @@ export default function LivestockRecordList({
             <TableBody>
               {paginatedItems.map((item) => {
                 const hasVax = Boolean(item.lastVaccinationDate);
-                const isApproved = item.status === "APPROVED";
+                const isApproved = item.status === "APPROVED" || item.status === "VERIFIED";
+                const isPending = item.status === "PENDING" || item.status === "SUBJECT_TO_REVISION";
+                const isIndividual = !item.entryType || item.entryType === "INDIVIDUAL";
                 const isDeceased = item.operationalStatus === "DECEASED";
                 const isSlaughtered = item.operationalStatus === "SLAUGHTERED";
                 const isInactive = isDeceased || isSlaughtered;
+                const canDelete = isIndividual && isPending && !isInactive;
                 const localPhoto = typeof window !== "undefined" ? localStorage.getItem(`livestock_photo_${item.id}`) : null;
                 const localAvatar = typeof window !== "undefined" ? localStorage.getItem(`livestock_avatar_${item.id}`) : null;
                 const photoUrl = item.photoUrl || localPhoto;
@@ -1673,24 +1673,22 @@ export default function LivestockRecordList({
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onDelete(item)}
-                          disabled={isApproved || isInactive}
-                          title={
-                            isDeceased
-                              ? "Deceased animals are preserved in history"
-                              : isSlaughtered
-                              ? "Slaughtered animals are preserved in history"
-                              : isApproved
-                              ? "Approved entries cannot be deleted"
-                              : "Delete record"
-                          }
-                          className="h-7 w-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-25"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onDelete(item)}
+                            disabled={Boolean(item.batchId)}
+                            title={
+                              item.batchId
+                                ? "Herd animals must be removed from the herd before deleting"
+                                : "Delete pending livestock record"
+                            }
+                            className="h-7 w-7 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
