@@ -61,18 +61,6 @@ function CensusSubmissionPageContent() {
         hideIconOnMobile
         showTutorialToggle={false}
         mobileActionsInline
-        action={
-          <button
-            type="button"
-            onClick={returnToCensus}
-            aria-label="Back to records"
-            title="Back to records"
-            className="relative shrink-0 flex items-center justify-center h-11 w-11 sm:w-auto sm:px-3.5 rounded-xl sm:rounded-2xl border border-white/20 bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-semibold transition-all duration-150 active:scale-95 cursor-pointer backdrop-blur-xs shadow-xs gap-1.5"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Back</span>
-          </button>
-        }
         maxWidthClass="w-full"
       />
       <div className="w-full px-4 sm:px-6 lg:px-8 pt-4">
