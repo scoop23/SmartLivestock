@@ -136,7 +136,7 @@ const sibatLinks: SidebarLink[] = [
     icon: ClipboardCheck,
     subLinks: [
       { path: '/sibat/livestock-registry', label: 'Animals' },
-      { path: '/sibat/batches', label: 'Herds' },
+      { path: '/sibat/batches', label: 'Batches' },
       { path: '/sibat/livestock-monitoring', label: 'Livestock Monitoring' },
     ],
   },
@@ -199,6 +199,8 @@ function SidebarNav({
   onOpenHelp,
   onOpenScanner,
   popoverPortalContainer,
+  profilePopoverOpen: controlledProfilePopoverOpen,
+  onProfilePopoverOpenChange,
   role,
 }: {
   collapsed: boolean;
@@ -211,6 +213,8 @@ function SidebarNav({
   onOpenHelp: () => void;
   onOpenScanner?: () => void;
   popoverPortalContainer?: HTMLElement | null;
+  profilePopoverOpen?: boolean;
+  onProfilePopoverOpenChange?: (open: boolean) => void;
   role: SidebarProps['role'];
 }) {
   const { user } = useAuth();
@@ -224,7 +228,9 @@ function SidebarNav({
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
     : (user?.email?.[0] || 'U').toUpperCase();
 
-  const [profilePopoverOpen, setProfilePopoverOpen] = useState(false);
+  const [internalProfilePopoverOpen, setInternalProfilePopoverOpen] = useState(false);
+  const profilePopoverOpen = controlledProfilePopoverOpen ?? internalProfilePopoverOpen;
+  const setProfilePopoverOpen = onProfilePopoverOpenChange ?? setInternalProfilePopoverOpen;
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     links.forEach((link) => {
@@ -533,8 +539,8 @@ function SidebarNav({
 
           {/* Popover elevated to z-[var(--z-popover)] to always float cleanly above elevated sidebars and map controls */}
           <PopoverContent
-            side={collapsed ? "right" : "top"}
-            align={collapsed ? "end" : onNavigate ? "start" : "center"}
+            side="top"
+            align="start"
             sideOffset={8}
             collisionPadding={8}
             portalContainer={onNavigate ? popoverPortalContainer : undefined}
@@ -676,6 +682,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isPinned, setIsPinned] = useState<boolean>(false);
   const [isHovered, setIsHovered] = useState<boolean>(false);
+  const [desktopProfilePopoverOpen, setDesktopProfilePopoverOpen] = useState<boolean>(false);
   const [helpDialogOpen, setHelpDialogOpen] = useState<boolean>(false);
   const [scannerOpen, setScannerOpen] = useState<boolean>(false);
   const [mobileSheetContent, setMobileSheetContent] = useState<HTMLDivElement | null>(null);
@@ -726,7 +733,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
   const isExtraLargeText = fontScale === "extra-large";
   const collapsedSidebarWidth = isExtraLargeText ? 80 : fontScale === "comfortable" ? 72 : 64;
   const expandedSidebarWidth = isExtraLargeText ? 360 : 280;
-  const isExpanded = isPinned || isHovered;
+  const isExpanded = isPinned || isHovered || desktopProfilePopoverOpen;
   const links = getLinks(role);
 
   useEffect(() => {
@@ -762,11 +769,16 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
         <aside
           onMouseEnter={() => !isPinned && setIsHovered(true)}
           onMouseLeave={() => !isPinned && setIsHovered(false)}
+          onTransitionEnd={() => {
+            if (desktopProfilePopoverOpen) {
+              window.dispatchEvent(new Event("resize"));
+            }
+          }}
           className={cn(
             "fixed inset-y-0 left-0 flex flex-col bg-[#2D5A27] text-white border-r border-white/10 overflow-hidden transform-gpu transition-[width,box-shadow] duration-200 ease-in-out",
             isPinned
               ? "z-[var(--z-sidebar)] shadow-xl"
-              : isHovered
+              : isHovered || desktopProfilePopoverOpen
                 ? "shadow-2xl z-[var(--z-sidebar-hover)]"
                 : "z-[var(--z-sidebar)] shadow-md"
           )}
@@ -781,6 +793,8 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
             onLogout={onLogout}
             onOpenHelp={() => setHelpDialogOpen(true)}
             onOpenScanner={() => setScannerOpen(true)}
+            profilePopoverOpen={desktopProfilePopoverOpen}
+            onProfilePopoverOpenChange={setDesktopProfilePopoverOpen}
             role={role}
           />
         </aside>
