@@ -40,7 +40,7 @@ useClinicalHealthRecords,
 useReviewClinicalHealth,
 } from "../sibat/sibat-analytics";
 
-type StatusFilterOption = "Needs Review" | "Forwarded to MAO" | "MAO Approved";
+type StatusFilterOption = "Needs Review" | "Returned for Correction" | "Forwarded to MAO" | "MAO Approved";
 
 function StatusBadge({ status }: { status: SibatStatus }) {
   const s = (status || "PENDING").toUpperCase();
@@ -112,10 +112,24 @@ function SibatAlertsContent() {
   const reviewMutation = useReviewClinicalHealth();
 
   const isCbat = user?.role === "CBAT";
-  const needsReviewCount = records.filter((record) =>
-    record.status === "PENDING" || record.status === "SUBJECT_TO_REVISION" || record.status === "SUBJECT_FOR_REVISION"
+  const needsReviewCount = records.filter(
+    (record) => (record.status || "").toUpperCase() === "PENDING"
   ).length;
-  const forwardedCount = records.filter((record) => record.status === "VERIFIED").length;
+  const returnedCount = records.filter((record) => {
+    const s = (record.status || "").toUpperCase();
+    return (
+      s === "SUBJECT_TO_REVISION" ||
+      s === "SUBJECT_FOR_REVISION" ||
+      s === "FLAGGED" ||
+      s === "REJECTED"
+    );
+  }).length;
+  const forwardedCount = records.filter(
+    (record) => (record.status || "").toUpperCase() === "VERIFIED"
+  ).length;
+  const approvedCount = records.filter(
+    (record) => (record.status || "").toUpperCase() === "APPROVED"
+  ).length;
 
   const status: StatusFilterOption =
     statusFilter ??
@@ -235,15 +249,25 @@ function SibatAlertsContent() {
 
       if (!matchSearch) return false;
 
+      const s = (d.status || "").toUpperCase();
       if (status === "Needs Review") {
-        return d.status === "PENDING" || d.status === "SUBJECT_TO_REVISION" || d.status === "SUBJECT_FOR_REVISION";
+        return s === "PENDING";
+      }
+
+      if (status === "Returned for Correction") {
+        return (
+          s === "SUBJECT_TO_REVISION" ||
+          s === "SUBJECT_FOR_REVISION" ||
+          s === "FLAGGED" ||
+          s === "REJECTED"
+        );
       }
 
       if (status === "Forwarded to MAO") {
-        return d.status === "VERIFIED";
+        return s === "VERIFIED";
       }
 
-      return d.status === "APPROVED";
+      return s === "APPROVED";
     });
   }, [records, query, status]);
 
@@ -292,30 +316,86 @@ function SibatAlertsContent() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <button
             type="button"
             onClick={() => setStatus("Needs Review")}
-            className={`flex items-center gap-3 rounded-xl border p-3.5 sm:p-4 text-left transition-all ${
+            className={`flex items-center gap-3 rounded-xl border p-3.5 sm:p-4 text-left transition-all cursor-pointer ${
               status === "Needs Review"
                 ? "border-rose-400 bg-rose-50/80 ring-2 ring-rose-300 shadow-xs"
                 : "border-rose-200 bg-gradient-to-r from-rose-50 to-white hover:border-rose-300"
             }`}
           >
-            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-600"><Clock className="size-6" /></span>
-            <div><p className="text-xs font-bold text-rose-800">Needs Review</p><p className="mt-0.5 text-2xl font-black leading-none text-slate-900">{isLoading ? "—" : needsReviewCount}</p><p className="mt-1 text-xs text-slate-500">Awaiting review or correction</p></div>
+            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-600">
+              <Clock className="size-6" />
+            </span>
+            <div>
+              <p className="text-xs font-bold text-rose-800">Needs Review</p>
+              <p className="mt-0.5 text-2xl font-black leading-none text-slate-900">
+                {isLoading ? "—" : needsReviewCount}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Awaiting initial review</p>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatus("Returned for Correction")}
+            className={`flex items-center gap-3 rounded-xl border p-3.5 sm:p-4 text-left transition-all cursor-pointer ${
+              status === "Returned for Correction"
+                ? "border-amber-400 bg-amber-50/80 ring-2 ring-amber-300 shadow-xs"
+                : "border-amber-200 bg-gradient-to-r from-amber-50 to-white hover:border-amber-300"
+            }`}
+          >
+            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700">
+              <RotateCcw className="size-6" />
+            </span>
+            <div>
+              <p className="text-xs font-bold text-amber-800">Returned for Correction</p>
+              <p className="mt-0.5 text-2xl font-black leading-none text-slate-900">
+                {isLoading ? "—" : returnedCount}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Sent back to farmer</p>
+            </div>
           </button>
           <button
             type="button"
             onClick={() => setStatus("Forwarded to MAO")}
-            className={`flex items-center gap-3 rounded-xl border p-3.5 sm:p-4 text-left transition-all ${
+            className={`flex items-center gap-3 rounded-xl border p-3.5 sm:p-4 text-left transition-all cursor-pointer ${
               status === "Forwarded to MAO"
                 ? "border-sky-400 bg-sky-50/80 ring-2 ring-sky-300 shadow-xs"
                 : "border-sky-200 bg-gradient-to-r from-sky-50 to-white hover:border-sky-300"
             }`}
           >
-            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-600"><ShieldCheck className="size-6" /></span>
-            <div><p className="text-xs font-bold text-sky-800">Forwarded to MAO</p><p className="mt-0.5 text-2xl font-black leading-none text-slate-900">{isLoading ? "—" : forwardedCount}</p><p className="mt-1 text-xs text-slate-500">Sent for further review</p></div>
+            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-600">
+              <ShieldCheck className="size-6" />
+            </span>
+            <div>
+              <p className="text-xs font-bold text-sky-800">Forwarded to MAO</p>
+              <p className="mt-0.5 text-2xl font-black leading-none text-slate-900">
+                {isLoading ? "—" : forwardedCount}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Sent for further review</p>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatus("MAO Approved")}
+            className={`flex items-center gap-3 rounded-xl border p-3.5 sm:p-4 text-left transition-all cursor-pointer ${
+              status === "MAO Approved"
+                ? "border-emerald-400 bg-emerald-50/80 ring-2 ring-emerald-300 shadow-xs"
+                : "border-emerald-200 bg-gradient-to-r from-emerald-50 to-white hover:border-emerald-300"
+            }`}
+          >
+            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-600">
+              <CheckCircle2 className="size-6" />
+            </span>
+            <div>
+              <p className="text-xs font-bold text-emerald-800">MAO Approved</p>
+              <p className="mt-0.5 text-2xl font-black leading-none text-slate-900">
+                {isLoading ? "—" : approvedCount}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Official records</p>
+            </div>
           </button>
         </div>
 
@@ -357,6 +437,7 @@ function SibatAlertsContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Needs Review">Needs Review</SelectItem>
+                  <SelectItem value="Returned for Correction">Returned for Correction</SelectItem>
                   <SelectItem value="Forwarded to MAO">Forwarded to MAO</SelectItem>
                   <SelectItem value="MAO Approved">MAO Approved</SelectItem>
                 </SelectContent>
