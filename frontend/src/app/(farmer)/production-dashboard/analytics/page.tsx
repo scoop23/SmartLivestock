@@ -608,6 +608,253 @@ export default function ProductionAnalyticsPage() {
 
   const hasWeatherOverlay = mlChartData.some((point) => point.thi != null);
 
+  // Real Prescriptive Decision-Support Engine grounded in the farmer's live datasets
+  const prescriptiveRecommendations = useMemo(() => {
+    const items: Array<{
+      rule: string;
+      category: string;
+      severity: "HIGH" | "MEDIUM" | "OPTIMAL";
+      title: string;
+      reason: string;
+      evidence: Record<string, string | number>;
+      action: string;
+      actionHref?: string;
+      actionLabel?: string;
+    }> = [];
+
+    const nowMs = new Date().getTime();
+
+    // Rule 1: Heat Stress & Dairy Microclimate Management (Open-Meteo THI)
+    const thiPoints = mlChartData.filter((p) => p.thi != null);
+    if (thiPoints.length > 0) {
+      const peakPoint = thiPoints.reduce((max, p) => ((p.thi ?? 0) > (max.thi ?? 0) ? p : max), thiPoints[0]);
+      const peakThi = peakPoint.thi ?? 0;
+      if (peakThi >= 72) {
+        items.push({
+          rule: "THI_HEAT_STRESS_MITIGATION",
+          category: "Microclimate & Lactation Protection",
+          severity: peakThi >= 80 ? "HIGH" : "MEDIUM",
+          title: `Elevated Heat Stress Detected (Peak THI ${peakThi.toFixed(1)})`,
+          reason: `Open-Meteo weather telemetry for your farm indicates a Temperature-Humidity Index (THI) of ${peakThi.toFixed(1)} on ${peakPoint.date}, crossing the 72.0 dairy heat-stress threshold where dry-matter intake and daily milk yield typically decline.`,
+          evidence: {
+            "Peak THI": peakThi.toFixed(1),
+            "Peak Temp": peakPoint.temperature_c != null ? `${peakPoint.temperature_c.toFixed(1)}°C` : "—",
+            "Humidity": peakPoint.humidity_pct != null ? `${peakPoint.humidity_pct.toFixed(0)}% RH` : "—",
+            "Threshold": "THI ≥ 72.0",
+          },
+          action:
+            "Shift concentrate feeding to cooler early-morning and late-afternoon hours, ensure continuous shaded electrolyte/clean water access, and increase pen ventilation during midday peaks.",
+        });
+      }
+    }
+
+    // Rule 2: Maternity & Imminent Calving Preparation (Breeding Records)
+    const dueSoonDams = breedingRecords.filter(
+      (b) =>
+        (b.status === "PREGNANT" || b.status === "PENDING_CHECK") &&
+        b.days_until_due !== null &&
+        b.days_until_due !== undefined &&
+        b.days_until_due <= 30
+    );
+    if (dueSoonDams.length > 0) {
+      const nearest = [...dueSoonDams].sort((a, b) => (a.days_until_due ?? 999) - (b.days_until_due ?? 999))[0];
+      items.push({
+        rule: "MATERNITY_CALVING_READINESS",
+        category: "Breeding & Perinatal Care",
+        severity: (nearest.days_until_due ?? 30) <= 10 ? "HIGH" : "MEDIUM",
+        title: `${dueSoonDams.length} Pregnant Dam${dueSoonDams.length === 1 ? "" : "s"} Approaching Delivery (≤ 30 Days)`,
+        reason: `Dam ${nearest.dam_tag || `#${nearest.dam}`} is scheduled to give birth on ${nearest.expected_due_date ? formatCalendarDate(nearest.expected_due_date) : "upcoming due date"} (${nearest.days_until_due ?? 0} days remaining). Each successful calving adds ~12 L/day to your 6-month milk trajectory.`,
+        evidence: {
+          "Due ≤ 30d": `${dueSoonDams.length} head(s)`,
+          "Nearest Dam": nearest.dam_tag || `Dam #${nearest.dam}`,
+          "Days Left": `${nearest.days_until_due ?? 0}d`,
+          "Expected Due": nearest.expected_due_date || "—",
+        },
+        action:
+          "Prepare a clean, dry maternity pen, transition the dam to a low-calcium pre-calving ration 14–21 days prior to delivery, and stock colostrum supplies for immediate newborn intake.",
+      });
+    }
+
+    // Rule 3: Herd Vaccination & Biosecurity Booster Compliance (Inventory Records)
+    const overdueVaccinationAnimals = activeAnimals.filter((a) => {
+      if (!a.lastVaccinationDate) return true;
+      const daysSince = (nowMs - new Date(a.lastVaccinationDate).getTime()) / (1000 * 60 * 60 * 24);
+      return daysSince > 180;
+    });
+    if (activeAnimals.length > 0 && overdueVaccinationAnimals.length > 0) {
+      const sampleTags = overdueVaccinationAnimals
+        .slice(0, 3)
+        .map((a) => a.tagNumber || `#${a.id}`)
+        .join(", ");
+      const coveragePct = Math.round(((activeAnimals.length - overdueVaccinationAnimals.length) / activeAnimals.length) * 100);
+      items.push({
+        rule: "BIOSECURITY_VACCINATION_BOOSTER",
+        category: "Herd Biosecurity & Immunization",
+        severity: coveragePct < 60 ? "HIGH" : "MEDIUM",
+        title: `${overdueVaccinationAnimals.length} Active Animal${overdueVaccinationAnimals.length === 1 ? " Requires" : "s Require"} Vaccination Update`,
+        reason: `${overdueVaccinationAnimals.length} of ${activeAnimals.length} active animals have no recorded vaccination within the past 180 days (current 6-month coverage: ${coveragePct}%). Unvaccinated stock are ineligible for movement clearance.`,
+        evidence: {
+          "Overdue / Unlogged": `${overdueVaccinationAnimals.length} / ${activeAnimals.length}`,
+          "6-Mo Coverage": `${coveragePct}%`,
+          "Sample Tags": sampleTags || "—",
+          "Policy Interval": "≤ 180 days",
+        },
+        action:
+          "Log recent vaccination dates in Livestock Inventory (Update → Log Treatment / Medication) or book an upcoming municipal vaccination schedule under Programs.",
+        actionHref: "/livestock-inventory",
+        actionLabel: "Open Livestock Inventory",
+      });
+    }
+
+    // Rule 4: Ration Mix & Feed-to-Output Cost Efficiency (Feeding Analytics)
+    const totalFeedKg = feedingAnalytics?.total_feed_kg ?? 0;
+    const monthFeedCost = feedingAnalytics?.current_month_cost_php ?? 0;
+    const concentrateKg = feedingAnalytics?.by_feed_type?.CONCENTRATE?.quantity_kg ?? 0;
+    const forageKg =
+      (feedingAnalytics?.by_feed_type?.FORAGE?.quantity_kg ?? 0) +
+      (feedingAnalytics?.by_feed_type?.SILAGE_HAY?.quantity_kg ?? 0);
+    const concentrateSharePct = totalFeedKg > 0 ? Math.round((concentrateKg / totalFeedKg) * 100) : 0;
+    const forageSharePct = totalFeedKg > 0 ? Math.round((forageKg / totalFeedKg) * 100) : 0;
+
+    if (totalFeedKg === 0 && activeAnimals.length > 0) {
+      items.push({
+        rule: "FEED_RATION_LOGGING_GAP",
+        category: "Nutrition & Feed Conversion",
+        severity: "MEDIUM",
+        title: "No Feed Rations Logged for Active Herd",
+        reason: `You have ${activeAnimals.length} active animal(s), but 0 kg of feeding rations are currently logged. Without ration records, feed-cost-to-revenue margin and average daily gain (ADG) efficiency cannot be audited.`,
+        evidence: {
+          "Active Herd": `${activeAnimals.length} head(s)`,
+          "Logged Feed": "0 kg",
+          "Monthly Feed Cost": "₱0.00",
+          "Target Forage": "60–70% DM",
+        },
+        action:
+          "Record daily forage, silage, and concentrate rations under Feeding & Nutrition to track cost per liter/kilogram produced and optimize finishing growth.",
+      });
+    } else if (concentrateSharePct > 60 || (liveForecast30DaysRevenue > 0 && monthFeedCost > liveForecast30DaysRevenue * 0.55)) {
+      items.push({
+        rule: "RATION_COST_OPTIMIZATION",
+        category: "Nutrition & Feed Conversion",
+        severity: "MEDIUM",
+        title: `High Concentrate Share (${concentrateSharePct}%) — Optimize Forage Ratio`,
+        reason: `Concentrate feeds represent ${concentrateSharePct}% of total logged rations (forage/silage: ${forageSharePct}%), with ₱${monthFeedCost.toLocaleString()} spent this month. Excessive concentrate share increases input cost and rumen acidosis risk in ruminants.`,
+        evidence: {
+          "Concentrate Share": `${concentrateSharePct}%`,
+          "Forage / Silage": `${forageSharePct}%`,
+          "Monthly Feed Cost": `₱${monthFeedCost.toLocaleString()}`,
+          "Recommended Forage": "≥ 60% of ration",
+        },
+        action:
+          "Increase fresh Napier/forage grass and silage proportion to at least 60% of total ration weight while reserving high-protein concentrates for lactating dams and finishing stock.",
+      });
+    }
+
+    // Rule 5: Commercial Finishing & Market Dispatch Readiness (Biomass & Weights)
+    const finishReadyHeads = activeAnimals.filter((a) => {
+      const s = (a.livestockTypeName || "").toLowerCase();
+      const targetW = s.includes("swine") || s.includes("pig") ? 80 : s.includes("goat") || s.includes("sheep") ? 25 : 280;
+      return Number(a.weight || 0) >= targetW;
+    });
+    if (finishReadyHeads.length > 0) {
+      const readyCarcassKg = Math.round(
+        finishReadyHeads.reduce((acc, a) => {
+          const s = (a.livestockTypeName || "").toLowerCase();
+          const dressing = s.includes("swine") || s.includes("pig") ? 0.74 : s.includes("goat") || s.includes("sheep") ? 0.6 : 0.58;
+          return acc + Number(a.weight || 0) * dressing;
+        }, 0)
+      );
+      const readyValuePhp = Math.round(readyCarcassKg * 280);
+      items.push({
+        rule: "FINISHING_MARKET_DISPATCH",
+        category: "Commercial Harvest & Auction Timing",
+        severity: "OPTIMAL",
+        title: `${finishReadyHeads.length} Head${finishReadyHeads.length === 1 ? " Has" : "s Have"} Reached Market Finishing Weight`,
+        reason: `${finishReadyHeads.length} active animal(s) meet or exceed commercial finishing weight thresholds (≥280 kg cattle/carabao, ≥80 kg swine, ≥25 kg goat). Holding finished animals past peak feed conversion increases maintenance feed cost without proportional carcass gain.`,
+        evidence: {
+          "Finish-Ready": `${finishReadyHeads.length} head(s)`,
+          "Est. Carcass": `${readyCarcassKg.toLocaleString()} kg`,
+          "Est. Market Value": `₱${readyValuePhp.toLocaleString()}`,
+          "Benchmark Rate": "₱280 / kg",
+        },
+        action:
+          "In Production Activities (/production-dashboard): (1) click 'Weight / growth' to log the animal's final pre-market weight, then (2) click 'Declare sale intent' to submit a FOR_SALE, FOR_SLAUGHTER, or FOR_MOVEMENT declaration so Auction or Slaughterhouse personnel can process the inspection clearance and transfer certificate.",
+        actionHref: "/production-dashboard",
+        actionLabel: "Record Weight / Declare Sale Intent",
+      });
+    }
+
+    // Rule 6: ML Milk Yield Trajectory & Data Readiness
+    if (milkForecast?.status === "READY" && milkForecast.history.length > 0 && milkForecast.forecast.length > 0) {
+      const recentHistAvg =
+        milkForecast.history.slice(-7).reduce((acc, h) => acc + h.milk_liters, 0) /
+        Math.max(1, milkForecast.history.slice(-7).length);
+      const next7Avg =
+        milkForecast.forecast.reduce((acc, f) => acc + f.expected_liters, 0) /
+        Math.max(1, milkForecast.forecast.length);
+      const pctDelta = recentHistAvg > 0 ? ((next7Avg - recentHistAvg) / recentHistAvg) * 100 : 0;
+
+      if (pctDelta <= -8) {
+        items.push({
+          rule: "ML_LACTATION_DECLINE_INTERVENTION",
+          category: "Dairy Yield Optimization",
+          severity: pctDelta <= -15 ? "HIGH" : "MEDIUM",
+          title: `ML Forecaster Projects ${Math.abs(pctDelta).toFixed(1)}% Short-Term Milk Dip for ${milkForecast.livestock.tag_number}`,
+          reason: `The ${milkForecast.selected_model || "supervised ML"} model projects a 7-day average of ${next7Avg.toFixed(2)} L/day compared to the recent 7-day observed average of ${recentHistAvg.toFixed(2)} L/day.`,
+          evidence: {
+            "Dam Tag": milkForecast.livestock.tag_number,
+            "Recent 7d Avg": `${recentHistAvg.toFixed(2)} L/day`,
+            "ML 7d Forecast": `${next7Avg.toFixed(2)} L/day`,
+            "Projected Shift": `${pctDelta.toFixed(1)}%`,
+          },
+          action:
+            "Inspect the dam for subclinical mastitis (California Mastitis Test), verify ad-libitum clean water intake, and supplement energy/mineral top-dressing during milking.",
+        });
+      } else {
+        items.push({
+          rule: "ML_LACTATION_STABILITY",
+          category: "Dairy Yield Optimization",
+          severity: "OPTIMAL",
+          title: `Stable 7-Day ML Lactation Outlook for ${milkForecast.livestock.tag_number} (${pctDelta >= 0 ? "+" : ""}${pctDelta.toFixed(1)}%)`,
+          reason: `Out-of-sample ${milkForecast.selected_model || "ML"} projections average ${next7Avg.toFixed(2)} L/day against the recent ${recentHistAvg.toFixed(2)} L/day baseline, indicating steady lactation persistence.`,
+          evidence: {
+            "Dam Tag": milkForecast.livestock.tag_number,
+            "Recent 7d Avg": `${recentHistAvg.toFixed(2)} L/day`,
+            "ML 7d Forecast": `${next7Avg.toFixed(2)} L/day`,
+            "Est. 30d Value": `₱${Math.round(next7Avg * 30 * 50).toLocaleString()}`,
+          },
+          action:
+            "Maintain consistent twice-daily milking intervals, continue logging daily liters to keep the chronological ML training window current, and coordinate cold-storage collection.",
+        });
+      }
+    } else if (milkForecast?.status === "NOT_READY") {
+      items.push({
+        rule: "ML_HISTORY_COMPLETION",
+        category: "Predictive Model Readiness",
+        severity: "MEDIUM",
+        title: `Complete Daily Milk Logs for ${milkForecast.livestock.tag_number} (${milkForecast.observation_count}/${milkForecast.minimum_history_required} Days)`,
+        reason: `Supervised lag features (t-1, t-2, t-3, t-7) require at least ${milkForecast.minimum_history_required} dated daily milk observations before out-of-sample cross-validation unlocks for this dam.`,
+        evidence: {
+          "Dam Tag": milkForecast.livestock.tag_number,
+          "Logged Days": `${milkForecast.observation_count} days`,
+          "Required Minimum": `${milkForecast.minimum_history_required} days`,
+          "Remaining": `${Math.max(0, milkForecast.minimum_history_required - milkForecast.observation_count)} days`,
+        },
+        action:
+          "Record daily milk yields consecutively in Production Activities (or toggle Synthetic Demo above to inspect a full 14-day trained ML trajectory).",
+      });
+    }
+
+    return items;
+  }, [
+    mlChartData,
+    breedingRecords,
+    activeAnimals,
+    feedingAnalytics,
+    liveForecast30DaysRevenue,
+    milkForecast,
+  ]);
+
   const handleRefreshAll = () => {
     refetchRecords();
     refetchBreeding();
@@ -1823,6 +2070,51 @@ export default function ProductionAnalyticsPage() {
                 </CardHeader>
 
                 <CardContent className="p-5 sm:p-6">
+                  {/* Brief Explanation of How the 6-Month Trajectory is Predicted */}
+                  <div className="mb-5 rounded-2xl border border-slate-200/90 bg-slate-50/70 p-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-display text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <Sparkles className="size-3.5 text-emerald-600" />
+                        <span>How This 6-Month Trajectory Is Predicted</span>
+                      </p>
+                      <span className="font-mono text-[10px] font-semibold text-slate-500">
+                        Deterministic Biological + ML Run-Rate Formula
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                      <div className="rounded-xl border border-emerald-200/80 bg-white p-3 space-y-1">
+                        <p className="font-bold text-emerald-800 flex items-center gap-1.5">
+                          <span className="size-2 rounded-full bg-[#10b981]" />
+                          1. Projected Milk Yield (L)
+                        </p>
+                        <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                          Starts with your daily milk baseline (<span className="font-mono font-semibold text-slate-800">{avgForecastDaily.toFixed(1)} L/day</span> from the active ML forecast or recorded milk logs <span className="font-mono">× 30 days</span>) and adds <span className="font-mono font-semibold text-emerald-700">+12 L/day (+360 L/mo)</span> in any month where a pregnant dam reaches her expected calving due date.
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-sky-200/80 bg-white p-3 space-y-1">
+                        <p className="font-bold text-sky-800 flex items-center gap-1.5">
+                          <span className="size-2 rounded-full bg-[#0ea5e9]" />
+                          2. Projected Milk Revenue (₱)
+                        </p>
+                        <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                          Multiplies each month&apos;s projected milk liters by the Padre Garcia municipal dairy farmgate benchmark (<span className="font-mono font-semibold text-sky-800">Projected Liters × ₱50/L</span>) to estimate gross monthly dairy cashflow.
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-amber-200/80 bg-white p-3 space-y-1">
+                        <p className="font-bold text-amber-800 flex items-center gap-1.5">
+                          <span className="size-2 rounded-full bg-[#f59e0b]" />
+                          3. Projected Monthly Meat (kg)
+                        </p>
+                        <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                          Projects each active animal&apos;s live weight forward using a <span className="font-mono font-semibold text-amber-800">+0.6 kg/day (+18 kg/mo)</span> Average Daily Gain (ADG), filters heads reaching finishing weight (<span className="font-mono">≥260kg</span> cattle, <span className="font-mono">≥80kg</span> swine, <span className="font-mono">≥25kg</span> goat), and applies DA carcass dressing rates (<span className="font-mono">58% / 74% / 60%</span>) across the 6-month window.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="h-72 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={forecastData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -1845,6 +2137,127 @@ export default function ProductionAnalyticsPage() {
                         <Bar dataKey="projectedMeatKg" name="Projected Monthly Meat (kg)" fill="#f59e0b" radius={[8, 8, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 2B. REAL PRESCRIPTIVE DECISION SUPPORT & ACTIONABLE FARM RECOMMENDATIONS */}
+              <Card className="rounded-3xl border-slate-200/90 bg-white shadow-holo-card overflow-hidden">
+                <CardHeader className="pb-3 border-b border-slate-100 bg-gradient-to-r from-emerald-50/70 via-white to-amber-50/50">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                        <CheckCircle2 className="size-4.5 text-emerald-700" />
+                        <span>Prescriptive Analysis &amp; Actionable Farm Recommendations</span>
+                      </CardTitle>
+                      <CardDescription className="text-xs text-slate-500 font-medium">
+                        Real-time rule-based decision support evaluated from your live herd weights, breeding due dates, ration logs, vaccination history, and ML/weather forecasts
+                      </CardDescription>
+                    </div>
+                    <Badge variant="outline" className="font-mono text-[10px] text-emerald-800 bg-emerald-50 border-emerald-200 w-fit">
+                      {prescriptiveRecommendations.length} Active Prescription{prescriptiveRecommendations.length === 1 ? "" : "s"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-5 space-y-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {prescriptiveRecommendations.map((rec) => {
+                      const isHigh = rec.severity === "HIGH";
+                      const isMedium = rec.severity === "MEDIUM";
+                      const borderClass = isHigh
+                        ? "border-l-4 border-l-rose-500 border-slate-200"
+                        : isMedium
+                        ? "border-l-4 border-l-amber-500 border-slate-200"
+                        : "border-l-4 border-l-emerald-500 border-slate-200";
+                      const badgeClass = isHigh
+                        ? "bg-rose-100 text-rose-900 border-rose-300"
+                        : isMedium
+                        ? "bg-amber-100 text-amber-900 border-amber-300"
+                        : "bg-emerald-100 text-emerald-900 border-emerald-300";
+                      const badgeLabel = isHigh
+                        ? "High Priority"
+                        : isMedium
+                        ? "Action Recommended"
+                        : "Optimal / Opportunity";
+
+                      return (
+                        <div
+                          key={rec.rule}
+                          className={`rounded-2xl border bg-white p-4 space-y-3 shadow-2xs ${borderClass}`}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className={`font-mono text-[10px] font-bold ${badgeClass}`}>
+                                  {badgeLabel}
+                                </Badge>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">
+                                  {rec.category}
+                                </span>
+                              </div>
+                              <h4 className="font-display text-sm font-bold text-slate-900">
+                                {rec.title}
+                              </h4>
+                            </div>
+                            <span className="font-mono text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200/80">
+                              {rec.rule}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                            {rec.reason}
+                          </p>
+
+                          {/* Quantified Live Farm Evidence */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                            {Object.entries(rec.evidence).map(([label, value]) => (
+                              <div
+                                key={label}
+                                className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-2 text-xs"
+                              >
+                                <span className="block text-[10px] font-mono text-slate-500 truncate">
+                                  {label}
+                                </span>
+                                <span className="font-mono text-xs font-bold text-slate-900 block truncate">
+                                  {String(value)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Recommended Action */}
+                          <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-3 flex items-start gap-2.5">
+                            <CheckCircle2 className="size-4 text-emerald-700 shrink-0 mt-0.5" />
+                            <div className="text-xs space-y-2 flex-1">
+                              <div>
+                                <span className="font-bold text-emerald-950 block">
+                                  Recommended Farm Action:
+                                </span>
+                                <p className="text-emerald-900 font-medium leading-relaxed mt-0.5">
+                                  {rec.action}
+                                </p>
+                              </div>
+                              {rec.actionHref && rec.actionLabel && (
+                                <div>
+                                  <Button
+                                    asChild
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 rounded-lg border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-100 text-[11px] font-bold px-2.5"
+                                  >
+                                    <Link href={rec.actionHref}>
+                                      <span>{rec.actionLabel}</span>
+                                      <ArrowUpRight className="ml-1 size-3.5 text-emerald-700" />
+                                    </Link>
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
