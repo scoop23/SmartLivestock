@@ -395,10 +395,11 @@ export function RoleAwareGISContainer({
         type="button"
         onClick={() => router.push(backRoute)}
         aria-label={backLabel}
-        className="sm:hidden fixed top-[calc(0.75rem+env(safe-area-inset-top,0px))] left-[calc(0.75rem+env(safe-area-inset-left,0px))] z-[950] min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl text-slate-800 flex items-center justify-center gap-1.5 font-bold text-xs active:scale-95 transition-transform cursor-pointer pointer-events-auto"
+        title={backLabel}
+        className="lg:hidden fixed top-[calc(0.75rem+env(safe-area-inset-top,0px))] left-[calc(0.75rem+env(safe-area-inset-left,0px))] z-[950] size-11 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl text-slate-800 flex items-center justify-center active:scale-95 transition-transform cursor-pointer pointer-events-auto"
       >
-        <ArrowLeft className="size-4 text-emerald-800" />
-        <span>{backLabel}</span>
+        <ArrowLeft className="size-5 text-emerald-800" />
+        <span className="sr-only">{backLabel}</span>
       </button>
 
       {/* 1. Full Viewport Interactive GIS Map Container */}
@@ -424,7 +425,7 @@ export function RoleAwareGISContainer({
         />
 
         {/* 2. Floating Controls */}
-        <div className="absolute top-[calc(0.75rem+env(safe-area-inset-top,0px))] left-[calc(4.75rem+env(safe-area-inset-left,0px))] sm:left-4 sm:top-4 z-[850] max-w-[calc(100vw-5.5rem)] sm:max-w-[calc(100vw-1.5rem)]">
+        <div className="absolute top-[calc(0.75rem+env(safe-area-inset-top,0px))] left-[calc(4rem+env(safe-area-inset-left,0px))] lg:left-4 lg:top-4 z-[850] max-w-[calc(100vw-4.75rem)] lg:max-w-[calc(100vw-1.5rem)]">
           <GISControls
             currentLayer={activeLayer}
             onLayerChange={(layer) => {
