@@ -68,7 +68,13 @@ function SibatLivestockRegistryContent() {
   const [query, updateQuery] = useState("");
   const setQuery = (value: string) => { updateQuery(value); setPage(1); };
   const [barangay, updateBarangay] = useState("All Barangays");
-  const setBarangay = (value: string) => { updateBarangay(value); setPage(1); };
+  const [farmer, updateFarmer] = useState("All Farmers");
+  const setBarangay = (value: string) => {
+    updateBarangay(value);
+    updateFarmer("All Farmers");
+    setPage(1);
+  };
+  const setFarmer = (value: string) => { updateFarmer(value); setPage(1); };
   const [recordType, updateRecordType] = useState("All Record Types");
   const setRecordType = (value: string) => { updateRecordType(value); setPage(1); };
   const [status, updateStatus] = useState<RegistryStatusFilter>(() => (batchId ? "ALL" : "ALL"));
@@ -86,14 +92,13 @@ function SibatLivestockRegistryContent() {
 
   // Fetch individual inventory items for this SIBAT's scope
   const inventoryQuery = useQuery({
-    queryKey: ["sibat", "livestock-registry", "inventory", status, batchId, ...scopeKey],
+    queryKey: ["sibat", "livestock-registry", "inventory", batchId, ...scopeKey],
     queryFn: async () => {
       const response = await api.get<RawInventoryRecord[] | { count: number; results: RawInventoryRecord[] }>(
         "livestock/inventory/",
         {
           params: {
             include_inactive: true,
-            status: status === "ALL" ? undefined : status,
             barangay_id: barangayFilter,
             batch: batchId || undefined,
           },
@@ -110,13 +115,12 @@ function SibatLivestockRegistryContent() {
 
   // Fetch herd containers
   const batchesQuery = useQuery({
-    queryKey: ["sibat", "livestock-registry", "batches", status, batchId, ...scopeKey],
+    queryKey: ["sibat", "livestock-registry", "batches", batchId, ...scopeKey],
     queryFn: async () => {
       const response = await api.get<RegistryBatchRecord[] | { count: number; results: RegistryBatchRecord[] }>(
         "livestock/batches/",
         {
           params: {
-            review_status: status === "ALL" ? undefined : status,
             barangay_id: barangayFilter,
           },
         }
@@ -179,6 +183,24 @@ function SibatLivestockRegistryContent() {
     return Array.from(set).sort();
   }, [registryRecords]);
 
+  // Unique farmers in loaded data (strictly scoped to the SIBAT's assigned barangay or selected barangay)
+  const availableFarmers = useMemo(() => {
+    const set = new Set<string>();
+    const targetBarangay = !hasAllBarangayAccess && user?.assignedBarangayName
+      ? user.assignedBarangayName.trim().toLowerCase()
+      : barangay !== "All Barangays"
+        ? barangay.trim().toLowerCase()
+        : null;
+
+    registryRecords.forEach((r) => {
+      if (targetBarangay && (r.barangayName || "").trim().toLowerCase() !== targetBarangay) {
+        return;
+      }
+      if (r.farmerName) set.add(r.farmerName);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [registryRecords, barangay, hasAllBarangayAccess, user?.assignedBarangayName]);
+
   // Unique record types in loaded data
   const availableRecordTypes = useMemo(() => {
     const set = new Set<string>();
@@ -213,6 +235,11 @@ function SibatLivestockRegistryContent() {
         return false;
       }
 
+      // 2b. Farmer Filter
+      if (farmer !== "All Farmers" && record.farmerName !== farmer) {
+        return false;
+      }
+
       // 3. Record Type Filter
       if (recordType !== "All Record Types") {
         if (recordType === "Individual Tagged" && record.entryType !== "INDIVIDUAL") {
@@ -242,7 +269,7 @@ function SibatLivestockRegistryContent() {
 
       return true;
     });
-  }, [registryRecords, query, barangay, recordType, status]);
+  }, [registryRecords, query, barangay, farmer, recordType, status]);
 
   // Reset page when any filter updates
 
@@ -290,12 +317,14 @@ function SibatLivestockRegistryContent() {
   const hasActiveFilters =
     query.trim() !== "" ||
     barangay !== "All Barangays" ||
+    farmer !== "All Farmers" ||
     recordType !== "All Record Types" ||
     status !== "ALL";
 
   const handleResetFilters = () => {
     setQuery("");
     setBarangay("All Barangays");
+    setFarmer("All Farmers");
     setRecordType("All Record Types");
     setStatus("ALL");
     setPage(1);
@@ -452,7 +481,7 @@ function SibatLivestockRegistryContent() {
 
         {/* Filter Card */}
         <Card className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs p-3.5 sm:p-4 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${hasAllBarangayAccess ? "lg:grid-cols-5" : "lg:grid-cols-4"} gap-3`}>
             {/* 1. Search Box */}
             <div className="relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
@@ -474,23 +503,45 @@ function SibatLivestockRegistryContent() {
               )}
             </div>
 
-            {/* 2. Filter by Barangay */}
-            <Select value={barangay} onValueChange={(val) => setBarangay(val)}>
+            {/* 2. Filter by Farmer (for the assigned barangay only) */}
+            <Select value={farmer} onValueChange={(val) => setFarmer(val)}>
               <SelectTrigger
-                aria-label="Filter by barangay"
+                aria-label="Filter by farmer"
                 className="h-10 rounded-xl border-slate-200 bg-slate-50/80 text-xs sm:text-sm cursor-pointer"
               >
-                <SelectValue placeholder="All Barangays" />
+                <SelectValue placeholder="All Farmers" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="All Barangays">All Barangays</SelectItem>
-                {availableBarangays.map((b) => (
-                  <SelectItem key={b} value={b}>
-                    {b}
+                <SelectItem value="All Farmers">
+                  All Farmers{user?.assignedBarangayName && !hasAllBarangayAccess ? ` (${user.assignedBarangayName})` : ` (${availableFarmers.length})`}
+                </SelectItem>
+                {availableFarmers.map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {f}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            {/* 3. Filter by Barangay (only shown if officer has multi-barangay access) */}
+            {hasAllBarangayAccess && (
+              <Select value={barangay} onValueChange={(val) => setBarangay(val)}>
+                <SelectTrigger
+                  aria-label="Filter by barangay"
+                  className="h-10 rounded-xl border-slate-200 bg-slate-50/80 text-xs sm:text-sm cursor-pointer"
+                >
+                  <SelectValue placeholder="All Barangays" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All Barangays">All Barangays</SelectItem>
+                  {availableBarangays.map((b) => (
+                    <SelectItem key={b} value={b}>
+                      {b}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             {/* 3. Filter by Record Type */}
             <Select value={recordType} onValueChange={(val) => setRecordType(val)}>
