@@ -46,6 +46,7 @@ CheckCircle2,
 ChevronLeft,
 ChevronRight,
 Milk,
+ShieldAlert,
 Skull,
 TrendingUp,
 Truck,
@@ -58,7 +59,7 @@ import React from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { BarangayFarmersDialog } from './BarangayFarmersDialog';
 import { BarangayHerdsDialog } from './BarangayHerdsDialog';
-import { BarangayGISData,DiseaseSubMode,GISUserScope,SimulatedBarangayState,ViewMode } from './types';
+import { AdjacentDiseaseAlert,BarangayGISData,DiseaseSubMode,GISUserScope,SimulatedBarangayState,ViewMode } from './types';
 
 interface BarangayDetailsProps {
   data: BarangayGISData;
@@ -69,6 +70,7 @@ interface BarangayDetailsProps {
   onBack?: () => void;
   selectedLivestockType?: string;
   userScope?: GISUserScope;
+  adjacentAlerts?: AdjacentDiseaseAlert[];
 }
 
 export function BarangayDetails({
@@ -80,12 +82,14 @@ export function BarangayDetails({
   onBack,
   selectedLivestockType = 'Cattle',
   userScope,
+  adjacentAlerts,
 }: BarangayDetailsProps) {
   const { user } = useAuth();
   const userRole = (user?.role || userScope?.role || '').toUpperCase();
   const isAuthorized = ['CBAT', 'SIBAT', 'MAO', 'ADMIN'].includes(userRole);
   const isFarmer = userRole === 'FARMER' || userScope?.role === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
-  const showMovement = !isFarmer && (!userScope || userScope.allowed_layers.includes('movement'));
+  const isCbat = userRole === 'CBAT' || userScope?.role === 'CBAT';
+  const showMovement = !isFarmer && !isCbat && Boolean(userScope?.allowed_layers?.includes('movement'));
 
   const [isFarmersDialogOpen, setIsFarmersDialogOpen] = React.useState(false);
   const [isHerdsDialogOpen, setIsHerdsDialogOpen] = React.useState(false);
@@ -392,6 +396,65 @@ export function BarangayDetails({
             </div>
           )}
         </div>
+
+        {/* Neighboring Barangay Biosecurity Radar (Farmer View) */}
+        {isFarmer && (
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                <ShieldAlert className="size-3.5 text-amber-600" />
+                Neighboring Biosecurity Radar
+              </span>
+              {adjacentAlerts && adjacentAlerts.length > 0 ? (
+                <Badge className="bg-rose-600 text-white text-[10px] font-black px-1.5 py-0 animate-pulse">
+                  {adjacentAlerts.length} Neighbor{adjacentAlerts.length > 1 ? 's' : ''} Flagged
+                </Badge>
+              ) : (
+                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold px-1.5 py-0">
+                  Perimeter Clear
+                </Badge>
+              )}
+            </div>
+
+            {adjacentAlerts && adjacentAlerts.length > 0 ? (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-[11px] text-rose-800 font-medium leading-tight">
+                  Approved disease reports detected in barangays directly bordering your location. Check pulsing markers on the map:
+                </p>
+                <div className="space-y-1">
+                  {adjacentAlerts.map((alert) => (
+                    <div
+                      key={alert.name}
+                      className="p-2 rounded-lg bg-rose-50/80 border border-rose-200 text-xs flex items-center justify-between"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-rose-950">Brgy. {alert.name}</span>
+                          <span className="text-[9px] px-1 py-0 rounded bg-rose-200 text-rose-900 font-bold uppercase">
+                            Adjacent
+                          </span>
+                        </div>
+                        {alert.recent_diseases?.length > 0 && (
+                          <p className="text-[10px] text-rose-800 truncate mt-0.5">
+                            {alert.recent_diseases.join(', ')}
+                          </p>
+                        )}
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-mono border-rose-300 text-rose-800 shrink-0 font-bold">
+                        {alert.active_cases} report{alert.active_cases > 1 ? 's' : ''}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-[11px] text-emerald-700 flex items-center gap-1 pt-1 border-t border-slate-100">
+                <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
+                All adjacent bordering barangays have zero active disease reports.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Production Metrics */}
         <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-3">

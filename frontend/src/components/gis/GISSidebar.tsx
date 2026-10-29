@@ -35,6 +35,7 @@ import { BarangayDetails } from './BarangayDetails';
 import { MovementDetailsModal } from './MovementDetailsModal';
 import { MunicipalOverview } from './MunicipalOverview';
 import {
+AdjacentDiseaseAlert,
 BarangayGISData,
 DiseaseSubMode,
 MapLayer,
@@ -83,6 +84,7 @@ interface GISSidebarProps {
   selectedMovement?: MovementRecord | null;
   onSelectMovement?: (m: MovementRecord | null) => void;
   onClearSelectedMovement?: () => void;
+  adjacentAlerts?: AdjacentDiseaseAlert[];
 }
 
 export function GISSidebar({
@@ -107,6 +109,7 @@ export function GISSidebar({
   selectedMovement = null,
   onSelectMovement,
   onClearSelectedMovement,
+  adjacentAlerts,
 }: GISSidebarProps) {
   const [desktopWidth, setDesktopWidth] = useState(384);
   const [mobileSnapState, setMobileSnapState] = useState<MobileSnapState>('half');
@@ -225,6 +228,7 @@ export function GISSidebar({
       onBack={onClearSelectedBarangay}
       selectedLivestockType={selectedLivestockType}
       userScope={userScope}
+      adjacentAlerts={adjacentAlerts}
     />
   ) : (
     <MunicipalOverview

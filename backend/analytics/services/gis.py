@@ -16,11 +16,14 @@ This avoids N+1 database queries on the server and avoids dozens of parallel HTT
 requests from the browser.
 """
 
+import logging
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import Coalesce, TruncDate
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory
 from diseases.models import DiseaseCase, MortalityRecord
@@ -114,6 +117,29 @@ BARANGAY_CENTROIDS: Dict[str, List[float]] = {
     "San Miguel": [13.873635, 121.199939],
     "Tamak": [13.876635, 121.229178],
     "Tangob": [13.881157, 121.259591],
+}
+
+# Topological border adjacency map of Padre Garcia's 18 official barangays.
+# Used for spatial biosecurity surveillance and neighboring disease alerts.
+BARANGAY_ADJACENCY: Dict[str, List[str]] = {
+    "Banaba": ["Banaybanay", "Bawi", "Tamak"],
+    "Banaybanay": ["Banaba", "Bawi", "Poblacion", "San Felipe", "Tamak"],
+    "Bawi": ["Banaba", "Banaybanay", "Manggas", "Pansol", "Tamak"],
+    "Bukal": ["Castillo", "Manggas", "Maugat West", "Payapa", "Quilo-quilo South", "Tamak"],
+    "Castillo": ["Bukal", "Manggas", "Maugat East", "Maugat West", "Pansol", "Tangob"],
+    "Cawongan": ["Payapa", "Poblacion", "Quilo-quilo North", "San Miguel", "Tamak"],
+    "Manggas": ["Bawi", "Bukal", "Castillo", "Pansol", "Tamak"],
+    "Maugat East": ["Castillo", "Maugat West", "Quilo-quilo South"],
+    "Maugat West": ["Bukal", "Castillo", "Maugat East", "Quilo-quilo South"],
+    "Pansol": ["Bawi", "Castillo", "Manggas", "Tangob"],
+    "Payapa": ["Bukal", "Cawongan", "Quilo-quilo North", "Quilo-quilo South", "Tamak"],
+    "Poblacion": ["Banaybanay", "Cawongan", "San Felipe", "San Miguel", "Tamak"],
+    "Quilo-quilo North": ["Cawongan", "Payapa", "Quilo-quilo South", "Tamak"],
+    "Quilo-quilo South": ["Bukal", "Maugat East", "Maugat West", "Payapa", "Quilo-quilo North"],
+    "San Felipe": ["Banaybanay", "Poblacion", "San Miguel", "Tamak"],
+    "San Miguel": ["Cawongan", "Poblacion", "San Felipe"],
+    "Tamak": ["Banaba", "Banaybanay", "Bawi", "Bukal", "Cawongan", "Manggas", "Payapa", "Poblacion", "Quilo-quilo North", "San Felipe"],
+    "Tangob": ["Castillo", "Pansol"],
 }
 
 # Known destination coordinates for movement arcs (official geographic reference points)
@@ -214,6 +240,7 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "role": "ANONYMOUS",
             "scope": "RESTRICTED",
             "allowed_barangays": set(),
+            "adjacent_barangays": [],
             "can_view_all_barangays": False,
             "allowed_layers": [],
             "allowed_modes": ["2D"],
@@ -233,6 +260,7 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "role": u_role,
             "scope": "MUNICIPAL",
             "allowed_barangays": set(OFFICIAL_BARANGAYS),
+            "adjacent_barangays": [],
             "can_view_all_barangays": True,
             "allowed_layers": ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "mortality", "movement", "meat"],
             "allowed_modes": ["2D", "3D"],
@@ -257,11 +285,12 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "role": u_role,
             "scope": "MUNICIPAL" if can_view_all else "ASSIGNED_BARANGAYS",
             "allowed_barangays": allowed_b,
+            "adjacent_barangays": [],
             "can_view_all_barangays": can_view_all,
             # CBAT keeps field inventory, reported disease, and production layers.
             # SIBAT additionally retains mortality and movement layers.
             "allowed_layers": ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "meat"]
-            if u_role == "CBAT" else
+            if str(u_role).upper() == "CBAT" else
             ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "mortality", "movement", "meat"],
             "allowed_modes": ["2D"],
             "can_use_simulation": False,
@@ -278,14 +307,17 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             if farmer_b_name:
                 allowed_b.add(farmer_b_name)
 
+        adjacent_b = BARANGAY_ADJACENCY.get(farmer_b_name, []) if farmer_b_name else []
+
         return {
             "role": FARMER,
             "scope": "OWN_BARANGAY",
             "allowed_barangays": allowed_b,
+            "adjacent_barangays": adjacent_b,
             "can_view_all_barangays": False,
-            # Farmers see their community's aggregate livestock, milk, and farmer meat production (safe aggregates)
-            # Strictly NO slaughterhouse carcass records, disease simulation, or out-of-barangay browsing
-            "allowed_layers": ["cattle", "milk", "farmer_meat"],
+            # Farmers see their community's aggregate livestock, milk, farmer meat production,
+            # and approved disease alerts for their own and adjacent perimeter barangays
+            "allowed_layers": ["cattle", "disease", "milk", "farmer_meat"],
             "allowed_modes": ["2D"],
             "can_use_simulation": False,
             "can_use_advanced_analytics": False,
@@ -298,6 +330,7 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "role": AUCTION,
             "scope": "OPERATIONAL_MOVEMENT",
             "allowed_barangays": set(OFFICIAL_BARANGAYS),
+            "adjacent_barangays": [],
             "can_view_all_barangays": True,
             # Auction team needs transport origin/destination, inspection volume, and cattle counts
             "allowed_layers": ["movement", "cattle"],
@@ -313,6 +346,7 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "role": "SLAUGHTERHOUSESTAFF",
             "scope": "OPERATIONAL_SLAUGHTER",
             "allowed_barangays": set(OFFICIAL_BARANGAYS),
+            "adjacent_barangays": [],
             "can_view_all_barangays": True,
             # Slaughterhouse staff tracks animal origin movements, carcass meat yield, and cattle counts
             # Strictly NO on-farm farmer meat production data
@@ -328,6 +362,7 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
         "role": u_role or "RESTRICTED",
         "scope": "RESTRICTED",
         "allowed_barangays": set(),
+        "adjacent_barangays": [],
         "can_view_all_barangays": False,
         "allowed_layers": ["cattle"],
         "allowed_modes": ["2D"],
@@ -801,9 +836,14 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         }
 
     # Mask out-of-scope and unauthorized layer data across all 18 barangays
+    adjacent_barangays_set = set(user_scope.get("adjacent_barangays", []))
+    adjacent_disease_alerts = []
+
     for b_name, b_entry in barangays_data.items():
         is_in_scope = (b_name in allowed_barangays_set) or user_scope["can_view_all_barangays"]
+        is_adjacent = (u_role == FARMER) and (b_name in adjacent_barangays_set)
         b_entry["is_in_scope"] = is_in_scope
+        b_entry["is_adjacent"] = is_adjacent
 
         # If a barangay is out-of-scope for a geographically restricted user (e.g. SIBAT or Farmer):
         # Zero out private statistics so they cannot be inspected over the wire
@@ -813,12 +853,6 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             b_entry["species_breakdown"] = []
             b_entry["farmers_count"] = 0
             b_entry["batches_count"] = 0
-            b_entry["disease_cases"] = 0
-            b_entry["active_cases"] = 0
-            b_entry["fmd_active_cases"] = 0
-            b_entry["affected_heads"] = 0
-            b_entry["disease_risk"] = "low"
-            b_entry["recent_diseases"] = []
             b_entry["milk"] = 0.0
             b_entry["farmer_meat"] = 0.0
             b_entry["slaughter_yield"] = 0.0
@@ -832,6 +866,28 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             b_entry["movement_out"] = 0
             b_entry["movement_in"] = 0
             b_entry["inspections_count"] = 0
+
+            # If adjacent to farmer's registered barangay, retain approved disease surveillance data
+            # to provide early perimeter biosecurity warning without revealing private herd inventory.
+            if not is_adjacent:
+                b_entry["disease_cases"] = 0
+                b_entry["active_cases"] = 0
+                b_entry["fmd_active_cases"] = 0
+                b_entry["affected_heads"] = 0
+                b_entry["disease_risk"] = "low"
+                b_entry["recent_diseases"] = []
+            else:
+                if b_entry.get("active_cases", 0) > 0 or b_entry.get("disease_cases", 0) > 0:
+                    adjacent_disease_alerts.append({
+                        "name": b_name,
+                        "db_name": b_entry.get("db_name", b_name),
+                        "position": b_entry.get("position"),
+                        "active_cases": b_entry.get("active_cases", 0),
+                        "disease_cases": b_entry.get("disease_cases", 0),
+                        "affected_heads": b_entry.get("affected_heads", 0),
+                        "disease_risk": b_entry.get("disease_risk", "low"),
+                        "recent_diseases": list(b_entry.get("recent_diseases", [])),
+                    })
             continue
 
         # If layer is not permitted for the role, zero out that specific layer's data
@@ -915,9 +971,39 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     if not available_types:
         available_types = ["Cattle"]
 
+    # For authenticated Farmers, create in-app Notification records for active adjacent alerts if not already notified
+    if u_role == FARMER and adjacent_disease_alerts and user and user.is_authenticated:
+        try:
+            from users.models import Notification
+            for alert in adjacent_disease_alerts:
+                title = f"Biosecurity Alert: Disease in Neighboring Brgy. {alert['name']}"
+                has_recent = Notification.objects.filter(
+                    user=user,
+                    notification_type=Notification.NotificationType.DISEASE,
+                    title=title,
+                    created_at__gte=timezone.now() - timedelta(days=7),
+                ).exists()
+                if not has_recent:
+                    symptoms_str = f" ({', '.join(alert['recent_diseases'])})" if alert.get("recent_diseases") else ""
+                    Notification.objects.create(
+                        user=user,
+                        notification_type=Notification.NotificationType.DISEASE,
+                        priority=Notification.Priority.HIGH,
+                        title=title,
+                        message=(
+                            f"There are {alert['active_cases']} approved disease case(s){symptoms_str} "
+                            f"reported in Brgy. {alert['name']}, which directly borders your barangay. "
+                            f"Please monitor your livestock and maintain biosecurity."
+                        ),
+                        link="/farmer/gis-user-map",
+                    )
+        except Exception as e:
+            logger.warning("Failed to create biosecurity notification for farmer %s: %s", getattr(user, "pk", None), e)
+
     # Convert user_scope allowed_barangays set to sorted list for JSON serialization
     serialized_scope = dict(user_scope)
     serialized_scope["allowed_barangays"] = sorted(list(user_scope["allowed_barangays"]))
+    serialized_scope["adjacent_barangays"] = sorted(list(user_scope.get("adjacent_barangays", [])))
 
     return {
         "barangays": all_b,
@@ -925,6 +1011,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         "movements": movements_list,
         "user_scope": serialized_scope,
         "farmer_stats": farmer_stats,
+        "adjacent_disease_alerts": adjacent_disease_alerts,
         "summary": {
             "total_livestock": total_livestock,
             "total_cattle": total_cattle,

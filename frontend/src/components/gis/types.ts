@@ -79,6 +79,7 @@ export interface BarangayGISData {
   movement_in: number;        // Inbound inspected livestock heads
   inspections_count: number;  // Movement inspection events
   is_in_scope?: boolean;      // True if user is authorized to inspect this barangay's detailed data
+  is_adjacent?: boolean;      // True if barangay is geographically adjacent to user's registered barangay
 }
 
 export type GISScope =
@@ -93,6 +94,7 @@ export interface GISUserScope {
   role: string;
   scope: GISScope;
   allowed_barangays: string[];
+  adjacent_barangays?: string[];
   can_view_all_barangays: boolean;
   allowed_layers: MapLayer[];
   allowed_modes: ViewMode[];
@@ -201,6 +203,17 @@ export interface MunicipalSummary {
   }[];
 }
 
+export interface AdjacentDiseaseAlert {
+  name: string;
+  db_name: string;
+  position: [number, number];
+  active_cases: number;
+  disease_cases: number;
+  affected_heads: number;
+  disease_risk: 'low' | 'medium' | 'high';
+  recent_diseases: string[];
+}
+
 export interface GISTelemetryResponse {
   barangays: BarangayGISData[];
   barangays_dict: Record<string, BarangayGISData>;
@@ -209,6 +222,7 @@ export interface GISTelemetryResponse {
   period?: string;
   user_scope?: GISUserScope;
   farmer_stats?: FarmerPersonalStats | null;
+  adjacent_disease_alerts?: AdjacentDiseaseAlert[];
 }
 
 export interface EnvironmentalWindInput {

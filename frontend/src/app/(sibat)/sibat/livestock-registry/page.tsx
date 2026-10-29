@@ -251,7 +251,7 @@ function SibatLivestockRegistryContent() {
       if (r.farmerName) set.add(r.farmerName);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [registryRecords, barangay, hasAllBarangayAccess, user?.assignedBarangayName]);
+  }, [registryRecords, barangay, hasAllBarangayAccess, user]);
 
   // Unique record types in loaded data
   const availableRecordTypes = useMemo(() => {
@@ -378,6 +378,7 @@ function SibatLivestockRegistryContent() {
     if (targetIndex >= 0) {
       const targetPage = Math.floor(targetIndex / PAGE_SIZE) + 1;
       setPage(targetPage);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFocusedRecordId(filteredRecords[targetIndex].id);
       setHasHandledInitialFocus(true);
     }
@@ -666,7 +667,7 @@ function SibatLivestockRegistryContent() {
               variant="outline"
               className="h-8 rounded-xl text-xs font-bold border-slate-200"
             >
-              <Link href={`/sibat/batches?batchId=${encodeURIComponent(batchId)}`}>
+              <Link href={`/sibat/batches?batchId=${encodeURIComponent(batchId)}&from=registry`}>
                 <Layers className="size-3.5 mr-1" /> View Herd #{batchId}
               </Link>
             </Button>
@@ -933,7 +934,7 @@ function SibatLivestockRegistryContent() {
                             {!isBatch && r.batchCode && (
                               <div className="mt-1 flex items-center gap-1">
                                 <Link
-                                  href={`/sibat/batches?batchId=${encodeURIComponent(r.batchId || r.batchCode)}&animalId=${r.rawId}&tag=${encodeURIComponent(r.tagNumber || "")}`}
+                                  href={`/sibat/batches?batchId=${encodeURIComponent(r.batchId || r.batchCode)}&animalId=${r.rawId}&tag=${encodeURIComponent(r.tagNumber || "")}&from=registry`}
                                   onClick={(e) => e.stopPropagation()}
                                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs transition-colors"
                                   title={`Open parent herd ${r.batchCode}`}
@@ -1008,7 +1009,7 @@ function SibatLivestockRegistryContent() {
                                 onClick={(e) => e.stopPropagation()}
                                 className="h-8 px-3 rounded-xl text-xs font-extrabold text-[#1A365D] border-slate-200 hover:bg-slate-100 cursor-pointer"
                               >
-                                <Link href={`/sibat/batches?batchId=${r.rawId}`}>
+                                <Link href={`/sibat/batches?batchId=${r.rawId}&from=registry`}>
                                   <Layers className="size-3.5 mr-1" /> Review Herd
                                 </Link>
                               </Button>
@@ -1023,7 +1024,7 @@ function SibatLivestockRegistryContent() {
                                     className="h-8 px-2.5 rounded-xl text-xs font-bold text-teal-800 bg-teal-50 border-teal-300 hover:bg-teal-100 cursor-pointer"
                                     title={`Review parent herd ${r.batchCode || ""}`}
                                   >
-                                    <Link href={`/sibat/batches?batchId=${encodeURIComponent(r.batchId || r.batchCode || "")}&animalId=${r.rawId}&tag=${encodeURIComponent(r.tagNumber || "")}`}>
+                                    <Link href={`/sibat/batches?batchId=${encodeURIComponent(r.batchId || r.batchCode || "")}&animalId=${r.rawId}&tag=${encodeURIComponent(r.tagNumber || "")}&from=registry`}>
                                       <Layers className="size-3.5 mr-1 text-teal-700" /> Review Herd
                                     </Link>
                                   </Button>
@@ -1099,7 +1100,7 @@ function SibatLivestockRegistryContent() {
                         variant="outline"
                         className="w-full h-10 rounded-xl text-xs font-extrabold text-[#1A365D] border-slate-200 hover:bg-slate-100 mt-2 cursor-pointer"
                       >
-                        <Link href={`/sibat/batches?batchId=${r.rawId}`}>
+                        <Link href={`/sibat/batches?batchId=${r.rawId}&from=registry`}>
                           <Layers className="size-3.5 mr-1" /> Review Herd
                         </Link>
                       </Button>
@@ -1119,7 +1120,7 @@ function SibatLivestockRegistryContent() {
                             variant="outline"
                             className="w-full h-9 rounded-xl text-xs font-bold text-teal-800 bg-teal-50/70 border-teal-300 hover:bg-teal-100 cursor-pointer"
                           >
-                            <Link href={`/sibat/batches?batchId=${encodeURIComponent(r.batchId || r.batchCode || "")}&animalId=${r.rawId}&tag=${encodeURIComponent(r.tagNumber || "")}`}>
+                            <Link href={`/sibat/batches?batchId=${encodeURIComponent(r.batchId || r.batchCode || "")}&animalId=${r.rawId}&tag=${encodeURIComponent(r.tagNumber || "")}&from=registry`}>
                               <Layers className="size-3.5 mr-1 text-teal-700" /> Review Herd ({r.batchCode || "Parent Herd"})
                             </Link>
                           </Button>

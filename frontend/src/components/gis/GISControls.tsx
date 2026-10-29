@@ -62,7 +62,8 @@ RotateCcw,
 TrendingUp,
 Zap,
 } from 'lucide-react';
-import { useEffect,useRef,useState } from 'react';
+import { useAuth } from '@/contexts/auth-context';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DiseaseSubMode,GISUserScope,MapLayer,Movement3DDisplayMode,SimulationColorMode,ViewMode } from './types';
 
 interface GISControlsProps {
@@ -86,6 +87,13 @@ interface GISControlsProps {
   onMovementDisplayModeChange?: (mode: Movement3DDisplayMode) => void;
   showMovementTimeline?: boolean;
   onToggleMovementTimeline?: () => void;
+  showAdjacentDiseaseAlerts?: boolean;
+  onToggleAdjacentDiseaseAlerts?: () => void;
+  showAdjacentOutbreakColor?: boolean;
+  onToggleAdjacentOutbreakColor?: () => void;
+  showAdjacentOutbreakDots?: boolean;
+  onToggleAdjacentOutbreakDots?: () => void;
+  adjacentDiseaseAlertsCount?: number;
 }
 
 export function GISControls({
@@ -109,6 +117,13 @@ export function GISControls({
   onMovementDisplayModeChange,
   showMovementTimeline = false,
   onToggleMovementTimeline,
+  showAdjacentDiseaseAlerts = true,
+  onToggleAdjacentDiseaseAlerts,
+  showAdjacentOutbreakColor = true,
+  onToggleAdjacentOutbreakColor,
+  showAdjacentOutbreakDots = true,
+  onToggleAdjacentOutbreakDots,
+  adjacentDiseaseAlertsCount = 0,
 }: GISControlsProps) {
   // Collapsible control panel state (collapsed by default for map-first view)
   const [isExpanded, setIsExpanded] = useState<boolean>(defaultExpanded);
@@ -151,29 +166,43 @@ export function GISControls({
     ? (selectedLivestockType === 'ALL' ? 'All Livestock' : selectedLivestockType || 'Livestock')
     : 'Cattle';
 
-  const allLayerOptions: { id: MapLayer; label: string; icon: string }[] = [
-    { id: 'cattle', label: livestockLabel, icon: '🐄' },
-    { id: 'disease', label: 'Disease', icon: '🩺' },
-    { id: 'milk', label: 'Recorded Milk (Farmer-reported)', icon: '🥛' },
-    { id: 'farmer_meat', label: 'Recorded Meat Yield (Farmer-reported)', icon: '🥩' },
-    { id: 'slaughter_yield', label: 'Slaughter Yield', icon: '🔪' },
-    { id: 'mortality', label: 'Mortality', icon: '☠️' },
-    { id: 'movement', label: 'Movement', icon: '🚛' },
-  ];
+  const { user } = useAuth();
+  const userRole = (user?.role || userScope?.role || '').toUpperCase();
+  const isCbat = userRole === 'CBAT';
+  const isFarmerRole = userRole === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
+
+  const allLayerOptions: { id: MapLayer; label: string; icon: string }[] = useMemo(() => {
+    const list: { id: MapLayer; label: string; icon: string }[] = [
+      { id: 'cattle', label: livestockLabel, icon: '🐄' },
+      { id: 'disease', label: 'Disease', icon: '🩺' },
+      { id: 'milk', label: 'Recorded Milk (Farmer-reported)', icon: '🥛' },
+      { id: 'farmer_meat', label: 'Recorded Meat Yield (Farmer-reported)', icon: '🥩' },
+      { id: 'slaughter_yield', label: 'Slaughter Yield', icon: '🔪' },
+      { id: 'mortality', label: 'Mortality', icon: '☠️' },
+    ];
+    if (!isCbat) {
+      list.push({ id: 'movement', label: 'Movement', icon: '🚛' });
+    }
+    return list;
+  }, [livestockLabel, isCbat]);
 
   // Filter layers according to user's authorized role scope
-  const layerOptions = userScope?.allowed_layers
-    ? allLayerOptions.filter(
-        (opt) =>
-          userScope.allowed_layers.includes(opt.id) ||
-          (opt.id === 'slaughter_yield' && userScope.allowed_layers.includes('meat' as MapLayer))
-      )
-    : allLayerOptions;
+  const layerOptions = useMemo(() => {
+    if (!userScope?.allowed_layers) {
+      return allLayerOptions;
+    }
+    return allLayerOptions.filter(
+      (opt) =>
+        (userScope.allowed_layers.includes(opt.id) ||
+          (opt.id === 'slaughter_yield' && userScope.allowed_layers.includes('meat' as MapLayer))) &&
+        (!isCbat || opt.id !== 'movement')
+    );
+  }, [allLayerOptions, userScope?.allowed_layers, isCbat]);
 
   const activeOption = layerOptions.find((opt) => opt.id === currentLayer) || layerOptions[0] || allLayerOptions[0];
   const canUse3D = !userScope || userScope.allowed_modes?.includes('3D');
   const canUseSim = !userScope || userScope.can_use_simulation;
-  const canUseTrend = userScope?.role !== 'CBAT';
+  const canUseTrend = !isCbat;
 
   return (
     <div ref={containerRef} className="flex flex-col gap-2 pointer-events-auto">
@@ -442,6 +471,105 @@ export function GISControls({
                     </button>
                   );
                 })}
+
+                {/* Adjacent Outbreak Pulse Dots & Color Toggles (in the map layer section) */}
+                {onToggleAdjacentDiseaseAlerts && (isFarmerRole || adjacentDiseaseAlertsCount > 0) && (
+                  <div className="pt-2 mt-1 border-t border-slate-100 flex flex-col gap-1.5 col-span-full">
+                    {/* Master Outbreak Toggle: Toggles both Color and Dots together */}
+                    <button
+                      type="button"
+                      onClick={onToggleAdjacentDiseaseAlerts}
+                      role="switch"
+                      aria-checked={showAdjacentDiseaseAlerts}
+                      className={`min-h-[42px] sm:min-h-[36px] px-3 py-2 rounded-xl border flex items-center justify-between text-xs font-bold transition-all cursor-pointer ${
+                        showAdjacentDiseaseAlerts
+                          ? 'bg-rose-50 border-rose-300 text-rose-950 shadow-2xs ring-2 ring-rose-400/20'
+                          : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-base shrink-0">🚨</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-extrabold truncate">Adjacent Outbreak Dots</span>
+                            {adjacentDiseaseAlertsCount > 0 && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-black bg-rose-200/80 text-rose-900 shrink-0">
+                                {adjacentDiseaseAlertsCount} active
+                              </span>
+                            )}
+                          </div>
+                          <span className={`text-[10px] block truncate ${showAdjacentDiseaseAlerts ? 'text-rose-700 font-semibold' : 'text-slate-400'}`}>
+                            {showAdjacentOutbreakColor && showAdjacentOutbreakDots
+                              ? 'Perimeter color & pulsing dots active'
+                              : showAdjacentOutbreakColor
+                              ? 'Border color warning active (dots hidden)'
+                              : showAdjacentOutbreakDots
+                              ? 'Pulsing sonar dots active (color hidden)'
+                              : 'Click to show border disease warnings'}
+                          </span>
+                        </div>
+                      </div>
+                      <span className={`text-[10.5px] uppercase font-mono font-black px-2 py-0.5 rounded-md shrink-0 ml-2 ${
+                        showAdjacentOutbreakColor && showAdjacentOutbreakDots
+                          ? 'bg-rose-600 text-white'
+                          : showAdjacentDiseaseAlerts
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {showAdjacentOutbreakColor && showAdjacentOutbreakDots
+                          ? 'ALL ON'
+                          : showAdjacentDiseaseAlerts
+                          ? 'PARTIAL'
+                          : 'OFF'}
+                      </span>
+                    </button>
+
+                    {/* Sub-toggles: Separate Color & Dot Toggles */}
+                    <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={onToggleAdjacentOutbreakColor}
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border flex items-center justify-between transition-all cursor-pointer ${
+                          showAdjacentOutbreakColor
+                            ? 'bg-rose-100/70 text-rose-900 border-rose-300 shadow-2xs'
+                            : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'
+                        }`}
+                        title="Toggle red warning polygon fill color on adjacent barangays"
+                      >
+                        <span className="flex items-center gap-1 truncate">
+                          <span>🎨</span>
+                          <span>Border Color</span>
+                        </span>
+                        <span className={`font-mono text-[9.5px] px-1.5 py-0.2 rounded font-black ${
+                          showAdjacentOutbreakColor ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          {showAdjacentOutbreakColor ? 'ON' : 'OFF'}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={onToggleAdjacentOutbreakDots}
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border flex items-center justify-between transition-all cursor-pointer ${
+                          showAdjacentOutbreakDots
+                            ? 'bg-rose-100/70 text-rose-900 border-rose-300 shadow-2xs'
+                            : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'
+                        }`}
+                        title="Toggle pulsing sonar radar dots on adjacent barangays"
+                      >
+                        <span className="flex items-center gap-1 truncate">
+                          <span>🔴</span>
+                          <span>Pulsing Dots</span>
+                        </span>
+                        <span className={`font-mono text-[9.5px] px-1.5 py-0.2 rounded font-black ${
+                          showAdjacentOutbreakDots ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          {showAdjacentOutbreakDots ? 'ON' : 'OFF'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -539,7 +667,7 @@ export function GISControls({
 
               {diseaseSectionOpen && (
                 <div className="flex flex-col gap-1.5 pt-0.5">
-                  <div className={`grid grid-cols-1 gap-1.5 ${canUseSim || canUseTrend ? 'sm:grid-cols-3' : ''}`}>
+                  <div className={`grid grid-cols-1 sm:grid-cols-2 gap-1.5 ${canUseSim && canUseTrend ? 'lg:grid-cols-3' : ''}`}>
                     <button
                       type="button"
                       onClick={() => onDiseaseSubModeChange('reported')}

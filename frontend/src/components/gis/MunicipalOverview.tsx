@@ -34,6 +34,7 @@
  */
 
 import { GISPopulationDistribution } from './GISPopulationDistribution';
+import { useAuth } from '@/contexts/auth-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -98,17 +99,20 @@ export function MunicipalOverview({
   const maxFarmerMeat = summary.top_farmer_meat?.[0]?.farmer_meat || 1;
   const maxSlaughterYield = summary.top_slaughter_yield?.[0]?.slaughter_yield || 1;
 
-  const isFarmer = userScope?.role === 'FARMER';
+  const { user } = useAuth();
+  const userRole = (user?.role || userScope?.role || '').toUpperCase();
+  const isFarmer = userRole === 'FARMER' || userScope?.role === 'FARMER';
+  const isCbat = userRole === 'CBAT' || userScope?.role === 'CBAT';
   const isAuction = userScope?.role === 'AUCTION';
   const isSlaughter = userScope?.role === 'SLAUGHTERHOUSESTAFF';
-  const isSibat = userScope?.role === 'SIBAT' || userScope?.role === 'CBAT';
+  const isSibat = userScope?.role === 'SIBAT' || isCbat;
 
   const showFarmerMeat = !userScope || userScope.allowed_layers.includes('farmer_meat');
   const showSlaughterYield =
     !userScope ||
     userScope.allowed_layers.includes('slaughter_yield') ||
     userScope.allowed_layers.includes('meat');
-  const showMovement = !isFarmer && (!userScope || userScope.allowed_layers.includes('movement'));
+  const showMovement = !isFarmer && !isCbat && Boolean(userScope?.allowed_layers?.includes('movement'));
 
   const overviewTitle =
     userScope?.title ||

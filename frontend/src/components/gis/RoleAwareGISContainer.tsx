@@ -38,7 +38,7 @@ import { useClientReady } from "@/hooks/use-browser-state";
 
 import { useIsMobile } from '@/components/ui/use-mobile';
 import api from '@/lib/axios';
-import { ArrowLeft,Info,Loader2 } from 'lucide-react';
+import { ArrowLeft,Info,Loader2,X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -114,13 +114,32 @@ export function RoleAwareGISContainer({
   const gisData = telemetry.data ?? null;
   const isLoading = telemetry.isPending || telemetry.isFetching;
   const [showInitialLoadingScreen, setShowInitialLoadingScreen] = useState(true);
+  const [isAdjacentAlertDismissed, setIsAdjacentAlertDismissed] = useState(false);
   const loadingScreenPortalRoot = ready ? document.body : null;
 
   // Active layer & perspective states
   const [requestedLayer, setActiveLayer] = useState<MapLayer>('cattle');
   const [simulationColorMode, setSimulationColorMode] = useState<SimulationColorMode>('cases');
-  const allowedLayers = gisData?.user_scope?.allowed_layers;
-  const activeLayer = allowedLayers?.length && !allowedLayers.includes(requestedLayer) ? allowedLayers[0] : requestedLayer;
+  const isCbat = (user?.role || gisData?.user_scope?.role || '').toUpperCase() === 'CBAT';
+  const allowedLayers = useMemo(() => {
+    const raw = gisData?.user_scope?.allowed_layers;
+    if (!raw) {
+      return isCbat
+        ? (['cattle', 'disease', 'milk', 'farmer_meat', 'slaughter_yield', 'meat'] as MapLayer[])
+        : undefined;
+    }
+    return isCbat ? raw.filter((l) => l !== 'movement') : raw;
+  }, [gisData?.user_scope?.allowed_layers, isCbat]);
+
+  const activeLayer = useMemo(() => {
+    if (isCbat && requestedLayer === 'movement') {
+      return 'cattle';
+    }
+    if (allowedLayers?.length && !allowedLayers.includes(requestedLayer)) {
+      return allowedLayers[0];
+    }
+    return requestedLayer;
+  }, [isCbat, requestedLayer, allowedLayers]);
   const [selectedLivestockType, setSelectedLivestockType] = useState<string>('Cattle');
   const [viewMode, setViewMode] = useState<ViewMode>('2D');
   const [diseaseSubMode, setDiseaseSubMode] = useState<DiseaseSubMode>('reported');
@@ -140,6 +159,20 @@ export function RoleAwareGISContainer({
   const [sidebarChoice, setSidebarOpen] = useState<boolean | null>(null);
   const sidebarOpen = sidebarChoice ?? !isMobile;
   const [resetTrigger, setResetTrigger] = useState<number>(0);
+  const [showAdjacentOutbreakColor, setShowAdjacentOutbreakColor] = useState<boolean>(true);
+  const [showAdjacentOutbreakDots, setShowAdjacentOutbreakDots] = useState<boolean>(true);
+
+  // Master toggle: if either is active, turn both off. If both off, turn both on.
+  const showAdjacentDiseaseAlerts = showAdjacentOutbreakColor || showAdjacentOutbreakDots;
+  const handleToggleAllAdjacent = () => {
+    if (showAdjacentDiseaseAlerts) {
+      setShowAdjacentOutbreakColor(false);
+      setShowAdjacentOutbreakDots(false);
+    } else {
+      setShowAdjacentOutbreakColor(true);
+      setShowAdjacentOutbreakDots(true);
+    }
+  };
 
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
 
@@ -172,6 +205,24 @@ export function RoleAwareGISContainer({
     const timeout = window.setTimeout(() => setShowInitialLoadingScreen(false), 700);
     return () => window.clearTimeout(timeout);
   }, [isLoading, showInitialLoadingScreen]);
+
+  // Proactive Biosecurity Alert Toast for Farmers if any adjacent barangay has approved disease cases
+  useEffect(() => {
+    const isFarmerRole = (user?.role || gisData?.user_scope?.role || '').toUpperCase() === 'FARMER';
+    const alerts = gisData?.adjacent_disease_alerts;
+    if (isFarmerRole && alerts && alerts.length > 0) {
+      const neighborList = alerts
+        .map((a) => `Brgy. ${a.name} (${a.active_cases} report${a.active_cases > 1 ? 's' : ''})`)
+        .join(', ');
+      toast.warning(
+        `⚠️ Biosecurity Perimeter Alert: Approved disease case(s) detected in neighboring ${neighborList}. Pulsing red markers on the map indicate adjacent outbreak zones.`,
+        {
+          id: 'adjacent-disease-biosecurity-toast',
+          duration: 9000,
+        }
+      );
+    }
+  }, [gisData?.adjacent_disease_alerts, user?.role, gisData?.user_scope?.role]);
 
   /**
    * DATA FLOW STEP 2: Meteorological Wind Data Integration
@@ -422,7 +473,41 @@ export function RoleAwareGISContainer({
           showMovementOverlay={showMovementOverlay}
           movementDisplayMode={movementDisplayMode}
           isTimelineActive={showMovementTimeline && movementTimelineMode !== 'all'}
+          adjacentDiseaseAlerts={gisData?.adjacent_disease_alerts ?? []}
+          showAdjacentDiseaseAlerts={showAdjacentDiseaseAlerts}
+          showAdjacentOutbreakColor={showAdjacentOutbreakColor}
+          showAdjacentOutbreakDots={showAdjacentOutbreakDots}
         />
+
+        {/* Proactive Farmer Adjacent Disease Alert Floating Pill */}
+        {!isAdjacentAlertDismissed &&
+          showAdjacentDiseaseAlerts &&
+          ((user?.role || gisData?.user_scope?.role || '').toUpperCase() === 'FARMER') &&
+          gisData?.adjacent_disease_alerts &&
+          gisData.adjacent_disease_alerts.length > 0 && (
+            <div className="absolute top-[calc(4.25rem+env(safe-area-inset-top,0px))] left-4 right-4 sm:left-auto sm:right-4 z-[890] max-w-sm bg-rose-950/90 text-white border border-rose-500/70 rounded-xl p-2.5 shadow-xl backdrop-blur-md flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base animate-pulse shrink-0">⚠️</span>
+                <div className="text-xs min-w-0">
+                  <span className="font-extrabold text-white block truncate">
+                    Neighboring Alert: {gisData.adjacent_disease_alerts.map((a) => a.name).join(', ')}
+                  </span>
+                  <span className="text-[10px] text-rose-200 block truncate">
+                    Pulsing markers on map show bordering disease reports.
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdjacentAlertDismissed(true)}
+                className="shrink-0 p-1 text-rose-200 hover:text-white hover:bg-rose-900/60 rounded-lg transition-colors cursor-pointer"
+                aria-label="Dismiss neighboring alert"
+                title="Dismiss alert"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          )}
 
         {/* 2. Floating Controls */}
         <div className="absolute top-[calc(0.75rem+env(safe-area-inset-top,0px))] left-[calc(4rem+env(safe-area-inset-left,0px))] lg:left-4 lg:top-4 z-[850] max-w-[calc(100vw-4.75rem)] lg:max-w-[calc(100vw-1.5rem)]">
@@ -460,6 +545,13 @@ export function RoleAwareGISContainer({
             onMovementDisplayModeChange={setMovementDisplayMode}
             showMovementTimeline={showMovementTimeline}
             onToggleMovementTimeline={() => setShowMovementTimeline((prev) => !prev)}
+            showAdjacentDiseaseAlerts={showAdjacentDiseaseAlerts}
+            onToggleAdjacentDiseaseAlerts={handleToggleAllAdjacent}
+            showAdjacentOutbreakColor={showAdjacentOutbreakColor}
+            onToggleAdjacentOutbreakColor={() => setShowAdjacentOutbreakColor((prev) => !prev)}
+            showAdjacentOutbreakDots={showAdjacentOutbreakDots}
+            onToggleAdjacentOutbreakDots={() => setShowAdjacentOutbreakDots((prev) => !prev)}
+            adjacentDiseaseAlertsCount={gisData?.adjacent_disease_alerts?.length ?? 0}
           />
         </div>
 
@@ -562,6 +654,7 @@ export function RoleAwareGISContainer({
           selectedMovement={selectedMovement}
           onSelectMovement={handleSelectMovement}
           onClearSelectedMovement={handleClearSelectedMovement}
+          adjacentAlerts={gisData?.adjacent_disease_alerts ?? []}
         />
 
         {/* 7. Mobile Bottom Sheet Drawer (< 1024px) */}
@@ -587,6 +680,7 @@ export function RoleAwareGISContainer({
           selectedMovement={selectedMovement}
           onSelectMovement={handleSelectMovement}
           onClearSelectedMovement={handleClearSelectedMovement}
+          adjacentAlerts={gisData?.adjacent_disease_alerts ?? []}
         />
 
         {/* 8. Live Syncing Indicator */}

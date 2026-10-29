@@ -990,6 +990,14 @@ function SibatBatchesVerificationContent() {
   const batchIdParam = searchParams.get("batchId") || searchParams.get("id");
   const animalIdParam = searchParams.get("animalId") || searchParams.get("livestockId");
   const tagParam = searchParams.get("tag") || searchParams.get("tagNumber");
+  const fromParam = searchParams.get("from");
+  const isFromRegistry = Boolean(
+    fromParam === "registry" ||
+    fromParam === "livestock-registry" ||
+    animalIdParam ||
+    tagParam ||
+    (typeof document !== "undefined" && document.referrer?.includes("/sibat/livestock-registry"))
+  );
   const herdPageTitle = user?.accessScope === "ALL_BARANGAYS"
     ? "Herds in All Barangays"
     : user?.assignedBarangayName
@@ -1372,10 +1380,110 @@ function SibatBatchesVerificationContent() {
     return () => clearInterval(interval);
   }, [highlightedAnimalId, animalPage, pagedChildAnimals]);
 
+  // ── Gmail-style Selection & Mobile Press-Down (Long-Press) ────────────────
+  const lastSelectedAnimalIdRef = useRef<number | null>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const isLongPressTriggeredRef = useRef(false);
+
+  function handleAnimalPressDown(animalId: number, isPending: boolean, e: React.PointerEvent) {
+    if (!isPending) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    isLongPressTriggeredRef.current = false;
+    touchStartPosRef.current = { x: e.clientX, y: e.clientY };
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressTriggeredRef.current = true;
+      if (typeof window !== "undefined" && "vibrate" in navigator) {
+        try {
+          navigator.vibrate?.(45);
+        } catch {
+          // ignore
+        }
+      }
+      setSelectedAnimalIds((current) =>
+        current.includes(animalId)
+          ? current.filter((id) => id !== animalId)
+          : Array.from(new Set([...current, animalId]))
+      );
+      lastSelectedAnimalIdRef.current = animalId;
+    }, 400);
+  }
+
+  function handleAnimalPressMove(e: React.PointerEvent) {
+    if (!touchStartPosRef.current) return;
+    const deltaX = Math.abs(e.clientX - touchStartPosRef.current.x);
+    const deltaY = Math.abs(e.clientY - touchStartPosRef.current.y);
+
+    if (deltaX > 10 || deltaY > 10) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+  }
+
+  function handleAnimalPressUp() {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    touchStartPosRef.current = null;
+  }
+
+  function handleAnimalToggle(animalId: number, isPending: boolean, shiftKey?: boolean) {
+    if (!isPending) return;
+
+    if (shiftKey && lastSelectedAnimalIdRef.current !== null) {
+      const visibleAnimals = pagedChildAnimals;
+      const indexA = visibleAnimals.findIndex((a) => a.id === lastSelectedAnimalIdRef.current);
+      const indexB = visibleAnimals.findIndex((a) => a.id === animalId);
+
+      if (indexA !== -1 && indexB !== -1) {
+        const start = Math.min(indexA, indexB);
+        const end = Math.max(indexA, indexB);
+        const rangePendingIds = visibleAnimals
+          .slice(start, end + 1)
+          .filter((a) => (a.status || "PENDING").toUpperCase() === "PENDING")
+          .map((a) => a.id);
+
+        setSelectedAnimalIds((current) => Array.from(new Set([...current, ...rangePendingIds])));
+        lastSelectedAnimalIdRef.current = animalId;
+        return;
+      }
+    }
+
+    setSelectedAnimalIds((current) =>
+      current.includes(animalId)
+        ? current.filter((id) => id !== animalId)
+        : [...current, animalId]
+    );
+    lastSelectedAnimalIdRef.current = animalId;
+  }
+
+  function selectAllFilteredPending() {
+    setSelectedAnimalIds(filteredPendingAnimalIds);
+  }
+
+  function deselectAllAnimals() {
+    setSelectedAnimalIds([]);
+    lastSelectedAnimalIdRef.current = null;
+  }
+
   function toggleFilteredPendingAnimals(checked: boolean) {
-    setSelectedAnimalIds((current) => checked
-      ? Array.from(new Set([...current, ...filteredPendingAnimalIds]))
-      : current.filter((id) => !filteredPendingAnimalIds.includes(id)));
+    if (checked) {
+      if (filteredPendingAnimalIds.length > 0) {
+        setSelectedAnimalIds([filteredPendingAnimalIds[0]]);
+        lastSelectedAnimalIdRef.current = filteredPendingAnimalIds[0];
+      }
+    } else {
+      deselectAllAnimals();
+    }
   }
 
   async function verifySelectedAnimals() {
@@ -1456,7 +1564,11 @@ function SibatBatchesVerificationContent() {
     setSelectedBatch(null);
     setHighlightedAnimalId(null);
     scrolledAnimalIdRef.current = null;
-    if (batchIdParam) router.replace("/sibat/batches", { scroll: false });
+    if (isFromRegistry) {
+      router.push("/sibat/livestock-registry");
+    } else {
+      if (batchIdParam) router.replace("/sibat/batches", { scroll: false });
+    }
   }
 
   function openAnimalReview(batch: BatchItem, animal: ChildAnimal) {
@@ -1735,7 +1847,13 @@ function SibatBatchesVerificationContent() {
               className="h-10 rounded-xl border-emerald-200 bg-white hover:bg-emerald-50 text-emerald-900 text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer"
             >
               <ArrowLeft className="size-4 text-emerald-700" />
-              <span>{isCbat ? "Back to Herds" : "Back to Batches"}</span>
+              <span>
+                {isFromRegistry
+                  ? "Back to Livestock Registry"
+                  : isCbat
+                    ? "Back to Herds"
+                    : "Back to Batches"}
+              </span>
             </Button>
           </div>
         )}
@@ -2535,26 +2653,17 @@ function SibatBatchesVerificationContent() {
                       <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
                     </div>
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleFilteredPendingAnimals(!allFilteredPendingAnimalsSelected)}
-                      disabled={filteredPendingAnimalIds.length === 0}
-                      className="h-9.5 rounded-xl border-emerald-500/30 px-3 text-xs font-mono font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                    >
-                      <CheckSquare className="mr-1.5 size-3.5 text-emerald-600" />
-                      {allFilteredPendingAnimalsSelected ? "DESELECT ALL" : "SELECT PENDING"}
-                    </Button>
-
-                    {selectedAnimalIds.length > 0 && (
+                    {selectedAnimalIds.length === 0 && (
                       <Button
                         type="button"
-                        onClick={() => setBulkVerifyOpen(true)}
-                        className="h-9.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-mono font-bold text-xs px-3.5 flex items-center gap-1.5 shadow-holo-glow-emerald animate-in fade-in cursor-pointer"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleFilteredPendingAnimals(true)}
+                        disabled={filteredPendingAnimalIds.length === 0}
+                        className="h-9.5 rounded-xl border-emerald-500/30 px-3 text-xs font-mono font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
                       >
-                        <ShieldCheck className="size-4" />
-                        VERIFY SELECTED ({selectedAnimalIds.length})
+                        <CheckSquare className="mr-1.5 size-3.5 text-emerald-600" />
+                        <span>SELECT PENDING</span>
                       </Button>
                     )}
                   </div>
@@ -2571,32 +2680,72 @@ function SibatBatchesVerificationContent() {
                       pagedChildAnimals.map((animal) => {
                         const isPending = (animal.status || "PENDING").toUpperCase() === "PENDING";
                         const isTarget = highlightedAnimalId === animal.id;
+                        const isSelected = selectedAnimalIds.includes(animal.id);
+                        const speciesAvatar = getDefaultAvatarForSpecies(activeBatch.livestock_type_name);
                         const animalWeight = animal.weight == null ? null : Number(animal.weight);
 
                         return (
                           <article
                             key={animal.id}
                             id={`animal-card-${animal.id}`}
-                            className={`rounded-2xl border p-4 shadow-sm transition-all duration-300 relative ${
+                            onPointerDown={(e) => handleAnimalPressDown(animal.id, isPending, e)}
+                            onPointerMove={handleAnimalPressMove}
+                            onPointerUp={handleAnimalPressUp}
+                            onPointerCancel={handleAnimalPressUp}
+                            onClick={(e) => {
+                              if (isLongPressTriggeredRef.current) {
+                                isLongPressTriggeredRef.current = false;
+                                return;
+                              }
+                              if (selectedAnimalIds.length > 0 || e.shiftKey) {
+                                handleAnimalToggle(animal.id, isPending, e.shiftKey);
+                              }
+                            }}
+                            className={`rounded-2xl border p-4 shadow-sm transition-all duration-200 relative select-none touch-manipulation cursor-pointer ${
                               isTarget
                                 ? "border-emerald-500 bg-emerald-50/90 ring-2 ring-emerald-500 shadow-holo-glow-emerald"
-                                : selectedAnimalIds.includes(animal.id)
-                                  ? "border-emerald-400 bg-emerald-50/40"
-                                  : "border-slate-200/90 bg-white hover:border-emerald-500/40"
+                                : isSelected
+                                  ? "border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/25 shadow-sm"
+                                  : "border-slate-200/90 bg-white hover:border-emerald-500/40 hover:bg-slate-50/40"
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2.5">
-                              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                 <input
                                   type="checkbox"
                                   aria-label={`Select ${animal.tag_number || `animal ${animal.id}`} for field verification`}
-                                  checked={selectedAnimalIds.includes(animal.id)}
+                                  checked={isSelected}
                                   disabled={!isPending}
-                                  onChange={(event) => setSelectedAnimalIds((current) => event.target.checked
-                                    ? Array.from(new Set([...current, animal.id]))
-                                    : current.filter((id) => id !== animal.id))}
-                                  className="size-4.5 rounded border-slate-300 accent-emerald-600 disabled:opacity-40 cursor-pointer"
+                                  onChange={(event) => {
+                                    event.stopPropagation();
+                                    handleAnimalToggle(animal.id, isPending, (event.nativeEvent as MouseEvent).shiftKey);
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="size-4.5 rounded border-slate-300 accent-emerald-600 disabled:opacity-40 cursor-pointer shrink-0"
                                 />
+
+                                {/* Gmail-style Avatar with Checkmark Overlay */}
+                                <button
+                                  type="button"
+                                  disabled={!isPending}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAnimalToggle(animal.id, isPending, e.shiftKey);
+                                  }}
+                                  className={`size-9 rounded-xl flex items-center justify-center text-sm border transition-all cursor-pointer shrink-0 ${
+                                    isSelected
+                                      ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                                      : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                                  }`}
+                                  title={isSelected ? "Deselect animal" : "Select animal"}
+                                >
+                                  {isSelected ? (
+                                    <Check className="size-4.5 text-white stroke-[3] animate-in zoom-in-75 duration-150" />
+                                  ) : (
+                                    speciesAvatar.emoji
+                                  )}
+                                </button>
+
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-mono font-bold text-xs sm:text-sm text-slate-900">
@@ -2606,7 +2755,7 @@ function SibatBatchesVerificationContent() {
                                       <button
                                         type="button"
                                         onClick={(e) => {
-                                          e.preventDefault();
+                                          e.stopPropagation();
                                           handleCopyTag(animal.tag_number);
                                         }}
                                         className="text-slate-400 hover:text-slate-700 cursor-pointer"
@@ -2622,7 +2771,7 @@ function SibatBatchesVerificationContent() {
                                   </div>
                                   <span className="text-[10px] font-mono text-slate-400 block">ANIMAL ID: {animal.id}</span>
                                 </div>
-                              </label>
+                              </div>
 
                               <div className="shrink-0">{getAnimalStatusBadge(animal.status)}</div>
                             </div>
@@ -2650,7 +2799,10 @@ function SibatBatchesVerificationContent() {
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                onClick={() => openAnimalReview(activeBatch, animal)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openAnimalReview(activeBatch, animal);
+                                }}
                                 className="h-7.5 px-2.5 rounded-lg border-emerald-500/30 text-emerald-800 hover:bg-emerald-50 text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer"
                               >
                                 <Eye className="size-3" />
@@ -2667,7 +2819,28 @@ function SibatBatchesVerificationContent() {
                     <Table className="min-w-[1050px]">
                       <TableHeader className="bg-emerald-50 text-emerald-950">
                         <TableRow className="hover:bg-transparent border-emerald-500/30">
-                          <TableHead className="w-12 text-center text-xs font-mono font-bold text-emerald-900">SEL</TableHead>
+                          <TableHead className="w-12 text-center text-xs font-mono font-bold text-emerald-900">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (allFilteredPendingAnimalsSelected) {
+                                  deselectAllAnimals();
+                                } else {
+                                  selectAllFilteredPending();
+                                }
+                              }}
+                              disabled={filteredPendingAnimalIds.length === 0}
+                              aria-label={allFilteredPendingAnimalsSelected ? "Deselect All" : "Select All Pending"}
+                              title={allFilteredPendingAnimalsSelected ? "Deselect All" : "Select All Pending"}
+                              className="size-5 rounded border border-emerald-600 bg-white inline-flex items-center justify-center text-emerald-800 disabled:opacity-40 cursor-pointer transition-colors"
+                            >
+                              {allFilteredPendingAnimalsSelected ? (
+                                <Check className="size-3.5 text-emerald-700 stroke-[3]" />
+                              ) : selectedAnimalIds.length > 0 ? (
+                                <span className="block h-0.5 w-2 bg-emerald-700 rounded-full" />
+                              ) : null}
+                            </button>
+                          </TableHead>
                           <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">EAR TAG #</TableHead>
                           <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">BREED</TableHead>
                           <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">SEX</TableHead>
@@ -2687,6 +2860,8 @@ function SibatBatchesVerificationContent() {
                           </TableRow>
                         ) : (
                           pagedChildAnimals.map((animal) => {
+                            const isPending = (animal.status || "PENDING").toUpperCase() === "PENDING";
+                            const isSelected = selectedAnimalIds.includes(animal.id);
                             const isTarget = highlightedAnimalId === animal.id;
                             const avatar = getDefaultAvatarForSpecies(activeBatch.livestock_type_name);
                             const animalWeight = animal.weight ? Number(animal.weight) : null;
@@ -2697,11 +2872,24 @@ function SibatBatchesVerificationContent() {
                               <TableRow
                                 key={animal.id}
                                 id={`animal-row-${animal.id}`}
-                                className={`transition-all border-slate-100 font-mono text-xs ${
+                                onPointerDown={(e) => handleAnimalPressDown(animal.id, isPending, e)}
+                                onPointerMove={handleAnimalPressMove}
+                                onPointerUp={handleAnimalPressUp}
+                                onPointerCancel={handleAnimalPressUp}
+                                onClick={(e) => {
+                                  if (isLongPressTriggeredRef.current) {
+                                    isLongPressTriggeredRef.current = false;
+                                    return;
+                                  }
+                                  if (selectedAnimalIds.length > 0 || e.shiftKey) {
+                                    handleAnimalToggle(animal.id, isPending, e.shiftKey);
+                                  }
+                                }}
+                                className={`transition-all border-slate-100 font-mono text-xs cursor-pointer select-none touch-manipulation ${
                                   isTarget
                                     ? "bg-emerald-100/90 ring-2 ring-emerald-600 ring-inset shadow-md font-medium"
-                                    : selectedAnimalIds.includes(animal.id)
-                                      ? "bg-emerald-50/50"
+                                    : isSelected
+                                      ? "bg-emerald-50/80 border-l-4 border-l-emerald-600 font-medium"
                                       : "hover:bg-slate-50/70"
                                 }`}
                               >
@@ -2709,18 +2897,31 @@ function SibatBatchesVerificationContent() {
                                   <input
                                     type="checkbox"
                                     aria-label={`Select ${animal.tag_number || `animal ${animal.id}`} for field verification`}
-                                    checked={selectedAnimalIds.includes(animal.id)}
-                                    disabled={(animal.status || "PENDING").toUpperCase() !== "PENDING"}
-                                    onChange={(event) => setSelectedAnimalIds((current) => event.target.checked
-                                      ? Array.from(new Set([...current, animal.id]))
-                                      : current.filter((id) => id !== animal.id))}
+                                    checked={isSelected}
+                                    disabled={!isPending}
+                                    onChange={(event) => {
+                                      event.stopPropagation();
+                                      handleAnimalToggle(animal.id, isPending, (event.nativeEvent as MouseEvent).shiftKey);
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
                                     className="size-4.5 rounded border-slate-300 accent-emerald-600 disabled:opacity-40 cursor-pointer"
                                   />
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex items-center gap-2">
-                                    <div className="size-8 rounded-xl flex items-center justify-center text-xs border border-emerald-500/30 shadow-2xs shrink-0 bg-emerald-50">
-                                      {avatar.emoji}
+                                    <div
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAnimalToggle(animal.id, isPending, e.shiftKey);
+                                      }}
+                                      className={`size-8 rounded-xl flex items-center justify-center text-xs border transition-all cursor-pointer shrink-0 ${
+                                        isSelected
+                                          ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+                                          : "bg-emerald-50 text-emerald-800 border-emerald-500/30 hover:bg-emerald-100"
+                                      }`}
+                                      title={isSelected ? "Deselect animal" : "Select animal"}
+                                    >
+                                      {isSelected ? <Check className="size-4 text-white stroke-[3] animate-in zoom-in-75 duration-150" /> : avatar.emoji}
                                     </div>
                                     <div>
                                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -2730,7 +2931,10 @@ function SibatBatchesVerificationContent() {
                                         {animal.tag_number && (
                                           <button
                                             type="button"
-                                            onClick={() => handleCopyTag(animal.tag_number)}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleCopyTag(animal.tag_number);
+                                            }}
                                             className="text-slate-400 hover:text-slate-700 cursor-pointer"
                                             title="Copy tag number"
                                           >
@@ -2782,7 +2986,10 @@ function SibatBatchesVerificationContent() {
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => openAnimalReview(activeBatch, animal)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openAnimalReview(activeBatch, animal);
+                                    }}
                                     className="h-8 px-2.5 rounded-lg border-emerald-500/30 text-emerald-800 hover:bg-emerald-50 text-xs font-mono font-bold flex items-center gap-1 cursor-pointer"
                                   >
                                     <Eye className="size-3.5" />
@@ -2890,33 +3097,49 @@ function SibatBatchesVerificationContent() {
 
           {/* Floating Sticky Bottom Verification Bar */}
           {selectedAnimalIds.length > 0 && (
-            <div className="fixed bottom-10 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center justify-between gap-3 bg-white text-slate-800 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-lg border border-emerald-200 animate-in slide-in-from-bottom-4 duration-200 w-[calc(100%-2rem)] sm:w-auto sm:min-w-[440px] max-w-lg">
-              <div className="flex items-center gap-2.5 min-w-0 font-mono">
-                <span className="size-6 rounded-lg bg-emerald-500 text-slate-950 text-xs font-black flex items-center justify-center shrink-0">
+            <div className="fixed bottom-10 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center justify-between gap-2.5 sm:gap-3 bg-white text-slate-800 backdrop-blur-xl px-3 sm:px-4 py-2.5 sm:py-3 rounded-2xl shadow-xl border border-emerald-300 animate-in slide-in-from-bottom-4 duration-200 w-[calc(100%-1.5rem)] sm:w-auto sm:min-w-[460px] max-w-lg">
+              <div className="flex items-center gap-2 min-w-0 font-mono">
+                <span className="size-6 rounded-lg bg-emerald-600 text-white text-xs font-black flex items-center justify-center shrink-0 shadow-2xs">
                   {selectedAnimalIds.length}
                 </span>
-                <span className="text-xs text-slate-600 truncate">
-                  ANIMALS SELECTED FOR VERIFICATION
+                <span className="text-xs font-bold text-slate-800 truncate hidden xs:inline">
+                  SELECTED
                 </span>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (allFilteredPendingAnimalsSelected) {
+                      deselectAllAnimals();
+                    } else {
+                      selectAllFilteredPending();
+                    }
+                  }}
+                  className="h-8.5 px-2.5 sm:px-3 rounded-xl border-emerald-300 text-emerald-900 bg-emerald-50 hover:bg-emerald-100 text-[11px] sm:text-xs font-mono font-bold cursor-pointer"
+                >
+                  {allFilteredPendingAnimalsSelected ? "DESELECT ALL" : "SELECT ALL"}
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setSelectedAnimalIds([])}
-                  className="h-8 px-2.5 text-xs font-mono text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  onClick={deselectAllAnimals}
+                  className="h-8 px-2 text-xs font-mono text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  title="Clear selection"
                 >
-                  CLEAR
+                  <X className="size-4" />
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   onClick={() => setBulkVerifyOpen(true)}
-                  className="h-8.5 px-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-black text-xs rounded-xl flex items-center gap-1.5 shadow-holo-glow-emerald cursor-pointer shrink-0"
+                  className="h-8.5 px-3 sm:px-3.5 bg-emerald-700 hover:bg-emerald-800 text-white font-mono font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-holo-glow-emerald cursor-pointer shrink-0"
                 >
                   <ShieldCheck className="size-4" />
-                  VERIFY NOW
+                  <span>VERIFY ({selectedAnimalIds.length})</span>
                 </Button>
               </div>
             </div>

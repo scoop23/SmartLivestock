@@ -52,6 +52,7 @@ import dynamic from 'next/dynamic';
 import React,{ useEffect,useLayoutEffect,useMemo,useRef,useState } from 'react';
 import { Giro3DBarangayView } from './Giro3DBarangayView';
 import {
+AdjacentDiseaseAlert,
 BarangayGISData,
 DiseaseSubMode,
 GISUserScope,
@@ -226,6 +227,107 @@ function computeCurvedArc(
   return points;
 }
 
+// Ray-casting algorithm to test if a point [lng, lat] is inside a polygon ring
+function isPointInRing(pt: [number, number], ring: number[][]): boolean {
+  const [x, y] = pt;
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0];
+    const yi = ring[i][1];
+    const xj = ring[j][0];
+    const yj = ring[j][1];
+    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function stringHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function pseudoRandom(seed: number) {
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return function () {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+/**
+ * Generates visual random points distributed strictly inside an adjacent barangay's polygon boundary.
+ * Purely visual representation for biosecurity awareness (no exact farm GPS coordinates required).
+ * Deterministic PRNG ensures coordinates remain completely stable across zooms and re-renders.
+ */
+function getRandomVisualPointsInBarangay(
+  bName: string,
+  count: number,
+  fallbackCentroid: [number, number]
+): [number, number][] {
+  const feature = (padreGarciaGeojson as FeatureCollection).features?.find(
+    (f) => f.properties?.name?.toLowerCase() === bName.toLowerCase()
+  );
+  if (!feature || feature.geometry.type !== 'Polygon') {
+    return Array.from({ length: count }, (_, i) => [
+      fallbackCentroid[0] + (i === 0 ? 0.0018 : -0.0015 * i),
+      fallbackCentroid[1] + (i === 0 ? -0.0018 : 0.0016 * i),
+    ]);
+  }
+
+  const ring = (feature.geometry as { coordinates: number[][][] }).coordinates[0];
+  let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  for (const [lng, lat] of ring) {
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+  }
+
+  // 12% inward margin prevents points from touching the outer perimeter boundary
+  const lngPad = (maxLng - minLng) * 0.12;
+  const latPad = (maxLat - minLat) * 0.12;
+  const safeMinLng = minLng + lngPad;
+  const safeMaxLng = maxLng - lngPad;
+  const safeMinLat = minLat + latPad;
+  const safeMaxLat = maxLat - latPad;
+
+  const rand = pseudoRandom(stringHash(bName) + 777);
+  const points: [number, number][] = [];
+
+  for (let c = 0; c < count; c++) {
+    let found = false;
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const lng = safeMinLng + rand() * (safeMaxLng - safeMinLng);
+      const lat = safeMinLat + rand() * (safeMaxLat - safeMinLat);
+      if (isPointInRing([lng, lat], ring)) {
+        // Spacing: ensure each subsequent visual point has distance separation
+        const tooClose = points.some((p) => Math.hypot(p[0] - lat, p[1] - lng) < 0.0012);
+        if (!tooClose || attempt > 60) {
+          points.push([Number(lat.toFixed(6)), Number(lng.toFixed(6))]);
+          found = true;
+          break;
+        }
+      }
+    }
+    if (!found) {
+      const angle = (c * 2 * Math.PI) / Math.max(count, 1) + 0.6;
+      const radius = 0.0022;
+      points.push([
+        Number((fallbackCentroid[0] + Math.sin(angle) * radius).toFixed(6)),
+        Number((fallbackCentroid[1] + Math.cos(angle) * radius).toFixed(6)),
+      ]);
+    }
+  }
+
+  return points;
+}
+
 interface GISMapProps {
   barangaysByName: Record<string, BarangayGISData>;
   movements: MovementRecord[];
@@ -244,6 +346,10 @@ interface GISMapProps {
   showMovementOverlay?: boolean;
   movementDisplayMode?: Movement3DDisplayMode;
   isTimelineActive?: boolean;
+  adjacentDiseaseAlerts?: AdjacentDiseaseAlert[];
+  showAdjacentDiseaseAlerts?: boolean;
+  showAdjacentOutbreakColor?: boolean;
+  showAdjacentOutbreakDots?: boolean;
 }
 
 export function GISMap({
@@ -264,6 +370,10 @@ export function GISMap({
   showMovementOverlay = false,
   movementDisplayMode = 'both',
   isTimelineActive = false,
+  adjacentDiseaseAlerts = [],
+  showAdjacentDiseaseAlerts = true,
+  showAdjacentOutbreakColor = true,
+  showAdjacentOutbreakDots = true,
 }: GISMapProps) {
   const centerPosition: [number, number] = [13.8741, 121.2529];
   const [leafletLib, setLeafletLib] = useState<typeof import('leaflet') | null>(null);
@@ -283,6 +393,11 @@ export function GISMap({
   const viewModeRef = useRef(viewMode);
   const selectedLivestockTypeRef = useRef(selectedLivestockType);
   const userScopeRef = useRef(userScope);
+  const showAdjacentOutbreakColorRef = useRef(showAdjacentOutbreakColor && showAdjacentDiseaseAlerts);
+  showAdjacentOutbreakColorRef.current = showAdjacentOutbreakColor && showAdjacentDiseaseAlerts;
+
+  const showAdjacentOutbreakDotsRef = useRef(showAdjacentOutbreakDots && showAdjacentDiseaseAlerts);
+  showAdjacentOutbreakDotsRef.current = showAdjacentOutbreakDots && showAdjacentDiseaseAlerts;
 
   useLayoutEffect(() => {
   barangaysByNameRef.current = barangaysByName;
@@ -294,7 +409,9 @@ export function GISMap({
   viewModeRef.current = viewMode;
   selectedLivestockTypeRef.current = selectedLivestockType;
   userScopeRef.current = userScope;
-  }, [barangaysByName, activeLayer, diseaseSubMode, selectedBarangay, simulatedStates, onSelectBarangay, viewMode, selectedLivestockType, userScope]);
+  showAdjacentOutbreakColorRef.current = showAdjacentOutbreakColor && showAdjacentDiseaseAlerts;
+  showAdjacentOutbreakDotsRef.current = showAdjacentOutbreakDots && showAdjacentDiseaseAlerts;
+  }, [barangaysByName, activeLayer, diseaseSubMode, selectedBarangay, simulatedStates, onSelectBarangay, viewMode, selectedLivestockType, userScope, showAdjacentOutbreakColor, showAdjacentOutbreakDots, showAdjacentDiseaseAlerts]);
 
   useEffect(() => {
     const root = mapRootRef.current;
@@ -496,6 +613,25 @@ export function GISMap({
     // Out-of-scope barangays:
     if (!isInScope) {
       if (isFarmer2D) {
+        if (showAdjacentOutbreakColorRef.current && data.is_adjacent && (data.active_cases > 0 || data.disease_cases > 0)) {
+          return {
+            fillColor: '#7f1d1d',
+            fillOpacity: 0.45,
+            color: '#ef4444',
+            weight: 2.5,
+            dashArray: '5, 5',
+            className: 'farmer-adjacent-disease-polygon',
+          };
+        }
+        if (showAdjacentOutbreakColorRef.current && data.is_adjacent) {
+          return {
+            fillColor: '#064e3b',
+            fillOpacity: 0.25,
+            color: '#059669',
+            weight: 1.5,
+            className: 'farmer-adjacent-safe-polygon',
+          };
+        }
         // Neighboring barangays stay visible, but darken to mark the jurisdiction boundary.
         return {
           fillColor: '#000000',
@@ -538,6 +674,13 @@ export function GISMap({
     const isInScope = data?.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(name));
 
     if (!isInScope) {
+      if (showAdjacentOutbreakColorRef.current && data?.is_adjacent) {
+        const hasDisease = (data.active_cases ?? 0) > 0 || (data.disease_cases ?? 0) > 0;
+        const diseaseInfo = hasDisease
+          ? `<span style="color: #f87171; font-weight: bold;">⚠️ ${data.active_cases} Approved Disease Report(s)</span><br/><span style="font-size: 9.5px; opacity: 0.9">${data.recent_diseases?.join(', ') || 'Active symptoms'}</span>`
+          : '<span style="color: #4ade80; font-weight: 600;">✅ No active disease reports</span>';
+        return `<strong>Brgy. ${name}</strong> <span style="font-size: 9px; opacity: 0.8">(Bordering your barangay)</span><br/>${diseaseInfo}`;
+      }
       return `<strong>Brgy. ${name}</strong><br/><span style="font-size: 10px; opacity: 0.85">Jurisdiction restriction: outside your assigned barangay. View only; selection is disabled.</span>`;
     }
 
@@ -808,6 +951,57 @@ export function GISMap({
     });
   }, [leafletLib, barangaysByName, activeLayer, diseaseSubMode, simulatedStates, simulationColorMode, viewMode, selectedLivestockType, userScope]);
 
+  const isFarmerRole = (userScope?.role || '').toUpperCase() === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
+  const adjacentAlertList = useMemo(() => {
+    if (!isFarmerRole || !showAdjacentDiseaseAlerts) return [];
+    if (adjacentDiseaseAlerts && adjacentDiseaseAlerts.length > 0) {
+      return adjacentDiseaseAlerts;
+    }
+    const adjSet = new Set(userScope?.adjacent_barangays || []);
+    return Object.values(barangaysByName)
+      .filter((b) => (b.is_adjacent || adjSet.has(b.name)) && (b.active_cases > 0 || b.disease_cases > 0))
+      .map((b) => ({
+        name: b.name,
+        db_name: b.db_name,
+        position: b.position,
+        active_cases: b.active_cases,
+        disease_cases: b.disease_cases,
+        affected_heads: b.affected_heads,
+        disease_risk: b.disease_risk,
+        recent_diseases: b.recent_diseases || [],
+      }));
+  }, [isFarmerRole, showAdjacentDiseaseAlerts, adjacentDiseaseAlerts, barangaysByName, userScope?.adjacent_barangays]);
+
+  // Generates visual pulsing dots randomly placed inside affected adjacent barangays
+  const adjacentPulsingDots = useMemo(() => {
+    if (!isFarmerRole || !showAdjacentDiseaseAlerts || !showAdjacentOutbreakDots) return [];
+    const list: {
+      key: string;
+      position: [number, number];
+      alert: AdjacentDiseaseAlert;
+      dotIndex: number;
+      totalDots: number;
+    }[] = [];
+
+    for (const alert of adjacentAlertList) {
+      const caseCount = Math.max(alert.active_cases || alert.disease_cases || 1, 1);
+      // Visual representation: 1 to 4 pulsing dots randomly distributed inside the barangay polygon
+      const dotCount = Math.min(caseCount, 4);
+      const visualPoints = getRandomVisualPointsInBarangay(alert.name, dotCount, alert.position);
+
+      visualPoints.forEach((point, idx) => {
+        list.push({
+          key: `dot-${alert.name}-${idx}`,
+          position: point,
+          alert,
+          dotIndex: idx,
+          totalDots: dotCount,
+        });
+      });
+    }
+    return list;
+  }, [isFarmerRole, showAdjacentDiseaseAlerts, showAdjacentOutbreakDots, adjacentAlertList]);
+
   const dataCount = Object.keys(barangaysByName).length;
 
   return (
@@ -913,6 +1107,103 @@ export function GISMap({
           border-color: #38bdf8;
         }
 
+        /* Compact High-Visibility Sonar Pulsing Dot for Adjacent Disease Outbreak */
+        @keyframes sonar-wave {
+          0% {
+            transform: scale(0.6);
+            opacity: 0.9;
+          }
+          50% {
+            opacity: 0.45;
+          }
+          100% {
+            transform: scale(2.8);
+            opacity: 0;
+          }
+        }
+
+        @keyframes core-glow-pulse {
+          0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.85), 0 0 2px #ffffff;
+          }
+          50% {
+            transform: scale(1.22);
+            box-shadow: 0 0 14px 4px rgba(239, 68, 68, 1), 0 0 3px #ffffff;
+          }
+        }
+
+        .adjacent-disease-beacon-container {
+          background: transparent !important;
+          border: none !important;
+          overflow: visible !important;
+        }
+
+        .adjacent-disease-pulse-beacon {
+          position: relative;
+          width: 24px;
+          height: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          pointer-events: auto !important;
+          transition: transform 0.2s ease;
+        }
+
+        .adjacent-disease-pulse-beacon:hover {
+          transform: scale(1.25);
+        }
+
+        .adjacent-disease-pulse-beacon .beacon-ring-1 {
+          position: absolute;
+          width: 14px;
+          height: 14px;
+          border-radius: 9999px;
+          background-color: rgba(239, 68, 68, 0.25);
+          border: 1.5px solid rgba(239, 68, 68, 0.85);
+          animation: sonar-wave 2.2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+          pointer-events: none;
+        }
+
+        .adjacent-disease-pulse-beacon .beacon-ring-2 {
+          position: absolute;
+          width: 14px;
+          height: 14px;
+          border-radius: 9999px;
+          background-color: rgba(244, 63, 94, 0.2);
+          border: 1.5px solid rgba(244, 63, 94, 0.75);
+          animation: sonar-wave 2.2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 0.7s;
+          pointer-events: none;
+        }
+
+        .adjacent-disease-pulse-beacon .beacon-ring-3 {
+          position: absolute;
+          width: 14px;
+          height: 14px;
+          border-radius: 9999px;
+          background-color: rgba(251, 113, 133, 0.15);
+          border: 1px solid rgba(251, 113, 133, 0.6);
+          animation: sonar-wave 2.2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 1.4s;
+          pointer-events: none;
+        }
+
+        .adjacent-disease-pulse-beacon .beacon-core-dot {
+          position: relative;
+          width: 9px;
+          height: 9px;
+          border-radius: 9999px;
+          background: radial-gradient(circle, #ff4d6d 0%, #ef4444 65%, #b91c1c 100%);
+          border: 1.5px solid #ffffff;
+          animation: core-glow-pulse 1.8s ease-in-out infinite;
+          z-index: 10;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .adjacent-disease-pulse-beacon:hover .beacon-core-dot {
+          box-shadow: 0 0 16px 5px rgba(239, 68, 68, 1), 0 0 4px #ffffff !important;
+        }
+
         .leaflet-container {
           background-color: #0f172a !important;
           font-family: inherit !important;
@@ -960,9 +1251,9 @@ export function GISMap({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {/* Choropleth Polygon Boundaries: Key includes dataCount so layer remounts immediately when data arrives */}
+          {/* Choropleth Polygon Boundaries: Key includes dataCount and outbreak toggles so layer remounts immediately */}
           <GeoJSON
-            key={`geojson-${activeLayer}-${selectedLivestockType || 'all'}-${diseaseSubMode}-${simulationColorMode}-${viewMode}-${selectedBarangay?.name || 'none'}-${dataCount}`}
+            key={`geojson-${activeLayer}-${selectedLivestockType || 'all'}-${diseaseSubMode}-${simulationColorMode}-${viewMode}-${selectedBarangay?.name || 'none'}-${dataCount}-${showAdjacentOutbreakColor && showAdjacentDiseaseAlerts ? 'col-on' : 'col-off'}`}
             data={padreGarciaGeojson as unknown as FeatureCollection}
             style={getGeoJSONStyle}
             onEachFeature={onEachFeature}
@@ -977,6 +1268,92 @@ export function GISMap({
               interactive={false}
             />
           ))}
+
+          {/* Pulsing Dots & Detailed Popups on Adjacent Outbreak Barangays (Farmer View) */}
+          {isFarmerRole &&
+            adjacentPulsingDots.map((dot) => {
+              const beaconIcon = leafletLib
+                ? leafletLib.divIcon({
+                    className: 'adjacent-disease-beacon-container',
+                    html: `
+                      <div class="adjacent-disease-pulse-beacon" title="Biosecurity Warning: Active disease report in neighboring Brgy. ${dot.alert.name}">
+                        <div class="beacon-ring-1"></div>
+                        <div class="beacon-ring-2"></div>
+                        <div class="beacon-ring-3"></div>
+                        <div class="beacon-core-dot"></div>
+                      </div>
+                    `,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12],
+                  })
+                : null;
+
+              if (!beaconIcon) return null;
+
+              return (
+                <Marker
+                  key={`adjacent-disease-beacon-${dot.key}`}
+                  position={dot.position}
+                  icon={beaconIcon}
+                  zIndexOffset={3000}
+                >
+                  <Popup autoPan>
+                    <div className="p-2.5 space-y-2 text-xs min-w-[210px] max-w-[270px]">
+                      <div className="flex items-center gap-1.5 text-rose-600 font-black border-b border-rose-100 pb-1.5">
+                        <span className="text-base animate-pulse">⚠️</span>
+                        <span className="uppercase tracking-wider text-[10.5px]">Adjacent Biosecurity Alert</span>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-slate-900 text-sm">Brgy. {dot.alert.name}</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 uppercase font-mono">
+                            {dot.alert.disease_risk || 'Alert'} Risk
+                          </span>
+                        </div>
+                        <span className="text-[10.5px] text-amber-800 font-semibold block mt-0.5">
+                          Bordering your registered barangay
+                        </span>
+                      </div>
+
+                      <div className="space-y-1 text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Approved Reports:</span>
+                          <span className="font-mono font-black text-rose-600">{dot.alert.active_cases} recent</span>
+                        </div>
+                        {dot.alert.affected_heads > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Affected Animals:</span>
+                            <span className="font-mono font-bold text-slate-900">{dot.alert.affected_heads} head{dot.alert.affected_heads > 1 ? 's' : ''}</span>
+                          </div>
+                        )}
+                        {dot.alert.recent_diseases && dot.alert.recent_diseases.length > 0 && (
+                          <div className="pt-1 border-t border-slate-200/60">
+                            <span className="text-[10px] font-bold uppercase text-slate-500 block mb-0.5">Reported Illness:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {dot.alert.recent_diseases.map((dis, idx) => (
+                                <span key={idx} className="bg-rose-50 text-rose-900 border border-rose-200 text-[10px] px-1.5 py-0.5 rounded font-medium">
+                                  {dis}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="bg-amber-50 border border-amber-200/80 rounded-lg p-2 text-[10px] text-amber-900 space-y-1">
+                        <div className="font-bold flex items-center gap-1">
+                          🛡️ Biosecurity Action:
+                        </div>
+                        <p className="leading-tight">
+                          Inspect your herd daily for symptoms and immediately report any lethargy or lesions to your local livestock officer.
+                        </p>
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
 
           {/* Movement Layer Polyline Arcs & External Destination Pins */}
           {(activeLayer === 'movement' || showMovementOverlay) && (activeLayer !== 'movement' || movementDisplayMode !== 'density') &&

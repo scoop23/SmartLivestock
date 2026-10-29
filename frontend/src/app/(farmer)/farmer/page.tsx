@@ -348,7 +348,7 @@ export default function FarmerDashboard() {
 
     const timer = window.setTimeout(() => {
       if (typeof window !== "undefined") {
-        (window as any).__smartlivestock_farmer_dashboard_appeared = true;
+        (window as unknown as Record<string, unknown>).__smartlivestock_farmer_dashboard_appeared = true;
         window.dispatchEvent(new CustomEvent("smartlivestock:farmer-dashboard-appeared"));
       }
     }, 500);
@@ -492,9 +492,9 @@ export default function FarmerDashboard() {
               ]}
             />
           ) : (
-            <>
+            <div className="space-y-7 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
               {/* SECTION 1: QUICK ACTIONS ROW */}
-              <section aria-label="Quick actions" className="space-y-2.5">
+              <section aria-label="Quick actions" className="space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
                 <div>
                   <h2 className="text-base font-display font-bold tracking-tight text-slate-900">
                     Quick actions
@@ -580,7 +580,7 @@ export default function FarmerDashboard() {
               {isLoading ? (
                 <FarmerStats isLoading />
               ) : isError ? (
-                <Card className="p-8 text-center border-red-200 bg-red-50 rounded-3xl">
+                <Card className="p-8 text-center border-red-200 bg-red-50 rounded-3xl animate-in fade-in duration-300">
                   <h3 className="font-bold text-red-800 text-base">Unable to load farm analytics</h3>
                   <p className="text-xs text-red-600 mt-1">Please check your connection and try again.</p>
                   <Button
@@ -592,12 +592,12 @@ export default function FarmerDashboard() {
                   </Button>
                 </Card>
               ) : (
-                <div data-tour="farm-stats">
+                <div data-tour="farm-stats" className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
                   <FarmerStats data={analytics} />
                 </div>
               )}
               {!isLoading && !isError && (analytics?.source_warnings.length ?? 0) > 0 && (
-                <div className="flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between" role="status">
+                <div className="flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between animate-in fade-in duration-300" role="status">
                   <div>
                     <p className="font-semibold">Some farm information could not be loaded.</p>
                     <p className="mt-1">Figures may be incomplete. Check these sources: {analytics?.source_warnings.join(", ")}.</p>
@@ -616,7 +616,7 @@ export default function FarmerDashboard() {
               )}
 
               {/* SECTION 3: RECENT FARM ACTIVITY (Holographic Feed) */}
-              <div data-tour="recent-activity">
+              <div data-tour="recent-activity" className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150 fill-mode-both">
                 <FarmerActivityFeed
                   activities={analytics?.recent_activities}
                   isLoading={isLoading}
@@ -624,21 +624,21 @@ export default function FarmerDashboard() {
               </div>
 
               {/* SECTION 4: BARANGAY WEATHER FORECAST (Open-Meteo Centroid API) */}
-              <div data-tour="barangay-weather">
+              <div data-tour="barangay-weather" className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both">
                 <BarangayWeatherWidget
                   barangayName={user?.barangay || user?.assignedBarangayName}
                 />
               </div>
 
               {/* Programs and Visits */}
-              <div data-tour="programs-visits">
+              <div data-tour="programs-visits" className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-250 fill-mode-both">
                 <FarmerProgramsVisits />
               </div>
 
               {/* Farm summary and charts (Collapsible) */}
               <details
                 data-tour="farm-summary"
-                className="group rounded-3xl border border-slate-200/90 bg-white p-5 shadow-holo-card"
+                className="group rounded-3xl border border-slate-200/90 bg-white p-5 shadow-holo-card animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both"
               >
                 <summary className="cursor-pointer list-none rounded-lg font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 [&::-webkit-details-marker]:hidden">
                   <span className="flex items-center justify-between gap-3">
@@ -664,7 +664,7 @@ export default function FarmerDashboard() {
               {/* Farm services and links (Collapsible) */}
               <details
                 data-tour="farm-services"
-                className="group rounded-3xl border border-slate-200/90 bg-slate-50/80 p-4 shadow-holo-card"
+                className="group rounded-3xl border border-slate-200/90 bg-slate-50/80 p-4 shadow-holo-card animate-in fade-in slide-in-from-bottom-2 duration-500 delay-350 fill-mode-both"
               >
                 <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 text-xs font-bold text-slate-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 [&::-webkit-details-marker]:hidden">
                   <span className="font-display text-sm font-bold">Farm services and links</span>
@@ -704,7 +704,7 @@ export default function FarmerDashboard() {
                   </div>
                 </div>
               </details>
-            </>
+            </div>
           )}
         </div>
       </div>

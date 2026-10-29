@@ -412,6 +412,17 @@ export const mapDiseaseCaseToValidation = (dc: RawDiseaseCase): SibatValidationR
     photoUrl: resolvedPhotoUrl,
     photoName: resolvedPhotoName,
     status: statusNorm,
+    reviewedByRole: dc.reviewed_by_role || undefined,
+    reviewedByName: dc.reviewed_by_name || undefined,
+    reviewRemarks: dc.review_remarks || dc.previous_remarks || undefined,
+    previousRemarks: dc.previous_remarks || undefined,
+    maoApproval: (dc.reviewed_by_name || dc.reviewed_at || dc.review_remarks)
+      ? {
+          approvedBy: dc.reviewed_by_name || "Reviewer",
+          approvedAt: dc.reviewed_at ? dc.reviewed_at.replace("T", " ").slice(0, 16) : "",
+          remarks: dc.review_remarks || dc.previous_remarks || undefined,
+        }
+      : undefined,
     inspection: dc.inspection_details || dc.reviewed_by_name || dc.inspector_photo_url || dc.inspector_photo
       ? {
           ...dc.inspection_details,
@@ -476,6 +487,17 @@ export const mapMortalityToValidation = (m: RawMortalityRecord): SibatValidation
     photoUrl: resolvedPhotoUrl,
     photoName: resolvedPhotoName,
     status: statusNorm,
+    reviewedByRole: m.reviewed_by_role || undefined,
+    reviewedByName: m.reviewed_by_name || undefined,
+    reviewRemarks: m.review_remarks || m.previous_remarks || undefined,
+    previousRemarks: m.previous_remarks || undefined,
+    maoApproval: (m.reviewed_by_name || m.reviewed_at || m.review_remarks)
+      ? {
+          approvedBy: m.reviewed_by_name || "Reviewer",
+          approvedAt: m.reviewed_at ? m.reviewed_at.replace("T", " ").slice(0, 16) : "",
+          remarks: m.review_remarks || m.previous_remarks || undefined,
+        }
+      : undefined,
     inspection: m.inspection_details || m.reviewed_by_name || m.inspector_photo_url || m.inspector_photo
       ? {
           ...m.inspection_details,

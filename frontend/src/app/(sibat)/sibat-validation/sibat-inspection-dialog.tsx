@@ -107,6 +107,10 @@ export interface SibatValidationRecord {
   status: SibatStatus;
   inspection?: SibatInspectionData;
   affectedAnimals?: AffectedAnimalItem[];
+  reviewedByRole?: string;
+  reviewedByName?: string;
+  reviewRemarks?: string;
+  previousRemarks?: string;
   maoApproval?: {
     approvedBy: string;
     approvedAt: string;
@@ -552,27 +556,35 @@ function SibatInspectionDialogContent({
   const isPendingDisease = isDisease && normStatus === "PENDING" && !readOnly;
   const isPendingVerification = (isMortality || isDisease) && normStatus === "PENDING" && !readOnly;
 
+  const reviewerRoleName = (() => {
+    const roleFromRecord = record.reviewedByRole?.toUpperCase();
+    if (roleFromRecord === "CBAT" || roleFromRecord === "SIBAT" || roleFromRecord === "MAO") {
+      return roleFromRecord;
+    }
+    const currentRole = user?.role?.toUpperCase();
+    if (currentRole === "CBAT") return "CBAT";
+    if (currentRole === "SIBAT") return "SIBAT";
+    return "CBAT";
+  })();
+
   // Active symptoms & temperature depending on whether 'ALL' or a specific head is selected
   const activeSymptoms = selectedHeadTag === "ALL"
     ? confirmedSymptoms
     : (headDiagnoses[selectedHeadTag]?.confirmedSymptoms ?? []);
 
-  const farmerReportedSigns = useMemo(() => [
+  const farmerReportedSigns = [
     ...(record.farmerSymptoms || []),
     record.name,
     record.farmerDescription,
-  ].filter(Boolean) as string[], [record.farmerSymptoms, record.name, record.farmerDescription]);
+  ].filter(Boolean) as string[];
 
-  const combinedSigns = useMemo(() => {
-    return Array.from(new Set([
-      ...farmerReportedSigns,
-      ...activeSymptoms,
-    ]));
-  }, [farmerReportedSigns, activeSymptoms]);
+  const combinedSigns = Array.from(new Set([
+    ...farmerReportedSigns,
+    ...activeSymptoms,
+  ]));
 
-  const fmdEvaluation = useMemo(() => {
-    if (!isDisease) {
-      return {
+  const fmdEvaluation = !isDisease
+    ? {
         hasPossibleFmd: false,
         isHighSuspicion: false,
         matchedSigns: [],
@@ -580,10 +592,8 @@ function SibatInspectionDialogContent({
         summaryTagalog: "",
         summaryEnglish: "",
         checklistToInspect: [],
-      };
-    }
-    return evaluateFmdSigns(combinedSigns);
-  }, [isDisease, combinedSigns]);
+      }
+    : evaluateFmdSigns(combinedSigns);
 
   const farmerHasFmdSigns = isDisease && evaluateFmdSigns(farmerReportedSigns).hasPossibleFmd;
   const inspectorHasFmdSigns = isDisease && evaluateFmdSigns(activeSymptoms).hasPossibleFmd;
@@ -855,7 +865,7 @@ function SibatInspectionDialogContent({
                 <span>{record.reportType} REPORT</span><span>{record.id}</span><Badge className="border border-rose-200 bg-rose-100 text-rose-800">Subject for Revision</Badge>
               </div>
               <DialogTitle className="mt-1 text-lg font-extrabold leading-tight text-white sm:text-2xl">Field Examination – Revision</DialogTitle>
-              <p className="mt-0.5 text-xs text-blue-100 sm:text-sm">Update the field findings based on MAO feedback and resubmit.</p>
+              <p className="mt-0.5 text-xs text-blue-100 sm:text-sm">Update the field findings based on {reviewerRoleName} feedback and resubmit.</p>
             </div>
           </header>
         ) : <DialogHeader className="mb-3 sm:mb-4">
@@ -935,11 +945,14 @@ function SibatInspectionDialogContent({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-start gap-3">
                 <span className="grid size-8 shrink-0 place-items-center rounded-full bg-rose-600 text-white"><AlertTriangle className="size-4" /></span>
-                <div><h2 className="text-sm font-extrabold text-rose-800">Needs Revision</h2><p className="text-xs leading-relaxed text-rose-700">The MAO reviewed this report and requested additional information. Update the required items below.</p></div>
+                <div>
+                  <h2 className="text-sm font-extrabold text-rose-800">Needs Revision</h2>
+                  <p className="text-xs leading-relaxed text-rose-700">The {reviewerRoleName} reviewed this report and requested additional information. Update the required items below.</p>
+                </div>
               </div>
               <details className="group relative shrink-0">
-                <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 shadow-xs [&::-webkit-details-marker]:hidden"><ClipboardCheck className="size-4" /> View MAO Feedback <span className="border-l border-rose-200 pl-2">⌄</span></summary>
-                <div className="mt-2 rounded-lg border border-rose-200 bg-white p-3 text-xs leading-relaxed text-slate-700 sm:absolute sm:right-0 sm:z-20 sm:w-80 sm:shadow-lg">{record.maoApproval?.remarks || "No MAO feedback details were attached to this revision."}</div>
+                <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 shadow-xs [&::-webkit-details-marker]:hidden"><ClipboardCheck className="size-4" /> View {reviewerRoleName} Feedback <span className="border-l border-rose-200 pl-2">⌄</span></summary>
+                <div className="mt-2 rounded-lg border border-rose-200 bg-white p-3 text-xs leading-relaxed text-slate-700 sm:absolute sm:right-0 sm:z-20 sm:w-80 sm:shadow-lg">{record.reviewRemarks || record.previousRemarks || record.maoApproval?.remarks || record.inspection?.remarks || `No ${reviewerRoleName} feedback details were attached to this revision.`}</div>
               </details>
             </div>
           </section>
@@ -1256,7 +1269,7 @@ function SibatInspectionDialogContent({
                 </Badge>
               </div>
 
-              {isRevision || isPendingVerification ? <p className="-mt-2 text-[11px] text-slate-500 sm:col-span-2">{isRevision ? "Edit or add the missing information requested by the MAO." : isMortality ? "Record signs reported before death and actions taken to secure or handle the carcass." : "Record clinically observed signs, body temperature, and actions taken to isolate or treat the animal."}</p> : null}
+              {isRevision || isPendingVerification ? <p className="-mt-2 text-[11px] text-slate-500 sm:col-span-2">{isRevision ? `Edit or add the missing information requested by the ${reviewerRoleName}.` : isMortality ? "Record signs reported before death and actions taken to secure or handle the carcass." : "Record clinically observed signs, body temperature, and actions taken to isolate or treat the animal."}</p> : null}
 
               {/* Revision uses the compact two-column examination layout from the field form. */}
               <div className={isRevision || isPendingVerification ? "space-y-2 sm:col-start-1 sm:row-start-3" : "contents"}>
