@@ -368,7 +368,10 @@ export default function ProductionDashboardView({
   }, [inventories]);
   const activeIntentInventories = useMemo(() => {
     const active = inventories.filter(
-      (item) => (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0 && item.status !== "REJECTED",
+      (item) =>
+        item.status === "APPROVED" &&
+        (item.operationalStatus || "ACTIVE") === "ACTIVE" &&
+        item.quantity > 0,
     );
     if (!focusedActivity || initialEligibleSpecies.length === 0) return active;
     const eligible = new Set(initialEligibleSpecies.map((name) => name.toLowerCase()));

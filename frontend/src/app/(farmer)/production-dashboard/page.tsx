@@ -36,7 +36,7 @@ export default function ProductionDashboardPage() {
     [inventories],
   );
   const activeIntentInventories = useMemo(
-    () => inventories.filter((item) => (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0 && item.status !== "REJECTED"),
+    () => inventories.filter((item) => item.status === "APPROVED" && (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0),
     [inventories],
   );
   const awaitingSpecies = useMemo(() => {
@@ -165,7 +165,7 @@ export default function ProductionDashboardPage() {
             <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <div className="space-y-1">
               <p className="font-medium">Livestock awaiting approval: {awaitingSpecies.join(", ")}</p>
-              <p className="text-xs leading-relaxed">You can declare sale intent while active livestock awaits review. Other production activities are available after approval.</p>
+              <p className="text-xs leading-relaxed">You can record activities and declare sale intent after the livestock is approved.</p>
               <div className="flex flex-wrap gap-x-4">
                 {awaitingSpecies.map((species) => (
                   <Link

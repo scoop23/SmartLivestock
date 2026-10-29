@@ -288,7 +288,7 @@ export default function SelectLivestockDialog({
               <DialogDescription className="text-xs sm:text-sm text-white/75 mt-1 break-words">
                 {description ?? (productionType === "milk"
                   ? `Showing female livestock of milk-capable species; calves and yearlings are excluded (${eligibleItems.length} eligible).`
-                  : `All ${eligibleItems.length} MAO-approved livestock records are available below.`)}
+                  : `All ${eligibleItems.length} active eligible livestock records are available below.`)}
               </DialogDescription>
             </div>
           </div>
@@ -399,9 +399,53 @@ export default function SelectLivestockDialog({
                               {item.livestockTypeName} · {item.breed || "Breed not specified"} · {item.sex || "Sex not specified"}
                             </p>
                           </div>
-                          <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
-                            Approved
-                          </span>
+                          {(() => {
+                            if (item.operationalStatus && item.operationalStatus !== "ACTIVE") {
+                              return (
+                                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-rose-100 text-rose-800 shrink-0">
+                                  {item.operationalStatus.replace(/_/g, " ")}
+                                </span>
+                              );
+                            }
+                            switch (item.status) {
+                              case "APPROVED":
+                                return (
+                                  <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+                                    Approved
+                                  </span>
+                                );
+                              case "PENDING":
+                                return (
+                                  <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-amber-100 text-amber-800 shrink-0">
+                                    Pending Review
+                                  </span>
+                                );
+                              case "VERIFIED":
+                                return (
+                                  <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-sky-100 text-sky-800 shrink-0">
+                                    Verified
+                                  </span>
+                                );
+                              case "REJECTED":
+                                return (
+                                  <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-rose-100 text-rose-800 shrink-0">
+                                    Rejected
+                                  </span>
+                                );
+                              case "SUBJECT_TO_REVISION":
+                                return (
+                                  <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-orange-100 text-orange-800 shrink-0">
+                                    Needs Revision
+                                  </span>
+                                );
+                              default:
+                                return (
+                                  <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full bg-slate-100 text-slate-800 shrink-0">
+                                    {item.status || "Unknown"}
+                                  </span>
+                                );
+                            }
+                          })()}
                         </div>
 
                         <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-600">
@@ -515,8 +559,8 @@ export function LivestockPickerField({
   label,
   placeholder,
   dialogTitle = "Choose Livestock",
-  dialogDescription = "Choose from your approved livestock records.",
-  emptyStateText = "No approved livestock is available.",
+  dialogDescription = "Choose from your active approved livestock records.",
+  emptyStateText = "No active approved livestock is available.",
   disabled = false,
   warnOnActiveDisease = false,
   excludeSibatVerifiedDisease = false,

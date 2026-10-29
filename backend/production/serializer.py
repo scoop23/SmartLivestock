@@ -919,6 +919,8 @@ class AnimalDispositionSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         if not value or not value.farmer or value.farmer.user_id != user.pk:
             raise ValidationError("Select your own livestock.")
+        if value.status != "APPROVED":
+            raise ValidationError("Only approved livestock can be declared for sale or movement.")
         if value.operational_status != "ACTIVE":
             raise ValidationError("Select active livestock.")
         return value

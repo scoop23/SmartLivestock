@@ -377,8 +377,8 @@ export default function ProductionSalesTab({
               onSelect={(item) => setIntentLivestockId(item.id)}
               warnOnActiveDisease
               dialogTitle="Choose Livestock for Sale or Movement"
-              dialogDescription="Choose the approved animal or herd for this commercial intent."
-              emptyStateText="No active livestock is available for sale or movement planning."
+              dialogDescription="Choose an active approved animal or herd for this commercial intent."
+              emptyStateText="No active approved livestock is available for sale or movement planning."
             />
             </div>
 
