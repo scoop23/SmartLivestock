@@ -176,6 +176,10 @@ function createDefaultBatchAnimals(prefix: string, usedTags: string[]): BatchAni
   });
 }
 
+function resolveBreed(species: string, breed?: string | null) {
+  return breed?.trim() || getSpeciesPreset(species).commonBreeds?.[0] || "Standard";
+}
+
 export function RegisterLivestockDialog(props: RegisterLivestockDialogProps) {
   const { user } = useAuth();
   const identity = [user?.firstName, user?.lastName, user?.username].join(":");
@@ -232,7 +236,11 @@ function RegisterLivestockDialogContent({
         const parsed = JSON.parse(raw) as LivestockRegistrationDraft;
         if (parsed?.savedAt) {
           if (parsed.formData) {
-            setFormData(parsed.formData);
+            const restoredFormData = { ...initialFormData, ...parsed.formData };
+            if (!restoredFormData.isOtherBreed) {
+              restoredFormData.breed = resolveBreed(restoredFormData.livestockType, restoredFormData.breed);
+            }
+            setFormData(restoredFormData);
           }
           if (parsed.batchAnimals && Array.isArray(parsed.batchAnimals) && parsed.batchAnimals.length > 0) {
             setBatchAnimals(parsed.batchAnimals);
@@ -272,8 +280,12 @@ function RegisterLivestockDialogContent({
     const timeout = setTimeout(() => {
       try {
         const now = new Date().toISOString();
+        const draftFormData = {
+          ...formData,
+          breed: formData.isOtherBreed ? formData.breed : resolveBreed(formData.livestockType, formData.breed),
+        };
         const draft: LivestockRegistrationDraft = {
-          formData,
+          formData: draftFormData,
           batchAnimals,
           batchPhotoDataUrls: batchPhotoDataUrls.slice(0, 3),
           savedAt: now,
@@ -282,7 +294,7 @@ function RegisterLivestockDialogContent({
           localStorage.setItem(draftStorageKey, JSON.stringify(draft));
         } catch {
           const leanDraft: LivestockRegistrationDraft = {
-            formData: { ...formData, photoDataUrl: "" },
+            formData: { ...draftFormData, photoDataUrl: "" },
             batchAnimals,
             batchPhotoDataUrls: [],
             savedAt: now,
@@ -303,8 +315,12 @@ function RegisterLivestockDialogContent({
   const handleSaveDraft = () => {
     try {
       const now = new Date().toISOString();
+      const draftFormData = {
+        ...formData,
+        breed: formData.isOtherBreed ? formData.breed : resolveBreed(formData.livestockType, formData.breed),
+      };
       const draft: LivestockRegistrationDraft = {
-        formData,
+        formData: draftFormData,
         batchAnimals,
         batchPhotoDataUrls: batchPhotoDataUrls.slice(0, 3),
         savedAt: now,
@@ -313,7 +329,7 @@ function RegisterLivestockDialogContent({
         localStorage.setItem(draftStorageKey, JSON.stringify(draft));
       } catch {
         const leanDraft: LivestockRegistrationDraft = {
-          formData: { ...formData, photoDataUrl: "" },
+          formData: { ...draftFormData, photoDataUrl: "" },
           batchAnimals,
           batchPhotoDataUrls: [],
           savedAt: now,
@@ -689,9 +705,17 @@ function RegisterLivestockDialogContent({
       }
 
       if (formData.entryType === "INDIVIDUAL") {
+        // `none` is only the Select's UI sentinel; it must never be sent as a
+        // herd ID (including when restoring an older saved draft).
+        const rawBatchId = String(formData.batchId || "").trim();
+        const batchId = rawBatchId && rawBatchId !== "none" ? Number(rawBatchId) : null;
+        if (batchId !== null && (!Number.isSafeInteger(batchId) || batchId <= 0)) {
+          throw new Error("Choose a valid herd or select Individual Animal (No Batch).");
+        }
+
         const finalBreed = formData.isOtherBreed
           ? (formData.customBreed?.trim() || "Mixed / Crossbred")
-          : (formData.breed?.trim() || "Standard");
+          : resolveBreed(formData.livestockType, formData.breed);
 
         let response;
         if (photoFile || sidePhotoFiles.left || sidePhotoFiles.right) {
@@ -705,7 +729,7 @@ function RegisterLivestockDialogContent({
           if (formData.birthDate) body.append("birth_date", formData.birthDate);
           if (formData.weight) body.append("weight", formData.weight);
           if (formData.lastVaccinationDate) body.append("last_vaccination_date", formData.lastVaccinationDate);
-          if (formData.batchId) body.append("batch", String(formData.batchId));
+          if (batchId !== null) body.append("batch", String(batchId));
           if (formData.avatarKey) body.append("avatar_key", formData.avatarKey);
           if (photoFile) body.append("photo", photoFile);
           if (sidePhotoFiles.left) body.append("left_side_photo", sidePhotoFiles.left);
@@ -715,7 +739,7 @@ function RegisterLivestockDialogContent({
             headers: { "Content-Type": "multipart/form-data" },
           });
         } else {
-          const payload: CreateInventoryPayload & { batch?: number; avatar_key?: string } = {
+          const payload: CreateInventoryPayload & { batch?: number | null; avatar_key?: string } = {
             livestock_type: typeId,
             entry_type: "INDIVIDUAL",
             quantity: 1,
@@ -725,8 +749,8 @@ function RegisterLivestockDialogContent({
             birth_date: formData.birthDate || null,
             weight: formData.weight ? parseFloat(formData.weight) : null,
             last_vaccination_date: formData.lastVaccinationDate || null,
+            batch: batchId,
           };
-          if (formData.batchId) payload.batch = Number(formData.batchId);
           if (formData.avatarKey) payload.avatar_key = formData.avatarKey;
 
           response = await api.post("/livestock/inventory/", payload);
@@ -884,7 +908,10 @@ function RegisterLivestockDialogContent({
         setFormError("Ear Tag number is required for individual animals.");
         return;
       }
-      if (!formData.breed.trim()) {
+      const selectedBreed = formData.isOtherBreed
+        ? formData.customBreed.trim()
+        : resolveBreed(formData.livestockType, formData.breed);
+      if (!selectedBreed) {
         setFormError("Breed is required.");
         return;
       }
@@ -1490,7 +1517,7 @@ function RegisterLivestockDialogContent({
                   </div>
 
                   <Select
-                    value={formData.isOtherBreed ? "OTHER" : (formData.breed || (currentPreset?.commonBreeds?.[0] ?? ""))}
+                    value={formData.isOtherBreed ? "OTHER" : resolveBreed(formData.livestockType, formData.breed)}
                     onValueChange={(val) => {
                       if (val === "OTHER") {
                         setFormData({ ...formData, isOtherBreed: true });
