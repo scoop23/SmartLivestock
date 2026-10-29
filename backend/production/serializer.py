@@ -1058,6 +1058,26 @@ class LivestockTreatmentRecordSerializer(serializers.ModelSerializer):
                 raise ValidationError("You may only record treatments for your own livestock.")
         return value
 
+    TREATMENT_TYPE_ALIASES = {
+        "VACCINE": LivestockTreatmentRecord.TreatmentType.VACCINATION,
+        "DEWORMER": LivestockTreatmentRecord.TreatmentType.DEWORMING,
+        "VITAMIN_MINERAL": LivestockTreatmentRecord.TreatmentType.VITAMIN_SUPPLEMENT,
+        "VITAMINS": LivestockTreatmentRecord.TreatmentType.VITAMIN_SUPPLEMENT,
+        "HORMONAL": LivestockTreatmentRecord.TreatmentType.REPRODUCTIVE_THERAPY,
+        "TOPICAL_WOUND": LivestockTreatmentRecord.TreatmentType.WOUND_CARE,
+        "ANTI_INFLAMMATORY": LivestockTreatmentRecord.TreatmentType.WOUND_CARE,
+    }
+
+    def to_internal_value(self, data):
+        if hasattr(data, "copy"):
+            mutable_data = data.copy()
+        else:
+            mutable_data = dict(data)
+        raw_type = str(mutable_data.get("treatment_type", "")).strip().upper()
+        if raw_type in self.TREATMENT_TYPE_ALIASES:
+            mutable_data["treatment_type"] = self.TREATMENT_TYPE_ALIASES[raw_type]
+        return super().to_internal_value(mutable_data)
+
     def validate_treatment_date(self, value):
         if value > timezone.localdate():
             raise ValidationError("Treatment date cannot be in the future.")
@@ -1072,7 +1092,17 @@ class LivestockTreatmentRecordSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data["created_by"] = self.context["request"].user
-        return super().create(validated_data)
+        instance = super().create(validated_data)
+        livestock = instance.livestock
+        if (
+            livestock
+            and instance.treatment_type == LivestockTreatmentRecord.TreatmentType.VACCINATION
+            and instance.treatment_date
+        ):
+            if not livestock.last_vaccination_date or instance.treatment_date >= livestock.last_vaccination_date:
+                livestock.last_vaccination_date = instance.treatment_date
+                livestock.save(update_fields=["last_vaccination_date"])
+        return instance
 
 
 class FeedingRecordSerializer(serializers.ModelSerializer):

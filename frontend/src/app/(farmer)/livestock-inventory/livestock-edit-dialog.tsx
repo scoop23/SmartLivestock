@@ -20,10 +20,38 @@ SelectItem,
 SelectTrigger,
 SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import api from "@/lib/axios";
 import { localCalendarDateToday } from "@/lib/livestock-age";
-import { Pencil,Tag } from "lucide-react";
-import { useEffect,useState } from "react";
-import type { EntryType,LivestockInventoryItem } from "./page";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Calendar, Pencil, Pill, Plus, Syringe, Tag } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import type { EntryType, LivestockInventoryItem } from "./page";
+
+interface TreatmentRecordItem {
+  id: number;
+  livestock: number;
+  treatment_date: string;
+  treatment_type: string;
+  medication_name: string;
+  dosage?: string | null;
+  route_of_administration?: string | null;
+  administered_by?: string | null;
+  reason?: string | null;
+  follow_up_date?: string | null;
+  notes?: string | null;
+}
+
+const TREATMENT_TYPE_LABELS: Record<string, string> = {
+  VACCINATION: "Vaccination / Immunization",
+  ANTIBIOTIC: "Antibiotic / Anti-infective",
+  DEWORMING: "Deworming / Antiparasitic",
+  VITAMIN_SUPPLEMENT: "Vitamin / Mineral Supplement",
+  WOUND_CARE: "Wound Care / Antiseptic",
+  REPRODUCTIVE_THERAPY: "Reproductive / Hormonal",
+  OTHER: "Other Clinical Treatment",
+};
 
 export interface UpdateInventoryPayload {
   livestock_type: number;
@@ -107,6 +135,87 @@ function LivestockEditDialogContent({
     item ? toFormState(item) : EMPTY_FORM
   );
   const [formError, setFormError] = useState("");
+  const queryClient = useQueryClient();
+
+  const [isTreatmentPopupOpen, setIsTreatmentPopupOpen] = useState(false);
+  const [treatmentForm, setTreatmentForm] = useState({
+    treatment_date: localCalendarDateToday(),
+    treatment_type: "VACCINATION",
+    medication_name: "",
+    dosage: "",
+    route_of_administration: "Intramuscular (IM)",
+    administered_by: "",
+    reason: "",
+    follow_up_date: "",
+    notes: "",
+  });
+
+  const { data: allTreatments = [] } = useQuery<TreatmentRecordItem[]>({
+    queryKey: ["treatments"],
+    queryFn: async () => {
+      const res = await api.get("production/treatments/");
+      return Array.isArray(res.data) ? res.data : (res.data?.results ?? []);
+    },
+    enabled: open && !!item?.id,
+  });
+
+  const animalTreatments = item
+    ? allTreatments.filter((t) => Number(t.livestock) === Number(item.id))
+    : [];
+
+  const logTreatmentMutation = useMutation({
+    mutationFn: async () => {
+      if (!item) throw new Error("No animal selected.");
+      const res = await api.post("production/treatments/", {
+        livestock: item.id,
+        treatment_date: treatmentForm.treatment_date,
+        treatment_type: treatmentForm.treatment_type,
+        medication_name: treatmentForm.medication_name.trim(),
+        dosage: treatmentForm.dosage.trim(),
+        route_of_administration: treatmentForm.route_of_administration,
+        administered_by: treatmentForm.administered_by.trim(),
+        reason: treatmentForm.reason.trim(),
+        follow_up_date: treatmentForm.follow_up_date || null,
+        notes: treatmentForm.notes.trim(),
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Clinical treatment logged for this animal.");
+      if (
+        treatmentForm.treatment_type === "VACCINATION" &&
+        treatmentForm.treatment_date &&
+        (!form.lastVaccinationDate || treatmentForm.treatment_date >= form.lastVaccinationDate)
+      ) {
+        set({ lastVaccinationDate: treatmentForm.treatment_date });
+      }
+      queryClient.invalidateQueries({ queryKey: ["treatments"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["user_inventory"] });
+      if (item?.id) {
+        queryClient.invalidateQueries({ queryKey: ["livestock_reproductive_summary", item.id] });
+      }
+      setIsTreatmentPopupOpen(false);
+      setTreatmentForm({
+        treatment_date: localCalendarDateToday(),
+        treatment_type: "VACCINATION",
+        medication_name: "",
+        dosage: "",
+        route_of_administration: "Intramuscular (IM)",
+        administered_by: "",
+        reason: "",
+        follow_up_date: "",
+        notes: "",
+      });
+    },
+    onError: (err: unknown) => {
+      const maybeAxios = err as { response?: { data?: Record<string, unknown> } };
+      const detail =
+        (typeof maybeAxios?.response?.data?.detail === "string" && maybeAxios.response.data.detail) ||
+        "Failed to log clinical treatment. Please verify the inputs.";
+      toast.error(detail);
+    },
+  });
 
 
 
@@ -151,6 +260,7 @@ function LivestockEditDialogContent({
     : "Edit Livestock";
 
   return (
+    <>
     <Dialog open={open && !!item} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl border-0 shadow-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[90dvh] overflow-y-auto [&>button]:text-white/70 [&>button]:hover:text-white">
         <DialogHeader className="hidden">
@@ -308,6 +418,74 @@ function LivestockEditDialogContent({
                 </div>
               </div>
 
+              {/* Clinical Treatments & Medications Section under the Update dialog */}
+              <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-800">
+                      <Syringe className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-emerald-950">
+                        Clinical Treatments & Medications
+                      </p>
+                      <p className="text-[11px] text-slate-600">
+                        Record vaccinations, deworming, antibiotics, or supplements for {headerTitle}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setIsTreatmentPopupOpen(true)}
+                    className="h-8 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold gap-1.5 rounded-lg shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Log Treatment
+                  </Button>
+                </div>
+
+                {animalTreatments.length > 0 ? (
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {animalTreatments.slice(0, 4).map((t) => (
+                      <div
+                        key={t.id}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-emerald-100 bg-white px-3 py-2 text-xs"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-slate-900 truncate">
+                              {t.medication_name}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 border-emerald-200 bg-emerald-50 text-emerald-800 font-semibold"
+                            >
+                              {TREATMENT_TYPE_LABELS[t.treatment_type] || t.treatment_type}
+                            </Badge>
+                          </div>
+                          {(t.dosage || t.route_of_administration || t.reason) && (
+                            <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                              {[t.dosage, t.route_of_administration, t.reason]
+                                .filter(Boolean)
+                                .join(" • ")}
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-[11px] font-medium text-slate-500 inline-flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          {t.treatment_date}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-500 italic">
+                    No clinical treatments recorded for this animal yet. Click &ldquo;Log Treatment&rdquo; to open the treatment popup.
+                  </p>
+                )}
+              </div>
+
               <DialogFooter className="pt-2">
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                   Cancel
@@ -334,5 +512,209 @@ function LivestockEditDialogContent({
         ) : null}
       </DialogContent>
     </Dialog>
+
+    {/* Treatment Popup Dialog */}
+    <Dialog open={isTreatmentPopupOpen && !!item} onOpenChange={setIsTreatmentPopupOpen}>
+      <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-lg p-0 gap-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[90dvh] overflow-y-auto">
+        <div className="bg-gradient-to-r from-emerald-800 to-emerald-700 text-white px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-white/15 backdrop-blur-sm">
+              <Pill className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <DialogTitle className="text-base font-bold text-white">
+                Log Clinical Treatment
+              </DialogTitle>
+              <DialogDescription className="text-xs text-emerald-100 mt-0.5">
+                Record veterinary medication, vaccination, or deworming for{" "}
+                <span className="font-semibold text-white">{headerTitle}</span>
+              </DialogDescription>
+            </div>
+          </div>
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!treatmentForm.medication_name.trim()) {
+              toast.error("Medication or product name is required.");
+              return;
+            }
+            logTreatmentMutation.mutate();
+          }}
+          className="px-6 py-5 space-y-4"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">Treatment Date *</Label>
+              <Input
+                type="date"
+                max={localCalendarDateToday()}
+                value={treatmentForm.treatment_date}
+                onChange={(e) =>
+                  setTreatmentForm((p) => ({ ...p, treatment_date: e.target.value }))
+                }
+                required
+                className="h-10"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">Treatment Category *</Label>
+              <Select
+                value={treatmentForm.treatment_type}
+                onValueChange={(v) =>
+                  setTreatmentForm((p) => ({ ...p, treatment_type: v }))
+                }
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="VACCINATION">Vaccination / Immunization</SelectItem>
+                  <SelectItem value="DEWORMING">Deworming / Antiparasitic</SelectItem>
+                  <SelectItem value="VITAMIN_SUPPLEMENT">Vitamin / Mineral Supplement</SelectItem>
+                  <SelectItem value="ANTIBIOTIC">Antibiotic / Anti-infective</SelectItem>
+                  <SelectItem value="WOUND_CARE">Wound Care / Antiseptic</SelectItem>
+                  <SelectItem value="REPRODUCTIVE_THERAPY">Reproductive / Hormonal</SelectItem>
+                  <SelectItem value="OTHER">Other Clinical Treatment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-700">
+              Medication / Product Name *
+            </Label>
+            <Input
+              placeholder="e.g. Hemorrhagic Septicemia Vaccine, Ivermectin, Oxytetracycline LA"
+              value={treatmentForm.medication_name}
+              onChange={(e) =>
+                setTreatmentForm((p) => ({ ...p, medication_name: e.target.value }))
+              }
+              required
+              className="h-10"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">Dosage</Label>
+              <Input
+                placeholder="e.g. 5 mL, 1 bolus"
+                value={treatmentForm.dosage}
+                onChange={(e) =>
+                  setTreatmentForm((p) => ({ ...p, dosage: e.target.value }))
+                }
+                className="h-10"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                Route of Administration
+              </Label>
+              <Select
+                value={treatmentForm.route_of_administration}
+                onValueChange={(v) =>
+                  setTreatmentForm((p) => ({ ...p, route_of_administration: v }))
+                }
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Intramuscular (IM)">Intramuscular (IM)</SelectItem>
+                  <SelectItem value="Subcutaneous (SC)">Subcutaneous (SC)</SelectItem>
+                  <SelectItem value="Oral (Drench/Bolus)">Oral (Drench / Bolus)</SelectItem>
+                  <SelectItem value="Topical / Pour-on">Topical / Pour-on</SelectItem>
+                  <SelectItem value="Intravenous (IV)">Intravenous (IV)</SelectItem>
+                  <SelectItem value="Intrauterine">Intrauterine</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                Administered By (Vet / Technician)
+              </Label>
+              <Input
+                placeholder="e.g. MAO Livestock Technician"
+                value={treatmentForm.administered_by}
+                onChange={(e) =>
+                  setTreatmentForm((p) => ({ ...p, administered_by: e.target.value }))
+                }
+                className="h-10"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                Follow-up / Booster Date (optional)
+              </Label>
+              <Input
+                type="date"
+                min={treatmentForm.treatment_date || undefined}
+                value={treatmentForm.follow_up_date}
+                onChange={(e) =>
+                  setTreatmentForm((p) => ({ ...p, follow_up_date: e.target.value }))
+                }
+                className="h-10"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-700">
+              Clinical Indication / Reason
+            </Label>
+            <Input
+              placeholder="e.g. Routine immunization, parasite control, post-calving care"
+              value={treatmentForm.reason}
+              onChange={(e) =>
+                setTreatmentForm((p) => ({ ...p, reason: e.target.value }))
+              }
+              className="h-10"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-700">
+              Field Notes (optional)
+            </Label>
+            <Textarea
+              rows={2}
+              placeholder="Additional observations or withdrawal period notes..."
+              value={treatmentForm.notes}
+              onChange={(e) =>
+                setTreatmentForm((p) => ({ ...p, notes: e.target.value }))
+              }
+            />
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsTreatmentPopupOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={logTreatmentMutation.isPending || !treatmentForm.medication_name.trim()}
+              className="bg-emerald-800 hover:bg-emerald-900 text-white font-bold gap-1.5"
+            >
+              <Pill className="w-4 h-4" />
+              {logTreatmentMutation.isPending ? "Saving Treatment..." : "Save Treatment"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

@@ -627,6 +627,7 @@ export default function LivestockDetailsDialog({
   }, [canProduceMilk]);
 
   const isApproved = activeLivestock?.status === "APPROVED";
+  const isVerifiedStatus = activeLivestock?.status === "VERIFIED";
   const approvalLabel = activeLivestock?.status ? activeLivestock.status.replace(/_/g, " ") : "PENDING";
   const operationalLabel = activeLivestock?.operationalStatus ? activeLivestock.operationalStatus.replace(/_/g, " ") : "ACTIVE HERD";
 
@@ -787,10 +788,21 @@ export default function LivestockDetailsDialog({
                   "px-3 py-1.5 rounded-full text-xs font-bold tracking-wide inline-flex items-center gap-1.5 shadow-xs",
                   isApproved
                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200/90"
+                    : isVerifiedStatus
+                    ? "bg-blue-50 text-blue-700 border border-blue-200/90"
                     : "bg-amber-50 text-amber-800 border border-amber-200/90"
                 )}
               >
-                <CheckCircle2 className="size-3.5 text-emerald-600" />
+                <CheckCircle2
+                  className={cn(
+                    "size-3.5",
+                    isApproved
+                      ? "text-emerald-600"
+                      : isVerifiedStatus
+                      ? "text-blue-600"
+                      : "text-amber-600"
+                  )}
+                />
                 <span>{approvalLabel}</span>
               </span>
 
@@ -1127,8 +1139,10 @@ export default function LivestockDetailsDialog({
                     <div
                       className={cn(
                         "p-3.5 sm:p-4 rounded-xl sm:rounded-2xl transition-all flex flex-col justify-between shadow-2xs min-h-[96px] sm:min-h-[105px]",
-                        hasVaccine && isVerified
+                        hasVaccine && isApproved
                           ? "bg-emerald-50/40 border border-emerald-300 hover:border-emerald-400"
+                          : hasVaccine && isVerified
+                          ? "bg-blue-50/40 border border-blue-300 hover:border-blue-400"
                           : hasVaccine
                           ? "bg-amber-50/40 border border-amber-200/90 hover:border-amber-300"
                           : "bg-white border border-slate-200/80 hover:border-slate-300"
@@ -1138,8 +1152,10 @@ export default function LivestockDetailsDialog({
                         <span
                           className={cn(
                             "text-[10px] font-mono font-bold uppercase tracking-wider",
-                            hasVaccine && isVerified
+                            hasVaccine && isApproved
                               ? "text-emerald-800"
+                              : hasVaccine && isVerified
+                              ? "text-blue-800"
                               : hasVaccine
                               ? "text-amber-800"
                               : "text-slate-400"
@@ -1147,8 +1163,10 @@ export default function LivestockDetailsDialog({
                         >
                           VACCINATION STATUS
                         </span>
-                        {hasVaccine && isVerified ? (
+                        {hasVaccine && isApproved ? (
                           <ShieldCheck className="size-4 text-emerald-600" />
+                        ) : hasVaccine && isVerified ? (
+                          <ShieldCheck className="size-4 text-blue-600" />
                         ) : hasVaccine ? (
                           <Clock className="size-4 text-amber-600" />
                         ) : (
@@ -1164,8 +1182,10 @@ export default function LivestockDetailsDialog({
                         <span
                           className={cn(
                             "text-[11px] font-mono font-medium mt-0.5 flex items-center gap-1",
-                            hasVaccine && isVerified
+                            hasVaccine && isApproved
                               ? "text-emerald-700"
+                              : hasVaccine && isVerified
+                              ? "text-blue-700"
                               : hasVaccine
                               ? "text-amber-700"
                               : "text-slate-500"
@@ -1178,7 +1198,7 @@ export default function LivestockDetailsDialog({
                             </>
                           ) : hasVaccine && isVerified ? (
                             <>
-                              <Check className="size-3 text-emerald-600 stroke-[3]" />
+                              <Check className="size-3 text-blue-600 stroke-[3]" />
                               SIBAT Verified Record
                             </>
                           ) : hasVaccine ? (
@@ -1265,7 +1285,14 @@ export default function LivestockDetailsDialog({
                         <span className="font-bold text-sky-800 text-sm">
                           {p.quantity.toFixed(2)} {p.unit === "LITERS" ? "L" : p.unit}
                         </span>
-                        <span className="block text-emerald-700 font-semibold text-[10px]">
+                        <span
+                          className={cn(
+                            "block font-semibold text-[10px]",
+                            (p.status || "VERIFIED") === "VERIFIED"
+                              ? "text-blue-700"
+                              : "text-emerald-700"
+                          )}
+                        >
                           {p.status || "VERIFIED"}
                         </span>
                       </div>
@@ -1427,19 +1454,24 @@ export default function LivestockDetailsDialog({
                   className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-mono font-bold transition-all inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
                 >
                   <Plus className="size-3.5" />
-                  <span>{isTreatmentFormOpen ? "Close Form" : "Log Treatment"}</span>
+                  <span>Log Treatment</span>
                 </button>
               </div>
 
-              {/* Inline Form to Log Clinical Treatment (Phase 5 & 10) */}
-              {isTreatmentFormOpen && (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    addTreatmentMutation.mutate();
-                  }}
-                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3"
-                >
+              {/* Popup Dialog to Log Clinical Treatment */}
+              <Dialog open={isTreatmentFormOpen} onOpenChange={setIsTreatmentFormOpen}>
+                <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-lg p-5 rounded-2xl bg-white border border-slate-200 shadow-2xl">
+                  <DialogHeader className="sr-only">
+                    <DialogTitle>Log Veterinary or Clinical Treatment</DialogTitle>
+                    <DialogDescription>Record clinical treatment scoped to this animal</DialogDescription>
+                  </DialogHeader>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      addTreatmentMutation.mutate();
+                    }}
+                    className="space-y-3 font-mono text-xs"
+                  >
                   <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                     <span className="font-bold text-slate-900 flex items-center gap-1.5">
                       <Pill className="size-4 text-emerald-700" />
@@ -1551,8 +1583,9 @@ export default function LivestockDetailsDialog({
                       {addTreatmentMutation.isPending ? "Saving..." : "Save Treatment"}
                     </button>
                   </div>
-                </form>
-              )}
+                  </form>
+                </DialogContent>
+              </Dialog>
 
               {/* Recorded Treatments List (Phase 5) */}
               {reproSummary?.treatment_history && reproSummary.treatment_history.length > 0 && (
@@ -1600,13 +1633,17 @@ export default function LivestockDetailsDialog({
                 <div
                   className={cn(
                     "p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border flex items-start gap-2.5 sm:gap-3",
-                    activeLivestock.status === "APPROVED" || activeLivestock.status === "VERIFIED"
+                    activeLivestock.status === "APPROVED"
                       ? "bg-emerald-50/70 border-emerald-200/80"
+                      : activeLivestock.status === "VERIFIED"
+                      ? "bg-blue-50/70 border-blue-200/80"
                       : "bg-amber-50/60 border-amber-200/80"
                   )}
                 >
-                  {activeLivestock.status === "APPROVED" || activeLivestock.status === "VERIFIED" ? (
+                  {activeLivestock.status === "APPROVED" ? (
                     <ShieldCheck className="size-4.5 text-emerald-700 mt-0.5 shrink-0" />
+                  ) : activeLivestock.status === "VERIFIED" ? (
+                    <ShieldCheck className="size-4.5 text-blue-700 mt-0.5 shrink-0" />
                   ) : (
                     <Clock className="size-4.5 text-amber-700 mt-0.5 shrink-0" />
                   )}
