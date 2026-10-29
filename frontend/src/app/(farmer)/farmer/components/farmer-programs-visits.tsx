@@ -22,7 +22,7 @@ getSchedules,
 type ProgramBooking,
 type ProgramSchedule,
 } from "@/lib/community-api";
-import { ArrowRight,CalendarDays,Clock3,MapPin } from "lucide-react";
+import { ArrowRight,CalendarDays,CheckCircle2,Clock3,MapPin,Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useEffect,useState } from "react";
 
@@ -162,7 +162,11 @@ export default function FarmerProgramsVisits() {
                       {categoryBadge.label}
                     </Badge>
 
-                    {isBooked ? (
+                    {schedule.capacity === 0 ? (
+                      <Badge className="border-emerald-300 bg-emerald-100 text-emerald-950 text-xs font-bold">
+                        Open Walk-in
+                      </Badge>
+                    ) : isBooked ? (
                       <Badge className="border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-semibold">
                         Booked
                       </Badge>
@@ -191,7 +195,12 @@ export default function FarmerProgramsVisits() {
                   </div>
 
                   <div className="pt-1 text-sm">
-                    {isBooked ? (
+                    {schedule.capacity === 0 ? (
+                      <span className="text-emerald-700 font-bold flex items-center gap-1.5 text-xs sm:text-sm">
+                        <span className="size-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                        Open Admission · No booking needed (just go)
+                      </span>
+                    ) : isBooked ? (
                       <span className="text-emerald-700 font-medium">Your visit is confirmed</span>
                     ) : isFull ? (
                       <span className="text-amber-800 font-semibold">Fully booked</span>
@@ -199,7 +208,7 @@ export default function FarmerProgramsVisits() {
                       <span className="text-slate-400">Closed</span>
                     ) : (
                       <span className="text-slate-600">
-                        {schedule.capacity === 0 ? <strong className="text-emerald-700 font-semibold">No slot limit</strong> : <><strong className="text-emerald-700 font-semibold">{schedule.remaining_slots}</strong> slots remaining</>}
+                        <strong className="text-emerald-700 font-semibold">{schedule.remaining_slots}</strong> slots remaining
                       </span>
                     )}
                   </div>
@@ -284,14 +293,32 @@ export default function FarmerProgramsVisits() {
                 ) : null}
               </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500">Your registration</p>
-                  <p className="mt-0.5 text-sm font-medium text-emerald-800">
-                    {detailsBooking ? "Confirmed" : detailsSchedule.registration_status}
+              {detailsSchedule.capacity === 0 ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs text-emerald-950 font-medium">
+                  <p className="font-bold text-emerald-900 flex items-center gap-1.5">
+                    <Sparkles className="size-4 text-emerald-600" />
+                    Open Municipal Program — No Booking Required
+                  </p>
+                  <p className="mt-1 leading-relaxed text-emerald-800">
+                    This activity has unlimited slots. Registered farmers can walk in directly on the scheduled date without reserving an appointment slot.
                   </p>
                 </div>
-                <Badge className="shrink-0 border-emerald-200 bg-emerald-50 text-emerald-800">
+              ) : null}
+
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-slate-500">
+                    {detailsSchedule.capacity === 0 ? "Admission Policy" : "Your registration"}
+                  </p>
+                  <p className="mt-0.5 text-sm font-bold text-emerald-800">
+                    {detailsSchedule.capacity === 0
+                      ? "Open Walk-in (No booking needed)"
+                      : detailsBooking
+                        ? "Confirmed"
+                        : detailsSchedule.registration_status}
+                  </p>
+                </div>
+                <Badge className="shrink-0 border-emerald-200 bg-emerald-50 text-emerald-800 font-bold">
                   {detailsSchedule.capacity === 0 ? "No slot limit" : `${detailsSchedule.remaining_slots} slot${detailsSchedule.remaining_slots === 1 ? "" : "s"} left`}
                 </Badge>
               </div>
@@ -309,8 +336,8 @@ export default function FarmerProgramsVisits() {
                 Close
               </Button>
               <Button asChild className="bg-emerald-800 hover:bg-emerald-900">
-                <Link href={`/farmer-scheduling?schedule=${detailsSchedule.id}`}>
-                  Open scheduling
+                <Link href={`/farmer-scheduling?scheduleId=${detailsSchedule.id}`}>
+                  {detailsSchedule.capacity === 0 ? "View Program Details" : "Open scheduling"}
                   <ArrowRight className="ml-1 size-4" />
                 </Link>
               </Button>

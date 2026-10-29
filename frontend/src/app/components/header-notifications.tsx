@@ -325,6 +325,13 @@ export const resolveNotificationLink = (
     }
   }
 
+  if (
+    notification.related_entity_type === "PROGRAM_SCHEDULE" &&
+    notification.related_entity_id
+  ) {
+    return `/farmer-scheduling?scheduleId=${notification.related_entity_id}`;
+  }
+
   if (notification.link !== "/livestock-inventory") {
     // Account status notices used to send signed-in users back to the login
     // screen. The notification is already being opened from an authenticated
@@ -628,6 +635,14 @@ export function HeaderNotifications({
 
   const getNotificationActionText = (notif: HeaderNotification) => {
     const title = notif.title.toLowerCase();
+    const link = notif.link?.toLowerCase() || "";
+    if (
+      link.includes("farmer-scheduling") ||
+      title.includes("open program") ||
+      title.includes("program")
+    ) {
+      return "View Report";
+    }
     if (
       title.includes("vaccination") ||
       title.includes("activity") ||

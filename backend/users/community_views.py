@@ -28,7 +28,7 @@ def _announcement_notification_message(announcement):
     return announcement.content[:180]
 
 
-def _notify_program_farmers(schedule, *, title, message):
+def _notify_program_farmers(schedule, *, title, message, link=None):
     farmers = User.objects.filter(
         role__role_name=Role.UserRoles.FARMER,
         account_status=User.AccountStatus.APPROVED,
@@ -36,13 +36,16 @@ def _notify_program_farmers(schedule, *, title, message):
     )
     if schedule.farmer_audience == ProgramSchedule.FarmerAudience.BARANGAY_ONLY and schedule.barangay_id:
         farmers = farmers.filter(farmer_profile__barangay_id=schedule.barangay_id)
+    target_link = link or f"/farmer-scheduling?scheduleId={schedule.id}"
     Notification.objects.bulk_create([
         Notification(
             user=farmer,
             notification_type=Notification.NotificationType.GENERAL,
             title=title,
             message=message,
-            link="/farmer-scheduling",
+            link=target_link,
+            related_entity_type="PROGRAM_SCHEDULE",
+            related_entity_id=schedule.id,
         )
         for farmer in farmers
     ])
@@ -269,7 +272,13 @@ def schedules(request):
     except IntegrityError:
         return Response({"detail": "This program is already scheduled on that date."}, status=400)
     if schedule.publication_status == ProgramSchedule.PublicationStatus.PUBLISHED:
-        _notify_program_farmers(schedule, title="New program available", message=f"{schedule.program} on {schedule.date}. View Programs to register.")
+        if schedule.capacity == 0:
+            farmer_title = f"Open Program: {schedule.program}"
+            farmer_msg = f"{schedule.program} on {schedule.date}. Open admission with no slot limit (walk-in welcome, no booking needed). Click to view details."
+        else:
+            farmer_title = "New program available"
+            farmer_msg = f"{schedule.program} on {schedule.date}. View Programs to register."
+        _notify_program_farmers(schedule, title=farmer_title, message=farmer_msg)
         _notify_program_staff(schedule, title="New livestock program", message=f"{schedule.program} on {schedule.date}.", exclude_user_id=request.user.pk)
     return Response(ProgramScheduleSerializer(schedule, context={"request": request}).data, status=201)
 
@@ -334,9 +343,21 @@ def schedule_detail(request, pk):
                     booking.save(update_fields=["status"])
                 create_notification(booking.farmer, title=title, message=message, link="/farmer-scheduling")
             if old_status != ProgramSchedule.PublicationStatus.PUBLISHED and schedule.publication_status == ProgramSchedule.PublicationStatus.PUBLISHED:
-                _notify_program_farmers(schedule, title="Program registration is open", message=f"{schedule.program} on {schedule.date} is now open for farmer registration.")
+                if schedule.capacity == 0:
+                    farmer_title = f"Open Program: {schedule.program}"
+                    farmer_msg = f"{schedule.program} on {schedule.date} is open with no slot limit. Walk-in welcome—no booking needed."
+                else:
+                    farmer_title = "Program registration is open"
+                    farmer_msg = f"{schedule.program} on {schedule.date} is now open for farmer registration."
+                _notify_program_farmers(schedule, title=farmer_title, message=farmer_msg)
             elif old_farmer_audience != schedule.farmer_audience and schedule.publication_status == ProgramSchedule.PublicationStatus.PUBLISHED:
-                _notify_program_farmers(schedule, title="Program audience updated", message=f"{schedule.program} on {schedule.date} is now available to its updated farmer audience.")
+                if schedule.capacity == 0:
+                    farmer_title = f"Open Program: {schedule.program}"
+                    farmer_msg = f"{schedule.program} on {schedule.date} is now open for your barangay. Walk-in welcome—no booking needed."
+                else:
+                    farmer_title = "Program audience updated"
+                    farmer_msg = f"{schedule.program} on {schedule.date} is now available to its updated farmer audience."
+                _notify_program_farmers(schedule, title=farmer_title, message=farmer_msg)
             _notify_program_staff(schedule, title=title, message=message, exclude_user_id=request.user.pk)
     return Response(ProgramScheduleSerializer(schedule, context={"request": request}).data)
 
@@ -384,6 +405,11 @@ def bookings(request):
                 and schedule.barangay_id != farmer_barangay_id
             ):
                 return Response({"detail": "This program is not available to your barangay."}, status=403)
+            if schedule.capacity == 0:
+                return Response(
+                    {"detail": "This is an open municipal activity with no participant limit. Booking is not required—you can attend freely at the venue."},
+                    status=400,
+                )
             confirmed_count = schedule.bookings.filter(status=ProgramBooking.Status.CONFIRMED).count()
             if schedule.capacity > 0 and confirmed_count >= schedule.capacity:
                 return Response({"detail": "This program is fully booked."}, status=400)
