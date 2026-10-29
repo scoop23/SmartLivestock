@@ -399,15 +399,6 @@ export function GISControls({
                 GIS Controls & Filters
               </span>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsExpanded(false)}
-              aria-label="Hide control panel"
-              className="text-slate-500 hover:text-slate-800 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors flex items-center gap-1 text-[11px] font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600"
-            >
-              <ChevronUp className="size-3.5" />
-              <span>Hide Controls</span>
-            </button>
           </div>
 
           {/* Section 1: Map Layers (Collapsible) */}
