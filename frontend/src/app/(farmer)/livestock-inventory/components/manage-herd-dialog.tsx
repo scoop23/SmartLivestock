@@ -46,7 +46,7 @@ import {
   type LivestockInventoryItem,
 } from "../livestock-inventory";
 
-export type ManageHerdAnimalInput = Omit<Partial<LivestockInventoryItem>, "id" | "tagNumber"> & {
+export type ManageHerdAnimalInput = Omit<Partial<LivestockInventoryItem>, "id" | "tagNumber" | "operationalStatus"> & {
   id: number | string;
   tagNumber?: string | null;
   livestockTypeName: string;
