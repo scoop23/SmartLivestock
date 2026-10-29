@@ -222,7 +222,7 @@ export function PageHeader({
               </p>
             )}
             {action && (
-              <div className={`w-full flex items-center justify-end border-t ${variant === "admin" ? "border-slate-200/80" : "border-white/15"} pt-2.5 ${mobileActionsRow ? "flex" : ""}`}>
+              <div className={`w-full gap-2 flex items-center justify-end border-t ${variant === "admin" ? "border-slate-200/80" : "border-white/15"} pt-2.5 ${mobileActionsRow ? "flex" : ""}`}>
                 {action}
               </div>
             )}
