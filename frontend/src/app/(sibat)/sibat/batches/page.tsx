@@ -1535,18 +1535,7 @@ function SibatBatchesVerificationContent() {
         showTutorialToggle={false}
         mobileActionsInline
         action={
-          isDrilldownOpen ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={closeHerdDrilldown}
-              className="h-10 rounded-xl border-white/20 bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer backdrop-blur-xs"
-            >
-              <ArrowLeft className="size-4" />
-              <span>Back to Batches</span>
-            </Button>
-          ) : (
+          isDrilldownOpen ? undefined : (
             <div className="flex items-center gap-2">
               <Button
                 type="button"
@@ -1578,6 +1567,21 @@ function SibatBatchesVerificationContent() {
       />
 
       <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8 py-6 pb-28">
+        {isDrilldownOpen && (
+          <div className="flex items-center justify-start">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={closeHerdDrilldown}
+              className="h-10 rounded-xl border-emerald-200 bg-white hover:bg-emerald-50 text-emerald-900 text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer"
+            >
+              <ArrowLeft className="size-4 text-emerald-700" />
+              <span>Back to Batches</span>
+            </Button>
+          </div>
+        )}
+
         {/* ── 1. SUB-BANNER: BARANGAY COVERAGE & CONTROLS ───────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-emerald-200/90 shadow-xs">
           <div className="flex items-center gap-3">
