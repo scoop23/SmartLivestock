@@ -8,6 +8,7 @@ interface ApiErrorBody {
   non_field_errors?: string[];
   tag_number?: string[];
   animals?: string[];
+  [field: string]: unknown;
 }
 
 /** Narrow an unknown failure before reading the backend's error response. */

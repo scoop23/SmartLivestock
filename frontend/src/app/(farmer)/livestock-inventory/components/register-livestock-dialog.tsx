@@ -884,11 +884,23 @@ function RegisterLivestockDialogContent({
     },
     onError: (err: unknown) => {
       console.error(err);
-      const msg =
-        httpError(err)?.response?.data?.detail ||
-        httpError(err)?.response?.data?.tag_number?.[0] ||
-        httpError(err)?.response?.data?.animals?.[0] ||
-        "Failed to add livestock entry. Please check required fields.";
+      const response = httpError(err)?.response;
+      const body = response?.data;
+      const additionalErrors = body && typeof body === "object"
+        ? Object.entries(body).flatMap(([field, value]) => {
+            if (field === "detail" || field === "error") return [];
+            if (typeof value === "string") return [`${field}: ${value}`];
+            if (Array.isArray(value)) {
+              return value.filter((message): message is string => typeof message === "string")
+                .map((message) => `${field}: ${message}`);
+            }
+            return [];
+          })
+        : [];
+      const msg = body?.detail || body?.error || body?.non_field_errors?.[0] || additionalErrors[0] ||
+        (response
+          ? `Livestock registration failed (HTTP ${response.status}). Please try again.`
+          : "Failed to add livestock entry. Please check required fields.");
       toast.error(msg);
       setFormError(msg);
     },
