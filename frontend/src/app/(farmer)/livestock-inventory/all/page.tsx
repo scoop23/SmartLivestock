@@ -44,10 +44,16 @@ export default function AllLivestockInventoryPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["livestock-types"] });
       toast.success("Livestock record deleted successfully");
     },
-    onError: () => {
-      toast.error("Failed to delete livestock record");
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: { error?: string; detail?: string } } };
+      const msg =
+        apiErr?.response?.data?.error ||
+        apiErr?.response?.data?.detail ||
+        "Failed to delete livestock record";
+      toast.error(msg);
     },
   });
 

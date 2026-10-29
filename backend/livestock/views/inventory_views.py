@@ -246,11 +246,6 @@ def inventory_detail(request, pk):
             )
 
     if request.method == "DELETE":
-        if inventory.batch_id: #type: ignore
-            return Response(
-                {"error": "Herd animals must remain together. Delete the pending herd instead."},
-                status=status.HTTP_409_CONFLICT,
-            )
         try:
             with transaction.atomic():
                 Notification.objects.filter(

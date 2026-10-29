@@ -333,11 +333,10 @@ function LivestockSplitCard({
   const hasVax = Boolean(item.lastVaccinationDate);
   const isApproved = item.status === "APPROVED" || item.status === "VERIFIED";
   const isPending = item.status === "PENDING" || item.status === "SUBJECT_TO_REVISION";
-  const isIndividual = !item.entryType || item.entryType === "INDIVIDUAL";
   const isDeceased = item.operationalStatus === "DECEASED";
   const isSlaughtered = item.operationalStatus === "SLAUGHTERED";
   const isInactive = isDeceased || isSlaughtered;
-  const canDelete = isIndividual && isPending && !isInactive;
+  const canDelete = isPending && !isInactive;
   const speciesTheme = getSpeciesTheme(item.livestockTypeName);
 
   const rawSex = (item.sex || "").trim().toUpperCase();
@@ -674,7 +673,7 @@ function LivestockSplitCard({
             <span>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "Registered"}</span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap justify-end">
             <Button
               type="button"
               variant="outline"
@@ -771,34 +770,21 @@ function LivestockSplitCard({
             </TooltipProvider>
 
             {canDelete && (
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={Boolean(item.batchId)}
-                        aria-label={`Delete pending record for ${item.tagNumber || `livestock ${item.id}`}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(item);
-                        }}
-                        className="h-8 gap-1.5 rounded-lg border-rose-200 bg-rose-50/70 px-2.5 text-xs font-semibold text-rose-700 hover:border-rose-300 hover:bg-rose-100 hover:text-rose-900 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs transition-colors"
-                      >
-                        <Trash2 className="size-3.5 text-rose-600" />
-                        <span>Delete</span>
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    {item.batchId
-                      ? "Herd animals must be removed from the herd before deleting"
-                      : "Delete pending livestock registration"}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={`Delete pending record for ${item.tagNumber || `livestock ${item.id}`}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(item);
+                }}
+                className="h-8 gap-1.5 rounded-lg border-rose-200 bg-rose-50/70 px-2.5 text-xs font-semibold text-rose-700 hover:border-rose-300 hover:bg-rose-100 hover:text-rose-900 cursor-pointer shadow-2xs transition-colors"
+                title="Delete pending livestock registration"
+              >
+                <Trash2 className="size-3.5 text-rose-600" />
+                <span>Delete</span>
+              </Button>
             )}
           </div>
         </div>
@@ -1462,11 +1448,10 @@ export default function LivestockRecordList({
                 const hasVax = Boolean(item.lastVaccinationDate);
                 const isApproved = item.status === "APPROVED" || item.status === "VERIFIED";
                 const isPending = item.status === "PENDING" || item.status === "SUBJECT_TO_REVISION";
-                const isIndividual = !item.entryType || item.entryType === "INDIVIDUAL";
                 const isDeceased = item.operationalStatus === "DECEASED";
                 const isSlaughtered = item.operationalStatus === "SLAUGHTERED";
                 const isInactive = isDeceased || isSlaughtered;
-                const canDelete = isIndividual && isPending && !isInactive;
+                const canDelete = isPending && !isInactive;
                 const localPhoto = typeof window !== "undefined" ? localStorage.getItem(`livestock_photo_${item.id}`) : null;
                 const localAvatar = typeof window !== "undefined" ? localStorage.getItem(`livestock_avatar_${item.id}`) : null;
                 const photoUrl = item.photoUrl || localPhoto;
@@ -1675,18 +1660,16 @@ export default function LivestockRecordList({
                         </Button>
                         {canDelete && (
                           <Button
-                            variant="ghost"
-                            size="icon"
+                            type="button"
+                            variant="outline"
+                            size="sm"
                             onClick={() => onDelete(item)}
-                            disabled={Boolean(item.batchId)}
-                            title={
-                              item.batchId
-                                ? "Herd animals must be removed from the herd before deleting"
-                                : "Delete pending livestock record"
-                            }
-                            className="h-7 w-7 rounded-lg text-rose-600 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                            title="Delete pending livestock record"
+                            aria-label={`Delete pending record for ${item.tagNumber || `livestock ${item.id}`}`}
+                            className="h-7 gap-1 rounded-lg border-rose-200 bg-rose-50/70 px-2 text-xs font-semibold text-rose-700 hover:border-rose-300 hover:bg-rose-100 hover:text-rose-900 cursor-pointer shadow-2xs transition-colors"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="size-3.5 text-rose-600" />
+                            <span>Delete</span>
                           </Button>
                         )}
                       </div>
