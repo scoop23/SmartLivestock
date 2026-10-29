@@ -101,7 +101,7 @@ REVIEW_TRANSITIONS["slaughter_records"] = (
 
 
 BATCH_LIFECYCLE_TRANSITIONS = {
-    "ACTIVE": frozenset({"ACTIVE", "HARVESTED", "SOLD"}),
+    "ACTIVE": frozenset({"ACTIVE", "HARVESTED", "SOLD", "ARCHIVED"}),
     "HARVESTED": frozenset({"HARVESTED", "ARCHIVED"}),
     "SOLD": frozenset({"SOLD", "ARCHIVED"}),
     "ARCHIVED": frozenset({"ARCHIVED"}),

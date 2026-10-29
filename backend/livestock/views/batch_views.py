@@ -326,7 +326,8 @@ def batch_detail(request, pk):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     if request.method in ["PUT", "PATCH"]:
-        require_action(user, "batches", "edit_own")
+        if user_role not in {"CBAT", "SIBAT", "MAO", "ADMIN"}:
+            require_action(user, "batches", "edit_own")
         data = request.data
         # A singular `photo` field retains its historical replace semantics;
         # `photos` is reserved for adding multiple gallery images.
@@ -448,7 +449,8 @@ def batch_detail(request, pk):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     if request.method == "DELETE":
-        require_action(user, "batches", "edit_own")
+        if user_role not in {"CBAT", "SIBAT", "MAO", "ADMIN"}:
+            require_action(user, "batches", "edit_own")
         if batch.animals.exclude(
             status__in=[
                 LivestockInventory.StatusType.PENDING,

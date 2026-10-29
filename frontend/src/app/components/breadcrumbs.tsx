@@ -28,6 +28,7 @@ const ROUTE_LABELS: Record<string, string> = {
   slaughterhouse: "Slaughterhouse",
 
   // SIBAT Routes
+  "livestock-monitoring": "Livestock Monitoring",
   batches: "Herds & Batches",
   "livestock-registry": "Livestock Registry",
   "production-records": "Production Records",
@@ -176,8 +177,17 @@ export function Breadcrumbs({
 
     const segments = pathname.split("/").filter(Boolean);
 
+    const fromMonitoring = searchParams.get("from") === "monitoring";
+
     // If we are at the portal root (e.g. /sibat, /farmer, /admin, /auction, /slaughterhouse)
     if (segments.length === 1 && (segments[0] === pathRole || segments[0] === effectiveRole)) {
+      if (fromMonitoring) {
+        return [
+          { label: rootLabel, href: effectiveRootHref },
+          { label: "Livestock Monitoring", href: "/sibat/livestock-monitoring" },
+          { label: "Field Reviews", active: true },
+        ];
+      }
       return [
         { label: rootLabel, href: effectiveRootHref },
         { label: "Dashboard", active: true },
@@ -197,6 +207,13 @@ export function Breadcrumbs({
       },
     ];
 
+    if (fromMonitoring && pathname !== "/sibat/livestock-monitoring") {
+      breadcrumbs.push({
+        label: "Livestock Monitoring",
+        href: "/sibat/livestock-monitoring",
+      });
+    }
+
     let accumulatedPath = startIdx > 0 ? `/${segments[0]}` : "";
 
     subSegments.forEach((segment, index) => {
@@ -212,7 +229,7 @@ export function Breadcrumbs({
     });
 
     return breadcrumbs;
-  }, [items, pathname, isProductionHistory, user?.role, rootLabel, rootHref]);
+  }, [items, pathname, searchParams, isProductionHistory, user?.role, rootLabel, rootHref]);
 
   if (!resolvedItems || resolvedItems.length === 0) {
     return null;

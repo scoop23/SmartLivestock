@@ -40,6 +40,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   AlertTriangle,
+  Archive,
   ArrowLeft,
   ArrowRight,
   Building2,
@@ -77,6 +78,7 @@ import {
   Sparkles,
   Terminal,
   TrendingUp,
+  Trash2,
   User,
   X,
   Zap,
@@ -654,11 +656,17 @@ function SibatHerdSplitCard({
   isSelected,
   onSelect,
   getStatusBadge,
+  isCbat = false,
+  onArchive,
+  onDelete,
 }: {
   batch: BatchItem;
   isSelected: boolean;
   onSelect: () => void;
   getStatusBadge: (status?: string) => React.ReactNode;
+  isCbat?: boolean;
+  onArchive?: (batch: BatchItem) => void;
+  onDelete?: (batch: BatchItem) => void;
 }) {
   const photos = useMemo(() => {
     const list = batch.photos && batch.photos.length > 0
@@ -914,11 +922,60 @@ function SibatHerdSplitCard({
                 : "bg-white text-emerald-800 border border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300"
             }`}
           >
-            <span>VIEW BATCH</span>
+            <span>{isCbat ? "VIEW HERD" : "VIEW BATCH"}</span>
             <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
           </Button>
         </div>
       </div>
+
+      {/* ── CBAT EMPTY HERD OVERLAY ── */}
+      {isCbat && headCount === 0 && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-2xl bg-slate-950/85 backdrop-blur-xs p-4 text-center border-2 border-dashed border-amber-400/60 shadow-xl"
+        >
+          <div className="flex size-11 items-center justify-center rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/30 mb-2 shadow-xs">
+            <AlertTriangle className="size-5" />
+          </div>
+          <span className="text-sm font-black font-mono uppercase tracking-widest text-amber-300">
+            HERD EMPTY
+          </span>
+          <p className="mt-1 text-xs text-slate-300 max-w-[240px] leading-relaxed">
+            This herd currently has 0 registered animals. You can archive or delete this record.
+          </p>
+          <div className="mt-3.5 flex items-center gap-2 flex-wrap justify-center">
+            {onArchive && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => onArchive(batch)}
+                className="h-8 px-3.5 rounded-xl bg-amber-500/25 hover:bg-amber-500/40 text-amber-200 border border-amber-400/40 text-xs font-bold gap-1.5 cursor-pointer shadow-xs transition-colors"
+              >
+                <Archive className="size-3.5" />
+                <span>Archive</span>
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => onDelete(batch)}
+                className="h-8 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold gap-1.5 cursor-pointer shadow-xs transition-colors"
+              >
+                <Trash2 className="size-3.5" />
+                <span>Delete</span>
+              </Button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onSelect}
+            className="mt-2.5 text-[11px] font-mono text-slate-400 hover:text-white underline cursor-pointer"
+          >
+            View Details
+          </button>
+        </div>
+      )}
     </Card>
   );
 }
@@ -976,6 +1033,62 @@ function SibatBatchesVerificationContent() {
     });
   const [bulkVerifyOpen, setBulkVerifyOpen] = useState(false);
   const [bulkVerifying, setBulkVerifying] = useState(false);
+
+  const [confirmAction, setConfirmAction] = useState<{
+    type: "archive" | "delete";
+    batch: BatchItem;
+  } | null>(null);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
+
+  const handleArchiveConfirm = async () => {
+    if (!confirmAction) return;
+    setIsProcessingAction(true);
+    try {
+      await api.patch(`livestock/batches/${confirmAction.batch.id}/`, {
+        status: "ARCHIVED",
+      });
+      toast.success(`Herd ${confirmAction.batch.batch_code} archived successfully.`, {
+        description: "The empty herd has been moved to archived status.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
+      queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
+      setConfirmAction(null);
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { error?: string; detail?: string } } }).response?.data?.error ||
+            (err as { response?: { data?: { error?: string; detail?: string } } }).response?.data?.detail ||
+            "Failed to archive herd."
+          : "Failed to archive herd.";
+      toast.error(message);
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!confirmAction) return;
+    setIsProcessingAction(true);
+    try {
+      await api.delete(`livestock/batches/${confirmAction.batch.id}/`);
+      toast.success(`Herd ${confirmAction.batch.batch_code} deleted successfully.`, {
+        description: "The empty herd has been permanently removed.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] });
+      queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
+      setConfirmAction(null);
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { error?: string; detail?: string } } }).response?.data?.error ||
+            (err as { response?: { data?: { error?: string; detail?: string } } }).response?.data?.detail ||
+            "Failed to delete herd."
+          : "Failed to delete herd.";
+      toast.error(message);
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
 
   const [animalViewMode, setAnimalViewMode] = useState<"card" | "table">("card");
 
@@ -1046,33 +1159,6 @@ function SibatBatchesVerificationContent() {
     }
   }, [batchIdParam, batches]);
 
-  // ── KPIs ─────────────────────────────────────────────────────────────────
-  const kpis = useMemo(() => {
-    const summary = batchSummaryPage?.summary;
-    const all = batchSummaryPage?.results ?? [];
-
-    const totalHerds = summary?.totalHerds ?? all.length;
-    const totalAnimals = summary?.totalAnimals ?? all.reduce((sum, b) => sum + (b.total_animals || b.animals?.length || 0), 0);
-    const verifiedAnimals = summary?.verifiedAnimals ?? all.reduce((sum, b) => sum + (b.verified_animals ?? 0), 0);
-    const pendingAnimals = summary?.pendingAnimals ?? all.reduce((sum, b) => sum + (b.pending_animals ?? 0), 0);
-    const revisionAnimals = summary?.revisionAnimals ?? all.reduce((sum, b) => sum + (b.revision_animals ?? 0), 0);
-    const approvedAnimals = summary?.approvedAnimals ?? all.reduce((sum, b) => sum + (b.approved_animals ?? 0), 0);
-
-    const avgHeads = totalHerds > 0 ? Math.round(totalAnimals / totalHerds) : 0;
-    const verificationRate = totalAnimals > 0 ? Math.round(((verifiedAnimals + approvedAnimals) / totalAnimals) * 100) : 0;
-
-    return {
-      totalBatches: totalHerds,
-      totalAnimals,
-      verifiedAnimals,
-      pendingAnimals,
-      revisionAnimals,
-      approvedAnimals,
-      avgHeads,
-      verificationRate,
-    };
-  }, [batchSummaryPage]);
-
   const speciesList = useMemo(() => {
     const set = new Set<string>();
     batches.forEach((b) => {
@@ -1081,8 +1167,8 @@ function SibatBatchesVerificationContent() {
     return Array.from(set).sort();
   }, [batches]);
 
-  // ── Filtered Batches ─────────────────────────────────────────────────────
-  const filteredBatches = useMemo(() => {
+  // ── Scoped Batches (Accounting for Search, Species & Barangay) ───────────
+  const scopedBatches = useMemo(() => {
     return batches.filter((b) => {
       const matchSearch =
         !searchQuery ||
@@ -1095,20 +1181,88 @@ function SibatBatchesVerificationContent() {
         speciesFilter === "ALL" ||
         b.livestock_type_name?.trim().toLowerCase() === speciesFilter.trim().toLowerCase();
 
-      const matchStatus = statusFilter === "ALL" || (
-        statusFilter === "PENDING" ? (b.pending_animals ?? 0) > 0 :
-        statusFilter === "VERIFIED" ? (b.verified_animals ?? 0) > 0 :
-        statusFilter === "APPROVED" ? (b.approved_animals ?? 0) > 0 :
-        statusFilter === "SUBJECT_TO_REVISION" ? (b.revision_animals ?? 0) > 0 : false
-      );
-
       const matchBarangay =
         activeBarangayFilter === "ALL" ||
         b.barangay_name?.trim().toLowerCase() === activeBarangayFilter.trim().toLowerCase();
 
-      return matchSearch && matchSpecies && matchStatus && matchBarangay;
+      return matchSearch && matchSpecies && matchBarangay;
     });
-  }, [batches, searchQuery, speciesFilter, statusFilter, activeBarangayFilter]);
+  }, [batches, searchQuery, speciesFilter, activeBarangayFilter]);
+
+  // ── Filtered Batches (Filtered by Status) ─────────────────────────────────
+  const filteredBatches = useMemo(() => {
+    if (statusFilter === "ALL") return scopedBatches;
+    return scopedBatches.filter((b) => {
+      if (statusFilter === "PENDING") {
+        return b.review_status === "PENDING" || (b.pending_animals ?? 0) > 0;
+      }
+      if (statusFilter === "VERIFIED") {
+        return b.review_status === "VERIFIED" || (b.verified_animals ?? 0) > 0;
+      }
+      if (statusFilter === "APPROVED") {
+        return b.review_status === "APPROVED" || (b.approved_animals ?? 0) > 0;
+      }
+      if (statusFilter === "SUBJECT_TO_REVISION") {
+        return b.review_status === "SUBJECT_TO_REVISION" || (b.revision_animals ?? 0) > 0;
+      }
+      return false;
+    });
+  }, [scopedBatches, statusFilter]);
+
+  // ── KPIs connected directly to the actual data ───────────────────────────
+  const kpis = useMemo(() => {
+    const activeList = statusFilter === "ALL" ? scopedBatches : filteredBatches;
+
+    const totalHerds = activeList.length;
+    const totalAnimals = activeList.reduce(
+      (sum, b) => sum + (b.total_animals || b.animals?.length || 0),
+      0
+    );
+    const verifiedAnimals = activeList.reduce(
+      (sum, b) => sum + (b.verified_animals ?? 0),
+      0
+    );
+    const pendingAnimals = activeList.reduce(
+      (sum, b) => sum + (b.pending_animals ?? 0),
+      0
+    );
+    const revisionAnimals = activeList.reduce(
+      (sum, b) => sum + (b.revision_animals ?? 0),
+      0
+    );
+    const approvedAnimals = activeList.reduce(
+      (sum, b) => sum + (b.approved_animals ?? 0),
+      0
+    );
+
+    const avgHeads = totalHerds > 0 ? Math.round(totalAnimals / totalHerds) : 0;
+    const verificationRate =
+      totalAnimals > 0
+        ? Math.round(((verifiedAnimals + approvedAnimals) / totalAnimals) * 100)
+        : 0;
+
+    return {
+      totalBatches: totalHerds,
+      totalAnimals,
+      verifiedAnimals,
+      pendingAnimals,
+      revisionAnimals,
+      approvedAnimals,
+      avgHeads,
+      verificationRate,
+    };
+  }, [scopedBatches, filteredBatches, statusFilter]);
+
+  // ── Status dropdown counts reflecting scoped herds ────────────────────────
+  const statusCounts = useMemo(() => {
+    return {
+      all: scopedBatches.length,
+      pending: scopedBatches.filter((b) => b.review_status === "PENDING" || (b.pending_animals ?? 0) > 0).length,
+      verified: scopedBatches.filter((b) => b.review_status === "VERIFIED" || (b.verified_animals ?? 0) > 0).length,
+      approved: scopedBatches.filter((b) => b.review_status === "APPROVED" || (b.approved_animals ?? 0) > 0).length,
+      revision: scopedBatches.filter((b) => b.review_status === "SUBJECT_TO_REVISION" || (b.revision_animals ?? 0) > 0).length,
+    };
+  }, [scopedBatches]);
 
   const filteredChildAnimals = useMemo(() => {
     if (!selectedBatch || !selectedBatch.animals) return [];
@@ -1645,7 +1799,15 @@ function SibatBatchesVerificationContent() {
           {/* KPI SUMMARY CARDS */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {/* Tile 1: Total Batches */}
-            <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-xs hover:border-emerald-300 transition-all">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("ALL")}
+              className={`relative overflow-hidden rounded-2xl border p-4 text-left transition-all cursor-pointer ${
+                statusFilter === "ALL"
+                  ? "border-emerald-500 bg-white ring-2 ring-emerald-400/40 shadow-sm"
+                  : "border-emerald-200 bg-white hover:border-emerald-300 shadow-xs"
+              }`}
+            >
               <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
                 <span>{isCbat ? "REGISTERED HERDS" : "REGISTERED BATCHES"}</span>
                 <Layers className="size-4 text-emerald-600" />
@@ -1659,7 +1821,7 @@ function SibatBatchesVerificationContent() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1.5">{isCbat ? "Active animal herds" : "Active animal batches"}</p>
-            </div>
+            </button>
 
             {/* Tile 2: Total Heads */}
             <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-xs hover:border-emerald-300 transition-all">
@@ -1675,13 +1837,21 @@ function SibatBatchesVerificationContent() {
                   HEADS
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1.5">~{kpis.avgHeads} animals per batch</p>
+              <p className="text-[11px] text-slate-500 mt-1.5">~{kpis.avgHeads} animals per {isCbat ? "herd" : "batch"}</p>
             </div>
 
             {/* Tile 3: Field Verified */}
-            <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-xs hover:border-emerald-300 transition-all">
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === "VERIFIED" ? "ALL" : "VERIFIED")}
+              className={`relative overflow-hidden rounded-2xl border p-4 text-left transition-all cursor-pointer ${
+                statusFilter === "VERIFIED"
+                  ? "border-emerald-500 bg-white ring-2 ring-emerald-400/40 shadow-sm"
+                  : "border-emerald-200 bg-white hover:border-emerald-300 shadow-xs"
+              }`}
+            >
               <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-                <span>INSPECTED BY SIBAT</span>
+                <span>{isCbat ? "INSPECTED (VERIFIED)" : "INSPECTED BY SIBAT"}</span>
                 <ShieldCheck className="size-4 text-emerald-600" />
               </div>
               <div className="flex items-baseline justify-between mt-2">
@@ -1693,12 +1863,20 @@ function SibatBatchesVerificationContent() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1.5">Forwarded to MAO for approval</p>
-            </div>
+            </button>
 
             {/* Tile 4: Pending Check */}
-            <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white p-4 shadow-xs hover:border-amber-300 transition-all">
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === "PENDING" ? "ALL" : "PENDING")}
+              className={`relative overflow-hidden rounded-2xl border p-4 text-left transition-all cursor-pointer ${
+                statusFilter === "PENDING"
+                  ? "border-amber-500 bg-white ring-2 ring-amber-400/40 shadow-sm"
+                  : "border-amber-200 bg-white hover:border-amber-300 shadow-xs"
+              }`}
+            >
               <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-                <span>AWAITING SIBAT CHECK</span>
+                <span>{isCbat ? "AWAITING CHECK" : "AWAITING SIBAT CHECK"}</span>
                 <Clock className={`size-4 ${kpis.pendingAnimals > 0 ? "text-amber-600 animate-pulse" : "text-slate-400"}`} />
               </div>
               <div className="flex items-baseline justify-between mt-2">
@@ -1710,10 +1888,18 @@ function SibatBatchesVerificationContent() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1.5">New farmer submissions</p>
-            </div>
+            </button>
 
             {/* Tile 5: Returned for Revision */}
-            <div className="col-span-2 sm:col-span-1 relative overflow-hidden rounded-2xl border border-rose-200 bg-white p-4 shadow-xs hover:border-rose-300 transition-all">
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === "SUBJECT_TO_REVISION" ? "ALL" : "SUBJECT_TO_REVISION")}
+              className={`col-span-2 sm:col-span-1 relative overflow-hidden rounded-2xl border p-4 text-left transition-all cursor-pointer ${
+                statusFilter === "SUBJECT_TO_REVISION"
+                  ? "border-rose-500 bg-white ring-2 ring-rose-400/40 shadow-sm"
+                  : "border-rose-200 bg-white hover:border-rose-300 shadow-xs"
+              }`}
+            >
               <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
                 <span>RETURNED FOR REVISION</span>
                 <AlertTriangle className={`size-4 ${kpis.revisionAnimals > 0 ? "text-rose-600 animate-bounce" : "text-slate-400"}`} />
@@ -1727,7 +1913,7 @@ function SibatBatchesVerificationContent() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1.5">Returned to farmer for correction</p>
-            </div>
+            </button>
           </div>
 
           {/* FILTER BAR & SEARCH */}
@@ -1777,11 +1963,11 @@ function SibatBatchesVerificationContent() {
                     <SelectValue placeholder="REVIEW STATUS" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl text-xs">
-                    <SelectItem value="ALL">ALL STATUSES ({batches.length})</SelectItem>
-                    <SelectItem value="PENDING">PENDING SIBAT CHECK ({kpis.pendingAnimals})</SelectItem>
-                    <SelectItem value="VERIFIED">CHECKED BY SIBAT (VERIFIED) ({kpis.verifiedAnimals})</SelectItem>
-                    <SelectItem value="APPROVED">APPROVED BY MAO ({kpis.approvedAnimals})</SelectItem>
-                    <SelectItem value="SUBJECT_TO_REVISION">RETURNED FOR REVISION ({kpis.revisionAnimals})</SelectItem>
+                    <SelectItem value="ALL">ALL STATUSES ({statusCounts.all})</SelectItem>
+                    <SelectItem value="PENDING">{isCbat ? "PENDING CHECK" : "PENDING SIBAT CHECK"} ({statusCounts.pending})</SelectItem>
+                    <SelectItem value="VERIFIED">{isCbat ? "CHECKED (VERIFIED)" : "CHECKED BY SIBAT (VERIFIED)"} ({statusCounts.verified})</SelectItem>
+                    <SelectItem value="APPROVED">APPROVED BY MAO ({statusCounts.approved})</SelectItem>
+                    <SelectItem value="SUBJECT_TO_REVISION">RETURNED FOR REVISION ({statusCounts.revision})</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1891,6 +2077,9 @@ function SibatBatchesVerificationContent() {
                   isSelected={selectedBatch?.id === batch.id}
                   onSelect={() => openHerdDrilldown(batch)}
                   getStatusBadge={getStatusBadge}
+                  isCbat={isCbat}
+                  onArchive={(b) => setConfirmAction({ type: "archive", batch: b })}
+                  onDelete={(b) => setConfirmAction({ type: "delete", batch: b })}
                 />
               ))}
             </div>
@@ -1898,7 +2087,7 @@ function SibatBatchesVerificationContent() {
             {/* Pagination Controls */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-emerald-500/20 text-xs font-mono">
               <span className="text-[11px] text-slate-500">
-                BATCHES {(safeBatchPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(safeBatchPage * BATCH_PAGE_SIZE, filteredBatches.length)} OF {filteredBatches.length} RECORDED
+                {isCbat ? "HERDS" : "BATCHES"} {(safeBatchPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(safeBatchPage * BATCH_PAGE_SIZE, filteredBatches.length)} OF {filteredBatches.length} RECORDED
               </span>
               <div className="flex items-center gap-1.5">
                 <Button
@@ -2018,18 +2207,48 @@ function SibatBatchesVerificationContent() {
                           </TableCell>
                           <TableCell>{getStatusBadge(batch.review_status)}</TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openHerdDrilldown(batch);
-                              }}
-                              className="h-8 px-3 rounded-lg bg-emerald-700 text-white font-mono text-xs font-bold hover:bg-emerald-800 transition-colors shadow-2xs gap-1.5 cursor-pointer"
-                            >
-                              <Eye className="size-3.5" />
-                              <span>VIEW BATCH</span>
-                            </Button>
+                            {isCbat && headCount === 0 ? (
+                              <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <span className="text-[10px] font-mono font-bold uppercase text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                                  Empty
+                                </span>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setConfirmAction({ type: "archive", batch })}
+                                  title="Archive Herd"
+                                  className="h-7 px-2 text-xs font-semibold text-amber-800 border-amber-300 hover:bg-amber-50 cursor-pointer"
+                                >
+                                  <Archive className="size-3 mr-1" />
+                                  <span>Archive</span>
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setConfirmAction({ type: "delete", batch })}
+                                  title="Delete Herd"
+                                  className="h-7 px-2 text-xs font-semibold text-rose-700 border-rose-300 hover:bg-rose-50 cursor-pointer"
+                                >
+                                  <Trash2 className="size-3 mr-1" />
+                                  <span>Delete</span>
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openHerdDrilldown(batch);
+                                }}
+                                className="h-8 px-3 rounded-lg bg-emerald-700 text-white font-mono text-xs font-bold hover:bg-emerald-800 transition-colors shadow-2xs gap-1.5 cursor-pointer"
+                              >
+                                <Eye className="size-3.5" />
+                                <span>{isCbat ? "VIEW HERD" : "VIEW BATCH"}</span>
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
@@ -2042,7 +2261,7 @@ function SibatBatchesVerificationContent() {
             {/* Pagination Controls */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-emerald-500/20 text-xs font-mono">
               <span className="text-[11px] text-slate-500">
-                BATCHES {(safeBatchPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(safeBatchPage * BATCH_PAGE_SIZE, filteredBatches.length)} OF {filteredBatches.length} RECORDED
+                {isCbat ? "HERDS" : "BATCHES"} {(safeBatchPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(safeBatchPage * BATCH_PAGE_SIZE, filteredBatches.length)} OF {filteredBatches.length} RECORDED
               </span>
               <div className="flex items-center gap-1.5">
                 <Button
@@ -2777,6 +2996,87 @@ function SibatBatchesVerificationContent() {
               className="min-h-11 w-full rounded-xl bg-emerald-700 font-mono text-xs font-bold text-white hover:bg-emerald-800 shadow-holo-glow-emerald"
             >
               {bulkVerifying ? "SAVING…" : "CONFIRM VERIFICATION"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── CBAT Empty Herd Confirmation Dialog ── */}
+      <AlertDialog
+        open={Boolean(confirmAction)}
+        onOpenChange={(open) => {
+          if (!open && !isProcessingAction) setConfirmAction(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl max-w-md">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <div
+                className={`size-11 rounded-xl flex items-center justify-center shrink-0 ${
+                  confirmAction?.type === "delete"
+                    ? "bg-rose-100 text-rose-600"
+                    : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {confirmAction?.type === "delete" ? (
+                  <Trash2 className="size-5" />
+                ) : (
+                  <Archive className="size-5" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <AlertDialogTitle className="text-base font-bold text-slate-900">
+                  {confirmAction?.type === "delete"
+                    ? "Delete Empty Herd?"
+                    : "Archive Empty Herd?"}
+                </AlertDialogTitle>
+                <p className="text-xs font-mono font-bold text-slate-500 truncate">
+                  {confirmAction?.batch.batch_code} • {confirmAction?.batch.batch_name || `${confirmAction?.batch.livestock_type_name} Herd`}
+                </p>
+              </div>
+            </div>
+            <AlertDialogDescription className="text-xs sm:text-sm text-slate-600 mt-2.5 text-left leading-relaxed">
+              {confirmAction?.type === "delete" ? (
+                <>
+                  Are you sure you want to permanently delete this herd? This herd has{" "}
+                  <strong className="text-slate-900 font-bold">0 animals</strong>. This action cannot be undone.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to archive this empty herd? It will be marked as{" "}
+                  <strong className="text-slate-900 font-bold">ARCHIVED</strong> and hidden from the active herd roster.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 flex-col sm:flex-row gap-2">
+            <AlertDialogCancel
+              disabled={isProcessingAction}
+              className="h-10 rounded-xl border-slate-200 text-xs font-semibold cursor-pointer"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isProcessingAction}
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmAction?.type === "delete") {
+                  void handleDeleteConfirm();
+                } else {
+                  void handleArchiveConfirm();
+                }
+              }}
+              className={`h-10 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer ${
+                confirmAction?.type === "delete"
+                  ? "bg-rose-600 hover:bg-rose-700"
+                  : "bg-amber-600 hover:bg-amber-700"
+              }`}
+            >
+              {isProcessingAction
+                ? "Processing..."
+                : confirmAction?.type === "delete"
+                  ? "Yes, Delete Herd"
+                  : "Yes, Archive Herd"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

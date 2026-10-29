@@ -6,18 +6,14 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Activity,
-  AlertTriangle,
   ArrowRight,
-  Calendar,
   CalendarDays,
-  CheckCircle2,
   ClipboardCheck,
   Clock,
   Compass,
   FileSpreadsheet,
   History,
   Layers,
-  MapPin,
   QrCode,
   Radar,
   RefreshCw,
@@ -25,14 +21,18 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
-  TrendingUp,
   Users,
   X,
-  Zap,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "@/app/components/page-header";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 import { useAuth } from "@/contexts/auth-context";
@@ -74,7 +74,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     title: "Field Verification & Review Queue",
     description:
       "Review new animal registrations, herd additions, and weight updates submitted by farmers. Check ear tags and photos on-site before submitting your findings to MAO.",
-    href: "/sibat",
+    href: "/sibat?from=monitoring",
     icon: ClipboardCheck,
     capabilityTags: ["Ear Tag Check", "Farm Visit", "Photo Verification"],
     primaryAction: "OPEN REVIEW QUEUE",
@@ -88,7 +88,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     title: "Farmers & Registered Animals",
     description:
       "Look up registered farmers and their animals by ear tag number, species, breed, or barangay within your assigned area.",
-    href: "/sibat/livestock-registry",
+    href: "/sibat/livestock-registry?from=monitoring",
     icon: Users,
     capabilityTags: ["Ear Tag Lookup", "Farmer Profiles", "Animal Details"],
     primaryAction: "VIEW ANIMAL LIST",
@@ -104,7 +104,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     title: "Livestock Groups & Batches",
     description:
       "Monitor groups of animals (swine, poultry, or cattle), track batch feeding and target weights, and verify newly added animals in each herd.",
-    href: "/sibat/batches",
+    href: "/sibat/batches?from=monitoring",
     icon: Layers,
     capabilityTags: ["Herd Batches", "Target Weights", "Feeding Records"],
     primaryAction: "VIEW BATCHES",
@@ -118,7 +118,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     title: "Quarterly Livestock Census",
     description:
       "Count and record farm animals per household during the quarterly barangay livestock census to keep official municipal counts accurate.",
-    href: "/sibat/census/submit",
+    href: "/sibat/census/submit?from=monitoring",
     icon: FileSpreadsheet,
     capabilityTags: ["Headcount", "Household Survey", "Animal Counts"],
     primaryAction: "RECORD CENSUS",
@@ -134,7 +134,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     title: "Census History & Corrections",
     description:
       "View past census submissions, check approval status from MAO, and update any census records that were returned for correction.",
-    href: "/sibat/census-submissions",
+    href: "/sibat/census-submissions?from=monitoring",
     icon: History,
     capabilityTags: ["Past Submissions", "MAO Approvals", "Returned Records"],
     primaryAction: "VIEW CENSUS LOGS",
@@ -150,7 +150,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     title: "Disease & Mortality Follow-Up",
     description:
       "Check reports of sick or dead livestock from farmers. Visit the farm, check symptoms and ear tags, and report findings to MAO.",
-    href: "/sibat-alerts",
+    href: "/sibat-alerts?from=monitoring",
     icon: ShieldAlert,
     capabilityTags: ["Disease Reports", "Death Notices", "On-Site Check"],
     primaryAction: "CHECK HEALTH REPORTS",
@@ -164,7 +164,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     title: "Births & Calving Records",
     description:
       "Review newborn calves and animal birth records submitted by farmers in your barangay for ear tagging and registry inclusion.",
-    href: "/sibat",
+    href: "/sibat?tab=calving&from=monitoring",
     icon: CalendarDays,
     capabilityTags: ["Calf Births", "Dam & Sire Tags", "Birth Weights"],
     primaryAction: "VIEW BIRTHS",
@@ -180,7 +180,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     title: "Barangay Programs & Schedules",
     description:
       "View upcoming municipal schedules for animal vaccination, deworming, farmer meetings, and agricultural assistance.",
-    href: "/sibat-scheduling",
+    href: "/sibat-scheduling?from=monitoring",
     icon: CalendarDays,
     capabilityTags: ["Vaccination Days", "Deworming Schedule", "Farmer Seminars"],
     primaryAction: "VIEW SCHEDULES",
@@ -194,7 +194,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     title: "Barangay Livestock Map (GIS)",
     description:
       "View farm locations, animal movements, checkpoints, and livestock density across Padre Garcia on an interactive map.",
-    href: "/sibat-monitoring",
+    href: "/sibat-monitoring?from=monitoring",
     icon: Compass,
     capabilityTags: ["Farm Locations", "Movement Paths", "Barangay Map"],
     primaryAction: "OPEN LIVESTOCK MAP",
@@ -341,11 +341,6 @@ export default function BarangayLivestockMonitoringPage() {
     };
   }, []);
 
-  const assignedSector =
-    user?.accessScope === "ALL_BARANGAYS"
-      ? "All Barangays (Full Access)"
-      : user?.assignedBarangayName || "Padre Garcia";
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -374,74 +369,46 @@ export default function BarangayLivestockMonitoringPage() {
         showTutorialToggle={false}
         mobileActionsInline
         action={
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsQrScannerOpen(true)}
-              className="h-10 rounded-xl border-white/20 bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer backdrop-blur-xs"
-            >
-              <QrCode className="size-4" />
-              <span className="hidden sm:inline">Scan Animal QR</span>
-              <span className="sm:hidden">Scan QR</span>
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleSyncTelemetry}
-              disabled={isSyncing}
-              className="h-10 rounded-xl border-white/20 bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer backdrop-blur-xs"
-            >
-              <RefreshCw className={`size-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Refresh Data</span>
-            </Button>
-
-            <Link href="/sibat/livestock-registry">
-              <Button
-                type="button"
-                size="sm"
-                className="h-10 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 text-xs sm:text-sm font-bold shadow-xs transition-all gap-1.5 cursor-pointer"
-              >
-                <Users className="size-3.5" />
-                <span className="hidden sm:inline">Animal List</span>
-                <span className="sm:hidden">List</span>
-              </Button>
-            </Link>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={handleSyncTelemetry}
+            disabled={isSyncing}
+            aria-label="Refresh Data"
+            title="Refresh Data"
+            className="size-10 rounded-xl border-white/20 bg-white/15 hover:bg-white/25 text-white transition-all shadow-xs cursor-pointer backdrop-blur-xs"
+          >
+            <RefreshCw className={`size-4 ${isSyncing ? "animate-spin" : ""}`} />
+          </Button>
         }
       />
 
       <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8 py-6 pb-28">
-        {/* ── 1. BARANGAY AREA COVERAGE BANNER ───────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-emerald-200/90 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="size-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-              <MapPin className="size-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-800">
-                  Assigned Barangay
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
-                  SIBAT / CBAT Field
-                </span>
-              </div>
-              <h2 className="text-sm sm:text-base font-bold text-slate-900 mt-0.5">
-                {assignedSector}
-              </h2>
-            </div>
-          </div>
+        {/* ── 1. SCAN QR & ANIMAL LIST ACTIONS ───────────────────────────────── */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsQrScannerOpen(true)}
+            className="h-10 rounded-xl border-emerald-200 bg-white hover:bg-emerald-50 text-emerald-900 text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer"
+          >
+            <QrCode className="size-4 text-emerald-700" />
+            <span>Scan Animal QR</span>
+          </Button>
 
-          <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200">
-              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-              Padre Garcia Livestock Network
-            </span>
-          </div>
+          <Link href="/sibat/livestock-registry?from=monitoring">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-10 rounded-xl border-emerald-200 bg-white hover:bg-emerald-50 text-emerald-900 text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer"
+            >
+              <Users className="size-4 text-emerald-700" />
+              <span>Animal List</span>
+            </Button>
+          </Link>
         </div>
 
         {/* ── 2. SUMMARY COUNTS & STATUS CARDS ──────────────────────────────── */}
@@ -587,43 +554,23 @@ export default function BarangayLivestockMonitoringPage() {
             )}
           </div>
 
-          {/* Category Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-            {(
-              [
-                { key: "ALL", label: "ALL SERVICES" },
-                { key: "VALIDATION", label: "FIELD REVIEWS" },
-                { key: "REGISTRIES", label: "LIVESTOCK & BATCHES" },
-                { key: "BIOSECURITY", label: "HEALTH & ALERTS" },
-                { key: "FIELD_OPS", label: "PROGRAMS & MAP" },
-              ] as const
-            ).map((tab) => {
-              const isSelected = selectedCategory === tab.key;
-              const count = categoryCounts[tab.key];
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setSelectedCategory(tab.key)}
-                  className={`h-8 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                    isSelected
-                      ? "bg-emerald-700 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                      isSelected
-                        ? "bg-emerald-800 text-emerald-100"
-                        : "bg-slate-200 text-slate-600"
-                    }`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+          {/* Category Filter Dropdown */}
+          <div className="w-full md:w-64 shrink-0">
+            <Select
+              value={selectedCategory}
+              onValueChange={(val) => setSelectedCategory(val as ModuleCategory)}
+            >
+              <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-white text-xs font-semibold focus-visible:ring-emerald-500 shadow-xs">
+                <SelectValue placeholder="Filter by service" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl text-xs font-medium">
+                <SelectItem value="ALL">ALL SERVICES ({categoryCounts.ALL})</SelectItem>
+                <SelectItem value="VALIDATION">FIELD REVIEWS ({categoryCounts.VALIDATION})</SelectItem>
+                <SelectItem value="REGISTRIES">LIVESTOCK &amp; BATCHES ({categoryCounts.REGISTRIES})</SelectItem>
+                <SelectItem value="BIOSECURITY">HEALTH &amp; ALERTS ({categoryCounts.BIOSECURITY})</SelectItem>
+                <SelectItem value="FIELD_OPS">PROGRAMS &amp; MAP ({categoryCounts.FIELD_OPS})</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -700,7 +647,7 @@ export default function BarangayLivestockMonitoringPage() {
                         <span className="font-mono text-xs font-black text-slate-400 group-hover:text-emerald-700 transition-colors">
                           {module.code}
                         </span>
-                        <span className="text-slate-300 font-mono text-xs">//</span>
+                        <span className="text-slate-300 font-mono text-xs">{"//"}</span>
                         <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500">
                           {module.categoryLabel}
                         </span>
