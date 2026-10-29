@@ -24,21 +24,54 @@ Shield,
 ShieldCheck,
 Sparkles
 } from 'lucide-react';
-import { useEffect,useState } from 'react';
+import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 
 export function PrivacyConsentModal() {
   const { user, logout } = useAuth();
   const ready = useClientReady();
+  const pathname = usePathname();
   const email = user?.email?.toLowerCase() ?? '';
   const [acceptedEmail, setAcceptedEmail] = useState<string | null>(null);
   const [agreedEmail, setAgreedEmail] = useState<string | null>(null);
+  const [dashboardAppeared, setDashboardAppeared] = useState(false);
   const agreed = agreedEmail === email;
   const setAgreed = (value: boolean) => setAgreedEmail(value ? email : null);
   const setOpen = (value: boolean) => { if (!value) setAcceptedEmail(email); };
+
+  useEffect(() => {
+    if (!email) {
+      setDashboardAppeared(false);
+      if (typeof window !== "undefined") {
+        delete (window as any).__smartlivestock_farmer_dashboard_appeared;
+      }
+    }
+  }, [email]);
+
+  useEffect(() => {
+    if (!ready || typeof window === "undefined") return;
+
+    if ((window as any).__smartlivestock_farmer_dashboard_appeared) {
+      setDashboardAppeared(true);
+      return;
+    }
+
+    const handleDashboardAppeared = () => {
+      setDashboardAppeared(true);
+    };
+
+    window.addEventListener("smartlivestock:farmer-dashboard-appeared", handleDashboardAppeared);
+    return () => {
+      window.removeEventListener("smartlivestock:farmer-dashboard-appeared", handleDashboardAppeared);
+    };
+  }, [ready]);
+
   let storedConsent = false;
   try { if (ready && email) storedConsent = Boolean(localStorage.getItem(`smartlivestock_privacy_agreed_${email}`)); } catch {}
-  const open = ready && Boolean(email) && user?.role?.toUpperCase() === 'FARMER' && acceptedEmail !== email && !storedConsent;
+
+  const isFarmer = user?.role?.toUpperCase() === 'FARMER';
+  const open = ready && Boolean(email) && isFarmer && acceptedEmail !== email && !storedConsent && dashboardAppeared;
 
   const handleAccept = () => {
     if (!agreed || !user?.email) return;
@@ -55,6 +88,9 @@ export function PrivacyConsentModal() {
       );
 
       setOpen(false);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("smartlivestock:privacy-consent-accepted"));
+      }
       toast.success('Privacy Agreement Confirmed', {
         description: 'Thank you for acknowledging the Data Privacy Act (RA 10173) policy.',
       });

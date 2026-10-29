@@ -342,14 +342,52 @@ export default function FarmerDashboard() {
     else runTour();
   }, []);
 
+  // Signal that the dashboard has fully loaded and appeared
+  useEffect(() => {
+    if (isLoading || keepLoadingScreenMounted || isError) return;
+
+    const timer = window.setTimeout(() => {
+      if (typeof window !== "undefined") {
+        (window as any).__smartlivestock_farmer_dashboard_appeared = true;
+        window.dispatchEvent(new CustomEvent("smartlivestock:farmer-dashboard-appeared"));
+      }
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [isLoading, keepLoadingScreenMounted, isError]);
+
   useEffect(() => {
     if (isLoading || keepLoadingScreenMounted || isError) return;
     if (!getAutomaticTutorialsEnabled()) return;
 
+    // Check if the farmer has consented to data privacy; if not, wait until accepted
+    const userEmail = user?.email?.toLowerCase();
+    let hasAgreedPrivacy = true;
+    try {
+      if (userEmail && typeof window !== "undefined") {
+        hasAgreedPrivacy = Boolean(localStorage.getItem(`smartlivestock_privacy_agreed_${userEmail}`));
+      }
+    } catch {
+      hasAgreedPrivacy = true;
+    }
+
+    if (!hasAgreedPrivacy) {
+      const handlePrivacyAccepted = () => {
+        if (getAutomaticTutorialsEnabled()) {
+          window.setTimeout(startDashboardTour, 500);
+        }
+      };
+
+      window.addEventListener("smartlivestock:privacy-consent-accepted", handlePrivacyAccepted, { once: true });
+      return () => {
+        window.removeEventListener("smartlivestock:privacy-consent-accepted", handlePrivacyAccepted);
+      };
+    }
+
     const timer = window.setTimeout(startDashboardTour, 600);
 
     return () => window.clearTimeout(timer);
-  }, [isLoading, keepLoadingScreenMounted, isError, startDashboardTour]);
+  }, [isLoading, keepLoadingScreenMounted, isError, user?.email, startDashboardTour]);
 
   // ── Dialog States ──
   const [isReportIllnessOpen, setIsReportIllnessOpen] = useState(false);
