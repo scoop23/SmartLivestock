@@ -2597,7 +2597,7 @@ export default function BatchOverviewPage() {
         onOpenChange={(open) => {
           if (!open) setManageHerdTarget(null);
         }}
-        animal={
+        item={
           manageHerdTarget && currentBatch
             ? {
                 id: Number(manageHerdTarget.id),

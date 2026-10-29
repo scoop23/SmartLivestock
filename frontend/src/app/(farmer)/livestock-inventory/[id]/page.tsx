@@ -1507,10 +1507,9 @@ export default function LivestockDetailPage() {
           <ManageHerdDialog
             open={isManageHerdOpen}
             onOpenChange={setIsManageHerdOpen}
-            animal={{
+            item={{
               id: activeItem.id,
               tagNumber: activeItem.tagNumber,
-              livestockType: activeItem.livestockType,
               livestockTypeName: activeItem.livestockTypeName,
               breed: activeItem.breed,
               sex: activeItem.sex,

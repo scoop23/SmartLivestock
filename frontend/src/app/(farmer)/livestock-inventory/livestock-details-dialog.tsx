@@ -635,6 +635,7 @@ export default function LivestockDetailsDialog({
   const operationalLabel = activeLivestock?.operationalStatus ? activeLivestock.operationalStatus.replace(/_/g, " ") : "ACTIVE HERD";
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         style={{ maxWidth: "880px" }}
@@ -1855,27 +1856,27 @@ export default function LivestockDetailsDialog({
           </div>
         </div>
       </DialogContent>
-      <ManageHerdDialog
-        open={isManageHerdOpen}
-        onOpenChange={setIsManageHerdOpen}
-        animal={
-          activeLivestock
-            ? {
-                id: activeLivestock.id,
-                tagNumber: activeLivestock.tagNumber,
-                livestockType: activeLivestock.livestockType,
-                livestockTypeName: activeLivestock.livestockTypeName,
-                breed: activeLivestock.breed,
-                sex: activeLivestock.sex,
-                operationalStatus: activeLivestock.operationalStatus,
-                batchId: activeLivestock.batchId ?? null,
-                batchCode: activeLivestock.batchCode ?? null,
-                batchName: activeLivestock.batchName ?? null,
-                herdMembershipHistory: activeLivestock.herdMembershipHistory,
-              }
-            : null
-        }
-      />
     </Dialog>
+    <ManageHerdDialog
+      open={isManageHerdOpen}
+      onOpenChange={setIsManageHerdOpen}
+      item={
+        activeLivestock
+          ? {
+              id: activeLivestock.id,
+              tagNumber: activeLivestock.tagNumber,
+              livestockTypeName: activeLivestock.livestockTypeName,
+              breed: activeLivestock.breed,
+              sex: activeLivestock.sex,
+              operationalStatus: activeLivestock.operationalStatus,
+              batchId: activeLivestock.batchId ?? null,
+              batchCode: activeLivestock.batchCode ?? null,
+              batchName: activeLivestock.batchName ?? null,
+              herdMembershipHistory: activeLivestock.herdMembershipHistory,
+            }
+          : null
+      }
+    />
+    </>
   );
 }

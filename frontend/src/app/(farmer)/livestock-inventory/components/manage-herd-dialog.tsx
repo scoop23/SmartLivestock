@@ -46,8 +46,19 @@ import {
   type LivestockInventoryItem,
 } from "../livestock-inventory";
 
+export type ManageHerdAnimalInput = Omit<Partial<LivestockInventoryItem>, "id" | "tagNumber"> & {
+  id: number | string;
+  tagNumber?: string | null;
+  livestockTypeName: string;
+  operationalStatus?: string;
+  batchId?: number | null;
+  batchCode?: string | null;
+  batchName?: string | null;
+};
+
 export interface ManageHerdDialogProps {
-  item: LivestockInventoryItem | null;
+  item?: ManageHerdAnimalInput | null;
+  animal?: ManageHerdAnimalInput | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialMode?: "assign" | "move" | "remove" | "history";
@@ -71,21 +82,25 @@ function extractApiError(err: unknown, fallback: string): string {
 }
 
 export function ManageHerdDialog(props: ManageHerdDialogProps) {
+  const target = props.item ?? props.animal ?? null;
   return (
     <ManageHerdDialogContent
-      key={`${props.open}:${props.item?.id ?? "none"}:${props.item?.batchId ?? "unassigned"}:${props.initialMode ?? "auto"}`}
+      key={`${props.open}:${target?.id ?? "none"}:${target?.batchId ?? "unassigned"}:${props.initialMode ?? "auto"}`}
       {...props}
+      item={target}
     />
   );
 }
 
 function ManageHerdDialogContent({
   item,
+  animal,
   open,
   onOpenChange,
   initialMode,
   onSuccess,
 }: ManageHerdDialogProps) {
+  const resolvedItem = item ?? animal ?? null;
   const {
     data: allBatches = [],
     isLoading: isBatchesLoading,
@@ -96,7 +111,7 @@ function ManageHerdDialogContent({
   const manageHerdMutation = useManageInventoryHerd();
   const createBatchMutation = useCreateLivestockBatch();
 
-  const animalId = item?.id ? Number(item.id) : null;
+  const animalId = resolvedItem?.id ? Number(resolvedItem.id) : null;
   const { data: freshDetail } = useQuery<InventoryApiItem>({
     queryKey: ["inventory_item", animalId],
     queryFn: async () => {
@@ -107,16 +122,20 @@ function ManageHerdDialogContent({
   });
 
   const activeItem = useMemo(() => {
-    if (!item) return null;
+    if (!resolvedItem) return null;
     if (freshDetail) {
       const mapped = mapInventory(freshDetail);
       return {
-        ...item,
+        ...resolvedItem,
         ...mapped,
       };
     }
-    return item;
-  }, [item, freshDetail]);
+    return {
+      ...resolvedItem,
+      id: Number(resolvedItem.id),
+      operationalStatus: (resolvedItem.operationalStatus || "ACTIVE") as LivestockInventoryItem["operationalStatus"],
+    };
+  }, [resolvedItem, freshDetail]);
 
   const hasCurrentHerd = Boolean(activeItem?.batchId);
 
