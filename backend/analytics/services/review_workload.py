@@ -229,7 +229,7 @@ def review_workload_summary(*, now=None, user=None):
             overall["mao"]["aging"][bucket] += mao_aging[bucket]
 
     for key, label, queryset in standard_domains:
-        if (is_sibat or is_cbat) and key == "sales":
+        if (is_sibat or is_cbat) and key in ("sales", "production"):
             continue
         if is_cbat and key == "disease":
             continue
@@ -252,6 +252,8 @@ def review_workload_summary(*, now=None, user=None):
         mao_reviewed_statuses=("VERIFIED",),
     )
     for key, label, queryset in direct_mao_domains:
+        if (is_sibat or is_cbat) and key in ("slaughter", "ownership_transfers", "inspection_clearances"):
+            continue
         add_domain(
             key,
             label,

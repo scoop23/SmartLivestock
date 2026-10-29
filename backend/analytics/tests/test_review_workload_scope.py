@@ -63,7 +63,12 @@ class SibatReviewWorkloadScopeTests(TestCase):
         self.assertEqual(response.data["overall"]["sibat"]["count"], 1)
         self.assertEqual(response.data["overall"]["mao"]["count"], 1)
         self.assertEqual(response.data["overall"]["returned"], 1)
-        self.assertNotIn("sales", {row["key"] for row in response.data["by_domain"]})
+        sibat_keys = {row["key"] for row in response.data["by_domain"]}
+        self.assertNotIn("sales", sibat_keys)
+        self.assertNotIn("slaughter", sibat_keys)
+        self.assertNotIn("ownership_transfers", sibat_keys)
+        self.assertNotIn("inspection_clearances", sibat_keys)
+        self.assertNotIn("production", sibat_keys)
 
     def test_all_barangay_scope_includes_other_barangays(self):
         for status in ("PENDING", "VERIFIED", "SUBJECT_TO_REVISION"):
@@ -105,5 +110,9 @@ class SibatReviewWorkloadScopeTests(TestCase):
         self.assertEqual(response.status_code, 200)
         domain_keys = {row["key"] for row in response.data["by_domain"]}
         self.assertNotIn("disease", domain_keys)
+        self.assertNotIn("slaughter", domain_keys)
         self.assertNotIn("sales", domain_keys)
+        self.assertNotIn("ownership_transfers", domain_keys)
+        self.assertNotIn("inspection_clearances", domain_keys)
+        self.assertNotIn("production", domain_keys)
         self.assertIn("inventory", domain_keys)

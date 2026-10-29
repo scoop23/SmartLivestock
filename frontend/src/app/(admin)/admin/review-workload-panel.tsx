@@ -10,8 +10,22 @@ export function ReviewWorkloadPanel({ scopeLabel, hideMaoQueue = false }: { scop
   const { user } = useAuth();
   const { data, isLoading, isError, isFetching, refetch } = useReviewWorkload();
   const isCbat = user?.role === "CBAT";
-  const chartData = isCbat && data?.by_domain
-    ? data.by_domain.filter((domain) => domain.key !== "disease")
+  const isSibat = user?.role === "SIBAT";
+  const isSibatOrCbat = isSibat || isCbat || hideMaoQueue;
+  const excludedKeys = new Set(
+    isSibatOrCbat
+      ? [
+          "slaughter",
+          "ownership_transfers",
+          "inspection_clearances",
+          "production",
+          "sales",
+          ...(isCbat ? ["disease"] : []),
+        ]
+      : []
+  );
+  const chartData = data?.by_domain
+    ? data.by_domain.filter((domain) => !excludedKeys.has(domain.key))
     : data?.by_domain;
   const agingBuckets = [
     { key: "under_3_days", label: "0-2 days" },
