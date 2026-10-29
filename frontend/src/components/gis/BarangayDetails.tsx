@@ -84,6 +84,8 @@ export function BarangayDetails({
   const { user } = useAuth();
   const userRole = (user?.role || userScope?.role || '').toUpperCase();
   const isAuthorized = ['CBAT', 'SIBAT', 'MAO', 'ADMIN'].includes(userRole);
+  const isFarmer = userRole === 'FARMER' || userScope?.role === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
+  const showMovement = !isFarmer && (!userScope || userScope.allowed_layers.includes('movement'));
 
   const [isFarmersDialogOpen, setIsFarmersDialogOpen] = React.useState(false);
   const [isHerdsDialogOpen, setIsHerdsDialogOpen] = React.useState(false);
@@ -512,24 +514,26 @@ export function BarangayDetails({
         </div>
 
         {/* Live Movement & Inspections */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
-              <Truck className="size-3.5 text-blue-600" />
-              Movement & Transport
-            </span>
-            <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 border-blue-300 text-blue-800">
-              {data.inspections_count} Inspections
-            </Badge>
-          </div>
+        {showMovement && (
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                <Truck className="size-3.5 text-blue-600" />
+                Movement & Transport
+              </span>
+              <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 border-blue-300 text-blue-800">
+                {data.inspections_count} Inspections
+              </Badge>
+            </div>
 
-          <div className="text-xs space-y-1 text-slate-600">
-            <div className="flex justify-between">
-              <span>Outgoing Live Cattle:</span>
-              <span className="font-bold font-mono text-slate-900">{data.movement_out} heads</span>
+            <div className="text-xs space-y-1 text-slate-600">
+              <div className="flex justify-between">
+                <span>Outgoing Live Cattle:</span>
+                <span className="font-bold font-mono text-slate-900">{data.movement_out} heads</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Registered Farmers Dialog (For CBAT, SIBAT, MAO, Admin) */}
