@@ -33,7 +33,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { HeaderMenuButton } from "@/app/components/header-menu-button";
+import { PageHeader } from "@/app/components/page-header";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
@@ -101,13 +101,13 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     code: "MOD-03",
     category: "REGISTRIES",
     categoryLabel: "HERDS & BATCHES",
-    title: "Herd & Batch Monitoring",
+    title: "Livestock Groups & Batches",
     description:
-      "Monitor groups of animals, track batch feeding and target weights, and verify newly added animals in each herd.",
+      "Monitor groups of animals (swine, poultry, or cattle), track batch feeding and target weights, and verify newly added animals in each herd.",
     href: "/sibat/batches",
     icon: Layers,
     capabilityTags: ["Herd Batches", "Target Weights", "Feeding Records"],
-    primaryAction: "INSPECT HERDS",
+    primaryAction: "VIEW BATCHES",
     badgeType: "cohorts",
   },
   {
@@ -163,7 +163,7 @@ const WORKSPACE_MODULES: WorkspaceModule[] = [
     categoryLabel: "PRODUCTION & SALES",
     title: "Sales, Births & Production Records",
     description:
-      "Review farmer records for animal sales, newborn calves, and farm production such as meat, eggs, and wool.",
+      "Review farmer records for animal sales, newborn calves, and farm production such as meat, milk, and eggs.",
     href: "/sibat/production-records",
     icon: TrendingUp,
     capabilityTags: ["Animal Sales", "Calf Births", "Farm Production"],
@@ -349,66 +349,42 @@ export default function BarangayLivestockMonitoringPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="w-full space-y-6 p-4 sm:p-6 lg:p-8 pb-28">
-      {/* ── 1. FUTURISTIC COMMAND CENTER HEADER ─────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl border border-emerald-200/90 bg-gradient-to-r from-emerald-50 via-white to-teal-50 p-6 sm:p-8 text-slate-900 shadow-sm">
-        {/* Holographic Glow Orbs */}
-        <div className="pointer-events-none absolute -right-20 -top-20 size-80 rounded-full bg-emerald-200/40 blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 -bottom-20 size-80 rounded-full bg-teal-200/30 blur-3xl" />
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(16,185,129,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,185,129,0.035)_1px,transparent_1px)] bg-[size:32px_32px]" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2.5 max-w-3xl">
-            {/* Status Breadcrumb */}
-            <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 uppercase tracking-wider font-bold shadow-xs">
-                <span className="relative flex size-2">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
-                </span>
-                FIELD OFFICE // SIBAT-CBAT
-              </span>
-              <span className="text-slate-300">/</span>
-              <span className="text-slate-700 font-semibold flex items-center gap-1">
-                <MapPin className="size-3.5 text-emerald-700" />
-                BARANGAY: {assignedSector}
-              </span>
-              <span className="text-slate-300">/</span>
-              <span className="text-emerald-800 font-bold flex items-center gap-1">
-                <Zap className="size-3 text-emerald-700" />
-                MONITORING HUB
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <HeaderMenuButton className="lg:hidden shrink-0 size-10 rounded-xl bg-white text-emerald-900 border border-emerald-300 shadow-xs hover:bg-emerald-50 hover:border-emerald-400 transition-colors" />
-              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 min-w-0">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight font-sans text-slate-900">
-                  Barangay Livestock Monitoring
-                </h1>
-                <Badge className="bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono text-xs font-bold px-2.5 py-0.5">
-                  FIELD HUB
-                </Badge>
-              </div>
-            </div>
-
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-2xl">
-              Monitor registered livestock, review farmer submissions, conduct quarterly census,
-              and follow up animal health reports across Padre Garcia.
-            </p>
-          </div>
-
-          {/* Action Deck */}
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+    <div className="w-full space-y-6">
+      <PageHeader
+        title={
+          <>
+            <span className="hidden sm:inline">Barangay Livestock Monitoring</span>
+            <span className="sm:hidden">Livestock Monitoring</span>
+          </>
+        }
+        subtitle={
+          <>
+            <span className="hidden sm:inline">
+              Field dashboard for tracking registered animals, reviewing farmer submissions, and monitoring herd health in Padre Garcia.
+            </span>
+            <span className="sm:hidden">
+              Track livestock and review farmer submissions.
+            </span>
+          </>
+        }
+        variant="sibat"
+        maxWidthClass="w-full"
+        icon={<Activity className="size-5 text-white" />}
+        hideIconOnMobile
+        showTutorialToggle={false}
+        mobileActionsInline
+        action={
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setIsQrScannerOpen(true)}
-              className="h-10 rounded-xl bg-white border-emerald-300 text-emerald-900 font-mono text-xs font-bold hover:bg-emerald-50 hover:border-emerald-400 transition-all shadow-xs gap-2 cursor-pointer"
+              className="h-10 rounded-xl border-white/20 bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer backdrop-blur-xs"
             >
-              <QrCode className="size-4 text-emerald-700" />
-              SCAN ANIMAL QR
+              <QrCode className="size-4" />
+              <span className="hidden sm:inline">Scan Animal QR</span>
+              <span className="sm:hidden">Scan QR</span>
             </Button>
 
             <Button
@@ -417,379 +393,405 @@ export default function BarangayLivestockMonitoringPage() {
               size="sm"
               onClick={handleSyncTelemetry}
               disabled={isSyncing}
-              className="h-10 rounded-xl bg-white border-slate-200 text-slate-700 font-mono text-xs font-bold hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-xs gap-2 cursor-pointer"
+              className="h-10 rounded-xl border-white/20 bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer backdrop-blur-xs"
             >
-              <RefreshCw className={`size-3.5 text-emerald-700 ${isSyncing ? "animate-spin" : ""}`} />
-              REFRESH DATA
+              <RefreshCw className={`size-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh Data</span>
             </Button>
 
             <Link href="/sibat/livestock-registry">
               <Button
                 type="button"
                 size="sm"
-                className="h-10 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs font-bold shadow-xs transition-all gap-1.5 cursor-pointer"
+                className="h-10 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 text-xs sm:text-sm font-bold shadow-xs transition-all gap-1.5 cursor-pointer"
               >
                 <Users className="size-3.5" />
-                ANIMAL LIST
+                <span className="hidden sm:inline">Animal List</span>
+                <span className="sm:hidden">List</span>
               </Button>
             </Link>
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      {/* ── 2. HOLOGRAPHIC KPI HUD STRIP ──────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {/* Tile 1: Registered Herds / Batches */}
-        <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-white/95 p-4 shadow-holo-card hover:shadow-holo-glow-emerald transition-all duration-300">
-          <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-            <span>REGISTERED HERDS</span>
-            <Layers className="size-4 text-emerald-600" />
-          </div>
-          <div className="flex items-baseline justify-between mt-2">
-            <span className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-tight">
-              {isLoadingBatches ? "--" : kpis.totalBatches}
-            </span>
-            <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md">
-              BATCHES
-            </span>
-          </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Grouped animal batches</p>
-        </div>
-
-        {/* Tile 2: Total Registered Animals */}
-        <div className="relative overflow-hidden rounded-2xl border border-cyan-500/30 bg-white/95 p-4 shadow-holo-card hover:shadow-holo-glow-cyan transition-all duration-300">
-          <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-            <span>REGISTERED ANIMALS</span>
-            <Activity className="size-4 text-cyan-600" />
-          </div>
-          <div className="flex items-baseline justify-between mt-2">
-            <span className="text-2xl sm:text-3xl font-black font-mono text-cyan-900 tracking-tight">
-              {isLoadingBatches ? "--" : kpis.totalAnimals}
-            </span>
-            <span className="text-[10px] font-mono font-bold text-cyan-800 bg-cyan-100 border border-cyan-300 px-2 py-0.5 rounded-md">
-              HEADS
-            </span>
-          </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Animals in barangay</p>
-        </div>
-
-        {/* Tile 3: Pending Reviews */}
-        <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-white/95 p-4 shadow-holo-card hover:shadow-holo-glow-amber transition-all duration-300">
-          <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-            <span>PENDING REVIEWS</span>
-            <Clock
-              className={`size-4 ${
-                kpis.pendingSubmissions > 0
-                  ? "text-amber-600 animate-pulse"
-                  : "text-slate-400"
-              }`}
-            />
-          </div>
-          <div className="flex items-baseline justify-between mt-2">
-            <span
-              className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
-                kpis.pendingSubmissions > 0 ? "text-amber-700" : "text-slate-500"
-              }`}
-            >
-              {isLoadingSubmissions ? "--" : kpis.pendingSubmissions}
-            </span>
-            <span
-              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
-                kpis.pendingSubmissions > 0
-                  ? "text-amber-800 bg-amber-100 border border-amber-300"
-                  : "text-slate-600 bg-slate-100 border border-slate-200"
-              }`}
-            >
-              {kpis.pendingSubmissions > 0 ? "ACTION NEEDED" : "CLEAR"}
-            </span>
-          </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Submissions awaiting review</p>
-        </div>
-
-        {/* Tile 4: Health Reports */}
-        <div className="relative overflow-hidden rounded-2xl border border-rose-500/30 bg-white/95 p-4 shadow-holo-card hover:shadow-rose-500/20 transition-all duration-300">
-          <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-            <span>HEALTH REPORTS</span>
-            <ShieldAlert
-              className={`size-4 ${
-                kpis.activeHealthAlerts > 0
-                  ? "text-rose-600 animate-pulse"
-                  : "text-slate-400"
-              }`}
-            />
-          </div>
-          <div className="flex items-baseline justify-between mt-2">
-            <span
-              className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
-                kpis.activeHealthAlerts > 0 ? "text-rose-700" : "text-slate-500"
-              }`}
-            >
-              {isLoadingHealth ? "--" : kpis.activeHealthAlerts}
-            </span>
-            <span
-              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
-                kpis.activeHealthAlerts > 0
-                  ? "text-rose-800 bg-rose-100 border border-rose-300"
-                  : "text-emerald-800 bg-emerald-100 border border-emerald-300"
-              }`}
-            >
-              {kpis.activeHealthAlerts > 0 ? "CHECK NOW" : "HEALTHY"}
-            </span>
-          </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Disease & death cases</p>
-        </div>
-
-        {/* Tile 5: Verified by SIBAT */}
-        <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-white/95 p-4 shadow-holo-card hover:shadow-holo-glow-emerald transition-all duration-300 col-span-2 sm:col-span-1">
-          <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-            <span>VERIFIED RATE</span>
-            <ShieldCheck className="size-4 text-emerald-600" />
-          </div>
-          <div className="flex items-baseline justify-between mt-2">
-            <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-800 tracking-tight">
-              {isLoadingBatches ? "--" : `${kpis.syncRate}%`}
-            </span>
-            <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md">
-              VERIFIED
-            </span>
-          </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1.5">Passed to MAO review</p>
-        </div>
-      </div>
-
-      {/* ── 3. SEARCH & CATEGORY FILTER ────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white/90 backdrop-blur-xs p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
-        {/* Search Bar */}
-        <div className="relative flex-1 max-w-lg">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search tasks, animal tags, census, herds, or modules (e.g. MOD-01)..."
-            className="w-full h-10 pl-10 pr-9 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-md cursor-pointer"
-            >
-              <X className="size-3.5" />
-            </button>
-          )}
-        </div>
-
-        {/* Category Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          {(
-            [
-              { key: "ALL", label: "ALL SERVICES" },
-              { key: "VALIDATION", label: "FIELD REVIEWS" },
-              { key: "REGISTRIES", label: "LIVESTOCK & HERDS" },
-              { key: "BIOSECURITY", label: "HEALTH & ALERTS" },
-              { key: "FIELD_OPS", label: "PROGRAMS & MAP" },
-            ] as const
-          ).map((tab) => {
-            const isSelected = selectedCategory === tab.key;
-            const count = categoryCounts[tab.key];
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setSelectedCategory(tab.key)}
-                className={`h-8 px-3 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  isSelected
-                    ? "bg-emerald-700 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                    isSelected
-                      ? "bg-emerald-800 text-emerald-100"
-                      : "bg-slate-200 text-slate-600"
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── 4. WORKSPACES MATRIX GRID ──────────────────────────────────────── */}
-      {filteredModules.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 p-12 text-center space-y-3">
-          <Radar className="size-10 text-slate-400 mx-auto animate-pulse" />
-          <h3 className="text-base font-bold text-slate-900 font-mono">
-            NO MATCHING SERVICES FOUND
-          </h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto">
-            No monitoring services matched &quot;{searchQuery}&quot; in the &quot;{selectedCategory}&quot; category.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSearchQuery("");
-              setSelectedCategory("ALL");
-            }}
-            className="rounded-xl font-mono text-xs font-bold cursor-pointer"
-          >
-            RESET FILTERS
-          </Button>
-        </div>
-      ) : (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {filteredModules.map((module) => {
-            const Icon = module.icon;
-
-            // Dynamic badge text and style
-            let badgeText = module.staticBadgeText || "READY";
-            let badgeClass = "bg-slate-100 text-slate-700 border-slate-200";
-
-            if (module.badgeType === "pending") {
-              if (kpis.pendingSubmissions > 0) {
-                badgeText = `${kpis.pendingSubmissions} AWAITING REVIEW`;
-                badgeClass = "bg-amber-100 text-amber-900 border-amber-300 animate-pulse";
-              } else {
-                badgeText = "QUEUE CLEAR";
-                badgeClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
-              }
-            } else if (module.badgeType === "alert") {
-              if (kpis.activeHealthAlerts > 0) {
-                badgeText = `${kpis.activeHealthAlerts} ACTIVE REPORTS`;
-                badgeClass = "bg-rose-100 text-rose-900 border-rose-300 animate-pulse";
-              } else {
-                badgeText = "NO ALERTS";
-                badgeClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
-              }
-            } else if (module.badgeType === "cohorts") {
-              badgeText = `${kpis.totalBatches} BATCHES REGISTERED`;
-              badgeClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
-            } else if (module.badgeType === "schedules") {
-              badgeText = `${schedules?.length || 0} SCHEDULED PROGRAMS`;
-              badgeClass = "bg-cyan-100 text-cyan-900 border-cyan-300";
-            } else if (module.staticBadgeColor === "emerald") {
-              badgeClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
-            } else if (module.staticBadgeColor === "cyan") {
-              badgeClass = "bg-cyan-100 text-cyan-900 border-cyan-300";
-            }
-
-            return (
-              <Link
-                key={module.id}
-                href={module.href}
-                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 p-5 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-emerald-500/80 hover:shadow-holo-card hover:shadow-holo-glow-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
-              >
-                {/* Subtle Hover Gradient Illumination */}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-50/0 via-transparent to-teal-50/0 opacity-0 transition-opacity duration-300 group-hover:from-emerald-50/40 group-hover:to-teal-50/30 group-hover:opacity-100" />
-                <div className="pointer-events-none absolute right-0 top-0 size-24 bg-radial from-emerald-200/20 to-transparent blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                <div className="relative z-10 space-y-4">
-                  {/* Module Header Bar: Code + Category + Dynamic Badge */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-black text-slate-400 group-hover:text-emerald-700 transition-colors">
-                        {module.code}
-                      </span>
-                      <span className="text-slate-300 font-mono text-xs">//</span>
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        {module.categoryLabel}
-                      </span>
-                    </div>
-
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider border shadow-2xs ${badgeClass}`}
-                    >
-                      {badgeText}
-                    </span>
-                  </div>
-
-                  {/* Icon & Title */}
-                  <div className="flex items-start gap-3.5 pt-1">
-                    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-50 to-teal-100 text-emerald-800 border border-emerald-200/80 shadow-xs transition-transform duration-300 group-hover:scale-105 group-hover:border-emerald-400">
-                      <Icon className="size-5.5 text-emerald-800" />
-                    </div>
-
-                    <div className="space-y-1">
-                      <h2 className="text-base font-bold text-slate-900 group-hover:text-emerald-900 transition-colors leading-snug">
-                        {module.title}
-                      </h2>
-                      <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
-                        {module.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Capability Chips */}
-                  <div className="flex flex-wrap gap-1.5 pt-2">
-                    {module.capabilityTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-0.5 text-[10px] font-mono font-medium text-slate-600 border border-slate-200/70 group-hover:border-emerald-200 group-hover:bg-emerald-50/40 group-hover:text-emerald-900 transition-colors"
-                      >
-                        <Sparkles className="size-2 text-emerald-600" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Card Action Launchpad Footer */}
-                <div className="relative z-10 mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs font-mono font-bold text-slate-500 group-hover:text-emerald-800 transition-colors">
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-1.5 rounded-full bg-slate-300 group-hover:bg-emerald-500 transition-colors" />
-                    {module.primaryAction}
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1.5 group-hover:text-emerald-700" />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── 5. MUNICIPAL POLICY & PROTOCOL ADVISORY DECK ───────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-900 via-slate-900 to-teal-950 p-5 sm:p-6 text-white shadow-md">
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:24px_24px]" />
-
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-          <div className="flex items-start gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs">
-              <ShieldCheck className="size-5" />
+      <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8 py-6 pb-28">
+        {/* ── 1. BARANGAY AREA COVERAGE BANNER ───────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-emerald-200/90 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+              <MapPin className="size-5" />
             </div>
-
-            <div className="space-y-1">
+            <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                  BARANGAY FIELD GUIDELINES // SIBAT & CBAT ROLE
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-800">
+                  Assigned Barangay
                 </span>
-                <span className="hidden sm:inline-block size-1 rounded-full bg-slate-400" />
-                <span className="hidden sm:inline-block font-mono text-[11px] text-slate-400">
-                  PADRE GARCIA MUNICIPAL AGRICULTURE OFFICE
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                  SIBAT / CBAT Field
                 </span>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
-                SIBAT and CBAT field officers perform on-site inspections, ear tag number verification,
-                and quarterly census counts in their assigned barangay. Official approval of registrations,
-                sales, and official certificates will be finalized by the Municipal Agriculture Office (MAO).
-              </p>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 mt-0.5">
+                {assignedSector}
+              </h2>
             </div>
           </div>
 
-          <div className="shrink-0 font-mono text-right text-[11px] text-emerald-300/80 border-t md:border-t-0 md:border-l border-emerald-800/60 pt-3 md:pt-0 md:pl-5">
-            <div className="flex items-center gap-1.5 justify-start md:justify-end text-emerald-400 font-bold">
-              <span className="relative flex size-2">
-                <span className="relative inline-flex rounded-full size-2 bg-emerald-400" />
-              </span>
-              SYSTEM CONNECTED
+          <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200">
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+              Padre Garcia Livestock Network
+            </span>
+          </div>
+        </div>
+
+        {/* ── 2. SUMMARY COUNTS & STATUS CARDS ──────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* Tile 1: Registered Herds / Batches */}
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-xs hover:border-emerald-300 transition-all">
+            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+              <span>REGISTERED BATCHES</span>
+              <Layers className="size-4 text-emerald-600" />
             </div>
-            <div className="text-slate-400 mt-0.5">PADRE GARCIA AGRI-NODE</div>
+            <div className="flex items-baseline justify-between mt-2">
+              <span className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-tight">
+                {isLoadingBatches ? "--" : kpis.totalBatches}
+              </span>
+              <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                BATCHES
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1.5">Active groups of animals</p>
+          </div>
+
+          {/* Tile 2: Total Registered Animals */}
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-xs hover:border-emerald-300 transition-all">
+            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+              <span>REGISTERED ANIMALS</span>
+              <Activity className="size-4 text-emerald-600" />
+            </div>
+            <div className="flex items-baseline justify-between mt-2">
+              <span className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-tight">
+                {isLoadingBatches ? "--" : kpis.totalAnimals}
+              </span>
+              <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                HEADS
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1.5">Total count in barangay</p>
+          </div>
+
+          {/* Tile 3: Pending Reviews */}
+          <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white p-4 shadow-xs hover:border-amber-300 transition-all">
+            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+              <span>PENDING SIBAT CHECKS</span>
+              <Clock
+                className={`size-4 ${
+                  kpis.pendingSubmissions > 0
+                    ? "text-amber-600 animate-pulse"
+                    : "text-slate-400"
+                }`}
+              />
+            </div>
+            <div className="flex items-baseline justify-between mt-2">
+              <span
+                className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+                  kpis.pendingSubmissions > 0 ? "text-amber-700" : "text-slate-500"
+                }`}
+              >
+                {isLoadingSubmissions ? "--" : kpis.pendingSubmissions}
+              </span>
+              <span
+                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                  kpis.pendingSubmissions > 0
+                    ? "text-amber-800 bg-amber-50 border border-amber-200"
+                    : "text-slate-600 bg-slate-100 border border-slate-200"
+                }`}
+              >
+                {kpis.pendingSubmissions > 0 ? "ACTION NEEDED" : "CLEAR"}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1.5">Submissions awaiting review</p>
+          </div>
+
+          {/* Tile 4: Health Reports */}
+          <div className="relative overflow-hidden rounded-2xl border border-rose-200 bg-white p-4 shadow-xs hover:border-rose-300 transition-all">
+            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+              <span>HEALTH REPORTS</span>
+              <ShieldAlert
+                className={`size-4 ${
+                  kpis.activeHealthAlerts > 0
+                    ? "text-rose-600 animate-pulse"
+                    : "text-slate-400"
+                }`}
+              />
+            </div>
+            <div className="flex items-baseline justify-between mt-2">
+              <span
+                className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+                  kpis.activeHealthAlerts > 0 ? "text-rose-700" : "text-slate-500"
+                }`}
+              >
+                {isLoadingHealth ? "--" : kpis.activeHealthAlerts}
+              </span>
+              <span
+                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                  kpis.activeHealthAlerts > 0
+                    ? "text-rose-800 bg-rose-50 border border-rose-200"
+                    : "text-emerald-800 bg-emerald-50 border border-emerald-200"
+                }`}
+              >
+                {kpis.activeHealthAlerts > 0 ? "CHECK NOW" : "HEALTHY"}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1.5">Sick or dead animal alerts</p>
+          </div>
+
+          {/* Tile 5: Verified by SIBAT */}
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-xs hover:border-emerald-300 transition-all col-span-2 sm:col-span-1">
+            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+              <span>VERIFIED RATE</span>
+              <ShieldCheck className="size-4 text-emerald-600" />
+            </div>
+            <div className="flex items-baseline justify-between mt-2">
+              <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-800 tracking-tight">
+                {isLoadingBatches ? "--" : `${kpis.syncRate}%`}
+              </span>
+              <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                VERIFIED
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1.5">Inspected &amp; sent to MAO</p>
+          </div>
+        </div>
+
+        {/* ── 3. SEARCH & CATEGORY FILTER ────────────────────────────────────── */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+          {/* Search Bar */}
+          <div className="relative flex-1 max-w-lg">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by animal ear tag, farmer name, batch, or service..."
+              className="w-full h-10 pl-10 pr-9 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-md cursor-pointer"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Category Filter Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+            {(
+              [
+                { key: "ALL", label: "ALL SERVICES" },
+                { key: "VALIDATION", label: "FIELD REVIEWS" },
+                { key: "REGISTRIES", label: "LIVESTOCK & BATCHES" },
+                { key: "BIOSECURITY", label: "HEALTH & ALERTS" },
+                { key: "FIELD_OPS", label: "PROGRAMS & MAP" },
+              ] as const
+            ).map((tab) => {
+              const isSelected = selectedCategory === tab.key;
+              const count = categoryCounts[tab.key];
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setSelectedCategory(tab.key)}
+                  className={`h-8 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                    isSelected
+                      ? "bg-emerald-700 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      isSelected
+                        ? "bg-emerald-800 text-emerald-100"
+                        : "bg-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── 4. WORKSPACES SERVICES GRID ───────────────────────────────────── */}
+        {filteredModules.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center space-y-3">
+            <Radar className="size-10 text-slate-400 mx-auto animate-pulse" />
+            <h3 className="text-base font-bold text-slate-900">
+              NO MATCHING SERVICES FOUND
+            </h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              No services matched &quot;{searchQuery}&quot; in the current filter.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedCategory("ALL");
+              }}
+              className="rounded-xl text-xs font-bold cursor-pointer"
+            >
+              RESET FILTERS
+            </Button>
+          </div>
+        ) : (
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {filteredModules.map((module) => {
+              const Icon = module.icon;
+
+              // Dynamic badge text and style
+              let badgeText = module.staticBadgeText || "READY";
+              let badgeClass = "bg-slate-100 text-slate-700 border-slate-200";
+
+              if (module.badgeType === "pending") {
+                if (kpis.pendingSubmissions > 0) {
+                  badgeText = `${kpis.pendingSubmissions} AWAITING REVIEW`;
+                  badgeClass = "bg-amber-100 text-amber-900 border-amber-300 animate-pulse";
+                } else {
+                  badgeText = "QUEUE CLEAR";
+                  badgeClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
+                }
+              } else if (module.badgeType === "alert") {
+                if (kpis.activeHealthAlerts > 0) {
+                  badgeText = `${kpis.activeHealthAlerts} ACTIVE REPORTS`;
+                  badgeClass = "bg-rose-100 text-rose-900 border-rose-300 animate-pulse";
+                } else {
+                  badgeText = "NO ALERTS";
+                  badgeClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
+                }
+              } else if (module.badgeType === "cohorts") {
+                badgeText = `${kpis.totalBatches} BATCHES REGISTERED`;
+                badgeClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
+              } else if (module.badgeType === "schedules") {
+                badgeText = `${schedules?.length || 0} SCHEDULED PROGRAMS`;
+                badgeClass = "bg-cyan-100 text-cyan-900 border-cyan-300";
+              } else if (module.staticBadgeColor === "emerald") {
+                badgeClass = "bg-emerald-100 text-emerald-900 border-emerald-300";
+              } else if (module.staticBadgeColor === "cyan") {
+                badgeClass = "bg-cyan-100 text-cyan-900 border-cyan-300";
+              }
+
+              return (
+                <Link
+                  key={module.id}
+                  href={module.href}
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-emerald-500 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
+                >
+                  <div className="relative z-10 space-y-4">
+                    {/* Module Header Bar: Code + Category + Dynamic Badge */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-black text-slate-400 group-hover:text-emerald-700 transition-colors">
+                          {module.code}
+                        </span>
+                        <span className="text-slate-300 font-mono text-xs">//</span>
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                          {module.categoryLabel}
+                        </span>
+                      </div>
+
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider border shadow-2xs ${badgeClass}`}
+                      >
+                        {badgeText}
+                      </span>
+                    </div>
+
+                    {/* Icon & Title */}
+                    <div className="flex items-start gap-3.5 pt-1">
+                      <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-50 to-teal-100 text-emerald-800 border border-emerald-200 shadow-xs transition-transform duration-300 group-hover:scale-105 group-hover:border-emerald-400">
+                        <Icon className="size-5.5 text-emerald-800" />
+                      </div>
+
+                      <div className="space-y-1">
+                        <h3 className="text-base font-bold text-slate-900 group-hover:text-emerald-900 transition-colors leading-snug">
+                          {module.title}
+                        </h3>
+                        <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
+                          {module.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Capability Chips */}
+                    <div className="flex flex-wrap gap-1.5 pt-2">
+                      {module.capabilityTags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-0.5 text-[10px] font-mono font-medium text-slate-600 border border-slate-200 group-hover:border-emerald-200 group-hover:bg-emerald-50 group-hover:text-emerald-900 transition-colors"
+                        >
+                          <Sparkles className="size-2 text-emerald-600" />
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Card Action Launchpad Footer */}
+                  <div className="relative z-10 mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs font-mono font-bold text-slate-500 group-hover:text-emerald-800 transition-colors">
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-1.5 rounded-full bg-slate-300 group-hover:bg-emerald-500 transition-colors" />
+                      {module.primaryAction}
+                    </span>
+                    <ArrowRight className="size-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1.5 group-hover:text-emerald-700" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── 5. MUNICIPAL POLICY & PROTOCOL ADVISORY DECK ───────────────────── */}
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-900 via-slate-900 to-teal-950 p-5 sm:p-6 text-white shadow-md">
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+            <div className="flex items-start gap-4">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs">
+                <ShieldCheck className="size-5" />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                    BARANGAY FIELD GUIDELINES · SIBAT &amp; CBAT ROLE
+                  </span>
+                  <span className="hidden sm:inline-block size-1 rounded-full bg-slate-400" />
+                  <span className="hidden sm:inline-block font-mono text-[11px] text-slate-400">
+                    PADRE GARCIA MUNICIPAL AGRICULTURE OFFICE
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
+                  SIBAT and CBAT field officers perform on-site inspections, ear tag number verification,
+                  and quarterly census counts in their assigned barangay. Official approval of registrations,
+                  sales, and official certificates will be finalized by the Municipal Agriculture Office (MAO).
+                </p>
+              </div>
+            </div>
+
+            <div className="shrink-0 font-mono text-right text-[11px] text-emerald-300/80 border-t md:border-t-0 md:border-l border-emerald-800/60 pt-3 md:pt-0 md:pl-5">
+              <div className="flex items-center gap-1.5 justify-start md:justify-end text-emerald-400 font-bold">
+                <span className="relative flex size-2">
+                  <span className="relative inline-flex rounded-full size-2 bg-emerald-400" />
+                </span>
+                SYSTEM CONNECTED
+              </div>
+              <div className="text-slate-400 mt-0.5">Padre Garcia Municipal Agriculture</div>
+            </div>
           </div>
         </div>
       </div>

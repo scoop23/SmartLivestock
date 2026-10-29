@@ -289,12 +289,12 @@ function HerdProfileGallery({ batch }: { batch: BatchItem }) {
     };
 
     if (batch.photo_url) {
-      addPhoto(batch.photo_url, "Primary Telemetry Cover", `${batch.batch_name} (${batch.batch_code})`);
+      addPhoto(batch.photo_url, "Main Batch Photo", `${batch.batch_name} (${batch.batch_code})`);
     }
 
     if (batch.photos && Array.isArray(batch.photos)) {
       batch.photos.forEach((url, i) => {
-        addPhoto(url, `Specimen Scan 0${i + 1}`, batch.batch_name);
+        addPhoto(url, `Batch Photo 0${i + 1}`, batch.batch_name);
       });
     }
 
@@ -342,12 +342,12 @@ function HerdProfileGallery({ batch }: { batch: BatchItem }) {
         <div className="size-16 rounded-2xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-3xl mb-3">
           {avatar.emoji}
         </div>
-        <h3 className="text-sm font-bold font-mono tracking-wide text-emerald-800 uppercase">NO HERD PHOTOS ADDED</h3>
+        <h3 className="text-sm font-bold font-mono tracking-wide text-emerald-800 uppercase">NO BATCH PHOTOS ADDED</h3>
         <p className="text-xs text-slate-600 max-w-xs mt-1.5 font-sans leading-relaxed">
-          The farmer has not uploaded photographic specimens for this cohort or housing pen.
+          The farmer has not uploaded photos for this batch or housing pen yet.
         </p>
         <span className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-emerald-200 text-[11px] font-mono text-emerald-800">
-          <Scan className="size-3 text-emerald-600" /> NO PHOTOS AVAILABLE
+          <Camera className="size-3 text-emerald-600" /> NO PHOTOS AVAILABLE
         </span>
       </div>
     );
@@ -355,20 +355,19 @@ function HerdProfileGallery({ batch }: { batch: BatchItem }) {
 
   return (
     <>
-      <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 shadow-holo-glow-emerald flex flex-col">
-        {/* HUD Top Bar */}
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 shadow-md flex flex-col">
+        {/* Gallery Top Bar */}
         <div className="px-4 py-2.5 border-b border-emerald-500/20 flex items-center justify-between gap-2 bg-black/40 backdrop-blur-md">
           <div className="flex items-center gap-2 min-w-0">
             <span className="relative flex size-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full size-2 bg-emerald-500" />
             </span>
             <div className="min-w-0">
               <h3 className="text-xs font-mono font-bold text-emerald-300 leading-tight uppercase tracking-wider truncate">
-                OPTICAL SCAN FEED
+                BATCH PHOTOS
               </h3>
               <span className="text-[10px] font-mono text-slate-400 truncate block">
-                {photos.length} TELEMETRY FRAMES • {batch.batch_code}
+                {photos.length} {photos.length === 1 ? "PHOTO" : "PHOTOS"} • {batch.batch_code}
               </span>
             </div>
           </div>
@@ -379,7 +378,7 @@ function HerdProfileGallery({ batch }: { batch: BatchItem }) {
             onClick={() => setIsLightboxOpen(true)}
             className="h-7 px-2 text-[11px] font-mono font-bold text-emerald-400 hover:text-white hover:bg-emerald-500/20 rounded-lg gap-1 cursor-pointer shrink-0 border border-emerald-500/30"
           >
-            <Maximize2 className="size-3.5" /> HUD FULLSCREEN
+            <Maximize2 className="size-3.5" /> FULLSCREEN
           </Button>
         </div>
 
@@ -415,7 +414,7 @@ function HerdProfileGallery({ batch }: { batch: BatchItem }) {
           {/* Top Right Counter & Expand */}
           <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5">
             <span className="inline-flex items-center gap-1 rounded-md bg-black/80 backdrop-blur-md px-2.5 py-1 text-[10px] font-mono font-bold text-emerald-300 border border-emerald-500/40 shadow-xs">
-              <Scan className="size-3 text-emerald-400" /> FRAME {currentIndex + 1} / {photos.length}
+              <Camera className="size-3 text-emerald-400" /> PHOTO {currentIndex + 1} / {photos.length}
             </span>
           </div>
 
@@ -423,7 +422,7 @@ function HerdProfileGallery({ batch }: { batch: BatchItem }) {
           <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3.5 pt-7 text-white flex items-end justify-between gap-2 pointer-events-none">
             <div className="min-w-0">
               <span className="inline-block px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider mb-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                SPECIMEN TELEMETRY
+                BATCH PHOTO
               </span>
               <p className="text-xs sm:text-sm font-bold font-mono truncate text-white drop-shadow-xs">
                 {currentPhoto?.label}
@@ -513,7 +512,7 @@ function HerdProfileGallery({ batch }: { batch: BatchItem }) {
           >
             <div className="min-w-0">
               <span className="text-xs font-mono text-emerald-400 font-bold uppercase tracking-wider">
-                OPTICAL TELEMETRY FRAME {currentIndex + 1} OF {photos.length} • {batch.batch_code}
+                PHOTO {currentIndex + 1} OF {photos.length} • {batch.batch_code}
               </span>
               <h4 className="text-sm sm:text-base font-bold font-mono truncate text-white">
                 {currentPhoto?.label}
@@ -643,7 +642,7 @@ function exportHerdRosterCsv(batches: BatchItem[]) {
   const blobUrl = URL.createObjectURL(new Blob([`\uFEFF${content}`], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = blobUrl;
-  link.download = `sibat-bio-batch-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = `sibat-livestock-batches-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
 }
@@ -800,8 +799,7 @@ function SibatHerdSplitCard({
             </div>
           ) : (
             <div className="flex items-center gap-1 text-[9px] font-mono text-emerald-400">
-              <Cpu className="size-3" />
-              <span>SYNTHETIC AVATAR</span>
+              <span>DEFAULT ICON</span>
             </div>
           )}
 
@@ -853,47 +851,45 @@ function SibatHerdSplitCard({
             )}
           </div>
 
-          {/* Holographic Verification Telemetry Gauge */}
+          {/* Inspection Progress Gauge */}
           <div className="rounded-xl border border-emerald-500/20 bg-slate-50/80 p-2.5 relative overflow-hidden">
-            <div className="flex items-center justify-between text-[11px] font-mono font-semibold text-slate-800">
+            <div className="flex items-center justify-between text-[11px] font-medium text-slate-800">
               <span className="flex items-center gap-1.5 text-emerald-800 font-bold">
                 <ShieldCheck className="size-3.5 text-emerald-600" />
-                <span>FIELD VALIDATION TELEMETRY</span>
+                <span>INSPECTION PROGRESS</span>
               </span>
               <span className={`font-mono font-bold ${batch.review_status === "APPROVED" ? "text-emerald-700" : "text-sky-700"}`}>
-                {verificationProgress}% SYNCED ({sibatCheckedCount}/{headCount})
+                {verificationProgress}% Inspected ({sibatCheckedCount}/{headCount} heads)
               </span>
             </div>
-            {/* High-tech segmented progress bar */}
-            <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-200/90 relative">
+            {/* Progress bar */}
+            <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-200 relative">
               <div
-                className={`h-full rounded-full transition-all duration-500 relative ${
+                className={`h-full rounded-full transition-all duration-500 ${
                   batch.review_status === "APPROVED"
-                    ? "bg-gradient-to-r from-emerald-500 to-teal-400 shadow-holo-glow-emerald"
-                    : "bg-gradient-to-r from-sky-500 to-emerald-500"
+                    ? "bg-emerald-600"
+                    : "bg-emerald-500"
                 }`}
                 style={{ width: `${verificationProgress}%` }}
-              >
-                <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.25)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.25)_50%,rgba(255,255,255,0.25)_75%,transparent_75%,transparent)] bg-[length:12px_12px] opacity-40 animate-pulse" />
-              </div>
+              />
             </div>
-            <div className="mt-1.5 flex justify-between text-[10px] font-mono font-medium text-slate-500">
-              <span>{batch.approved_animals ?? 0} approved · {batch.pending_animals ?? 0} pending SIBAT</span>
+            <div className="mt-1.5 flex justify-between text-[10px] text-slate-500 font-medium">
+              <span>{batch.approved_animals ?? 0} approved · {batch.pending_animals ?? 0} pending check</span>
               {batch.target_weight && <span className="text-emerald-700 font-bold">Target: {batch.target_weight} kg</span>}
             </div>
           </div>
 
-          {/* Cyber Biometric Metrics Chips */}
-          <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+          {/* Metric Chips */}
+          <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="rounded-xl border border-slate-200/80 bg-white p-2 text-center shadow-2xs">
-              <span className="block text-slate-400 text-[9px] uppercase tracking-wider font-bold">COHORT BIOMASS</span>
-              <span className="text-slate-900 font-black text-xs block mt-0.5">
+              <span className="block text-slate-400 text-[9px] uppercase tracking-wider font-bold">TOTAL HEADS</span>
+              <span className="text-slate-900 font-black text-xs block mt-0.5 font-mono">
                 {headCount} {headCount === 1 ? "HEAD" : "HEADS"}
               </span>
             </div>
             <div className="rounded-xl border border-slate-200/80 bg-white p-2 text-center shadow-2xs">
-              <span className="block text-slate-400 text-[9px] uppercase tracking-wider font-bold">MEAN SCALE WEIGHT</span>
-              <span className="text-slate-900 font-black text-xs block mt-0.5">
+              <span className="block text-slate-400 text-[9px] uppercase tracking-wider font-bold">AVERAGE WEIGHT</span>
+              <span className="text-slate-900 font-black text-xs block mt-0.5 font-mono">
                 {avgWeight ? `${avgWeight} kg` : "UNWEIGHED"}
               </span>
             </div>
@@ -903,7 +899,7 @@ function SibatHerdSplitCard({
         {/* Footer: Picture Counter & Review Herd Button */}
         <div className="border-t border-slate-100 pt-2.5 flex items-center justify-between gap-2">
           <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-            {photos.length > 0 ? `${photos.length} SCANS CACHED` : "STANDARD PROFILE"}
+            {photos.length > 0 ? `${photos.length} photos` : "Standard profile"}
           </span>
 
           <Button
@@ -912,13 +908,13 @@ function SibatHerdSplitCard({
               e.stopPropagation();
               onSelect();
             }}
-            className={`h-8.5 px-3.5 rounded-xl text-xs font-mono font-bold shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`h-8.5 px-3.5 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer ${
               isSelected
-                ? "bg-emerald-700 text-white hover:bg-emerald-800 shadow-holo-glow-emerald"
+                ? "bg-emerald-700 text-white hover:bg-emerald-800"
                 : "bg-white text-emerald-800 border border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300"
             }`}
           >
-            <span>INSPECT COHORT</span>
+            <span>VIEW BATCH</span>
             <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
           </Button>
         </div>
@@ -1434,128 +1430,184 @@ function SibatBatchesVerificationContent() {
 
   if (isInitialLoading || keepLoadingScreenMounted) {
     return (
-      <div className="mx-auto w-full p-4 sm:p-6 lg:px-8 lg:py-8 space-y-6">
-        <ValidationLoadingScreen
-          isLoading={isInitialLoading}
-          title="Loading SIBAT Bio-Batch Matrix"
-          subtitle="Connecting authorized livestock batches, aggregate animal telemetry, and field inspection ledgers..."
-          badgeLabel="Field Surveillance System"
-          authorityText="SIBAT Telemetry · Padre Garcia Municipal Node"
-          items={[
-            {
-              id: "batches",
-              label: "Cohort Registries",
-              sublabel: "Grouped bovine, swine, and small ruminant cohorts",
-              icon: <Layers className="size-4 text-emerald-600" />,
-              loaded: !isLoading,
-            },
-            {
-              id: "roster",
-              label: "RFID & Biometric Ledger",
-              sublabel: "Individual ear tag telemetry and verification states",
-              icon: <ShieldCheck className="size-4 text-sky-600" />,
-              loaded: !isLoading,
-            },
-            {
-              id: "barangay",
-              label: "Sector Geospatial Matrix",
-              sublabel: "Barangay administrative jurisdiction scope",
-              icon: <MapPin className="size-4 text-amber-600" />,
-              loaded: !isLoading,
-            },
-          ]}
+      <div className="w-full space-y-6">
+        <PageHeader
+          title={
+            <>
+              <span className="hidden sm:inline">Livestock Groups &amp; Batches</span>
+              <span className="sm:hidden">Livestock Batches</span>
+            </>
+          }
+          subtitle={
+            <>
+              <span className="hidden sm:inline">
+                Monitor, review, and inspect farmer-registered livestock herds, animal batches, and feeding pens.
+              </span>
+              <span className="sm:hidden">
+                Inspect registered livestock herds and batches.
+              </span>
+            </>
+          }
+          variant="sibat"
+          maxWidthClass="w-full"
+          icon={<Layers className="size-5 text-white" />}
+          hideIconOnMobile
+          showTutorialToggle={false}
+          mobileActionsInline
         />
+        <div className="mx-auto w-full p-4 sm:p-6 lg:px-8 lg:py-8 space-y-6">
+          <ValidationLoadingScreen
+            isLoading={isInitialLoading}
+            title="Loading Livestock Batches & Herds"
+            subtitle="Connecting registered animal batches, head counts, and barangay records..."
+            badgeLabel="Livestock Sync"
+            authorityText="SIBAT Field Inspection · Padre Garcia, Batangas"
+            items={[
+              {
+                id: "batches",
+                label: "Animal Groups & Batches",
+                sublabel: "Swine, poultry, goat, and cattle batches",
+                icon: <Layers className="size-4 text-emerald-600" />,
+                loaded: !isLoading,
+              },
+              {
+                id: "roster",
+                label: "Ear Tags & Animal List",
+                sublabel: "Individual tag numbers and health inspection records",
+                icon: <ShieldCheck className="size-4 text-sky-600" />,
+                loaded: !isLoading,
+              },
+              {
+                id: "barangay",
+                label: "Barangay Coverage",
+                sublabel: "Assigned barangay area records",
+                icon: <MapPin className="size-4 text-amber-600" />,
+                loaded: !isLoading,
+              },
+            ]}
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full space-y-6 pb-28">
-      {/* ── 1. FUTURISTIC CYBERNETIC COMMAND CENTER HEADER ─────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-teal-50 p-6 sm:p-8 text-slate-900 shadow-sm">
-        <div className="pointer-events-none absolute -right-20 -top-20 size-80 rounded-full bg-emerald-200/35 blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 -bottom-20 size-80 rounded-full bg-teal-200/30 blur-3xl" />
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(16,185,129,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,185,129,0.035)_1px,transparent_1px)] bg-[size:32px_32px]" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2">
-            {/* Live Node Telemetry Breadcrumb */}
-            <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider font-bold shadow-xs">
-                <span className="relative flex size-2">
-                  <span className="relative inline-flex rounded-full size-2 bg-emerald-500" />
-                </span>
-                LIVE NODE // SIBAT
+    <div className="w-full space-y-6">
+      <PageHeader
+        title={
+          isDrilldownOpen && selectedBatch ? (
+            <>
+              <span className="hidden sm:inline">{selectedBatch.batch_name || "Animal Batch Details"}</span>
+              <span className="sm:hidden">{selectedBatch.batch_name || "Batch Details"}</span>
+            </>
+          ) : (
+            <>
+              <span className="hidden sm:inline">Livestock Groups &amp; Batches</span>
+              <span className="sm:hidden">Livestock Batches</span>
+            </>
+          )
+        }
+        subtitle={
+          isDrilldownOpen && selectedBatch ? (
+            <>
+              <span className="hidden sm:inline">
+                Farmer: {selectedBatch.farmer_name} • Barangay: {selectedBatch.barangay_name} • {selectedBatch.animals?.length || selectedBatch.total_animals} heads
               </span>
-              <span className="text-slate-300">/</span>
-              <span className="text-slate-700 font-semibold flex items-center gap-1">
-                <Compass className="size-3.5 text-emerald-700" />
-                SECTOR: {user?.accessScope === "ALL_BARANGAYS" ? "ALL BARANGAYS (MUNICIPAL MATRIX)" : user?.assignedBarangayName || "UNASSIGNED"}
+              <span className="sm:hidden">
+                {selectedBatch.farmer_name} • Brgy. {selectedBatch.barangay_name}
               </span>
-              <span className="text-slate-300">/</span>
-              <span className="text-emerald-800 font-bold">
-                TELEMETRY v4.2
+            </>
+          ) : (
+            <>
+              <span className="hidden sm:inline">
+                Monitor, review, and inspect farmer-registered livestock herds, animal batches, and feeding pens.
               </span>
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-sans text-slate-900 flex items-center gap-3">
-              {isDrilldownOpen && selectedBatch ? (
-                <>
-                  <span className="truncate">{selectedBatch.batch_name}</span>
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-mono text-xs font-bold">
-                    {selectedBatch.batch_code}
-                  </Badge>
-                </>
-              ) : (
-                <>
-                  Bio-Batch Operations Matrix
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-mono text-xs font-bold">
-                    CORE HUB
-                  </Badge>
-                </>
-              )}
-            </h1>
-
-            <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-              {isDrilldownOpen && selectedBatch
-                ? `Operator: ${selectedBatch.farmer_name} • Sector ${selectedBatch.barangay_name} • Enrolled Cohort: ${selectedBatch.animals?.length || selectedBatch.total_animals} Heads`
-                : "Real-time livestock cohort surveillance, biometric tracking, and field validation ledger for SIBAT inspectors."}
-            </p>
-          </div>
-
-          {/* Futuristic Control Deck */}
-          {!isDrilldownOpen && (
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <span className="sm:hidden">
+                Inspect registered livestock herds and batches.
+              </span>
+            </>
+          )
+        }
+        variant="sibat"
+        maxWidthClass="w-full"
+        icon={<Layers className="size-5 text-white" />}
+        hideIconOnMobile
+        showTutorialToggle={false}
+        mobileActionsInline
+        action={
+          isDrilldownOpen ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={closeHerdDrilldown}
+              className="h-10 rounded-xl border-white/20 bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer backdrop-blur-xs"
+            >
+              <ArrowLeft className="size-4" />
+              <span>Back to Batches</span>
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => exportHerdRosterCsv(filteredBatches)}
                 disabled={isLoading || filteredBatches.length === 0}
-                className="h-10 rounded-xl bg-white border-slate-200 text-slate-700 font-mono text-xs font-bold hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-xs gap-2 cursor-pointer"
+                className="h-10 rounded-xl border-white/20 bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer backdrop-blur-xs"
               >
-                <Download className="size-3.5 text-emerald-700" />
-                CSV DATA LEDGER ({filteredBatches.length})
+                <Download className="size-4" />
+                <span className="hidden sm:inline">Download CSV ({filteredBatches.length})</span>
+                <span className="sm:hidden">CSV</span>
               </Button>
 
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => refetch()}
                 disabled={isRefetching}
-                className="h-10 rounded-xl bg-white border-slate-200 text-slate-700 font-mono text-xs font-bold hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-xs gap-2 cursor-pointer"
+                className="h-10 rounded-xl border-white/20 bg-white/15 hover:bg-white/25 text-white text-xs sm:text-sm font-semibold transition-all shadow-xs gap-1.5 cursor-pointer backdrop-blur-xs"
               >
-                <RefreshCw className={`size-3.5 text-emerald-700 ${isRefetching ? "animate-spin" : ""}`} />
-                SYNC TELEMETRY
+                <RefreshCw className={`size-3.5 ${isRefetching ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">Refresh Data</span>
               </Button>
+            </div>
+          )
+        }
+      />
 
-              {/* Grid / Matrix Segmented Switcher */}
+      <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8 py-6 pb-28">
+        {/* ── 1. SUB-BANNER: BARANGAY COVERAGE & CONTROLS ───────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-emerald-200/90 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+              <MapPin className="size-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-800">
+                  Inspection Area
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                  SIBAT / CBAT
+                </span>
+              </div>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 mt-0.5">
+                {user?.accessScope === "ALL_BARANGAYS" ? "All Authorized Barangays (Full Access)" : user?.assignedBarangayName || "Assigned Barangay"}
+              </h2>
+            </div>
+          </div>
+
+          {!isDrilldownOpen && (
+            <div className="flex items-center gap-2">
               <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
                 <button
                   type="button"
                   onClick={() => setViewMode("grid")}
-                  className={`h-8 px-3 rounded-lg font-mono text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  className={`h-8 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                     viewMode === "grid"
-                      ? "bg-white text-emerald-800 font-black shadow-xs"
+                      ? "bg-white text-emerald-800 font-bold shadow-xs"
                       : "text-slate-500 hover:text-slate-900"
                   }`}
                 >
@@ -1565,246 +1617,245 @@ function SibatBatchesVerificationContent() {
                 <button
                   type="button"
                   onClick={() => setViewMode("table")}
-                  className={`h-8 px-3 rounded-lg font-mono text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  className={`h-8 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                     viewMode === "table"
-                      ? "bg-white text-emerald-800 font-black shadow-xs"
+                      ? "bg-white text-emerald-800 font-bold shadow-xs"
                       : "text-slate-500 hover:text-slate-900"
                   }`}
                 >
                   <List className="size-3.5" />
-                  MATRIX
+                  TABLE
                 </button>
               </div>
             </div>
           )}
         </div>
-      </div>
 
-      {/* ── 2. MAIN BATCHES VIEW (When drilldown is closed) ────────────────── */}
-      <div className={isDrilldownOpen ? "hidden" : "space-y-6"}>
-        {/* HOLOGRAPHIC TELEMETRY KPI HUD STRIP */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {/* Tile 1: Total Cohorts */}
-          <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-white/95 p-4 shadow-sm hover:shadow-holo-glow-emerald transition-all duration-300">
-            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-              <span>COHORTS IN REGISTRY</span>
-              <Layers className="size-4 text-emerald-600" />
+        {/* ── 2. MAIN BATCHES VIEW (When drilldown is closed) ────────────────── */}
+        <div className={isDrilldownOpen ? "hidden" : "space-y-6"}>
+          {/* KPI SUMMARY CARDS */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {/* Tile 1: Total Batches */}
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-xs hover:border-emerald-300 transition-all">
+              <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+                <span>REGISTERED BATCHES</span>
+                <Layers className="size-4 text-emerald-600" />
+              </div>
+              <div className="flex items-baseline justify-between mt-2">
+                <span className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-tight">
+                  {kpis.totalBatches}
+                </span>
+                <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                  ACTIVE
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1.5">Active animal batches</p>
             </div>
-            <div className="flex items-baseline justify-between mt-2">
-              <span className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-tight">
-                {kpis.totalBatches}
-              </span>
-              <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md">
-                ACTIVE
-              </span>
+
+            {/* Tile 2: Total Heads */}
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-xs hover:border-emerald-300 transition-all">
+              <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+                <span>TOTAL HEAD COUNT</span>
+                <Activity className="size-4 text-emerald-600" />
+              </div>
+              <div className="flex items-baseline justify-between mt-2">
+                <span className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-tight">
+                  {kpis.totalAnimals}
+                </span>
+                <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                  HEADS
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1.5">~{kpis.avgHeads} animals per batch</p>
             </div>
-            <p className="text-[11px] font-mono text-slate-500 mt-1.5">Sector: Padre Garcia Matrix</p>
+
+            {/* Tile 3: Field Verified */}
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-xs hover:border-emerald-300 transition-all">
+              <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+                <span>INSPECTED BY SIBAT</span>
+                <ShieldCheck className="size-4 text-emerald-600" />
+              </div>
+              <div className="flex items-baseline justify-between mt-2">
+                <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-700 tracking-tight">
+                  {kpis.verifiedAnimals}
+                </span>
+                <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                  {kpis.verificationRate}% CHECKED
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1.5">Forwarded to MAO for approval</p>
+            </div>
+
+            {/* Tile 4: Pending Check */}
+            <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white p-4 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+                <span>AWAITING SIBAT CHECK</span>
+                <Clock className={`size-4 ${kpis.pendingAnimals > 0 ? "text-amber-600 animate-pulse" : "text-slate-400"}`} />
+              </div>
+              <div className="flex items-baseline justify-between mt-2">
+                <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${kpis.pendingAnimals > 0 ? "text-amber-600" : "text-slate-400"}`}>
+                  {kpis.pendingAnimals}
+                </span>
+                <span className="text-[10px] font-mono font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                  FOR REVIEW
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1.5">New farmer submissions</p>
+            </div>
+
+            {/* Tile 5: Returned for Revision */}
+            <div className="col-span-2 sm:col-span-1 relative overflow-hidden rounded-2xl border border-rose-200 bg-white p-4 shadow-xs hover:border-rose-300 transition-all">
+              <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+                <span>RETURNED FOR REVISION</span>
+                <AlertTriangle className={`size-4 ${kpis.revisionAnimals > 0 ? "text-rose-600 animate-bounce" : "text-slate-400"}`} />
+              </div>
+              <div className="flex items-baseline justify-between mt-2">
+                <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${kpis.revisionAnimals > 0 ? "text-rose-600" : "text-slate-400"}`}>
+                  {kpis.revisionAnimals}
+                </span>
+                <span className="text-[10px] font-mono font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                  NEEDS UPDATE
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1.5">Returned to farmer for correction</p>
+            </div>
           </div>
 
-          {/* Tile 2: Total Biomass Heads */}
-          <div className="relative overflow-hidden rounded-2xl border border-cyan-500/30 bg-white/95 p-4 shadow-sm hover:shadow-cyan-500/20 transition-all duration-300">
-            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-              <span>BIOMASS TELEMETRY</span>
-              <Cpu className="size-4 text-cyan-600" />
-            </div>
-            <div className="flex items-baseline justify-between mt-2">
-              <span className="text-2xl sm:text-3xl font-black font-mono text-cyan-800 tracking-tight">
-                {kpis.totalAnimals}
-              </span>
-              <span className="text-[10px] font-mono font-bold text-cyan-700 bg-cyan-500/15 border border-cyan-500/30 px-2 py-0.5 rounded-md">
-                HEADS
-              </span>
-            </div>
-            <p className="text-[11px] font-mono text-slate-500 mt-1.5">Density: ~{kpis.avgHeads} heads / cohort</p>
-          </div>
+          {/* FILTER BAR & SEARCH */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-3">
+              {/* Search Input */}
+              <div className="relative lg:col-span-4">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                <Input
+                  placeholder="Search farmer name, batch code, or pen..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="min-h-11 rounded-xl border-slate-200 bg-slate-50/80 pl-10 text-xs sm:text-sm focus-visible:ring-emerald-500 focus-visible:border-emerald-500"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
 
-          {/* Tile 3: Field Verified */}
-          <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-white/95 p-4 shadow-sm hover:shadow-holo-glow-emerald transition-all duration-300">
-            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-              <span>SIBAT VERIFIED</span>
-              <ShieldCheck className="size-4 text-emerald-600" />
-            </div>
-            <div className="flex items-baseline justify-between mt-2">
-              <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-700 tracking-tight">
-                {kpis.verifiedAnimals}
-              </span>
-              <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md">
-                {kpis.verificationRate}% SYNC
-              </span>
-            </div>
-            <p className="text-[11px] font-mono text-slate-500 mt-1.5">Passed to MAO review ledger</p>
-          </div>
-
-          {/* Tile 4: Pending Audit Queue */}
-          <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-white/95 p-4 shadow-sm hover:shadow-holo-glow-amber transition-all duration-300">
-            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-              <span>PENDING AUDIT</span>
-              <Clock className={`size-4 ${kpis.pendingAnimals > 0 ? "text-amber-600 animate-pulse" : "text-slate-400"}`} />
-            </div>
-            <div className="flex items-baseline justify-between mt-2">
-              <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${kpis.pendingAnimals > 0 ? "text-amber-600" : "text-slate-400"}`}>
-                {kpis.pendingAnimals}
-              </span>
-              <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md">
-                AWAITING
-              </span>
-            </div>
-            <p className="text-[11px] font-mono text-slate-500 mt-1.5">Farmer field submissions</p>
-          </div>
-
-          {/* Tile 5: Needs Revision */}
-          <div className="col-span-2 sm:col-span-1 relative overflow-hidden rounded-2xl border border-rose-500/30 bg-white/95 p-4 shadow-sm hover:shadow-rose-500/20 transition-all duration-300">
-            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-              <span>REVISION PROTOCOL</span>
-              <AlertTriangle className={`size-4 ${kpis.revisionAnimals > 0 ? "text-rose-600 animate-bounce" : "text-slate-400"}`} />
-            </div>
-            <div className="flex items-baseline justify-between mt-2">
-              <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${kpis.revisionAnimals > 0 ? "text-rose-600" : "text-slate-400"}`}>
-                {kpis.revisionAnimals}
-              </span>
-              <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 rounded-md">
-                FLAGGED
-              </span>
-            </div>
-            <p className="text-[11px] font-mono text-slate-500 mt-1.5">Returned to farmer node</p>
-          </div>
-        </div>
-
-        {/* CYBER SENSOR FILTER BAR & QUERY TERMINAL */}
-        <div className="rounded-2xl border border-emerald-500/25 bg-white/95 p-4 shadow-sm backdrop-blur-md space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-3">
-            {/* Terminal Search Input */}
-            <div className="relative lg:col-span-4">
-              <Terminal className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-emerald-600 pointer-events-none" />
-              <Input
-                placeholder="QUERY_SEARCH // farmer, tag, sector..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="min-h-11 rounded-xl border-emerald-500/30 bg-slate-50/80 pl-10 font-mono text-xs focus-visible:ring-emerald-500 focus-visible:border-emerald-500"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 font-mono text-xs font-bold"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {/* Specimen Commodity Selector */}
-            <div className="lg:col-span-3">
-              <Select value={speciesFilter} onValueChange={setSpeciesFilter}>
-                <SelectTrigger className="min-h-11 rounded-xl border-emerald-500/30 font-mono text-xs">
-                  <SelectValue placeholder="SPECIMEN TYPE" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl font-mono text-xs">
-                  <SelectItem value="ALL">ALL SPECIMENS ({speciesList.length})</SelectItem>
-                  {speciesList.map((sp) => (
-                    <SelectItem key={sp} value={sp}>
-                      {sp.toUpperCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Regulatory Status Selector */}
-            <div className="lg:col-span-3">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="min-h-11 rounded-xl border-emerald-500/30 font-mono text-xs">
-                  <SelectValue placeholder="REGULATORY STATUS" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl font-mono text-xs">
-                  <SelectItem value="ALL">ALL STATUSES ({batches.length})</SelectItem>
-                  <SelectItem value="PENDING">PENDING AUDIT ({kpis.pendingAnimals})</SelectItem>
-                  <SelectItem value="VERIFIED">SIBAT VERIFIED ({kpis.verifiedAnimals})</SelectItem>
-                  <SelectItem value="APPROVED">MAO APPROVED ({kpis.approvedAnimals})</SelectItem>
-                  <SelectItem value="SUBJECT_TO_REVISION">REVISION PROTOCOL ({kpis.revisionAnimals})</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Barangay Sector Selector */}
-            <div className="lg:col-span-2">
-              {user?.accessScope === "ALL_BARANGAYS" ? (
-                <Select value={barangayFilter} onValueChange={setBarangayFilter}>
-                  <SelectTrigger className="min-h-11 rounded-xl border-emerald-500/30 font-mono text-xs truncate">
-                    <SelectValue placeholder="SECTOR MATRIX" />
+              {/* Animal Type / Species Selector */}
+              <div className="lg:col-span-3">
+                <Select value={speciesFilter} onValueChange={setSpeciesFilter}>
+                  <SelectTrigger className="min-h-11 rounded-xl border-slate-200 text-xs">
+                    <SelectValue placeholder="ANIMAL TYPE / SPECIES" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl max-h-56 font-mono text-xs">
-                    <SelectItem value="ALL">ALL SECTORS</SelectItem>
-                    {PADRE_GARCIA_BARANGAYS.map((brgy) => (
-                      <SelectItem key={brgy} value={brgy}>
-                        BRGY. {brgy.toUpperCase()}
+                  <SelectContent className="rounded-xl text-xs">
+                    <SelectItem value="ALL">ALL ANIMAL TYPES ({speciesList.length})</SelectItem>
+                    {speciesList.map((sp) => (
+                      <SelectItem key={sp} value={sp}>
+                        {sp.toUpperCase()}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              ) : (
-                <div className="flex min-h-11 items-center rounded-xl border border-emerald-500/30 bg-emerald-50/50 px-3 font-mono text-xs text-emerald-950 font-bold">
-                  <MapPin className="size-3.5 text-emerald-600 mr-1.5 shrink-0" />
-                  {user?.assignedBarangayName || "UNASSIGNED"}
-                </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          {/* Active Sensor Filters Bar */}
-          {(searchQuery || speciesFilter !== "ALL" || statusFilter !== "ALL" || activeBarangayFilter !== "ALL") && (
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 flex-wrap text-xs font-mono">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                ACTIVE SENSORS:
-              </span>
-              {searchQuery && (
-                <Badge variant="secondary" className="rounded-lg text-[10px] font-mono gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-300">
-                  TERM: &ldquo;{searchQuery}&rdquo;
-                  <button type="button" onClick={() => setSearchQuery("")} className="hover:text-rose-600 font-bold">✕</button>
-                </Badge>
-              )}
-              {speciesFilter !== "ALL" && (
-                <Badge variant="secondary" className="rounded-lg text-[10px] font-mono gap-1.5 bg-cyan-50 text-cyan-800 border border-cyan-300">
-                  SPECIMEN: {speciesFilter.toUpperCase()}
-                  <button type="button" onClick={() => setSpeciesFilter("ALL")} className="hover:text-rose-600 font-bold">✕</button>
-                </Badge>
-              )}
-              {statusFilter !== "ALL" && (
-                <Badge variant="secondary" className="rounded-lg text-[10px] font-mono gap-1.5 bg-amber-50 text-amber-800 border border-amber-300">
-                  STATUS: {statusFilter}
-                  <button type="button" onClick={() => setStatusFilter("ALL")} className="hover:text-rose-600 font-bold">✕</button>
-                </Badge>
-              )}
-              {activeBarangayFilter !== "ALL" && (
-                <Badge variant="secondary" className="rounded-lg text-[10px] font-mono gap-1.5 bg-purple-50 text-purple-800 border border-purple-300">
-                  SECTOR: {activeBarangayFilter.toUpperCase()}
-                  <button type="button" onClick={() => setBarangayFilter("ALL")} className="hover:text-rose-600 font-bold">✕</button>
-                </Badge>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchQuery("");
-                  setSpeciesFilter("ALL");
-                  setStatusFilter("ALL");
-                  setBarangayFilter("ALL");
-                }}
-                className="h-6 text-[10px] font-mono font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 rounded-md cursor-pointer"
-              >
-                RESET FILTERS
-              </Button>
+              {/* Review Status Selector */}
+              <div className="lg:col-span-3">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="min-h-11 rounded-xl border-slate-200 text-xs">
+                    <SelectValue placeholder="REVIEW STATUS" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl text-xs">
+                    <SelectItem value="ALL">ALL STATUSES ({batches.length})</SelectItem>
+                    <SelectItem value="PENDING">PENDING SIBAT CHECK ({kpis.pendingAnimals})</SelectItem>
+                    <SelectItem value="VERIFIED">CHECKED BY SIBAT (VERIFIED) ({kpis.verifiedAnimals})</SelectItem>
+                    <SelectItem value="APPROVED">APPROVED BY MAO ({kpis.approvedAnimals})</SelectItem>
+                    <SelectItem value="SUBJECT_TO_REVISION">RETURNED FOR REVISION ({kpis.revisionAnimals})</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Barangay Selector */}
+              <div className="lg:col-span-2">
+                {user?.accessScope === "ALL_BARANGAYS" ? (
+                  <Select value={barangayFilter} onValueChange={setBarangayFilter}>
+                    <SelectTrigger className="min-h-11 rounded-xl border-slate-200 text-xs truncate">
+                      <SelectValue placeholder="ALL BARANGAYS" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl max-h-56 text-xs">
+                      <SelectItem value="ALL">ALL BARANGAYS</SelectItem>
+                      {PADRE_GARCIA_BARANGAYS.map((brgy) => (
+                        <SelectItem key={brgy} value={brgy}>
+                          BRGY. {brgy.toUpperCase()}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 font-semibold">
+                    <MapPin className="size-3.5 text-emerald-600 mr-1.5 shrink-0" />
+                    {user?.assignedBarangayName || "Unassigned"}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Active Filters Bar */}
+            {(searchQuery || speciesFilter !== "ALL" || statusFilter !== "ALL" || activeBarangayFilter !== "ALL") && (
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100 flex-wrap text-xs font-mono">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  ACTIVE FILTERS:
+                </span>
+                {searchQuery && (
+                  <Badge variant="secondary" className="rounded-lg text-[10px] font-mono gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-300">
+                    SEARCH: &ldquo;{searchQuery}&rdquo;
+                    <button type="button" onClick={() => setSearchQuery("")} className="hover:text-rose-600 font-bold">✕</button>
+                  </Badge>
+                )}
+                {speciesFilter !== "ALL" && (
+                  <Badge variant="secondary" className="rounded-lg text-[10px] font-mono gap-1.5 bg-cyan-50 text-cyan-800 border border-cyan-300">
+                    ANIMAL: {speciesFilter.toUpperCase()}
+                    <button type="button" onClick={() => setSpeciesFilter("ALL")} className="hover:text-rose-600 font-bold">✕</button>
+                  </Badge>
+                )}
+                {statusFilter !== "ALL" && (
+                  <Badge variant="secondary" className="rounded-lg text-[10px] font-mono gap-1.5 bg-amber-50 text-amber-800 border border-amber-300">
+                    STATUS: {statusFilter}
+                    <button type="button" onClick={() => setStatusFilter("ALL")} className="hover:text-rose-600 font-bold">✕</button>
+                  </Badge>
+                )}
+                {activeBarangayFilter !== "ALL" && (
+                  <Badge variant="secondary" className="rounded-lg text-[10px] font-mono gap-1.5 bg-purple-50 text-purple-800 border border-purple-300">
+                    BARANGAY: {activeBarangayFilter.toUpperCase()}
+                    <button type="button" onClick={() => setBarangayFilter("ALL")} className="hover:text-rose-600 font-bold">✕</button>
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSpeciesFilter("ALL");
+                    setStatusFilter("ALL");
+                    setBarangayFilter("ALL");
+                  }}
+                  className="h-6 text-[10px] font-mono font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 rounded-md cursor-pointer"
+                >
+                  RESET FILTERS
+                </Button>
+              </div>
+            )}
+          </div>
 
         {/* ── BATCH LISTINGS (Grid or Matrix Table) ── */}
         {filteredBatches.length === 0 ? (
           <div className="p-12 text-center bg-white rounded-3xl border border-emerald-500/25 shadow-sm space-y-3">
             <Layers className="size-10 mx-auto text-emerald-400 mb-2" />
-            <h3 className="text-base font-bold font-mono text-slate-800 uppercase tracking-wide">NO MATCHING HERD COHORTS DETECTED</h3>
+            <h3 className="text-base font-bold font-mono text-slate-800 uppercase tracking-wide">NO MATCHING ANIMAL BATCHES FOUND</h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Modify the query sensor criteria or clear current filters to scan all registered cohorts in the municipal database.
+              Modify your search keywords or clear current filters to view all registered batches in the municipality.
             </p>
             <Button
               variant="outline"
@@ -1838,7 +1889,7 @@ function SibatBatchesVerificationContent() {
             {/* Pagination Controls */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-emerald-500/20 text-xs font-mono">
               <span className="text-[11px] text-slate-500">
-                COHORTS {(safeBatchPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(safeBatchPage * BATCH_PAGE_SIZE, filteredBatches.length)} OF {filteredBatches.length} RECORDED
+                BATCHES {(safeBatchPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(safeBatchPage * BATCH_PAGE_SIZE, filteredBatches.length)} OF {filteredBatches.length} RECORDED
               </span>
               <div className="flex items-center gap-1.5">
                 <Button
@@ -1874,28 +1925,28 @@ function SibatBatchesVerificationContent() {
                   <TableHeader className="bg-emerald-50 text-emerald-950">
                     <TableRow className="hover:bg-transparent border-emerald-500/30">
                       <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
-                        [COHORT_ID]
+                        BATCH CODE
                       </TableHead>
                       <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
-                        [SPECIMEN & HERD]
+                        ANIMAL GROUP & SPECIES
                       </TableHead>
                       <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
-                        [OPERATOR & SECTOR]
+                        FARMER & BARANGAY
                       </TableHead>
                       <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900 text-center">
-                        [HEAD_COUNT]
+                        HEAD COUNT
                       </TableHead>
                       <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
-                        [FACILITY & FEED]
+                        PEN & FEED
                       </TableHead>
                       <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
-                        [BIOMASS_SCALE]
+                        AVG WEIGHT (KG)
                       </TableHead>
                       <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900">
-                        [REGULATORY_STATUS]
+                        STATUS
                       </TableHead>
                       <TableHead className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-900 text-right">
-                        [COMMAND]
+                        ACTION
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1933,7 +1984,7 @@ function SibatBatchesVerificationContent() {
                                 {batch.farmer_name}
                               </span>
                               <span className="text-[10px] text-slate-500 block truncate">
-                                Sector: {batch.barangay_name}
+                                Brgy: {batch.barangay_name}
                               </span>
                             </div>
                           </TableCell>
@@ -1968,7 +2019,7 @@ function SibatBatchesVerificationContent() {
                               className="h-8 px-3 rounded-lg bg-emerald-700 text-white font-mono text-xs font-bold hover:bg-emerald-800 transition-colors shadow-2xs gap-1.5 cursor-pointer"
                             >
                               <Eye className="size-3.5" />
-                              <span>INSPECT</span>
+                              <span>VIEW BATCH</span>
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -1982,7 +2033,7 @@ function SibatBatchesVerificationContent() {
             {/* Pagination Controls */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-emerald-500/20 text-xs font-mono">
               <span className="text-[11px] text-slate-500">
-                COHORTS {(safeBatchPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(safeBatchPage * BATCH_PAGE_SIZE, filteredBatches.length)} OF {filteredBatches.length} RECORDED
+                BATCHES {(safeBatchPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(safeBatchPage * BATCH_PAGE_SIZE, filteredBatches.length)} OF {filteredBatches.length} RECORDED
               </span>
               <div className="flex items-center gap-1.5">
                 <Button
@@ -2012,22 +2063,22 @@ function SibatBatchesVerificationContent() {
         )}
       </div>
 
-      {/* ── 3. FUTURISTIC DRILLDOWN DETAIL VIEW (When a herd is opened) ───── */}
+      {/* ── 3. BATCH DRILLDOWN DETAIL VIEW (When a batch is opened) ───── */}
       {isDrilldownOpen && (
-        <section className="space-y-6" aria-label="Herd Details and Animal Verification Matrix">
+        <section className="space-y-6" aria-label="Batch Details and Animal Verification">
           {detailQuery.isLoading ? (
             <div className="flex min-h-[380px] flex-col items-center justify-center gap-3 rounded-3xl border border-emerald-500/25 bg-white p-8 text-center shadow-sm">
               <div className="flex size-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/30">
                 <RefreshCw className="size-7 animate-spin" />
               </div>
-              <h3 className="text-base font-mono font-bold text-slate-900 uppercase tracking-wide">INITIALIZING COHORT TELEMETRY</h3>
-              <p className="text-xs text-slate-500 max-w-sm">Synchronizing biometric ear tags and historical records from municipal field storage...</p>
+              <h3 className="text-base font-mono font-bold text-slate-900 uppercase tracking-wide">LOADING BATCH DETAILS</h3>
+              <p className="text-xs text-slate-500 max-w-sm">Loading animal ear tags and records for this batch...</p>
             </div>
           ) : detailQuery.isError ? (
             <div className="flex min-h-[380px] flex-col items-center justify-center gap-3 rounded-3xl border border-rose-300 bg-rose-50/50 p-8 text-center shadow-sm">
               <AlertTriangle className="size-9 text-rose-600" />
-              <h3 className="text-base font-mono font-bold text-slate-900 uppercase tracking-wide">NODE CONNECTION ERROR</h3>
-              <p className="text-xs text-slate-600 max-w-sm">Unable to acquire cohort telemetry. Check network status and retry.</p>
+              <h3 className="text-base font-mono font-bold text-slate-900 uppercase tracking-wide">COULD NOT LOAD BATCH</h3>
+              <p className="text-xs text-slate-600 max-w-sm">Unable to load batch details. Please check your connection and try again.</p>
               <Button
                 type="button"
                 variant="outline"
@@ -2035,7 +2086,7 @@ function SibatBatchesVerificationContent() {
                 onClick={() => void detailQuery.refetch()}
                 className="rounded-xl px-4 text-xs font-mono font-bold border-rose-300 text-rose-800"
               >
-                RETRY SCAN
+                RETRY
               </Button>
             </div>
           ) : selectedBatch && (
@@ -2051,13 +2102,13 @@ function SibatBatchesVerificationContent() {
                     className="h-9 gap-2 rounded-xl border-slate-200 bg-white text-slate-700 px-3.5 text-xs font-mono font-bold hover:bg-emerald-50 cursor-pointer shadow-xs shrink-0 transition-colors"
                   >
                     <ArrowLeft className="size-3.5" />
-                    <span>RETURN TO MATRIX</span>
+                    <span>BACK TO BATCHES</span>
                   </Button>
 
                   <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono text-slate-500 font-medium min-w-0">
-                    <Link href="/sibat" className="hover:text-emerald-700 transition-colors shrink-0">NEXUS</Link>
+                    <Link href="/sibat" className="hover:text-emerald-700 transition-colors shrink-0">OVERVIEW</Link>
                     <span className="text-slate-300">/</span>
-                    <button type="button" onClick={closeHerdDrilldown} className="hover:text-emerald-700 transition-colors shrink-0 font-medium cursor-pointer">HERDS</button>
+                    <button type="button" onClick={closeHerdDrilldown} className="hover:text-emerald-700 transition-colors shrink-0 font-medium cursor-pointer">BATCHES</button>
                     <span className="text-slate-300">/</span>
                     <span className="text-emerald-900 font-bold font-mono truncate">{selectedBatch.batch_code}</span>
                   </nav>
@@ -2068,7 +2119,7 @@ function SibatBatchesVerificationContent() {
                 </div>
               </div>
 
-              {/* Husbandry & Biometric Matrix */}
+              {/* Husbandry & Animal Information */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 {/* Photo Gallery Column (5 cols) */}
                 <div className="lg:col-span-5">
@@ -2083,17 +2134,17 @@ function SibatBatchesVerificationContent() {
                       <div className="min-w-0">
                         <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-800 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-full mb-2">
                           <Cpu className="size-3 text-emerald-600" />
-                          COHORT TELEMETRY RECORD
+                          ANIMAL BATCH RECORD
                         </span>
                         <h2 className="text-xl font-black font-sans text-slate-900 leading-tight truncate">
                           {selectedBatch.batch_name}
                         </h2>
                         <div className="mt-1.5 flex items-center gap-2 text-xs font-mono text-slate-500 flex-wrap">
-                          <span>Operator: <strong className="text-slate-900">{selectedBatch.farmer_name}</strong></span>
+                          <span>Farmer: <strong className="text-slate-900">{selectedBatch.farmer_name}</strong></span>
                           <span className="text-slate-300">•</span>
-                          <span>Sector: <strong className="text-slate-900">Brgy. {selectedBatch.barangay_name}</strong></span>
+                          <span>Barangay: <strong className="text-slate-900">Brgy. {selectedBatch.barangay_name}</strong></span>
                           <span className="text-slate-300">•</span>
-                          <span>Chip: <code className="bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded text-[11px] border border-emerald-200">{selectedBatch.batch_code}</code></span>
+                          <span>Batch Code: <code className="bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded text-[11px] border border-emerald-200">{selectedBatch.batch_code}</code></span>
                         </div>
                       </div>
                       <div className="size-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-2xl border border-emerald-200 shrink-0">
@@ -2108,55 +2159,55 @@ function SibatBatchesVerificationContent() {
                     )}
                   </div>
 
-                  {/* 4 Biometric KPI Cards */}
+                  {/* 4 Batch Overview Cards */}
                   <div className="grid grid-cols-2 gap-3.5">
-                    {/* Commodity Specimen */}
+                    {/* Animal Type */}
                     <div className="p-4 rounded-2xl border border-emerald-500/25 bg-white shadow-2xs flex flex-col justify-between">
                       <div className="flex items-center gap-2">
                         <div className="size-8 rounded-xl bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 flex items-center justify-center shrink-0">
                           <Layers className="size-4" />
                         </div>
-                        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">SPECIMEN</span>
+                        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">ANIMAL TYPE</span>
                       </div>
                       <div className="mt-3">
                         <span className="text-base font-black font-mono text-slate-900 block truncate">
                           {selectedBatch.livestock_type_name.toUpperCase()}
                         </span>
                         <span className="text-[10px] font-mono text-slate-400 block truncate mt-0.5">
-                          ID: {selectedBatch.batch_code}
+                          Code: {selectedBatch.batch_code}
                         </span>
                       </div>
                     </div>
 
-                    {/* Enrolled Herd Capacity */}
+                    {/* Head Count */}
                     <div className="p-4 rounded-2xl border border-blue-500/25 bg-white shadow-2xs flex flex-col justify-between">
                       <div className="flex items-center gap-2">
                         <div className="size-8 rounded-xl bg-blue-500/10 text-blue-700 border border-blue-500/30 flex items-center justify-center shrink-0">
                           <ShieldCheck className="size-4" />
                         </div>
-                        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">CAPACITY</span>
+                        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">HEAD COUNT</span>
                       </div>
                       <div className="mt-3">
                         <span className="text-base font-black font-mono text-slate-900 block">
                           {selectedBatch.animals?.length || selectedBatch.total_animals} <span className="text-xs text-slate-500">HEADS</span>
                         </span>
                         <span className="text-[10px] font-mono text-slate-400 block mt-0.5">
-                          Enrolled max: {selectedBatch.enrolled_animals ?? selectedBatch.total_animals}
+                          Total registered: {selectedBatch.enrolled_animals ?? selectedBatch.total_animals}
                         </span>
                       </div>
                     </div>
 
-                    {/* Scale Biomass */}
+                    {/* Average Weight */}
                     <div className="p-4 rounded-2xl border border-sky-500/25 bg-white shadow-2xs flex flex-col justify-between">
                       <div className="flex items-center gap-2">
                         <div className="size-8 rounded-xl bg-sky-500/10 text-sky-700 border border-sky-500/30 flex items-center justify-center shrink-0">
                           <Scale className="size-4" />
                         </div>
-                        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">MEAN WEIGHT</span>
+                        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">AVERAGE WEIGHT</span>
                       </div>
                       <div className="mt-3">
                         <span className="text-base font-black font-mono text-slate-900 block">
-                          {selectedBatch.average_weight ? `${selectedBatch.average_weight} kg` : "UNWEIGHED"}
+                          {selectedBatch.average_weight ? `${selectedBatch.average_weight} kg` : "NOT WEIGHED"}
                         </span>
                         <span className="text-[10px] font-mono text-slate-400 block truncate mt-0.5">
                           Target: {selectedBatch.target_weight ? `${selectedBatch.target_weight} kg` : "N/A"}
@@ -2164,13 +2215,13 @@ function SibatBatchesVerificationContent() {
                       </div>
                     </div>
 
-                    {/* Facility & Feed */}
+                    {/* Pen & Housing */}
                     <div className="p-4 rounded-2xl border border-amber-500/25 bg-white shadow-2xs flex flex-col justify-between">
                       <div className="flex items-center gap-2">
                         <div className="size-8 rounded-xl bg-amber-500/10 text-amber-700 border border-amber-500/30 flex items-center justify-center shrink-0">
                           <Building2 className="size-4" />
                         </div>
-                        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">FACILITY</span>
+                        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">PEN &amp; HOUSING</span>
                       </div>
                       <div className="mt-3">
                         <span className="text-base font-black font-mono text-slate-900 block truncate">
@@ -2191,9 +2242,9 @@ function SibatBatchesVerificationContent() {
                   <ShieldCheck className="size-5" />
                 </div>
                 <div className="space-y-0.5 text-xs font-mono">
-                  <p className="font-bold text-emerald-900 uppercase tracking-wider">FIELD AUDIT PROTOCOL // SIBAT DIRECTIVE</p>
+                  <p className="font-bold text-emerald-900 uppercase tracking-wider">SIBAT FIELD INSPECTION GUIDELINES</p>
                   <p className="text-slate-600 leading-relaxed font-sans text-xs">
-                    Inspect physical ear tags and biometric health on site. Select checked animals using checkboxes for batch verification, or click individual review buttons to inspect vaccination and historical telemetry.
+                    Inspect physical ear tags and animal health on site. Check off verified animals for batch submission, or click review on an individual animal to check vaccination history.
                   </p>
                 </div>
               </div>
@@ -2209,10 +2260,10 @@ function SibatBatchesVerificationContent() {
                       </div>
                       <div>
                         <h3 className="text-sm sm:text-base font-extrabold font-mono text-slate-900 leading-none uppercase">
-                          INDIVIDUAL ANIMAL ROSTER
+                          ANIMALS IN THIS BATCH
                         </h3>
                         <span className="text-xs font-mono text-slate-500">
-                          {filteredChildAnimals.length} SPECIMENS DETECTED
+                          {filteredChildAnimals.length} ANIMALS LISTED
                         </span>
                       </div>
                     </div>
@@ -2251,7 +2302,7 @@ function SibatBatchesVerificationContent() {
                     <div className="relative flex-1 sm:w-60 min-w-[160px]">
                       <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
                       <Input
-                        placeholder="SEARCH TAG OR ID..."
+                        placeholder="Search tag or animal ID..."
                         value={animalSearchQuery}
                         onChange={(e) => setAnimalSearchQuery(e.target.value)}
                         className="h-9.5 rounded-xl border-emerald-500/30 pl-8.5 font-mono text-xs focus-visible:ring-emerald-500"
@@ -2277,7 +2328,7 @@ function SibatBatchesVerificationContent() {
                         <option value="PENDING">PENDING</option>
                         <option value="VERIFIED">VERIFIED</option>
                         <option value="APPROVED">APPROVED</option>
-                        <option value="SUBJECT_TO_REVISION">REVISION</option>
+                        <option value="SUBJECT_TO_REVISION">NEEDS REVISION</option>
                       </select>
                       <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
                     </div>
@@ -2301,7 +2352,7 @@ function SibatBatchesVerificationContent() {
                         className="h-9.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-mono font-bold text-xs px-3.5 flex items-center gap-1.5 shadow-holo-glow-emerald animate-in fade-in cursor-pointer"
                       >
                         <ShieldCheck className="size-4" />
-                        VERIFY ({selectedAnimalIds.length})
+                        VERIFY SELECTED ({selectedAnimalIds.length})
                       </Button>
                     )}
                   </div>
@@ -2312,7 +2363,7 @@ function SibatBatchesVerificationContent() {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {filteredChildAnimals.length === 0 ? (
                       <div className="col-span-full rounded-2xl border border-dashed border-emerald-500/30 bg-slate-50/50 p-8 text-center text-xs font-mono text-slate-500">
-                        NO SPECIMEN ANIMALS MATCH THIS FILTER.
+                        NO ANIMALS MATCH THIS FILTER.
                       </div>
                     ) : (
                       pagedChildAnimals.map((animal) => {
@@ -2368,7 +2419,7 @@ function SibatBatchesVerificationContent() {
                                       </button>
                                     )}
                                   </div>
-                                  <span className="text-[10px] font-mono text-slate-400 block">SPECIMEN ID: {animal.id}</span>
+                                  <span className="text-[10px] font-mono text-slate-400 block">ANIMAL ID: {animal.id}</span>
                                 </div>
                               </label>
 
@@ -2383,7 +2434,7 @@ function SibatBatchesVerificationContent() {
                                 </span>
                               </div>
                               <div className="rounded-xl bg-slate-50 p-2 border border-slate-200/60">
-                                <span className="block text-[9px] uppercase text-slate-400 font-bold">BIOMASS / AGE</span>
+                                <span className="block text-[9px] uppercase text-slate-400 font-bold">WEIGHT / AGE</span>
                                 <span className="font-bold text-slate-800 block truncate">
                                   {animalWeight ? `${animalWeight} kg` : "—"} • {animal.age?.total_months != null ? `${animal.age.total_months}m` : "—"}
                                 </span>
@@ -2392,7 +2443,7 @@ function SibatBatchesVerificationContent() {
 
                             <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
                               <span className="text-[10px] font-mono text-slate-500 truncate">
-                                VAX: {animal.last_vaccination_date || "Up to Date"}
+                                VACCINE: {animal.last_vaccination_date || "Up to Date"}
                               </span>
                               <Button
                                 type="button"
@@ -2430,7 +2481,7 @@ function SibatBatchesVerificationContent() {
                         {filteredChildAnimals.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={9} className="text-center py-8 text-xs font-mono text-slate-500">
-                              NO INDIVIDUAL ANIMALS FOUND MATCHING FILTER CRITERIA.
+                              NO ANIMALS FOUND MATCHING THIS FILTER.
                             </TableCell>
                           </TableRow>
                         ) : (
@@ -2550,7 +2601,7 @@ function SibatBatchesVerificationContent() {
                 {filteredChildAnimals.length > 0 && (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 text-xs font-mono">
                     <span className="text-xs text-slate-500">
-                      SHOWING {(safeAnimalPage - 1) * ANIMAL_PAGE_SIZE + 1}–{Math.min(safeAnimalPage * ANIMAL_PAGE_SIZE, filteredChildAnimals.length)} OF {filteredChildAnimals.length} SPECIMENS
+                      SHOWING {(safeAnimalPage - 1) * ANIMAL_PAGE_SIZE + 1}–{Math.min(safeAnimalPage * ANIMAL_PAGE_SIZE, filteredChildAnimals.length)} OF {filteredChildAnimals.length} ANIMALS
                     </span>
                     {filteredChildAnimals.length > ANIMAL_PAGE_SIZE && (
                       <div className="flex items-center gap-1.5 self-end sm:self-auto">
@@ -2581,7 +2632,7 @@ function SibatBatchesVerificationContent() {
                 )}
               </div>
 
-              {/* Reviewer Notes & Audit Trail Terminal */}
+              {/* Reviewer Notes & Field Notes */}
               <div className="rounded-2xl border border-emerald-500/25 bg-white/95 p-5 shadow-sm space-y-3 font-mono">
                 <button
                   type="button"
@@ -2591,7 +2642,7 @@ function SibatBatchesVerificationContent() {
                 >
                   <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wide">
                     <ClipboardList className="size-4 text-emerald-600 shrink-0" />
-                    AUDIT LOG TERMINAL &amp; INSPECTION NOTES
+                    INSPECTION REMARKS &amp; FIELD NOTES
                     {selectedBatch.notes && (
                       <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                         {selectedBatch.notes.split("\n").filter(Boolean).length} ENTRIES
@@ -2606,13 +2657,13 @@ function SibatBatchesVerificationContent() {
                 {showBatchNotes && (
                   <div className="pt-2 space-y-3 border-t border-slate-100">
                     <pre className="text-xs text-slate-700 font-mono whitespace-pre-wrap leading-relaxed bg-slate-50 border border-slate-200 rounded-xl p-4 max-h-40 overflow-y-auto">
-                      {selectedBatch.notes || "NO AUDIT ENTRIES LOGGED FOR THIS COHORT RECORD."}
+                      {selectedBatch.notes || "NO FIELD REMARKS RECORDED FOR THIS BATCH YET."}
                     </pre>
                     <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-start">
                       <Textarea
                         value={batchNoteText}
                         onChange={(e) => setBatchNoteText(e.target.value)}
-                        placeholder="ENTER AUDIT OBSERVATIONS OR INSPECTOR REMARKS..."
+                        placeholder="Enter field observations, health findings, or inspector remarks..."
                         className="text-xs font-mono rounded-xl border-emerald-500/30 focus-visible:ring-emerald-500 min-h-[70px]"
                       />
                       <Button
@@ -2627,7 +2678,7 @@ function SibatBatchesVerificationContent() {
                         }}
                         className="h-10 sm:h-[70px] shrink-0 rounded-xl bg-emerald-700 px-4 text-xs font-mono font-bold text-white hover:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 cursor-pointer shadow-holo-glow-emerald"
                       >
-                        {addBatchNoteMutation.isPending ? "LOGGING…" : "APPEND LOG"}
+                        {addBatchNoteMutation.isPending ? "SAVING…" : "ADD NOTE"}
                       </Button>
                     </div>
                   </div>
@@ -2644,7 +2695,7 @@ function SibatBatchesVerificationContent() {
                   {selectedAnimalIds.length}
                 </span>
                 <span className="text-xs text-slate-600 truncate">
-                  SPECIMENS READY FOR FIELD VALIDATION
+                  ANIMALS SELECTED FOR VERIFICATION
                 </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -2695,32 +2746,33 @@ function SibatBatchesVerificationContent() {
               CONFIRM FIELD VERIFICATION
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm font-mono text-slate-600">
-              You have selected {selectedPendingAnimals.length} {selectedPendingAnimals.length === 1 ? "specimen" : "specimens"} for official field verification.
+              You have selected {selectedPendingAnimals.length} {selectedPendingAnimals.length === 1 ? "animal" : "animals"} for official field verification.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-4 py-5 text-slate-800 text-xs font-mono">
-            <h4 className="font-bold uppercase tracking-wider text-emerald-950">SYSTEM DIRECTIVE:</h4>
+            <h4 className="font-bold uppercase tracking-wider text-emerald-950">WHAT HAPPENS NEXT:</h4>
             <div className="flex gap-3 bg-emerald-50 p-3.5 rounded-xl border border-emerald-200">
               <CheckCircle2 className="mt-0.5 size-4.5 shrink-0 text-emerald-600" />
               <div>
-                <p className="font-bold text-emerald-950">Field validation ledger entry will be recorded.</p>
-                <p className="mt-1 text-emerald-800 leading-relaxed font-sans text-xs">These animal biometrics will advance to the Municipal Agriculture Office review queue for final approval.</p>
+                <p className="font-bold text-emerald-950">Verification record will be saved.</p>
+                <p className="mt-1 text-emerald-800 leading-relaxed font-sans text-xs">These animals will advance to the Municipal Agriculture Office (MAO) review queue for final approval.</p>
               </div>
             </div>
-            <p className="text-slate-500 text-[11px]">Proceed only if physical ear tags and specimen health have been confirmed on site.</p>
+            <p className="text-slate-500 text-[11px]">Proceed only if you have physically checked the ear tags and confirmed animal health on site.</p>
           </div>
           <AlertDialogFooter className="grid grid-cols-1 gap-2 sm:grid-cols-2 pt-2">
-            <AlertDialogCancel className="min-h-11 w-full rounded-xl border-slate-300 font-mono text-xs font-bold">ABORT</AlertDialogCancel>
+            <AlertDialogCancel className="min-h-11 w-full rounded-xl border-slate-300 font-mono text-xs font-bold">CANCEL</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => { event.preventDefault(); void verifySelectedAnimals(); }}
               disabled={bulkVerifying || selectedPendingAnimals.length === 0 || selectedPendingAnimals.length !== selectedAnimalIds.length}
               className="min-h-11 w-full rounded-xl bg-emerald-700 font-mono text-xs font-bold text-white hover:bg-emerald-800 shadow-holo-glow-emerald"
             >
-              {bulkVerifying ? "COMMITTING…" : "AUTHORIZE VERIFICATION"}
+              {bulkVerifying ? "SAVING…" : "CONFIRM VERIFICATION"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 }
@@ -2732,22 +2784,22 @@ export default function SibatBatchesVerificationPage() {
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           <ValidationLoadingScreen
             isLoading={true}
-            title="Initializing SIBAT Bio-Batch Operations"
-            subtitle="Connecting authorized livestock batches, aggregate animal counts, and field inspection ledgers..."
-            badgeLabel="Bio-Batch Operations Matrix"
-            authorityText="SIBAT Field Review · Municipal Node"
+            title="Loading Livestock Batches"
+            subtitle="Connecting livestock batches, animal counts, and inspection records..."
+            badgeLabel="SIBAT Batch Operations"
+            authorityText="SIBAT Field Review · Padre Garcia MAO"
             items={[
               {
                 id: "batches",
-                label: "Cohort Registries",
-                sublabel: "Grouped bovine, swine, and livestock cohorts",
+                label: "Animal Batches",
+                sublabel: "Registered livestock groups",
                 icon: <Layers className="size-4 text-emerald-700" />,
                 loaded: false,
               },
               {
                 id: "roster",
-                label: "Animal Roster",
-                sublabel: "Individual tags and verification records",
+                label: "Animal List",
+                sublabel: "Ear tags and individual records",
                 icon: <ShieldCheck className="size-4 text-sky-600" />,
                 loaded: false,
               },
@@ -2763,9 +2815,7 @@ export default function SibatBatchesVerificationPage() {
         </div>
       }
     >
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-        <SibatBatchesVerificationContent />
-      </div>
+      <SibatBatchesVerificationContent />
     </Suspense>
   );
 }
