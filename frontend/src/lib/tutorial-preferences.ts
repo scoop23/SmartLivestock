@@ -40,9 +40,75 @@ export function startGuidedTutorial(config: Config): void {
   }
 
   const onDestroyed = config.onDestroyed;
+  const userOnPopoverRender = config.onPopoverRender;
 
-  driver({
+  const existingButtons = config.showButtons ?? ["next", "previous"];
+  const showButtons = Array.from(new Set([...existingButtons, "close" as const]));
+
+  const steps = config.steps?.map((step) => {
+    if (!step.popover) return step;
+    return {
+      ...step,
+      popover: {
+        ...step.popover,
+        showButtons: Array.from(
+          new Set([...(step.popover.showButtons ?? ["next", "previous"]), "close" as const])
+        ),
+      },
+    };
+  });
+
+  let skipTriggered = false;
+  const triggerSkipTutorial = (e?: Event) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (skipTriggered) return;
+    skipTriggered = true;
+    setAutomaticTutorialsEnabled(false);
+    driverInstance.destroy();
+    toast("Tutorial skipped", {
+      description: "Automatic tutorials turned off.",
+      action: {
+        label: "Undo",
+        onClick: () => {
+          setAutomaticTutorialsEnabled(true);
+          toast.success("Automatic tutorials turned on");
+        },
+      },
+    });
+  };
+
+  const driverInstance = driver({
+    allowClose: true,
     ...config,
+    steps,
+    showButtons,
+    onCloseClick: () => {
+      triggerSkipTutorial();
+    },
+    onPopoverRender: (popover, opts) => {
+      userOnPopoverRender?.(popover, opts);
+
+      if (popover.footer) {
+        popover.footer.style.display = "grid";
+      }
+
+      if (popover.closeButton) {
+        popover.closeButton.textContent = "Skip";
+        popover.closeButton.classList.add("driver-popover-skip-btn");
+        popover.closeButton.style.display = "inline-flex";
+        popover.closeButton.setAttribute("aria-label", "Skip tutorial");
+        popover.closeButton.setAttribute("title", "Skip tutorial");
+        popover.closeButton.onclick = triggerSkipTutorial;
+        popover.closeButton.onpointerdown = triggerSkipTutorial;
+      }
+
+      if (popover.footer && popover.previousButton) {
+        popover.footer.insertBefore(popover.previousButton, popover.footer.firstChild);
+      }
+    },
     onDestroyed: (element, step, options) => {
       onDestroyed?.(element, step, options);
       if (options.reason !== "done") return;
@@ -62,5 +128,7 @@ export function startGuidedTutorial(config: Config): void {
         },
       });
     },
-  }).drive();
+  });
+
+  driverInstance.drive();
 }
