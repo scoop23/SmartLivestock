@@ -401,6 +401,7 @@ export function GISMap({
   ): string => {
     if (diseaseSubMode === 'simulation' && simulatedStates?.[bName]) {
       const state = simulatedStates[bName];
+      if (!state.hasLivestock && state.cases === 0) return '#94a3b8';
       return getSimulationColor(state.cases, state.transmissionPressure);
     }
     if (diseaseSubMode === 'trend') {
@@ -554,8 +555,12 @@ export function GISMap({
         : `${lHeads} ${lType.toLowerCase()}`;
     if (layer === 'disease') {
       if (subMode === 'simulation' && simState) {
-        const caseLabel = simState.cases === 1 ? 'case' : 'cases';
-        tooltipMetric = `${simState.cases} ${caseLabel} \u2022 modeled pressure: ${(simState.transmissionPressure * 100).toFixed(0)}% (${simState.risk.toUpperCase()})`;
+        if (!simState.hasLivestock && simState.cases === 0) {
+          tooltipMetric = 'Not modeled: no approved active cloven-hoofed livestock';
+        } else {
+          const caseLabel = simState.cases === 1 ? 'case' : 'cases';
+          tooltipMetric = `${simState.cases} ${caseLabel} \u2022 modeled pressure: ${(simState.transmissionPressure * 100).toFixed(0)}% (${simState.risk.toUpperCase()})`;
+        }
       } else if (subMode === 'trend') {
         const trendStatus =
           data.active_cases > 0
@@ -744,7 +749,9 @@ export function GISMap({
       } else if (activeLayer === 'disease') {
         if (diseaseSubMode === 'simulation' && simulatedStates?.[b.name]) {
           const simState = simulatedStates[b.name];
-          statText = simulationColorMode === 'pressure'
+          statText = !simState.hasLivestock && simState.cases === 0
+            ? '— no livestock'
+            : simulationColorMode === 'pressure'
             ? `⚡${(simState.transmissionPressure * 100).toFixed(0)}%`
             : `${simState.cases} case${simState.cases === 1 ? '' : 's'}`;
         } else {

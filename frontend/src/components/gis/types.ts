@@ -234,6 +234,7 @@ export interface SimulationParameters {
 
 export interface SimulatedBarangayState {
   cases: number;              // Simulated active cases at this time step
+  hasLivestock: boolean;      // Approved active cloven-hoofed inventory is present for transmission modeling
   risk: 'low' | 'medium' | 'high' | 'critical';
   transmissionPressure: number; // Normalized pressure score [0, 1]
   rawPressure: number;        // Unnormalized pressure

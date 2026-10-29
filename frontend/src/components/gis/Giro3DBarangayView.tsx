@@ -117,6 +117,7 @@ function getLayerColor(
   simulation: SimulatedBarangayState | undefined,
 ): string {
   if (layer === 'disease' && diseaseSubMode === 'simulation') {
+    if (simulation && !simulation.hasLivestock && simulation.cases === 0) return '#94a3b8';
     if (simulationColorMode === 'pressure') {
       const pressure = simulation?.transmissionPressure ?? 0;
       if (pressure >= 0.70) return '#991b1b';
@@ -703,7 +704,9 @@ export function Giro3DBarangayView({
             const name = String(feature.get('name') ?? '');
             const simState = simulatedStatesRef.current?.[name];
             label.textContent = activeLayer === 'disease' && diseaseSubMode === 'simulation' && simState
-              ? `${name}\n${simState.cases} case${simState.cases === 1 ? '' : 's'} | ${(simState.transmissionPressure * 100).toFixed(0)}% pressure`
+              ? !simState.hasLivestock && simState.cases === 0
+                ? `${name}\nNot modeled · 0 livestock`
+                : `${name}\n${simState.cases} case${simState.cases === 1 ? '' : 's'} | ${(simState.transmissionPressure * 100).toFixed(0)}% pressure`
               : name;
             const anchor = labelAnchors.get(feature);
             if (!anchor) continue;

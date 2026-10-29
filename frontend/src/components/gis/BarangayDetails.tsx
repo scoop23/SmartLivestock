@@ -187,7 +187,9 @@ export function BarangayDetails({
 
           <div
             className={`rounded-xl p-2.5 text-center border ${
-              isSim
+              isSim && simulatedState && !simulatedState.hasLivestock && simulatedState.cases === 0
+                ? 'bg-slate-100 border-slate-300 text-slate-700'
+                : isSim
                 ? simulatedState?.risk === 'critical' || simulatedState?.risk === 'high'
                   ? 'bg-rose-50 border-rose-200 text-rose-800'
                   : 'bg-amber-50 border-amber-200 text-amber-800'
@@ -205,7 +207,9 @@ export function BarangayDetails({
             }`}
           >
             <div className="text-xl font-black uppercase tracking-tight font-mono">
-              {isSim
+              {isSim && simulatedState && !simulatedState.hasLivestock && simulatedState.cases === 0
+                ? 'NOT MODELED'
+                : isSim
                 ? (simulatedState?.risk || 'LOW').toUpperCase()
                 : isTrend
                 ? data.active_cases > 0
@@ -217,7 +221,9 @@ export function BarangayDetails({
             </div>
             <div className="text-[11px] font-bold uppercase tracking-wide">
               {isSim
-                ? '⚡ Simulated Risk'
+                ? isSim && simulatedState && !simulatedState.hasLivestock && simulatedState.cases === 0
+                  ? 'No approved active livestock'
+                  : '⚡ Simulated Risk'
                 : isTrend
                 ? '🩺 Surveillance Status'
                 : '🩺 Reported Risk'}
@@ -315,7 +321,11 @@ export function BarangayDetails({
 
           {/* If Simulation Mode is Active */}
           {isSim && simulatedState && (
-            <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 text-xs space-y-1.5">
+            !simulatedState.hasLivestock && simulatedState.cases === 0 ? (
+              <div className="bg-slate-100 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-700">
+                This barangay is excluded from simulated transmission because there are no approved active cloven-hoofed livestock records.
+              </div>
+            ) : <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 text-xs space-y-1.5">
               <div className="flex justify-between font-bold text-amber-950">
                 <span>⚡ Simulated Transmission Pressure:</span>
                 <span className="font-mono">{simulatedState.transmissionPressure}</span>

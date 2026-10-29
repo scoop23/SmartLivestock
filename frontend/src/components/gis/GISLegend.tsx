@@ -63,6 +63,7 @@ export function GISLegend({
             { color: '#ea580c', label: '40-69% transmission pressure' },
             { color: '#f59e0b', label: '20-39% transmission pressure' },
             { color: '#10b981', label: 'Below 20% transmission pressure' },
+            { color: '#94a3b8', label: 'Not modeled (no active livestock)' },
           ];
         }
         return [
@@ -70,6 +71,7 @@ export function GISLegend({
           { color: '#ea580c', label: '3-5 modeled cases' },
           { color: '#f59e0b', label: '1-2 modeled cases' },
           { color: '#10b981', label: '0 modeled cases' },
+          { color: '#94a3b8', label: 'Not modeled (no active livestock)' },
         ];
       }
       if (diseaseSubMode === 'trend') {

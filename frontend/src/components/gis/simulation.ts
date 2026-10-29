@@ -306,16 +306,17 @@ const CLOVEN_SPECIES = ['cattle', 'carabao', 'goat', 'swine', 'sheep', 'pig', 'c
  */
 export function getClovenHoofedHeads(b: BarangayGISData): number {
   if (b.species_breakdown && b.species_breakdown.length > 0) {
-    const sum = b.species_breakdown.reduce((acc, curr) => {
+    return b.species_breakdown.reduce((acc, curr) => {
       const s = curr.species.toLowerCase();
       if (CLOVEN_SPECIES.some((k) => s.includes(k))) {
         return acc + curr.heads;
       }
       return acc;
     }, 0);
-    if (sum > 0) return sum;
   }
-  return b.cattle || b.total_livestock || 10;
+  // A missing/empty inventory must mean zero; synthetic fallback heads created
+  // pressure in places where the database has no approved active livestock.
+  return b.cattle || 0;
 }
 
 /**
@@ -376,6 +377,8 @@ export function computeAnnualSimulationTrajectory(
       for (const source of barangays) {
         const sName = source.name;
         if (sName === tName) continue;
+        // A location without approved active host animals cannot transmit the modeled livestock disease.
+        if (getClovenHoofedHeads(source) <= 0) continue;
 
         const infSource = currentInfected[sName] || 0;
         if (infSource <= 0) continue;
@@ -425,6 +428,7 @@ export function computeAnnualSimulationTrajectory(
 
       const cases = currentInfected[b.name] || 0;
       monthTotalInfected += cases;
+      const hasLivestock = getClovenHoofedHeads(b) > 0;
 
       let risk: 'low' | 'medium' | 'high' | 'critical' = 'low';
       if (normP >= 0.70 || cases >= 15) risk = 'critical';
@@ -433,11 +437,12 @@ export function computeAnnualSimulationTrajectory(
 
       states[b.name] = {
         cases,
+        hasLivestock,
         risk,
         transmissionPressure: normP,
         rawPressure: Number(rawP.toFixed(2)),
         windExposureFactor: Number((windExposures[b.name] || 0).toFixed(2)),
-        projectedPeak: Math.min(50, Math.round(cases * 1.35) + 2),
+        projectedPeak: hasLivestock || cases > 0 ? Math.min(50, Math.round(cases * 1.35) + 2) : 0,
       };
     }
 
