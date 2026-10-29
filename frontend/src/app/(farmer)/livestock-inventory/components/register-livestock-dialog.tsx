@@ -2,65 +2,70 @@
 
 import type { LivestockBatchItem, CreateInventoryPayload } from "../livestock-inventory";
 import { httpError } from "@/lib/http-error";
-import { useMutation,useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect,useMemo,useRef,useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
-AlertCircle,
-Camera,
-Check,
-Download,
-FileText,
-HelpCircle,
-Layers,
-Minus,
-Plus,
-Save,
-Sparkles,
-Syringe,
-Tag,
-Trash2,
-Upload,
-Users,
-Wand2
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Camera,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  ClipboardCheck,
+  HelpCircle,
+  Info,
+  Layers,
+  Minus,
+  Plus,
+  Sparkles,
+  Syringe,
+  Tag,
+  Trash2,
+  Upload,
+  Users,
+  Wand2,
+  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-Dialog,
-DialogContent,
-DialogDescription,
-DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-Select,
-SelectContent,
-SelectItem,
-SelectTrigger,
-SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-Tooltip,
-TooltipContent,
-TooltipProvider,
-TooltipTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/auth-context";
 
 import api from "@/lib/axios";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import {
-type EntryType,
-getAvatarById,
-getDefaultAvatarForSpecies,
-getSpeciesPreset,
-LIVESTOCK_AVATAR_PRESETS,
+  type EntryType,
+  getAvatarById,
+  getDefaultAvatarForSpecies,
+  getSpeciesPreset,
+  LIVESTOCK_AVATAR_PRESETS,
 } from "../livestock-inventory";
 
 /* ── Inline Information Hover Tooltip ── */
@@ -153,7 +158,6 @@ function normalizeTagName(name: string) {
 }
 
 function nextOwnerTag(prefix: string, usedTags: string[]) {
-  // The prefix is normalized to letters, digits, and hyphens, so it is safe in this pattern.
   const pattern = new RegExp(`^${prefix}-(\\d{3,})$`, "i");
   const highest = usedTags.reduce((max, tag) => {
     const match = tag.trim().match(pattern);
@@ -180,6 +184,56 @@ function resolveBreed(species: string, breed?: string | null) {
   return breed?.trim() || getSpeciesPreset(species).commonBreeds?.[0] || "Standard";
 }
 
+function getSpeciesIllustration(name: string) {
+  const lower = name.toLowerCase();
+  if (lower.includes("cattle") || lower.includes("cow")) return "🐂";
+  if (lower.includes("swine") || lower.includes("pig")) return "🐖";
+  if (lower.includes("sheep")) return "🐑";
+  if (lower.includes("carabao") || lower.includes("buffalo")) return "🐃";
+  if (lower.includes("goat")) return "🐐";
+  if (lower.includes("poultry") || lower.includes("chicken")) return "🐔";
+  return "🏷️";
+}
+
+const WIZARD_STEPS = [
+  {
+    step: 1,
+    title: "Select Livestock Species",
+    shortTitle: "Species & Photo",
+    bannerTitle: "Add Livestock",
+    bannerSubtitle: "Add an animal or a group of animals to your livestock.",
+    icon: Tag,
+    optional: false,
+  },
+  {
+    step: 2,
+    title: "Herd Profile (optional)",
+    shortTitle: "Herd Profile",
+    bannerTitle: "Herd Profile",
+    bannerSubtitle: "Assign an identifiable herd name and housing details.",
+    icon: Layers,
+    optional: true,
+  },
+  {
+    step: 3,
+    title: "Individual Livestock Details",
+    shortTitle: "Animal Details",
+    bannerTitle: "Individual Livestock Details",
+    bannerSubtitle: "Edit individual tags, breed, sex, weight, and vaccination per animal.",
+    icon: Users,
+    optional: false,
+  },
+  {
+    step: 4,
+    title: "Review & Submit",
+    shortTitle: "Review & Submit",
+    bannerTitle: "Review & Submit",
+    bannerSubtitle: "Please check the details before submitting.",
+    icon: ClipboardCheck,
+    optional: false,
+  },
+] as const;
+
 export function RegisterLivestockDialog(props: RegisterLivestockDialogProps) {
   const { user } = useAuth();
   const identity = [user?.firstName, user?.lastName, user?.username].join(":");
@@ -201,62 +255,69 @@ function RegisterLivestockDialogContent({
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || ""
   );
 
-  const [formError, setFormError] = useState("");
-  const [submittedLivestock, setSubmittedLivestock] = useState<{ id: string; tagNumber: string } | null>(null);
-  const [formData, setFormData] = useState(() => ({ ...initialFormData, tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "" }));
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [sidePhotoFiles, setSidePhotoFiles] = useState<SidePhotoFiles>({ left: null, right: null });
-  const [sidePhotoPreviews, setSidePhotoPreviews] = useState<SidePhotoPreviews>({ left: "", right: "" });
-  const sidePhotoInputRefs = useRef<Record<AnimalSide, HTMLInputElement | null>>({ left: null, right: null });
-  const [batchPhotoFiles, setBatchPhotoFiles] = useState<File[]>([]);
-  const [batchPhotoDataUrls, setBatchPhotoDataUrls] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const batchFileInputRef = useRef<HTMLInputElement>(null);
-  const [showAllAvatars, setShowAllAvatars] = useState(false);
-
-  // Batch individual animals state for Add Modal
-  const [batchAnimals, setBatchAnimals] = useState<BatchAnimalFormRow[]>(() =>
-    createDefaultBatchAnimals(ownerTagPrefix, existingTags)
-  );
-
   // Draft persistence in localStorage
   const draftStorageKey = useMemo(() => {
     return `smartlivestock_livestock_draft_${user?.username || "default"}`;
   }, [user?.username]);
 
-  const [hasDraft, setHasDraft] = useState(false);
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<"saved" | "saving" | "idle">("idle");
-
-  // Auto-restore draft on mount if available
-  useEffect(() => {
+  const initialDraft = useMemo(() => {
     try {
+      if (typeof window === "undefined") return null;
       const raw = localStorage.getItem(draftStorageKey);
       if (raw) {
         const parsed = JSON.parse(raw) as LivestockRegistrationDraft;
-        if (parsed?.savedAt) {
-          if (parsed.formData) {
-            const restoredFormData = { ...initialFormData, ...parsed.formData };
-            if (!restoredFormData.isOtherBreed) {
-              restoredFormData.breed = resolveBreed(restoredFormData.livestockType, restoredFormData.breed);
-            }
-            setFormData(restoredFormData);
-          }
-          if (parsed.batchAnimals && Array.isArray(parsed.batchAnimals) && parsed.batchAnimals.length > 0) {
-            setBatchAnimals(parsed.batchAnimals);
-          }
-          if (parsed.batchPhotoDataUrls && Array.isArray(parsed.batchPhotoDataUrls)) {
-            setBatchPhotoDataUrls(parsed.batchPhotoDataUrls);
-          }
-          setHasDraft(true);
-          setDraftSavedAt(parsed.savedAt);
-          setAutoSaveStatus("saved");
-        }
+        if (parsed?.savedAt) return parsed;
       }
     } catch {
-      // Ignore localStorage read errors
+      // Ignore
     }
+    return null;
   }, [draftStorageKey]);
+
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  const [formError, setFormError] = useState("");
+  const [submittedLivestock, setSubmittedLivestock] = useState<{ id: string; tagNumber: string } | null>(null);
+  const [formData, setFormData] = useState(() => {
+    if (initialDraft?.formData) {
+      const restored = { ...initialFormData, ...initialDraft.formData };
+      if (!restored.isOtherBreed) {
+        restored.breed = resolveBreed(restored.livestockType, restored.breed);
+      }
+      return restored;
+    }
+    return {
+      ...initialFormData,
+      tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
+    };
+  });
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [sidePhotoFiles, setSidePhotoFiles] = useState<SidePhotoFiles>({ left: null, right: null });
+  const [sidePhotoPreviews, setSidePhotoPreviews] = useState<SidePhotoPreviews>({ left: "", right: "" });
+  const sidePhotoInputRefs = useRef<Record<AnimalSide, HTMLInputElement | null>>({ left: null, right: null });
+  const [batchPhotoFiles, setBatchPhotoFiles] = useState<File[]>([]);
+  const [batchPhotoDataUrls, setBatchPhotoDataUrls] = useState<string[]>(() => {
+    if (initialDraft?.batchPhotoDataUrls && Array.isArray(initialDraft.batchPhotoDataUrls)) {
+      return initialDraft.batchPhotoDataUrls;
+    }
+    return [];
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const batchFileInputRef = useRef<HTMLInputElement>(null);
+  const [showAllAvatars, setShowAllAvatars] = useState(false);
+  const [expandedAnimalIndex, setExpandedAnimalIndex] = useState<number | null>(0);
+  const [isReviewConfirmed, setIsReviewConfirmed] = useState(false);
+
+  // Batch individual animals state for Add Modal
+  const [batchAnimals, setBatchAnimals] = useState<BatchAnimalFormRow[]>(() => {
+    if (initialDraft?.batchAnimals && Array.isArray(initialDraft.batchAnimals) && initialDraft.batchAnimals.length > 0) {
+      return initialDraft.batchAnimals;
+    }
+    return createDefaultBatchAnimals(ownerTagPrefix, existingTags);
+  });
+
+  const [hasDraft, setHasDraft] = useState(() => Boolean(initialDraft?.savedAt));
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(() => initialDraft?.savedAt || null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"saved" | "saving" | "idle">(() => initialDraft?.savedAt ? "saved" : "idle");
 
   // Debounced auto-save effect whenever form data or animals change
   useEffect(() => {
@@ -276,8 +337,8 @@ function RegisterLivestockDialogContent({
 
     if (!hasMeaningfulContent) return;
 
-    setAutoSaveStatus("saving");
     const timeout = setTimeout(() => {
+      setAutoSaveStatus("saving");
       try {
         const now = new Date().toISOString();
         const draftFormData = {
@@ -352,6 +413,8 @@ function RegisterLivestockDialogContent({
       setHasDraft(false);
       setDraftSavedAt(null);
       setAutoSaveStatus("idle");
+      setCurrentStep(1);
+      setIsReviewConfirmed(false);
       setFormData({
         ...initialFormData,
         tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
@@ -597,6 +660,7 @@ function RegisterLivestockDialogContent({
     const updated = [...batchAnimals, newAnimal];
     setBatchAnimals(updated);
     setFormData((prev) => ({ ...prev, quantity: updated.length }));
+    setExpandedAnimalIndex(updated.length - 1);
   };
 
   const removeBatchAnimalRow = (index: number) => {
@@ -604,6 +668,11 @@ function RegisterLivestockDialogContent({
     const updated = batchAnimals.filter((_, i) => i !== index);
     setBatchAnimals(updated);
     setFormData((prev) => ({ ...prev, quantity: updated.length }));
+    if (expandedAnimalIndex === index) {
+      setExpandedAnimalIndex(Math.max(0, index - 1));
+    } else if (expandedAnimalIndex !== null && expandedAnimalIndex > index) {
+      setExpandedAnimalIndex(expandedAnimalIndex - 1);
+    }
   };
 
   const handleClearAllBatchAnimals = () => {
@@ -620,6 +689,7 @@ function RegisterLivestockDialogContent({
     };
     setBatchAnimals([singleAnimal]);
     setFormData((prev) => ({ ...prev, quantity: 1 }));
+    setExpandedAnimalIndex(0);
     toast.info("Cleared animal roster. Reset to 1 animal.");
   };
 
@@ -684,8 +754,6 @@ function RegisterLivestockDialogContent({
 
   const currentPreset = getSpeciesPreset(formData.livestockType);
 
-  // Species gate: herds keep a single species, so an individual animal may only
-  // be assigned to a herd whose livestock type matches the selected species.
   const batchSpeciesById = useMemo(() => {
     return Object.fromEntries(
       userBatches.map((b) => [String(b.id), b.livestockTypeName])
@@ -705,8 +773,6 @@ function RegisterLivestockDialogContent({
       }
 
       if (formData.entryType === "INDIVIDUAL") {
-        // `none` is only the Select's UI sentinel; it must never be sent as a
-        // herd ID (including when restoring an older saved draft).
         const rawBatchId = String(formData.batchId || "").trim();
         const batchId = rawBatchId && rawBatchId !== "none" ? Number(rawBatchId) : null;
         if (batchId !== null && (!Number.isSafeInteger(batchId) || batchId <= 0)) {
@@ -770,7 +836,6 @@ function RegisterLivestockDialogContent({
         }
         return response.data;
       } else {
-        // BATCH submission:
         const avgWeight = batchAnimals.length > 0
           ? Math.round(
             (batchAnimals.reduce((acc, a) => acc + (parseFloat(a.weight) || 0), 0) / batchAnimals.length) * 10
@@ -845,16 +910,17 @@ function RegisterLivestockDialogContent({
       }
     },
     onSuccess: (createdRecord) => {
-      queryClient.invalidateQueries({ queryKey: ["inventory"] }); // refresh
-      queryClient.invalidateQueries({ queryKey: ["livestock-batches"] }); // refresh
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
       const wasBatch = formData.entryType === "BATCH";
       const registeredQty = wasBatch ? batchAnimals.length : formData.quantity;
       onOpenChange(false);
       setFormData(initialFormData);
+      setCurrentStep(1);
+      setIsReviewConfirmed(false);
       setPhotoFile(null);
       clearSidePhotos();
 
-      // Clear draft on successful submission
       try {
         localStorage.removeItem(draftStorageKey);
         setHasDraft(false);
@@ -906,66 +972,126 @@ function RegisterLivestockDialogContent({
     },
   });
 
-  const handleAddSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateStep = (stepNumber: number): boolean => {
     setFormError("");
-
-    if (formData.entryType === "INDIVIDUAL") {
-      const earTagError = tagError(formData.tagNumber, [], formData.isCustomTag);
-      if (earTagError) {
-        setFormError(earTagError);
-        return;
+    if (stepNumber === 1) {
+      if (!formData.livestockType) {
+        setFormError("Please select a livestock species.");
+        return false;
       }
-      if (!formData.tagNumber.trim()) {
-        setFormError("Ear Tag number is required for individual animals.");
-        return;
-      }
-      const selectedBreed = formData.isOtherBreed
-        ? formData.customBreed.trim()
-        : resolveBreed(formData.livestockType, formData.breed);
-      if (!selectedBreed) {
-        setFormError("Breed is required.");
-        return;
-      }
-      if (formData.isVaccinated && !formData.lastVaccinationDate) {
-        setFormError("Please select the last vaccination date or uncheck 'Vaccinated'.");
-        return;
-      }
-    } else {
-      if (batchAnimals.length < 1) {
-        setFormError("At least 1 animal is required in a batch.");
-        return;
-      }
-      for (let i = 0; i < batchAnimals.length; i++) {
-        const otherTags = batchAnimals
-          .filter((_, index) => index !== i)
-          .map((animal) => animal.tagNumber);
-        const earTagError = tagError(batchAnimals[i].tagNumber, otherTags);
+      if (formData.entryType === "INDIVIDUAL") {
+        const earTagError = tagError(formData.tagNumber, [], formData.isCustomTag);
         if (earTagError) {
-          setFormError(`Animal #${i + 1}: ${earTagError}`);
-          return;
+          setFormError(earTagError);
+          return false;
         }
-        if (!batchAnimals[i].tagNumber.trim()) {
-          setFormError(`Ear Tag is required for Animal #${i + 1}.`);
-          return;
+        if (!formData.tagNumber.trim()) {
+          setFormError("Ear Tag number is required for individual animals.");
+          return false;
         }
-        if (!batchAnimals[i].breed.trim()) {
-          setFormError(`Breed is required for Animal #${i + 1}.`);
-          return;
+      }
+      return true;
+    }
+    if (stepNumber === 2) {
+      // Herd Profile is optional
+      return true;
+    }
+    if (stepNumber === 3) {
+      if (formData.entryType === "INDIVIDUAL") {
+        const selectedBreed = formData.isOtherBreed
+          ? formData.customBreed.trim()
+          : resolveBreed(formData.livestockType, formData.breed);
+        if (!selectedBreed) {
+          setFormError("Breed is required.");
+          return false;
         }
-        if (batchAnimals[i].lastVaccinationDate > localCalendarDateToday()) {
-          setFormError(`Vaccination date for Animal #${i + 1} cannot be in the future.`);
-          return;
+        if (formData.isVaccinated && !formData.lastVaccinationDate) {
+          setFormError("Please select the last vaccination date or uncheck 'Vaccinated'.");
+          return false;
         }
+        if (formData.lastVaccinationDate && formData.lastVaccinationDate > localCalendarDateToday()) {
+          setFormError("Vaccination date cannot be in the future.");
+          return false;
+        }
+      } else {
+        if (batchAnimals.length < 1) {
+          setFormError("At least 1 animal is required in a batch.");
+          return false;
+        }
+        for (let i = 0; i < batchAnimals.length; i++) {
+          const otherTags = batchAnimals
+            .filter((_, index) => index !== i)
+            .map((animal) => animal.tagNumber);
+          const earTagError = tagError(batchAnimals[i].tagNumber, otherTags);
+          if (earTagError) {
+            setFormError(`Animal #${i + 1}: ${earTagError}`);
+            return false;
+          }
+          if (!batchAnimals[i].tagNumber.trim()) {
+            setFormError(`Ear Tag is required for Animal #${i + 1}.`);
+            return false;
+          }
+          if (!batchAnimals[i].breed.trim()) {
+            setFormError(`Breed is required for Animal #${i + 1}.`);
+            return false;
+          }
+          if (batchAnimals[i].lastVaccinationDate && batchAnimals[i].lastVaccinationDate > localCalendarDateToday()) {
+            setFormError(`Vaccination date for Animal #${i + 1} cannot be in the future.`);
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+    return true;
+  };
+
+  const handleNext = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (validateStep(currentStep)) {
+      if (currentStep < 4) {
+        setCurrentStep((prev) => (prev + 1) as 1 | 2 | 3 | 4);
       }
     }
+  };
 
+  const handleBack = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setFormError("");
+    if (currentStep > 1) {
+      setCurrentStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
+    }
+  };
+
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Guard: Do not submit to the backend on steps 1-3.
+    // If the form is triggered (e.g. via Enter key or Next click), simply advance to next step.
+    if (currentStep < 4) {
+      handleNext();
+      return;
+    }
+
+    if (!isReviewConfirmed) {
+      setFormError("Please check the confirmation box before submitting.");
+      return;
+    }
+
+    if (!validateStep(1) || !validateStep(3)) {
+      return;
+    }
     addMutation.mutate();
   };
 
   const handleModalClose = (nextOpen: boolean) => {
     onOpenChange(nextOpen);
     if (!nextOpen) {
+      setCurrentStep(1);
+      setIsReviewConfirmed(false);
       setFormError("");
       setFormData(initialFormData);
       setPhotoFile(null);
@@ -976,248 +1102,335 @@ function RegisterLivestockDialogContent({
     }
   };
 
+  const currentStepConfig = WIZARD_STEPS[currentStep - 1];
+  const CurrentStepIcon = currentStepConfig.icon;
+
   return (
     <>
-    <Dialog open={open} onOpenChange={handleModalClose}>
-      <DialogContent className="w-full max-w-[96vw] sm:max-w-3xl md:max-w-4xl h-[90vh] sm:h-[86vh] max-h-[850px] flex flex-col rounded-3xl p-0 border-0 shadow-2xl overflow-hidden bg-white">
-        {/* Modal Header */}
-        <div className="shrink-0 bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white p-5 sm:p-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md">
-              <Tag className="w-6 h-6 text-emerald-300" />
-            </div>
-            <div>
-              <DialogTitle className="text-xl font-black text-white">
-                Add Livestock
-              </DialogTitle>
-              <DialogDescription className="text-xs text-emerald-200/80 mt-0.5">
-                Add an animal or a group of animals to your livestock.
-              </DialogDescription>
+      <Dialog open={open} onOpenChange={handleModalClose}>
+        <DialogContent className="w-full max-w-[96vw] sm:max-w-3xl md:max-w-4xl h-[92vh] sm:h-[88vh] max-h-[880px] flex flex-col rounded-3xl p-0 border-0 shadow-2xl overflow-hidden bg-white">
+          {/* Header Banner */}
+          <div className="shrink-0 bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white p-4 sm:p-5 relative">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="size-11 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-emerald-300 border border-white/10 shadow-xs">
+                  <CurrentStepIcon className="size-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="size-5 rounded-full bg-emerald-500/30 text-emerald-300 text-[11px] font-black flex items-center justify-center">
+                      {currentStep}
+                    </span>
+                    <DialogTitle className="text-lg sm:text-xl font-black text-white tracking-tight">
+                      {currentStepConfig.bannerTitle}
+                    </DialogTitle>
+                  </div>
+                  <DialogDescription className="text-xs text-emerald-200/90 mt-0.5">
+                    {currentStepConfig.bannerSubtitle}
+                  </DialogDescription>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleModalClose(false)}
+                className="size-8 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="size-4" />
+              </button>
             </div>
           </div>
-        </div>
 
-        <form onSubmit={handleAddSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white">
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-5">
-            {formError && (
-              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-bold flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            {hasDraft && (
-              <div className="p-3 sm:p-3.5 bg-emerald-50/90 border border-emerald-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs animate-in fade-in-50 duration-200">
-                <div className="flex items-center gap-2.5">
-                  <div className="size-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                    <Check className="size-4" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-black text-emerald-950">
-                        Auto-Saved Draft Active
-                      </p>
-                      <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-800 border-emerald-300 font-bold">
-                        Auto-Saved
-                      </Badge>
-                    </div>
-                    <p className="text-[11px] text-emerald-800">
-                      Your inputs are automatically saved{draftSavedAt ? ` (last saved ${new Date(draftSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})` : ""}.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                  <Button
+          {/* Stepper Progress Navigation Bar */}
+          <div className="shrink-0 bg-slate-50 border-b border-slate-200/80 px-4 sm:px-6 py-2.5">
+            <div className="flex items-center justify-between gap-1 sm:gap-2 max-w-2xl mx-auto overflow-x-auto">
+              {WIZARD_STEPS.map((s) => {
+                const isCurrent = currentStep === s.step;
+                const isCompleted = currentStep > s.step;
+                return (
+                  <button
+                    key={s.step}
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleStartFresh}
-                    className="h-8 px-2.5 rounded-xl text-rose-700 hover:bg-rose-100/60 text-xs font-bold gap-1 cursor-pointer"
+                    onClick={() => {
+                      if (s.step < currentStep) {
+                        setCurrentStep(s.step as 1 | 2 | 3 | 4);
+                      } else if (s.step > currentStep) {
+                        if (validateStep(currentStep)) {
+                          setCurrentStep(s.step as 1 | 2 | 3 | 4);
+                        }
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 sm:gap-2 text-left transition-all p-1 rounded-xl shrink-0 ${
+                      isCurrent
+                        ? "text-emerald-950 font-black"
+                        : isCompleted
+                          ? "text-emerald-700 font-bold hover:text-emerald-900 cursor-pointer"
+                          : "text-slate-400 font-medium cursor-not-allowed opacity-60"
+                    }`}
                   >
-                    <Trash2 className="size-3.5" /> Discard / Start Fresh
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Entry Mode Toggle */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <Label className="text-xs font-black uppercase tracking-wider text-slate-500">
-                  Entry Mode
-                </Label>
-                <InfoTooltip text="Choose whether you are registering a single animal with its own tag, or a group of animals raised together as a herd." />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, entryType: "INDIVIDUAL" })}
-                  className={`flex min-h-11 items-center justify-center gap-2 px-2 py-2.5 rounded-xl text-xs font-black transition-all ${formData.entryType === "INDIVIDUAL"
-                    ? "bg-white text-emerald-950 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
-                    }`}
-                >
-                  <Tag className="w-4 h-4 text-emerald-700" />
-                  Individual Animal (Tagged)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, entryType: "BATCH" })}
-                  className={`flex min-h-11 items-center justify-center gap-2 px-2 py-2.5 rounded-xl text-xs font-black transition-all ${formData.entryType === "BATCH"
-                    ? "bg-white text-emerald-950 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
-                    }`}
-                >
-                  <Layers className="w-4 h-4 text-teal-700" />
-                  Herd
-                </button>
-              </div>
+                    <div
+                      className={`size-7 rounded-full flex items-center justify-center text-xs transition-all ${
+                        isCurrent
+                          ? "bg-emerald-700 text-white font-black shadow-xs ring-2 ring-emerald-600/30 ring-offset-1"
+                          : isCompleted
+                            ? "bg-emerald-100 text-emerald-800 font-black border border-emerald-300"
+                            : "bg-slate-200/80 text-slate-500 border border-slate-300"
+                      }`}
+                    >
+                      {isCompleted ? <Check className="size-3.5 stroke-[3]" /> : s.step}
+                    </div>
+                    <span className="hidden sm:inline text-xs font-bold leading-tight">
+                      {s.shortTitle}
+                    </span>
+                    {s.step < 4 && (
+                      <ChevronRight className="size-3.5 text-slate-300 hidden sm:inline ml-1" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            {/* Species Selection with Preset Chips */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <Label className="text-xs font-black uppercase tracking-wider text-slate-500">
-                  Livestock Species
-                </Label>
-                <InfoTooltip text="Select the animal species category (e.g. Cattle, Carabao, Swine, Goat, Sheep)." />
-              </div>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                {Object.entries(livestockTypes).map(([name]) => {
-                  const isSelected = formData.livestockType === name;
-                  return (
-                    <button
-                      key={name}
+          {/* Form Content Area */}
+          <form onSubmit={handleAddSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-5">
+              {/* Error Alert */}
+              {formError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 font-bold flex items-center gap-2 animate-in fade-in-50 duration-200">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              {/* Auto-saved draft notification */}
+              {hasDraft && currentStep === 1 && (
+                <div className="p-3 sm:p-3.5 bg-emerald-50/90 border border-emerald-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs animate-in fade-in-50 duration-200">
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                      <Check className="size-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-black text-emerald-950">
+                          Auto-Saved Draft Active
+                        </p>
+                        <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-800 border-emerald-300 font-bold">
+                          Auto-Saved
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-emerald-800">
+                        Your inputs are automatically saved{draftSavedAt ? ` (last saved ${new Date(draftSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})` : ""}.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                    <Button
                       type="button"
-                      onClick={() => {
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleStartFresh}
+                      className="h-8 px-2.5 rounded-xl text-rose-700 hover:bg-rose-100/60 text-xs font-bold gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="size-3.5" /> Discard / Start Fresh
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* ──────────────────────────────────────────────────────────
+                  STEP 1: SELECT LIVESTOCK SPECIES & TAG IDENTIFIER (WITH PHOTO)
+              ────────────────────────────────────────────────────────── */}
+              {currentStep === 1 && (
+                <div className="space-y-4 animate-in fade-in-50 duration-200">
+                  {/* Entry Mode Toggle */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-xs font-black uppercase tracking-wider text-slate-500">
+                        Entry Mode
+                      </Label>
+                      <InfoTooltip text="Choose whether you are registering a single animal with its own tag, or a group of animals raised together as a herd." />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, entryType: "INDIVIDUAL" })}
+                        className={`flex min-h-11 items-center justify-center gap-2 px-2 py-2 rounded-xl text-xs font-black transition-all ${
+                          formData.entryType === "INDIVIDUAL"
+                            ? "bg-white text-emerald-950 shadow-sm"
+                            : "text-slate-500 hover:text-slate-800"
+                        }`}
+                      >
+                        <Tag className="w-4 h-4 text-emerald-700" />
+                        Individual Animal (Tagged)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, entryType: "BATCH" })}
+                        className={`flex min-h-11 items-center justify-center gap-2 px-2 py-2 rounded-xl text-xs font-black transition-all ${
+                          formData.entryType === "BATCH"
+                            ? "bg-white text-emerald-950 shadow-sm"
+                            : "text-slate-500 hover:text-slate-800"
+                        }`}
+                      >
+                        <Layers className="w-4 h-4 text-teal-700" />
+                        Herd (Batch of Animals)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Livestock Species Selection - 2 Column Pill Layout */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-xs font-black tracking-tight text-slate-800">
+                        Livestock Species
+                      </Label>
+                      <InfoTooltip text="Select the animal species category (e.g. Cattle, Swine, Sheep, Carabao, Goat, Poultry)." />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {Object.entries(livestockTypes).map(([name]) => {
+                        const isSelected = formData.livestockType === name;
                         const preset = getSpeciesPreset(name);
-                        const defAvatar = getDefaultAvatarForSpecies(name);
-                        const defBreed = preset.commonBreeds?.[0] || "";
-                        setFormData((prev) => ({
-                          ...prev,
-                          livestockType: name,
-                          breed: defBreed,
-                          isOtherBreed: false,
-                          customBreed: "",
-                          feedType: "",
-                          isOtherFeed: false,
-                          customFeed: "",
-                          batchId:
-                            batchSpeciesById[String(prev.batchId)] &&
-                            batchSpeciesById[String(prev.batchId)] !== name
-                              ? ""
-                              : prev.batchId,
-                          avatarKey: prev.photoDataUrl ? prev.avatarKey : defAvatar.id,
-                          tagNumber:
-                            prev.entryType === "INDIVIDUAL" && !prev.tagNumber
-                              ? ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : ""
-                              : prev.tagNumber,
-                          batchName: prev.batchName ? prev.batchName : `${name} Herd #${Math.floor(100 + Math.random() * 900)}`,
-                        }));
-                        if (formData.entryType === "BATCH") {
-                          const defWeight = preset.suggestedWeightKg ? String(preset.suggestedWeightKg) : "65";
-                          const used = [...existingTags];
-                          setBatchAnimals((prev) => prev.map((animal) => {
-                            const tagNumber = ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, used) : "";
-                            used.push(tagNumber);
-                            return { ...animal, tagNumber, breed: defBreed, weight: defWeight };
+                        return (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => {
+                              const defAvatar = getDefaultAvatarForSpecies(name);
+                              const defBreed = preset.commonBreeds?.[0] || "";
+                              setFormData((prev) => ({
+                                ...prev,
+                                livestockType: name,
+                                breed: defBreed,
+                                isOtherBreed: false,
+                                customBreed: "",
+                                feedType: "",
+                                isOtherFeed: false,
+                                customFeed: "",
+                                batchId:
+                                  batchSpeciesById[String(prev.batchId)] &&
+                                  batchSpeciesById[String(prev.batchId)] !== name
+                                    ? ""
+                                    : prev.batchId,
+                                avatarKey: prev.photoDataUrl ? prev.avatarKey : defAvatar.id,
+                                tagNumber:
+                                  prev.entryType === "INDIVIDUAL" && !prev.tagNumber
+                                    ? ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : ""
+                                    : prev.tagNumber,
+                                batchName: prev.batchName ? prev.batchName : `${name} Herd #${Math.floor(100 + Math.random() * 900)}`,
+                              }));
+                              if (formData.entryType === "BATCH") {
+                                const defWeight = preset.suggestedWeightKg ? String(preset.suggestedWeightKg) : "65";
+                                const used = [...existingTags];
+                                setBatchAnimals((prev) => prev.map((animal) => {
+                                  const tagNumber = ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, used) : "";
+                                  used.push(tagNumber);
+                                  return { ...animal, tagNumber, breed: defBreed, weight: defWeight };
+                                }));
+                              }
+                            }}
+                            className={`h-13 sm:h-14 px-4 rounded-2xl border transition-all flex items-center gap-3 cursor-pointer ${
+                              isSelected
+                                ? "border-2 border-emerald-500 bg-emerald-50/70 text-emerald-950 font-black shadow-xs ring-1 ring-emerald-500/30"
+                                : "border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold"
+                            }`}
+                          >
+                            <div
+                              className={`size-8 rounded-xl flex items-center justify-center text-lg shrink-0 ${
+                                isSelected ? "bg-emerald-100" : "bg-slate-100"
+                              }`}
+                            >
+                              {getSpeciesIllustration(name)}
+                            </div>
+                            <span className="text-sm font-bold truncate">{name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Ear Tag / Identification Name */}
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Label
+                          htmlFor="tagNamingSelect"
+                          className="text-xs font-black tracking-tight text-slate-800"
+                        >
+                          Ear Tag / Identification Name
+                        </Label>
+                        <InfoTooltip text="Unique identification placed on the animal's ear tag or RFID chip. Keep standard format or specify a custom tag." />
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-semibold">
+                        {formData.isCustomTag ? "Custom Name Mode" : "Standard Name-Number"}
+                      </span>
+                    </div>
+
+                    <Select
+                      value={formData.isCustomTag ? "CUSTOM" : "STANDARD"}
+                      onValueChange={(val) => {
+                        if (val === "CUSTOM") {
+                          setFormData((prev) => ({
+                            ...prev,
+                            isCustomTag: true,
+                            tagNumber: prev.customTagName || "",
+                          }));
+                        } else {
+                          setFormData((prev) => ({
+                            ...prev,
+                            isCustomTag: false,
+                            tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
                           }));
                         }
                       }}
-                      className={`p-2.5 rounded-2xl border text-center transition-all ${isSelected
-                        ? "border-emerald-600 bg-emerald-50 text-emerald-950 font-black shadow-xs ring-1 ring-emerald-600/30"
-                        : "border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700 font-bold text-xs"
-                        }`}
                     >
-                      <span className="block text-xs truncate">{name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* CONDITIONAL FORM FIELDS BASED ON REGISTRATION MODE */}
-            {formData.entryType === "INDIVIDUAL" ? (
-              <div className="space-y-4">
-                {/* Ear Tag / RFID Number & Custom Name */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Label
-                        htmlFor="tagNamingSelect"
-                        className="text-xs font-black uppercase tracking-wider text-slate-500"
-                      >
-                        Ear Tag / Identification Name
-                      </Label>
-                      <InfoTooltip text="Unique identification placed on the animal's ear tag or RFID chip. Keep the standard name-number format or select Custom to enter an optional custom name." />
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-semibold">
-                      {formData.isCustomTag ? "Custom Name Mode" : "Standard Name-Number"}
-                    </span>
+                      <SelectTrigger id="tagNamingSelect" className="h-12 rounded-2xl bg-white border-slate-200 font-bold text-sm">
+                        <SelectValue placeholder="Select tag naming format..." />
+                      </SelectTrigger>
+                      <SelectContent className="z-[var(--z-popover-dialog)] rounded-2xl">
+                        <SelectItem value="STANDARD" className="font-bold text-sm">
+                          🏷️ Standard ({ownerTagPrefix ? `${ownerTagPrefix}-` : "NAME-"})
+                        </SelectItem>
+                        <SelectItem value="CUSTOM" className="font-bold text-sm text-emerald-800">
+                          ➕ Custom (Specify custom name or tag)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  {/* Dropdown with Standard Name-Number & Custom */}
-                  <Select
-                    value={formData.isCustomTag ? "CUSTOM" : "STANDARD"}
-                    onValueChange={(val) => {
-                      if (val === "CUSTOM") {
-                        setFormData((prev) => ({
-                          ...prev,
-                          isCustomTag: true,
-                          tagNumber: prev.customTagName || "",
-                        }));
-                      } else {
-                        setFormData((prev) => ({
-                          ...prev,
-                          isCustomTag: false,
-                          tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
-                        }));
-                      }
-                    }}
-                  >
-                    <SelectTrigger id="tagNamingSelect" className="h-11 rounded-xl bg-white font-medium">
-                      <SelectValue placeholder="Select tag naming format..." />
-                    </SelectTrigger>
-                    <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl">
-                      <SelectItem value="STANDARD" className="font-medium">
-                        🏷️ Standard ({ownerTagPrefix ? `${ownerTagPrefix}-###` : "NAME-001"})
-                      </SelectItem>
-                      <SelectItem value="CUSTOM" className="font-bold text-emerald-800">
-                        ➕ Custom (Specify custom name or tag)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-
+                  {/* Tag Number (Auto-generated) */}
                   {!formData.isCustomTag ? (
-                    <div className="space-y-1.5 pt-0.5">
+                    <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <Label
-                          htmlFor="tagNumber"
-                          className="text-[11px] font-bold text-slate-600"
-                        >
-                          Tag Number ({ownerTagPrefix || "NAME"}-001):
-                        </Label>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setFormData({
-                              ...formData,
-                              tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
-                            })
-                          }
-                          className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
-                        >
-                          <Wand2 className="w-3 h-3" /> Auto-generate Tag
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <Label
+                            htmlFor="tagNumber"
+                            className="text-xs font-black tracking-tight text-slate-800"
+                          >
+                            Tag Number (Auto-generated)
+                          </Label>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormData({
+                                ...formData,
+                                tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
+                              })
+                            }
+                            className="text-emerald-600 hover:text-emerald-700 p-0.5 rounded cursor-pointer transition-transform active:scale-95"
+                            title="Auto-generate Tag"
+                          >
+                            <Wand2 className="size-3.5" />
+                          </button>
+                        </div>
                       </div>
                       <Input
                         id="tagNumber"
                         placeholder="e.g. NAME-001"
                         value={formData.tagNumber}
                         readOnly
-                        className={`h-11 rounded-xl font-mono font-bold ${
-                          tagError(formData.tagNumber, [], false) ? "border-rose-500 focus-visible:ring-rose-500" : ""
-                        } bg-slate-50 text-slate-800 cursor-not-allowed`}
+                        className={`h-13 rounded-2xl font-mono font-black text-sm sm:text-base border-0 bg-slate-100 text-slate-900 px-4 tracking-wider ${
+                          tagError(formData.tagNumber, [], false) ? "ring-2 ring-rose-500 bg-rose-50/30" : ""
+                        }`}
                         required
                       />
                       {tagError(formData.tagNumber, [], false) ? (
@@ -1225,18 +1438,18 @@ function RegisterLivestockDialogContent({
                           {tagError(formData.tagNumber, [], false)}
                         </p>
                       ) : (
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 leading-relaxed">
                           Use your name followed by a number, such as {ownerTagPrefix || "YOUR-NAME"}-001. The next number is generated for you.
                         </p>
                       )}
                     </div>
                   ) : (
-                    <div className="space-y-1.5 pt-0.5 animate-in fade-in-50 duration-200">
+                    <div className="space-y-1.5 animate-in fade-in-50 duration-200">
                       <Label
                         htmlFor="customTagName"
-                        className="text-[11px] font-bold text-emerald-800 flex items-center gap-1"
+                        className="text-xs font-bold text-emerald-800 flex items-center gap-1"
                       >
-                        <span>Specify Custom Name or Ear Tag:</span>
+                        Specify Custom Name or Ear Tag:
                       </Label>
                       <Input
                         id="customTagName"
@@ -1249,7 +1462,7 @@ function RegisterLivestockDialogContent({
                             customTagName: e.target.value.toUpperCase(),
                           })
                         }
-                        className={`h-11 rounded-xl font-mono font-bold border-emerald-300 focus-visible:ring-emerald-500/20 bg-emerald-50/20 ${
+                        className={`h-13 rounded-2xl font-mono font-black text-sm sm:text-base border-emerald-300 focus-visible:ring-emerald-500/20 bg-white ${
                           tagError(formData.tagNumber, [], true) ? "border-rose-500 focus-visible:ring-rose-500" : ""
                         }`}
                         required
@@ -1260,1186 +1473,1183 @@ function RegisterLivestockDialogContent({
                           {tagError(formData.tagNumber, [], true)}
                         </p>
                       ) : (
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 leading-relaxed">
                           Enter an optional custom name or identifier for this animal (letters, numbers, hyphens).
                         </p>
                       )}
                     </div>
                   )}
-                </div>
 
-                {/* Animal Photo & Avatar Selector */}
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                          <Camera className="w-3.5 h-3.5 text-emerald-700" />
-                          Animal Photo & Visual Avatar
-                        </Label>
-                        <InfoTooltip text="Upload a clear photograph or pick an illustrated species avatar to represent this animal." />
+                  {/* Animal Photo & Visual Avatar (Optional) - Merged into Step 1 */}
+                  <div className="pt-4 border-t border-slate-200/80 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                            <Camera className="size-3.5 text-emerald-700" />
+                            Animal Photo & Visual Avatar
+                          </Label>
+                          <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-600 border-slate-300 font-bold">
+                            Optional
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Upload a photo from your device, or choose a preset avatar below.
+                        </p>
                       </div>
-                      <p className="text-[11px] text-slate-500">
-                        Upload a photo from your device, or choose a preset avatar below.
-                      </p>
-                    </div>
-                    {formData.photoDataUrl ? (
-                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
-                        Photo Attached
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-slate-100 text-slate-700 border-slate-200 text-[10px] font-bold">
-                        Avatar Active
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Upload / Preview Card */}
-                  <div className="flex items-center gap-3.5 p-3 bg-white rounded-xl border border-slate-200/90 shadow-xs">
-                    <div className="relative shrink-0">
                       {formData.photoDataUrl ? (
-                        <div className="relative size-16 rounded-2xl overflow-hidden border-2 border-emerald-600 shadow-xs group">
-                          <img
-                            src={formData.photoDataUrl}
-                            alt="Livestock Preview"
-                            className="w-full h-full object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleRemovePhoto}
-                            className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold"
-                            title="Remove Photo"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div
-                          className={`size-16 rounded-2xl flex flex-col items-center justify-center bg-gradient-to-br border-2 shadow-xs transition-transform ${selectedAvatarOption.bgGradient}`}
-                        >
-                          <span className="text-2xl">{selectedAvatarOption.emoji}</span>
-                          <span className="text-[9px] font-black uppercase tracking-tighter truncate max-w-[56px] text-center">
-                            {selectedAvatarOption.badge}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1 space-y-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          onChange={handlePhotoUpload}
-                          accept="image/*"
-                          className="hidden"
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="h-8 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold gap-1.5 shadow-xs"
-                        >
-                          <Upload className="w-3.5 h-3.5" />
-                          {formData.photoDataUrl ? "Change Photo" : "Upload Photo"}
-                        </Button>
-                        {formData.photoDataUrl && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={handleRemovePhoto}
-                            className="h-8 px-2.5 rounded-xl border-slate-300 text-slate-600 hover:text-rose-600 hover:bg-rose-50 text-xs font-semibold"
-                          >
-                            Use Avatar
-                          </Button>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Supports JPG, PNG, WebP up to 5MB from mobile camera or gallery.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Preset Avatars Selector */}
-                  <div className="space-y-1.5 pt-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                        Select Animal Avatar ({relevantAvatars.length})
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setShowAllAvatars(!showAllAvatars)}
-                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
-                      >
-                        {showAllAvatars ? "Show Species Only" : "Browse All 15+ Avatars"}
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 pt-0.5">
-                      {relevantAvatars.map((av) => {
-                        const isSelected = !formData.photoDataUrl && formData.avatarKey === av.id;
-                        return (
-                          <button
-                            key={av.id}
-                            type="button"
-                            onClick={() => handleSelectAvatar(av.id)}
-                            className={`relative p-2 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${isSelected
-                              ? "border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-600 shadow-xs scale-102"
-                              : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300"
-                              }`}
-                          >
-                            <div
-                              className={`size-9 rounded-lg flex items-center justify-center bg-gradient-to-br border ${av.bgGradient}`}
-                            >
-                              <span className="text-lg">{av.emoji}</span>
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-700 truncate w-full">
-                              {av.name}
-                            </span>
-                            {isSelected && (
-                              <span className="absolute -top-1 -right-1 size-4 bg-emerald-600 text-white rounded-full flex items-center justify-center text-[10px] shadow-xs">
-                                <Check className="w-2.5 h-2.5 stroke-[3]" />
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Animal side identification photos */}
-                <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4" aria-labelledby="animal-side-photos-title">
-                  <div>
-                    <h3 id="animal-side-photos-title" className="text-xs font-black uppercase tracking-wider text-slate-700">
-                      Left and Right Side Photos <span className="font-semibold normal-case text-slate-400">(Optional)</span>
-                    </h3>
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      Add one full-body photo from each side for identification. JPEG, PNG, or WebP up to 5 MB per photo.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {(["left", "right"] as const).map((side) => (
-                      <div key={side} className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <Label className="text-xs font-bold capitalize text-slate-700">{side} side</Label>
-                          {sidePhotoPreviews[side] && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSidePhoto(side)}
-                              className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 hover:underline"
-                            >
-                              <Trash2 className="size-3" /> Remove
-                            </button>
-                          )}
-                        </div>
-                        <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-white">
-                          {sidePhotoPreviews[side] ? (
-                            <img src={sidePhotoPreviews[side]} alt={`${side} side view preview`} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex flex-col items-center gap-2 text-center text-slate-400">
-                              <Camera className="size-7" />
-                              <span className="text-[10px] font-semibold">No {side} view added</span>
-                            </div>
-                          )}
-                        </div>
-                        <input
-                          ref={(input) => { sidePhotoInputRefs.current[side] = input; }}
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          capture="environment"
-                          className="hidden"
-                          onChange={(event) => handleSidePhotoUpload(side, event)}
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => sidePhotoInputRefs.current[side]?.click()}
-                          className="w-full rounded-lg border-slate-300 text-xs font-bold"
-                        >
-                          <Upload className="mr-1.5 size-3.5" />
-                          {sidePhotoPreviews[side] ? "Change photo" : `Add ${side} side photo`}
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                {/* Assigned Herd (Optional) */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Label
-                        htmlFor="assignedBatch"
-                        className="text-xs font-black uppercase tracking-wider text-slate-500"
-                      >
-                        Herd (Optional)
-                      </Label>
-                      <InfoTooltip text="Group this animal under an existing herd or leave blank if raised as a standalone livestock." />
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-semibold">Assign to batch</span>
-                  </div>
-                  <Select
-                    value={formData.batchId || "none"}
-                    onValueChange={(val) => setFormData({ ...formData, batchId: val === "none" ? "" : val })}
-                  >
-                    <SelectTrigger id="assignedBatch" className="h-11 rounded-xl">
-                      <SelectValue placeholder="Individual Animal (No Batch)" />
-                    </SelectTrigger>
-                    <SelectContent className="z-[var(--z-popover-dialog)]">
-                      <SelectItem value="none">Individual Animal (No Batch)</SelectItem>
-                      {matchingBatches.map((b) => (
-                        <SelectItem key={b.id} value={String(b.id)}>
-                          {b.batchCode} ({b.batchName || b.livestockTypeName})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {userBatches.length > 0 ? (
-                    matchingBatches.length > 0 ? (
-                      <p className="text-[10px] font-medium text-slate-400">
-                        Only {formData.livestockType} herds are listed — each herd keeps a single species.
-                      </p>
-                    ) : (
-                      <p className="text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                        No {formData.livestockType} herds yet. Switch to Herd mode to create one, or register this livestock as a standalone animal.
-                      </p>
-                    )
-                  ) : null}
-                </div>
-
-                {/* Individual Breed Selection (Dropdown + Others) */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Label
-                        htmlFor="breedSelect"
-                        className="text-xs font-black uppercase tracking-wider text-slate-500"
-                      >
-                        Breed / Pedigree
-                      </Label>
-                      <InfoTooltip text="Select the official breed or choose 'Others' to specify a crossbreed or native Batangas breed." />
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-semibold">
-                      {formData.isOtherBreed ? "Custom Breed Mode" : "Standard Species Breed"}
-                    </span>
-                  </div>
-
-                  <Select
-                    value={formData.isOtherBreed ? "OTHER" : resolveBreed(formData.livestockType, formData.breed)}
-                    onValueChange={(val) => {
-                      if (val === "OTHER") {
-                        setFormData({ ...formData, isOtherBreed: true });
-                      } else {
-                        setFormData({ ...formData, breed: val, isOtherBreed: false, customBreed: "" });
-                      }
-                    }}
-                  >
-                    <SelectTrigger id="breedSelect" className="h-11 rounded-xl bg-white font-medium">
-                      <SelectValue placeholder="Select breed..." />
-                    </SelectTrigger>
-                    <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-60">
-                      {currentPreset?.commonBreeds?.map((b) => (
-                        <SelectItem key={b} value={b}>
-                          {b}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="OTHER" className="font-bold text-emerald-800">
-                        ➕ Others (Specify custom breed)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {/* If Others is selected, show custom breed input */}
-                  {formData.isOtherBreed && (
-                    <div className="space-y-1 pt-1 animate-in fade-in-50 duration-200">
-                      <Label
-                        htmlFor="customBreed"
-                        className="text-[11px] font-bold text-emerald-800 flex items-center gap-1"
-                      >
-                        <span>Specify Custom Breed / Crossbreed Name:</span>
-                      </Label>
-                      <Input
-                        id="customBreed"
-                        placeholder="e.g. Belgian Blue Cross, Native Batangas Hybrid"
-                        value={formData.customBreed}
-                        onChange={(e) => setFormData({ ...formData, customBreed: e.target.value })}
-                        className="h-10 rounded-xl border-emerald-300 focus-visible:ring-emerald-500/20 bg-emerald-50/30 font-medium"
-                        required
-                        autoFocus
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Individual Sex & Weight */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <Label
-                        htmlFor="sex"
-                        className="text-xs font-black uppercase tracking-wider text-slate-500"
-                      >
-                        Sex / Gender
-                      </Label>
-                      <InfoTooltip text="Biological sex of the livestock (Female or Male)." />
-                    </div>
-                    <Select
-                      value={formData.sex}
-                      onValueChange={(val) => setFormData({ ...formData, sex: val })}
-                    >
-                      <SelectTrigger id="sex" className="h-11 rounded-xl">
-                        <SelectValue placeholder="Select sex" />
-                      </SelectTrigger>
-                      <SelectContent className="z-[var(--z-popover-dialog)]">
-                        <SelectItem value="Female">Female (Cow / Doe / Sow)</SelectItem>
-                        <SelectItem value="Male">Male (Bull / Buck / Boar)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <Label
-                          htmlFor="weight"
-                          className="text-xs font-black uppercase tracking-wider text-slate-500"
-                        >
-                          Weight (kg)
-                        </Label>
-                        <InfoTooltip text="Live body weight of the animal in kilograms (scale or weight band estimate)." />
-                      </div>
-                      {currentPreset?.suggestedWeightKg && (
-                        <span className="text-[10px] text-slate-400 font-semibold">
-                          ~{currentPreset.suggestedWeightKg} kg
-                        </span>
-                      )}
-                    </div>
-                    <Input
-                      id="weight"
-                      type="number"
-                      step="0.1"
-                      placeholder="e.g. 380"
-                      value={formData.weight}
-                      onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                      className="h-11 rounded-xl"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <Label htmlFor="birthDate" className="text-xs font-black uppercase tracking-wider text-slate-500">Birth Date (optional)</Label>
-                    <InfoTooltip text="Estimated or recorded date when the animal was born to automatically track its age." />
-                  </div>
-                  <Input id="birthDate" type="date" max={localCalendarDateToday()} value={formData.birthDate} onChange={(e) => setFormData((prev) => ({ ...prev, birthDate: e.target.value }))} className="h-11 min-w-0 w-full rounded-xl px-3 pr-12 text-left [&::-webkit-date-and-time-value]:min-h-[1.5rem] [&::-webkit-date-and-time-value]:text-left" />
-                </div>
-
-                {/* Individual Vaccination */}
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="isVaccinated"
-                      checked={formData.isVaccinated}
-                      onCheckedChange={(checked) =>
-                        setFormData({
-                          ...formData,
-                          isVaccinated: !!checked,
-                          lastVaccinationDate: checked ? formData.lastVaccinationDate : "",
-                        })
-                      }
-                    />
-                    <div className="flex items-center gap-1.5">
-                      <Label
-                        htmlFor="isVaccinated"
-                        className="text-xs font-bold text-slate-800 cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Syringe className="w-3.5 h-3.5 text-emerald-700" />
-                        Animal has active vaccination records on file
-                      </Label>
-                      <InfoTooltip text="Check this box if this animal has received protective vaccinations (e.g. Hemorrhagic Septicemia, Anthrax, Hog Cholera)." />
-                    </div>
-                  </div>
-
-                  {formData.isVaccinated && (
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center gap-1.5">
-                        <Label
-                          htmlFor="vaxDate"
-                          className="text-xs font-black uppercase tracking-wider text-slate-500"
-                        >
-                          Last Vaccination Date
-                        </Label>
-                        <InfoTooltip text="The date when the last vaccine dose was administered to this animal." />
-                      </div>
-                      <Input
-                        id="vaxDate"
-                        type="date"
-                        max={new Date().toISOString().split("T")[0]}
-                        value={formData.lastVaccinationDate}
-                        onChange={(e) =>
-                          setFormData({ ...formData, lastVaccinationDate: e.target.value })
-                        }
-                        className="h-10 rounded-xl bg-white"
-                        required
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              /* BATCH / HERD REGISTRATION */
-              <div className="space-y-4">
-                {/* 1. Batch Identity & Facilities */}
-                <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-slate-50/80 space-y-3.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="size-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center">
-                        <Layers className="size-4" />
-                      </div>
-                      <div>
-                        <Label className="text-xs font-black uppercase tracking-wider text-slate-800">
-                          Herd Profile
-                        </Label>
-                        <p className="text-[11px] text-slate-500">
-                          Assign an identifiable herd name and housing details
-                        </p>
-                      </div>
-                    </div>
-                    <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[10px] font-bold">
-                      Group Enrollment
-                    </Badge>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                    {/* Herd Name */}
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <Label htmlFor="batchName" className="text-xs font-black uppercase tracking-wider text-slate-600">
-                            Herd Name <span className="text-rose-500">*</span>
-                          </Label>
-                          <InfoTooltip text="Descriptive name or identifier for this herd (e.g. Pen 3 Fattening Swine, Batangas Cattle Lot A)." />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              batchName: `${prev.livestockType} Herd #${Math.floor(100 + Math.random() * 900)}`,
-                            }))
-                          }
-                          className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
-                        >
-                          <Sparkles className="size-3" /> Auto-suggest Name
-                        </button>
-                      </div>
-                      <Input
-                        id="batchName"
-                        placeholder={`e.g. Pen 3 Fattening Swine, Spring ${formData.livestockType} Herd`}
-                        value={formData.batchName}
-                        onChange={(e) => setFormData({ ...formData, batchName: e.target.value })}
-                        className="h-10 rounded-xl bg-white font-medium"
-                        required
-                      />
-                    </div>
-
-                    {/* Housing Pen */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <Label htmlFor="housingPen" className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                          Housing Pen / Facility
-                        </Label>
-                        <InfoTooltip text="The physical barn, paddock, corral, or pen number where this herd is housed." />
-                      </div>
-                      <Input
-                        id="housingPen"
-                        placeholder="e.g. Pen 3 Fattening / East Barn"
-                        value={formData.housingPen}
-                        onChange={(e) => setFormData({ ...formData, housingPen: e.target.value })}
-                        className="h-9.5 rounded-xl bg-white text-xs"
-                      />
-                    </div>
-
-                    {/* Feed Formulation */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5">
-                          <Label htmlFor="feedType" className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                            Feed Formulation / Rations
-                          </Label>
-                          <InfoTooltip text="Primary diet or feed formula provided to this herd (e.g., Napier Grass, Starter Mash, Concentrates)." />
-                        </div>
-                        <span className="text-[10px] text-slate-400 font-semibold">
-                          Optional · {currentPreset?.name} suggestions
-                        </span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <div className="flex-1">
-                          <Select
-                            value={formData.isOtherFeed ? "OTHER" : formData.feedType || "NOT_SPECIFIED"}
-                            onValueChange={(val) => {
-                              if (val === "OTHER") {
-                                setFormData((prev) => ({ ...prev, isOtherFeed: true }));
-                              } else {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  feedType: val === "NOT_SPECIFIED" ? "" : val,
-                                  isOtherFeed: false,
-                                  customFeed: "",
-                                }));
-                              }
-                            }}
-                          >
-                            <SelectTrigger id="feedType" className="h-9.5 rounded-xl bg-white text-xs font-medium">
-                              <SelectValue placeholder="Select a common feed formulation (optional)..." />
-                            </SelectTrigger>
-                            <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-60">
-                              <SelectItem value="NOT_SPECIFIED" className="text-xs text-slate-500">
-                                Not specified
-                              </SelectItem>
-                              {currentPreset?.commonFeeds?.map((f) => (
-                                <SelectItem key={f} value={f} className="text-xs">
-                                  {f}
-                                </SelectItem>
-                              ))}
-                              <SelectItem value="OTHER" className="text-xs font-bold text-emerald-800">
-                                ➕ Others (Specify custom feed)
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {formData.isOtherFeed ? (
-                          <div className="flex-1 animate-in fade-in-50 duration-200">
-                            <Input
-                              id="customFeed"
-                              maxLength={100}
-                              placeholder="e.g. Finisher Pellets, Napier Grass"
-                              value={formData.customFeed}
-                              onChange={(e) => setFormData({ ...formData, customFeed: e.target.value })}
-                              className="h-9.5 rounded-xl bg-white text-xs"
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Herd Group Cover & Gallery Photos Upload */}
-                  <div className="pt-2 border-t border-slate-200/80 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                          <Camera className="w-3.5 h-3.5 text-emerald-700" />
-                          Herd Photos (Optional)
-                          <InfoTooltip text="Upload multiple pictures of the herd, pen, grazing area, or different angles for complete visual documentation." />
-                        </Label>
-                        <p className="text-[11px] text-slate-500">
-                          Attach photos of this herd, housing pen, or grazing area (supports multiple photos).
-                        </p>
-                      </div>
-                      {batchPhotoDataUrls.length > 0 ? (
                         <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-bold">
-                          {batchPhotoDataUrls.length} Photo{batchPhotoDataUrls.length > 1 ? "s" : ""} Attached
+                          Photo Attached
                         </Badge>
                       ) : (
-                        <Badge className="bg-slate-100 text-slate-600 border-slate-200 text-[10px] font-medium">
-                          No Photos
+                        <Badge className="bg-slate-100 text-slate-700 border-slate-200 text-[10px] font-bold">
+                          Avatar Active
                         </Badge>
                       )}
                     </div>
 
                     <input
                       type="file"
-                      multiple
-                      ref={batchFileInputRef}
-                      onChange={handleBatchPhotoUpload}
+                      ref={fileInputRef}
+                      onChange={handlePhotoUpload}
                       accept="image/*"
                       className="hidden"
                     />
 
-                    {batchPhotoDataUrls.length > 0 ? (
-                      <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs space-y-2.5">
-                        <div className="flex items-center gap-2.5 overflow-x-auto pb-1.5 pt-0.5">
-                          {batchPhotoDataUrls.map((url, idx) => (
-                            <div
-                              key={url}
-                              className="relative size-18 rounded-2xl overflow-hidden border-2 border-emerald-600/80 shadow-xs group shrink-0"
-                            >
-                              <img
-                                src={url}
-                                alt={`Herd photo #${idx + 1}`}
-                                className="w-full h-full object-cover"
-                              />
-                              <span className="absolute top-1 left-1 px-1.5 py-0.2 rounded-md bg-black/70 text-white font-bold text-[9px] backdrop-blur-xs">
-                                {idx === 0 ? "Cover" : `#${idx + 1}`}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveSingleBatchPhoto(idx)}
-                                className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold cursor-pointer"
-                                title={`Remove photo #${idx + 1}`}
-                              >
-                                <Trash2 className="w-4 h-4 text-rose-300" />
-                              </button>
-                            </div>
-                          ))}
-
-                          {batchPhotoDataUrls.length < 10 && (
-                            <button
-                              type="button"
-                              onClick={() => batchFileInputRef.current?.click()}
-                              className="size-18 rounded-2xl border-2 border-dashed border-emerald-300 hover:border-emerald-600 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-700 flex flex-col items-center justify-center gap-1 transition-colors shrink-0 cursor-pointer"
-                              title="Add more photos"
-                            >
-                              <Plus className="size-4.5" />
-                              <span className="text-[9px] font-bold">Add More</span>
-                            </button>
-                          )}
+                    {/* Upload Card / Tap to upload */}
+                    {formData.photoDataUrl ? (
+                      <div className="p-4 bg-white rounded-2xl border border-emerald-300 shadow-xs flex flex-col sm:flex-row items-center gap-4">
+                        <div className="relative size-24 rounded-2xl overflow-hidden border-2 border-emerald-600 shadow-sm shrink-0">
+                          <img
+                            src={formData.photoDataUrl}
+                            alt="Livestock Preview"
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-
-                        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5 border-t border-slate-100">
-                          <span>Hover over any photo to remove it. First image serves as the herd cover.</span>
-                          <div className="flex items-center gap-2">
+                        <div className="flex-1 text-center sm:text-left space-y-2">
+                          <p className="text-xs font-bold text-slate-800">Custom Photo Uploaded</p>
+                          <p className="text-[11px] text-slate-500">
+                            This photo will represent your livestock record.
+                          </p>
+                          <div className="flex items-center justify-center sm:justify-start gap-2">
                             <Button
                               type="button"
                               size="sm"
-                              variant="ghost"
-                              onClick={handleRemoveAllBatchPhotos}
-                              className="h-6 px-2 text-[10px] text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold cursor-pointer"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="h-8 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold gap-1.5 shadow-xs"
                             >
-                              Clear All ({batchPhotoDataUrls.length})
+                              <Upload className="size-3.5" /> Change Photo
                             </Button>
                             <Button
                               type="button"
                               size="sm"
-                              onClick={() => batchFileInputRef.current?.click()}
-                              className="h-7 px-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold gap-1 shadow-xs cursor-pointer"
+                              variant="outline"
+                              onClick={handleRemovePhoto}
+                              className="h-8 px-3 rounded-xl border-slate-300 text-slate-600 hover:text-rose-600 hover:bg-rose-50 text-xs font-semibold"
                             >
-                              <Upload className="size-3" /> Add Photos
+                              <Trash2 className="size-3.5 mr-1" /> Use Preset Avatar
                             </Button>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-3.5 p-3.5 bg-white rounded-xl border border-slate-200/90 shadow-xs">
-                        <div className="size-16 rounded-2xl flex flex-col items-center justify-center bg-slate-100 border-2 border-dashed border-slate-300 text-slate-400 shrink-0">
-                          <Camera className="size-6 text-slate-400" />
-                          <span className="text-[9px] font-bold uppercase mt-0.5">Herd</span>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full p-6 sm:p-7 rounded-2xl border-2 border-dashed border-emerald-300 hover:border-emerald-600 bg-slate-50/50 hover:bg-emerald-50/40 transition-colors flex flex-col items-center justify-center gap-2 text-center cursor-pointer group shadow-2xs"
+                      >
+                        <div className="size-12 rounded-2xl bg-white text-emerald-700 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs border border-slate-200">
+                          <Upload className="size-6" />
                         </div>
-
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => batchFileInputRef.current?.click()}
-                              className="h-8 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold gap-1.5 shadow-xs cursor-pointer"
-                            >
-                              <Upload className="w-3.5 h-3.5" />
-                              Upload Herd Photos
-                            </Button>
-                          </div>
-                          <p className="text-[11px] text-slate-500">
-                            Upload one or multiple photos (JPG, PNG, WebP up to 5MB each). You can attach up to 10 photos.
+                        <div>
+                          <p className="text-xs font-black text-slate-800">
+                            Tap to upload a photo
                           </p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            JPG, PNG, WebP (Max 5MB)
+                          </p>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* Preset Avatars Selection */}
+                    <div className="space-y-2 pt-2 border-t border-slate-200/80">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                          or choose a preset avatar
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowAllAvatars(!showAllAvatars)}
+                          className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
+                        >
+                          {showAllAvatars ? "Show Species Only" : `Browse All (${LIVESTOCK_AVATAR_PRESETS.length})`}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 pt-0.5">
+                        {relevantAvatars.map((av) => {
+                          const isSelected = !formData.photoDataUrl && formData.avatarKey === av.id;
+                          return (
+                            <button
+                              key={av.id}
+                              type="button"
+                              onClick={() => handleSelectAvatar(av.id)}
+                              className={`relative p-2 rounded-2xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                                isSelected
+                                  ? "border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-600 shadow-xs scale-102"
+                                  : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300"
+                              }`}
+                            >
+                              <div
+                                className={`size-10 rounded-xl flex items-center justify-center bg-gradient-to-br border ${av.bgGradient}`}
+                              >
+                                <span className="text-xl">{av.emoji}</span>
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-700 truncate w-full">
+                                {av.name}
+                              </span>
+                              {isSelected && (
+                                <span className="absolute -top-1 -right-1 size-4.5 bg-emerald-600 text-white rounded-full flex items-center justify-center text-[10px] shadow-xs">
+                                  <Check className="size-3 stroke-[3]" />
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Animal Side Photos for Individual (Optional) */}
+                    {formData.entryType === "INDIVIDUAL" && (
+                      <div className="pt-2 border-t border-slate-200/80 space-y-2">
+                        <Label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          Side Identification Views (Optional)
+                        </Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {(["left", "right"] as const).map((side) => (
+                            <div key={side} className="p-2.5 rounded-xl border border-slate-200 bg-white space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold capitalize text-slate-700">{side} side</span>
+                                {sidePhotoPreviews[side] && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveSidePhoto(side)}
+                                    className="text-[10px] font-bold text-rose-700 hover:underline flex items-center gap-1"
+                                  >
+                                    <Trash2 className="size-3" /> Remove
+                                  </button>
+                                )}
+                              </div>
+                              <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
+                                {sidePhotoPreviews[side] ? (
+                                  <img src={sidePhotoPreviews[side]} alt={`${side} side`} className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex flex-col items-center gap-1 text-slate-400">
+                                    <Camera className="size-5" />
+                                    <span className="text-[9px] font-semibold">No {side} photo</span>
+                                  </div>
+                                )}
+                              </div>
+                              <input
+                                ref={(input) => { sidePhotoInputRefs.current[side] = input; }}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(event) => handleSidePhotoUpload(side, event)}
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => sidePhotoInputRefs.current[side]?.click()}
+                                className="w-full rounded-xl border-slate-300 text-[11px] font-bold h-7.5"
+                              >
+                                <Upload className="mr-1 size-3" />
+                                {sidePhotoPreviews[side] ? "Change Photo" : `Upload ${side} Photo`}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Herd Gallery Photos for Batch (Optional) */}
+                    {formData.entryType === "BATCH" && (
+                      <div className="pt-2 border-t border-slate-200/80 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-bold text-slate-700">
+                            Herd Gallery Photos ({batchPhotoDataUrls.length})
+                          </Label>
+                          {batchPhotoDataUrls.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleRemoveAllBatchPhotos}
+                              className="text-[10px] font-bold text-rose-700 hover:underline"
+                            >
+                              Clear All Photos
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          multiple
+                          ref={batchFileInputRef}
+                          onChange={handleBatchPhotoUpload}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                          {batchPhotoDataUrls.map((url, idx) => (
+                            <div key={url} className="relative size-15 rounded-xl overflow-hidden border border-emerald-500 shrink-0 group">
+                              <img src={url} alt={`Herd ${idx + 1}`} className="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSingleBatchPhoto(idx)}
+                                className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <Trash2 className="size-3.5 text-rose-300" />
+                              </button>
+                            </div>
+                          ))}
+                          {batchPhotoDataUrls.length < 10 && (
+                            <button
+                              type="button"
+                              onClick={() => batchFileInputRef.current?.click()}
+                              className="size-15 rounded-xl border-2 border-dashed border-emerald-300 hover:border-emerald-600 bg-white text-emerald-700 flex flex-col items-center justify-center gap-0.5 shrink-0"
+                            >
+                              <Plus className="size-4" />
+                              <span className="text-[9px] font-bold">Add</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
+              )}
 
-                {/* Batch Head Count Stepper & Quick Chips */}
-                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Label className="text-xs font-black uppercase tracking-wider text-slate-600">
-                        Herd Size
-                      </Label>
-                      <InfoTooltip text="Total number of animals in this herd. Changing this automatically updates the individual animal roster rows below." />
-                    </div>
-                    <span className="text-xs font-bold text-emerald-700">
-                      {batchAnimals.length} Individual Animal{batchAnimals.length !== 1 ? "s" : ""} in Roster
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleBatchQuantityChange(Math.max(1, batchAnimals.length - 1))}
-                      className="size-11 flex items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition-colors active:scale-95 shadow-xs"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <div className="flex-1 text-center bg-white py-2 rounded-xl border border-slate-200 shadow-xs">
-                      <span className="text-3xl font-black text-slate-900 tabular-nums">
-                        {batchAnimals.length}
-                      </span>
-                      <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">
-                        heads
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleBatchQuantityChange(Math.min(50, batchAnimals.length + 1))}
-                      className="size-11 flex items-center justify-center rounded-xl bg-emerald-700 text-white hover:bg-emerald-800 transition-colors active:scale-95 shadow-xs"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="flex gap-2 flex-wrap pt-1 items-center">
-                    <span className="text-[11px] font-bold text-slate-400">Batch presets:</span>
-                    {[3, 5, 10, 20, 30].map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => handleBatchQuantityChange(n)}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border ${batchAnimals.length === n
-                          ? "bg-emerald-700 text-white border-emerald-700 shadow-xs"
-                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-                          }`}
-                      >
-                        {n} heads
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Interactive Herd Individual Animals Roster Editor */}
-                <div className="space-y-2.5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-emerald-700" />
-                          Individual Livestock in Batch ({batchAnimals.length} heads)
-                        </h4>
-                        <InfoTooltip text="Roster of all animals within this herd. Each animal gets an individual tag, sex, breed, and vaccination record." />
+              {/* ──────────────────────────────────────────────────────────
+                  STEP 2: HERD PROFILE (OPTIONAL)
+              ────────────────────────────────────────────────────────── */}
+              {currentStep === 2 && (
+                <div className="space-y-5 animate-in fade-in-50 duration-200">
+                  <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="size-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center shrink-0">
+                        <Layers className="size-5" />
                       </div>
-                      <p className="text-[11px] text-slate-500">
-                        Edit individual tags, breed, sex, weight, and vaccination per animal.
-                      </p>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-800">
+                          Herd Profile
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          Assign an identifiable herd name and housing details.
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={syncBreedToAllAnimals}
-                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-300 bg-white hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 transition-colors shadow-xs"
-                        title="Applies breed from Animal #1 to all other animals"
-                      >
-                        Sync Breed #1
-                      </button>
-                      <button
-                        type="button"
-                        onClick={syncVaccinationDateToAllAnimals}
-                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-300 bg-white hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 transition-colors shadow-xs"
-                        title="Applies the vaccination date from Animal #1 to every animal in this batch"
-                      >
-                        Sync Vaccination Date #1
-                      </button>
-                      <button
-                        type="button"
-                        onClick={reTagAllBatchAnimals}
-                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-300 bg-white hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 transition-colors shadow-xs"
-                        title="Auto-generates sequential ear tags for all animals"
-                      >
-                        <Sparkles className="w-3 h-3 inline mr-1 text-emerald-600" />
-                        Auto-Tag
-                      </button>
-                      {batchAnimals.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={handleClearAllBatchAnimals}
-                          className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
-                          title="Clear all animals and reset roster to 1 animal"
-                        >
-                          <Trash2 className="w-3 h-3 text-rose-600" />
-                          Clear All ({batchAnimals.length})
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleSaveDraft}
-                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
-                        title="Draft saves automatically as you type. Click to save now."
-                      >
-                        {autoSaveStatus === "saving" ? (
-                          <>
-                            <Sparkles className="w-3 h-3 text-amber-600 animate-spin" />
-                            <span>Saving...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Check className="w-3 h-3 text-emerald-600" />
-                            <span>{hasDraft ? "Auto-Saved" : "Save Draft"}</span>
-                          </>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={addBatchAnimalRow}
-                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 transition-colors flex items-center gap-1 shadow-xs"
-                      >
-                        <Plus className="w-3 h-3" /> Add Animal
-                      </button>
-                    </div>
-                  </div>
 
-                  {/* Scrollable Animal Roster Cards */}
-                  <div className="h-72 sm:h-80 overflow-y-auto p-3 space-y-3 rounded-2xl border-2 border-emerald-600/25 bg-slate-100/90 shadow-inner [scrollbar-width:thin] [scrollbar-color:#059669_#cbd5e1] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-slate-200/90 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-600 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-emerald-700">
-                    {batchAnimals.map((animal, idx) => (
-                      <div
-                        key={animal.id || idx}
-                        className="p-3.5 bg-white rounded-xl border border-slate-200/90 border-l-4 border-l-emerald-600 shadow-sm space-y-3 hover:border-emerald-400 hover:shadow-md transition-all"
-                      >
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                          <div className="flex items-center gap-2">
-                            <span className="size-6 rounded-full bg-emerald-700 text-white font-black text-xs flex items-center justify-center shadow-xs">
-                              #{idx + 1}
-                            </span>
-                            <span className="font-mono text-xs font-black text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                              {animal.tagNumber || `Animal #${idx + 1}`}
-                            </span>
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] font-bold uppercase py-0.5 px-2 ${animal.sex === "Female"
-                                ? "text-rose-700 bg-rose-50 border-rose-200 font-black"
-                                : animal.sex === "Male"
-                                  ? "text-blue-700 bg-blue-50 border-blue-200 font-black"
-                                  : "text-amber-700 bg-amber-50 border-amber-200 font-black"
-                                }`}
-                            >
-                              {animal.sex}
-                            </Badge>
-                          </div>
-
-                          {batchAnimals.length > 1 && (
+                    {formData.entryType === "BATCH" ? (
+                      <div className="space-y-3.5">
+                        {/* Herd Name */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="batchName" className="text-xs font-bold text-slate-700">
+                              Herd Name (Optional)
+                            </Label>
                             <button
                               type="button"
-                              onClick={() => removeBatchAnimalRow(idx)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                              title="Remove this animal"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <Label className="text-[10px] font-black uppercase text-slate-600 tracking-wider">
-                                Ear Tag / RFID
-                              </Label>
-                              <InfoTooltip text="Unique identification tag or RFID for this individual animal in the herd." />
-                            </div>
-                            <Input
-                              value={animal.tagNumber}
-                              onChange={(e) => updateBatchAnimalField(idx, "tagNumber", e.target.value.toUpperCase())}
-                              placeholder="e.g. NAME-001"
-                              className={`h-8 text-xs font-mono font-bold rounded-lg border-slate-300 bg-white ${tagError(animal.tagNumber, batchAnimals.filter((_, index) => index !== idx).map((row) => row.tagNumber)) ? "border-rose-500" : ""}`}
-                              required
-                            />
-                            {tagError(animal.tagNumber, batchAnimals.filter((_, index) => index !== idx).map((row) => row.tagNumber)) && (
-                              <p className="text-[10px] font-medium text-rose-700" role="alert">
-                                {tagError(animal.tagNumber, batchAnimals.filter((_, index) => index !== idx).map((row) => row.tagNumber))}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <Label className="text-[10px] font-black uppercase text-slate-600 tracking-wider">
-                                Breed / Strain
-                              </Label>
-                              <InfoTooltip text="Breed or pedigree strain of this animal." />
-                            </div>
-                            <Select
-                              value={
-                                currentPreset?.commonBreeds?.includes(animal.breed)
-                                  ? animal.breed
-                                  : "OTHER"
+                              onClick={() =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  batchName: `${prev.livestockType} Herd #${Math.floor(100 + Math.random() * 900)}`,
+                                }))
                               }
-                              onValueChange={(val) => {
-                                if (val === "OTHER") {
-                                  updateBatchAnimalField(idx, "breed", "Others");
-                                } else {
-                                  updateBatchAnimalField(idx, "breed", val);
-                                }
-                              }}
+                              className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
                             >
-                              <SelectTrigger className="h-8 text-xs rounded-lg bg-white border-slate-300">
-                                <SelectValue placeholder="Breed" />
-                              </SelectTrigger>
-                              <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-56">
-                                {currentPreset?.commonBreeds?.map((b) => (
-                                  <SelectItem key={b} value={b} className="text-xs">
-                                    {b}
-                                  </SelectItem>
-                                ))}
-                                <SelectItem value="OTHER" className="text-xs font-bold text-emerald-800">
-                                  Others (Custom)
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                            {(!currentPreset?.commonBreeds?.includes(animal.breed) || animal.breed === "Others") && (
-                              <Input
-                                value={animal.breed === "Others" ? "" : animal.breed}
-                                onChange={(e) => updateBatchAnimalField(idx, "breed", e.target.value || "Others")}
-                                placeholder="Type custom breed"
-                                className="h-7 text-[11px] rounded-lg mt-1 bg-white border-emerald-400 font-medium"
-                                required
-                              />
-                            )}
+                              <Sparkles className="size-3.5" /> Auto-suggest Name
+                            </button>
                           </div>
-
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <Label className="text-[10px] font-black uppercase text-slate-600 tracking-wider">
-                                Sex
-                              </Label>
-                              <InfoTooltip text="Sex of this individual animal (Female, Male, or Castrated)." />
-                            </div>
-                            <Select
-                              value={animal.sex}
-                              onValueChange={(val) => { if (val === "Male" || val === "Female") updateBatchAnimalField(idx, "sex", val); }}
-                            >
-                              <SelectTrigger className="h-8 text-xs rounded-lg bg-white border-slate-300">
-                                <SelectValue placeholder="Sex" />
-                              </SelectTrigger>
-                              <SelectContent className="z-[var(--z-popover-dialog)]">
-                                <SelectItem value="Female">Female</SelectItem>
-                                <SelectItem value="Male">Male</SelectItem>
-                                <SelectItem value="Castrated">Castrated / Barrow</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <Label className="text-[10px] font-black uppercase text-slate-600 tracking-wider">
-                                Weight (kg)
-                              </Label>
-                              <InfoTooltip text="Weight in kg for this individual animal." />
-                            </div>
-                            <Input
-                              type="number"
-                              step="0.1"
-                              value={animal.weight}
-                              onChange={(e) => updateBatchAnimalField(idx, "weight", e.target.value)}
-                              placeholder="e.g. 65"
-                              className="h-8 text-xs font-semibold rounded-lg bg-white border-slate-300"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <Label className="text-[10px] font-black uppercase text-slate-600 tracking-wider">Birth Date (optional)</Label>
-                              <InfoTooltip text="Birth date of this animal to track its age." />
-                            </div>
-                            <Input type="date" max={localCalendarDateToday()} value={animal.birthDate || ""} onChange={(e) => updateBatchAnimalField(idx, "birthDate", e.target.value)} className="h-11 min-w-0 w-full text-xs rounded-lg bg-white border-slate-300" />
-                          </div>
-                        </div>
-
-                        <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-                          <span className="text-[11px] text-slate-600 font-bold flex items-center gap-1.5">
-                            <Syringe className="w-3.5 h-3.5 text-emerald-700" /> Vaccination Date (optional):
-                            <InfoTooltip text="Date this member received its most recent vaccination dose." />
-                          </span>
                           <Input
-                            type="date"
-                            max={localCalendarDateToday()}
-                            value={animal.lastVaccinationDate}
-                            onChange={(e) =>
-                              updateBatchAnimalField(idx, "lastVaccinationDate", e.target.value)
-                            }
-                            className="h-7 w-36 text-[11px] rounded-lg py-0 px-2 bg-white border-slate-300 text-slate-800"
+                            id="batchName"
+                            placeholder={`e.g. Pen 3 Fattening ${formData.livestockType}, East Barn Herd`}
+                            value={formData.batchName}
+                            onChange={(e) => setFormData({ ...formData, batchName: e.target.value })}
+                            className="h-11 rounded-xl bg-white font-medium"
                           />
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+                    ) : (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="assignedBatch" className="text-xs font-bold text-slate-700">
+                            Assigned Herd (Optional)
+                          </Label>
+                          <InfoTooltip text="Group this animal under an existing herd or leave blank if raised as a standalone livestock." />
+                        </div>
+                        <Select
+                          value={formData.batchId || "none"}
+                          onValueChange={(val) => setFormData({ ...formData, batchId: val === "none" ? "" : val })}
+                        >
+                          <SelectTrigger id="assignedBatch" className="h-11 rounded-xl bg-white">
+                            <SelectValue placeholder="Individual Animal (No Batch)" />
+                          </SelectTrigger>
+                          <SelectContent className="z-[var(--z-popover-dialog)]">
+                            <SelectItem value="none">Individual Animal (No Batch)</SelectItem>
+                            {matchingBatches.map((b) => (
+                              <SelectItem key={b.id} value={String(b.id)}>
+                                {b.batchCode} ({b.batchName || b.livestockTypeName})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
-            {/* Live Preview Card */}
-            <div className="p-3.5 rounded-2xl border border-emerald-900/10 bg-emerald-50/40 text-xs">
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-900/60 block mb-1">
-                Preview
-              </span>
-              {formData.entryType === "INDIVIDUAL" ? (
-                <div className="flex items-center gap-3">
-                  {formData.photoDataUrl ? (
-                    <img
-                      src={formData.photoDataUrl}
-                      alt="Tag preview"
-                      className="size-11 rounded-xl object-cover border border-emerald-200 shadow-2xs shrink-0"
-                    />
-                  ) : (
-                    <div
-                      className={`size-11 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br border shadow-2xs shrink-0 ${selectedAvatarOption.bgGradient}`}
-                    >
-                      {selectedAvatarOption.emoji}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between font-bold text-emerald-950">
-                      <span className="font-mono text-sm">
-                        {formData.tagNumber || "TAG-PENDING"}
-                      </span>
-                      <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px]">
-                        Pending Review
-                      </Badge>
-                    </div>
-                    <p className="text-slate-600 mt-0.5 truncate">
-                      {formData.livestockType} • {formData.breed || "Unspecified Breed"} •{" "}
-                      {formData.sex} {formData.weight ? `• ${formData.weight} kg` : ""}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  {batchPhotoDataUrls.length > 0 ? (
-                    <div className="relative size-12 rounded-xl overflow-hidden border border-emerald-300 shadow-2xs shrink-0 group">
-                      <img
-                        src={batchPhotoDataUrls[0]}
-                        alt="Herd cover preview"
-                        className="w-full h-full object-cover"
+                    {/* Housing Pen / Facility */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="housingPen" className="text-xs font-bold text-slate-700">
+                        Housing Pen / Facility (Optional)
+                      </Label>
+                      <Input
+                        id="housingPen"
+                        placeholder="e.g. East Barn / Pen 3 Fattening"
+                        value={formData.housingPen}
+                        onChange={(e) => setFormData({ ...formData, housingPen: e.target.value })}
+                        className="h-11 rounded-xl bg-white text-sm"
                       />
-                      {batchPhotoDataUrls.length > 1 && (
-                        <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-bold text-white text-center py-0.2">
-                          +{batchPhotoDataUrls.length - 1}
+                    </div>
+
+                    {/* Feed Formulation / Ration */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label htmlFor="feedType" className="text-xs font-bold text-slate-700">
+                          Feed Formulation / Ration (Optional)
+                        </Label>
+                        <span className="text-[11px] text-slate-400 font-semibold">
+                          {currentPreset?.name} suggestions
                         </span>
+                      </div>
+                      <Select
+                        value={formData.isOtherFeed ? "OTHER" : formData.feedType || "NOT_SPECIFIED"}
+                        onValueChange={(val) => {
+                          if (val === "OTHER") {
+                            setFormData((prev) => ({ ...prev, isOtherFeed: true }));
+                          } else {
+                            setFormData((prev) => ({
+                              ...prev,
+                              feedType: val === "NOT_SPECIFIED" ? "" : val,
+                              isOtherFeed: false,
+                              customFeed: "",
+                            }));
+                          }
+                        }}
+                      >
+                        <SelectTrigger id="feedType" className="h-11 rounded-xl bg-white text-sm font-medium">
+                          <SelectValue placeholder="Select feed formulation..." />
+                        </SelectTrigger>
+                        <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-60">
+                          <SelectItem value="NOT_SPECIFIED" className="text-sm text-slate-500">
+                            Not specified
+                          </SelectItem>
+                          {currentPreset?.commonFeeds?.map((f) => (
+                            <SelectItem key={f} value={f} className="text-sm">
+                              {f}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="OTHER" className="text-sm font-bold text-emerald-800">
+                            ➕ Others (Specify custom feed)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {formData.isOtherFeed && (
+                        <div className="pt-1 animate-in fade-in-50 duration-200">
+                          <Input
+                            id="customFeed"
+                            maxLength={100}
+                            placeholder="e.g. Finisher Pellets, Napier Grass"
+                            value={formData.customFeed}
+                            onChange={(e) => setFormData({ ...formData, customFeed: e.target.value })}
+                            className="h-10 rounded-xl bg-white text-sm"
+                            autoFocus
+                          />
+                        </div>
                       )}
                     </div>
-                  ) : (
-                    <div className="size-11 rounded-xl flex items-center justify-center bg-teal-100 text-teal-800 border border-teal-200 shadow-2xs shrink-0">
-                      <Layers className="size-5" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between font-bold text-emerald-950">
-                      <span className="text-sm font-black flex items-center gap-1.5 truncate">
-                        Herd: {batchAnimals.length} Heads of {formData.livestockType}
-                      </span>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {batchPhotoDataUrls.length > 0 && (
-                          <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[9px] font-semibold">
-                            📷 {batchPhotoDataUrls.length} photo{batchPhotoDataUrls.length > 1 ? "s" : ""}
-                          </Badge>
-                        )}
-                        <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px]">
-                          Batch Entry
-                        </Badge>
+                  </div>
+                </div>
+              )}
+
+              {/* ──────────────────────────────────────────────────────────
+                  STEP 3: INDIVIDUAL LIVESTOCK DETAILS
+              ────────────────────────────────────────────────────────── */}
+              {currentStep === 3 && (
+                <div className="space-y-4 animate-in fade-in-50 duration-200">
+                  {formData.entryType === "BATCH" ? (
+                    /* Herd Individual Roster Editor */
+                    <div className="space-y-4">
+                      {/* Top Action Bar */}
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex flex-wrap items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={reTagAllBatchAnimals}
+                            className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-300 bg-white hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                          >
+                            <Sparkles className="size-3.5 text-emerald-600" />
+                            Auto-Tag
+                          </button>
+                          {batchAnimals.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={handleClearAllBatchAnimals}
+                              className="px-3 py-1.5 text-xs font-bold rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                            >
+                              <Trash2 className="size-3.5 text-rose-600" />
+                              Clear All ({batchAnimals.length})
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleSaveDraft}
+                            className="px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                          >
+                            <Check className="size-3.5 text-emerald-600" />
+                            <span>{hasDraft ? "Auto-Saved" : "Save Draft"}</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-500">
+                            Total: <strong className="text-emerald-950 font-black">{batchAnimals.length} head(s)</strong>
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={addBatchAnimalRow}
+                            className="h-8 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold gap-1 shadow-xs cursor-pointer"
+                          >
+                            <Plus className="size-3.5" /> Add Animal
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Head count quick stepper */}
+                      <div className="flex items-center justify-between bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-200/80">
+                        <span className="text-xs font-bold text-emerald-900">
+                          Herd Size Stepper
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleBatchQuantityChange(Math.max(1, batchAnimals.length - 1))}
+                            className="size-7 rounded-lg border border-slate-300 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-100"
+                          >
+                            <Minus className="size-3.5" />
+                          </button>
+                          <span className="font-mono font-black text-sm px-2 text-slate-900">
+                            {batchAnimals.length}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleBatchQuantityChange(Math.min(50, batchAnimals.length + 1))}
+                            className="size-7 rounded-lg bg-emerald-700 text-white flex items-center justify-center hover:bg-emerald-800"
+                          >
+                            <Plus className="size-3.5" />
+                          </button>
+                          <div className="hidden sm:flex gap-1 ml-2">
+                            {[3, 5, 10, 20].map((n) => (
+                              <button
+                                key={n}
+                                type="button"
+                                onClick={() => handleBatchQuantityChange(n)}
+                                className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
+                                  batchAnimals.length === n
+                                    ? "bg-emerald-700 text-white border-emerald-700"
+                                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                                }`}
+                              >
+                                {n}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Animal Cards Accordion List */}
+                      <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                        {batchAnimals.map((animal, idx) => {
+                          const isExpanded = expandedAnimalIndex === idx;
+                          return (
+                            <div
+                              key={animal.id || idx}
+                              className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden transition-all"
+                            >
+                              {/* Card Header (Accordion toggle) */}
+                              <div
+                                onClick={() => setExpandedAnimalIndex(isExpanded ? null : idx)}
+                                className="p-3.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-50 transition-colors"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <span className="size-6 rounded-full bg-emerald-700 text-white font-black text-xs flex items-center justify-center shrink-0">
+                                    #{idx + 1}
+                                  </span>
+                                  <span className="font-mono text-xs font-black text-slate-900 truncate">
+                                    {animal.tagNumber || `Animal #${idx + 1}`}
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] font-bold uppercase py-0.5 px-2 ${
+                                      animal.sex === "Female"
+                                        ? "text-rose-700 bg-rose-50 border-rose-200 font-black"
+                                        : animal.sex === "Male"
+                                          ? "text-blue-700 bg-blue-50 border-blue-200 font-black"
+                                          : "text-amber-700 bg-amber-50 border-amber-200 font-black"
+                                    }`}
+                                  >
+                                    {animal.sex}
+                                  </Badge>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {batchAnimals.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeBatchAnimalRow(idx);
+                                      }}
+                                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                      title="Remove animal"
+                                    >
+                                      <Trash2 className="size-4" />
+                                    </button>
+                                  )}
+                                  {isExpanded ? (
+                                    <ChevronUp className="size-4 text-slate-400" />
+                                  ) : (
+                                    <ChevronDown className="size-4 text-slate-400" />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Card Body (Expanded Inputs) */}
+                              {isExpanded && (
+                                <div className="p-3.5 pt-0 border-t border-slate-100 space-y-3 bg-slate-50/50">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                    {/* Tag number */}
+                                    <div className="space-y-1">
+                                      <Label className="text-xs font-bold text-slate-600">
+                                        Tag Number
+                                      </Label>
+                                      <Input
+                                        value={animal.tagNumber}
+                                        onChange={(e) => updateBatchAnimalField(idx, "tagNumber", e.target.value.toUpperCase())}
+                                        placeholder="e.g. NAME-001"
+                                        className="h-10 text-xs font-mono font-bold rounded-xl bg-white"
+                                        required
+                                      />
+                                    </div>
+
+                                    {/* Breed */}
+                                    <div className="space-y-1">
+                                      <Label className="text-xs font-bold text-slate-600">
+                                        Breed / Strain
+                                      </Label>
+                                      <Select
+                                        value={
+                                          currentPreset?.commonBreeds?.includes(animal.breed)
+                                            ? animal.breed
+                                            : "OTHER"
+                                        }
+                                        onValueChange={(val) => {
+                                          if (val === "OTHER") {
+                                            updateBatchAnimalField(idx, "breed", "Others");
+                                          } else {
+                                            updateBatchAnimalField(idx, "breed", val);
+                                          }
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-10 text-xs rounded-xl bg-white">
+                                          <SelectValue placeholder="Breed" />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-56">
+                                          {currentPreset?.commonBreeds?.map((b) => (
+                                            <SelectItem key={b} value={b} className="text-xs">
+                                              {b}
+                                            </SelectItem>
+                                          ))}
+                                          <SelectItem value="OTHER" className="text-xs font-bold text-emerald-800">
+                                            Others (Custom)
+                                          </SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      {(!currentPreset?.commonBreeds?.includes(animal.breed) || animal.breed === "Others") && (
+                                        <Input
+                                          value={animal.breed === "Others" ? "" : animal.breed}
+                                          onChange={(e) => updateBatchAnimalField(idx, "breed", e.target.value || "Others")}
+                                          placeholder="Type custom breed"
+                                          className="h-9 text-xs rounded-xl mt-1.5 bg-white border-emerald-400 font-medium"
+                                          required
+                                        />
+                                      )}
+                                    </div>
+
+                                    {/* Sex */}
+                                    <div className="space-y-1">
+                                      <Label className="text-xs font-bold text-slate-600">
+                                        Sex
+                                      </Label>
+                                      <Select
+                                        value={animal.sex}
+                                        onValueChange={(val) => {
+                                          if (val === "Male" || val === "Female" || val === "Castrated") {
+                                            updateBatchAnimalField(idx, "sex", val);
+                                          }
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-10 text-xs rounded-xl bg-white">
+                                          <SelectValue placeholder="Sex" />
+                                        </SelectTrigger>
+                                        <SelectContent className="z-[var(--z-popover-dialog)]">
+                                          <SelectItem value="Female">Female</SelectItem>
+                                          <SelectItem value="Male">Male</SelectItem>
+                                          <SelectItem value="Castrated">Castrated / Barrow</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+
+                                    {/* Weight */}
+                                    <div className="space-y-1">
+                                      <Label className="text-xs font-bold text-slate-600">
+                                        Weight (kg)
+                                      </Label>
+                                      <Input
+                                        type="number"
+                                        step="0.1"
+                                        value={animal.weight}
+                                        onChange={(e) => updateBatchAnimalField(idx, "weight", e.target.value)}
+                                        placeholder="e.g. 65"
+                                        className="h-10 text-xs font-bold rounded-xl bg-white"
+                                      />
+                                    </div>
+
+                                    {/* Birth Date */}
+                                    <div className="space-y-1">
+                                      <Label className="text-xs font-bold text-slate-600">
+                                        Birth Date (Optional)
+                                      </Label>
+                                      <Input
+                                        type="date"
+                                        max={localCalendarDateToday()}
+                                        value={animal.birthDate || ""}
+                                        onChange={(e) => updateBatchAnimalField(idx, "birthDate", e.target.value)}
+                                        className="h-10 text-xs rounded-xl bg-white"
+                                      />
+                                    </div>
+
+                                    {/* Vaccination Date */}
+                                    <div className="space-y-1">
+                                      <Label className="text-xs font-bold text-slate-600">
+                                        Vaccination Date (Optional)
+                                      </Label>
+                                      <Input
+                                        type="date"
+                                        max={localCalendarDateToday()}
+                                        value={animal.lastVaccinationDate}
+                                        onChange={(e) => updateBatchAnimalField(idx, "lastVaccinationDate", e.target.value)}
+                                        className="h-10 text-xs rounded-xl bg-white"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Sync buttons */}
+                                  <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-200">
+                                    <button
+                                      type="button"
+                                      onClick={syncBreedToAllAnimals}
+                                      className="text-[11px] font-bold text-emerald-700 hover:underline"
+                                    >
+                                      Apply Breed to All Animals
+                                    </button>
+                                    <span className="text-slate-300">•</span>
+                                    <button
+                                      type="button"
+                                      onClick={syncVaccinationDateToAllAnimals}
+                                      className="text-[11px] font-bold text-emerald-700 hover:underline"
+                                    >
+                                      Apply Vax Date to All
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                    <p className="text-slate-600 mt-0.5 font-medium truncate">
-                      Avg Weight: <strong>~{batchMetrics.avgWeight} kg</strong> • Biomass: <strong>~{batchMetrics.totalWeight} kg</strong>
-                    </p>
-                    <p className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
-                      Tags: {batchAnimals.slice(0, 4).map((a) => a.tagNumber || "unassigned").join(", ")}
-                      {batchAnimals.length > 4 ? ` +${batchAnimals.length - 4} more` : ""}
-                    </p>
+                  ) : (
+                    /* Individual Animal Details Form */
+                    <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-4">
+                      {/* Breed */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="breedSelect" className="text-xs font-bold text-slate-700">
+                            Breed / Pedigree
+                          </Label>
+                          <span className="text-[10px] text-slate-400 font-semibold">
+                            {formData.isOtherBreed ? "Custom Breed" : "Standard Species Breed"}
+                          </span>
+                        </div>
+                        <Select
+                          value={formData.isOtherBreed ? "OTHER" : resolveBreed(formData.livestockType, formData.breed)}
+                          onValueChange={(val) => {
+                            if (val === "OTHER") {
+                              setFormData({ ...formData, isOtherBreed: true });
+                            } else {
+                              setFormData({ ...formData, breed: val, isOtherBreed: false, customBreed: "" });
+                            }
+                          }}
+                        >
+                          <SelectTrigger id="breedSelect" className="h-11 rounded-xl bg-white font-medium">
+                            <SelectValue placeholder="Select breed..." />
+                          </SelectTrigger>
+                          <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-60">
+                            {currentPreset?.commonBreeds?.map((b) => (
+                              <SelectItem key={b} value={b}>
+                                {b}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="OTHER" className="font-bold text-emerald-800">
+                              ➕ Others (Specify custom breed)
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {formData.isOtherBreed && (
+                          <div className="pt-1 animate-in fade-in-50 duration-200">
+                            <Input
+                              id="customBreed"
+                              placeholder="e.g. Belgian Blue Cross, Native Batangas Hybrid"
+                              value={formData.customBreed}
+                              onChange={(e) => setFormData({ ...formData, customBreed: e.target.value })}
+                              className="h-11 rounded-xl border-emerald-300 bg-white font-medium"
+                              required
+                              autoFocus
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Sex & Weight */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="sex" className="text-xs font-bold text-slate-700">
+                            Sex / Gender
+                          </Label>
+                          <Select
+                            value={formData.sex}
+                            onValueChange={(val) => setFormData({ ...formData, sex: val })}
+                          >
+                            <SelectTrigger id="sex" className="h-11 rounded-xl bg-white">
+                              <SelectValue placeholder="Select sex" />
+                            </SelectTrigger>
+                            <SelectContent className="z-[var(--z-popover-dialog)]">
+                              <SelectItem value="Female">Female</SelectItem>
+                              <SelectItem value="Male">Male</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="weight" className="text-xs font-bold text-slate-700">
+                              Weight (kg)
+                            </Label>
+                            {currentPreset?.suggestedWeightKg && (
+                              <span className="text-[10px] text-slate-400 font-semibold">
+                                ~{currentPreset.suggestedWeightKg} kg
+                              </span>
+                            )}
+                          </div>
+                          <Input
+                            id="weight"
+                            type="number"
+                            step="0.1"
+                            placeholder="e.g. 65"
+                            value={formData.weight}
+                            onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                            className="h-11 rounded-xl bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Birth Date */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="birthDate" className="text-xs font-bold text-slate-700">
+                          Birth Date (Optional)
+                        </Label>
+                        <Input
+                          id="birthDate"
+                          type="date"
+                          max={localCalendarDateToday()}
+                          value={formData.birthDate}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, birthDate: e.target.value }))}
+                          className="h-11 rounded-xl bg-white"
+                        />
+                      </div>
+
+                      {/* Vaccination Checkbox & Date */}
+                      <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="isVaccinated"
+                            checked={formData.isVaccinated}
+                            onCheckedChange={(checked) =>
+                              setFormData({
+                                ...formData,
+                                isVaccinated: !!checked,
+                                lastVaccinationDate: checked ? formData.lastVaccinationDate : "",
+                              })
+                            }
+                          />
+                          <Label
+                            htmlFor="isVaccinated"
+                            className="text-xs font-bold text-slate-800 cursor-pointer flex items-center gap-1.5"
+                          >
+                            <Syringe className="w-3.5 h-3.5 text-emerald-700" />
+                            Animal has active vaccination records on file
+                          </Label>
+                        </div>
+
+                        {formData.isVaccinated && (
+                          <div className="space-y-1.5 pt-1">
+                            <Label htmlFor="vaxDate" className="text-xs font-bold text-slate-600">
+                              Last Vaccination Date
+                            </Label>
+                            <Input
+                              id="vaxDate"
+                              type="date"
+                              max={localCalendarDateToday()}
+                              value={formData.lastVaccinationDate}
+                              onChange={(e) => setFormData({ ...formData, lastVaccinationDate: e.target.value })}
+                              className="h-10 rounded-xl bg-white"
+                              required
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ──────────────────────────────────────────────────────────
+                  STEP 4: REVIEW & SUBMIT
+              ────────────────────────────────────────────────────────── */}
+              {currentStep === 4 && (
+                <div className="space-y-4 animate-in fade-in-50 duration-200">
+                  {/* Identification Card */}
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Tag className="size-4 text-emerald-700" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                        Identification
+                      </h4>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-slate-400 font-medium block">Tag Number</span>
+                        <span className="font-mono font-black text-slate-900 text-sm">
+                          {formData.entryType === "INDIVIDUAL"
+                            ? (formData.tagNumber || "Unassigned")
+                            : `Batch (${batchAnimals.length} head tags)`}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-medium block">Tag Format</span>
+                        <span className="font-bold text-slate-900">
+                          {formData.isCustomTag ? "Custom Mode" : `Standard (${ownerTagPrefix || "NAME"}-)`}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-medium block">Species</span>
+                        <span className="font-bold text-slate-900">{formData.livestockType}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-medium block">Entry Mode</span>
+                        <span className="font-bold text-slate-900">
+                          {formData.entryType === "INDIVIDUAL" ? "Individual Animal" : "Herd"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Herd Profile Card */}
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Layers className="size-4 text-teal-700" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                        Herd Profile
+                      </h4>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div>
+                        <span className="text-slate-400 font-medium block">Herd Name</span>
+                        <span className="font-bold text-slate-900">
+                          {formData.entryType === "BATCH"
+                            ? (formData.batchName || "Not specified")
+                            : (matchingBatches.find((b) => String(b.id) === formData.batchId)?.batchName || "Individual Animal (No Batch)")}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-medium block">Housing Pen / Facility</span>
+                        <span className="font-bold text-slate-900">
+                          {formData.housingPen || "Not specified"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-medium block">Feed Formulation / Ration</span>
+                        <span className="font-bold text-slate-900">
+                          {(formData.isOtherFeed ? formData.customFeed : formData.feedType) || "Not specified"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Animals in Batch or Individual Details Card */}
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users className="size-4 text-emerald-700" />
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                          {formData.entryType === "BATCH" ? "Animals in Batch" : "Animal Specifications"}
+                        </h4>
+                      </div>
+                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs font-bold">
+                        {formData.entryType === "BATCH" ? `${batchAnimals.length} head(s)` : "1 head"}
+                      </Badge>
+                    </div>
+
+                    {formData.entryType === "BATCH" ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs text-slate-500 pb-1 border-b border-slate-200">
+                          <span>Avg Weight: <strong>~{batchMetrics.avgWeight} kg</strong></span>
+                          <span>Total Biomass: <strong>~{batchMetrics.totalWeight} kg</strong></span>
+                        </div>
+                        <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+                          {batchAnimals.map((a, idx) => (
+                            <div
+                              key={a.id || idx}
+                              className="p-2.5 bg-white rounded-xl border border-slate-200 text-xs flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="size-5 rounded-full bg-emerald-700 text-white font-black text-[10px] flex items-center justify-center">
+                                  #{idx + 1}
+                                </span>
+                                <span className="font-mono font-bold text-slate-900">{a.tagNumber}</span>
+                                <span className="text-slate-400">•</span>
+                                <span className="text-slate-700">{a.breed}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <Badge variant="outline" className="text-[10px] py-0">
+                                  {a.sex}
+                                </Badge>
+                                <span>{a.weight} kg</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <span className="text-slate-400 font-medium block">Breed</span>
+                          <span className="font-bold text-slate-900">
+                            {formData.isOtherBreed ? formData.customBreed : formData.breed}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 font-medium block">Sex</span>
+                          <span className="font-bold text-slate-900">{formData.sex}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 font-medium block">Weight</span>
+                          <span className="font-bold text-slate-900">{formData.weight ? `${formData.weight} kg` : "Not specified"}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 font-medium block">Vaccination</span>
+                          <span className="font-bold text-slate-900">
+                            {formData.isVaccinated ? `Vaccinated (${formData.lastVaccinationDate})` : "None"}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Photo or Avatar summary thumbnail */}
+                  <div className="p-3 bg-white rounded-2xl border border-slate-200 flex items-center gap-3">
+                    {formData.photoDataUrl ? (
+                      <img
+                        src={formData.photoDataUrl}
+                        alt="Photo preview"
+                        className="size-12 rounded-xl object-cover border border-emerald-300 shrink-0"
+                      />
+                    ) : (
+                      <div className={`size-12 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br border shrink-0 ${selectedAvatarOption.bgGradient}`}>
+                        {selectedAvatarOption.emoji}
+                      </div>
+                    )}
+                    <div className="text-xs">
+                      <span className="font-bold text-slate-800 block">
+                        {formData.photoDataUrl ? "Attached Custom Photo" : `Preset Avatar: ${selectedAvatarOption.name}`}
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Visual badge applied to this livestock entry.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Information Banner */}
+                  <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl flex items-center gap-2.5 text-xs text-blue-900 font-medium">
+                    <Info className="size-4 text-blue-600 shrink-0" />
+                    <span>You can still edit this record after submission (if not yet verified).</span>
+                  </div>
+
+                  {/* Accuracy Confirmation Checkbox */}
+                  <div className="p-4 rounded-2xl border-2 border-emerald-600/30 bg-emerald-50/60 flex items-start gap-3 transition-colors">
+                    <Checkbox
+                      id="confirmAccuracy"
+                      checked={isReviewConfirmed}
+                      onCheckedChange={(checked) => setIsReviewConfirmed(Boolean(checked))}
+                      className="size-5 rounded-md border-emerald-600 data-[state=checked]:bg-emerald-700 data-[state=checked]:text-white mt-0.5 cursor-pointer"
+                    />
+                    <div className="space-y-0.5 cursor-pointer" onClick={() => setIsReviewConfirmed(!isReviewConfirmed)}>
+                      <Label
+                        htmlFor="confirmAccuracy"
+                        className="text-xs font-black text-emerald-950 cursor-pointer select-none"
+                      >
+                        I confirm that the information provided above is complete and accurate.
+                      </Label>
+                      <p className="text-[11px] text-emerald-800/80 leading-relaxed select-none">
+                        Checking this box certifies that all ear tags, breeds, and livestock specifications are verified and ready for official submission.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
-          </div>
 
-          <div className="shrink-0 p-4 sm:p-5 bg-slate-50/90 border-t border-slate-100 flex items-center justify-between gap-2.5 flex-wrap">
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleStartFresh}
-                className="h-9 px-2.5 rounded-xl text-slate-500 hover:text-rose-700 hover:bg-rose-50 text-xs font-bold gap-1.5 cursor-pointer border border-slate-200 hover:border-rose-200 transition-colors"
-                title="Clear all fields, photos, and discard draft"
-              >
-                <Trash2 className="size-3.5 text-slate-400" />
-                Clear All
-              </Button>
-              <div className="flex items-center gap-2 text-xs">
-                {autoSaveStatus === "saving" ? (
-                  <span className="flex items-center gap-1.5 text-amber-700 font-bold animate-pulse">
-                    <Sparkles className="size-3.5 text-amber-600" />
-                    Saving draft...
-                  </span>
-                ) : draftSavedAt ? (
-                  <span className="flex items-center gap-1.5 text-emerald-700 font-bold">
-                    <Check className="size-3.5 text-emerald-600" />
-                    Draft auto-saved
-                    <span className="text-[11px] font-normal text-slate-500">
-                      ({new Date(draftSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})
+            {/* Modal Bottom Footer Navigation Bar */}
+            <div className="shrink-0 p-4 sm:p-5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleStartFresh}
+                  className="h-9 px-2.5 rounded-xl text-slate-500 hover:text-rose-700 hover:bg-rose-50 text-xs font-bold gap-1.5 cursor-pointer border border-slate-200 hover:border-rose-200 transition-colors"
+                  title="Clear all fields and discard draft"
+                >
+                  <Trash2 className="size-3.5 text-slate-400" />
+                  Clear All
+                </Button>
+                <div className="flex items-center gap-2 text-xs">
+                  {autoSaveStatus === "saving" ? (
+                    <span className="flex items-center gap-1.5 text-amber-700 font-bold animate-pulse">
+                      <Sparkles className="size-3.5 text-amber-600" />
+                      Saving draft...
                     </span>
-                  </span>
+                  ) : draftSavedAt ? (
+                    <span className="flex items-center gap-1.5 text-emerald-700 font-bold">
+                      <Check className="size-3.5 text-emerald-600" />
+                      Draft auto-saved
+                    </span>
+                  ) : (
+                    <span className="text-slate-400 font-medium">Auto-saves as you type</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                {currentStep > 1 && (
+                  <Button
+                    key="wizard-btn-back"
+                    type="button"
+                    variant="outline"
+                    onClick={handleBack}
+                    className="rounded-xl h-11 px-4 font-bold border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  >
+                    <ArrowLeft className="size-4 mr-1.5" /> Back
+                  </Button>
+                )}
+
+                {currentStep < 4 ? (
+                  <Button
+                    key={`wizard-btn-next-step-${currentStep}`}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleNext(e);
+                    }}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-2xl h-12 px-7 shadow-sm cursor-pointer text-sm"
+                  >
+                    Next <ArrowRight className="size-4 ml-1.5" />
+                  </Button>
                 ) : (
-                  <span className="text-slate-400 font-medium">Auto-saves as you type</span>
+                  <Button
+                    key="wizard-btn-submit-final"
+                    type="submit"
+                    disabled={!isReviewConfirmed || addMutation.isPending}
+                    className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl h-11 px-6 shadow-sm cursor-pointer min-w-36 transition-all"
+                  >
+                    {addMutation.isPending ? "Submitting..." : "Submit for Review"}
+                  </Button>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2.5">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleModalClose(false)}
-                className="rounded-xl h-11"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={addMutation.isPending}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl h-11 px-6 shadow-sm cursor-pointer"
-              >
-                {addMutation.isPending ? "Submitting..." : "Submit for Review"}
-              </Button>
-            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog after Submission */}
+      <Dialog
+        open={Boolean(submittedLivestock)}
+        onOpenChange={(nextOpen) => !nextOpen && setSubmittedLivestock(null)}
+      >
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl p-6">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
+            <Check className="size-7" aria-hidden="true" />
           </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-    <Dialog
-      open={Boolean(submittedLivestock)}
-      onOpenChange={(nextOpen) => !nextOpen && setSubmittedLivestock(null)}
-    >
-      <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl p-6">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
-          <Check className="size-7" aria-hidden="true" />
-        </div>
-        <div className="space-y-2 text-center">
-          <DialogTitle className="text-xl font-bold text-slate-900">Your livestock is pending for review</DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed text-slate-600">
-            Ear tag <span className="font-semibold text-slate-900">{submittedLivestock?.tagNumber}</span> was submitted and is waiting for official review.
-          </DialogDescription>
-        </div>
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 rounded-xl"
-            onClick={() => setSubmittedLivestock(null)}
-          >
-            Close
-          </Button>
-          <Button
-            type="button"
-            className="min-h-11 rounded-xl bg-emerald-700 font-semibold text-white hover:bg-emerald-800"
-            onClick={() => {
-              const livestockId = submittedLivestock?.id;
-              setSubmittedLivestock(null);
-              if (livestockId) router.push(`/livestock-inventory/${livestockId}`);
-            }}
-          >
-            View Livestock
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+          <div className="space-y-2 text-center">
+            <DialogTitle className="text-xl font-bold text-slate-900">Your livestock is pending for review</DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-slate-600">
+              Ear tag <span className="font-semibold text-slate-900">{submittedLivestock?.tagNumber}</span> was submitted and is waiting for official review.
+            </DialogDescription>
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 rounded-xl"
+              onClick={() => setSubmittedLivestock(null)}
+            >
+              Close
+            </Button>
+            <Button
+              type="button"
+              className="min-h-11 rounded-xl bg-emerald-700 font-semibold text-white hover:bg-emerald-800"
+              onClick={() => {
+                const livestockId = submittedLivestock?.id;
+                setSubmittedLivestock(null);
+                if (livestockId) router.push(`/livestock-inventory/${livestockId}`);
+              }}
+            >
+              View Livestock
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
