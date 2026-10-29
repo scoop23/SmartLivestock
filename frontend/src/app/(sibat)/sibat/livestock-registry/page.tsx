@@ -946,7 +946,7 @@ function SibatLivestockRegistryContent() {
                             <span className="block text-[11px] text-slate-400 font-medium mt-0.5">
                               {isBatch
                                 ? r.batchName || "Herd Container"
-                                : r.breed || r.sex || "Individual Animal"}
+                                : [r.livestockTypeName, r.breed].filter(Boolean).join(" • ") || r.sex || "Individual Animal"}
                             </span>
                           </TableCell>
 
@@ -960,15 +960,15 @@ function SibatLivestockRegistryContent() {
 
                           {/* Record Type */}
                           <TableCell className="py-3.5">
-                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               {isBatch ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-300">
-                                  <Layers className="size-2.5 text-amber-700" />
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
+                                  <Layers className="size-3 text-amber-700" />
                                   Herd
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200">
-                                  <Tag className="size-2.5 text-sky-600" />
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200 shadow-2xs">
+                                  <Tag className="size-3 text-sky-600" />
                                   Individual
                                 </span>
                               )}
@@ -979,12 +979,11 @@ function SibatLivestockRegistryContent() {
                                 </span>
                               )}
                             </div>
-                            <span className="font-semibold text-xs text-slate-800 block">
-                              {r.livestockTypeName || (isBatch ? "Herd" : "Livestock")}
-                            </span>
-                            <span className="text-[11px] text-slate-500 font-medium">
-                              {isBatch ? `${r.quantity} heads` : (r.breed || "Individual Tagged")}
-                            </span>
+                            {isBatch && r.quantity ? (
+                              <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
+                                {r.quantity} heads
+                              </span>
+                            ) : null}
                           </TableCell>
 
                           {/* Date Submitted */}
