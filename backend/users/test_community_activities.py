@@ -294,6 +294,32 @@ class FieldSchedulingPermissionApiTests(APITestCase):
         self.assertEqual(rejected.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(rejected.data["detail"], "This program is fully booked.")
 
+    def test_unlimited_capacity_program_notifies_farmers_with_deep_link_and_rejects_booking(self):
+        self.client.force_authenticate(self.mao)
+        payload = self._schedule_payload()
+        payload["program"] = "Open Livestock Seminar"
+        payload["capacity"] = 0
+        payload["location"] = "Municipal Gymnasium"
+        payload["publication_status"] = "PUBLISHED"
+        res = self.client.post("/community/schedules/", payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        schedule_id = res.data["id"]
+
+        notif = Notification.objects.filter(user=self.farmer, related_entity_id=schedule_id).first()
+        self.assertIsNotNone(notif)
+        self.assertIn("Open Program", notif.title)
+        self.assertIn("walk-in welcome", notif.message.lower())
+        self.assertEqual(notif.link, f"/farmer-scheduling?scheduleId={schedule_id}")
+
+        self.client.force_authenticate(self.farmer)
+        book_res = self.client.post(
+            "/community/bookings/",
+            {"schedule": schedule_id, "time": "08:00"},
+            format="json",
+        )
+        self.assertEqual(book_res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("no participant limit", book_res.data["detail"])
+
     def test_capacity_cannot_be_reduced_below_confirmed_bookings_and_can_be_increased(self):
         schedule = ProgramSchedule.objects.create(
             date=timezone.localdate() + timedelta(days=21),
