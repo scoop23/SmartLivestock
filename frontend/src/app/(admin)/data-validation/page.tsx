@@ -495,27 +495,6 @@ function AdminDataValidationContent() {
     [barangayCatalog],
   );
 
-  // Global KPI Summary
-  const kpis = useMemo(() => {
-    const allRecords = [
-      ...censusSubmissions.map((c) => ({ status: c.status, barangay: c.barangay })),
-      ...inventoryRecords.map((i) => ({ status: i.status, barangay: i.barangayName })),
-      ...incidents.map((inc) => ({ status: inc.status, barangay: inc.barangayName })),
-    ];
-
-    const pending = allRecords.filter((r) => (r.status || "PENDING").toUpperCase() === "PENDING").length;
-    const verified = allRecords.filter((r) => (r.status || "").toUpperCase() === "VERIFIED").length;
-    const approved = allRecords.filter((r) => (r.status || "").toUpperCase() === "APPROVED").length;
-    const flagged = allRecords.filter((r) => {
-      const s = (r.status || "").toUpperCase();
-      return s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION" || s === "REJECTED" || s === "FLAGGED";
-    }).length;
-
-    const activeBarangays = new Set(allRecords.map((r) => r.barangay).filter(Boolean)).size;
-
-    return { pending, verified, approved, flagged, activeBarangays };
-  }, [censusSubmissions, inventoryRecords, incidents]);
-
   // Domain Breakdown Counters
   const domainPendingCounts = useMemo(() => ({
     census: censusSubmissions.filter((c) => (c.status || "PENDING").toUpperCase() === "PENDING").length,
@@ -530,7 +509,7 @@ function AdminDataValidationContent() {
     inventory: inventoryRecords.filter((i) => !i.isBatch && i.entryType === "INDIVIDUAL" && (i.status || "").toUpperCase() === "VERIFIED").length,
     // Only records whose stored status is VERIFIED belong in this badge.
     // Pending inspections remain reviewable, but they are not SIBAT-verified.
-    incidents: incidents.filter((inc) => inc.status === "VERIFIED").length,
+    incidents: incidents.filter((inc) => (inc.status || "").toUpperCase() === "VERIFIED").length,
   }), [censusSubmissions, inventoryRecords, incidents]);
 
   const domainTotalCounts = useMemo(() => ({
@@ -539,6 +518,30 @@ function AdminDataValidationContent() {
     inventory: inventoryRecords.filter((i) => !i.isBatch && i.entryType === "INDIVIDUAL").length,
     incidents: incidents.length,
   }), [censusSubmissions, inventoryRecords, incidents]);
+
+  // Global KPI Summary (strictly aligned with the domain breakdowns so card numbers always match tab sums)
+  const kpis = useMemo(() => {
+    const activeInventoryRecords = inventoryRecords.filter(
+      (i) => !i.isBatch && i.entryType === "INDIVIDUAL"
+    );
+    const allRecords = [
+      ...censusSubmissions.map((c) => ({ status: c.status, barangay: c.barangay })),
+      ...activeInventoryRecords.map((i) => ({ status: i.status, barangay: i.barangayName })),
+      ...incidents.map((inc) => ({ status: inc.status, barangay: inc.barangayName })),
+    ];
+
+    const pending = domainPendingCounts.census + domainPendingCounts.inventory + domainPendingCounts.incidents;
+    const verified = domainVerifiedCounts.census + domainVerifiedCounts.inventory + domainVerifiedCounts.incidents;
+    const approved = allRecords.filter((r) => (r.status || "").toUpperCase() === "APPROVED").length;
+    const flagged = allRecords.filter((r) => {
+      const s = (r.status || "").toUpperCase();
+      return s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION" || s === "REJECTED" || s === "FLAGGED";
+    }).length;
+
+    const activeBarangays = new Set(allRecords.map((r) => r.barangay).filter(Boolean)).size;
+
+    return { pending, verified, approved, flagged, activeBarangays };
+  }, [censusSubmissions, inventoryRecords, incidents, domainPendingCounts, domainVerifiedCounts]);
 
   // ── Filtered Domain Data ──
 
