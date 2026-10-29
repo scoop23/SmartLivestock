@@ -614,7 +614,7 @@ function ReportIllnessDialogContent({
                 <Input
                   value={conditionName}
                   onChange={(e) => setConditionName(e.target.value)}
-                  placeholder="Or enter custom diagnosis / disease name (e.g. Mastitis, FMD, Bloat)..."
+                  placeholder="Other specified custom diagnosis / disease name (e.g. Mastitis, FMD, Bloat)..."
                   className="h-10 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-[#2D5A27]"
                 />
               </div>

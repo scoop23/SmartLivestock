@@ -1243,10 +1243,10 @@ export default function BatchOverviewPage() {
         {/* ── 4. HERD DETAILS MODAL (WITH HERO GALLERY) ────────────────────── */}
         <Dialog open={isHerdDetailsOpen} onOpenChange={setIsHerdDetailsOpen}>
           {currentBatch && (
-            <DialogContent className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-slate-200 bg-slate-50 p-0 shadow-2xl sm:h-[88dvh] sm:max-h-[88dvh] sm:w-[90vw] sm:max-w-3xl sm:rounded-xl">
+            <DialogContent className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-slate-200 bg-slate-50 p-0 shadow-2xl sm:h-[90dvh] sm:max-h-[90dvh] sm:w-[95vw] sm:max-w-5xl lg:max-w-6xl sm:rounded-2xl">
               {/* Sticky Header with high contrast */}
-              <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-3.5 py-2.5 pr-12 text-left sm:px-4.5">
-                <div className="flex items-center gap-2">
+              <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-4 py-3 pr-12 text-left sm:px-6 sm:py-4">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-bold text-[10px] uppercase">
                     Herd Record
                   </Badge>
@@ -1254,20 +1254,20 @@ export default function BatchOverviewPage() {
                     ID: {currentBatch.batchCode}
                   </span>
                 </div>
-                <DialogTitle className="mt-0.5 text-base sm:text-lg font-bold text-slate-950">
+                <DialogTitle className="mt-0.5 text-base sm:text-xl font-bold text-slate-950 truncate">
                   {currentBatch.batchName || "Herd Details"}
                 </DialogTitle>
-                <DialogDescription className="text-xs font-medium text-slate-600">
+                <DialogDescription className="text-xs sm:text-sm font-medium text-slate-600">
                   {currentBatch.species} · {currentBatch.breed || "Breed not recorded"} · {currentBatch.activeCount} active animals
                 </DialogDescription>
               </DialogHeader>
 
               {/* Scrollable Modal Body */}
-              <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 space-y-3.5">
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5 space-y-4">
                 {/* ── HERO IMAGE GALLERY BANNER IN MODAL ── */}
                 <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
                   {/* Hero Picture */}
-                  <div className="relative aspect-[24/9] sm:h-44 w-full overflow-hidden bg-slate-900 group">
+                  <div className="relative h-40 sm:h-52 w-full overflow-hidden bg-slate-900 group">
                     {currentBatch.photos.length > 0 ? (
                       <Image
                         src={currentBatch.photos[modalHeroPhotoIndex % currentBatch.photos.length]}
@@ -1364,8 +1364,9 @@ export default function BatchOverviewPage() {
                         </>
                       ) : (
                         <label
-                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md cursor-pointer transition-all"
+                          className="inline-flex items-center justify-center size-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer transition-all"
                           title="Upload a photo for this herd"
+                          aria-label="Upload a photo for this herd"
                         >
                           <input
                             type="file"
@@ -1380,8 +1381,7 @@ export default function BatchOverviewPage() {
                               }
                             }}
                           />
-                          <Plus className="size-3.5" />
-                          <span>Add Photo</span>
+                          <Camera className="size-4" />
                         </label>
                       )}
                     </div>
@@ -1489,12 +1489,12 @@ export default function BatchOverviewPage() {
                       {getReviewStatusBadge(currentBatch.reviewStatus)}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
                       <Button
                         type="button"
                         variant="outline"
                         onClick={() => setIsHerdQrOpen(true)}
-                        className="h-8.5 gap-1.5 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-800 hover:bg-slate-100"
+                        className="h-9 sm:h-8.5 gap-1.5 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-800 hover:bg-slate-100 w-full sm:w-auto"
                       >
                         <QrCode className="size-3.5 text-emerald-700" /> QR Code
                       </Button>
@@ -1504,7 +1504,7 @@ export default function BatchOverviewPage() {
                           type="button"
                           variant="outline"
                           onClick={() => setIsGalleryManagerOpen(true)}
-                          className="h-8.5 gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-100 hover:text-slate-900 shadow-2xs"
+                          className="h-9 sm:h-8.5 gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-100 hover:text-slate-900 shadow-2xs w-full sm:w-auto"
                         >
                           <ImageIcon className="size-3.5 text-emerald-700" /> Photo Gallery ({currentBatch.photos.length})
                         </Button>
@@ -1515,7 +1515,7 @@ export default function BatchOverviewPage() {
                           type="button"
                           onClick={() => setIsAddIndividualOpen(true)}
                           disabled={!canAddAnimalsToCurrentBatch}
-                          className="h-8.5 gap-1.5 rounded-lg bg-emerald-700 px-3.5 text-xs font-bold text-white hover:bg-emerald-800 shadow-2xs disabled:bg-slate-300"
+                          className="col-span-2 sm:col-span-1 h-9 sm:h-8.5 gap-1.5 rounded-lg bg-emerald-700 px-3.5 text-xs font-bold text-white hover:bg-emerald-800 shadow-2xs disabled:bg-slate-300 w-full sm:w-auto"
                         >
                           <Plus className="size-3.5 stroke-[3]" /> Add Animal
                         </Button>
@@ -1785,7 +1785,7 @@ export default function BatchOverviewPage() {
                             No animals match your search filters.
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
                             {paginatedIndividuals.map((animal) => {
                               const hasInventoryRecord = /^\d+$/.test(animal.id);
                               const isTargetAnimal = highlightedAnimalId === animal.id;
