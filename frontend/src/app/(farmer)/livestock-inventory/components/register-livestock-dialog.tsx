@@ -186,7 +186,6 @@ const WIZARD_STEPS = [
     step: 1,
     title: "Livestock Species",
     shortTitle: "Livestock Species",
-    bannerTitle: "Add Livestock",
     bannerSubtitle: "Add an animal or a group of animals to your livestock.",
     icon: Tag,
     optional: false,
@@ -195,7 +194,6 @@ const WIZARD_STEPS = [
     step: 2,
     title: "Herd Profile (optional)",
     shortTitle: "Herd Profile",
-    bannerTitle: "Herd Profile",
     bannerSubtitle: "Assign an identifiable herd name and housing details.",
     icon: Layers,
     optional: true,
@@ -204,7 +202,6 @@ const WIZARD_STEPS = [
     step: 3,
     title: "Individual Livestock Details",
     shortTitle: "Animal Details",
-    bannerTitle: "Individual Livestock Details",
     bannerSubtitle: "Edit individual tags, breed, sex, weight, and vaccination per animal.",
     icon: Users,
     optional: false,
@@ -213,7 +210,6 @@ const WIZARD_STEPS = [
     step: 4,
     title: "Review & Submit",
     shortTitle: "Review & Submit",
-    bannerTitle: "Review & Submit",
     bannerSubtitle: "Please check the details before submitting.",
     icon: ClipboardCheck,
     optional: false,
@@ -1033,12 +1029,13 @@ function RegisterLivestockDialogContent({
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="size-5 rounded-full bg-emerald-500/30 text-emerald-300 text-[11px] font-black flex items-center justify-center">
-                      {currentStep}
-                    </span>
                     <DialogTitle className="text-lg sm:text-xl font-black text-white tracking-tight">
-                      {currentStepConfig.bannerTitle}
+                      Add Livestock
                     </DialogTitle>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 text-[11px] font-bold">
+                      Step {currentStep} of {WIZARD_STEPS.length}
+                      <span className="hidden sm:inline"> · {currentStepConfig.shortTitle}</span>
+                    </span>
                   </div>
                   <DialogDescription className="text-xs text-emerald-200/90 mt-0.5">
                     {currentStepConfig.bannerSubtitle}
