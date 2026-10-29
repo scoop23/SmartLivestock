@@ -150,6 +150,7 @@ export default function ProductionDashboardPage() {
     <>
       <PageHeader
         title={<span data-tour="production-page-header">Record</span>}
+        subtitle="Log daily farm activities and livestock production."
         variant="farmer"
         maxWidthClass="w-full"
         mobileActionsRow

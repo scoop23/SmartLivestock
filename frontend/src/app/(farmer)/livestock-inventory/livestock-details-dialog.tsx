@@ -656,7 +656,7 @@ export default function LivestockDetailsDialog({
           {/* Top Row: Avatar + Title + Status Badges + Close Button */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             {/* Left: Photo/Avatar & Identifiers */}
-            <div className="flex items-start gap-3.5 sm:gap-4 min-w-0">
+            <div className="flex items-start gap-3.5 sm:gap-4 min-w-0 pr-10 sm:pr-0">
               {/* Tactile Avatar Badge (R2 Photo or Fallback to Species Avatar) */}
               <div className="relative shrink-0">
                 <div
@@ -835,7 +835,7 @@ export default function LivestockDetailsDialog({
                 <button
                   type="button"
                   onClick={onOpenChange}
-                  className="size-9 sm:size-10 rounded-full bg-slate-100/90 hover:bg-slate-200 active:bg-slate-300 text-slate-400 hover:text-slate-700 transition-all flex items-center justify-center cursor-pointer shadow-xs focus:outline-none focus:ring-2 focus:ring-slate-400 shrink-0 ml-1"
+                  className="absolute top-4 right-4 sm:static sm:top-auto sm:right-auto size-9 sm:size-10 rounded-full bg-slate-100/90 hover:bg-slate-200 active:bg-slate-300 text-slate-400 hover:text-slate-700 transition-all flex items-center justify-center cursor-pointer shadow-xs focus:outline-none focus:ring-2 focus:ring-slate-400 shrink-0 sm:ml-1 z-10"
                   aria-label="Close modal"
                 >
                   <X className="size-4.5 sm:size-5 stroke-[2.5]" />
