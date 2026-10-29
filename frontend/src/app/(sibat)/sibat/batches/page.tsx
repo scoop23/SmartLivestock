@@ -84,7 +84,6 @@ import {
   Zap,
 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -1094,6 +1093,7 @@ function SibatBatchesVerificationContent() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth >= 768) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAnimalViewMode("table");
     }
   }, []);
@@ -1127,17 +1127,13 @@ function SibatBatchesVerificationContent() {
   const keepLoadingScreenMounted = useLoadingScreenTransition(isInitialLoading);
 
   const detailQuery = useQuery<BatchItem>({
-    queryKey: ["sibat-batch-detail", user?.email, selectedBatch?.id],
+    queryKey: ["sibat-batch-detail", selectedBatch?.id],
     enabled: isDrilldownOpen && Boolean(selectedBatch?.id),
     queryFn: async ({ signal }) => (await api.get(`livestock/batches/${selectedBatch?.id}/`, { signal })).data,
     staleTime: 30_000,
   });
 
-  useEffect(() => {
-    if (detailQuery.data && detailQuery.data.id === selectedBatch?.id) {
-      setSelectedBatch(detailQuery.data);
-    }
-  }, [detailQuery.data, selectedBatch?.id]);
+  const activeBatch = (detailQuery.data && detailQuery.data.id === selectedBatch?.id ? detailQuery.data : null) ?? selectedBatch;
 
   useEffect(() => {
     if (!batchIdParam || !batches || batches.length === 0) return;
@@ -1154,6 +1150,7 @@ function SibatBatchesVerificationContent() {
     });
 
     if (found) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedBatch(found);
       setIsDrilldownOpen(true);
     }
@@ -1265,8 +1262,8 @@ function SibatBatchesVerificationContent() {
   }, [scopedBatches]);
 
   const filteredChildAnimals = useMemo(() => {
-    if (!selectedBatch || !selectedBatch.animals) return [];
-    return selectedBatch.animals.filter((a) => {
+    if (!activeBatch || !activeBatch.animals) return [];
+    return activeBatch.animals.filter((a) => {
       const matchSearch =
         !animalSearchQuery ||
         a.tag_number?.toLowerCase().includes(animalSearchQuery.toLowerCase()) ||
@@ -1281,7 +1278,7 @@ function SibatBatchesVerificationContent() {
 
       return matchSearch && matchStatus;
     });
-  }, [selectedBatch, animalSearchQuery, animalStatusFilter]);
+  }, [activeBatch, animalSearchQuery, animalStatusFilter]);
 
   // ── Pagination: Batch Table View ─────────────────────────────────────────
   const pageCountBatches = Math.max(1, Math.ceil(filteredBatches.length / BATCH_PAGE_SIZE));
@@ -1297,7 +1294,7 @@ function SibatBatchesVerificationContent() {
 
   // ── Pagination: Individual Animal Roster ─────────────────────────────────
   const ANIMAL_PAGE_SIZE = 10;
-  const animalPageFilterKey = JSON.stringify([selectedBatch?.id, animalSearchQuery, animalStatusFilter]);
+  const animalPageFilterKey = JSON.stringify([activeBatch?.id, animalSearchQuery, animalStatusFilter]);
   const [animalPageState, setAnimalPageState] = useState({ filterKey: animalPageFilterKey, page: 1 });
   const animalPage = animalPageState.filterKey === animalPageFilterKey ? animalPageState.page : 1;
   const setAnimalPage = (nextPage: number | ((currentPage: number) => number)) =>
@@ -1318,19 +1315,19 @@ function SibatBatchesVerificationContent() {
   const filteredPendingAnimalIds = filteredChildAnimals
     .filter((animal) => (animal.status || "PENDING").toUpperCase() === "PENDING")
     .map((animal) => animal.id);
-  const selectedPendingAnimals = (selectedBatch?.animals ?? []).filter(
+  const selectedPendingAnimals = (activeBatch?.animals ?? []).filter(
     (animal) => selectedAnimalIds.includes(animal.id) && (animal.status || "PENDING").toUpperCase() === "PENDING",
   );
   const allFilteredPendingAnimalsSelected = filteredPendingAnimalIds.length > 0
     && filteredPendingAnimalIds.every((id) => selectedAnimalIds.includes(id));
 
   useEffect(() => {
-    if (!isDrilldownOpen || !selectedBatch?.animals || selectedBatch.animals.length === 0) {
+    if (!isDrilldownOpen || !activeBatch?.animals || activeBatch.animals.length === 0) {
       return;
     }
     if (!animalIdParam && !tagParam) return;
 
-    const animals = selectedBatch.animals;
+    const animals = activeBatch.animals;
     const target = animals.find((a) => {
       if (animalIdParam && String(a.id) === String(animalIdParam)) return true;
       if (tagParam && a.tag_number && a.tag_number.trim().toLowerCase() === tagParam.trim().toLowerCase()) return true;
@@ -1339,6 +1336,7 @@ function SibatBatchesVerificationContent() {
 
     if (!target) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHighlightedAnimalId(target.id);
 
     if (animalSearchQuery) setAnimalSearchQuery("");
@@ -1349,7 +1347,7 @@ function SibatBatchesVerificationContent() {
       const targetPage = Math.floor(targetIndex / ANIMAL_PAGE_SIZE) + 1;
       setAnimalPage(targetPage);
     }
-  }, [isDrilldownOpen, selectedBatch?.id, selectedBatch?.animals, animalIdParam, tagParam]);
+  }, [isDrilldownOpen, activeBatch?.id, activeBatch?.animals, animalIdParam, tagParam]);
 
   useEffect(() => {
     if (!highlightedAnimalId || scrolledAnimalIdRef.current === highlightedAnimalId) return;
@@ -1381,7 +1379,7 @@ function SibatBatchesVerificationContent() {
   }
 
   async function verifySelectedAnimals() {
-    if (!selectedBatch || selectedPendingAnimals.length === 0 || selectedPendingAnimals.length !== selectedAnimalIds.length) return;
+    if (!activeBatch || selectedPendingAnimals.length === 0 || selectedPendingAnimals.length !== selectedAnimalIds.length) return;
     setBulkVerifying(true);
     try {
       const results = await Promise.allSettled(selectedPendingAnimals.map((animal) =>
@@ -1396,7 +1394,7 @@ function SibatBatchesVerificationContent() {
       setSelectedAnimalIds([]);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] }),
-        queryClient.invalidateQueries({ queryKey: ["sibat-batch-detail", selectedBatch.id] }),
+        queryClient.invalidateQueries({ queryKey: ["sibat-batch-detail", activeBatch.id] }),
         queryClient.invalidateQueries({ queryKey: ["sibat", "livestock-registry"] }),
         queryClient.invalidateQueries({ queryKey: ["inventory"] }),
       ]);
@@ -1455,6 +1453,7 @@ function SibatBatchesVerificationContent() {
 
   function closeHerdDrilldown() {
     setIsDrilldownOpen(false);
+    setSelectedBatch(null);
     setHighlightedAnimalId(null);
     scrolledAnimalIdRef.current = null;
     if (batchIdParam) router.replace("/sibat/batches", { scroll: false });
@@ -1650,10 +1649,10 @@ function SibatBatchesVerificationContent() {
     <div className="w-full space-y-6">
       <PageHeader
         title={
-          isDrilldownOpen && selectedBatch ? (
+          isDrilldownOpen && activeBatch ? (
             <>
-              <span className="hidden sm:inline">{selectedBatch.batch_name || (isCbat ? "Herd Details" : "Animal Batch Details")}</span>
-              <span className="sm:hidden">{selectedBatch.batch_name || (isCbat ? "Herd Details" : "Batch Details")}</span>
+              <span className="hidden sm:inline">{activeBatch.batch_name || (isCbat ? "Herd Details" : "Animal Batch Details")}</span>
+              <span className="sm:hidden">{activeBatch.batch_name || (isCbat ? "Herd Details" : "Batch Details")}</span>
             </>
           ) : (
             <>
@@ -1663,13 +1662,13 @@ function SibatBatchesVerificationContent() {
           )
         }
         subtitle={
-          isDrilldownOpen && selectedBatch ? (
+          isDrilldownOpen && activeBatch ? (
             <>
               <span className="hidden sm:inline">
-                Farmer: {selectedBatch.farmer_name} • Barangay: {selectedBatch.barangay_name} • {selectedBatch.animals?.length || selectedBatch.total_animals} heads
+                Farmer: {activeBatch.farmer_name} • Barangay: {activeBatch.barangay_name} • {activeBatch.animals?.length || activeBatch.total_animals} heads
               </span>
               <span className="sm:hidden">
-                {selectedBatch.farmer_name} • Brgy. {selectedBatch.barangay_name}
+                {activeBatch.farmer_name} • Brgy. {activeBatch.barangay_name}
               </span>
             </>
           ) : (
@@ -2074,7 +2073,7 @@ function SibatBatchesVerificationContent() {
                 <SibatHerdSplitCard
                   key={batch.id}
                   batch={batch}
-                  isSelected={selectedBatch?.id === batch.id}
+                  isSelected={activeBatch?.id === batch.id}
                   onSelect={() => openHerdDrilldown(batch)}
                   getStatusBadge={getStatusBadge}
                   isCbat={isCbat}
@@ -2317,41 +2316,13 @@ function SibatBatchesVerificationContent() {
                 RETRY
               </Button>
             </div>
-          ) : selectedBatch && (
+          ) : activeBatch && (
             <div className="space-y-5">
-              {/* Drilldown Top Action Navigation Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl border border-emerald-500/25 bg-white/95 backdrop-blur-md shadow-sm">
-                <div className="flex items-center gap-3 min-w-0 flex-wrap">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={closeHerdDrilldown}
-                    className="h-9 gap-2 rounded-xl border-slate-200 bg-white text-slate-700 px-3.5 text-xs font-mono font-bold hover:bg-emerald-50 cursor-pointer shadow-xs shrink-0 transition-colors"
-                  >
-                    <ArrowLeft className="size-3.5" />
-                    <span>{isCbat ? "BACK TO HERDS" : "BACK TO BATCHES"}</span>
-                  </Button>
-
-                  <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono text-slate-500 font-medium min-w-0">
-                    <Link href="/sibat" className="hover:text-emerald-700 transition-colors shrink-0">OVERVIEW</Link>
-                    <span className="text-slate-300">/</span>
-                    <button type="button" onClick={closeHerdDrilldown} className="hover:text-emerald-700 transition-colors shrink-0 font-medium cursor-pointer">{isCbat ? "HERD" : "BATCHES"}</button>
-                    <span className="text-slate-300">/</span>
-                    <span className="text-emerald-900 font-bold font-mono truncate">{selectedBatch.batch_code}</span>
-                  </nav>
-                </div>
-
-                <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
-                  {getStatusBadge(selectedBatch.review_status)}
-                </div>
-              </div>
-
               {/* Husbandry & Animal Information */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 {/* Photo Gallery Column (5 cols) */}
                 <div className="lg:col-span-5">
-                  <HerdProfileGallery batch={selectedBatch} />
+                  <HerdProfileGallery batch={activeBatch} />
                 </div>
 
                 {/* Herd Summary Telemetry Matrix (7 cols) */}
@@ -2360,29 +2331,32 @@ function SibatBatchesVerificationContent() {
                   <div className="rounded-2xl border border-emerald-500/25 bg-white/95 p-5 shadow-sm backdrop-blur-md">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-800 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-full mb-2">
-                          <Cpu className="size-3 text-emerald-600" />
-                          ANIMAL BATCH RECORD
-                        </span>
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-800 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                            <Cpu className="size-3 text-emerald-600" />
+                            ANIMAL BATCH RECORD
+                          </span>
+                          {getStatusBadge(activeBatch.review_status)}
+                        </div>
                         <h2 className="text-xl font-black font-sans text-slate-900 leading-tight truncate">
-                          {selectedBatch.batch_name}
+                          {activeBatch.batch_name}
                         </h2>
                         <div className="mt-1.5 flex items-center gap-2 text-xs font-mono text-slate-500 flex-wrap">
-                          <span>Farmer: <strong className="text-slate-900">{selectedBatch.farmer_name}</strong></span>
+                          <span>Farmer: <strong className="text-slate-900">{activeBatch.farmer_name}</strong></span>
                           <span className="text-slate-300">•</span>
-                          <span>Barangay: <strong className="text-slate-900">Brgy. {selectedBatch.barangay_name}</strong></span>
+                          <span>Barangay: <strong className="text-slate-900">Brgy. {activeBatch.barangay_name}</strong></span>
                           <span className="text-slate-300">•</span>
-                          <span>Batch Code: <code className="bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded text-[11px] border border-emerald-200">{selectedBatch.batch_code}</code></span>
+                          <span>Batch Code: <code className="bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded text-[11px] border border-emerald-200">{activeBatch.batch_code}</code></span>
                         </div>
                       </div>
                       <div className="size-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-2xl border border-emerald-200 shrink-0">
-                        {getDefaultAvatarForSpecies(selectedBatch.livestock_type_name).emoji}
+                        {getDefaultAvatarForSpecies(activeBatch.livestock_type_name).emoji}
                       </div>
                     </div>
 
-                    {selectedBatch.notes && (
+                    {activeBatch.notes && (
                       <div className="mt-3.5 pt-3 border-t border-slate-100 text-xs font-mono text-slate-600 bg-slate-50/80 p-3 rounded-xl border border-slate-200/60">
-                        &ldquo;{selectedBatch.notes}&rdquo;
+                        &ldquo;{activeBatch.notes}&rdquo;
                       </div>
                     )}
                   </div>
@@ -2399,10 +2373,10 @@ function SibatBatchesVerificationContent() {
                       </div>
                       <div className="mt-3">
                         <span className="text-base font-black font-mono text-slate-900 block truncate">
-                          {selectedBatch.livestock_type_name.toUpperCase()}
+                          {activeBatch.livestock_type_name.toUpperCase()}
                         </span>
                         <span className="text-[10px] font-mono text-slate-400 block truncate mt-0.5">
-                          Code: {selectedBatch.batch_code}
+                          Code: {activeBatch.batch_code}
                         </span>
                       </div>
                     </div>
@@ -2417,10 +2391,10 @@ function SibatBatchesVerificationContent() {
                       </div>
                       <div className="mt-3">
                         <span className="text-base font-black font-mono text-slate-900 block">
-                          {selectedBatch.animals?.length || selectedBatch.total_animals} <span className="text-xs text-slate-500">HEADS</span>
+                          {activeBatch.animals?.length || activeBatch.total_animals} <span className="text-xs text-slate-500">HEADS</span>
                         </span>
                         <span className="text-[10px] font-mono text-slate-400 block mt-0.5">
-                          Total registered: {selectedBatch.enrolled_animals ?? selectedBatch.total_animals}
+                          Total registered: {activeBatch.enrolled_animals ?? activeBatch.total_animals}
                         </span>
                       </div>
                     </div>
@@ -2435,10 +2409,10 @@ function SibatBatchesVerificationContent() {
                       </div>
                       <div className="mt-3">
                         <span className="text-base font-black font-mono text-slate-900 block">
-                          {selectedBatch.average_weight ? `${selectedBatch.average_weight} kg` : "NOT WEIGHED"}
+                          {activeBatch.average_weight ? `${activeBatch.average_weight} kg` : "NOT WEIGHED"}
                         </span>
                         <span className="text-[10px] font-mono text-slate-400 block truncate mt-0.5">
-                          Target: {selectedBatch.target_weight ? `${selectedBatch.target_weight} kg` : "N/A"}
+                          Target: {activeBatch.target_weight ? `${activeBatch.target_weight} kg` : "N/A"}
                         </span>
                       </div>
                     </div>
@@ -2453,10 +2427,10 @@ function SibatBatchesVerificationContent() {
                       </div>
                       <div className="mt-3">
                         <span className="text-base font-black font-mono text-slate-900 block truncate">
-                          {selectedBatch.housing_pen || "General Pen"}
+                          {activeBatch.housing_pen || "General Pen"}
                         </span>
                         <span className="text-[10px] font-mono text-slate-400 block truncate mt-0.5">
-                          Feed: {selectedBatch.feed_type || "Standard"}
+                          Feed: {activeBatch.feed_type || "Standard"}
                         </span>
                       </div>
                     </div>
@@ -2597,7 +2571,6 @@ function SibatBatchesVerificationContent() {
                       pagedChildAnimals.map((animal) => {
                         const isPending = (animal.status || "PENDING").toUpperCase() === "PENDING";
                         const isTarget = highlightedAnimalId === animal.id;
-                        const avatar = getDefaultAvatarForSpecies(selectedBatch.livestock_type_name);
                         const animalWeight = animal.weight == null ? null : Number(animal.weight);
 
                         return (
@@ -2677,7 +2650,7 @@ function SibatBatchesVerificationContent() {
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                onClick={() => openAnimalReview(selectedBatch, animal)}
+                                onClick={() => openAnimalReview(activeBatch, animal)}
                                 className="h-7.5 px-2.5 rounded-lg border-emerald-500/30 text-emerald-800 hover:bg-emerald-50 text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer"
                               >
                                 <Eye className="size-3" />
@@ -2715,9 +2688,9 @@ function SibatBatchesVerificationContent() {
                         ) : (
                           pagedChildAnimals.map((animal) => {
                             const isTarget = highlightedAnimalId === animal.id;
-                            const avatar = getDefaultAvatarForSpecies(selectedBatch.livestock_type_name);
+                            const avatar = getDefaultAvatarForSpecies(activeBatch.livestock_type_name);
                             const animalWeight = animal.weight ? Number(animal.weight) : null;
-                            const batchAvg = selectedBatch.average_weight ? Number(selectedBatch.average_weight) : null;
+                            const batchAvg = activeBatch.average_weight ? Number(activeBatch.average_weight) : null;
                             const weightDiff = animalWeight && batchAvg ? (animalWeight - batchAvg).toFixed(1) : null;
 
                             return (
@@ -2809,7 +2782,7 @@ function SibatBatchesVerificationContent() {
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => openAnimalReview(selectedBatch, animal)}
+                                    onClick={() => openAnimalReview(activeBatch, animal)}
                                     className="h-8 px-2.5 rounded-lg border-emerald-500/30 text-emerald-800 hover:bg-emerald-50 text-xs font-mono font-bold flex items-center gap-1 cursor-pointer"
                                   >
                                     <Eye className="size-3.5" />
@@ -2871,9 +2844,9 @@ function SibatBatchesVerificationContent() {
                   <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wide">
                     <ClipboardList className="size-4 text-emerald-600 shrink-0" />
                     INSPECTION REMARKS &amp; FIELD NOTES
-                    {selectedBatch.notes && (
+                    {activeBatch.notes && (
                       <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                        {selectedBatch.notes.split("\n").filter(Boolean).length} ENTRIES
+                        {activeBatch.notes.split("\n").filter(Boolean).length} ENTRIES
                       </span>
                     )}
                   </span>
@@ -2885,7 +2858,7 @@ function SibatBatchesVerificationContent() {
                 {showBatchNotes && (
                   <div className="pt-2 space-y-3 border-t border-slate-100">
                     <pre className="text-xs text-slate-700 font-mono whitespace-pre-wrap leading-relaxed bg-slate-50 border border-slate-200 rounded-xl p-4 max-h-40 overflow-y-auto">
-                      {selectedBatch.notes || "NO FIELD REMARKS RECORDED FOR THIS BATCH YET."}
+                      {activeBatch.notes || "NO FIELD REMARKS RECORDED FOR THIS BATCH YET."}
                     </pre>
                     <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-start">
                       <Textarea
@@ -2898,9 +2871,9 @@ function SibatBatchesVerificationContent() {
                         size="sm"
                         disabled={addBatchNoteMutation.isPending || !batchNoteText.trim()}
                         onClick={() => {
-                          if (!batchNoteText.trim() || !selectedBatch) return;
+                          if (!batchNoteText.trim() || !activeBatch) return;
                           addBatchNoteMutation.mutate({
-                            batchId: selectedBatch.id,
+                            batchId: activeBatch.id,
                             text: batchNoteText.trim(),
                           });
                         }}
