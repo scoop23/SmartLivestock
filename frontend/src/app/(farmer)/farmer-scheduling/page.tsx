@@ -1508,7 +1508,7 @@ function FarmerSchedulingContent() {
 
 export default function FarmerSchedulingPage() {
   return (
-    <Suspense fallback={<CommunitySkeleton count={4} />}>
+    <Suspense fallback={<CommunitySkeleton cards={4} />}>
       <FarmerSchedulingContent />
     </Suspense>
   );
