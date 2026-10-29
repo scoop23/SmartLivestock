@@ -83,6 +83,35 @@ export default function LoginPage() {
   const [resetSuccess, setResetSuccess] = useState(false);
   const [resetError, setResetError] = useState('');
 
+  // Live public telemetry counts
+  const [telemetry, setTelemetry] = useState({
+    taggedHeads: 323,
+    addedThisWeek: 2,
+    activeBarangays: 17,
+    totalBarangays: 18,
+  });
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/livestock/public-telemetry/')
+      .then((res) => {
+        if (!active || !res.data) return;
+        setTelemetry({
+          taggedHeads: Number(res.data.tagged_heads ?? 323),
+          addedThisWeek: Number(res.data.added_this_week ?? 2),
+          activeBarangays: Number(res.data.active_barangays ?? 17),
+          totalBarangays: Number(res.data.total_barangays ?? 18),
+        });
+      })
+      .catch(() => {
+        // Fallback to initial database snapshot on network error
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const triggerShake = () => {
     setIsShaking(true);
     setTimeout(() => setIsShaking(false), 600);
@@ -401,8 +430,12 @@ export default function LoginPage() {
                   <span className="text-[10px] uppercase font-bold text-emerald-200/70">Tagged Heads</span>
                   <TrendingUp className="size-3 text-emerald-400" />
                 </div>
-                <div className="text-base sm:text-lg font-black text-white font-mono tracking-tight">14,820</div>
-                <div className="text-[9px] text-emerald-300 font-semibold">+142 this week</div>
+                <div className="text-base sm:text-lg font-black text-white font-mono tracking-tight">
+                  {telemetry.taggedHeads.toLocaleString()}
+                </div>
+                <div className="text-[9px] text-emerald-300 font-semibold">
+                  +{telemetry.addedThisWeek.toLocaleString()} this week
+                </div>
               </div>
 
               <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-0.5">
@@ -410,7 +443,9 @@ export default function LoginPage() {
                   <span className="text-[10px] uppercase font-bold text-emerald-200/70">Barangays</span>
                   <Wifi className="size-3 text-sky-400" />
                 </div>
-                <div className="text-base sm:text-lg font-black text-white font-mono tracking-tight">17 / 17</div>
+                <div className="text-base sm:text-lg font-black text-white font-mono tracking-tight">
+                  {telemetry.activeBarangays} / {telemetry.totalBarangays}
+                </div>
                 <div className="text-[9px] text-sky-300 font-semibold">GIS Census Active</div>
               </div>
 

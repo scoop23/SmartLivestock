@@ -3,6 +3,7 @@ from smartlivestock.workflows import scope_reviewer_queryset
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
+from datetime import timedelta
 from django.utils import timezone
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.exceptions import AuthenticationFailed
@@ -468,3 +469,37 @@ def get_farmer_by_barangays(request, barangay_id):
     )
     serializer = FarmerOptionsSerializer(farmers, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def public_telemetry_summary(request):
+    """
+    GET /livestock/public-telemetry/
+    Public read-only aggregate counts for the login page telemetry HUD.
+    """
+    week_ago = timezone.now() - timedelta(days=7)
+    active_inv = LivestockInventory.objects.filter(
+        operational_status=LivestockInventory.OperationalStatus.ACTIVE
+    )
+    tagged_qs = active_inv.exclude(tag_number__isnull=True).exclude(tag_number="")
+    tagged_heads = tagged_qs.count()
+    added_this_week = tagged_qs.filter(created_at__gte=week_ago).count()
+    total_barangays = Barangay.objects.count()
+    active_barangays = (
+        Barangay.objects.filter(
+            farmers__inventories__operational_status=LivestockInventory.OperationalStatus.ACTIVE
+        )
+        .distinct()
+        .count()
+    )
+    return Response(
+        {
+            "tagged_heads": tagged_heads,
+            "added_this_week": added_this_week,
+            "active_barangays": active_barangays,
+            "total_barangays": total_barangays,
+        },
+        status=status.HTTP_200_OK,
+    )

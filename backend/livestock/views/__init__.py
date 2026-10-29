@@ -5,6 +5,7 @@ from .inventory_views import (
     list_livestock_types,
     get_barangays,
     get_farmer_by_barangays,
+    public_telemetry_summary,
 )
 from .census_views import (
     census_list_create,
@@ -36,6 +37,7 @@ __all__ = [
     "list_livestock_types",
     "get_barangays",
     "get_farmer_by_barangays",
+    "public_telemetry_summary",
     "census_list_create",
     "census_detail",
     "review_census_submission",

@@ -24,6 +24,7 @@ urlpatterns = [
     path("census/<int:pk>/review/", views.review_census_submission, name="review_census_submission"),
 
     # References & Geography
+    path("public-telemetry/", views.public_telemetry_summary, name="public_telemetry_summary"),
     path("barangays/", views.get_barangays, name="get_barangays"),
     path("farmers/<int:barangay_id>/", views.get_farmer_by_barangays, name="get_farmers_by_barangay"),
     path("ownership-transfers/", views.ownership_transfer_list_create, name="ownership_transfer_list_create"),
