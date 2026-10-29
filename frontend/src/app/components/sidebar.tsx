@@ -130,17 +130,8 @@ const farmerLinks: SidebarLink[] = [
 ];
 
 const sibatLinks: SidebarLink[] = [
-  {
-    path: '/sibat',
-    label: 'Field Tasks',
-    icon: ClipboardCheck,
-    subLinks: [
-      { path: '/sibat/livestock-registry', label: 'Animals' },
-      { path: '/sibat/batches', label: 'Herds' },
-      { path: '/sibat/livestock-monitoring', label: 'Livestock Monitoring' },
-      { path: '/sibat/census/submit', label: 'Census Submission' },
-    ],
-  },
+  { path: '/sibat', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/sibat/livestock-registry', label: 'Livestock Records', icon: CowHeadIcon },
   { path: '/sibat-monitoring', label: 'Map', icon: Map },
   { path: '/sibat-alerts', label: 'Health Reports', icon: Bell },
   { path: '/sibat/reports', label: 'Report Generation', icon: FileText },
@@ -167,22 +158,7 @@ const slaughterhouseLinks: SidebarLink[] = [
 function getLinks(role: SidebarProps['role'], userRole?: string): SidebarLink[] {
   switch (role) {
     case 'farmer': return farmerLinks;
-    case 'sibat': {
-      if (userRole?.toUpperCase() === 'CBAT') {
-        return sibatLinks.map((link) => {
-          if (link.path === '/sibat' && link.subLinks) {
-            return {
-              ...link,
-              subLinks: link.subLinks.map((sub) =>
-                sub.path === '/sibat/batches' ? { ...sub, label: 'Herd' } : sub
-              ),
-            };
-          }
-          return link;
-        });
-      }
-      return sibatLinks;
-    }
+    case 'sibat': return sibatLinks;
     case 'auction': return auctionLinks;
     case 'slaughterhouse': return slaughterhouseLinks;
     default: return adminLinks;

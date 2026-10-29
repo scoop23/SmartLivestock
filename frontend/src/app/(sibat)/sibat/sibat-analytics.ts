@@ -319,6 +319,8 @@ export const mapBatchToUnified = (b: BatchApiItem): UnifiedSubmissionItem => {
     status: (b.review_status || "PENDING") as UnifiedStatus,
     breed: b.animals?.[0]?.breed || "Herd Roster",
     tagNumber: b.batch_code,
+    batchCode: b.batch_code || undefined,
+    batchName: b.batch_name || undefined,
     weight: b.average_weight ? Number(b.average_weight) : null,
     photoUrl: b.photo_url || b.photo || null,
     entryType: "BATCH",
