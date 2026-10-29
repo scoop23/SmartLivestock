@@ -626,8 +626,9 @@ export default function LivestockDetailsDialog({
     });
   }, [canProduceMilk]);
 
-  const isApproved = activeLivestock?.status === "APPROVED";
-  const isVerifiedStatus = activeLivestock?.status === "VERIFIED";
+  const normalizedStatus = (activeLivestock?.status || "").trim().toUpperCase();
+  const isApproved = normalizedStatus === "APPROVED";
+  const isVerifiedStatus = normalizedStatus === "VERIFIED" || normalizedStatus.includes("VERIFIED");
   const approvalLabel = activeLivestock?.status ? activeLivestock.status.replace(/_/g, " ") : "PENDING";
   const operationalLabel = activeLivestock?.operationalStatus ? activeLivestock.operationalStatus.replace(/_/g, " ") : "ACTIVE HERD";
 
@@ -784,16 +785,22 @@ export default function LivestockDetailsDialog({
 
               {/* Status Badges */}
               <span
+                style={
+                  isVerifiedStatus
+                    ? { backgroundColor: "#dbeafe", color: "#1e40af", borderColor: "#93c5fd" }
+                    : undefined
+                }
                 className={cn(
                   "px-3 py-1.5 rounded-full text-xs font-bold tracking-wide inline-flex items-center gap-1.5 shadow-xs",
                   isApproved
                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200/90"
                     : isVerifiedStatus
-                    ? "bg-blue-50 text-blue-700 border border-blue-200/90"
+                    ? "bg-blue-100 text-blue-800 border border-blue-300"
                     : "bg-amber-50 text-amber-800 border border-amber-200/90"
                 )}
               >
                 <CheckCircle2
+                  style={isVerifiedStatus ? { color: "#2563eb" } : undefined}
                   className={cn(
                     "size-3.5",
                     isApproved
@@ -1137,12 +1144,17 @@ export default function LivestockDetailsDialog({
 
                   return (
                     <div
+                      style={
+                        hasVaccine && isVerified && !isApproved
+                          ? { backgroundColor: "#eff6ff", borderColor: "#93c5fd" }
+                          : undefined
+                      }
                       className={cn(
                         "p-3.5 sm:p-4 rounded-xl sm:rounded-2xl transition-all flex flex-col justify-between shadow-2xs min-h-[96px] sm:min-h-[105px]",
                         hasVaccine && isApproved
                           ? "bg-emerald-50/40 border border-emerald-300 hover:border-emerald-400"
                           : hasVaccine && isVerified
-                          ? "bg-blue-50/40 border border-blue-300 hover:border-blue-400"
+                          ? "bg-blue-50 border border-blue-300 hover:border-blue-400"
                           : hasVaccine
                           ? "bg-amber-50/40 border border-amber-200/90 hover:border-amber-300"
                           : "bg-white border border-slate-200/80 hover:border-slate-300"
@@ -1150,6 +1162,11 @@ export default function LivestockDetailsDialog({
                     >
                       <div className="flex items-center justify-between">
                         <span
+                          style={
+                            hasVaccine && isVerified && !isApproved
+                              ? { color: "#1e40af" }
+                              : undefined
+                          }
                           className={cn(
                             "text-[10px] font-mono font-bold uppercase tracking-wider",
                             hasVaccine && isApproved
@@ -1166,7 +1183,7 @@ export default function LivestockDetailsDialog({
                         {hasVaccine && isApproved ? (
                           <ShieldCheck className="size-4 text-emerald-600" />
                         ) : hasVaccine && isVerified ? (
-                          <ShieldCheck className="size-4 text-blue-600" />
+                          <ShieldCheck className="size-4 text-blue-600" style={{ color: "#2563eb" }} />
                         ) : hasVaccine ? (
                           <Clock className="size-4 text-amber-600" />
                         ) : (
@@ -1180,6 +1197,11 @@ export default function LivestockDetailsDialog({
                             : "Unvaccinated / Pending"}
                         </span>
                         <span
+                          style={
+                            hasVaccine && isVerified && !isApproved
+                              ? { color: "#1d4ed8" }
+                              : undefined
+                          }
                           className={cn(
                             "text-[11px] font-mono font-medium mt-0.5 flex items-center gap-1",
                             hasVaccine && isApproved
@@ -1198,7 +1220,7 @@ export default function LivestockDetailsDialog({
                             </>
                           ) : hasVaccine && isVerified ? (
                             <>
-                              <Check className="size-3 text-blue-600 stroke-[3]" />
+                              <Check className="size-3 text-blue-600 stroke-[3]" style={{ color: "#2563eb" }} />
                               SIBAT Verified Record
                             </>
                           ) : hasVaccine ? (
@@ -1218,20 +1240,47 @@ export default function LivestockDetailsDialog({
 
               {/* Remarks If Present */}
               {activeLivestock?.reviewRemarks && (
-                <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-xs">
-                  <div className="flex items-center justify-between font-bold text-emerald-950 mb-1 flex-wrap gap-2">
+                <div
+                  className={cn(
+                    "p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border text-xs",
+                    isVerifiedStatus
+                      ? "bg-blue-50/70 border-blue-200/80"
+                      : "bg-emerald-50/70 border-emerald-200/80"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "flex items-center justify-between font-bold mb-1 flex-wrap gap-2",
+                      isVerifiedStatus ? "text-blue-950" : "text-emerald-950"
+                    )}
+                  >
                     <div className="flex items-center gap-1.5">
-                      <ShieldCheck className="size-4 text-emerald-700" />
+                      <ShieldCheck
+                        className={cn(
+                          "size-4",
+                          isVerifiedStatus ? "text-blue-700" : "text-emerald-700"
+                        )}
+                      />
                       <span>Municipal Review Remarks</span>
                     </div>
                     {activeLivestock.reviewedByName && (
-                      <span className="text-[11px] font-mono text-emerald-700 font-medium">
+                      <span
+                        className={cn(
+                          "text-[11px] font-mono font-medium",
+                          isVerifiedStatus ? "text-blue-700" : "text-emerald-700"
+                        )}
+                      >
                         Reviewed by {activeLivestock.reviewedByName}
                         {activeLivestock.reviewedAt ? ` on ${formatCalendarDate(activeLivestock.reviewedAt)}` : ""}
                       </span>
                     )}
                   </div>
-                  <p className="text-emerald-900 leading-relaxed italic">
+                  <p
+                    className={cn(
+                      "leading-relaxed italic",
+                      isVerifiedStatus ? "text-blue-900" : "text-emerald-900"
+                    )}
+                  >
                     &ldquo;{activeLivestock.reviewRemarks}&rdquo;
                   </p>
                 </div>

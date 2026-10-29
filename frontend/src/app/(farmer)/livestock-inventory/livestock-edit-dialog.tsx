@@ -289,7 +289,14 @@ function LivestockEditDialogContent({
                   </div>
                 </div>
                 <Badge
-                  className={`shrink-0 uppercase tracking-wider bg-white text-slate-800 border-0 hover:bg-white ${(statusClasses[item.status] ?? "").split(" ")[0]}`}
+                  style={
+                    item.status === "VERIFIED"
+                      ? { backgroundColor: "#dbeafe", color: "#1e40af", borderColor: "#93c5fd" }
+                      : undefined
+                  }
+                  className={`shrink-0 uppercase tracking-wider border ${
+                    statusClasses[item.status] ?? "bg-white text-slate-800 border-0"
+                  }`}
                 >
                   {item.status === "VERIFIED"
                     ? "Verified by SIBAT"
