@@ -97,7 +97,7 @@ export interface BatchAnimalFormRow {
   id: string;
   tagNumber: string;
   breed: string;
-  sex: "Female" | "Male" | "Castrated";
+  sex: "Female" | "Male" | "Castrated" | "";
   weight: string;
   birthDate?: string;
   lastVaccinationDate: string;
@@ -118,10 +118,6 @@ interface LivestockRegistrationDraft {
   batchPhotoDataUrls?: string[];
   savedAt: string;
 }
-
-type AnimalSide = "left" | "right";
-type SidePhotoFiles = Record<AnimalSide, File | null>;
-type SidePhotoPreviews = Record<AnimalSide, string>;
 
 const initialFormData = {
   entryType: "INDIVIDUAL" as EntryType,
@@ -166,18 +162,8 @@ function nextOwnerTag(prefix: string, usedTags: string[]) {
   return `${prefix}-${String(highest + 1).padStart(3, "0")}`;
 }
 
-function createDefaultBatchAnimals(prefix: string, usedTags: string[]): BatchAnimalFormRow[] {
-  const used = [...usedTags];
-  const defaults: BatchAnimalFormRow[] = [
-    { id: "1", tagNumber: "", breed: "Large White", sex: "Female", weight: "65.0", lastVaccinationDate: "" },
-    { id: "2", tagNumber: "", breed: "Large White", sex: "Male", weight: "68.5", lastVaccinationDate: "" },
-    { id: "3", tagNumber: "", breed: "Large White", sex: "Female", weight: "64.0", lastVaccinationDate: "" },
-  ];
-  return defaults.map((animal) => {
-    const tagNumber = prefix ? nextOwnerTag(prefix, used) : "";
-    used.push(tagNumber);
-    return { ...animal, tagNumber };
-  });
+function createDefaultBatchAnimals(): BatchAnimalFormRow[] {
+  return [];
 }
 
 function resolveBreed(species: string, breed?: string | null) {
@@ -198,8 +184,8 @@ function getSpeciesIllustration(name: string) {
 const WIZARD_STEPS = [
   {
     step: 1,
-    title: "Select Livestock Species",
-    shortTitle: "Species & Photo",
+    title: "Livestock Species",
+    shortTitle: "Livestock Species",
     bannerTitle: "Add Livestock",
     bannerSubtitle: "Add an animal or a group of animals to your livestock.",
     icon: Tag,
@@ -291,9 +277,6 @@ function RegisterLivestockDialogContent({
     };
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [sidePhotoFiles, setSidePhotoFiles] = useState<SidePhotoFiles>({ left: null, right: null });
-  const [sidePhotoPreviews, setSidePhotoPreviews] = useState<SidePhotoPreviews>({ left: "", right: "" });
-  const sidePhotoInputRefs = useRef<Record<AnimalSide, HTMLInputElement | null>>({ left: null, right: null });
   const [batchPhotoFiles, setBatchPhotoFiles] = useState<File[]>([]);
   const [batchPhotoDataUrls, setBatchPhotoDataUrls] = useState<string[]>(() => {
     if (initialDraft?.batchPhotoDataUrls && Array.isArray(initialDraft.batchPhotoDataUrls)) {
@@ -312,7 +295,7 @@ function RegisterLivestockDialogContent({
     if (initialDraft?.batchAnimals && Array.isArray(initialDraft.batchAnimals) && initialDraft.batchAnimals.length > 0) {
       return initialDraft.batchAnimals;
     }
-    return createDefaultBatchAnimals(ownerTagPrefix, existingTags);
+    return [];
   });
 
   const [hasDraft, setHasDraft] = useState(() => Boolean(initialDraft?.savedAt));
@@ -331,8 +314,8 @@ function RegisterLivestockDialogContent({
       formData.lastVaccinationDate.trim().length > 0 ||
       formData.photoDataUrl.length > 0 ||
       batchPhotoDataUrls.length > 0 ||
-      batchAnimals.some((a) => (a.weight !== "65.0" && a.weight !== "65") || a.lastVaccinationDate || a.birthDate) ||
-      batchAnimals.length !== 3 ||
+      batchAnimals.some((a) => a.weight || a.lastVaccinationDate || a.birthDate || a.breed) ||
+      batchAnimals.length > 0 ||
       hasDraft;
 
     if (!hasMeaningfulContent) return;
@@ -419,9 +402,8 @@ function RegisterLivestockDialogContent({
         ...initialFormData,
         tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
       });
-      setBatchAnimals(createDefaultBatchAnimals(ownerTagPrefix, existingTags));
+      setBatchAnimals([]);
       setPhotoFile(null);
-      clearSidePhotos();
       setBatchPhotoFiles([]);
       setBatchPhotoDataUrls([]);
       setFormError("");
@@ -473,42 +455,6 @@ function RegisterLivestockDialogContent({
       toast.success("Livestock photo attached!");
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleSidePhotoUpload = (side: AnimalSide, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Each side photo must be 5 MB or smaller.");
-      e.target.value = "";
-      return;
-    }
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type.toLowerCase())) {
-      toast.error("Side photos must be JPEG, PNG, or WebP images.");
-      e.target.value = "";
-      return;
-    }
-
-    setSidePhotoFiles((current) => ({ ...current, [side]: file }));
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setSidePhotoPreviews((current) => ({ ...current, [side]: String(event.target?.result || "") }));
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemoveSidePhoto = (side: AnimalSide) => {
-    setSidePhotoFiles((current) => ({ ...current, [side]: null }));
-    setSidePhotoPreviews((current) => ({ ...current, [side]: "" }));
-    if (sidePhotoInputRefs.current[side]) sidePhotoInputRefs.current[side]!.value = "";
-  };
-
-  const clearSidePhotos = () => {
-    setSidePhotoFiles({ left: null, right: null });
-    setSidePhotoPreviews({ left: "", right: "" });
-    Object.values(sidePhotoInputRefs.current).forEach((input) => {
-      if (input) input.value = "";
-    });
   };
 
   const handleRemovePhoto = () => {
@@ -603,11 +549,8 @@ function RegisterLivestockDialogContent({
   }, [formData.livestockType, showAllAvatars]);
 
   const handleBatchQuantityChange = (newQty: number) => {
-    const clamped = Math.max(1, Math.min(newQty, 50));
+    const clamped = Math.max(0, Math.min(newQty, 100));
     setFormData((prev) => ({ ...prev, quantity: clamped }));
-    const preset = getSpeciesPreset(formData.livestockType);
-    const defaultBreed = batchAnimals[0]?.breed || preset.commonBreeds?.[0] || "Standard";
-    const defaultWeight = batchAnimals[0]?.weight || "65";
 
     setBatchAnimals((prev) => {
       const next = [...prev];
@@ -617,11 +560,12 @@ function RegisterLivestockDialogContent({
           const tagNumber = ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, usedTags) : "";
           usedTags.push(tagNumber);
           next.push({
-            id: String(i),
+            id: String(Date.now() + i),
             tagNumber,
-            breed: defaultBreed,
-            sex: i % 2 === 0 ? "Female" : i % 3 === 0 ? "Castrated" : "Male",
-            weight: defaultWeight,
+            breed: "",
+            sex: "",
+            weight: "",
+            birthDate: "",
             lastVaccinationDate: "",
           });
         }
@@ -645,16 +589,16 @@ function RegisterLivestockDialogContent({
   };
 
   const addBatchAnimalRow = () => {
-    const nextIdx = batchAnimals.length + 1;
-    const preset = getSpeciesPreset(formData.livestockType);
+    const usedTags = [...existingTags, ...batchAnimals.map((animal) => animal.tagNumber)];
     const newAnimal: BatchAnimalFormRow = {
       id: String(Date.now()),
       tagNumber: ownerTagPrefix
-        ? nextOwnerTag(ownerTagPrefix, [...existingTags, ...batchAnimals.map((animal) => animal.tagNumber)])
+        ? nextOwnerTag(ownerTagPrefix, usedTags)
         : "",
-      breed: batchAnimals[0]?.breed || preset.commonBreeds?.[0] || "Standard",
-      sex: nextIdx % 2 === 0 ? "Female" : "Male",
-      weight: batchAnimals[0]?.weight || "65",
+      breed: "",
+      sex: "",
+      weight: "",
+      birthDate: "",
       lastVaccinationDate: "",
     };
     const updated = [...batchAnimals, newAnimal];
@@ -664,33 +608,21 @@ function RegisterLivestockDialogContent({
   };
 
   const removeBatchAnimalRow = (index: number) => {
-    if (batchAnimals.length <= 1) return;
     const updated = batchAnimals.filter((_, i) => i !== index);
     setBatchAnimals(updated);
     setFormData((prev) => ({ ...prev, quantity: updated.length }));
     if (expandedAnimalIndex === index) {
-      setExpandedAnimalIndex(Math.max(0, index - 1));
+      setExpandedAnimalIndex(updated.length > 0 ? Math.max(0, index - 1) : null);
     } else if (expandedAnimalIndex !== null && expandedAnimalIndex > index) {
       setExpandedAnimalIndex(expandedAnimalIndex - 1);
     }
   };
 
   const handleClearAllBatchAnimals = () => {
-    const preset = getSpeciesPreset(formData.livestockType);
-    const defBreed = preset.commonBreeds?.[0] || "Standard";
-    const defWeight = preset.suggestedWeightKg ? String(preset.suggestedWeightKg) : "65";
-    const singleAnimal: BatchAnimalFormRow = {
-      id: "1",
-      tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
-      breed: defBreed,
-      sex: "Female",
-      weight: defWeight,
-      lastVaccinationDate: "",
-    };
-    setBatchAnimals([singleAnimal]);
-    setFormData((prev) => ({ ...prev, quantity: 1 }));
-    setExpandedAnimalIndex(0);
-    toast.info("Cleared animal roster. Reset to 1 animal.");
+    setBatchAnimals([]);
+    setFormData((prev) => ({ ...prev, quantity: 0 }));
+    setExpandedAnimalIndex(null);
+    toast.info("Cleared animal roster. Reset to 0 animals.");
   };
 
   const syncBreedToAllAnimals = () => {
@@ -716,6 +648,10 @@ function RegisterLivestockDialogContent({
   };
 
   const reTagAllBatchAnimals = () => {
+    if (batchAnimals.length === 0) {
+      toast.info("No animals in herd roster to tag.");
+      return;
+    }
     const used = [...existingTags];
     setBatchAnimals((previous) => previous.map((animal) => {
       const tagNumber = ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, used) : "";
@@ -725,21 +661,8 @@ function RegisterLivestockDialogContent({
     toast.success(`Auto-generated sequential tags for ${batchAnimals.length} animals.`);
   };
 
-  const resetBatchAnimalsToPreset = (species: string = "Swine") => {
-    const preset = getSpeciesPreset(species);
-    const used = [...existingTags];
-    const defBreed = preset.commonBreeds?.[0] || "Standard";
-    const defWeight = preset.suggestedWeightKg ? String(preset.suggestedWeightKg) : "65";
-    const defaultAnimals: BatchAnimalFormRow[] = [
-      { id: "1", tagNumber: "", breed: defBreed, sex: "Female", weight: defWeight, lastVaccinationDate: "" },
-      { id: "2", tagNumber: "", breed: defBreed, sex: "Male", weight: defWeight, lastVaccinationDate: "" },
-      { id: "3", tagNumber: "", breed: defBreed, sex: "Female", weight: defWeight, lastVaccinationDate: "" },
-    ];
-    setBatchAnimals(defaultAnimals.map((animal) => {
-      const tagNumber = ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, used) : "";
-      used.push(tagNumber);
-      return { ...animal, tagNumber };
-    }));
+  const resetBatchAnimalsToPreset = () => {
+    setBatchAnimals([]);
   };
 
   const batchMetrics = useMemo(() => {
@@ -784,7 +707,7 @@ function RegisterLivestockDialogContent({
           : resolveBreed(formData.livestockType, formData.breed);
 
         let response;
-        if (photoFile || sidePhotoFiles.left || sidePhotoFiles.right) {
+        if (photoFile) {
           const body = new FormData();
           body.append("livestock_type", String(typeId));
           body.append("entry_type", "INDIVIDUAL");
@@ -797,9 +720,7 @@ function RegisterLivestockDialogContent({
           if (formData.lastVaccinationDate) body.append("last_vaccination_date", formData.lastVaccinationDate);
           if (batchId !== null) body.append("batch", String(batchId));
           if (formData.avatarKey) body.append("avatar_key", formData.avatarKey);
-          if (photoFile) body.append("photo", photoFile);
-          if (sidePhotoFiles.left) body.append("left_side_photo", sidePhotoFiles.left);
-          if (sidePhotoFiles.right) body.append("right_side_photo", sidePhotoFiles.right);
+          body.append("photo", photoFile);
 
           response = await api.post("/livestock/inventory/", body, {
             headers: { "Content-Type": "multipart/form-data" },
@@ -1031,10 +952,6 @@ function RegisterLivestockDialogContent({
             setFormError(`Ear Tag is required for Animal #${i + 1}.`);
             return false;
           }
-          if (!batchAnimals[i].breed.trim()) {
-            setFormError(`Breed is required for Animal #${i + 1}.`);
-            return false;
-          }
           if (batchAnimals[i].lastVaccinationDate && batchAnimals[i].lastVaccinationDate > localCalendarDateToday()) {
             setFormError(`Vaccination date for Animal #${i + 1} cannot be in the future.`);
             return false;
@@ -1095,10 +1012,9 @@ function RegisterLivestockDialogContent({
       setFormError("");
       setFormData(initialFormData);
       setPhotoFile(null);
-      clearSidePhotos();
       setBatchPhotoFiles([]);
       setBatchPhotoDataUrls([]);
-      resetBatchAnimalsToPreset(formData.livestockType);
+      resetBatchAnimalsToPreset();
     }
   };
 
@@ -1318,15 +1234,7 @@ function RegisterLivestockDialogContent({
                                     : prev.tagNumber,
                                 batchName: prev.batchName ? prev.batchName : `${name} Herd #${Math.floor(100 + Math.random() * 900)}`,
                               }));
-                              if (formData.entryType === "BATCH") {
-                                const defWeight = preset.suggestedWeightKg ? String(preset.suggestedWeightKg) : "65";
-                                const used = [...existingTags];
-                                setBatchAnimals((prev) => prev.map((animal) => {
-                                  const tagNumber = ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, used) : "";
-                                  used.push(tagNumber);
-                                  return { ...animal, tagNumber, breed: defBreed, weight: defWeight };
-                                }));
-                              }
+
                             }}
                             className={`h-13 sm:h-14 px-4 rounded-2xl border transition-all flex items-center gap-3 cursor-pointer ${
                               isSelected
@@ -1620,59 +1528,7 @@ function RegisterLivestockDialogContent({
                       </div>
                     </div>
 
-                    {/* Animal Side Photos for Individual (Optional) */}
-                    {formData.entryType === "INDIVIDUAL" && (
-                      <div className="pt-2 border-t border-slate-200/80 space-y-2">
-                        <Label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                          Side Identification Views (Optional)
-                        </Label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          {(["left", "right"] as const).map((side) => (
-                            <div key={side} className="p-2.5 rounded-xl border border-slate-200 bg-white space-y-1.5">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-bold capitalize text-slate-700">{side} side</span>
-                                {sidePhotoPreviews[side] && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveSidePhoto(side)}
-                                    className="text-[10px] font-bold text-rose-700 hover:underline flex items-center gap-1"
-                                  >
-                                    <Trash2 className="size-3" /> Remove
-                                  </button>
-                                )}
-                              </div>
-                              <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50">
-                                {sidePhotoPreviews[side] ? (
-                                  <img src={sidePhotoPreviews[side]} alt={`${side} side`} className="h-full w-full object-cover" />
-                                ) : (
-                                  <div className="flex flex-col items-center gap-1 text-slate-400">
-                                    <Camera className="size-5" />
-                                    <span className="text-[9px] font-semibold">No {side} photo</span>
-                                  </div>
-                                )}
-                              </div>
-                              <input
-                                ref={(input) => { sidePhotoInputRefs.current[side] = input; }}
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(event) => handleSidePhotoUpload(side, event)}
-                              />
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => sidePhotoInputRefs.current[side]?.click()}
-                                className="w-full rounded-xl border-slate-300 text-[11px] font-bold h-7.5"
-                              >
-                                <Upload className="mr-1 size-3" />
-                                {sidePhotoPreviews[side] ? "Change Photo" : `Upload ${side} Photo`}
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+
 
                     {/* Herd Gallery Photos for Batch (Optional) */}
                     {formData.entryType === "BATCH" && (
@@ -1899,7 +1755,7 @@ function RegisterLivestockDialogContent({
                             <Sparkles className="size-3.5 text-emerald-600" />
                             Auto-Tag
                           </button>
-                          {batchAnimals.length > 1 && (
+                          {batchAnimals.length > 0 && (
                             <button
                               type="button"
                               onClick={handleClearAllBatchAnimals}
@@ -1937,82 +1793,110 @@ function RegisterLivestockDialogContent({
                       {/* Head count quick stepper */}
                       <div className="flex items-center justify-between bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-200/80">
                         <span className="text-xs font-bold text-emerald-900">
-                          Herd Size Stepper
+                          Herd Size
                         </span>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => handleBatchQuantityChange(Math.max(1, batchAnimals.length - 1))}
-                            className="size-7 rounded-lg border border-slate-300 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-100"
+                            onClick={() => handleBatchQuantityChange(Math.max(0, batchAnimals.length - 1))}
+                            disabled={batchAnimals.length <= 0}
+                            className="size-7 rounded-lg border border-slate-300 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                           >
                             <Minus className="size-3.5" />
                           </button>
-                          <span className="font-mono font-black text-sm px-2 text-slate-900">
-                            {batchAnimals.length}
-                          </span>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={batchAnimals.length}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              if (raw === "") {
+                                handleBatchQuantityChange(0);
+                                return;
+                              }
+                              const val = parseInt(raw, 10);
+                              if (!Number.isNaN(val)) {
+                                handleBatchQuantityChange(val);
+                              }
+                            }}
+                            className="h-7.5 w-16 text-center font-mono font-black text-sm bg-white rounded-lg border-slate-300 px-1 shadow-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
                           <button
                             type="button"
-                            onClick={() => handleBatchQuantityChange(Math.min(50, batchAnimals.length + 1))}
-                            className="size-7 rounded-lg bg-emerald-700 text-white flex items-center justify-center hover:bg-emerald-800"
+                            onClick={() => handleBatchQuantityChange(Math.min(100, batchAnimals.length + 1))}
+                            className="size-7 rounded-lg bg-emerald-700 text-white flex items-center justify-center hover:bg-emerald-800 cursor-pointer"
                           >
                             <Plus className="size-3.5" />
                           </button>
-                          <div className="hidden sm:flex gap-1 ml-2">
-                            {[3, 5, 10, 20].map((n) => (
-                              <button
-                                key={n}
-                                type="button"
-                                onClick={() => handleBatchQuantityChange(n)}
-                                className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
-                                  batchAnimals.length === n
-                                    ? "bg-emerald-700 text-white border-emerald-700"
-                                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-                                }`}
-                              >
-                                {n}
-                              </button>
-                            ))}
-                          </div>
                         </div>
                       </div>
 
-                      {/* Animal Cards Accordion List */}
-                      <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-                        {batchAnimals.map((animal, idx) => {
-                          const isExpanded = expandedAnimalIndex === idx;
-                          return (
-                            <div
-                              key={animal.id || idx}
-                              className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden transition-all"
-                            >
-                              {/* Card Header (Accordion toggle) */}
+                      {/* Animal Cards Accordion List or Empty State */}
+                      {batchAnimals.length === 0 ? (
+                        <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 flex flex-col items-center justify-center">
+                          <div className="size-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3">
+                            <Users className="size-6" />
+                          </div>
+                          <h4 className="text-sm font-black text-slate-800 mb-1">No animals in herd roster</h4>
+                          <p className="text-xs text-slate-500 max-w-xs mb-4">
+                            Use the herd size input above or click below to add individual animals with auto-generated ear tags.
+                          </p>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={addBatchAnimalRow}
+                            className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold gap-1.5 shadow-xs cursor-pointer"
+                          >
+                            <Plus className="size-3.5" /> Add First Animal
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                          {batchAnimals.map((animal, idx) => {
+                            const isExpanded = expandedAnimalIndex === idx;
+                            return (
                               <div
-                                onClick={() => setExpandedAnimalIndex(isExpanded ? null : idx)}
-                                className="p-3.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-50 transition-colors"
+                                key={animal.id || idx}
+                                className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden transition-all"
                               >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <span className="size-6 rounded-full bg-emerald-700 text-white font-black text-xs flex items-center justify-center shrink-0">
-                                    #{idx + 1}
-                                  </span>
-                                  <span className="font-mono text-xs font-black text-slate-900 truncate">
-                                    {animal.tagNumber || `Animal #${idx + 1}`}
-                                  </span>
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-[10px] font-bold uppercase py-0.5 px-2 ${
-                                      animal.sex === "Female"
-                                        ? "text-rose-700 bg-rose-50 border-rose-200 font-black"
-                                        : animal.sex === "Male"
-                                          ? "text-blue-700 bg-blue-50 border-blue-200 font-black"
-                                          : "text-amber-700 bg-amber-50 border-amber-200 font-black"
-                                    }`}
-                                  >
-                                    {animal.sex}
-                                  </Badge>
-                                </div>
+                                {/* Card Header (Accordion toggle) */}
+                                <div
+                                  onClick={() => setExpandedAnimalIndex(isExpanded ? null : idx)}
+                                  className="p-3.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-50 transition-colors"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <span className="size-6 rounded-full bg-emerald-700 text-white font-black text-xs flex items-center justify-center shrink-0">
+                                      #{idx + 1}
+                                    </span>
+                                    <span className="font-mono text-xs font-black text-slate-900 truncate">
+                                      {animal.tagNumber || `Animal #${idx + 1}`}
+                                    </span>
+                                    {animal.sex ? (
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-[10px] font-bold uppercase py-0.5 px-2 ${
+                                          animal.sex === "Female"
+                                            ? "text-rose-700 bg-rose-50 border-rose-200 font-black"
+                                            : animal.sex === "Male"
+                                              ? "text-blue-700 bg-blue-50 border-blue-200 font-black"
+                                              : "text-amber-700 bg-amber-50 border-amber-200 font-black"
+                                        }`}
+                                      >
+                                        {animal.sex}
+                                      </Badge>
+                                    ) : (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] font-medium text-slate-400 bg-slate-50 border-slate-200 py-0.5 px-2"
+                                      >
+                                        Sex not set
+                                      </Badge>
+                                    )}
+                                  </div>
 
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  {batchAnimals.length > 1 && (
+                                  <div className="flex items-center gap-1.5 shrink-0">
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -2024,100 +1908,101 @@ function RegisterLivestockDialogContent({
                                     >
                                       <Trash2 className="size-4" />
                                     </button>
-                                  )}
-                                  {isExpanded ? (
-                                    <ChevronUp className="size-4 text-slate-400" />
-                                  ) : (
-                                    <ChevronDown className="size-4 text-slate-400" />
-                                  )}
+                                    {isExpanded ? (
+                                      <ChevronUp className="size-4 text-slate-400" />
+                                    ) : (
+                                      <ChevronDown className="size-4 text-slate-400" />
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
 
-                              {/* Card Body (Expanded Inputs) */}
-                              {isExpanded && (
-                                <div className="p-3.5 pt-0 border-t border-slate-100 space-y-3 bg-slate-50/50">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                                    {/* Tag number */}
-                                    <div className="space-y-1">
-                                      <Label className="text-xs font-bold text-slate-600">
-                                        Tag Number
-                                      </Label>
-                                      <Input
-                                        value={animal.tagNumber}
-                                        onChange={(e) => updateBatchAnimalField(idx, "tagNumber", e.target.value.toUpperCase())}
-                                        placeholder="e.g. NAME-001"
-                                        className="h-10 text-xs font-mono font-bold rounded-xl bg-white"
-                                        required
-                                      />
-                                    </div>
-
-                                    {/* Breed */}
-                                    <div className="space-y-1">
-                                      <Label className="text-xs font-bold text-slate-600">
-                                        Breed / Strain
-                                      </Label>
-                                      <Select
-                                        value={
-                                          currentPreset?.commonBreeds?.includes(animal.breed)
-                                            ? animal.breed
-                                            : "OTHER"
-                                        }
-                                        onValueChange={(val) => {
-                                          if (val === "OTHER") {
-                                            updateBatchAnimalField(idx, "breed", "Others");
-                                          } else {
-                                            updateBatchAnimalField(idx, "breed", val);
-                                          }
-                                        }}
-                                      >
-                                        <SelectTrigger className="h-10 text-xs rounded-xl bg-white">
-                                          <SelectValue placeholder="Breed" />
-                                        </SelectTrigger>
-                                        <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-56">
-                                          {currentPreset?.commonBreeds?.map((b) => (
-                                            <SelectItem key={b} value={b} className="text-xs">
-                                              {b}
-                                            </SelectItem>
-                                          ))}
-                                          <SelectItem value="OTHER" className="text-xs font-bold text-emerald-800">
-                                            Others (Custom)
-                                          </SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                      {(!currentPreset?.commonBreeds?.includes(animal.breed) || animal.breed === "Others") && (
+                                {/* Card Body (Expanded Inputs) */}
+                                {isExpanded && (
+                                  <div className="p-3.5 pt-0 border-t border-slate-100 space-y-3 bg-slate-50/50">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                      {/* Tag number */}
+                                      <div className="space-y-1">
+                                        <Label className="text-xs font-bold text-slate-600">
+                                          Tag Number
+                                        </Label>
                                         <Input
-                                          value={animal.breed === "Others" ? "" : animal.breed}
-                                          onChange={(e) => updateBatchAnimalField(idx, "breed", e.target.value || "Others")}
-                                          placeholder="Type custom breed"
-                                          className="h-9 text-xs rounded-xl mt-1.5 bg-white border-emerald-400 font-medium"
+                                          value={animal.tagNumber}
+                                          onChange={(e) => updateBatchAnimalField(idx, "tagNumber", e.target.value.toUpperCase())}
+                                          placeholder="e.g. NAME-001"
+                                          className="h-10 text-xs font-mono font-bold rounded-xl bg-white"
                                           required
                                         />
-                                      )}
-                                    </div>
+                                      </div>
 
-                                    {/* Sex */}
-                                    <div className="space-y-1">
-                                      <Label className="text-xs font-bold text-slate-600">
-                                        Sex
-                                      </Label>
-                                      <Select
-                                        value={animal.sex}
-                                        onValueChange={(val) => {
-                                          if (val === "Male" || val === "Female" || val === "Castrated") {
-                                            updateBatchAnimalField(idx, "sex", val);
+                                      {/* Breed */}
+                                      <div className="space-y-1">
+                                        <Label className="text-xs font-bold text-slate-600">
+                                          Breed / Strain
+                                        </Label>
+                                        <Select
+                                          value={
+                                            currentPreset?.commonBreeds?.includes(animal.breed)
+                                              ? animal.breed
+                                              : animal.breed === "Others" || (animal.breed && !currentPreset?.commonBreeds?.includes(animal.breed))
+                                                ? "OTHER"
+                                                : ""
                                           }
-                                        }}
-                                      >
-                                        <SelectTrigger className="h-10 text-xs rounded-xl bg-white">
-                                          <SelectValue placeholder="Sex" />
-                                        </SelectTrigger>
-                                        <SelectContent className="z-[var(--z-popover-dialog)]">
-                                          <SelectItem value="Female">Female</SelectItem>
-                                          <SelectItem value="Male">Male</SelectItem>
-                                          <SelectItem value="Castrated">Castrated / Barrow</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
+                                          onValueChange={(val) => {
+                                            if (val === "OTHER") {
+                                              updateBatchAnimalField(idx, "breed", "Others");
+                                            } else {
+                                              updateBatchAnimalField(idx, "breed", val);
+                                            }
+                                          }}
+                                        >
+                                          <SelectTrigger className="h-10 text-xs rounded-xl bg-white">
+                                            <SelectValue placeholder="Select breed" />
+                                          </SelectTrigger>
+                                          <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl max-h-56">
+                                            {currentPreset?.commonBreeds?.map((b) => (
+                                              <SelectItem key={b} value={b} className="text-xs">
+                                                {b}
+                                              </SelectItem>
+                                            ))}
+                                            <SelectItem value="OTHER" className="text-xs font-bold text-emerald-800">
+                                              Others (Custom)
+                                            </SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        {(animal.breed === "Others" || (!currentPreset?.commonBreeds?.includes(animal.breed) && animal.breed !== "")) && (
+                                          <Input
+                                            value={animal.breed === "Others" ? "" : animal.breed}
+                                            onChange={(e) => updateBatchAnimalField(idx, "breed", e.target.value || "Others")}
+                                            placeholder="Type custom breed"
+                                            className="h-9 text-xs rounded-xl mt-1.5 bg-white border-emerald-400 font-medium"
+                                            required
+                                          />
+                                        )}
+                                      </div>
+
+                                      {/* Sex */}
+                                      <div className="space-y-1">
+                                        <Label className="text-xs font-bold text-slate-600">
+                                          Sex
+                                        </Label>
+                                        <Select
+                                          value={animal.sex}
+                                          onValueChange={(val) => {
+                                            if (val === "Male" || val === "Female" || val === "Castrated") {
+                                              updateBatchAnimalField(idx, "sex", val);
+                                            }
+                                          }}
+                                        >
+                                          <SelectTrigger className="h-10 text-xs rounded-xl bg-white">
+                                            <SelectValue placeholder="Select sex" />
+                                          </SelectTrigger>
+                                          <SelectContent className="z-[var(--z-popover-dialog)]">
+                                            <SelectItem value="Female">Female</SelectItem>
+                                            <SelectItem value="Male">Male</SelectItem>
+                                            <SelectItem value="Castrated">Castrated / Barrow</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
 
                                     {/* Weight */}
                                     <div className="space-y-1">
@@ -2187,6 +2072,7 @@ function RegisterLivestockDialogContent({
                           );
                         })}
                       </div>
+                      )}
                     </div>
                   ) : (
                     /* Individual Animal Details Form */
@@ -2448,13 +2334,13 @@ function RegisterLivestockDialogContent({
                                 </span>
                                 <span className="font-mono font-bold text-slate-900">{a.tagNumber}</span>
                                 <span className="text-slate-400">•</span>
-                                <span className="text-slate-700">{a.breed}</span>
+                                <span className="text-slate-700">{a.breed || "Standard"}</span>
                               </div>
                               <div className="flex items-center gap-2 text-slate-500">
                                 <Badge variant="outline" className="text-[10px] py-0">
-                                  {a.sex}
+                                  {a.sex || "Unspecified"}
                                 </Badge>
-                                <span>{a.weight} kg</span>
+                                <span>{a.weight ? `${a.weight} kg` : "No weight"}</span>
                               </div>
                             </div>
                           ))}
