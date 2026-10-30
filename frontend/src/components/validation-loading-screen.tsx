@@ -36,8 +36,16 @@ export interface ValidationLoadingScreenProps {
 }
 
 /** Hold the loading layer briefly so it can fade away after the data is ready. */
-export function useLoadingScreenTransition(isLoading: boolean, exitDurationMs = 420) {
+export function useLoadingScreenTransition(isLoading: boolean, exitDurationMs = 500) {
   const [isMounted, setIsMounted] = useState(isLoading);
+  const [prevLoading, setPrevLoading] = useState(isLoading);
+
+  if (isLoading && !prevLoading) {
+    setPrevLoading(true);
+    setIsMounted(true);
+  } else if (!isLoading && prevLoading) {
+    setPrevLoading(false);
+  }
 
   useEffect(() => {
     if (isLoading || !isMounted) return;
@@ -46,6 +54,64 @@ export function useLoadingScreenTransition(isLoading: boolean, exitDurationMs = 
   }, [isLoading, isMounted, exitDurationMs]);
 
   return isMounted;
+}
+
+export interface UseSeamlessLoadingOptions {
+  /** How long the disappearing animation of the loading screen lasts before unmounting (ms). Default: 500ms */
+  exitDurationMs?: number;
+  /** Split-second pause after loading finishes before content appears (ms). Default: 200ms */
+  contentDelayMs?: number;
+}
+
+export interface SeamlessLoadingState {
+  /** True while the loading screen is either active or in its exit transition */
+  keepLoadingScreenMounted: boolean;
+  /** True after the split-second delay once loading completes, signaling content to appear */
+  showContent: boolean;
+  /** True when data has finished loading and the screen is playing its exit transition */
+  isExiting: boolean;
+}
+
+/**
+ * Orchestrates a seamless handoff between the loading screen and page content:
+ * 1. While `isLoading` is true, only the loading screen is visible.
+ * 2. When `isLoading` becomes false, the loading screen begins dissolving.
+ * 3. After a split-second pause (`contentDelayMs`, default 200ms), `showContent` becomes true
+ *    so the page content mounts and runs its entrance animation seamlessly under the dissolving overlay.
+ * 4. Once `exitDurationMs` finishes (default 500ms), `keepLoadingScreenMounted` becomes false.
+ */
+export function useSeamlessLoadingState(
+  isLoading: boolean,
+  options: UseSeamlessLoadingOptions = {}
+): SeamlessLoadingState {
+  const { exitDurationMs = 500, contentDelayMs = 200 } = options;
+  const keepLoadingScreenMounted = useLoadingScreenTransition(isLoading, exitDurationMs);
+  const [showContent, setShowContent] = useState(!isLoading);
+  const [prevLoading, setPrevLoading] = useState(isLoading);
+
+  if (isLoading && !prevLoading) {
+    setPrevLoading(true);
+    setShowContent(false);
+  } else if (!isLoading && prevLoading) {
+    setPrevLoading(false);
+  }
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    // After loading completes, wait a split second before showing content
+    const timeout = window.setTimeout(() => {
+      setShowContent(true);
+    }, contentDelayMs);
+
+    return () => window.clearTimeout(timeout);
+  }, [isLoading, contentDelayMs]);
+
+  return {
+    keepLoadingScreenMounted,
+    showContent,
+    isExiting: keepLoadingScreenMounted && !isLoading,
+  };
 }
 
 export function ValidationLoadingScreen({
@@ -104,7 +170,11 @@ export function ValidationLoadingScreen({
       role="status"
       aria-live="polite"
       aria-label={`${title}. ${loadedCount} of ${streamItems.length} data sources loaded.`}
-      className={`relative isolate flex min-h-[calc(100dvh-10rem)] w-full items-center justify-center overflow-hidden rounded-2xl bg-[#f4f7f5] px-3 py-7 transition-[opacity,transform] duration-[420ms] ease-out motion-reduce:transition-none sm:px-5 sm:py-10 ${isLoading ? "animate-in fade-in duration-300 opacity-100" : "pointer-events-none scale-[1.01] opacity-0"}`}
+      className={`relative isolate flex min-h-[calc(100dvh-10rem)] w-full items-center justify-center overflow-hidden rounded-2xl bg-[#f4f7f5] px-3 py-7 motion-reduce:transition-none sm:px-5 sm:py-10 ${
+        isLoading
+          ? "animate-in fade-in duration-300 opacity-100"
+          : "animate-out fade-out-0 duration-500 fill-mode-forwards pointer-events-none"
+      }`}
     >
       {/* Soft background accents give this full-page state depth without competing with the data. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
@@ -113,7 +183,13 @@ export function ValidationLoadingScreen({
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
       </div>
 
-      <div className={`grid w-full max-w-5xl overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_24px_80px_-36px_rgba(15,23,42,0.3)] transition-transform duration-500 ease-out motion-reduce:transition-none md:grid-cols-[0.82fr_1.18fr] ${isLoading ? "animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-500" : "scale-[0.985]"}`}>
+      <div
+        className={`grid w-full max-w-5xl overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_24px_80px_-36px_rgba(15,23,42,0.3)] motion-reduce:transition-none md:grid-cols-[0.82fr_1.18fr] ${
+          isLoading
+            ? "animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-500"
+            : "animate-out fade-out-0 zoom-out-95 slide-out-to-top-2 duration-500 fill-mode-forwards"
+        }`}
+      >
         <div className="relative flex min-h-56 flex-col justify-between overflow-hidden bg-gradient-to-br from-[#123b32] via-[#174c3d] to-[#1c6046] p-6 text-white sm:min-h-64 sm:p-8 md:min-h-[26rem]">
           <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full border border-white/10" />
           <div aria-hidden="true" className="pointer-events-none absolute -right-4 -top-8 size-40 rounded-full border border-white/10" />

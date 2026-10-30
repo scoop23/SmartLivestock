@@ -3,7 +3,7 @@
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ValidationLoadingScreen, useLoadingScreenTransition } from "@/components/validation-loading-screen";
+import { ValidationLoadingScreen, useSeamlessLoadingState } from "@/components/validation-loading-screen";
 import { useAuth } from "@/contexts/auth-context";
 import {
   ArrowUpRight,
@@ -45,7 +45,10 @@ export default function FarmerDashboard() {
     refetch,
     isFetching,
   } = useFarmerDashboardAnalytics();
-  const keepLoadingScreenMounted = useLoadingScreenTransition(isLoading);
+  const { keepLoadingScreenMounted, showContent } = useSeamlessLoadingState(isLoading, {
+    exitDurationMs: 500,
+    contentDelayMs: 200,
+  });
 
   // Live real-time clock updating every second
   const [clockString, setClockString] = useState<string>("");
@@ -474,8 +477,8 @@ export default function FarmerDashboard() {
 
       {/* Ambient Blueprint Viewport Container */}
       <div className="relative min-h-screen">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-7">
-          {isLoading || keepLoadingScreenMounted ? (
+        {(isLoading || keepLoadingScreenMounted) && (
+          <div className={`w-full px-4 sm:px-6 lg:px-8 py-6 ${showContent ? "absolute inset-0 z-30 pointer-events-none" : ""}`}>
             <ValidationLoadingScreen
               isLoading={isLoading}
               title="Loading Your Farmer Dashboard"
@@ -491,7 +494,11 @@ export default function FarmerDashboard() {
                 },
               ]}
             />
-          ) : (
+          </div>
+        )}
+
+        {showContent && (
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-7">
             <div className="space-y-7 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
               {/* SECTION 1: QUICK ACTIONS ROW */}
               <section aria-label="Quick actions" className="space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
@@ -705,8 +712,8 @@ export default function FarmerDashboard() {
                 </div>
               </details>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ── MODAL DIALOGS ── */}
