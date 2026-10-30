@@ -127,7 +127,7 @@ export interface SibatValidationRecord {
   };
 }
 
-const MORTALITY_DIALOG_WIDTH = "w-full max-w-[calc(100vw-1.5rem)] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl";
+const MORTALITY_DIALOG_WIDTH = "w-[calc(100vw-1rem)] sm:w-full max-w-[calc(100vw-1rem)] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl";
 
 function DiseaseReadOnlyDetails({
   record,
@@ -158,42 +158,52 @@ function DiseaseReadOnlyDetails({
   const statusLabel = isApproved ? "MAO Approved" : isForwarded ? "Under MAO Review" : "Needs Review";
 
   return (
-    <div className="w-full min-w-0 max-w-full space-y-3 overflow-x-hidden bg-slate-50 p-3 sm:space-y-4 sm:p-5">
+    <div className="w-full min-w-0 max-w-full space-y-3 overflow-x-hidden bg-slate-50 p-2.5 sm:space-y-4 sm:p-5">
       <p id="sibat-inspection-description" className="sr-only">Reported animal information, field inspection findings, and case follow-up history.</p>
-      <Button type="button" variant="ghost" onClick={onClose} className="h-8 gap-2 px-2 text-sm font-semibold text-slate-800 hover:bg-slate-200">
+      <Button type="button" variant="ghost" onClick={onClose} className="h-8 gap-2 px-2 text-xs sm:text-sm font-semibold text-slate-800 hover:bg-slate-200">
         <ArrowLeft className="size-4" /> Back to Disease Reports
       </Button>
 
-      <header className="flex flex-col gap-4 rounded-xl bg-gradient-to-r from-[#12365f] to-[#1e4e80] p-4 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
-        <div className="flex min-w-0 items-center gap-4">
-          <span className="grid size-16 shrink-0 place-items-center rounded-full bg-sky-400/25 text-white"><Stethoscope className="size-8" /></span>
+      <header className="flex flex-col gap-3 rounded-xl bg-gradient-to-r from-[#12365f] to-[#1e4e80] p-3.5 pr-10 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4 sm:px-6 sm:pr-14">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+          <span className="grid size-11 sm:size-16 shrink-0 place-items-center rounded-full bg-sky-400/25 text-white">
+            <Stethoscope className="size-6 sm:size-8" />
+          </span>
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wide text-sky-100">Disease Report · {record.id}</p>
-            <DialogTitle className="mt-0.5 text-xl font-black leading-tight text-white sm:text-2xl">Field Inspection Details</DialogTitle>
-            <p className="mt-1 text-sm text-sky-100"><strong>Farmer:</strong> {record.farmerName} <span className="mx-2">|</span> <strong>Barangay:</strong> {record.barangayName}</p>
+            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-sky-100">Disease Report · {record.id}</p>
+            <DialogTitle className="mt-0.5 text-base sm:text-xl md:text-2xl font-black leading-tight text-white break-words">Field Inspection Details</DialogTitle>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs sm:text-sm text-sky-100">
+              <span><strong>Farmer:</strong> {record.farmerName}</span>
+              <span className="hidden sm:inline">|</span>
+              <span><strong>Barangay:</strong> {record.barangayName}</span>
+            </div>
           </div>
         </div>
-        <Badge className="w-fit shrink-0 border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-950">
-          <Clock className="mr-1.5 size-4" />{statusLabel}
+        <Badge className="w-fit shrink-0 border border-amber-300 bg-amber-50 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-bold text-amber-950">
+          <Clock className="mr-1.5 size-3.5 sm:size-4" />{statusLabel}
         </Badge>
       </header>
 
-      <section className={`flex items-center gap-3 rounded-xl border p-3.5 sm:px-5 ${isApproved ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-sky-200 bg-sky-50 text-sky-950"}`}>
-        <span className={`grid size-12 shrink-0 place-items-center rounded-full ${isApproved ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700"}`}><ShieldCheck className="size-7" /></span>
-        <div><h3 className="font-bold">{isApproved ? "MAO Review Completed" : isForwarded ? "Field Inspection Completed" : "Field Inspection Pending"}</h3><p className={`text-sm ${isApproved ? "text-emerald-900" : "text-sky-900"}`}>{isApproved ? "The report was approved by MAO." : isForwarded ? "A field reviewer checked this report and sent it to the MAO for review." : "This report is awaiting an on-site field inspection."}</p></div>
+      <section className={`flex items-center gap-3 rounded-xl border p-3 sm:p-3.5 sm:px-5 ${isApproved ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-sky-200 bg-sky-50 text-sky-950"}`}>
+        <span className={`grid size-10 sm:size-12 shrink-0 place-items-center rounded-full ${isApproved ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700"}`}><ShieldCheck className="size-6 sm:size-7" /></span>
+        <div className="min-w-0"><h3 className="text-xs sm:text-base font-bold">{isApproved ? "MAO Review Completed" : isForwarded ? "Field Inspection Completed" : "Field Inspection Pending"}</h3><p className={`text-xs sm:text-sm leading-relaxed ${isApproved ? "text-emerald-900" : "text-sky-900"}`}>{isApproved ? "The report was approved by MAO." : isForwarded ? "A field reviewer checked this report and sent it to the MAO for review." : "This report is awaiting an on-site field inspection."}</p></div>
       </section>
 
-      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
-        <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><User className="size-6 text-blue-700" />1. Animal & Farmer Information</h3>
-        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5">
+        <h3 className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-900"><User className="size-5 sm:size-6 text-blue-700 shrink-0" />1. Animal &amp; Farmer Information</h3>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 sm:gap-2.5">
           {[
-            { label: "Ear Tag Number", value: record.livestockTag || "Not recorded", icon: <Tag className="size-6" /> },
-            { label: "Animal / Species", value: `${record.livestockType || "Livestock"}${record.livestockBreed ? ` (${record.livestockBreed})` : ""}`, icon: <Beef className="size-6" /> },
-            { label: "Farmer", value: record.farmerName || "Registered Farmer", icon: <User className="size-6" /> },
-            { label: "Barangay", value: record.barangayName || "Not recorded", icon: <MapPin className="size-6" /> },
+            { label: "Ear Tag Number", value: record.livestockTag || "Not recorded", icon: <Tag className="size-5 sm:size-6" /> },
+            { label: "Animal / Species", value: `${record.livestockType || "Livestock"}${record.livestockBreed ? ` (${record.livestockBreed})` : ""}`, icon: <Beef className="size-5 sm:size-6" /> },
+            { label: "Farmer", value: record.farmerName || "Registered Farmer", icon: <User className="size-5 sm:size-6" /> },
+            { label: "Barangay", value: record.barangayName || "Not recorded", icon: <MapPin className="size-5 sm:size-6" /> },
           ].map((item) => (
-            <div key={item.label} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <span className="shrink-0 text-blue-700">{item.icon}</span><div className="min-w-0"><p className="text-xs font-semibold text-slate-500">{item.label}</p><p className="truncate font-bold text-slate-900">{item.value}</p></div>
+            <div key={item.label} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-2.5 sm:p-3">
+              <span className="shrink-0 text-blue-700">{item.icon}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] sm:text-xs font-semibold text-slate-500">{item.label}</p>
+                <p className="font-bold text-slate-900 text-xs sm:text-sm break-words">{item.value}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -260,7 +270,9 @@ function DiseaseReadOnlyDetails({
         </div>
       </details>
 
-      <div className="flex justify-end"><Button type="button" variant="outline" onClick={onClose}>Close</Button></div>
+      <div className="flex justify-end pt-1">
+        <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto min-h-10 justify-center">Close</Button>
+      </div>
     </div>
   );
 }
@@ -293,55 +305,65 @@ function MortalityReadOnlyDetails({
   const statusLabel = isApproved ? "MAO Approved" : isForwarded ? "Under MAO Review" : "Reviewed";
 
   return (
-    <div className="w-full min-w-0 max-w-full space-y-3 overflow-x-hidden bg-slate-50 p-3 sm:space-y-4 sm:p-5">
+    <div className="w-full min-w-0 max-w-full space-y-3 overflow-x-hidden bg-slate-50 p-2.5 sm:space-y-4 sm:p-5">
       <p id="sibat-inspection-description" className="sr-only">Reported mortality information, field inspection findings, and review status.</p>
-      <Button type="button" variant="ghost" onClick={onClose} className="h-8 gap-2 px-2 text-sm font-semibold text-slate-800 hover:bg-slate-200">
+      <Button type="button" variant="ghost" onClick={onClose} className="h-8 gap-2 px-2 text-xs sm:text-sm font-semibold text-slate-800 hover:bg-slate-200">
         <ArrowLeft className="size-4" /> Back to Mortality Reports
       </Button>
 
-      <header className="flex flex-col gap-4 rounded-xl bg-gradient-to-r from-[#12365f] to-[#1e4e80] p-4 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
-        <div className="flex min-w-0 items-center gap-4">
-          <span className="grid size-16 shrink-0 place-items-center rounded-full bg-rose-500/30 text-white"><Skull className="size-8" /></span>
+      <header className="flex flex-col gap-3 rounded-xl bg-gradient-to-r from-[#12365f] to-[#1e4e80] p-3.5 pr-10 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4 sm:px-6 sm:pr-14">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+          <span className="grid size-11 sm:size-16 shrink-0 place-items-center rounded-full bg-rose-500/30 text-white">
+            <Skull className="size-6 sm:size-8" />
+          </span>
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wide text-blue-100">Mortality Report · {record.id}</p>
-            <DialogTitle className="mt-0.5 text-xl font-black leading-tight text-white sm:text-2xl">Field Inspection Details</DialogTitle>
-            <p className="mt-1 text-sm text-blue-100"><strong>Farmer:</strong> {record.farmerName} <span className="mx-2">|</span> <strong>Barangay:</strong> {record.barangayName}</p>
+            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wide text-blue-100">Mortality Report · {record.id}</p>
+            <DialogTitle className="mt-0.5 text-base sm:text-xl md:text-2xl font-black leading-tight text-white break-words">Field Inspection Details</DialogTitle>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs sm:text-sm text-blue-100">
+              <span><strong>Farmer:</strong> {record.farmerName}</span>
+              <span className="hidden sm:inline">|</span>
+              <span><strong>Barangay:</strong> {record.barangayName}</span>
+            </div>
           </div>
         </div>
-        <Badge className="w-fit shrink-0 border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-950">
-          <Clock className="mr-1.5 size-4" />{statusLabel}
+        <Badge className="w-fit shrink-0 border border-amber-300 bg-amber-50 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-bold text-amber-950">
+          <Clock className="mr-1.5 size-3.5 sm:size-4" />{statusLabel}
         </Badge>
       </header>
 
-      <section className={`flex items-center gap-3 rounded-xl border p-3.5 sm:px-5 ${isApproved ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-sky-200 bg-sky-50 text-sky-950"}`}>
-        <span className={`grid size-12 shrink-0 place-items-center rounded-full ${isApproved ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700"}`}><ShieldCheck className="size-7" /></span>
-        <div><h3 className="font-bold">{isApproved ? "MAO Review Completed" : "Field Inspection Completed"}</h3><p className={`text-sm ${isApproved ? "text-emerald-900" : "text-sky-900"}`}>{isApproved ? "The mortality report was approved by MAO." : "A field reviewer checked this mortality report and sent it to the MAO for review."}</p></div>
+      <section className={`flex items-center gap-3 rounded-xl border p-3 sm:p-3.5 sm:px-5 ${isApproved ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-sky-200 bg-sky-50 text-sky-950"}`}>
+        <span className={`grid size-10 sm:size-12 shrink-0 place-items-center rounded-full ${isApproved ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700"}`}><ShieldCheck className="size-6 sm:size-7" /></span>
+        <div className="min-w-0"><h3 className="text-xs sm:text-base font-bold">{isApproved ? "MAO Review Completed" : "Field Inspection Completed"}</h3><p className={`text-xs sm:text-sm leading-relaxed ${isApproved ? "text-emerald-900" : "text-sky-900"}`}>{isApproved ? "The mortality report was approved by MAO." : "A field reviewer checked this mortality report and sent it to the MAO for review."}</p></div>
       </section>
 
-      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
-        <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><User className="size-6 text-blue-700" />1. Animal &amp; Farmer Information</h3>
-        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5">
+        <h3 className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-900"><User className="size-5 sm:size-6 text-blue-700 shrink-0" />1. Animal &amp; Farmer Information</h3>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 sm:gap-2.5">
           {[
-            { label: "Ear Tag Number", value: record.livestockTag || "Not recorded", icon: <Tag className="size-6" /> },
-            { label: "Animal / Species", value: `${record.livestockType || "Livestock"}${record.livestockBreed ? ` (${record.livestockBreed})` : ""}`, icon: <Beef className="size-6" /> },
-            { label: "Farmer", value: record.farmerName || "Registered Farmer", icon: <User className="size-6" /> },
-            { label: "Barangay", value: record.barangayName || "Not recorded", icon: <MapPin className="size-6" /> },
+            { label: "Ear Tag Number", value: record.livestockTag || "Not recorded", icon: <Tag className="size-5 sm:size-6" /> },
+            { label: "Animal / Species", value: `${record.livestockType || "Livestock"}${record.livestockBreed ? ` (${record.livestockBreed})` : ""}`, icon: <Beef className="size-5 sm:size-6" /> },
+            { label: "Farmer", value: record.farmerName || "Registered Farmer", icon: <User className="size-5 sm:size-6" /> },
+            { label: "Barangay", value: record.barangayName || "Not recorded", icon: <MapPin className="size-5 sm:size-6" /> },
           ].map((item) => (
-            <div key={item.label} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <span className="shrink-0 text-blue-700">{item.icon}</span><div className="min-w-0"><p className="text-xs font-semibold text-slate-500">{item.label}</p><p className="truncate font-bold text-slate-900">{item.value}</p></div>
+            <div key={item.label} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-2.5 sm:p-3">
+              <span className="shrink-0 text-blue-700">{item.icon}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] sm:text-xs font-semibold text-slate-500">{item.label}</p>
+                <p className="font-bold text-slate-900 text-xs sm:text-sm break-words">{item.value}</p>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
-        <div><h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Skull className="size-6 text-rose-700" />2. Reported Mortality</h3><p className="ml-8 text-sm text-slate-600">Reported by the farmer — the cause has not been independently diagnosed.</p></div>
+      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5">
+        <div><h3 className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-900"><Skull className="size-5 sm:size-6 text-rose-700 shrink-0" />2. Reported Mortality</h3><p className="ml-7 sm:ml-8 text-xs sm:text-sm text-slate-600">Reported by the farmer — the cause has not been independently diagnosed.</p></div>
         <div className="grid gap-2 sm:grid-cols-2">
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-3"><p className="text-xs font-semibold text-rose-700">Reported Cause of Death</p><p className="font-bold text-slate-900">{record.name || "Not recorded"}</p></div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">Reported Dead Count</p><p className="font-bold text-slate-900">{record.reportedCount} head{record.reportedCount === 1 ? "" : "s"}</p></div>
+          <div className="min-w-0 rounded-xl border border-rose-200 bg-rose-50 p-3"><p className="text-[10px] sm:text-xs font-semibold text-rose-700 uppercase">Reported Cause of Death</p><p className="font-bold text-slate-900 text-xs sm:text-sm break-words">{record.name || "Not recorded"}</p></div>
+          <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase">Reported Dead Count</p><p className="font-bold text-slate-900 text-xs sm:text-sm">{record.reportedCount} head{record.reportedCount === 1 ? "" : "s"}</p></div>
         </div>
-        <p className="text-sm italic text-slate-700">“{record.farmerDescription || "No additional statement provided."}”</p>
-        <p className="text-xs text-slate-500">Reported {record.reportedDate}</p>
+        <p className="text-xs sm:text-sm italic text-slate-700">“{record.farmerDescription || "No additional statement provided."}”</p>
+        <p className="text-[11px] sm:text-xs text-slate-500">Reported {record.reportedDate}</p>
       </section>
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
@@ -386,7 +408,9 @@ function MortalityReadOnlyDetails({
         </div>
       </details>
 
-      <div className="flex justify-end"><Button type="button" variant="outline" onClick={onClose}>Close</Button></div>
+      <div className="flex justify-end pt-1">
+        <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto min-h-10 justify-center">Close</Button>
+      </div>
     </div>
   );
 }
@@ -838,9 +862,9 @@ function SibatInspectionDialogContent({
       <DialogContent
         ref={dialogContentRef}
         aria-describedby="sibat-inspection-description"
-        className={isDisease && isReadOnly
-          ? `max-h-[92vh] ${MORTALITY_DIALOG_WIDTH} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl`
-          : `max-h-[92vh] ${MORTALITY_DIALOG_WIDTH} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6 lg:p-8`}
+        className={isReadOnly
+          ? `max-h-[95dvh] sm:max-h-[92vh] ${MORTALITY_DIALOG_WIDTH} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl`
+          : `max-h-[95dvh] sm:max-h-[92vh] ${MORTALITY_DIALOG_WIDTH} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl sm:p-6 lg:p-8`}
       >
         {isDisease && isReadOnly ? (
           <DiseaseReadOnlyDetails
@@ -862,75 +886,73 @@ function SibatInspectionDialogContent({
 
         {/* ══ POPUP HEADER ══ */}
         {isPendingVerification ? (
-          <header className="mb-3 flex flex-col gap-3 rounded-xl bg-gradient-to-r from-[#12365f] to-[#35618e] p-3 text-white shadow-sm sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:p-4 sm:pr-14">
+          <header className="mb-3 flex flex-col gap-3 rounded-xl bg-gradient-to-r from-[#12365f] to-[#35618e] p-3 pr-10 text-white shadow-sm sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:p-4 sm:pr-14">
             <div className="flex min-w-0 items-center gap-3">
-              <span className={`grid size-12 shrink-0 place-items-center rounded-full text-white ${isMortality ? "bg-rose-600" : "bg-sky-600"}`}>
-                {isMortality ? <Skull className="size-6" /> : <Stethoscope className="size-6" />}
+              <span className={`grid size-11 sm:size-12 shrink-0 place-items-center rounded-full text-white ${isMortality ? "bg-rose-600" : "bg-sky-600"}`}>
+                {isMortality ? <Skull className="size-5 sm:size-6" /> : <Stethoscope className="size-5 sm:size-6" />}
               </span>
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-blue-100 sm:text-xs">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[10px] font-bold uppercase tracking-wide text-blue-100 sm:text-xs">
                   <span>{isMortality ? "Mortality Report" : "Disease Report"}</span><span>#{record.id}</span>
-                  <Badge className="border border-amber-200 bg-amber-100 text-amber-900">Pending On-Farm Visit</Badge>
+                  <Badge className="border border-amber-200 bg-amber-100 text-amber-900 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0">Pending On-Farm Visit</Badge>
                 </div>
-                <DialogTitle className="mt-0.5 text-lg font-extrabold leading-tight text-white sm:text-2xl">
+                <DialogTitle className="mt-0.5 text-base sm:text-xl md:text-2xl font-extrabold leading-tight text-white break-words">
                   {isMortality ? "SIBAT Mortality Verification" : "SIBAT Disease Verification"}
                 </DialogTitle>
-                <p className="text-xs text-blue-100 sm:text-sm">
+                <p className="mt-0.5 text-xs text-blue-100 leading-snug sm:text-sm">
                   {isMortality
                     ? "Record signs observed before death, verify the animal and count, and document carcass biosecurity actions for MAO review."
                     : "Record clinically observed signs, verify the animal and count, and document biosecurity actions for MAO review."}
                 </p>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2 pl-14 text-[11px] text-blue-100 sm:pl-0 sm:pr-2">
-              <Calendar className="size-4" /><span>Reported on<br /><strong className="text-white">{record.reportedDate}</strong></span>
+            <div className="flex shrink-0 items-center gap-2 border-t border-white/15 pt-2 text-[11px] text-blue-100 sm:border-0 sm:pt-0 sm:pr-2">
+              <Calendar className="size-4 shrink-0 text-sky-200" />
+              <span>Reported on <strong className="text-white">{record.reportedDate}</strong></span>
             </div>
           </header>
         ) : isRevision ? (
-          <header className="mb-4 flex flex-col gap-3 rounded-xl bg-gradient-to-r from-[#12365f] to-[#245889] p-3.5 text-white shadow-sm sm:mb-5 sm:flex-row sm:items-center sm:justify-between sm:p-4 sm:pr-14">
+          <header className="mb-3 sm:mb-4 flex flex-col gap-3 rounded-xl bg-gradient-to-r from-[#12365f] to-[#245889] p-3 pr-10 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4 sm:pr-14">
             <div className="flex min-w-0 items-center gap-3">
-              <span className={`grid size-12 shrink-0 place-items-center rounded-full text-white sm:size-13 ${isMortality ? "bg-rose-600" : "bg-sky-500"}`}>
-                {isMortality ? <Skull className="size-6 text-white" /> : <Stethoscope className="size-6 text-white" />}
+              <span className={`grid size-11 sm:size-12 shrink-0 place-items-center rounded-full text-white sm:size-13 ${isMortality ? "bg-rose-600" : "bg-sky-500"}`}>
+                {isMortality ? <Skull className="size-5 sm:size-6 text-white" /> : <Stethoscope className="size-5 sm:size-6 text-white" />}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-wide text-blue-100 sm:text-xs">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[10px] font-black uppercase tracking-wide text-blue-100 sm:text-xs">
                   <span>{record.reportType} REPORT</span>
                   <span>#{record.id}</span>
-                  <Badge className="border border-rose-300 bg-rose-100 font-bold text-rose-800 text-[10px]">
+                  <Badge className="border border-rose-300 bg-rose-100 font-bold text-rose-800 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0">
                     Subject for Revision
                   </Badge>
                 </div>
-                <DialogTitle className="mt-1 text-lg font-extrabold leading-tight text-white sm:text-xl md:text-2xl">
+                <DialogTitle className="mt-0.5 text-base sm:text-xl md:text-2xl font-extrabold leading-tight text-white break-words">
                   Field Examination – Revision
                 </DialogTitle>
-                <p className="mt-0.5 text-xs text-blue-100 sm:text-sm">
+                <p className="mt-0.5 text-xs text-blue-100 leading-snug sm:text-sm">
                   Update the field findings based on {reviewerRoleName} feedback and resubmit.
                 </p>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2 pl-14 text-[11px] text-blue-100 sm:pl-0 sm:pr-2">
-              <Calendar className="size-4 text-sky-200" />
-              <span>
-                Reported on<br />
-                <strong className="text-white">{record.reportedDate}</strong>
-              </span>
+            <div className="flex shrink-0 items-center gap-2 border-t border-white/15 pt-2 text-[11px] text-blue-100 sm:border-0 sm:pt-0 sm:pr-2">
+              <Calendar className="size-4 shrink-0 text-sky-200" />
+              <span>Reported on <strong className="text-white">{record.reportedDate}</strong></span>
             </div>
           </header>
-        ) : <DialogHeader className="mb-3 sm:mb-4 sm:pr-12">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3.5">
+        ) : <DialogHeader className="mb-3 sm:mb-4 pr-10 sm:pr-12">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-slate-100 pb-3 sm:pb-4">
+            <div className="flex items-center gap-3 sm:gap-3.5">
               <div
-                className={`size-13 sm:size-15 rounded-2xl flex items-center justify-center shrink-0 shadow-md text-white ${getHeaderBg()}`}
+                className={`size-11 sm:size-15 rounded-2xl flex items-center justify-center shrink-0 shadow-md text-white ${getHeaderBg()}`}
               >
                 {getHeaderIcon()}
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-black text-slate-400 uppercase font-mono">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <span className="text-[10px] sm:text-xs font-black text-slate-400 uppercase font-mono">
                     Incident #{record.id}
                   </span>
                   <Badge
-                    className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${record.status === "VERIFIED"
+                    className={`text-[9px] sm:text-[10px] font-black uppercase px-2 sm:px-2.5 py-0.5 rounded-full ${record.status === "VERIFIED"
                       ? "bg-sky-100 text-sky-800 border-sky-300"
                       : record.status === "APPROVED"
                         ? "bg-emerald-100 text-emerald-800 border-emerald-300"
@@ -947,11 +969,11 @@ function SibatInspectionDialogContent({
                           ? "Subject for Revision"
                           : "Pending On-Farm Visit"}
                   </Badge>
-                  <span className="text-xs font-bold text-slate-400">
+                  <span className="text-[10px] sm:text-xs font-bold text-slate-400">
                     • {record.reportType}
                   </span>
                 </div>
-                <DialogTitle className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 leading-tight mt-1">
+                <DialogTitle className="text-base sm:text-2xl md:text-3xl font-black text-slate-900 leading-tight mt-1 break-words">
                   {isReadOnly
                     ? isApproved
                       ? isMortality
@@ -966,7 +988,7 @@ function SibatInspectionDialogContent({
                         ? "Step 2: SIBAT On-Farm Health Examination"
                         : `Step 2: SIBAT Field Inspection (${record.reportType})`}
                 </DialogTitle>
-                <p className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
+                <p className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5 leading-snug">
                   {isReadOnly
                     ? isApproved
                       ? "MAO approved the report. The original inspection is locked; disease follow-up and resolution are recorded separately below."
@@ -1022,9 +1044,9 @@ function SibatInspectionDialogContent({
         {/* ══ STEP-BY-STEP WIZARD STEPPER BAR ══ */}
         <nav
           aria-label="Verification Wizard Steps"
-          className="mb-4 rounded-2xl border border-slate-200 bg-slate-50/90 p-2 sm:p-2.5 shadow-2xs"
+          className="mb-3 sm:mb-4 rounded-2xl border border-slate-200 bg-slate-50/90 p-2 sm:p-2.5 shadow-2xs"
         >
-          <ol className="grid grid-cols-3 gap-1.5 sm:gap-3">
+          <ol className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
             {/* Step 1 */}
             <li>
               <button
@@ -1033,10 +1055,10 @@ function SibatInspectionDialogContent({
                   setValidationError("");
                   setCurrentStep(1);
                 }}
-                className={`group flex w-full items-center gap-2 rounded-xl p-2 sm:p-2.5 text-left transition-all cursor-pointer ${
+                className={`group flex w-full items-center gap-2.5 sm:gap-2 rounded-xl p-2 sm:p-2.5 text-left transition-all cursor-pointer ${
                   currentStep === 1
-                    ? "bg-white border border-sky-300 shadow-xs ring-2 ring-sky-100"
-                    : "hover:bg-white/70 border border-transparent"
+                    ? "bg-white border-2 border-sky-400 shadow-xs ring-2 ring-sky-100"
+                    : "bg-white/60 hover:bg-white border border-slate-200/80"
                 }`}
               >
                 <span
@@ -1051,17 +1073,20 @@ function SibatInspectionDialogContent({
                   {currentStep > 1 ? <Check className="size-4 stroke-[3]" /> : "1"}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Step 1</span>
-                    {currentStep > 1 && (
-                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200 hidden sm:inline">
-                        Done
+                    {currentStep > 1 ? (
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200">
+                        Completed
                       </span>
-                    )}
+                    ) : currentStep === 1 ? (
+                      <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.2 rounded-full border border-sky-200 sm:hidden">
+                        Current
+                      </span>
+                    ) : null}
                   </div>
-                  <p className={`truncate text-xs font-black ${currentStep === 1 ? "text-slate-900" : "text-slate-700"}`}>
-                    <span className="hidden sm:inline">Farmer & Animal Information</span>
-                    <span className="sm:hidden">Farmer & Animal</span>
+                  <p className={`text-xs font-black leading-snug ${currentStep === 1 ? "text-slate-900" : "text-slate-700"}`}>
+                    Farmer &amp; Animal Information
                   </p>
                 </div>
               </button>
@@ -1075,10 +1100,10 @@ function SibatInspectionDialogContent({
                   setValidationError("");
                   setCurrentStep(2);
                 }}
-                className={`group flex w-full items-center gap-2 rounded-xl p-2 sm:p-2.5 text-left transition-all cursor-pointer ${
+                className={`group flex w-full items-center gap-2.5 sm:gap-2 rounded-xl p-2 sm:p-2.5 text-left transition-all cursor-pointer ${
                   currentStep === 2
-                    ? "bg-white border border-sky-300 shadow-xs ring-2 ring-sky-100"
-                    : "hover:bg-white/70 border border-transparent"
+                    ? "bg-white border-2 border-sky-400 shadow-xs ring-2 ring-sky-100"
+                    : "bg-white/60 hover:bg-white border border-slate-200/80"
                 }`}
               >
                 <span
@@ -1093,21 +1118,29 @@ function SibatInspectionDialogContent({
                   {currentStep > 2 ? <Check className="size-4 stroke-[3]" /> : "2"}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Step 2</span>
-                    {tagConfirmed && countConfirmed ? (
-                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200 hidden sm:inline">
+                    {currentStep > 2 ? (
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200">
+                        Completed
+                      </span>
+                    ) : tagConfirmed && countConfirmed ? (
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200">
                         Verified
                       </span>
                     ) : (
-                      <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded-full border border-amber-200 hidden sm:inline">
+                      <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded-full border border-amber-200">
                         Checklist
                       </span>
                     )}
+                    {currentStep === 2 && (
+                      <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.2 rounded-full border border-sky-200 sm:hidden">
+                        Current
+                      </span>
+                    )}
                   </div>
-                  <p className={`truncate text-xs font-black ${currentStep === 2 ? "text-slate-900" : "text-slate-700"}`}>
-                    <span className="hidden sm:inline">Field Verification</span>
-                    <span className="sm:hidden">Field Verification</span>
+                  <p className={`text-xs font-black leading-snug ${currentStep === 2 ? "text-slate-900" : "text-slate-700"}`}>
+                    Field Verification
                   </p>
                 </div>
               </button>
@@ -1121,10 +1154,10 @@ function SibatInspectionDialogContent({
                   setValidationError("");
                   setCurrentStep(3);
                 }}
-                className={`group flex w-full items-center gap-2 rounded-xl p-2 sm:p-2.5 text-left transition-all cursor-pointer ${
+                className={`group flex w-full items-center gap-2.5 sm:gap-2 rounded-xl p-2 sm:p-2.5 text-left transition-all cursor-pointer ${
                   currentStep === 3
-                    ? "bg-white border border-sky-300 shadow-xs ring-2 ring-sky-100"
-                    : "hover:bg-white/70 border border-transparent"
+                    ? "bg-white border-2 border-sky-400 shadow-xs ring-2 ring-sky-100"
+                    : "bg-white/60 hover:bg-white border border-slate-200/80"
                 }`}
               >
                 <span
@@ -1139,17 +1172,21 @@ function SibatInspectionDialogContent({
                   3
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Step 3</span>
                     {tagConfirmed && countConfirmed && (
-                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200 hidden sm:inline">
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200">
                         Ready
                       </span>
                     )}
+                    {currentStep === 3 && (
+                      <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.2 rounded-full border border-sky-200 sm:hidden">
+                        Current
+                      </span>
+                    )}
                   </div>
-                  <p className={`truncate text-xs font-black ${currentStep === 3 ? "text-slate-900" : "text-slate-700"}`}>
-                    <span className="hidden sm:inline">{isRevision ? "Review & Resubmit" : "Review & Submit"}</span>
-                    <span className="sm:hidden">{isRevision ? "Resubmit" : "Submit"}</span>
+                  <p className={`text-xs font-black leading-snug ${currentStep === 3 ? "text-slate-900" : "text-slate-700"}`}>
+                    {isRevision ? "Review & Resubmit" : "Review & Submit"}
                   </p>
                 </div>
               </button>
@@ -1161,73 +1198,73 @@ function SibatInspectionDialogContent({
 
         {/* ══ STEP 1: FARMER & ANIMAL INFORMATION ══ */}
         {currentStep === 1 && (
-          <div className="space-y-4 animate-in fade-in-50 duration-200">
-            <div className="rounded-2xl border border-blue-100 bg-white p-3.5 sm:p-4 shadow-2xs space-y-3.5">
-              <div className="flex items-center justify-between border-b border-blue-50 pb-2.5">
+          <div className="space-y-3 sm:space-y-4 animate-in fade-in-50 duration-200">
+            <div className="rounded-2xl border border-blue-100 bg-white p-3 sm:p-4 shadow-2xs space-y-3 sm:space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-blue-50 pb-2.5">
                 <span className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-700">
-                  <span className="grid size-7 place-items-center rounded-full bg-sky-500 text-sm font-black text-white">1</span>
+                  <span className="grid size-6 sm:size-7 place-items-center rounded-full bg-sky-500 text-xs sm:text-sm font-black text-white shrink-0">1</span>
                   <span>
-                    Farmer & Animal Information
+                    Farmer &amp; Animal Information
                     <small className="mt-0.5 block font-medium normal-case tracking-normal text-slate-500">
                       Review the raiser&apos;s reported details, signs, and attached photos.
                     </small>
                   </span>
                 </span>
-                <span className="flex items-center gap-1 text-xs font-bold text-slate-600">
-                  <Calendar className="size-3.5 text-slate-400" />
+                <span className="flex items-center gap-1 text-[11px] sm:text-xs font-bold text-slate-500">
+                  <Calendar className="size-3.5 text-slate-400 shrink-0" />
                   Reported: {record.reportedDate}
                 </span>
               </div>
 
               {/* Raiser & Animal 4-Pill Info Grid */}
-              <div className="grid grid-cols-2 gap-2.5 text-xs xl:grid-cols-4">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="grid grid-cols-2 gap-2 text-xs xl:grid-cols-4 sm:gap-2.5">
+                <div className="min-w-0 p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-400 font-bold block uppercase">Tag Number</span>
-                  <span className="font-black text-slate-900 text-sm sm:text-base">
+                  <span className="font-black text-slate-900 text-xs sm:text-base break-words block">
                     {record.livestockTag}
                   </span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="min-w-0 p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-400 font-bold block uppercase">Breed / Species</span>
-                  <span className="font-bold text-slate-800 text-xs sm:text-sm">
+                  <span className="font-bold text-slate-800 text-xs sm:text-sm break-words block">
                     {record.livestockBreed} ({record.livestockType})
                   </span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="min-w-0 p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-400 font-bold block uppercase">Raiser / Farmer</span>
                   <span className="font-bold text-slate-800 text-xs sm:text-sm truncate block">
                     {record.farmerName}
                   </span>
                   {record.farmerContact && (
-                    <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                    <span className="text-[10px] text-slate-400 font-mono block mt-0.5 truncate">
                       {record.farmerContact}
                     </span>
                   )}
                 </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="min-w-0 p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-400 font-bold block uppercase">Location</span>
-                  <span className="font-bold text-slate-800 text-xs sm:text-sm">
+                  <span className="font-bold text-slate-800 text-xs sm:text-sm break-words block">
                     {record.barangayName} {record.purok ? `(${record.purok})` : ""}
                   </span>
                 </div>
               </div>
 
               {/* Condition / Incident Details */}
-              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs">
-                <div>
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-3.5 text-xs">
+                <div className="min-w-0 flex-1">
                   <span className="text-[10px] text-slate-400 font-bold uppercase block">
                     {isMortality ? "Reported Mortality Cause" : "Reported Health Condition"}
                   </span>
-                  <span className="font-black text-slate-900 text-sm sm:text-base">
+                  <span className="font-black text-slate-900 text-xs sm:text-base break-words block">
                     {record.name}
                   </span>
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-right">
                   <span className="text-[10px] text-slate-400 font-bold uppercase block">
                     {isMortality ? "Reported Dead Count" : "Reported Affected Count"}
                   </span>
                   <span
-                    className={`font-black text-sm sm:text-base ${isMortality ? "text-rose-700" : "text-[#1A365D]"}`}
+                    className={`font-black text-xs sm:text-base ${isMortality ? "text-rose-700" : "text-[#1A365D]"}`}
                   >
                     {record.reportedCount} Head{record.reportedCount > 1 ? "s" : ""}
                   </span>
@@ -1396,21 +1433,22 @@ function SibatInspectionDialogContent({
             )}
 
             {/* Wizard Step 1 Footer Controls */}
-            <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 border-t border-slate-200 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100"
+                className="w-full sm:w-auto min-h-11 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100 justify-center"
               >
                 Close
               </Button>
               <Button
                 type="button"
                 onClick={() => setCurrentStep(2)}
-                className="gap-2 rounded-xl bg-[#1A365D] font-bold text-white hover:bg-[#132742]"
+                className="w-full sm:w-auto min-h-11 gap-2 rounded-xl bg-[#1A365D] font-bold text-white hover:bg-[#132742] justify-center"
               >
-                <span>Continue to Field Verification</span>
+                <span className="hidden sm:inline">Continue to Field Verification</span>
+                <span className="sm:hidden">Next: Field Verification</span>
                 <ArrowRight className="size-4" />
               </Button>
             </div>
@@ -1419,16 +1457,16 @@ function SibatInspectionDialogContent({
 
         {/* ══ STEP 2: FIELD VERIFICATION ══ */}
         {currentStep === 2 && (
-          <div className="space-y-4 animate-in fade-in-50 duration-200">
-            <div className="space-y-3.5 rounded-2xl border border-blue-100 bg-white p-3.5 sm:p-5 shadow-2xs">
-              <div className="flex items-center justify-between border-b border-blue-50 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="grid size-7 place-items-center rounded-full bg-sky-500 text-sm font-black text-white">2</span>
-                  <div>
+          <div className="space-y-3 sm:space-y-4 animate-in fade-in-50 duration-200">
+            <div className="space-y-3 sm:space-y-3.5 rounded-2xl border border-blue-100 bg-white p-3 sm:p-5 shadow-2xs">
+              <div className="flex items-start sm:items-center justify-between gap-2 border-b border-blue-50 pb-2.5">
+                <div className="flex items-start sm:items-center gap-2 min-w-0">
+                  <span className="grid size-6 sm:size-7 place-items-center rounded-full bg-sky-500 text-xs sm:text-sm font-black text-white shrink-0">2</span>
+                  <div className="min-w-0">
                     <h3 className="text-sm font-extrabold text-slate-900">
                       {isRevision ? "Update Field Examination Details" : "Field Verification"}
                     </h3>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-slate-500 leading-snug">
                       {isRevision
                         ? `Edit or add the missing information requested by the ${reviewerRoleName}.`
                         : isMortality
@@ -1437,14 +1475,14 @@ function SibatInspectionDialogContent({
                     </p>
                   </div>
                 </div>
-                <Badge className="bg-sky-100 text-sky-800 border-sky-200 text-[10px] font-bold">
+                <Badge className="shrink-0 bg-sky-100 text-sky-800 border-sky-200 text-[10px] font-bold">
                   Step 2 of 3
                 </Badge>
               </div>
 
               {/* Verification Checkboxes (Ear Tag & In-Person Count) */}
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                <label className={`flex items-center gap-3 rounded-xl border border-sky-200 bg-sky-50/40 p-3 transition-all ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50"}`}>
+                <label className={`flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50/40 p-3 transition-all ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50"}`}>
                   <input
                     type="checkbox"
                     checked={tagConfirmed}
@@ -1454,19 +1492,19 @@ function SibatInspectionDialogContent({
                       setTagConfirmed(e.target.checked);
                       setValidationError("");
                     }}
-                    className={`size-5 rounded text-sky-700 focus:ring-sky-500 ${isReadOnly ? "cursor-default" : "cursor-pointer"}`}
+                    className={`size-5 shrink-0 mt-0.5 rounded text-sky-700 focus:ring-sky-500 ${isReadOnly ? "cursor-default" : "cursor-pointer"}`}
                   />
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs sm:text-sm font-black text-slate-900">
                       Physical Ear Tag Match Verified
                     </p>
-                    <p className="text-[11px] text-slate-500 font-medium">
+                    <p className="text-[11px] text-slate-500 font-medium break-words">
                       Confirmed reported ear tag{record.reportedCount === 1 ? "" : "s"}: {record.livestockTag}.
                     </p>
                   </div>
                 </label>
 
-                <label className={`flex min-h-12 items-center gap-3 rounded-xl border border-sky-200 bg-sky-50/40 p-3 ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50"}`}>
+                <label className={`flex min-h-12 items-start gap-3 rounded-xl border border-sky-200 bg-sky-50/40 p-3 ${isReadOnly ? "cursor-default opacity-95" : "cursor-pointer hover:bg-sky-50"}`}>
                   <input
                     type="checkbox"
                     checked={countConfirmed}
@@ -1476,9 +1514,9 @@ function SibatInspectionDialogContent({
                       setCountConfirmed(event.target.checked);
                       setValidationError("");
                     }}
-                    className={`size-5 rounded text-sky-700 focus:ring-sky-500 ${isReadOnly ? "cursor-default" : "cursor-pointer"}`}
+                    className={`size-5 shrink-0 mt-0.5 rounded text-sky-700 focus:ring-sky-500 ${isReadOnly ? "cursor-default" : "cursor-pointer"}`}
                   />
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs sm:text-sm font-black text-slate-900">
                       Physical Count Confirmed
                     </p>
@@ -1859,19 +1897,20 @@ function SibatInspectionDialogContent({
             </div>
 
             {/* Wizard Step 2 Footer Controls */}
-            <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 border-t border-slate-200 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setCurrentStep(1)}
-                className="gap-2 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100"
+                className="w-full sm:w-auto min-h-11 gap-2 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100 justify-center"
               >
                 <ArrowLeft className="size-4" />
-                <span>Back to Farmer & Animal Info</span>
+                <span className="hidden sm:inline">Back to Farmer &amp; Animal Info</span>
+                <span className="sm:hidden">Back to Step 1</span>
               </Button>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 {(!tagConfirmed || !countConfirmed) && (
-                  <span className="hidden text-xs font-semibold text-amber-700 sm:inline">
+                  <span className="text-center text-[11px] sm:text-xs font-semibold text-amber-700">
                     Checklist pending confirmation
                   </span>
                 )}
@@ -1885,9 +1924,10 @@ function SibatInspectionDialogContent({
                     setValidationError("");
                     setCurrentStep(3);
                   }}
-                  className="gap-2 rounded-xl bg-[#1A365D] font-bold text-white hover:bg-[#132742]"
+                  className="w-full sm:w-auto min-h-11 gap-2 rounded-xl bg-[#1A365D] font-bold text-white hover:bg-[#132742] justify-center"
                 >
-                  <span>Continue to Review & Submit</span>
+                  <span className="hidden sm:inline">Continue to Review &amp; Submit</span>
+                  <span className="sm:hidden">Next: Review &amp; Submit</span>
                   <ArrowRight className="size-4" />
                 </Button>
               </div>
@@ -1897,46 +1937,46 @@ function SibatInspectionDialogContent({
 
         {/* ══ STEP 3: REVIEW & SUBMIT ══ */}
         {currentStep === 3 && (
-          <div className="space-y-4 animate-in fade-in-50 duration-200">
+          <div className="space-y-3 sm:space-y-4 animate-in fade-in-50 duration-200">
             {/* Step 3 Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <div className="flex items-center gap-2">
-                <span className="grid size-7 place-items-center rounded-full bg-sky-500 text-sm font-black text-white">3</span>
-                <div>
+            <div className="flex items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+              <div className="flex items-start sm:items-center gap-2 min-w-0">
+                <span className="grid size-6 sm:size-7 place-items-center rounded-full bg-sky-500 text-xs sm:text-sm font-black text-white shrink-0">3</span>
+                <div className="min-w-0">
                   <h3 className="text-sm font-extrabold text-slate-900">
                     {isRevision ? "Review & Resubmit" : "Review & Submit"}
                   </h3>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 leading-snug">
                     {isRevision
                       ? "Make sure all required information is complete before sending to MAO."
                       : "Check your recorded information and certification checklist before transmitting to MAO."}
                   </p>
                 </div>
               </div>
-              <Badge className="bg-sky-100 text-sky-800 border-sky-200 text-[10px] font-bold">
+              <Badge className="shrink-0 bg-sky-100 text-sky-800 border-sky-200 text-[10px] font-bold">
                 Step 3 of 3
               </Badge>
             </div>
 
             {/* Checklist Verification Readiness Status Banner */}
-            <div className={`flex items-start justify-between gap-3 rounded-xl border p-3 text-xs ${
+            <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border p-3 text-xs ${
               tagConfirmed && countConfirmed
                 ? "border-emerald-300 bg-emerald-50 text-emerald-950"
                 : "border-amber-300 bg-amber-50 text-amber-950"
             }`}>
-              <div className="flex items-start gap-2.5">
+              <div className="flex items-start gap-2.5 min-w-0 flex-1">
                 {tagConfirmed && countConfirmed ? (
                   <CheckCircle2 className="size-5 text-emerald-700 shrink-0 mt-0.5" />
                 ) : (
                   <AlertTriangle className="size-5 text-amber-700 shrink-0 mt-0.5" />
                 )}
-                <div>
+                <div className="min-w-0">
                   <p className="font-extrabold text-sm">
                     {tagConfirmed && countConfirmed
                       ? isRevision ? "Ready to Resubmit" : "Checklist Complete — Ready to Submit"
                       : "Verification Checklist Incomplete"}
                   </p>
-                  <p className="mt-0.5 leading-relaxed">
+                  <p className="mt-0.5 leading-relaxed text-xs">
                     {tagConfirmed && countConfirmed
                       ? `Required field checks are confirmed. Submitting will forward this certified report to MAO for final approval.`
                       : "Physical ear tag match and physical count must be verified on Step 2 before submitting to MAO."}
@@ -1950,7 +1990,7 @@ function SibatInspectionDialogContent({
                   size="sm"
                   variant="outline"
                   onClick={() => setCurrentStep(2)}
-                  className="shrink-0 rounded-lg border-amber-300 bg-white text-xs font-bold text-amber-950 hover:bg-amber-100"
+                  className="w-full sm:w-auto shrink-0 rounded-lg border-amber-300 bg-white text-xs font-bold text-amber-950 hover:bg-amber-100 justify-center"
                 >
                   Verify in Step 2
                 </Button>
@@ -2158,33 +2198,34 @@ function SibatInspectionDialogContent({
             )}
 
             {/* Step 3 Footer Action Bar */}
-            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-slate-200 pt-3">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 border-t border-slate-200 pt-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setCurrentStep(2)}
-                className="gap-2 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100"
+                className="w-full sm:w-auto min-h-11 gap-2 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100 justify-center"
               >
                 <ArrowLeft className="size-4" />
-                <span>Back to Field Verification</span>
+                <span className="hidden sm:inline">Back to Field Verification</span>
+                <span className="sm:hidden">Back to Step 2</span>
               </Button>
 
               {isReadOnly ? (
                 <Button
                   type="button"
                   onClick={() => onOpenChange(false)}
-                  className="min-h-11 rounded-xl bg-slate-900 text-white hover:bg-slate-800 font-bold px-6"
+                  className="w-full sm:w-auto min-h-11 rounded-xl bg-slate-900 text-white hover:bg-slate-800 font-bold px-6 justify-center"
                 >
                   Close
                 </Button>
               ) : (
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => handleAction("FLAGGED")}
                     disabled={isSubmitting}
-                    className="min-h-11 rounded-xl border-amber-300 bg-amber-50 font-semibold text-amber-950 hover:bg-amber-100"
+                    className="w-full sm:w-auto min-h-11 rounded-xl border-amber-300 bg-amber-50 font-semibold text-amber-950 hover:bg-amber-100 justify-center"
                   >
                     <AlertTriangle className="mr-2 size-4" />
                     <span>Flag a concern</span>
@@ -2193,10 +2234,11 @@ function SibatInspectionDialogContent({
                     type="button"
                     onClick={() => handleAction("VERIFIED")}
                     disabled={isSubmitting}
-                    className="min-h-11 rounded-xl bg-[#1A365D] font-bold text-white hover:bg-[#152c4d] px-5"
+                    className="w-full sm:w-auto min-h-11 rounded-xl bg-[#1A365D] font-bold text-white hover:bg-[#152c4d] px-5 justify-center"
                   >
                     <ShieldCheck className="mr-2 size-5 text-emerald-300" />
-                    <span>{isRevision ? "Confirm updates and send to MAO" : "Confirm details and send to MAO"}</span>
+                    <span className="hidden sm:inline">{isRevision ? "Confirm updates and send to MAO" : "Confirm details and send to MAO"}</span>
+                    <span className="sm:hidden">{isRevision ? "Resubmit to MAO" : "Confirm & Send to MAO"}</span>
                   </Button>
                 </div>
               )}

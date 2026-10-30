@@ -269,7 +269,7 @@ export function FmdSuspicionAlertCard({
               </label>
 
               {/* Action button to apply biosecurity protocol & standard remarks */}
-              <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
                 <p className="text-[11px] text-rose-900 font-semibold">
                   Mabilisang Aksyon: Ipatupad ang isolation at veterinary remarks.
                 </p>
@@ -277,10 +277,10 @@ export function FmdSuspicionAlertCard({
                   type="button"
                   size="sm"
                   onClick={onApplyFmdProtocol}
-                  className="h-8 px-3 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold gap-1.5 shadow-2xs cursor-pointer"
+                  className="w-full sm:w-auto h-9 sm:h-8 px-3 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold gap-1.5 shadow-2xs cursor-pointer justify-center"
                 >
                   <Sparkles className="size-3.5" />
-                  Apply FMD Protocol & Remarks
+                  Apply FMD Protocol &amp; Remarks
                 </Button>
               </div>
             </div>

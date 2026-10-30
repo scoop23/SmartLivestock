@@ -297,7 +297,9 @@ function SibatLivestockRegistryContent() {
   }, [registryRecords]);
 
   // Tab counts
-  const allCount = registryRecords.length;
+  const allCount = registryRecords.filter(
+    (r) => r.sourceType === "INVENTORY" && r.entryType === "INDIVIDUAL"
+  ).length;
   const individualCount = useMemo(
     () => registryRecords.filter((r) => r.sourceType === "INVENTORY" && r.entryType === "INDIVIDUAL").length,
     [registryRecords]
@@ -331,6 +333,9 @@ function SibatLivestockRegistryContent() {
 
     return registryRecords.filter((record) => {
       // 0. Tab Filter
+      if (activeTab === "all" && (record.sourceType !== "INVENTORY" || record.entryType !== "INDIVIDUAL")) {
+        return false;
+      }
       if (activeTab === "individual" && (record.sourceType !== "INVENTORY" || record.entryType !== "INDIVIDUAL")) {
         return false;
       }
@@ -1025,18 +1030,6 @@ function SibatLivestockRegistryContent() {
                                   Dam Tag: <strong className="font-mono">{r.damTag || "Registered Dam"}</strong>
                                 </span>
                               </div>
-                            ) : !isBatch && r.batchCode ? (
-                              <div className="mt-1 flex items-center gap-1">
-                                <Link
-                                  href={`/sibat/batches?batchId=${encodeURIComponent(r.batchId || r.batchCode)}&animalId=${r.rawId}&tag=${encodeURIComponent(r.tagNumber || "")}&from=registry`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs transition-colors"
-                                  title={`Open parent herd ${r.batchCode}`}
-                                >
-                                  <Layers className="size-2.5 text-amber-700" />
-                                  <span>Herd Tag: <strong className="font-mono">{r.batchCode}</strong></span>
-                                </Link>
-                              </div>
                             ) : null}
                             <span className="block text-[11px] text-slate-400 font-medium mt-0.5">
                               {isCalving
@@ -1068,16 +1061,15 @@ function SibatLivestockRegistryContent() {
                                   <Layers className="size-3 text-amber-700" />
                                   Herd
                                 </span>
+                              ) : r.batchCode && activeTab === "all" ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-black tracking-wide bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
+                                  <Layers className="size-3 text-amber-700" />
+                                  Herd Tag: <strong className="font-mono">{r.batchCode}</strong>
+                                </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-200 shadow-2xs">
                                   <Tag className="size-3 text-sky-600" />
                                   Individual
-                                </span>
-                              )}
-                              {!isBatch && !isCalving && r.batchCode && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-200">
-                                  <Layers className="size-2.5 text-amber-700" />
-                                  Herd Tag: {r.batchCode}
                                 </span>
                               )}
                             </div>
@@ -1184,12 +1176,6 @@ function SibatLivestockRegistryContent() {
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-pink-100 text-pink-900 border border-pink-200">
                             <Baby className="size-2.5 text-pink-700" />
                             Calving {r.damTag ? `• Dam: ${r.damTag}` : ""}
-                          </span>
-                        )}
-                        {!isBatch && !isCalving && r.batchCode && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                            <Layers className="size-2.5 text-amber-700" />
-                            Herd Tag: {r.batchCode}
                           </span>
                         )}
                       </div>

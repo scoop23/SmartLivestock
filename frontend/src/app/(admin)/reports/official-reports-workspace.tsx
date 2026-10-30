@@ -1,6 +1,7 @@
 "use client";
 
 import { PADRE_GARCIA_BARANGAYS } from "@/app/(admin)/admin/admin-charts";
+import { PageHeader } from "@/app/components/page-header";
 import {
   downloadOfficialReport,
   fetchOfficialReport,
@@ -633,9 +634,14 @@ export function OfficialReportsWorkspace({
   isAllBarangays: initialIsAllBarangays = false,
 }: OfficialReportsWorkspaceProps) {
   const isBarangayWorkspace = variant === "sibat";
+  const reportOptions = isBarangayWorkspace
+    ? REPORT_OPTIONS.filter((option) => option.value !== "movement" && option.value !== "inspection")
+    : REPORT_OPTIONS;
   const now = new Date();
 
-  const [reportType, setReportType] = useState<ReportType>("slaughter");
+  const [reportType, setReportType] = useState<ReportType>(
+    isBarangayWorkspace ? "inventory" : "slaughter"
+  );
   const [dateFrom, setDateFrom] = useState(
     dateValue(new Date(now.getFullYear(), now.getMonth(), 1))
   );
@@ -719,7 +725,7 @@ export function OfficialReportsWorkspace({
   };
 
   const selectedOption =
-    REPORT_OPTIONS.find((opt) => opt.value === reportType) ?? REPORT_OPTIONS[3];
+    reportOptions.find((opt) => opt.value === reportType) ?? reportOptions[0];
 
   const summaryKpis = useMemo(
     () => (report ? deriveSummaryKpis(report, reportType) : []),
@@ -728,45 +734,65 @@ export function OfficialReportsWorkspace({
 
   const chartConfig = CHART_CONFIGS[reportType];
 
-  return (
-    <main className="w-full space-y-6 px-3.5 py-4 pb-14 sm:px-6 lg:px-8 lg:py-6">
-      {/* 1. Top Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3.5">
-          <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-100/70 text-emerald-800 sm:size-14">
-            <FileText className="size-6 sm:size-7" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Reports</h1>
-            <p className="mt-0.5 text-sm text-slate-500">
-              {isBarangayWorkspace
-                ? "View and manage livestock reports in your assigned reporting area."
-                : "View and manage livestock reports and official municipal records."}
-            </p>
-          </div>
+  const reportingAreaPill = (
+    <div className="flex items-center gap-3 self-start rounded-2xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 sm:self-auto">
+      <div className="grid size-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-800">
+        <MapPin className="size-5" />
+      </div>
+      <div>
+        <div className="text-sm font-bold text-slate-900">
+          Reporting area:{" "}
+          <span className="font-extrabold text-slate-950">{effectiveReportingArea}</span>
+          {!isBarangayWorkspace ? (
+            <span className="text-xs font-semibold text-slate-500">
+              {" "}({selectedBarangay ? "Filtered" : "All Barangays"})
+            </span>
+          ) : null}
         </div>
-
-        {/* Location pill */}
-        <div className="flex items-center gap-3 self-start rounded-2xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 sm:self-auto">
-          <div className="grid size-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-800">
-            <MapPin className="size-5" />
-          </div>
-          <div>
-            <div className="text-sm font-bold text-slate-900">
-              Reporting area:{" "}
-              <span className="font-extrabold text-slate-950">{effectiveReportingArea}</span>{" "}
-              <span className="text-xs font-semibold text-slate-500">
-                ({isBarangayWorkspace ? "Fixed" : selectedBarangay ? "Filtered" : "All Barangays"})
-              </span>
-            </div>
-            <div className="text-xs text-slate-500">
-              {isBarangayWorkspace
-                ? `You can view reports for ${effectiveReportingArea} only.`
-                : "You can view reports across all barangays."}
-            </div>
-          </div>
+        <div className="text-xs text-slate-500">
+          {isBarangayWorkspace
+            ? `You can view reports for ${effectiveReportingArea} only.`
+            : "You can view reports across all barangays."}
         </div>
       </div>
+    </div>
+  );
+
+  return (
+    <>
+      {isBarangayWorkspace ? (
+        <PageHeader
+          title="Reports"
+          subtitle="View and generate official livestock reports for your assigned reporting area."
+          variant="sibat"
+          maxWidthClass="w-full"
+          icon={<FileText className="size-5 text-white" />}
+          hideIconOnMobile
+          showTutorialToggle={false}
+          mobileActionsInline
+        />
+      ) : null}
+      <main className="w-full space-y-6 px-3.5 py-4 pb-14 sm:px-6 lg:px-8 lg:py-6">
+        {/* 1. Top Header */}
+        {isBarangayWorkspace ? (
+          reportingAreaPill
+        ) : (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3.5">
+              <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-100/70 text-emerald-800 sm:size-14">
+                <FileText className="size-6 sm:size-7" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Reports</h1>
+                <p className="mt-0.5 text-sm text-slate-500">
+                  View and manage livestock reports and official municipal records.
+                </p>
+              </div>
+            </div>
+
+            {reportingAreaPill}
+          </div>
+        )}
 
       {/* 2. Choose a Report Type */}
       <section aria-labelledby="choose-report-heading" className="space-y-3">
@@ -776,8 +802,12 @@ export function OfficialReportsWorkspace({
           </h2>
           <p className="text-sm text-slate-500">Select a category to build and export a report.</p>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {REPORT_OPTIONS.map((option) => {
+        <div
+          className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${
+            isBarangayWorkspace ? "lg:grid-cols-3 xl:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-6"
+          }`}
+        >
+          {reportOptions.map((option) => {
             const Icon = option.icon;
             const isSelected = reportType === option.value;
             return (
@@ -1153,6 +1183,7 @@ export function OfficialReportsWorkspace({
           </section>
         )
       )}
-    </main>
+      </main>
+    </>
   );
 }
