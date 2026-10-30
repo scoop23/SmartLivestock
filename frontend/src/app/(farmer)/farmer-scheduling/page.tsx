@@ -50,7 +50,6 @@ CalendarDays,
 CalendarPlus,
 Check,
 CheckCircle2,
-ChevronLeft,
 ChevronRight,
 ClipboardList,
 Clock,
@@ -1112,19 +1111,6 @@ function FarmerSchedulingContent() {
 
           {detailsSchedule ? (
             <div className="space-y-4 sm:space-y-5">
-              {/* Top Navigation */}
-              <button
-                type="button"
-                onClick={() => {
-                  setDetailsSchedule(null);
-                  setScheduleId("");
-                }}
-                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer"
-              >
-                <ChevronLeft className="size-4" />
-                <span>Back to Field Program Schedule</span>
-              </button>
-
               {(() => {
                 const bannerPhoto = detailsSchedule.cover_image
                   ? programImageUrl(detailsSchedule.cover_image)
