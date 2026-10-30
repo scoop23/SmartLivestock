@@ -5,7 +5,6 @@ import { QrCodePass } from "@/components/qr-code-pass";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogTitle,
@@ -14,7 +13,6 @@ import { printElement } from "@/lib/print-element";
 import { cowHead } from "@lucide/lab";
 import {
   AlertTriangle,
-  BarChart3,
   Building2,
   Calendar,
   Camera,
@@ -22,7 +20,6 @@ import {
   ClipboardList,
   Clock,
   FileText,
-  History,
   Icon,
   MapPin,
   Printer,
@@ -32,9 +29,9 @@ import {
   Sparkles,
   Skull,
   Stethoscope,
+  Tag,
   Thermometer,
   Users,
-  X,
 } from "lucide-react";
 import React from "react";
 import { type DriveStep } from "driver.js";
@@ -214,35 +211,35 @@ export default function ReportDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         data-print-root
-        className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-3xl border border-slate-200/90 bg-white shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:max-h-[92dvh]"
+        className="flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[96rem] min-w-0 flex-col overflow-hidden overscroll-contain rounded-[28px] border border-slate-200/90 bg-white p-0 shadow-2xl [&>button:last-child]:size-10 [&>button:last-child>svg]:size-6 sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[96rem]"
       >
         {/* Header - Clean white style with icon container and Close button */}
-        <div data-tour="report-detail-header" className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-white sticky top-0 z-10">
+        <div data-tour="report-detail-header" className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 bg-white p-4 pr-12 sm:p-6 sm:pr-14 lg:p-7 lg:pr-16">
           <div className="flex items-center gap-3 min-w-0">
             <div
-              className={`size-10 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs border ${
+              className={`size-12 sm:size-16 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs border ${
                 isMortality
                   ? "bg-rose-50 text-rose-800 border-rose-200/80"
                   : "bg-emerald-50 text-emerald-800 border-emerald-200/80"
               }`}
             >
               {isMortality ? (
-                <Skull className="size-5 text-rose-700" />
+                <Skull className="size-6 sm:size-8 text-rose-700" />
               ) : (
-                <ClipboardList className="size-5 text-[#2D5A27]" />
+                <ClipboardList className="size-6 sm:size-8 text-[#2D5A27]" />
               )}
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <DialogTitle className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight">
+                <DialogTitle className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
                   {isMortality ? "Mortality Incident Details" : "Health Observation Details"}
                 </DialogTitle>
-                <span className="font-mono text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
+                <span className="font-mono text-xs sm:text-base font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/60">
                   Ref #{report.id}
                 </span>
               </div>
-              <DialogDescription className="text-xs text-slate-500 font-medium mt-0.5">
+              <DialogDescription className="text-xs sm:text-base text-slate-500 font-medium mt-1">
                 Official livestock health declaration and municipal review record
               </DialogDescription>
             </div>
@@ -254,29 +251,14 @@ export default function ReportDetailDialog({
             </Button>
           )}
 
-          <DialogClose asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 shrink-0 cursor-pointer"
-            >
-              <X className="size-4" />
-              <span className="sr-only">Close</span>
-            </Button>
-          </DialogClose>
         </div>
 
         {/* Modal Body */}
-        <div className="p-4 sm:p-6 space-y-5">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="space-y-4 p-3 sm:space-y-5 sm:p-5 lg:p-6">
           {/* 1. Review progress - 4-step horizontal stepper */}
-          <div data-tour="report-detail-progress" className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 sm:p-5">
-            <div className="flex items-center gap-2 text-sm font-extrabold text-slate-900 mb-4">
-              <BarChart3 className="size-4 text-[#2D5A27]" />
-              <span>Review progress</span>
-            </div>
-
-            <div className="relative flex items-start justify-between">
+          <div data-tour="report-detail-progress" className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-3 sm:p-5">
+            <div className="relative flex items-start justify-between gap-1 sm:gap-3">
               {/* Connecting line */}
               <div
                 aria-hidden
@@ -300,17 +282,19 @@ export default function ReportDetailDialog({
               </div>
 
               {/* Step 1: Farmer Submitted */}
-              <div className="relative z-1 flex flex-col items-center text-center max-w-[76px] sm:max-w-[90px]">
+              <div className="relative z-1 flex min-w-0 flex-1 flex-col items-center text-center">
                 <div className="size-7 rounded-full bg-[#1A3D22] text-white flex items-center justify-center text-xs font-black shadow-2xs">
                   ✓
                 </div>
                 <span className="text-[11px] font-bold text-slate-800 mt-2 leading-tight">
                   Farmer Submitted
                 </span>
+                <span className="mt-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-800 sm:text-[10px]">Complete</span>
+                <span className="mt-1 text-[10px] text-slate-500 sm:text-xs">{formatDate(report.createdAt)}</span>
               </div>
 
               {/* Step 2: Field Review */}
-              <div className="relative z-1 flex flex-col items-center text-center max-w-[76px] sm:max-w-[90px]">
+              <div className="relative z-1 flex min-w-0 flex-1 flex-col items-center text-center">
                 <div
                   className={`size-7 rounded-full flex items-center justify-center text-xs font-black shadow-2xs ${
                     statusConfig.stage >= 2
@@ -335,10 +319,14 @@ export default function ReportDetailDialog({
                 <span className="text-[11px] font-bold text-slate-800 mt-2 leading-tight">
                   Field Review
                 </span>
+                <span className={`mt-1 rounded-full border px-2 py-0.5 text-[9px] font-bold sm:text-[10px] ${isRevision ? "border-rose-200 bg-rose-50 text-rose-800" : statusConfig.stage >= 2 ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                  {isRevision ? "Revision" : statusConfig.stage >= 2 ? "Complete" : "Pending"}
+                </span>
+                <span className="mt-1 text-[10px] text-slate-500 sm:text-xs">{cbatVerifiedAt ? formatDate(cbatVerifiedAt) : "—"}</span>
               </div>
 
               {/* Step 3: MAO Review */}
-              <div className="relative z-1 flex flex-col items-center text-center max-w-[76px] sm:max-w-[90px]">
+              <div className="relative z-1 flex min-w-0 flex-1 flex-col items-center text-center">
                 <div
                   className={`size-7 rounded-full flex items-center justify-center text-xs font-black shadow-2xs ${
                     statusConfig.stage >= 3
@@ -351,10 +339,14 @@ export default function ReportDetailDialog({
                 <span className="text-[11px] font-bold text-slate-800 mt-2 leading-tight">
                   MAO Review
                 </span>
+                <span className={`mt-1 rounded-full border px-2 py-0.5 text-[9px] font-bold sm:text-[10px] ${isApproved ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                  {isApproved ? "Complete" : "Pending"}
+                </span>
+                <span className="mt-1 text-[10px] text-slate-500 sm:text-xs">{maoReviewedAt ? formatDate(maoReviewedAt) : "—"}</span>
               </div>
 
               {/* Step 4: Case Resolution */}
-              <div className="relative z-1 flex flex-col items-center text-center max-w-[76px] sm:max-w-[90px]">
+              <div className="relative z-1 flex min-w-0 flex-1 flex-col items-center text-center">
                 <div
                   className={`size-7 rounded-full flex items-center justify-center text-xs font-black shadow-2xs ${
                     statusConfig.stage >= 3
@@ -371,6 +363,8 @@ export default function ReportDetailDialog({
                 <span className="text-[11px] font-bold text-slate-800 mt-2 leading-tight">
                   Case Resolution
                 </span>
+                <span className="mt-1 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-600 sm:text-[10px]">Pending</span>
+                <span className="mt-1 text-[10px] text-slate-500 sm:text-xs">—</span>
               </div>
             </div>
 
@@ -387,35 +381,92 @@ export default function ReportDetailDialog({
             </div>
           </div>
 
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(320px,0.95fr)] lg:items-start">
+          <div className="flex min-w-0 flex-col gap-4">
           {/* 2. Follow-up & case resolution card */}
-          {!isMortality && <DiseaseCaseFollowUp key={report.id} caseId={report.id} />}
+          {!isMortality && <div className="order-5"><DiseaseCaseFollowUp key={report.id} caseId={report.id} /></div>}
 
           {/* Section Divider */}
-          <hr className="border-slate-200/80 my-5" />
-
-          {/* 3. Case history section */}
-          <div data-tour="report-detail-history" className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-extrabold text-slate-900">
-              <History className="size-4 text-slate-800" />
-              <span>Case history</span>
+          {/* 3. Incident information and review history */}
+          <section data-tour="report-detail-history" className="order-1 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xs">
+            <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <h2 className="flex items-center gap-2 text-lg font-black text-slate-900">
+                <FileText className="size-5 text-emerald-800" />
+                Incident Information
+              </h2>
+              <span className={`w-fit rounded-full border px-3 py-1 text-xs font-bold ${statusConfig.bg}`}>{statusConfig.title}</span>
             </div>
 
-            {/* Metadata badges row */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200/80 text-xs font-bold shadow-2xs">
-                <Users className="size-3.5 text-slate-500" />
-                {report.affectedCount} head{report.affectedCount > 1 ? "s" : ""}
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200/80 text-xs font-bold shadow-2xs">
-                <MapPin className="size-3.5 text-slate-500" />
-                {report.barangayName ? `Brgy. ${report.barangayName}` : "Local check"}
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200/80 text-xs font-bold shadow-2xs">
-                <Calendar className="size-3.5 text-slate-500" />
-                {formatDate(report.recordDate)}
-              </span>
+            <div data-tour="report-detail-summary" className="grid gap-x-5 px-4 sm:grid-cols-2 sm:px-5">
+              <div className="flex min-w-0 items-start gap-3 border-b border-slate-100 py-3 sm:pr-4">
+                <ClipboardList className="mt-0.5 size-5 shrink-0 text-slate-700" />
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">Incident ID</p>
+                  <p className="break-words text-sm font-semibold text-slate-900">{report.id}</p>
+                </div>
+              </div>
+              <div className="flex min-w-0 items-start gap-3 border-b border-slate-100 py-3">
+                <Icon iconNode={cowHead} className="mt-0.5 size-5 shrink-0 text-slate-700" />
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">Livestock Type</p>
+                  <p className="break-words text-sm font-semibold text-slate-900">
+                    {report.cattleType || "Livestock"}{report.cattleBreed ? ` · ${report.cattleBreed}` : ""}
+                  </p>
+                </div>
+              </div>
+              <div className="flex min-w-0 items-start gap-3 border-b border-slate-100 py-3 sm:pr-4">
+                <Calendar className="mt-0.5 size-5 shrink-0 text-slate-700" />
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">Date Reported</p>
+                  <p className="break-words text-sm font-semibold text-slate-900">
+                    {formatDate(report.recordDate)} · {new Date(report.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                  </p>
+                </div>
+              </div>
+              <div className="flex min-w-0 items-start gap-3 border-b border-slate-100 py-3">
+                <Users className="mt-0.5 size-5 shrink-0 text-slate-700" />
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">Head Count</p>
+                  <p className="text-sm font-semibold text-slate-900">{report.affectedCount} Head{report.affectedCount === 1 ? "" : "s"}</p>
+                </div>
+              </div>
+              <div className="flex min-w-0 items-start gap-3 border-b border-slate-100 py-3 sm:pr-4">
+                <Users className="mt-0.5 size-5 shrink-0 text-slate-700" />
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">Reported by</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="break-words text-sm font-semibold text-slate-900">{report.farmerName || "Registered Farmer"}</p>
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Farmer</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex min-w-0 items-start gap-3 border-b border-slate-100 py-3">
+                <Tag className="mt-0.5 size-5 shrink-0 text-slate-700" />
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">Tag / Animal ID</p>
+                  <p className="break-all text-sm font-semibold text-slate-900">{report.cattleTag || "Not recorded"}</p>
+                </div>
+              </div>
+              <div className="flex min-w-0 items-start gap-3 border-b border-slate-100 py-3 sm:pr-4">
+                <MapPin className="mt-0.5 size-5 shrink-0 text-slate-700" />
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">Location</p>
+                  <p className="break-words text-sm font-semibold text-slate-900">{report.barangayName ? `Brgy. ${report.barangayName}, Padre Garcia, Batangas` : "Not recorded"}</p>
+                </div>
+              </div>
+              <div data-tour="report-detail-concern" className="flex min-w-0 items-start gap-3 border-b border-slate-100 py-3">
+                <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-700" />
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">{isMortality ? "Suspected Cause of Death" : "Reported Symptoms"}</p>
+                  <p className="break-words text-sm font-semibold text-slate-900">
+                    {report.symptoms?.length ? report.symptoms.join(", ") : report.name || "Not recorded"}
+                  </p>
+                </div>
+              </div>
             </div>
+          </section>
 
+          <div className="order-3 space-y-4">
             {/* Official Review Status Banner */}
             <div
               className={`rounded-xl border p-3 text-xs sm:text-sm font-bold flex items-center gap-2.5 shadow-2xs ${statusConfig.bg}`}
@@ -685,61 +736,10 @@ export default function ReportDetailDialog({
                 </div>
               </div>
             </div>
-
-            {/* Case Summary Card */}
-            <div data-tour="report-detail-summary" className="space-y-1.5">
-              <p className="text-xs font-bold text-slate-500">Case summary</p>
-              <div className="rounded-2xl border border-slate-200/90 bg-slate-50/50 p-4 flex items-center gap-3.5 shadow-2xs">
-                <div className="size-11 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
-                  <Icon iconNode={cowHead} className="size-6 text-slate-800" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-extrabold text-slate-900">
-                    {isMortality ? "Deceased Livestock" : "Cattle"} •{" "}
-                    {report.cattleBreed || report.cattleType || "Livestock"}
-                  </h4>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-2 flex-wrap">
-                    <span>👥 {report.affectedCount} head</span>
-                    <span className="text-slate-300">|</span>
-                    <span>📅 Reported {formatDate(report.recordDate)}</span>
-                    {report.cattleTag && (
-                      <>
-                        <span className="text-slate-300">•</span>
-                        <span className="font-mono font-bold text-slate-700 bg-slate-200/60 px-1.5 py-0.2 rounded text-[11px]">
-                          Tag: {report.cattleTag}
-                        </span>
-                      </>
-                    )}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Reported Symptoms / Cause */}
-            <div data-tour="report-detail-concern" className="space-y-1.5">
-              <p className="text-xs font-bold text-slate-500">
-                {isMortality ? "Reported cause of mortality" : "Reported symptoms"}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {report.symptoms && report.symptoms.length > 0 ? (
-                  report.symptoms.map((sym) => (
-                    <span
-                      key={sym}
-                      className="rounded-xl border border-amber-300/80 bg-amber-50/80 text-amber-950 px-3 py-1.5 text-xs font-bold shadow-2xs"
-                    >
-                      {sym}
-                    </span>
-                  ))
-                ) : (
-                  <span className="rounded-xl border border-amber-300/80 bg-amber-50/80 text-amber-950 px-3 py-1.5 text-xs font-bold shadow-2xs">
-                    {report.name}
-                  </span>
-                )}
-              </div>
-            </div>
+          </div>
 
             {isMortality && linkedDisease && (
-              <div className="space-y-1.5">
+              <div className="order-4 space-y-1.5">
                 <p className="text-xs font-bold text-slate-500">Linked disease report</p>
                 <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3 text-xs text-slate-800">
                   <p className="font-bold">DIS-{linkedDisease}{linkedDiseaseName ? ` · ${linkedDiseaseName}` : ""}</p>
@@ -751,54 +751,52 @@ export default function ReportDetailDialog({
             )}
 
             {/* Farmer Observations */}
-            {report.description && (
-              <div data-tour="report-detail-observations" className="space-y-1.5">
-                <p className="text-xs font-bold text-slate-500">Farmer observations</p>
-                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 text-xs text-slate-700 leading-relaxed flex items-start gap-2.5">
-                  <FileText className="size-4 text-slate-400 shrink-0 mt-0.5" />
-                  <p className="whitespace-pre-wrap break-words">{report.description}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Photo Evidence */}
-            {report.photoUrl && (
-              <div data-tour="report-detail-photo" className="space-y-1.5">
-                <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
-                  <Camera className="size-3.5 text-[#2D5A27]" />
-                  Attached Photo Evidence
-                </p>
-                <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 aspect-video max-h-72 shadow-2xs group">
-                  <img
-                    src={report.photoUrl}
-                    alt={report.photoName || "Farmer Photo Evidence"}
-                    className="w-full h-full object-contain"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent p-2.5 flex items-center justify-between text-white text-[11px]">
-                    <span className="font-mono truncate">
-                      {report.photoName || "farmer_attached_evidence.jpg"}
-                    </span>
-                    <a
-                      href={report.photoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-emerald-300 font-bold hover:underline"
-                    >
-                      View Fullscreen
-                    </a>
+            {(report.description || report.photoUrl) && (
+              <section className="order-2 space-y-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs sm:p-5">
+                <h2 className="flex items-center gap-2 text-lg font-black text-slate-900">
+                  <FileText className="size-5 text-emerald-800" />
+                  Farmer Observations
+                </h2>
+                {report.description && (
+                  <div data-tour="report-detail-observations" className="rounded-xl bg-slate-50/80 p-3 text-sm leading-relaxed text-slate-700">
+                    <p className="whitespace-pre-wrap break-words">{report.description}</p>
                   </div>
-                </div>
-              </div>
+                )}
+                {report.photoUrl && (
+                  <div data-tour="report-detail-photo" className="space-y-2 border-t border-slate-100 pt-3">
+                    <p className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                      <Camera className="size-3.5 text-emerald-700" />
+                      Photos / Documents (1)
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      <div className="group relative aspect-[4/3] overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                        <img
+                          src={report.photoUrl}
+                          alt={report.photoName || "Farmer Photo Evidence"}
+                          className="size-full object-cover"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-slate-950/80 to-transparent p-2 text-[10px] text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+                          <span className="truncate font-mono">{report.photoName || "farmer_attached_evidence.jpg"}</span>
+                          <a
+                            href={report.photoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 font-bold text-emerald-300 hover:underline"
+                          >
+                            View
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
             )}
 
-            <section data-tour="report-detail-qr" aria-label="Report QR pass" className="rounded-2xl border border-cyan-100 bg-gradient-to-br from-slate-50 via-white to-cyan-50/60 p-3 sm:p-4">
-              <div className="mb-3 flex items-center gap-2 text-slate-800">
-                <ShieldCheck className="size-4 text-cyan-700" />
-                <div>
-                  <p className="text-xs font-black">Share this report with field staff</p>
-                  <p className="text-[10px] text-slate-500">The QR opens this report in SmartLivestock.</p>
-                </div>
-              </div>
+          </div>
+
+          <aside className="min-w-0 lg:sticky lg:top-2">
+            <div data-tour="report-detail-qr" aria-label="Report QR pass" className="min-w-0">
               <QrCodePass
                 code={report.id}
                 qrPayload={qrPayload}
@@ -811,16 +809,19 @@ export default function ReportDetailDialog({
                 headCount={report.affectedCount}
                 status={report.status}
               />
-            </section>
+            </div>
+          </aside>
           </div>
+        </div>
+        </div>
 
-          {/* Footer Actions */}
-          <div data-tour="report-detail-actions" className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-center gap-2.5">
+        {/* Footer Actions */}
+        <div data-tour="report-detail-actions" className="flex shrink-0 flex-col gap-2.5 border-t border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:p-4 lg:px-7">
             {report.status === "SUBJECT_TO_REVISION" && onEditReport && (
               <Button
                 type="button"
                 onClick={() => onEditReport(report)}
-                className="w-full sm:w-auto h-11 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs font-bold px-4 cursor-pointer gap-1.5"
+                className="w-full h-11 rounded-xl bg-amber-500 px-4 text-xs font-bold text-amber-950 hover:bg-amber-600 sm:order-2 sm:w-auto"
               >
                 <RotateCcw className="size-3.5" />
                 <span>Edit & Resubmit</span>
@@ -833,7 +834,7 @@ export default function ReportDetailDialog({
               onClick={(event) =>
                 printElement(event.currentTarget.closest<HTMLElement>("[data-print-root]"))
               }
-              className="w-full sm:w-auto h-11 gap-1.5 rounded-xl border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              className="h-11 w-full gap-1.5 rounded-xl border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 sm:order-1 sm:mr-auto sm:w-auto"
             >
               <Printer className="size-3.5 text-slate-500" />
               <span>Print Details</span>
@@ -841,13 +842,12 @@ export default function ReportDetailDialog({
 
             <Button
               type="button"
-              variant="outline"
+              variant="default"
               onClick={() => onOpenChange(false)}
-              className="w-full sm:flex-1 h-11 rounded-xl border-slate-300 text-slate-700 font-bold hover:bg-slate-50 text-xs sm:text-sm cursor-pointer"
+              className="h-11 w-full rounded-xl border-emerald-800 bg-emerald-800 px-8 text-xs font-bold text-white hover:bg-emerald-900 hover:text-white sm:order-3 sm:w-auto sm:text-sm"
             >
               Close
             </Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
