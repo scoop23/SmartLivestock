@@ -306,8 +306,9 @@ function FarmerSchedulingContent() {
       />
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
         {/* Sleek Schedule Telemetry Ribbon (Replaces redundant KPI cards while clearly presenting all 3 insights) */}
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:px-5 sm:py-3 shadow-xs md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:px-5 sm:py-3 shadow-xs md:flex-row md:items-center md:justify-between animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
           {/* Key Insight 1: Nearest Scheduled Farm Visit */}
           <div className="flex items-center gap-3 min-w-0">
             <span
@@ -422,7 +423,7 @@ function FarmerSchedulingContent() {
         ) : null}
 
         {/* 2. Interactive Booking Suite */}
-        <section aria-label="Book a program appointment" className="space-y-4">
+        <section aria-label="Book a program appointment" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
           <Card className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
             {/* Header & Guided Stepper */}
             <div className="border-b border-slate-100 bg-gradient-to-r from-emerald-50/50 via-slate-50/30 to-white p-4 sm:p-5">
@@ -1138,7 +1139,7 @@ function FarmerSchedulingContent() {
         </section>
 
         {/* 3. My Bookings & Visit History Section */}
-        <section id="my-bookings-section" aria-label="My scheduled bookings" className="scroll-mt-24 space-y-4 pt-2">
+        <section id="my-bookings-section" aria-label="My scheduled bookings" className="scroll-mt-24 space-y-4 pt-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150 fill-mode-both">
           <Card className={`rounded-2xl border bg-white shadow-xs transition-all duration-500 ${
             highlightedBookingId !== null
               ? "border-emerald-400 ring-4 ring-emerald-200/70 shadow-md"
@@ -1336,6 +1337,7 @@ function FarmerSchedulingContent() {
             </CardContent>
           </Card>
         </section>
+        </div>
       </div>
 
       <Dialog

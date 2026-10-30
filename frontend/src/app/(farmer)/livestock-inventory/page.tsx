@@ -550,9 +550,10 @@ function LivestockInventoryContent() {
       />
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
         {/* Livestock overview and inventory actions */}
         {!selectedType && (
-          <div data-tour="inventory-hero">
+          <div data-tour="inventory-hero" className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
           <InventoryHeroBanner
             totalRecords={inventories.length}
             onExportCsv={exportCSV}
@@ -574,7 +575,7 @@ function LivestockInventoryContent() {
         <div
           data-tour="inventory-kpis"
           className={cn(
-            "grid transition-all duration-350 ease-in-out",
+            "grid transition-all duration-350 ease-in-out animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both",
             !selectedType && activeTab === "types"
               ? "grid-rows-[1fr] opacity-100 scale-100 mb-2"
               : "grid-rows-[0fr] opacity-0 scale-[0.99] mb-0 pointer-events-none"
@@ -747,6 +748,7 @@ function LivestockInventoryContent() {
           isSubmitting={updateMutation.isPending}
           onSubmit={(payload) => updateMutation.mutate(payload)}
         />
+        </div>
       </div>
     </>
   );

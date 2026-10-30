@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function FarmerNotificationsPage() {
   return (
-    <main className="flex-1 min-w-0 pb-12">
+    <main className="flex-1 min-w-0 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
       <NotificationsView
         variant="farmer"
         title="Notifications"

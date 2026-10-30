@@ -27,6 +27,7 @@ Megaphone,
 Milk,
 Package,
 Plus,
+Radio,
 Search,
 Skull,
 Stethoscope
@@ -353,6 +354,17 @@ export default function FarmerActionDock({
             >
               <Map className="size-4 text-teal-600" />
               <span>Farm Map</span>
+            </CommandItem>
+
+            <CommandItem
+              onSelect={() => {
+                setIsCommandOpen(false);
+                router.push("/gis-user-map?layer=disease");
+              }}
+              className="cursor-pointer gap-2 py-2.5"
+            >
+              <Radio className="size-4 text-rose-600" />
+              <span>Disease Surveillance Map</span>
             </CommandItem>
 
             <CommandItem

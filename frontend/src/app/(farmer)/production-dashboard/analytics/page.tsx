@@ -1162,7 +1162,7 @@ export default function ProductionAnalyticsPage() {
 
       {/* ── LIGHT AMBIENT MATRIX VIEWPORT (IDENTICAL TO /farmer) ─────────────── */}
       <div className="nexus-ambient-bg min-h-screen">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
           {/* ── DOMAIN TITLE HEADER (WHEN INSIDE A DOMAIN) ───────────────────── */}
           {selectedDomain !== null && DOMAIN_CONFIG[selectedDomain] && (
             <div className="space-y-1.5 pb-2 animate-in fade-in-50 duration-200">

@@ -538,8 +538,9 @@ function ReportObservationContent() {
       />
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
         {!isLoadingInventory && reportsInHistory.length > 0 && (
-          <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
             <p>{reportsInHistory.length} report{reportsInHistory.length === 1 ? " is" : "s are"} linked only to deceased livestock. Their review details are available in Livestock History.</p>
             <Button asChild variant="outline" size="sm" className="shrink-0 border-amber-300 bg-white">
               <Link href="/livestock-inventory/history">Open Livestock History</Link>
@@ -547,7 +548,7 @@ function ReportObservationContent() {
           </div>
         )}
         {/* ── TOP KPI STATS ── */}
-        <div data-tour="report-kpis" className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+        <div data-tour="report-kpis" className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4 animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
           {kpis.map((kpi) => (
             <KpiCard
               key={kpi.label}
@@ -561,7 +562,7 @@ function ReportObservationContent() {
         </div>
 
         {/* ── ACTION BANNER ── */}
-        <div data-tour="report-action-banner" className="rounded-3xl bg-gradient-to-br from-[#1E3D1A] via-[#2D5A27] to-emerald-800 p-5 sm:p-6 text-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-emerald-700/30">
+        <div data-tour="report-action-banner" className="rounded-3xl bg-gradient-to-br from-[#1E3D1A] via-[#2D5A27] to-emerald-800 p-5 sm:p-6 text-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-emerald-700/30 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
           <div className="space-y-1">
             <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
               <Activity className="size-5 text-emerald-200" />
@@ -594,7 +595,7 @@ function ReportObservationContent() {
         </div>
 
         {/* ── INTERACTIVE REPORTS SURVEILLANCE LEDGER ── */}
-        <Card data-tour="report-ledger" className="border-2 border-emerald-900/10 bg-white shadow-xs rounded-3xl overflow-hidden">
+        <Card data-tour="report-ledger" className="border-2 border-emerald-900/10 bg-white shadow-xs rounded-3xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150 fill-mode-both">
           <CardContent className="p-5 sm:p-6 space-y-4">
             {/* Header with Title & Live Stats */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
@@ -855,6 +856,7 @@ function ReportObservationContent() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
 
       {/* ── MODALS ── */}

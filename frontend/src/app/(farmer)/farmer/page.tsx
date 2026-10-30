@@ -12,6 +12,7 @@ import {
   Map,
   MapPin,
   Megaphone,
+  Radio,
   RefreshCw,
   Sparkles,
   Stethoscope,
@@ -699,6 +700,15 @@ export default function FarmerDashboard() {
                     >
                       <Map className="size-3.5 text-teal-600" />
                       <span>Farm Map</span>
+                    </button>
+
+                    <button
+                      onClick={() => router.push("/gis-user-map?layer=disease")}
+                      className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200/90 text-rose-800 font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs text-[11px]"
+                      title="View Municipal Disease Surveillance Map"
+                    >
+                      <Radio className="size-3.5 text-rose-600 animate-pulse" />
+                      <span>Disease Map</span>
                     </button>
 
                     <button

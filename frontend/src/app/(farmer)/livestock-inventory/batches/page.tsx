@@ -939,7 +939,7 @@ export default function BatchOverviewPage() {
         </Link>
       </div>
 
-      <div className="mx-auto w-full space-y-4 sm:space-y-5 p-3 sm:p-4">
+      <div className="mx-auto w-full space-y-4 sm:space-y-5 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
         {/* ── 1. COMPACT HERO BANNER ───────────────────────────────────────── */}
         <section className="relative overflow-hidden rounded-xl border border-emerald-800/40 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 p-3.5 sm:p-4.5 text-white shadow-md">
           <div className="pointer-events-none absolute -right-20 -top-20 size-80 rounded-full bg-emerald-500/10 blur-3xl" />

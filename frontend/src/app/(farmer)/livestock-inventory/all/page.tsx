@@ -83,7 +83,7 @@ export default function AllLivestockInventoryPage() {
         maxWidthClass="w-full"
       />
 
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
         <div className="flex items-center justify-start gap-3">
           <Link href="/livestock-inventory">
             <Button

@@ -37,7 +37,7 @@ function ProductionHistoryPageContent() {
         maxWidthClass="w-full"
       />
 
-      <div className="p-4 md:p-8 w-full space-y-6">
+      <div className="p-4 md:p-8 w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
         <Link href={backHref} className="inline-flex">
           <Button type="button" variant="outline" className="min-h-11 gap-2 rounded-xl border-slate-300 bg-white px-4 text-slate-700 hover:bg-slate-50">
             <ArrowLeft className="size-4" /> Back to activities

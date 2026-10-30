@@ -1403,7 +1403,7 @@ export default function LivestockDetailPage() {
         </div>
       )}
 
-      <div className={`w-full max-w-none space-y-6 p-4 md:p-6 xl:p-8 pb-36 lg:pb-8 ${isInactive ? "grayscale-[0.75]" : ""}`}>
+      <div className={`w-full max-w-none space-y-6 p-4 md:p-6 xl:p-8 pb-36 lg:pb-8 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none ${isInactive ? "grayscale-[0.75]" : ""}`}>
         {canCorrectIndividual && !isInactive && (
           <section className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-rose-950 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-5" aria-labelledby="livestock-revision-title">
             <div className="flex min-w-0 items-start gap-3">

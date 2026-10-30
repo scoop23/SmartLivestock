@@ -90,7 +90,7 @@ export default function SpeciesProductionPage() {
         maxWidthClass="w-full"
       />
 
-      <div className="p-4 md:p-8 w-full space-y-6">
+      <div className="p-4 md:p-8 w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
         {!isLoading && approvedInventories.length === 0 ? (
           <EnterpriseEmptyState />
         ) : (

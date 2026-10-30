@@ -379,7 +379,7 @@ export default function LivestockHistoryPage() {
         variant="farmer"
         maxWidthClass="w-full"
       />
-      <main className="w-full space-y-5 p-4 sm:p-6 lg:p-8">
+      <main className="w-full space-y-5 p-4 sm:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button asChild variant="outline" size="sm" className="rounded-lg">
             <Link href="/livestock-inventory"><ArrowLeft className="mr-2 size-4" />Back to livestock</Link>

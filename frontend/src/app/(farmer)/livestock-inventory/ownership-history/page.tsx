@@ -20,7 +20,7 @@ export default function OwnershipHistoryPage() {
   });
   return <>
     <PageHeader title="Livestock Ownership History" subtitle="Transfer certificates for livestock linked to your account." variant="farmer" maxWidthClass="w-full" />
-    <main className="w-full space-y-4 p-4 sm:p-6 lg:p-8">
+    <main className="w-full space-y-4 p-4 sm:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
       {isLoading ? <p className="text-sm text-slate-500">Loading ownership history…</p> : null}
       {isError ? <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-800">Ownership history could not be loaded. Please try again.</p> : null}
       {!isLoading && !isError && data.length === 0 ? <Card className="border-dashed p-8 text-center text-sm text-slate-500">No ownership transfer records are available for your account.</Card> : null}
