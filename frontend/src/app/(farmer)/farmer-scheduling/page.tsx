@@ -713,7 +713,7 @@ function FarmerSchedulingContent() {
                     ) : null}
 
                     {/* Program Cards Grid */}
-                    <div className={`grid gap-4 ${programsOnDate.length > 1 ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1"}`}>
+                    <div className="grid grid-cols-1 gap-3">
                       {programsOnDate.map((schedule) => {
                         const isUnlimited = schedule.capacity === 0;
                         const alreadyBooked = confirmedScheduleIds.has(schedule.id);
@@ -738,33 +738,26 @@ function FarmerSchedulingContent() {
                               setScheduleId(String(schedule.id));
                               setDetailsSchedule(schedule);
                             }}
-                            className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-4.5 sm:p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-xs cursor-pointer space-y-4"
+                            className="group relative flex items-stretch gap-3 rounded-2xl border border-slate-200/90 bg-white p-3 transition-all duration-200 hover:border-emerald-400 hover:shadow-xs cursor-pointer sm:gap-4 sm:p-4"
                           >
-                            {/* Card Photo with proper padding */}
-                            <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100 shadow-2xs">
-                              <div className="h-44 w-full sm:h-52">
-                                <ActivityPhotoCarousel
-                                  photos={displayPhotos}
-                                  alt={`${schedule.program} activity`}
-                                  fit="contain"
-                                  onImageClick={(initialIndex) =>
-                                    setPhotoViewer({
-                                      photos: displayPhotos,
-                                      alt: `${schedule.program} activity`,
-                                      initialIndex,
-                                    })
-                                  }
-                                />
-                              </div>
+                            <div className="relative h-28 w-24 shrink-0 self-center overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100 shadow-2xs sm:h-32 sm:w-36">
+                              <ActivityPhotoCarousel
+                                photos={displayPhotos}
+                                alt={`${schedule.program} activity`}
+                                fit="cover"
+                                onImageClick={(initialIndex) =>
+                                  setPhotoViewer({
+                                    photos: displayPhotos,
+                                    alt: `${schedule.program} activity`,
+                                    initialIndex,
+                                  })
+                                }
+                              />
                             </div>
 
-                            <div className="space-y-3">
-                              {/* Top Row: Category Icon & Badges */}
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800 shrink-0 border border-emerald-100/60">
-                                  {getProgramIcon(schedule.category)}
-                                </div>
-                                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                              <div className="min-w-0 space-y-2.5">
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   <Badge
                                     variant="outline"
                                     className="border-emerald-200 bg-emerald-50/80 text-emerald-900 font-bold text-xs capitalize"
@@ -794,66 +787,70 @@ function FarmerSchedulingContent() {
                                             : "OPEN FOR REGISTRATION"}
                                   </Badge>
                                 </div>
-                              </div>
 
-                              {/* Title */}
-                              <h4 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-snug transition-colors group-hover:text-emerald-800">
-                                {schedule.program}
-                              </h4>
+                                <h4 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-snug transition-colors group-hover:text-emerald-800">
+                                  {schedule.program}
+                                </h4>
 
-                              {/* Key Schedule Information */}
-                              <div className="space-y-1.5 text-xs sm:text-sm text-slate-600 font-medium">
-                                <div className="flex items-center gap-2">
-                                  <CalendarDays className="size-4 shrink-0 text-emerald-700" />
-                                  <span className="font-semibold text-slate-800">{formatShortDate(schedule.date)}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Clock3 className="size-4 shrink-0 text-slate-400" />
-                                  <span>
-                                    {formatTime(scheduleTimes[0])} – {formatTime(scheduleTimes[scheduleTimes.length - 1])}
-                                  </span>
-                                </div>
-                                {schedule.location ? (
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm text-slate-600 font-medium">
                                   <div className="flex items-center gap-2">
-                                    <MapPin className="size-4 shrink-0 text-rose-500" />
-                                    <span className="truncate">{schedule.location}</span>
+                                    <CalendarDays className="size-4 shrink-0 text-emerald-700" />
+                                    <span className="font-semibold text-slate-800">{formatShortDate(schedule.date)}</span>
                                   </div>
-                                ) : null}
-                                <div className="text-xs font-semibold text-slate-500 pt-0.5">
-                                  {schedule.barangay_name ? `For ${schedule.barangay_name} farmers` : "Municipality-wide program"}
+                                  <div className="flex items-center gap-2">
+                                    <Clock3 className="size-4 shrink-0 text-slate-400" />
+                                    <span>
+                                      {formatTime(scheduleTimes[0])} – {formatTime(scheduleTimes[scheduleTimes.length - 1])}
+                                    </span>
+                                  </div>
+                                  {schedule.location ? (
+                                    <div className="flex items-center gap-2">
+                                      <MapPin className="size-4 shrink-0 text-rose-500" />
+                                      <span className="truncate">{schedule.location}</span>
+                                    </div>
+                                  ) : null}
                                 </div>
+                                <p className="text-xs font-semibold text-slate-500">
+                                  {schedule.barangay_name ? `For ${schedule.barangay_name} farmers` : "Municipality-wide program"}
+                                </p>
                               </div>
-                            </div>
 
-                            {/* View Details Button */}
-                            <div className="pt-2">
-                              <Button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setScheduleId(String(schedule.id));
-                                  setDetailsSchedule(schedule);
-                                }}
-                                className="w-full h-10 rounded-xl bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"
-                              >
-                                <span>
-                                  {isUnlimited
-                                    ? "View Activity Details"
-                                    : alreadyBooked
-                                      ? "View Booking Details"
-                                      : isFull
-                                        ? "View Program Details (Full)"
-                                        : isClosed
-                                          ? "View Program Details"
-                                          : "View Details & Reserve"}
-                                </span>
-                                <ChevronRight className="size-4" />
-                              </Button>
+                              <div className="shrink-0 sm:pl-2">
+                                <Button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setScheduleId(String(schedule.id));
+                                    setDetailsSchedule(schedule);
+                                  }}
+                                  className="h-10 w-full rounded-xl bg-[#0F5A38] px-3 text-white hover:bg-[#0c482d] font-bold text-xs sm:w-auto sm:text-sm flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                                >
+                                  <span>
+                                    {isUnlimited
+                                      ? "View Activity Details"
+                                      : alreadyBooked
+                                        ? "View Booking Details"
+                                        : isFull
+                                          ? "View Program Details (Full)"
+                                          : isClosed
+                                            ? "View Program Details"
+                                            : "View Details & Reserve"}
+                                  </span>
+                                  <ChevronRight className="size-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         );
                       })}
                     </div>
+                    {programsOnDate.length > 0 ? (
+                      <div className="flex items-center gap-3 px-2 py-2 text-[11px] font-semibold tracking-wide text-slate-400">
+                        <span aria-hidden="true" className="h-px flex-1 bg-slate-200" />
+                        <span>End of programs for this date</span>
+                        <span aria-hidden="true" className="h-px flex-1 bg-slate-200" />
+                      </div>
+                    ) : null}
                   </div>
                 </>
               )}
