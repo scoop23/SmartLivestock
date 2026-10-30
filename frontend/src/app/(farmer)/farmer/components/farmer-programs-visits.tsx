@@ -119,16 +119,18 @@ export default function FarmerProgramsVisits() {
 
       {/* Content */}
       {loading ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3">
           {Array.from({ length: 3 }).map((_, index) => (
             <div
               key={index}
-              className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3 shadow-xs"
+              className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:flex-row sm:items-center sm:justify-between"
             >
-              <Skeleton className="h-5 w-24 rounded-full" />
-              <Skeleton className="h-6 w-3/4 rounded" />
-              <Skeleton className="h-4 w-1/2 rounded" />
-              <Skeleton className="mt-3 h-11 w-full rounded-xl" />
+              <div className="min-w-0 flex-1 space-y-3">
+                <Skeleton className="h-5 w-24 rounded-full" />
+                <Skeleton className="h-6 w-3/4 rounded" />
+                <Skeleton className="h-4 w-full max-w-xl rounded" />
+              </div>
+              <Skeleton className="h-11 w-full shrink-0 rounded-xl sm:w-36" />
             </div>
           ))}
         </div>
@@ -141,7 +143,7 @@ export default function FarmerProgramsVisits() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3">
           {upcomingSchedules.map((schedule) => {
             const isBooked = confirmedBookingIds.has(schedule.id);
             const isFull = schedule.registration_status === "FULL" || (schedule.capacity > 0 && schedule.remaining_slots === 0);
@@ -151,10 +153,10 @@ export default function FarmerProgramsVisits() {
             return (
               <div
                 key={schedule.id}
-                className="group flex min-h-60 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-all hover:border-slate-300 hover:shadow-sm sm:p-6"
+                className="group flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs transition-all hover:border-slate-300 hover:shadow-sm sm:flex-row sm:items-center sm:gap-6 sm:p-5"
               >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <Badge
                       variant="outline"
                       className={`text-xs font-semibold uppercase tracking-wide ${categoryBadge.badge}`}
@@ -173,58 +175,60 @@ export default function FarmerProgramsVisits() {
                     ) : null}
                   </div>
 
-                  <h4 className="text-base sm:text-lg font-bold leading-snug text-slate-900 group-hover:text-emerald-800 transition-colors whitespace-normal break-words">
-                    {schedule.program}
-                  </h4>
+                  <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <h4 className="text-base font-bold leading-snug text-slate-900 transition-colors group-hover:text-emerald-800 sm:text-lg">
+                        {schedule.program}
+                      </h4>
 
-                  <div className="space-y-2 text-sm text-slate-600">
-                    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 font-medium text-slate-700">
-                      <CalendarDays className="size-4 text-emerald-700 shrink-0" />
-                      <span>{formatShortDate(schedule.date)}</span>
-                      <span className="text-slate-300">·</span>
-                      <Clock3 className="size-4 text-slate-400 shrink-0" />
-                      <span>{formatTimeWindow(schedule.available_times)}</span>
-                    </p>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
+                        <p className="flex items-center gap-1.5 font-medium text-slate-700">
+                          <CalendarDays className="size-4 shrink-0 text-emerald-700" />
+                          <span>{formatShortDate(schedule.date)}</span>
+                        </p>
+                        <p className="flex items-center gap-1.5 font-medium text-slate-700">
+                          <Clock3 className="size-4 shrink-0 text-slate-400" />
+                          <span>{formatTimeWindow(schedule.available_times)}</span>
+                        </p>
+                        {schedule.location ? (
+                          <p className="flex min-w-0 items-center gap-1.5 text-slate-600">
+                            <MapPin className="size-4 shrink-0 text-rose-500" />
+                            <span className="truncate">{schedule.location}</span>
+                          </p>
+                        ) : null}
+                      </div>
 
-                    {schedule.location ? (
-                      <p className="flex items-center gap-1 text-slate-600 truncate">
-                        <MapPin className="size-4 text-rose-500 shrink-0" />
-                        <span className="truncate">{schedule.location}</span>
-                      </p>
-                    ) : null}
+                      <div className="text-sm">
+                        {schedule.capacity === 0 ? (
+                          <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 sm:text-sm">
+                            <span className="size-2 shrink-0 animate-pulse rounded-full bg-emerald-500" />
+                            Open Admission · No booking needed (just go)
+                          </span>
+                        ) : isBooked ? (
+                          <span className="font-medium text-emerald-700">Your visit is confirmed</span>
+                        ) : isFull ? (
+                          <span className="font-semibold text-amber-800">Fully booked</span>
+                        ) : isClosed ? (
+                          <span className="text-slate-400">Closed</span>
+                        ) : (
+                          <span className="text-slate-600">
+                            <strong className="font-semibold text-emerald-700">{schedule.remaining_slots}</strong> slots remaining
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDetailsSchedule(schedule)}
+                      className="h-11 w-full shrink-0 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-800 sm:w-auto sm:min-w-36"
+                    >
+                      See details
+                      <ArrowRight className="ml-1 size-4" />
+                    </Button>
                   </div>
-
-                  <div className="pt-1 text-sm">
-                    {schedule.capacity === 0 ? (
-                      <span className="text-emerald-700 font-bold flex items-center gap-1.5 text-xs sm:text-sm">
-                        <span className="size-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                        Open Admission · No booking needed (just go)
-                      </span>
-                    ) : isBooked ? (
-                      <span className="text-emerald-700 font-medium">Your visit is confirmed</span>
-                    ) : isFull ? (
-                      <span className="text-amber-800 font-semibold">Fully booked</span>
-                    ) : isClosed ? (
-                      <span className="text-slate-400">Closed</span>
-                    ) : (
-                      <span className="text-slate-600">
-                        <strong className="text-emerald-700 font-semibold">{schedule.remaining_slots}</strong> slots remaining
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-slate-100">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setDetailsSchedule(schedule)}
-                    className="w-full h-11 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-emerald-800"
-                  >
-                    See details
-                    <ArrowRight className="ml-1 size-4" />
-                  </Button>
                 </div>
               </div>
             );
