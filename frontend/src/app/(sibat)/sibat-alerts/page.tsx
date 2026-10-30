@@ -15,7 +15,9 @@ Calendar,
 Camera,
 CheckCircle2,
 Clock,
+Compass,
 MapPin,
+Radio,
 RotateCcw,
 Search,
 ShieldAlert,
@@ -39,6 +41,7 @@ import {
 useClinicalHealthRecords,
 useReviewClinicalHealth,
 } from "../sibat/sibat-analytics";
+import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
 
 type StatusFilterOption = "Needs Review" | "Returned for Correction" | "Forwarded to MAO" | "MAO Approved";
 
@@ -114,11 +117,13 @@ function SibatAlertsContent() {
 
   useEffect(() => {
     const p = searchParams.get("recordType")?.toUpperCase() || searchParams.get("type")?.toUpperCase();
-    if (p === "MORTALITY" || p === "DISEASE") {
-      setTypeFilter(p);
-    } else if (p === "ALL") {
-      setTypeFilter("ALL");
-    }
+    startTransition(() => {
+      if (p === "MORTALITY" || p === "DISEASE") {
+        setTypeFilter(p);
+      } else if (p === "ALL") {
+        setTypeFilter("ALL");
+      }
+    });
   }, [searchParams]);
 
   const { records, isLoading, isError } = useClinicalHealthRecords();
@@ -288,6 +293,36 @@ function SibatAlertsContent() {
     });
   }, [records, query, status]);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, typeFilter, status]);
+
+  const totalItems = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  // Jump to target page if a specific record is deep-linked or focused
+  useEffect(() => {
+    if (!highlightedRecordId || totalItems === 0) return;
+    const targetIndex = filtered.findIndex((item) => item.id === highlightedRecordId);
+    if (targetIndex !== -1) {
+      const targetPage = Math.floor(targetIndex / pageSize) + 1;
+      if (targetPage !== currentPage) {
+        setCurrentPage(targetPage);
+      }
+    }
+  }, [highlightedRecordId, filtered, pageSize, currentPage, totalItems]);
+
+  const paginatedRecords = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, safeCurrentPage, pageSize]);
+
   const assignedScopeLabel =
     user?.accessScope === "ALL_BARANGAYS"
       ? "All Barangays"
@@ -331,6 +366,31 @@ function SibatAlertsContent() {
             {user?.accessScope === "ALL_BARANGAYS" ? "Showing reports from all authorized barangays:" : "Showing only reports from your assigned barangay:"}{" "}
             <strong className="font-black text-sky-900">{assignedScopeLabel}</strong>.
           </span>
+        </div>
+
+        {/* ── Spatial Surveillance & Haversine Triage Shortcut ── */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 sm:px-4 text-xs text-indigo-950 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <Radio className="size-4 text-indigo-600 animate-pulse shrink-0" />
+            <div>
+              <p className="font-bold text-slate-900">
+                Spatial Disease Surveillance & Haversine Geodesic Radius
+              </p>
+              <p className="text-[11px] text-slate-600">
+                Outbreak sites (&ge; 1 confirmed case) declare Red status; nearby buffer zones (&le; 3.5 km) declare Orange Precautionary Monitoring.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/sibat-monitoring?layer=disease")}
+            className="border-indigo-300 bg-white text-indigo-800 hover:bg-indigo-100 font-bold text-xs h-8 cursor-pointer shrink-0"
+          >
+            <Compass className="size-3.5 mr-1 text-indigo-600" />
+            Open Disease GIS Map
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -487,6 +547,7 @@ function SibatAlertsContent() {
                   setQuery("");
                   setStatus("Needs Review");
                   setTypeFilter("ALL");
+                  setCurrentPage(1);
                   const url = new URL(window.location.href);
                   url.searchParams.delete("recordType");
                   url.searchParams.delete("type");
@@ -505,7 +566,17 @@ function SibatAlertsContent() {
 
         {/* ── Results Summary Counter ── */}
         <div className="flex items-center justify-between px-1">
-          <div><h2 className="text-base font-bold text-slate-900">Reports</h2><p className="mt-0.5 text-xs text-slate-500">Showing {filtered.length} reports</p></div>
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Reports</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {totalItems === 0
+                ? "Showing 0 reports"
+                : `Showing ${(safeCurrentPage - 1) * pageSize + 1}–${Math.min(
+                    safeCurrentPage * pageSize,
+                    totalItems
+                  )} of ${totalItems} reports`}
+            </p>
+          </div>
           {status !== "Needs Review" && (
             <Badge variant="outline" className="text-[10px] font-bold text-slate-500 bg-white">
               Filter: {status}
@@ -533,7 +604,7 @@ function SibatAlertsContent() {
           </div>
         ) : (
           <div className="space-y-2">
-            {filtered.map((d) => {
+            {paginatedRecords.map((d) => {
               const isDisease = d.reportType === "DISEASE";
               const isFmdSuspected = d.inspection?.fmdAssessment === "SUSPECTED";
               const hasPossibleFmd = isDisease && hasPossibleFmdSigns([
@@ -660,6 +731,25 @@ function SibatAlertsContent() {
               );
             })}
 
+            {/* ── Pagination Controls ── */}
+            {totalItems > 0 && (
+              <ValidationPagination
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={pageSize}
+                onPageChange={(page) => {
+                  setCurrentPage(page);
+                  window.scrollTo({ top: 320, behavior: "smooth" });
+                }}
+                onPageSizeChange={(newSize) => {
+                  setPageSize(newSize);
+                  setCurrentPage(1);
+                }}
+                pageSizeOptions={[10, 25, 50]}
+              />
+            )}
+
             {/* ── Empty State ── */}
             {filtered.length === 0 && (
               <Card className="rounded-xl border-dashed border-slate-300 bg-white py-14 text-center">
@@ -673,13 +763,15 @@ function SibatAlertsContent() {
                   <p className="text-xs text-slate-500 max-w-sm font-medium">
                     Try changing your search or status filter.
                   </p>
-                  {(query || status !== "Needs Review") && (
+                  {(query || status !== "Needs Review" || typeFilter !== "ALL") && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => {
                         setQuery("");
                         setStatus("Needs Review");
+                        setTypeFilter("ALL");
+                        setCurrentPage(1);
                       }}
                       className="rounded-xl text-xs font-bold gap-1.5 mt-1"
                     >
