@@ -9,7 +9,7 @@ import { Suspense,useEffect,useMemo,useRef,useState } from "react";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from "@/components/ui/dialog";
-import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components/validation-loading-screen";
+import { ValidationLoadingScreen, useSeamlessLoadingState } from "@/components/validation-loading-screen";
 import { useAuth } from "@/contexts/auth-context";
 import { getSchedules,type ProgramSchedule } from "@/lib/community-api";
 import { useQuery,useQueryClient } from "@tanstack/react-query";
@@ -22,11 +22,11 @@ import {
   Clock,
   Clock3,
   FileSpreadsheet,
-  Info,
   MapPin,
   Megaphone,
   QrCode,
-  Search
+  Search,
+  Skull
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -141,7 +141,10 @@ function SibatPortalContent() {
 
   const { data: censuses = [], isLoading: isLoadingCensus, isError: isCensusError, refetch: refetchCensus } = useCensusSubmission();
   const isInitialQueueLoading = isLoadingHealth || isLoadingSubmissions || isLoadingCensus;
-  const keepLoadingScreenMounted = useLoadingScreenTransition(isInitialQueueLoading);
+  const { keepLoadingScreenMounted, showContent } = useSeamlessLoadingState(isInitialQueueLoading, {
+    exitDurationMs: 500,
+    contentDelayMs: 200,
+  });
   const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
   const censusIdParam = searchParams.get("censusId");
   const notificationCensus = !isLoadingCensus && censusIdParam
@@ -335,7 +338,6 @@ function SibatPortalContent() {
 
 
   // Counts for Badges
-  const pendingInvCount = submissions.filter((s) => (s.sourceType === "INVENTORY" || s.sourceType === "BATCH") && s.status === "PENDING").length;
   const pendingCensusCount = censuses.filter((item) => item.status === "PENDING").length;
 
   const allSubmissions = [
@@ -367,6 +369,14 @@ function SibatPortalContent() {
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     return schedules.filter((s) => s.publication_status === "PUBLISHED" && s.date >= today).length;
   }, [schedules]);
+
+  const pendingDiseaseReports = useMemo(() => {
+    return healthRecords.filter((r) => r.status === "PENDING" && r.reportType === "DISEASE");
+  }, [healthRecords]);
+
+  const pendingMortalityReports = useMemo(() => {
+    return healthRecords.filter((r) => r.status === "PENDING" && r.reportType === "MORTALITY");
+  }, [healthRecords]);
 
   const pendingDiseaseCases = useMemo(() => {
     return healthRecords.filter((r) => r.status === "PENDING");
@@ -413,7 +423,7 @@ function SibatPortalContent() {
     {
       title: "Disease Reports",
       icon: <Activity className="size-4 text-amber-700" />,
-      items: pendingDiseaseCases.filter((item) => item.reportType === "DISEASE").map((item) => ({
+      items: pendingDiseaseReports.map((item) => ({
         id: item.id,
         title: item.name || "Disease report",
         detail: `${item.farmerName} · ${item.barangayName}`,
@@ -425,8 +435,8 @@ function SibatPortalContent() {
     },
     {
       title: "Mortality Reports",
-      icon: <Info className="size-4 text-rose-700" />,
-      items: pendingDiseaseCases.filter((item) => item.reportType === "MORTALITY").map((item) => ({
+      icon: <Skull className="size-4 text-rose-700" />,
+      items: pendingMortalityReports.map((item) => ({
         id: item.id,
         title: item.name || "Mortality report",
         detail: `${item.farmerName} · ${item.barangayName}`,
@@ -469,58 +479,6 @@ function SibatPortalContent() {
     ...(isFarmersError ? ["farmer directory"] : []),
   ];
   const hasDataError = failedDataSources.length > 0;
-
-  if (isInitialQueueLoading || keepLoadingScreenMounted) {
-    return (
-      <>
-        <PageHeader
-          title={
-            <div className="relative w-full max-w-md">
-              <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/80 text-slate-400 text-xs sm:text-sm font-normal w-full">
-                <Search className="size-4 shrink-0 text-slate-400" />
-                <span>Search farmer, animal record, or barangay</span>
-              </div>
-            </div>
-          }
-          variant="sibat"
-          maxWidthClass="w-full"
-          showNotifications={true}
-        />
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-          <ValidationLoadingScreen
-            isLoading={isInitialQueueLoading}
-            title="Loading SIBAT Field Inspection Center"
-            subtitle="Connecting your authorized livestock, calving, health, mortality, and census review queues."
-            badgeLabel="SIBAT Queue Sync"
-            authorityText="SIBAT Field Review · Barangay-scoped records"
-            items={[
-              {
-                id: "submissions",
-                label: "Farmer Submissions",
-                sublabel: "Livestock registrations, herds, and birth records",
-                icon: <ClipboardList className="size-4" />,
-                loaded: !isLoadingSubmissions,
-              },
-              {
-                id: "health",
-                label: "Health & Mortality",
-                sublabel: "Disease and field declarations",
-                icon: <Activity className="size-4" />,
-                loaded: !isLoadingHealth,
-              },
-              {
-                id: "census",
-                label: "Barangay Census",
-                sublabel: "Quarterly livestock surveys",
-                icon: <FileSpreadsheet className="size-4" />,
-                loaded: !isLoadingCensus,
-              },
-            ]}
-          />
-        </div>
-      </>
-    );
-  }
 
   return (
     <>
@@ -570,47 +528,84 @@ function SibatPortalContent() {
         </div>
       </div>
 
-      <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8 py-6">
-        {!isLoadingAccount && (user?.role === "SIBAT" || user?.role === "CBAT") && user.accessScope !== "ALL_BARANGAYS" && !user.assignedBarangayId && (
-          <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 sm:p-4 text-amber-950 text-xs sm:text-sm">
-            <p className="font-semibold">Barangay assignment required</p>
-            <p className="mt-1">Private farmer records and review queues are unavailable until MAO/Admin assigns a barangay or access scope.</p>
+      <div className="relative min-h-[calc(100dvh-10rem)]">
+        {(isInitialQueueLoading || keepLoadingScreenMounted) && (
+          <div className={`w-full px-4 sm:px-6 lg:px-8 py-6 ${showContent ? "absolute inset-0 z-30 pointer-events-none" : ""}`}>
+            <ValidationLoadingScreen
+              isLoading={isInitialQueueLoading}
+              title="Loading SIBAT Field Inspection Center"
+              subtitle="Connecting your authorized livestock, calving, health, mortality, and census review queues."
+              badgeLabel="SIBAT Queue Sync"
+              authorityText="SIBAT Field Review · Barangay-scoped records"
+              items={[
+                {
+                  id: "submissions",
+                  label: "Farmer Submissions",
+                  sublabel: "Livestock registrations, herds, and birth records",
+                  icon: <ClipboardList className="size-4" />,
+                  loaded: !isLoadingSubmissions,
+                },
+                {
+                  id: "health",
+                  label: "Health & Mortality",
+                  sublabel: "Disease and field declarations",
+                  icon: <Activity className="size-4" />,
+                  loaded: !isLoadingHealth,
+                },
+                {
+                  id: "census",
+                  label: "Barangay Census",
+                  sublabel: "Quarterly livestock surveys",
+                  icon: <FileSpreadsheet className="size-4" />,
+                  loaded: !isLoadingCensus,
+                },
+              ]}
+            />
           </div>
         )}
 
-        {hasDataError && (
-          <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3.5 sm:p-4 text-rose-950 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm">
-            <div>
-              <p className="font-semibold">Some field data could not be loaded.</p>
-              <p className="mt-1 text-[11px] sm:text-xs">Could not load: {failedDataSources.join(", ")}. Refresh to retry. Failed requests are not counted as empty queues.</p>
-            </div>
-            <Button type="button" variant="outline" onClick={handleRefreshQueues} disabled={isRefreshing} className="min-h-10 sm:min-h-11 shrink-0 w-full sm:w-auto">Try again</Button>
-          </div>
-        )}
+        {showContent && (
+          <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8 py-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
+            {!isLoadingAccount && (user?.role === "SIBAT" || user?.role === "CBAT") && user.accessScope !== "ALL_BARANGAYS" && !user.assignedBarangayId && (
+              <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 sm:p-4 text-amber-950 text-xs sm:text-sm animate-in fade-in duration-300">
+                <p className="font-semibold">Barangay assignment required</p>
+                <p className="mt-1">Private farmer records and review queues are unavailable until MAO/Admin assigns a barangay or access scope.</p>
+              </div>
+            )}
 
-        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
-        <section className="min-w-0 space-y-4 sm:space-y-5" aria-labelledby="sibat-dashboard-title">
-          <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-            <div>
-              <h1 id="sibat-dashboard-title" className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-                {timeGreeting}, <span className="text-emerald-800">{officerName}</span>!
-              </h1>
-              <p className="mt-1 flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-500 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200/80 shadow-2xs">
-                  <MapPin className="size-3 text-emerald-600" />
-                  {user?.accessScope === "ALL_BARANGAYS" ? "All Barangays" : user?.assignedBarangayName || "Assigned area"}
-                </span>
-                <span className="text-slate-300">•</span>
-                <span>Field Sector Oversight</span>
-              </p>
-            </div>
-          </header>
+            {hasDataError && (
+              <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3.5 sm:p-4 text-rose-950 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm animate-in fade-in duration-300">
+                <div>
+                  <p className="font-semibold">Some field data could not be loaded.</p>
+                  <p className="mt-1 text-[11px] sm:text-xs">Could not load: {failedDataSources.join(", ")}. Refresh to retry. Failed requests are not counted as empty queues.</p>
+                </div>
+                <Button type="button" variant="outline" onClick={handleRefreshQueues} disabled={isRefreshing} className="min-h-10 sm:min-h-11 shrink-0 w-full sm:w-auto">Try again</Button>
+              </div>
+            )}
 
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
+            <section className="min-w-0 space-y-4 sm:space-y-5" aria-labelledby="sibat-dashboard-title">
+              <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
+                <div>
+                  <h1 id="sibat-dashboard-title" className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+                    {timeGreeting}, <span className="text-emerald-800">{officerName}</span>!
+                  </h1>
+                  <p className="mt-1 flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-500 flex-wrap">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200/80 shadow-2xs">
+                      <MapPin className="size-3 text-emerald-600" />
+                      {user?.accessScope === "ALL_BARANGAYS" ? "All Barangays" : user?.assignedBarangayName || "Assigned area"}
+                    </span>
+                    <span className="text-slate-300">•</span>
+                    <span>Field Sector Oversight</span>
+                  </p>
+                </div>
+              </header>
+
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
             <button
               type="button"
               onClick={handleReviewRecords}
-              className="group relative col-span-2 overflow-hidden rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/90 via-emerald-50/40 to-white p-5 sm:p-6 text-left shadow-holo-card hover:shadow-holo-glow-emerald hover:border-emerald-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              className="group relative col-span-2 lg:col-span-3 overflow-hidden rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/90 via-emerald-50/40 to-white p-5 sm:p-6 text-left shadow-holo-card hover:shadow-holo-glow-emerald hover:border-emerald-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
             >
               {/* Subtle decorative background watermark */}
               <div className="pointer-events-none absolute -right-4 -bottom-6 size-36 opacity-[0.06] text-emerald-950">
@@ -628,7 +623,7 @@ function SibatPortalContent() {
                         Queue Active
                       </span>
                       <h2 className="text-sm sm:text-base font-bold text-slate-700 leading-tight">
-                        Records for Review
+                          Review Records
                       </h2>
                     </div>
                   </div>
@@ -653,7 +648,7 @@ function SibatPortalContent() {
             {/* Disease Reports Card */}
             <button
               type="button"
-              onClick={() => router.push("/sibat-alerts")}
+              onClick={() => router.push("/sibat-alerts?recordType=DISEASE")}
               className="group relative overflow-hidden rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50/80 via-amber-50/30 to-white p-4 sm:p-5 text-left shadow-holo-card hover:shadow-holo-glow-rose hover:border-amber-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
             >
               <div className="flex flex-col justify-between h-full gap-3">
@@ -662,7 +657,7 @@ function SibatPortalContent() {
                     <Activity className="size-5" />
                   </div>
                   <span className="text-2xl sm:text-3xl font-black text-slate-900 leading-none font-mono">
-                    {pendingDiseaseCases.length}
+                    {pendingDiseaseReports.length}
                   </span>
                 </div>
 
@@ -678,11 +673,39 @@ function SibatPortalContent() {
               </div>
             </button>
 
+            {/* Mortality Records Card */}
+            <button
+              type="button"
+              onClick={() => router.push("/sibat-alerts?recordType=MORTALITY")}
+              className="group relative overflow-hidden rounded-2xl border border-rose-200/90 bg-gradient-to-br from-rose-50/80 via-rose-50/30 to-white p-4 sm:p-5 text-left shadow-holo-card hover:shadow-md hover:border-rose-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600"
+            >
+              <div className="flex flex-col justify-between h-full gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="size-10 sm:size-11 rounded-xl bg-gradient-to-br from-rose-600 to-red-700 text-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition-transform duration-200 shrink-0">
+                    <Skull className="size-5" />
+                  </div>
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900 leading-none font-mono">
+                    {pendingMortalityReports.length}
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-700 leading-tight">
+                    Mortality Records
+                  </h3>
+                  <span className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-rose-900 group-hover:text-rose-950">
+                    View Mortality
+                    <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                  </span>
+                </div>
+              </div>
+            </button>
+
             {/* Upcoming Activities Card */}
             <button
               type="button"
               onClick={() => router.push("/sibat-scheduling")}
-              className="group relative overflow-hidden rounded-2xl border border-sky-200/90 bg-gradient-to-br from-sky-50/80 via-sky-50/30 to-white p-4 sm:p-5 text-left shadow-holo-card hover:shadow-md hover:border-sky-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+              className="group relative col-span-2 lg:col-span-1 overflow-hidden rounded-2xl border border-sky-200/90 bg-gradient-to-br from-sky-50/80 via-sky-50/30 to-white p-4 sm:p-5 text-left shadow-holo-card hover:shadow-md hover:border-sky-300 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
             >
               <div className="flex flex-col justify-between h-full gap-3">
                 <div className="flex items-start justify-between gap-2">
@@ -707,91 +730,16 @@ function SibatPortalContent() {
             </button>
           </div>
 
-          {/* Needs Attention Card */}
-          <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xs" aria-labelledby="needs-attention-title">
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/40">
-              <div>
-                <h2 id="needs-attention-title" className="text-sm sm:text-base font-black text-slate-900 leading-tight">
-                  Needs Attention
-                </h2>
-                <p className="mt-0.5 text-xs text-slate-500 font-medium">
-                  Items that may require your field inspection or verification.
-                </p>
-              </div>
-              <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-[11px] font-bold shrink-0">
-                {pendingInvCount + pendingDiseaseCases.length} items
-              </span>
-            </div>
-
-            <div className="divide-y divide-slate-100 p-2 sm:p-3 space-y-1 sm:space-y-1.5">
-              <button
-                type="button"
-                onClick={() => router.push("/sibat/livestock-registry")}
-                className="group flex w-full items-center justify-between gap-3 p-3 sm:p-3.5 rounded-xl hover:bg-slate-50/90 transition-all text-left cursor-pointer border border-transparent hover:border-slate-200/70"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-9 sm:size-10 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/70 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                    <Info className="size-4.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="block text-xs sm:text-sm font-bold text-slate-900 group-hover:text-emerald-950 transition-colors">
-                      Animal Records
-                    </span>
-                    <span className="mt-0.5 block text-xs text-slate-500 font-medium truncate">
-                      {pendingInvCount} record{pendingInvCount === 1 ? "" : "s"} waiting for review
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold">
-                    {pendingInvCount} pending
-                  </span>
-                  <div className="size-7 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center group-hover:bg-emerald-50 group-hover:text-emerald-800 transition-colors">
-                    <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => router.push("/sibat-alerts")}
-                className="group flex w-full items-center justify-between gap-3 p-3 sm:p-3.5 rounded-xl hover:bg-slate-50/90 transition-all text-left cursor-pointer border border-transparent hover:border-slate-200/70"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-9 sm:size-10 rounded-xl bg-rose-50 text-rose-700 border border-rose-200/70 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                    <Activity className="size-4.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="block text-xs sm:text-sm font-bold text-slate-900 group-hover:text-emerald-950 transition-colors">
-                      Disease Reports
-                    </span>
-                    <span className="mt-0.5 block text-xs text-slate-500 font-medium truncate">
-                      {pendingDiseaseCases.length} report{pendingDiseaseCases.length === 1 ? "" : "s"} need attention
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200/60 text-[11px] font-bold">
-                    {pendingDiseaseCases.length} urgent
-                  </span>
-                  <div className="size-7 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center group-hover:bg-emerald-50 group-hover:text-emerald-800 transition-colors">
-                    <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-                  </div>
-                </div>
-              </button>
-            </div>
-          </section>
-
           {(user?.role === "SIBAT" || user?.role === "CBAT") && (user.accessScope === "ALL_BARANGAYS" || user.assignedBarangayId) && (
-            <ReviewWorkloadPanel scopeLabel={user.accessScope === "ALL_BARANGAYS" ? "All authorized barangays" : `Assigned: ${user.assignedBarangayName || "Assigned barangay"}`} hideMaoQueue />
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both">
+              <ReviewWorkloadPanel scopeLabel={user.accessScope === "ALL_BARANGAYS" ? "All authorized barangays" : `Assigned: ${user.assignedBarangayName || "Assigned barangay"}`} hideMaoQueue />
+            </div>
           )}
 
         </section>
 
         <aside className="min-w-0 space-y-5" aria-label="CBAT quick access">
-          <section className="space-y-4 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card" aria-labelledby="next-activity-title">
+          <section className="space-y-4 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150 fill-mode-both" aria-labelledby="next-activity-title">
             <div>
               <h2 id="next-activity-title" className="font-bold text-slate-900">Next Activity</h2>
               <p className="mt-1 text-sm text-slate-600">Your next animal health schedule.</p>
@@ -811,7 +759,7 @@ function SibatPortalContent() {
             <Button type="button" variant="outline" onClick={() => router.push("/sibat-scheduling")} className="min-h-10 w-full rounded-xl">View Schedule</Button>
           </section>
 
-          <section className="space-y-3 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card" aria-labelledby="quick-actions-title">
+          <section className="space-y-3 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card animate-in fade-in slide-in-from-bottom-2 duration-500 delay-250 fill-mode-both" aria-labelledby="quick-actions-title">
             <div><h2 id="quick-actions-title" className="font-bold text-slate-900">Quick Actions</h2><p className="mt-1 text-sm text-slate-600">Start a common task.</p></div>
             <div className="space-y-1.5">
               {[
@@ -830,12 +778,14 @@ function SibatPortalContent() {
             </div>
           </section>
 
-          <section className="space-y-3 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card" aria-labelledby="recent-updates-title">
+          <section className="space-y-3 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both" aria-labelledby="recent-updates-title">
             <div className="flex items-center justify-between gap-2"><div><h2 id="recent-updates-title" className="font-bold text-slate-900">Recent Updates</h2><p className="mt-1 text-sm text-slate-600">Latest activity in your assigned area.</p></div><Button type="button" variant="ghost" size="sm" onClick={() => router.push("/sibat-alerts")} className="shrink-0">View All</Button></div>
             {recentUpdates.length ? <div className="space-y-3">{recentUpdates.map((item) => <div key={item.id} className="flex gap-2.5 text-sm"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-emerald-600" /><div className="min-w-0"><p className="line-clamp-2 font-medium text-slate-800">{item.title}</p><p className="mt-0.5 text-xs text-slate-500 font-mono">{item.time}</p></div></div>)}</div> : <p className="text-sm text-slate-600">No recent updates.</p>}
           </section>
         </aside>
         </div>
+      </div>
+      )}
       </div>
 
 

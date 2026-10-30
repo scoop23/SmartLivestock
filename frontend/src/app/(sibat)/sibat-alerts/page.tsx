@@ -107,6 +107,19 @@ function SibatAlertsContent() {
   // Filter States matching DiseasesPage design basis
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilterOption | null>(null);
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "DISEASE" | "MORTALITY">(() => {
+    const p = searchParams.get("recordType")?.toUpperCase() || searchParams.get("type")?.toUpperCase();
+    return p === "MORTALITY" ? "MORTALITY" : p === "DISEASE" ? "DISEASE" : "ALL";
+  });
+
+  useEffect(() => {
+    const p = searchParams.get("recordType")?.toUpperCase() || searchParams.get("type")?.toUpperCase();
+    if (p === "MORTALITY" || p === "DISEASE") {
+      setTypeFilter(p);
+    } else if (p === "ALL") {
+      setTypeFilter("ALL");
+    }
+  }, [searchParams]);
 
   const { records, isLoading, isError } = useClinicalHealthRecords();
   const reviewMutation = useReviewClinicalHealth();
@@ -241,6 +254,10 @@ function SibatAlertsContent() {
     const cleanQuery = query.toLowerCase().trim();
 
     return records.filter((d) => {
+      if (typeFilter !== "ALL" && d.reportType !== typeFilter) {
+        return false;
+      }
+
       const matchSearch =
         !cleanQuery ||
         `${d.farmerName} ${d.id} ${d.barangayName} ${d.name} ${d.livestockTag}`
@@ -426,6 +443,23 @@ function SibatAlertsContent() {
               )}
             </div>
 
+            {/* Category / Report Type Select */}
+            <div className="w-full shrink-0 sm:w-44">
+              <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as "ALL" | "DISEASE" | "MORTALITY")}>
+                <SelectTrigger
+                  aria-label="Filter report category"
+                  className="h-10 w-full rounded-lg border-slate-200 bg-white text-xs font-bold text-slate-800 focus-visible:ring-[#1A365D]/30"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Categories</SelectItem>
+                  <SelectItem value="DISEASE">Disease Reports</SelectItem>
+                  <SelectItem value="MORTALITY">Mortality Records</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Status Select */}
             <div className="w-full shrink-0 sm:w-52">
               <Select value={status} onValueChange={(value) => setStatus(value as StatusFilterOption)}>
@@ -445,13 +479,18 @@ function SibatAlertsContent() {
             </div>
 
             {/* Secondary actions / reset */}
-            {(query || status !== "Needs Review") && (
+            {(query || status !== "Needs Review" || typeFilter !== "ALL") && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
                   setQuery("");
                   setStatus("Needs Review");
+                  setTypeFilter("ALL");
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete("recordType");
+                  url.searchParams.delete("type");
+                  router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
                 }}
                 className="h-10 rounded-lg text-xs font-bold text-slate-600 gap-1.5 shrink-0"
               >
