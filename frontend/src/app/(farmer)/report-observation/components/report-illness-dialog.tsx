@@ -55,6 +55,12 @@ interface LinkableDiseaseCase {
   status: string;
 }
 
+interface PendingMortalityReport {
+  status: string;
+  livestock: number | null;
+  affected_animals?: Array<{ id: number }>;
+}
+
 const EASY_SIGNS = [
   { id: "not_eating", label: "Not Eating / Off-Feed", sub: "Refusing food or water" },
   { id: "fever", label: "High Fever / Hot Ears", sub: "Body feels unusually hot" },
@@ -91,11 +97,27 @@ function ReportIllnessDialogContent({
   const isEditMode = mode === "edit" && !!existingReport;
 
   const reportType = isEditMode && existingReport ? (existingReport.reportType || defaultType) : defaultType;
-  const { data: diseaseCases = [], isLoading: isLoadingDiseaseCases } = useQuery({
+  const {
+    data: diseaseCases = [],
+    isFetching: isFetchingDiseaseCases,
+  } = useQuery({
     queryKey: ["farmer-disease-cases"],
     queryFn: async () => {
-      const response = await api.get("diseases/cases/");
-      return (Array.isArray(response.data) ? response.data : []) as LinkableDiseaseCase[];
+      const response = await api.get("diseases/cases/", { params: { mine: true } });
+      const data = Array.isArray(response.data) ? response.data : response.data?.results;
+      return (Array.isArray(data) ? data : []) as LinkableDiseaseCase[];
+    },
+    enabled: open,
+  });
+  const {
+    data: mortalityRecords = [],
+    isFetching: isFetchingMortalityRecords,
+  } = useQuery({
+    queryKey: ["farmer-mortality-records"],
+    queryFn: async () => {
+      const response = await api.get("diseases/mortality/", { params: { mine: true } });
+      const data = Array.isArray(response.data) ? response.data : response.data?.results;
+      return (Array.isArray(data) ? data : []) as PendingMortalityReport[];
     },
     enabled: open && reportType === "MORTALITY",
   });
@@ -150,18 +172,49 @@ function ReportIllnessDialogContent({
     return inventories.find((inv) => String(inv.id) === String(selectedInventoryId));
   }, [inventories, selectedInventoryId]);
 
-  const selectableAnimals = useMemo(
-    () =>
-      inventories.filter(
-        (inventory) =>
-          inventory.entryType === "INDIVIDUAL" &&
-          inventory.quantity === 1 &&
-          (inventory.status === "VERIFIED" || inventory.status === "APPROVED") &&
-          (reportType !== "MORTALITY" ||
-            (inventory.status === "APPROVED" && inventory.operationalStatus === "ACTIVE")),
-      ),
+  const eligibleAnimals = useMemo(
+    () => inventories.filter(
+      (inventory) =>
+        inventory.entryType === "INDIVIDUAL" &&
+        inventory.quantity === 1 &&
+        (inventory.status === "VERIFIED" || inventory.status === "APPROVED") &&
+        (reportType !== "MORTALITY" ||
+          (inventory.status === "APPROVED" && inventory.operationalStatus === "ACTIVE")),
+    ),
     [inventories, reportType],
   );
+  const pendingReportAnimalIds = useMemo(() => {
+    const pendingIds = new Set<number>();
+    if (isEditMode) return pendingIds;
+
+    if (reportType === "DISEASE") {
+      diseaseCases.forEach((diseaseCase) => {
+        if (diseaseCase.status === "PENDING" && diseaseCase.livestock != null) {
+          pendingIds.add(Number(diseaseCase.livestock));
+        }
+      });
+      return pendingIds;
+    }
+
+    mortalityRecords.forEach((record) => {
+      if (record.status !== "PENDING") return;
+      if (record.livestock != null) pendingIds.add(Number(record.livestock));
+      record.affected_animals?.forEach((animal) => pendingIds.add(Number(animal.id)));
+    });
+    return pendingIds;
+  }, [diseaseCases, isEditMode, mortalityRecords, reportType]);
+  const animalsWithPendingReports = useMemo(
+    () => eligibleAnimals.filter((animal) => pendingReportAnimalIds.has(Number(animal.id))),
+    [eligibleAnimals, pendingReportAnimalIds],
+  );
+  const selectableAnimals = useMemo(
+    () => eligibleAnimals.filter(
+      (animal) => isEditMode || !pendingReportAnimalIds.has(Number(animal.id)),
+    ),
+    [eligibleAnimals, isEditMode, pendingReportAnimalIds],
+  );
+  const isCheckingPendingReports =
+    open && (isFetchingDiseaseCases || (reportType === "MORTALITY" && isFetchingMortalityRecords));
   const sortedSelectableAnimals = useMemo(
     () => [...selectableAnimals].sort((a, b) => {
       const tagA = a.tagNumber || `Animal #${a.id}`;
@@ -519,9 +572,11 @@ function ReportIllnessDialogContent({
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                 {selectableAnimals.length === 0 ? (
                   <p className="p-3 text-xs text-slate-600">
-                    {reportType === "MORTALITY"
-                      ? "No approved, active individual animals are available to report as deceased."
-                      : "No verified or approved individual animals are available to select."}
+                    {animalsWithPendingReports.length > 0
+                      ? `All eligible animals already have a pending ${reportType === "MORTALITY" ? "mortality" : "disease"} report. Wait for review before submitting another.`
+                      : reportType === "MORTALITY"
+                        ? "No approved, active individual animals are available to report as deceased."
+                        : "No verified or approved individual animals are available to select."}
                   </p>
                 ) : (
                   <>
@@ -560,6 +615,11 @@ function ReportIllnessDialogContent({
                     })}
                   </div>
                   </>
+                )}
+                {selectableAnimals.length > 0 && animalsWithPendingReports.length > 0 && (
+                  <p className="border-t border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    {animalsWithPendingReports.length} animal{animalsWithPendingReports.length === 1 ? "" : "s"} with a pending {reportType === "MORTALITY" ? "mortality" : "disease"} report hidden until review.
+                  </p>
                 )}
                 <p className="border-t border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">
                   {selectedAnimals.length} animal{selectedAnimals.length === 1 ? "" : "s"} selected
@@ -774,14 +834,16 @@ function ReportIllnessDialogContent({
 
             <Button
               type="submit"
-              disabled={isSubmitting || selectedAnimals.length === 0}
+              disabled={isSubmitting || isCheckingPendingReports || selectedAnimals.length === 0}
               className={`rounded-xl text-white text-xs font-black h-10 px-6 gap-2 shadow-sm cursor-pointer ${
                 isDisease
                   ? "bg-[#2D5A27] hover:bg-[#22441d]"
                   : "bg-rose-700 hover:bg-rose-800"
               }`}
             >
-              {isSubmitting ? (
+              {isCheckingPendingReports ? (
+                <span>Checking pending reports...</span>
+              ) : isSubmitting ? (
                 <>
                   <div className="size-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
                   <span>Submitting...</span>

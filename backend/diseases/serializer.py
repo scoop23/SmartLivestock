@@ -224,6 +224,24 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
         if affected_count is not None and affected_count <= 0:
             raise ValidationError({"affected_count": "Affected count must be a positive number."})
 
+        if (
+            self.instance is None
+            and livestock
+            and DiseaseCase.objects.filter(
+                livestock=livestock,
+                status=DiseaseCase.DiseaseStatus.PENDING,
+            ).exists()
+        ):
+            tag = livestock.tag_number or f"Animal #{livestock.pk}"
+            raise ValidationError(
+                {
+                    "livestock": (
+                        f"{tag} already has a pending disease report. "
+                        "Wait for it to be reviewed before submitting another."
+                    )
+                }
+            )
+
         if livestock and affected_count is not None:
             if affected_count > livestock.quantity:
                 raise ValidationError(
@@ -501,6 +519,37 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         for animal in animals:
             self._validate_animal(animal, user)
+
+        if self.instance is None:
+            animal_ids = [animal.pk for animal in animals]
+            pending_legacy_ids = set(
+                MortalityRecord.objects.filter(
+                    status=MortalityRecord.MortalityRecordStatus.PENDING,
+                    livestock_id__in=animal_ids,
+                ).values_list("livestock_id", flat=True)
+            )
+            pending_affected_ids = set(
+                MortalityRecord.objects.filter(
+                    status=MortalityRecord.MortalityRecordStatus.PENDING,
+                    affected_livestock__pk__in=animal_ids,
+                ).values_list("affected_livestock__pk", flat=True)
+            )
+            pending_ids = pending_legacy_ids | pending_affected_ids
+            if pending_ids:
+                pending_tags = [
+                    animal.tag_number or f"Animal #{animal.pk}"
+                    for animal in animals
+                    if animal.pk in pending_ids
+                ]
+                raise ValidationError(
+                    {
+                        "livestocks": (
+                            f"{', '.join(pending_tags)} already have a pending mortality report. "
+                            "Wait for it to be reviewed before submitting another."
+                        )
+                    }
+                )
+
         if len({animal.farmer_id for animal in animals}) != 1:
             raise ValidationError({"livestocks": "All animals in one mortality report must belong to the same farmer."})
         if len({animal.livestock_type_id for animal in animals}) != 1:
