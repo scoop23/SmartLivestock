@@ -1003,6 +1003,7 @@ function SibatLivestockRegistryContent() {
                     {pageRecords.map((r, idx) => {
                       const isCalving = r.sourceType === "CALVING";
                       const isBatch = r.entryType === "BATCH" || r.sourceType === "BATCH";
+                      const hasParentHerd = !isCalving && !isBatch && Boolean(r.batchId || r.batchCode);
                       const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—";
 
                       return (
@@ -1112,7 +1113,7 @@ function SibatLivestockRegistryContent() {
                               </Button>
                             ) : (
                               <div className="flex items-center justify-end gap-1.5">
-                                {(r.batchId || r.batchCode) && (
+                                {hasParentHerd && (
                                   <Button
                                     asChild
                                     size="sm"
@@ -1126,18 +1127,20 @@ function SibatLivestockRegistryContent() {
                                     </Link>
                                   </Button>
                                 )}
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFocusedRecordId(r.id);
-                                    setSelectedSubmission(r);
-                                  }}
-                                  className="h-8 px-3 rounded-xl text-xs font-extrabold bg-slate-50 hover:bg-slate-100 text-slate-900 border-slate-300 transition-all cursor-pointer shadow-2xs"
-                                >
-                                  <Eye className="size-3.5 mr-1 text-slate-800" /> Review Record
-                                </Button>
+                                {!hasParentHerd && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setFocusedRecordId(r.id);
+                                      setSelectedSubmission(r);
+                                    }}
+                                    className="h-8 px-3 rounded-xl text-xs font-extrabold bg-slate-50 hover:bg-slate-100 text-slate-900 border-slate-300 transition-all cursor-pointer shadow-2xs"
+                                  >
+                                    <Eye className="size-3.5 mr-1 text-slate-800" /> Review Record
+                                  </Button>
+                                )}
                               </div>
                             )}
                           </TableCell>
@@ -1154,6 +1157,7 @@ function SibatLivestockRegistryContent() {
               {pageRecords.map((r, idx) => {
                 const isCalving = r.sourceType === "CALVING";
                 const isBatch = r.entryType === "BATCH" || r.sourceType === "BATCH";
+                const hasParentHerd = !isCalving && !isBatch && Boolean(r.batchId || r.batchCode);
                 const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—";
 
                 return (
@@ -1214,6 +1218,16 @@ function SibatLivestockRegistryContent() {
                           <Layers className="size-3.5 mr-1" /> Review Herd
                         </Link>
                       </Button>
+                    ) : hasParentHerd ? (
+                      <Button
+                        asChild
+                        variant="outline"
+                        className="w-full h-10 rounded-xl text-xs font-bold text-teal-800 bg-teal-50/70 border-teal-300 hover:bg-teal-100 cursor-pointer mt-2"
+                      >
+                        <Link href={`/sibat/batches?batchId=${encodeURIComponent(r.batchId || r.batchCode || "")}&animalId=${r.rawId}&tag=${encodeURIComponent(r.tagNumber || "")}&from=registry`}>
+                          <Layers className="size-3.5 mr-1 text-teal-700" /> Review Herd ({r.batchCode || "Parent Herd"})
+                        </Link>
+                      </Button>
                     ) : (
                       <div className="space-y-1.5 mt-2">
                         <Button
@@ -1224,17 +1238,6 @@ function SibatLivestockRegistryContent() {
                         >
                           <Eye className="size-3.5 mr-1 text-slate-800" /> Review Record
                         </Button>
-                        {(r.batchId || r.batchCode) && !isCalving && (
-                          <Button
-                            asChild
-                            variant="outline"
-                            className="w-full h-9 rounded-xl text-xs font-bold text-teal-800 bg-teal-50/70 border-teal-300 hover:bg-teal-100 cursor-pointer"
-                          >
-                            <Link href={`/sibat/batches?batchId=${encodeURIComponent(r.batchId || r.batchCode || "")}&animalId=${r.rawId}&tag=${encodeURIComponent(r.tagNumber || "")}&from=registry`}>
-                              <Layers className="size-3.5 mr-1 text-teal-700" /> Review Herd ({r.batchCode || "Parent Herd"})
-                            </Link>
-                          </Button>
-                        )}
                       </div>
                     )}
                   </article>
