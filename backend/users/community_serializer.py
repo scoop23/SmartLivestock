@@ -568,12 +568,14 @@ class ProgramBookingSerializer(serializers.ModelSerializer):
     farmer_barangay = serializers.SerializerMethodField()
     date = serializers.DateField(source="schedule.date", read_only=True)
     program = serializers.CharField(source="schedule.program", read_only=True)
+    category = serializers.CharField(source="schedule.category", read_only=True)
+    location = serializers.CharField(source="schedule.location", read_only=True)
     available_times = serializers.ListField(source="schedule.available_times", read_only=True)
     program_status = serializers.CharField(source="schedule.publication_status", read_only=True)
 
     class Meta:
         model = ProgramBooking
-        fields = ["id", "schedule", "farmer_name", "farmer_barangay", "date", "program", "program_status", "time", "available_times", "status", "created_at"]
+        fields = ["id", "schedule", "farmer_name", "farmer_barangay", "date", "program", "category", "location", "program_status", "time", "available_times", "status", "created_at"]
         read_only_fields = ["status", "created_at"]
 
     def get_farmer_name(self, obj):

@@ -80,6 +80,8 @@ export type ProgramBooking = {
   farmer_barangay: string | null;
   date: string;
   program: string;
+  category?: ProgramSchedule["category"];
+  location?: string;
   program_status: ProgramPublicationStatus;
   time: string;
   available_times?: string[];
