@@ -881,7 +881,8 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                             <th className="px-3.5 py-2.5">Farmer Name</th>
                             <th className="px-3.5 py-2.5">Barangay</th>
                             <th className="px-3.5 py-2.5">Time Slot</th>
-                            <th className="px-3.5 py-2.5 text-right">Status</th>
+                            <th className="px-3.5 py-2.5 text-center">Status</th>
+                            <th className="px-3.5 py-2.5 text-center">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
@@ -890,16 +891,19 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                               <td className="px-3.5 py-2.5 font-bold text-slate-900">{booking.farmer_name}</td>
                               <td className="px-3.5 py-2.5 text-slate-600">{booking.farmer_barangay || "—"}</td>
                               <td className="px-3.5 py-2.5 font-semibold text-slate-700">{formatTime(booking.time)}</td>
-                              <td className="px-3.5 py-2.5 text-right">
-                                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                                  <Badge variant="outline" className={`text-xs font-bold ${booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : booking.status === "NO_SHOW" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
-                                    {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
-                                  </Badge>
+                              <td className="px-3.5 py-2.5 text-center align-middle">
+                                <Badge variant="outline" className={`text-xs font-bold ${booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : booking.status === "NO_SHOW" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                                  {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
+                                </Badge>
+                              </td>
+                              <td className="px-3.5 py-2.5 text-center align-middle">
+                                <div className="flex flex-wrap items-center justify-center gap-1.5">
                                   {booking.status === "CONFIRMED" && (selected.date < todayIso() || (selected.date === todayIso() && booking.time.slice(0, 5) <= localTimeNow())) ? <>
                                     <Button type="button" variant="outline" disabled={busy} onClick={() => void recordAttendance(booking, "ATTENDED")} className="h-8 px-2 text-[11px]">Present</Button>
                                     <Button type="button" variant="outline" disabled={busy} onClick={() => void recordAttendance(booking, "NO_SHOW")} className="h-8 px-2 text-[11px]">No-show</Button>
                                   </> : null}
                                   {booking.status === "CONFIRMED" && (selected.date > todayIso() || (selected.date === todayIso() && booking.time.slice(0, 5) > localTimeNow())) ? <Button type="button" variant="outline" disabled={busy} onClick={() => setBookingCancelTarget(booking)} className="h-8 px-2 text-[11px] text-rose-700 hover:text-rose-800">Cancel booking</Button> : null}
+                                  {booking.status !== "CONFIRMED" ? <span className="text-slate-400">—</span> : null}
                                 </div>
                               </td>
                             </tr>
