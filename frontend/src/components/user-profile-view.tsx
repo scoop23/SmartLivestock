@@ -43,6 +43,7 @@ MapPin,
 Phone,
 QrCode,
 Save,
+Settings,
 Shield,
 ShieldCheck,
 Smartphone,
@@ -947,7 +948,7 @@ export function UserProfileView() {
         <>
           {/* Ambient soft emerald wash backdrop over entire page */}
           <div
-            className="fixed inset-0 bg-emerald-950/25 backdrop-blur-[1px] pointer-events-none z-20 transition-all duration-300 animate-in fade-in"
+            className="fixed inset-0 bg-emerald-950/35 backdrop-blur-[2px] pointer-events-none z-20 transition-all duration-300 animate-in fade-in"
             aria-hidden="true"
           />
           {/* Glowing emerald perimeter frame indicating live edit session */}
@@ -1127,54 +1128,54 @@ export function UserProfileView() {
         }}
         className="w-full space-y-4"
       >
-        <div className="bg-white p-1.5 sm:p-2 rounded-2xl border border-slate-200/90 shadow-2xs overflow-x-auto no-scrollbar w-full">
-          <TabsList className={`bg-transparent p-0 h-auto w-full ${isFarmer ? "grid grid-cols-2 lg:grid-cols-4 gap-2" : "flex flex-wrap sm:flex-nowrap gap-1.5"}`}>
+        <div className={`bg-white p-1.5 sm:p-2 rounded-2xl border border-slate-200/90 shadow-2xs overflow-x-auto no-scrollbar w-full transition-all duration-300 ${
+          isEditing ? "opacity-40 blur-[1px] pointer-events-none select-none" : "opacity-100"
+        }`}>
+          <TabsList className="bg-transparent p-0 h-auto w-full flex flex-wrap sm:flex-nowrap gap-1.5">
             <TabsTrigger
               value="overview"
-              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap"
+              className="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap flex-1"
             >
               <UserIcon className="size-4" />
               <span>{isFarmer ? "My Profile" : "Account Details"}</span>
             </TabsTrigger>
             <TabsTrigger
               value="security"
-              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap"
+              className="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap flex-1"
             >
               <Shield className="size-4" />
               <span>{isFarmer ? "Security & Password" : "Security & 2FA"}</span>
             </TabsTrigger>
             <TabsTrigger
               value="notifications"
-              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap"
+              className="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap flex-1"
             >
               <Bell className="size-4" />
               <span>Alert Preferences</span>
             </TabsTrigger>
-            {isFarmer ? (
+            {isFarmer && (
               <TabsTrigger
                 value="documents"
-                className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap"
+                className="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap flex-1"
               >
                 <FileText className="size-4" />
                 <span>Registration Documents</span>
               </TabsTrigger>
-            ) : (
-              <>
-                <TabsTrigger
-                  value="activity"
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-300 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap shrink-0 sm:shrink"
-                >
-                  <Activity className="size-4" />
-                  <span>Audit Logs</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="settings"
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-300 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap shrink-0 sm:shrink"
-                >
-                  <span>Settings</span>
-                </TabsTrigger>
-              </>
             )}
+            <TabsTrigger
+              value="activity"
+              className="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap flex-1"
+            >
+              <Activity className="size-4" />
+              <span>{isFarmer ? "Activity History" : "Audit Logs"}</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="settings"
+              className="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap flex-1"
+            >
+              <Settings className="size-4" />
+              <span>Settings</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -1182,7 +1183,9 @@ export function UserProfileView() {
         <TabsContent value="overview" className="mt-0 space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 w-full items-start">
             {/* Left Column: Account Overview + Official Credentials */}
-            <div className="space-y-5">
+            <div className={`space-y-5 transition-all duration-300 ${
+              isEditing ? "opacity-35 blur-[1.5px] pointer-events-none select-none" : "opacity-100"
+            }`}>
               {/* Card 1: Account Overview */}
               <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
                 <CardContent className="p-5 sm:p-6 space-y-4">
@@ -1331,25 +1334,86 @@ export function UserProfileView() {
             </div>
 
             {/* Right Column: Personal Information + Farm/Office Information */}
-            <div ref={detailsSectionRef} className="space-y-5 scroll-mt-20">
+            <div ref={detailsSectionRef} className="space-y-5 relative z-30 scroll-mt-20">
+              {/* Live Edit Mode Status Banner */}
+              {isEditing && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-900 via-[#1B3E18] to-emerald-950 border-2 border-emerald-400 shadow-2xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-3 duration-300">
+                  <div className="flex items-center gap-3.5">
+                    <div className="size-11 rounded-2xl bg-emerald-500/30 border border-emerald-300/50 flex items-center justify-center shrink-0 shadow-inner">
+                      <Edit3 className="size-5 text-emerald-200 animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm sm:text-base font-black tracking-tight text-white">
+                          Profile Edit Mode Active
+                        </h4>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-400 text-emerald-950 shadow-xs">
+                          <span className="size-1.5 rounded-full bg-emerald-950 animate-ping" />
+                          Live Edit
+                        </span>
+                      </div>
+                      <p className="text-xs text-emerald-200/90 font-medium pt-0.5">
+                        Update your personal details, mobile contact, and farm records below.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditing(false)}
+                      className="text-xs font-bold text-emerald-200 hover:text-white hover:bg-white/10 rounded-xl h-9 px-3.5 cursor-pointer"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={isSaving}
+                      onClick={() => handleSaveProfile()}
+                      className="bg-white hover:bg-emerald-50 text-emerald-950 font-black text-xs rounded-xl h-9 px-4.5 shadow-md cursor-pointer gap-2 transition-all"
+                    >
+                      <Save className="size-3.5 text-emerald-800" />
+                      <span>{isSaving ? "Saving..." : "Save Changes"}</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Card 3: Personal Information */}
-              <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+              <Card className={`rounded-2xl border bg-white transition-all duration-300 ${
+                isEditing
+                  ? "ring-4 ring-emerald-500/40 border-emerald-500 shadow-2xl scale-[1.005]"
+                  : "border-slate-200/80 shadow-2xs overflow-hidden"
+              }`}>
                 <CardContent className="p-5 sm:p-6 space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-2.5">
-                      <UserIcon className="size-5 text-slate-700" />
+                      <UserIcon className="size-5 text-emerald-700" />
                       <h3 className="text-base font-bold text-slate-900">Personal Information</h3>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsEditing(!isEditing)}
-                      className="h-7 px-2.5 text-xs font-semibold rounded-lg border-emerald-200 text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Edit3 className="size-3" />
-                      <span>{isEditing ? "Done" : "Edit"}</span>
-                    </Button>
+                    {isEditing ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-900 border border-emerald-300">
+                        <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                        Editing Personal Info
+                      </span>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setIsEditing(true);
+                          scrollToDetails();
+                        }}
+                        className="h-7 px-2.5 text-xs font-semibold rounded-lg border-emerald-200 text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Edit3 className="size-3" />
+                        <span>Edit</span>
+                      </Button>
+                    )}
                   </div>
 
                   {isEditing ? (
@@ -1360,7 +1424,7 @@ export function UserProfileView() {
                           <Input
                             value={formData.firstName}
                             onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                            className="h-9 text-xs rounded-lg"
+                            className="h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
                           />
                         </div>
                         <div className="space-y-1">
@@ -1368,7 +1432,7 @@ export function UserProfileView() {
                           <Input
                             value={formData.lastName}
                             onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                            className="h-9 text-xs rounded-lg"
+                            className="h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
                           />
                         </div>
                       </div>
@@ -1378,7 +1442,7 @@ export function UserProfileView() {
                           type="email"
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          className="h-9 text-xs rounded-lg"
+                          className="h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
                         />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1387,7 +1451,7 @@ export function UserProfileView() {
                           <Input
                             value={formData.phone}
                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                            className="h-9 text-xs rounded-lg"
+                            className="h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
                           />
                         </div>
                         <div className="space-y-1">
@@ -1395,17 +1459,26 @@ export function UserProfileView() {
                           <Input
                             value={formData.alternatePhone}
                             onChange={(e) => setFormData({ ...formData, alternatePhone: e.target.value })}
-                            className="h-9 text-xs rounded-lg"
+                            className="h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
                           />
                         </div>
                       </div>
                       <div className="pt-2 flex justify-end gap-2">
                         <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setIsEditing(false)}
+                          className="h-8 px-3 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
                           size="sm"
                           disabled={isSaving}
                           onClick={() => handleSaveProfile()}
-                          className="bg-[#2D5A27] hover:bg-[#23461f] text-white text-xs font-bold rounded-lg h-8 px-4"
+                          className="bg-[#2D5A27] hover:bg-[#23461f] text-white text-xs font-bold rounded-lg h-8 px-4 flex items-center gap-1.5 shadow-sm"
                         >
                           <Save className="size-3 mr-1" />
                           {isSaving ? "Saving..." : "Save Changes"}
@@ -1442,7 +1515,11 @@ export function UserProfileView() {
               </Card>
 
               {/* Card 4: Farm Information (for Farmer) / Office & Facility Information (for non-farmer) */}
-              <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+              <Card className={`rounded-2xl border bg-white transition-all duration-300 ${
+                isEditing
+                  ? "ring-4 ring-emerald-500/40 border-emerald-500 shadow-2xl scale-[1.005]"
+                  : "border-slate-200/80 shadow-2xs overflow-hidden"
+              }`}>
                 <CardContent className="p-5 sm:p-6 space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-2.5">
@@ -1451,16 +1528,26 @@ export function UserProfileView() {
                         {isFarmer ? "Farm Information" : "Office & Facility Information"}
                       </h3>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsEditing(!isEditing)}
-                      className="h-7 px-2.5 text-xs font-semibold rounded-lg border-emerald-200 text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Edit3 className="size-3" />
-                      <span>{isEditing ? "Done" : "Edit"}</span>
-                    </Button>
+                    {isEditing ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-900 border border-emerald-300">
+                        <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                        Editing {isFarmer ? "Farm Details" : "Facility Details"}
+                      </span>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setIsEditing(true);
+                          scrollToDetails();
+                        }}
+                        className="h-7 px-2.5 text-xs font-semibold rounded-lg border-emerald-200 text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Edit3 className="size-3" />
+                        <span>Edit</span>
+                      </Button>
+                    )}
                   </div>
 
                   {isEditing ? (
@@ -1472,7 +1559,7 @@ export function UserProfileView() {
                         <Input
                           value={formData.farmName}
                           onChange={(e) => setFormData({ ...formData, farmName: e.target.value })}
-                          className="h-9 text-xs rounded-lg"
+                          className="h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
                         />
                       </div>
                       <div className="space-y-1">
@@ -1482,7 +1569,7 @@ export function UserProfileView() {
                         <Input
                           value={formData.farmType}
                           onChange={(e) => setFormData({ ...formData, farmType: e.target.value })}
-                          className="h-9 text-xs rounded-lg"
+                          className="h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
                         />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1493,7 +1580,7 @@ export function UserProfileView() {
                           <Input
                             value={formData.sitio}
                             onChange={(e) => setFormData({ ...formData, sitio: e.target.value })}
-                            className="h-9 text-xs rounded-lg"
+                            className="h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
                           />
                         </div>
                         <div className="space-y-1">
@@ -1503,7 +1590,7 @@ export function UserProfileView() {
                           <Input
                             value={formData.barangay}
                             onChange={(e) => setFormData({ ...formData, barangay: e.target.value })}
-                            className="h-9 text-xs rounded-lg"
+                            className="h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
                           />
                         </div>
                       </div>
@@ -1513,7 +1600,7 @@ export function UserProfileView() {
                           <Input
                             value={formData.municipality}
                             onChange={(e) => setFormData({ ...formData, municipality: e.target.value })}
-                            className="h-9 text-xs rounded-lg"
+                            className="h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
                           />
                         </div>
                         <div className="space-y-1">
@@ -1521,17 +1608,26 @@ export function UserProfileView() {
                           <Input
                             value={formData.zipCode}
                             onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
-                            className="h-9 text-xs rounded-lg"
+                            className="h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
                           />
                         </div>
                       </div>
                       <div className="pt-2 flex justify-end gap-2">
                         <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setIsEditing(false)}
+                          className="h-8 px-3 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
                           size="sm"
                           disabled={isSaving}
                           onClick={() => handleSaveProfile()}
-                          className="bg-[#2D5A27] hover:bg-[#23461f] text-white text-xs font-bold rounded-lg h-8 px-4"
+                          className="bg-[#2D5A27] hover:bg-[#23461f] text-white text-xs font-bold rounded-lg h-8 px-4 flex items-center gap-1.5 shadow-sm"
                         >
                           <Save className="size-3 mr-1" />
                           {isSaving ? "Saving..." : "Save Changes"}
