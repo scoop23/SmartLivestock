@@ -406,30 +406,17 @@ function FarmerSchedulingContent() {
         variant="farmer"
         maxWidthClass="w-full"
         action={
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowIdPassModal(true)}
-              className="h-11 px-3.5 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0 flex items-center gap-1.5 font-bold text-xs"
-              title="Show my digital farmer QR pass"
-            >
-              <QrCode className="size-4 text-emerald-300" />
-              <span className="hidden sm:inline">Pass QR</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => void refresh()}
-              disabled={isFetching}
-              className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
-              title="Refresh schedules"
-              aria-label="Refresh schedules"
-            >
-              <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => void refresh()}
+            disabled={isFetching}
+            className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
+            title="Refresh schedules"
+            aria-label="Refresh schedules"
+          >
+            <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
+          </Button>
         }
       />
 
@@ -1435,17 +1422,6 @@ function FarmerSchedulingContent() {
                       </div>
                     ) : null}
 
-                    {/* Bottom Close Button */}
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setDetailsSchedule(null);
-                        setScheduleId("");
-                      }}
-                      className="w-full h-11 sm:h-12 rounded-xl bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold text-sm sm:text-base tracking-wide shadow-xs cursor-pointer"
-                    >
-                      Back to Schedule
-                    </Button>
                   </>
                 );
               })()}
