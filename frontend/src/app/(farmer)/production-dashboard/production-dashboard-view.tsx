@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -985,24 +986,18 @@ export default function ProductionDashboardView({
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs font-bold text-slate-700">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-10 rounded-xl border-slate-200 bg-white"
-                  onClick={() => router.push(`/production-dashboard/history?type=${focusedActivity}`)}
-                >
-                  <ClipboardList className="mr-2 size-4" /> View history
-                </Button>
-                <label htmlFor="production-history-kpi-period">View period</label>
-                <select
-                  id="production-history-kpi-period"
+                <Select
                   value={showOverallKpis ? "OVERALL" : "MONTH"}
-                  onChange={(event) => setShowOverallKpis(event.target.value === "OVERALL")}
-                  className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
+                  onValueChange={(value) => setShowOverallKpis(value === "OVERALL")}
                 >
-                  <option value="OVERALL">All dates</option>
-                  <option value="MONTH">By month</option>
-                </select>
+                  <SelectTrigger className="h-10 w-[150px] rounded-xl border-slate-300 bg-white text-sm font-semibold text-slate-900">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OVERALL">All dates</SelectItem>
+                    <SelectItem value="MONTH">By month</SelectItem>
+                  </SelectContent>
+                </Select>
                 {!showOverallKpis && (
                   <input
                     aria-label="KPI month"
@@ -1013,6 +1008,14 @@ export default function ProductionDashboardView({
                     className="h-10 min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
                   />
                 )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-10 rounded-xl border-slate-200 bg-white"
+                  onClick={() => router.push(`/production-dashboard/history?type=${focusedActivity}`)}
+                >
+                  <ClipboardList className="mr-2 size-4" /> View history
+                </Button>
               </div>
             </div>
 
