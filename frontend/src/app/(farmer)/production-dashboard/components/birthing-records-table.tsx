@@ -4,8 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent } from "@/components/ui/card";
 import { formatCalendarDate } from "@/lib/livestock-age";
-import { Baby,Calendar,Dna,HeartPulse,PencilLine,Scale,Tag } from "lucide-react";
+import { Baby,Calendar,Dna,HeartPulse,ListChecks,PencilLine,Scale,Tag } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+import CalvingProgressDialog from "./calving-progress-dialog";
 import type { BirthingSpeciesTerminology,CalvingRecordItem } from "../production-calving-tab";
 
 interface BirthingRecordsTableProps {
@@ -23,6 +25,8 @@ export default function BirthingRecordsTable({
   onOpenNew,
   onEditResubmit,
 }: BirthingRecordsTableProps) {
+  const [progressRecord, setProgressRecord] = useState<CalvingRecordItem | null>(null);
+
   if (isLoading) {
     return (
       <Card className="border-slate-200 shadow-xs rounded-2xl overflow-hidden bg-white">
@@ -76,6 +80,15 @@ export default function BirthingRecordsTable({
                 <div><dt className="text-slate-500">Birth Weight</dt><dd className="font-semibold">{record.birth_weight != null ? `${record.birth_weight} kg` : "Not recorded"}</dd></div>
                 <div className="col-span-2"><dt className="text-slate-500">Dam</dt><dd className="font-semibold">{record.dam_tag ? `Tag #${record.dam_tag}` : `Dam #${record.dam}`}</dd></div>
               </dl>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3 min-h-10 w-full gap-2 border-slate-200 text-slate-700"
+                onClick={() => setProgressRecord(record)}
+              >
+                <ListChecks className="size-4 text-emerald-700" />
+                View progress
+              </Button>
               {record.offspring_inventory != null && (
                 <Link href={`/livestock-inventory/${record.offspring_inventory}`} className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-900">
                   Open official inventory #{record.offspring_inventory}
@@ -202,6 +215,16 @@ export default function BirthingRecordsTable({
                       {record.notes || "—"}
                     </td>
                     <td className="py-3.5 px-4">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setProgressRecord(record)}
+                        className="mb-2 gap-1.5 rounded-lg border-slate-200 text-[10px] font-bold text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800"
+                      >
+                        <ListChecks className="size-3.5" />
+                        View progress
+                      </Button>
                       {record.offspring_inventory != null && (
                         <Link href={`/livestock-inventory/${record.offspring_inventory}`} className="mb-2 block text-emerald-800 underline">Inventory #{record.offspring_inventory}</Link>
                       )}
@@ -226,6 +249,13 @@ export default function BirthingRecordsTable({
             </tbody>
           </table>
         </div>
+        <CalvingProgressDialog
+          record={progressRecord}
+          open={progressRecord !== null}
+          onOpenChange={(open) => {
+            if (!open) setProgressRecord(null);
+          }}
+        />
       </CardContent>
     </Card>
   );
