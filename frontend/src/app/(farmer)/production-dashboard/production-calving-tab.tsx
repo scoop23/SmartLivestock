@@ -117,10 +117,12 @@ export function getBirthingTerminology(species?: string | null): BirthingSpecies
 
 export default function ProductionCalvingTab({
   approvedInventories,
+  existingInventoryTags = [],
   selectedSpecies,
   autoOpen = false,
 }: {
   approvedInventories: LivestockInventoryItem[];
+  existingInventoryTags?: string[];
   selectedSpecies?: string | null;
   autoOpen?: boolean;
 }) {
@@ -302,6 +304,10 @@ export default function ProductionCalvingTab({
         femaleLivestock={femaleLivestock}
         maleLivestock={maleLivestock}
         breedingRecords={breedingRecords}
+        existingTags={[
+          ...existingInventoryTags,
+          ...calvingRecords.map((record) => record.calf_tag).filter(Boolean),
+        ]}
         onSubmit={(payload) => recordCalvingMutation.mutate(payload)}
         isSubmitting={recordCalvingMutation.isPending}
       />

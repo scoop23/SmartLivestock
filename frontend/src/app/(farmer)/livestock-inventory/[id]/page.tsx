@@ -1188,11 +1188,11 @@ export default function LivestockDetailPage() {
       toast.error("Calving / birth date cannot be in the future.");
       return;
     }
-    const generatedTag = newCalfData.tag.trim() || `${terms.offspringName.toUpperCase()}-${Date.now().toString().slice(-4)}`;
-
     recordCalvingMutation.mutate({
       dam: Number(activeItem.id),
-      calf_tag: generatedTag,
+      // Leave this blank when the farmer does not provide a custom tag so the API
+      // can assign the next owner-name sequence consistently across entry points.
+      calf_tag: newCalfData.tag.trim(),
       calf_sex: newCalfData.sex,
       birth_weight: newCalfData.birthWeight ? parseFloat(newCalfData.birthWeight) : null,
       sire_tag: newCalfData.sireTag.trim(),
@@ -2953,9 +2953,10 @@ export default function LivestockDetailPage() {
                 <Input
                   value={newCalfData.tag}
                   onChange={(e) => setNewCalfData({ ...newCalfData, tag: e.target.value })}
-                  placeholder={`e.g. ${terms.offspringName.toUpperCase()}-01`}
+                  placeholder="Auto-generated as NAME-001 when left blank"
                   className="rounded-xl border-slate-300"
                 />
+                <p className="text-[11px] text-slate-500">Leave blank to assign the next number in your name-based tag sequence.</p>
               </div>
               <div className="space-y-1.5">
                 <Label className="font-bold text-slate-700">Offspring Gender *</Label>

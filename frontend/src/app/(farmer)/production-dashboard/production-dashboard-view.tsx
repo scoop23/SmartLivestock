@@ -367,6 +367,10 @@ export default function ProductionDashboardView({
         (item.operationalStatus || "ACTIVE") === "ACTIVE" && item.quantity > 0,
     );
   }, [inventories]);
+  const existingInventoryTags = useMemo(
+    () => inventories.map((item) => item.tagNumber).filter(Boolean),
+    [inventories],
+  );
   const activeIntentInventories = useMemo(() => {
     const active = inventories.filter(
       (item) =>
@@ -1254,6 +1258,7 @@ export default function ProductionDashboardView({
       {activeMainTab === "calving" && (
         <ProductionCalvingTab
           approvedInventories={focusedActivity ? activityInventories : approvedInventories}
+          existingInventoryTags={existingInventoryTags}
           selectedSpecies={selectedSpecies}
           autoOpen={focusedActivity === "calving" && focusedMode === "record"}
         />
