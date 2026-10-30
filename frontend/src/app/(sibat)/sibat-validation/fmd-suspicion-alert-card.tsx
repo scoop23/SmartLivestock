@@ -44,7 +44,7 @@ export function FmdSuspicionAlertCard({
   const shouldPulse = isPending && !isReadOnly && !isOpen && !isSuspected;
 
   return (
-    <div className="w-full">
+    <div className="w-full min-w-0 max-w-full">
       {/* ─── Pulsing Trigger Button ─── */}
       <div className="relative group w-full">
         {/* Pulsing halo aura when closed & pending review */}
@@ -58,7 +58,7 @@ export function FmdSuspicionAlertCard({
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          className={`relative w-full flex items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl border-2 transition-all duration-300 text-left shadow-xs cursor-pointer ${
+          className={`relative flex w-full min-w-0 items-start justify-between gap-2.5 rounded-2xl border-2 p-2.5 text-left shadow-xs transition-all duration-300 cursor-pointer sm:items-center sm:gap-3 sm:p-3.5 ${
             isSuspected
               ? "border-rose-400 bg-rose-50/90 text-rose-950 shadow-sm"
               : isOpen
@@ -69,7 +69,7 @@ export function FmdSuspicionAlertCard({
           aria-label="Toggle Foot and Mouth Disease differential advisory"
         >
           {/* Left Icon and Title */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex min-w-0 flex-1 items-start gap-2.5 sm:items-center sm:gap-3">
             <div
               className={`relative size-9 sm:size-10 rounded-xl text-white flex items-center justify-center shrink-0 shadow-xs ${
                 isSuspected
@@ -96,9 +96,9 @@ export function FmdSuspicionAlertCard({
               )}
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
+                <span className="break-words text-xs font-black tracking-tight text-slate-900 sm:text-sm">
                   Maaaring Foot and Mouth Disease (FMD)
                 </span>
 
@@ -166,25 +166,25 @@ export function FmdSuspicionAlertCard({
 
       {/* ─── Elongating / Accordion Container ─── */}
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+        className={`max-w-full overflow-hidden transition-all duration-300 ease-in-out ${
           isOpen
             ? "max-h-[1600px] opacity-100 mt-3"
             : "max-h-0 opacity-0 mt-0 pointer-events-none"
         }`}
       >
         <div
-          className={`w-full rounded-2xl border p-4 sm:p-5 space-y-4 shadow-sm ${
+          className={`w-full min-w-0 rounded-2xl border p-2.5 shadow-sm sm:p-5 ${
             isSuspected
               ? "border-rose-300 bg-gradient-to-b from-rose-50/90 via-white to-rose-50/40 text-rose-950"
               : "border-amber-300 bg-gradient-to-b from-amber-50/80 via-white to-amber-50/30 text-amber-950"
-          }`}
+          } space-y-3 sm:space-y-4`}
         >
           {/* ─── 1. Rationale & Symptoms Matched ─── */}
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 items-start gap-2">
                 <Stethoscope className="size-4.5 text-amber-700" />
-                <h4 className="text-sm font-black text-slate-900">
+                <h4 className="text-sm font-black text-slate-900 break-words">
                   Klinikal na Pagsusuri (Clinical Decision Support)
                 </h4>
               </div>
@@ -219,16 +219,16 @@ export function FmdSuspicionAlertCard({
           </div>
 
           {/* ─── 2. Field Inspection Checklist ("Ano ang dapat suriin sa hayop?") ─── */}
-          <div className="rounded-xl border border-amber-200/90 bg-white/90 p-3.5 space-y-2 text-xs">
-            <div className="flex items-center gap-1.5 font-bold text-amber-950">
-              <Search className="size-4 text-amber-700" />
-              <span>GABAY SA PAGSURI SA BUKID (On-Farm Physical Examination):</span>
+          <div className="space-y-2 rounded-xl border border-amber-200/90 bg-white/90 p-2.5 text-xs sm:p-3.5">
+            <div className="flex items-start gap-1.5 font-bold text-amber-950">
+              <Search className="mt-0.5 size-4 shrink-0 text-amber-700" />
+              <span className="min-w-0 break-words">GABAY SA PAGSURI SA BUKID (On-Farm Physical Examination):</span>
             </div>
             <ul className="space-y-1.5 text-slate-700 pl-1">
               {evaluation.checklistToInspect.map((item, idx) => (
                 <li key={idx} className="flex items-start gap-2">
                   <span className="text-amber-600 font-black shrink-0 mt-0.5">•</span>
-                  <span className="leading-snug">{item}</span>
+                  <span className="min-w-0 break-words leading-snug">{item}</span>
                 </li>
               ))}
             </ul>
@@ -236,7 +236,7 @@ export function FmdSuspicionAlertCard({
 
           {/* ─── 3. CBAT Field Officer Action & Verification ─── */}
           {!isReadOnly && isPending && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-3.5 space-y-3">
+            <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50/60 p-2.5 sm:p-3.5">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="text-xs font-black text-rose-950 uppercase tracking-wide flex items-center gap-1.5">
                   <ShieldAlert className="size-4 text-rose-700" />
@@ -250,7 +250,7 @@ export function FmdSuspicionAlertCard({
               </div>
 
               {/* Checkbox */}
-              <label className="flex items-start gap-3 cursor-pointer rounded-xl bg-white p-3 border border-rose-200 hover:border-rose-300 transition-all shadow-2xs">
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-rose-200 bg-white p-2.5 transition-all shadow-2xs hover:border-rose-300 sm:p-3">
                 <input
                   type="checkbox"
                   checked={isSuspected}
