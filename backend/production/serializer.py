@@ -881,7 +881,7 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
                 next_number = highest_number + 1
                 while True:
                     generated_tag = f"{tag_prefix}-{next_number:03d}"
-                    if not LivestockInventory.objects.filter(tag_number__iexact=generated_tag).exists() and not CalvingRecord.objects.filter(calf_tag__iexact=generated_tag).exists():
+                    if not LivestockInventory.objects.filter(farmer=farmer, tag_number__iexact=generated_tag).exists() and not CalvingRecord.objects.filter(dam__farmer=farmer, calf_tag__iexact=generated_tag).exists():
                         validated_data["calf_tag"] = generated_tag
                         break
                     next_number += 1
