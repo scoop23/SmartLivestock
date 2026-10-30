@@ -1,3 +1,6 @@
+import re
+import unicodedata
+
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers  # type: ignore
@@ -13,7 +16,7 @@ from .models import (
     FeedingRecord,
     LivestockTreatmentRecord,
 )
-from livestock.models import LivestockInventory, LivestockBatch
+from livestock.models import Farmer, LivestockInventory, LivestockBatch
 from rest_framework.exceptions import ValidationError
 
 
@@ -845,26 +848,64 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
-        calving = CalvingRecord.objects.create(**validated_data)
+        dam = validated_data["dam"]
 
-        # Automatically link the dam's active breeding event to this birth to complete the cycle
-        active_breeding = (
-            BreedingRecord.objects.filter(
-                dam=calving.dam,
-                breeding_date__lte=calving.calving_date,
-                status__in=[
-                    BreedingRecord.BreedingStatus.PREGNANT,
-                    BreedingRecord.BreedingStatus.PENDING_CHECK,
-                ],
-                calving_record__isnull=True,
+        with transaction.atomic():
+            if not (validated_data.get("calf_tag") or "").strip():
+                # Match the livestock registration convention: FARMER-NAME-001.
+                # Locking the farmer row keeps simultaneous calving submissions
+                # from receiving the same next number.
+                farmer = Farmer.objects.select_for_update().select_related("user").get(pk=dam.farmer_id)
+                owner_name = farmer.user.get_full_name().strip() or farmer.user.username
+                owner_name = "".join(
+                    character
+                    for character in unicodedata.normalize("NFKD", owner_name)
+                    if not unicodedata.combining(character)
+                )
+                tag_prefix = re.sub(r"[^A-Z0-9]+", "-", owner_name.upper()).strip("-") or "FARMER"
+                tag_pattern = re.compile(rf"^{re.escape(tag_prefix)}-(\d{{3,}})$", re.IGNORECASE)
+                used_tags = list(
+                    LivestockInventory.objects.filter(farmer=farmer)
+                    .exclude(tag_number="")
+                    .values_list("tag_number", flat=True)
+                )
+                used_tags.extend(
+                    CalvingRecord.objects.filter(dam__farmer=farmer)
+                    .exclude(calf_tag="")
+                    .values_list("calf_tag", flat=True)
+                )
+                highest_number = max(
+                    (int(match.group(1)) for tag in used_tags if (match := tag_pattern.match(tag.strip()))),
+                    default=0,
+                )
+                next_number = highest_number + 1
+                while True:
+                    generated_tag = f"{tag_prefix}-{next_number:03d}"
+                    if not LivestockInventory.objects.filter(tag_number__iexact=generated_tag).exists() and not CalvingRecord.objects.filter(calf_tag__iexact=generated_tag).exists():
+                        validated_data["calf_tag"] = generated_tag
+                        break
+                    next_number += 1
+
+            calving = CalvingRecord.objects.create(**validated_data)
+
+            # Automatically link the dam's active breeding event to this birth to complete the cycle
+            active_breeding = (
+                BreedingRecord.objects.filter(
+                    dam=calving.dam,
+                    breeding_date__lte=calving.calving_date,
+                    status__in=[
+                        BreedingRecord.BreedingStatus.PREGNANT,
+                        BreedingRecord.BreedingStatus.PENDING_CHECK,
+                    ],
+                    calving_record__isnull=True,
+                )
+                .order_by("-breeding_date")
+                .first()
             )
-            .order_by("-breeding_date")
-            .first()
-        )
-        if active_breeding:
-            active_breeding.calving_record = calving
-            active_breeding.status = BreedingRecord.BreedingStatus.CALVED
-            active_breeding.save(update_fields=["calving_record", "status"])
+            if active_breeding:
+                active_breeding.calving_record = calving
+                active_breeding.status = BreedingRecord.BreedingStatus.CALVED
+                active_breeding.save(update_fields=["calving_record", "status"])
 
         return calving
 

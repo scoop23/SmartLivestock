@@ -20,12 +20,14 @@ SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { localCalendarDateToday } from "@/lib/livestock-age";
+import { nextSequentialLivestockTag, normalizeLivestockTagPrefix } from "@/lib/livestock-tag";
 import { Baby,Calendar,Check,Dna,Scale,Sparkles,Tag } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
+import { useAuth } from "@/app/hooks/use-auth";
 import type { LivestockInventoryItem } from "../../livestock-inventory/page";
 import { LivestockPickerField } from "../select-livestock-dialog";
 import type { BirthingSpeciesTerminology } from "../production-calving-tab";
@@ -38,6 +40,7 @@ interface BirthingRegistrationDialogProps {
   femaleLivestock: LivestockInventoryItem[];
   maleLivestock?: LivestockInventoryItem[];
   breedingRecords?: BreedingRecordItem[];
+  existingTags?: string[];
   onSubmit: (payload: {
     dam: number;
     calf_tag: string;
@@ -59,10 +62,15 @@ export default function BirthingRegistrationDialog({
   femaleLivestock,
   maleLivestock = [],
   breedingRecords = [],
+  existingTags = [],
   onSubmit,
   isSubmitting,
 }: BirthingRegistrationDialogProps) {
   const tutorialsEnabled = useAutomaticTutorialsEnabled();
+  const { user } = useAuth();
+  const tagPrefix = normalizeLivestockTagPrefix(
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || "FARMER",
+  ) || "FARMER";
   const [damId, setDamId] = useState<string>("");
   const [calfTag, setCalfTag] = useState("");
   const [calfSex, setCalfSex] = useState<"MALE" | "FEMALE">("FEMALE");
@@ -99,6 +107,10 @@ export default function BirthingRegistrationDialog({
   }, [femaleLivestock]);
 
   const selectedDam = eligibleFemaleLivestock.find((item) => String(item.id) === damId);
+  const generatedCalfTag = useMemo(
+    () => nextSequentialLivestockTag(tagPrefix, existingTags),
+    [existingTags, tagPrefix],
+  );
 
   // Available male bulls matching the dam's species
   const matchingBulls = useMemo(() => {
@@ -141,16 +153,18 @@ export default function BirthingRegistrationDialog({
   }, [activeBreeding, matchingBulls]);
 
   useEffect(() => {
-    if (!open) {
-      setDamId("");
-      setCalfTag("");
-      setBirthWeight("");
-      setSelectedSireOption("NONE");
-      setSireTag("");
-      setBreed("");
-      setCalvingEase("Normal / Unassisted");
-      setNotes("");
+    if (open) {
+      return;
     }
+
+    setDamId("");
+    setCalfTag("");
+    setBirthWeight("");
+    setSelectedSireOption("NONE");
+    setSireTag("");
+    setBreed("");
+    setCalvingEase("Normal / Unassisted");
+    setNotes("");
   }, [open]);
 
   const startBirthTutorial = useCallback(() => {
@@ -177,9 +191,8 @@ export default function BirthingRegistrationDialog({
 
     onSubmit({
       dam: Number(damId),
-      calf_tag:
-        calfTag.trim() ||
-        `${terms.offspringName.toUpperCase()}-${Date.now().toString().slice(-4)}`,
+      // Blank asks the API to assign the next owner-name sequence as the source of truth.
+      calf_tag: calfTag.trim(),
       calf_sex: calfSex,
       birth_weight: birthWeight ? Number(birthWeight) : null,
       sire_tag: sireTag.trim(),
@@ -253,11 +266,12 @@ export default function BirthingRegistrationDialog({
                 {terms.offspringName} Tag / Identifier
               </Label>
               <Input
-                placeholder={`e.g. ${terms.offspringName.toUpperCase()}-2026-01`}
-                value={calfTag}
+                placeholder="Generated from your name and next tag number"
+                value={calfTag || generatedCalfTag}
                 onChange={(e) => setCalfTag(e.target.value)}
                 className="text-xs"
               />
+              <p className="text-[10px] text-slate-500">Auto-generated in your name-number format (for example, NAME-001). Edit if needed.</p>
             </div>
 
             {/* Offspring Sex */}

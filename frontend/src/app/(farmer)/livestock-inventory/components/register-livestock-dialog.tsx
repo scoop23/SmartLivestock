@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { nextSequentialLivestockTag, normalizeLivestockTagPrefix } from "@/lib/livestock-tag";
 
 import {
   AlertCircle,
@@ -143,24 +144,6 @@ const initialFormData = {
   avatarKey: "cow-brahman",
 };
 
-function normalizeTagName(name: string) {
-  return name
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-function nextOwnerTag(prefix: string, usedTags: string[]) {
-  const pattern = new RegExp(`^${prefix}-(\\d{3,})$`, "i");
-  const highest = usedTags.reduce((max, tag) => {
-    const match = tag.trim().match(pattern);
-    return match ? Math.max(max, Number(match[1])) : max;
-  }, 0);
-  return `${prefix}-${String(highest + 1).padStart(3, "0")}`;
-}
-
 function createDefaultBatchAnimals(): BatchAnimalFormRow[] {
   return [];
 }
@@ -232,7 +215,7 @@ function RegisterLivestockDialogContent({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const ownerTagPrefix = normalizeTagName(
+  const ownerTagPrefix = normalizeLivestockTagPrefix(
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || ""
   );
 
@@ -268,7 +251,7 @@ function RegisterLivestockDialogContent({
     }
     return {
       ...initialFormData,
-      tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
+      tagNumber: ownerTagPrefix ? nextSequentialLivestockTag(ownerTagPrefix, existingTags) : "",
     };
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -395,7 +378,7 @@ function RegisterLivestockDialogContent({
       setIsReviewConfirmed(false);
       setFormData({
         ...initialFormData,
-        tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
+      tagNumber: ownerTagPrefix ? nextSequentialLivestockTag(ownerTagPrefix, existingTags) : "",
       });
       setBatchAnimals([]);
       setPhotoFile(null);
@@ -552,7 +535,7 @@ function RegisterLivestockDialogContent({
       if (clamped > next.length) {
         const usedTags = [...existingTags, ...next.map((animal) => animal.tagNumber)];
         for (let i = next.length + 1; i <= clamped; i++) {
-          const tagNumber = ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, usedTags) : "";
+          const tagNumber = ownerTagPrefix ? nextSequentialLivestockTag(ownerTagPrefix, usedTags) : "";
           usedTags.push(tagNumber);
           next.push({
             id: String(Date.now() + i),
@@ -588,7 +571,7 @@ function RegisterLivestockDialogContent({
     const newAnimal: BatchAnimalFormRow = {
       id: String(Date.now()),
       tagNumber: ownerTagPrefix
-        ? nextOwnerTag(ownerTagPrefix, usedTags)
+        ? nextSequentialLivestockTag(ownerTagPrefix, usedTags)
         : "",
       breed: "",
       sex: "",
@@ -649,7 +632,7 @@ function RegisterLivestockDialogContent({
     }
     const used = [...existingTags];
     setBatchAnimals((previous) => previous.map((animal) => {
-      const tagNumber = ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, used) : "";
+      const tagNumber = ownerTagPrefix ? nextSequentialLivestockTag(ownerTagPrefix, used) : "";
       used.push(tagNumber);
       return { ...animal, tagNumber };
     }));
@@ -1198,7 +1181,7 @@ function RegisterLivestockDialogContent({
                                 avatarKey: prev.photoDataUrl ? prev.avatarKey : defAvatar.id,
                                 tagNumber:
                                   prev.entryType === "INDIVIDUAL" && !prev.tagNumber
-                                    ? ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : ""
+                                    ? ownerTagPrefix ? nextSequentialLivestockTag(ownerTagPrefix, existingTags) : ""
                                     : prev.tagNumber,
                                 batchName: prev.batchName ? prev.batchName : `${name} Herd #${Math.floor(100 + Math.random() * 900)}`,
                               }));
@@ -1254,7 +1237,7 @@ function RegisterLivestockDialogContent({
                           setFormData((prev) => ({
                             ...prev,
                             isCustomTag: false,
-                            tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
+                            tagNumber: ownerTagPrefix ? nextSequentialLivestockTag(ownerTagPrefix, existingTags) : "",
                           }));
                         }
                       }}
@@ -1289,7 +1272,7 @@ function RegisterLivestockDialogContent({
                             onClick={() =>
                               setFormData({
                                 ...formData,
-                                tagNumber: ownerTagPrefix ? nextOwnerTag(ownerTagPrefix, existingTags) : "",
+                                tagNumber: ownerTagPrefix ? nextSequentialLivestockTag(ownerTagPrefix, existingTags) : "",
                               })
                             }
                             className="text-emerald-600 hover:text-emerald-700 p-0.5 rounded cursor-pointer transition-transform active:scale-95"
