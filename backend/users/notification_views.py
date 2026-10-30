@@ -5,7 +5,7 @@ from rest_framework import status
 from django.conf import settings as django_settings
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from users.models import Notification, User
+from users.models import Notification, ProgramBooking, User
 from users.serializer import NotificationSerializer
 from django.db.models import Q
 from rest_framework.exceptions import ValidationError
@@ -43,6 +43,7 @@ def _field_officer_notification_queryset(user, queryset):
         "census_submission": scope_reviewer_queryset(CensusSubmission.objects.all(), user).values("pk"),
         "ownership_transfer": scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user).values("pk"),
         "inspection": scope_reviewer_queryset(LivestockInspection.objects.all(), user).values("pk"),
+        "program_booking": scope_reviewer_queryset(ProgramBooking.objects.all(), user).values("pk"),
     }
     allowed_records = Q()
     for entity_type in scoped_record_ids:

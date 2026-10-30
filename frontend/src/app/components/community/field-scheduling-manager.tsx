@@ -88,8 +88,17 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [calendarDate, setCalendarDate] = useState<Date | null>(null);
   const [filter, setFilter] = useState<"all" | "upcoming" | "published" | "draft" | "completed" | "cancelled">("all");
   const [highlightedScheduleId, setHighlightedScheduleId] = useState<number | null>(null);
+  const [highlightedBookingId, setHighlightedBookingId] = useState<number | null>(null);
+  const [notificationBookingId, setNotificationBookingId] = useState<number | null>(null);
   const [pendingScrollScheduleId, setPendingScrollScheduleId] = useState<number | null>(null);
   const scrolledScheduleId = useRef<number | null>(null);
+  const handledBookingId = useRef<number | null>(null);
+
+  useEffect(() => {
+    const value = Number(new URLSearchParams(window.location.search).get("bookingId"));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (Number.isInteger(value) && value > 0) setNotificationBookingId(value);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -146,6 +155,31 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     card.scrollIntoView({ behavior: "smooth", block: "center" });
     scrolledScheduleId.current = pendingScrollScheduleId;
   }, [pendingScrollScheduleId, schedules]);
+
+  useEffect(() => {
+    if (
+      notificationBookingId === null ||
+      loading ||
+      handledBookingId.current === notificationBookingId
+    ) return;
+
+    const booking = bookings.find((item) => item.id === notificationBookingId);
+    const schedule = booking && schedules.find((item) => item.id === booking.schedule);
+    if (!booking || !schedule) {
+      handledBookingId.current = notificationBookingId;
+      return;
+    }
+
+    handledBookingId.current = notificationBookingId;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelected(schedule);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHighlightedBookingId(booking.id);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete("bookingId");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }, [notificationBookingId, bookings, schedules, loading]);
 
   const bookingsBySchedule = useMemo(() => {
     const grouped = new Map<number, ProgramBooking[]>();
@@ -326,6 +360,21 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const selectedBookings = selected ? (bookingsBySchedule.get(selected.id) ?? []).slice().sort((a, b) => a.time.localeCompare(b.time)) : [];
   const selectedHasBookingHistory = pendingAction ? (bookingsBySchedule.get(pendingAction.schedule.id)?.length ?? 0) > 0 : false;
   const selectedIsPast = pendingAction ? pendingAction.schedule.date < todayIso() : false;
+
+  useEffect(() => {
+    const targetBooking = bookings.find((booking) => booking.id === highlightedBookingId);
+    if (highlightedBookingId === null || !selected || targetBooking?.schedule !== selected.id) return;
+    const frame = window.requestAnimationFrame(() => {
+      const isDesktop = window.matchMedia("(min-width: 640px)").matches;
+      document.getElementById("program-booking-" + highlightedBookingId + "-" + (isDesktop ? "desktop" : "mobile"))
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    const clearHighlight = window.setTimeout(() => setHighlightedBookingId(null), 7000);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(clearHighlight);
+    };
+  }, [highlightedBookingId, selected, bookings]);
   const visibleSchedules = schedules.filter((schedule) => {
     const matchesSearch = `${schedule.program} ${schedule.location} ${schedule.barangay_name || ""}`.toLowerCase().includes(search.toLowerCase());
     const matchesFilter = filter === "all"
@@ -892,7 +941,11 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
                           {selectedBookings.map((booking) => (
-                            <tr key={booking.id} className="hover:bg-slate-50/60">
+                            <tr
+                              key={booking.id}
+                              id={"program-booking-" + booking.id + "-desktop"}
+                              className={highlightedBookingId === booking.id ? "bg-emerald-100 ring-2 ring-inset ring-emerald-400" : "hover:bg-slate-50/60"}
+                            >
                               <td className="px-3.5 py-2.5 font-bold text-slate-900">{booking.farmer_name}</td>
                               <td className="px-3.5 py-2.5 text-slate-600">{booking.farmer_barangay || "—"}</td>
                               <td className="px-3.5 py-2.5 font-semibold text-slate-700">{formatTime(booking.time)}</td>
@@ -910,7 +963,13 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     {/* Mobile Stacked Cards View */}
                     <div className="sm:hidden space-y-2">
                       {selectedBookings.map((booking) => (
-                        <div key={booking.id} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 space-y-1.5">
+                        <div
+                          key={booking.id}
+                          id={"program-booking-" + booking.id + "-mobile"}
+                          className={highlightedBookingId === booking.id
+                            ? "rounded-lg border p-3 space-y-1.5 transition-colors border-emerald-500 bg-emerald-100 ring-2 ring-emerald-300"
+                            : "rounded-lg border p-3 space-y-1.5 transition-colors border-slate-200 bg-slate-50/60"}
+                        >
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <p className="text-xs sm:text-sm font-bold text-slate-900">{booking.farmer_name}</p>

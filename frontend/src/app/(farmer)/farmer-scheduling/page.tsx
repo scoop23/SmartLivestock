@@ -71,7 +71,7 @@ X,
 } from "lucide-react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Suspense,useCallback,useEffect,useMemo,useState } from "react";
+import { Suspense,useCallback,useEffect,useMemo,useRef,useState } from "react";
 
 function localDateFromIso(value: string): Date {
   const [year, month, day] = value.slice(0, 10).split("-").map(Number);
@@ -147,6 +147,8 @@ function FarmerSchedulingContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const urlScheduleParam = searchParams.get("scheduleId") || searchParams.get("schedule");
+  const urlBookingParam = searchParams.get("bookingId");
+  const handledNotificationBookingRef = useRef<string | null>(null);
   const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
   const [bookings, setBookings] = useState<ProgramBooking[]>([]);
   const [scheduleId, setScheduleId] = useState("");
@@ -220,6 +222,28 @@ function FarmerSchedulingContent() {
   }, [urlScheduleParam, schedules]);
 
   useEffect(() => {
+    if (!urlBookingParam || loading || handledNotificationBookingRef.current === urlBookingParam) return;
+    const bookingId = Number(urlBookingParam);
+    const targetBooking = bookings.find((booking) => booking.id === bookingId);
+    if (!targetBooking) {
+      handledNotificationBookingRef.current = urlBookingParam;
+      return;
+    }
+
+    handledNotificationBookingRef.current = urlBookingParam;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBookingFilter(
+      targetBooking.status === "CONFIRMED" && isUpcoming(targetBooking.date) ? "upcoming" : "past",
+    );
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHighlightedBookingId(targetBooking.id);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete("bookingId");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [urlBookingParam, bookings, loading]);
+
+  useEffect(() => {
     if (
       highlightedBookingId === null ||
       !bookings.some((booking) => booking.id === highlightedBookingId)
@@ -228,9 +252,9 @@ function FarmerSchedulingContent() {
     }
 
     const frame = window.requestAnimationFrame(() => {
-      document.getElementById("my-bookings-section")?.scrollIntoView({
+      (document.getElementById(`booking-card-${highlightedBookingId}`) || document.getElementById("my-bookings-section"))?.scrollIntoView({
         behavior: "smooth",
-        block: "start",
+        block: "center",
       });
     });
     const clearHighlight = window.setTimeout(() => setHighlightedBookingId(null), 6000);
@@ -948,6 +972,7 @@ function FarmerSchedulingContent() {
                     return (
                       <Card
                         key={booking.id}
+                        id={`booking-card-${booking.id}`}
                         className={`flex flex-col justify-between overflow-hidden rounded-2xl border bg-white shadow-xs transition-all ${
                           isUpcomingList
                             ? "gap-4 border-l-4 border-l-emerald-700 p-4 lg:flex-row lg:items-center lg:p-5"

@@ -257,6 +257,27 @@ export default function ProductionHistory({
     return filtered.slice(start, start + pageSize);
   }, [filtered, currentPage, pageSize]);
 
+  useEffect(() => {
+    if (!requestedNumericId) return;
+    const recordIndex = filtered.findIndex((record) => record.id === requestedNumericId);
+    if (recordIndex < 0) return;
+
+    const targetPage = Math.floor(recordIndex / pageSize) + 1;
+    if (currentPage !== targetPage) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCurrentPage(targetPage);
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`production-history-record-${requestedNumericId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [requestedNumericId, filtered, currentPage, pageSize]);
+
   const activeDialogRecord = useMemo(() => {
     if (!dialogRecord) return null;
     return filtered.find((item) => item.id === dialogRecord.id) ?? dialogRecord;
@@ -356,6 +377,7 @@ export default function ProductionHistory({
               return (
                 <div
                   key={record.id != null ? `history-record-${record.id}` : `history-record-${index}`}
+                  id={`production-history-record-${record.id}`}
                   role="button"
                   tabIndex={0}
                   onClick={() => {
@@ -476,6 +498,14 @@ export default function ProductionHistory({
             if (initialRecordId) {
               handledInitialRecordRef.current = initialRecordId;
               clearRecordLink();
+              if (requestedNumericId) {
+                window.setTimeout(() => {
+                  document.getElementById("production-history-record-" + requestedNumericId)?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                  });
+                }, 220);
+              }
             }
           }
         }}

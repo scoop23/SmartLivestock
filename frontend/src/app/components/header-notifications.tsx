@@ -171,6 +171,7 @@ export const resolveNotificationLink = (
       livestock_inventory: (id) => `/data-validation?domain=inventory&recordType=INVENTORY&recordId=${id}`,
       livestock_batch: (id) => `/data-validation?domain=inventory&recordType=BATCH&recordId=${id}`,
       production_record: (id) => `/data-validation?domain=production&recordType=PRODUCTION&recordId=${id}`,
+      program_booking: (id) => `/schedules?bookingId=${id}`,
       livestock_sale: (id) => `/data-validation?domain=incidents&recordType=SALE&recordId=${id}`,
       calving_record: (id) => `/data-validation?domain=incidents&recordType=CALVING&recordId=${id}`,
       disease_case: (id) => `/data-validation?domain=incidents&recordType=DISEASE&recordId=${id}`,
@@ -244,6 +245,7 @@ export const resolveNotificationLink = (
       livestock_inventory: (id) => `/sibat?tab=inventory&reviewType=INVENTORY&reviewId=${id}`,
       livestock_batch: (id) => `/sibat?tab=inventory&reviewType=BATCH&reviewId=${id}`,
       production_record: () => `/sibat`,
+      program_booking: (id) => `/sibat-scheduling?bookingId=${id}`,
       livestock_sale: (id) => `/sibat?tab=production&reviewType=SALE&reviewId=${id}`,
       calving_record: (id) => `/sibat?tab=calving&reviewType=CALVING&reviewId=${id}`,
       disease_case: (id) => `/sibat-alerts?recordType=DISEASE&recordId=${id}`,
@@ -301,8 +303,18 @@ export const resolveNotificationLink = (
   }
 
   if (effectiveVariant === "farmer") {
+    if (
+      /biosecurity|monitoring radius|disease advisory/i.test(
+        notification.title + " " + notification.message,
+      )
+    ) {
+      return "/gis-user-map?layer=disease";
+    }
+
     const farmerRoutes: Record<string, (id: number) => string> = {
       livestock_inventory: (id) => `/livestock-inventory/${id}`,
+      production_record: (id) => `/production-dashboard/history?recordId=${id}`,
+      program_booking: (id) => `/farmer-scheduling?bookingId=${id}`,
       disease_case: (id) => `/report-observation?reportId=DIS-${id}`,
       mortality_record: (id) => `/report-observation?reportId=MOR-${id}`,
     };

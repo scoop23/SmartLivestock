@@ -196,8 +196,9 @@ export function RoleAwareGISContainer({
   const [sidebarChoice, setSidebarOpen] = useState<boolean | null>(null);
   const sidebarOpen = sidebarChoice ?? !isMobile;
   const [resetTrigger, setResetTrigger] = useState<number>(0);
-  const [showAdjacentOutbreakColor, setShowAdjacentOutbreakColor] = useState<boolean>(true);
-  const [showAdjacentOutbreakDots, setShowAdjacentOutbreakDots] = useState<boolean>(true);
+  const adjacentAlertsEnabledByDefault = backRoute !== '/farmer';
+  const [showAdjacentOutbreakColor, setShowAdjacentOutbreakColor] = useState(adjacentAlertsEnabledByDefault);
+  const [showAdjacentOutbreakDots, setShowAdjacentOutbreakDots] = useState(adjacentAlertsEnabledByDefault);
 
   // Master toggle: if either is active, turn both off. If both off, turn both on.
   const showAdjacentDiseaseAlerts = showAdjacentOutbreakColor || showAdjacentOutbreakDots;

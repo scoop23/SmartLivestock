@@ -1060,7 +1060,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
                             f"Your barangay currently has NO confirmed cases. "
                             f"Please observe strict biosecurity, disinfect barn perimeters, and report any symptoms immediately."
                         ),
-                        link="/farmer/gis-user-map",
+                        link="/gis-user-map?layer=disease",
                     )
         except Exception as e:
             logger.warning("Failed to create biosecurity notification for farmer %s: %s", getattr(user, "pk", None), e)

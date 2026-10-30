@@ -53,7 +53,7 @@ def _notify_program_farmers(schedule, *, title, message, link=None):
     ])
 
 
-def _notify_program_staff(schedule, *, title, message, exclude_user_id=None):
+def _notify_program_staff(schedule, *, title, message, exclude_user_id=None, booking=None):
     reviewers = User.objects.filter(
         role__role_name__in=(Role.UserRoles.SIBAT, Role.UserRoles.CBAT),
         account_status=User.AccountStatus.APPROVED,
@@ -74,7 +74,9 @@ def _notify_program_staff(schedule, *, title, message, exclude_user_id=None):
             notification_type=Notification.NotificationType.GENERAL,
             title=title,
             message=message,
-            link="/sibat-scheduling",
+            link=f"/sibat-scheduling?bookingId={booking.pk}" if booking else "/sibat-scheduling",
+            related_entity_type="program_booking" if booking else None,
+            related_entity_id=booking.pk if booking else None,
         )
         for reviewer in reviewers.distinct()
     ])
@@ -445,9 +447,28 @@ def bookings(request):
             booking = serializer.save(farmer=request.user, schedule=schedule, time=chosen_time)
     except IntegrityError:
         return Response({"detail": "You already have a confirmed booking for this program."}, status=400)
-    create_notification(request.user, title="Booking confirmed", message=f"{schedule.program} on {schedule.date} at {chosen_time.strftime('%H:%M')}.", link="/farmer-scheduling")
-    _notify_program_staff(schedule, title="New program booking", message=f"A farmer booked {schedule.program} on {schedule.date}.")
-    notify_role(Role.UserRoles.MAO, title="New program booking", message=f"A farmer booked {schedule.program} on {schedule.date}.", link="/schedules")
+    create_notification(
+        request.user,
+        title="Booking confirmed",
+        message=f"{schedule.program} on {schedule.date} at {chosen_time.strftime('%H:%M')}.",
+        link=f"/farmer-scheduling?bookingId={booking.pk}",
+        related_entity_type="program_booking",
+        related_entity_id=booking.pk,
+    )
+    _notify_program_staff(
+        schedule,
+        title="New program booking",
+        message=f"A farmer booked {schedule.program} on {schedule.date}.",
+        booking=booking,
+    )
+    notify_role(
+        Role.UserRoles.MAO,
+        title="New program booking",
+        message=f"A farmer booked {schedule.program} on {schedule.date}.",
+        link=f"/schedules?bookingId={booking.pk}",
+        related_entity_type="program_booking",
+        related_entity_id=booking.pk,
+    )
     return Response(ProgramBookingSerializer(booking).data, status=201)
 
 @api_view(["PATCH"])
@@ -482,11 +503,30 @@ def booking_detail(request, pk):
             booking.status = requested_status
             booking.save(update_fields=["status"])
         if booking.status == ProgramBooking.Status.CANCELLED:
-            create_notification(booking.farmer, title="Program booking cancelled", message=f"Your booking for {booking.schedule.program} on {booking.schedule.date} was cancelled by program staff.", link="/farmer-scheduling")
-            _notify_program_staff(booking.schedule, title="Program booking cancelled", message=f"A booking for {booking.schedule.program} on {booking.schedule.date} was cancelled by program staff.")
+            create_notification(
+                booking.farmer,
+                title="Program booking cancelled",
+                message=f"Your booking for {booking.schedule.program} on {booking.schedule.date} was cancelled by program staff.",
+                link=f"/farmer-scheduling?bookingId={booking.pk}",
+                related_entity_type="program_booking",
+                related_entity_id=booking.pk,
+            )
+            _notify_program_staff(
+                booking.schedule,
+                title="Program booking cancelled",
+                message=f"A booking for {booking.schedule.program} on {booking.schedule.date} was cancelled by program staff.",
+                booking=booking,
+            )
             return Response(ProgramBookingSerializer(booking).data)
         label = "attended" if booking.status == ProgramBooking.Status.ATTENDED else "marked as not attending"
-        create_notification(booking.farmer, title="Program attendance recorded", message=f"Your attendance for {booking.schedule.program} was {label}.", link="/farmer-scheduling")
+        create_notification(
+            booking.farmer,
+            title="Program attendance recorded",
+            message=f"Your attendance for {booking.schedule.program} was {label}.",
+            link=f"/farmer-scheduling?bookingId={booking.pk}",
+            related_entity_type="program_booking",
+            related_entity_id=booking.pk,
+        )
         return Response(ProgramBookingSerializer(booking).data)
 
     denied = require_role(request, Role.UserRoles.FARMER)
@@ -537,7 +577,21 @@ def booking_detail(request, pk):
         farmer_message = f"Your arrival time is now {booking.time.strftime('%H:%M')}."
         notify_title = "Program booking time changed"
 
-    create_notification(request.user, title=notify_title, message=farmer_message, link="/farmer-scheduling")
-    _notify_program_staff(booking.schedule, title=notify_title, message=notify_message)
-    notify_role(Role.UserRoles.MAO, title=notify_title, message=notify_message, link="/schedules")
+    create_notification(
+        request.user,
+        title=notify_title,
+        message=farmer_message,
+        link=f"/farmer-scheduling?bookingId={booking.pk}",
+        related_entity_type="program_booking",
+        related_entity_id=booking.pk,
+    )
+    _notify_program_staff(booking.schedule, title=notify_title, message=notify_message, booking=booking)
+    notify_role(
+        Role.UserRoles.MAO,
+        title=notify_title,
+        message=notify_message,
+        link=f"/schedules?bookingId={booking.pk}",
+        related_entity_type="program_booking",
+        related_entity_id=booking.pk,
+    )
     return Response(ProgramBookingSerializer(booking).data)
