@@ -1257,6 +1257,37 @@ export function GISMap({
           border-color: #38bdf8;
         }
 
+        /* Animated Dashed Polyline Flow for Livestock Movement Corridors */
+        @keyframes gis-movement-line-flow {
+          0% {
+            stroke-dashoffset: 40px;
+          }
+          100% {
+            stroke-dashoffset: 0.001px;
+          }
+        }
+        @-webkit-keyframes gis-movement-line-flow {
+          0% {
+            stroke-dashoffset: 40px;
+          }
+          100% {
+            stroke-dashoffset: 0.001px;
+          }
+        }
+        path.movement-polyline-flow,
+        .leaflet-overlay-pane path.movement-polyline-flow,
+        .movement-polyline-flow {
+          -webkit-animation: gis-movement-line-flow 1.4s linear infinite !important;
+          animation: gis-movement-line-flow 1.4s linear infinite !important;
+        }
+        path.movement-polyline-flow-selected,
+        .leaflet-overlay-pane path.movement-polyline-flow-selected,
+        .movement-polyline-flow-selected {
+          -webkit-animation: gis-movement-line-flow 0.75s linear infinite !important;
+          animation: gis-movement-line-flow 0.75s linear infinite !important;
+          filter: drop-shadow(0 0 6px #facc15);
+        }
+
         /* Compact High-Visibility Sonar Pulsing Dot for Adjacent Disease Outbreak */
         @keyframes sonar-wave {
           0% {

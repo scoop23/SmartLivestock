@@ -736,22 +736,40 @@ html[data-font-scale] .recharts-default-tooltip {
 }
 
 /* Keep Leaflet's 2D movement flow in the statically bundled app stylesheet.
-   Runtime-injected component styles can behave differently in production builds. */
+   Runtime-injected component styles can behave differently in production builds.
+   NOTE: In production builds (Vercel/cssnano/lightningcss), `0px` is minified to unitless `0`.
+   Browsers cannot interpolate SVG stroke-dashoffset between length <40px> and unitless <0>,
+   which breaks the animation. Using 0.001px preserves units across minifiers. */
 @keyframes gis-movement-line-flow {
-  from {
+  0% {
     stroke-dashoffset: 40px;
   }
-  to {
-    stroke-dashoffset: 0px;
+  100% {
+    stroke-dashoffset: 0.001px;
   }
 }
 
-.leaflet-overlay-pane .movement-polyline-flow {
-  animation: gis-movement-line-flow 1.4s linear infinite;
+@-webkit-keyframes gis-movement-line-flow {
+  0% {
+    stroke-dashoffset: 40px;
+  }
+  100% {
+    stroke-dashoffset: 0.001px;
+  }
 }
 
-.leaflet-overlay-pane .movement-polyline-flow-selected {
-  animation: gis-movement-line-flow 0.75s linear infinite;
+path.movement-polyline-flow,
+.leaflet-overlay-pane path.movement-polyline-flow,
+.movement-polyline-flow {
+  -webkit-animation: gis-movement-line-flow 1.4s linear infinite !important;
+  animation: gis-movement-line-flow 1.4s linear infinite !important;
+}
+
+path.movement-polyline-flow-selected,
+.leaflet-overlay-pane path.movement-polyline-flow-selected,
+.movement-polyline-flow-selected {
+  -webkit-animation: gis-movement-line-flow 0.75s linear infinite !important;
+  animation: gis-movement-line-flow 0.75s linear infinite !important;
   filter: drop-shadow(0 0 6px #facc15);
 }
 

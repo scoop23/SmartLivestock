@@ -62,6 +62,7 @@ export interface BarangayGISData {
   disease_cases: number;      // Historical/total disease cases count
   active_cases: number;       // Approved reports in the last 90 days; legacy field name
   fmd_active_cases?: number;  // CBAT/SIBAT field-assessed suspected FMD, after MAO approval
+  suspected_cases?: number;   // Unvalidated/suspected field submissions pending verification
   affected_heads: number;     // Animals affected by disease
   disease_risk: 'low' | 'medium' | 'high'; // Derived from recent approved reports (Red=Outbreak, Orange=Monitoring Radius, Green=Safe)
   disease_zone?: 'outbreak' | 'monitoring_radius' | 'safe';

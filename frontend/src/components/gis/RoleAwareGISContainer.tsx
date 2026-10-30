@@ -776,7 +776,7 @@ export function RoleAwareGISContainer({
                   Interactive Great-Circle Geodesic Distance simulation for Padre Garcia, Batangas. Simulates 3.5 km buffer zones and single confirmed case outbreak declarations.
                 </DialogDescription>
               </DialogHeader>
-              <PadreGarciaForecaster />
+              <PadreGarciaForecaster initialGisData={gisData} />
             </DialogContent>
           </Dialog>
         )}
