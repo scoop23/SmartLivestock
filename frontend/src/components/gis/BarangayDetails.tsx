@@ -90,6 +90,13 @@ export function BarangayDetails({
   const isFarmer = userRole === 'FARMER' || userScope?.role === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
   const isCbat = userRole === 'CBAT' || userScope?.role === 'CBAT';
   const showMovement = !isFarmer && !isCbat && Boolean(userScope?.allowed_layers?.includes('movement'));
+  const showMilk = !isCbat && (!userScope || userScope.allowed_layers.includes('milk'));
+  const showFarmerMeat = !isCbat && (!userScope || userScope.allowed_layers.includes('farmer_meat'));
+  const showSlaughterYield =
+    !isCbat &&
+    (!userScope ||
+      userScope.allowed_layers.includes('slaughter_yield') ||
+      userScope.allowed_layers.includes('meat'));
 
   const [isFarmersDialogOpen, setIsFarmersDialogOpen] = React.useState(false);
   const [isHerdsDialogOpen, setIsHerdsDialogOpen] = React.useState(false);
@@ -457,65 +464,75 @@ export function BarangayDetails({
         )}
 
         {/* Production Metrics */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-3">
-          <div className="space-y-1.5">
-            <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
-              <Milk className="size-3.5 text-sky-600" />
-              On-Farm Production
-            </span>
-            <div className="space-y-1.5 text-xs">
-              <div className="flex items-center justify-between p-2 bg-sky-50/70 border border-sky-100 rounded-lg">
-                <span className="font-semibold text-sky-900 flex items-center gap-1.5">
-                  🥛 Recorded Milk (farmer-reported)
+        {(showMilk || showFarmerMeat || showSlaughterYield) && (
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-3">
+            {(showMilk || showFarmerMeat) && (
+              <div className="space-y-1.5">
+                <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                  <Milk className="size-3.5 text-sky-600" />
+                  On-Farm Production
                 </span>
-                <span className="font-bold font-mono text-sky-900">
-                  {data.milk > 0 ? `${data.milk.toLocaleString()} L` : '0 L (No records)'}
-                </span>
-              </div>
+                <div className="space-y-1.5 text-xs">
+                  {showMilk && (
+                    <div className="flex items-center justify-between p-2 bg-sky-50/70 border border-sky-100 rounded-lg">
+                      <span className="font-semibold text-sky-900 flex items-center gap-1.5">
+                        🥛 Recorded Milk (farmer-reported)
+                      </span>
+                      <span className="font-bold font-mono text-sky-900">
+                        {data.milk > 0 ? `${data.milk.toLocaleString()} L` : '0 L (No records)'}
+                      </span>
+                    </div>
+                  )}
 
-              <div className="flex items-center justify-between p-2 bg-amber-50/70 border border-amber-100 rounded-lg">
-                <span className="font-semibold text-amber-950 flex items-center gap-1.5">
-                  🥩 Recorded Meat Yield (farmer-reported)
-                </span>
-                <span className="font-bold font-mono text-amber-950">
-                  {(data.farmer_meat ?? 0) > 0
-                    ? `${(data.farmer_meat ?? 0).toLocaleString()} kg`
-                    : '0 kg (No records)'}
-                </span>
+                  {showFarmerMeat && (
+                    <div className="flex items-center justify-between p-2 bg-amber-50/70 border border-amber-100 rounded-lg">
+                      <span className="font-semibold text-amber-950 flex items-center gap-1.5">
+                        🥩 Recorded Meat Yield (farmer-reported)
+                      </span>
+                      <span className="font-bold font-mono text-amber-950">
+                        {(data.farmer_meat ?? 0) > 0
+                          ? `${(data.farmer_meat ?? 0).toLocaleString()} kg`
+                          : '0 kg (No records)'}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
+
+            {showSlaughterYield && (
+              <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                  <Beef className="size-3.5 text-rose-700" />
+                  Slaughterhouse Operations
+                </span>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between p-2 bg-rose-50/70 border border-rose-100 rounded-lg">
+                    <span className="font-semibold text-rose-900 flex items-center gap-1.5">
+                      🔪 Carcass Yield
+                    </span>
+                    <span className="font-bold font-mono text-rose-900">
+                      {(data.slaughter_yield ?? data.meat ?? 0) > 0
+                        ? `${(data.slaughter_yield ?? data.meat ?? 0).toLocaleString()} kg`
+                        : 'No slaughter data available'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 bg-rose-50/40 border border-rose-100/60 rounded-lg">
+                    <span className="font-semibold text-rose-800 flex items-center gap-1.5">
+                      🐂 Slaughtered Cattle
+                    </span>
+                    <span className="font-bold font-mono text-rose-800">
+                      {(data.slaughter_heads ?? 0) > 0
+                        ? `${(data.slaughter_heads ?? 0).toLocaleString()} heads`
+                        : '0 heads'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-
-          <div className="pt-2 border-t border-slate-100 space-y-1.5">
-            <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
-              <Beef className="size-3.5 text-rose-700" />
-              Slaughterhouse Operations
-            </span>
-            <div className="space-y-1.5 text-xs">
-              <div className="flex items-center justify-between p-2 bg-rose-50/70 border border-rose-100 rounded-lg">
-                <span className="font-semibold text-rose-900 flex items-center gap-1.5">
-                  🔪 Carcass Yield
-                </span>
-                <span className="font-bold font-mono text-rose-900">
-                  {(data.slaughter_yield ?? data.meat ?? 0) > 0
-                    ? `${(data.slaughter_yield ?? data.meat ?? 0).toLocaleString()} kg`
-                    : 'No slaughter data available'}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between p-2 bg-rose-50/40 border border-rose-100/60 rounded-lg">
-                <span className="font-semibold text-rose-800 flex items-center gap-1.5">
-                  🐂 Slaughtered Cattle
-                </span>
-                <span className="font-bold font-mono text-rose-800">
-                  {(data.slaughter_heads ?? 0) > 0
-                    ? `${(data.slaughter_heads ?? 0).toLocaleString()} heads`
-                    : '0 heads'}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Mortality Records */}
         <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">

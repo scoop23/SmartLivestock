@@ -287,9 +287,9 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "allowed_barangays": allowed_b,
             "adjacent_barangays": [],
             "can_view_all_barangays": can_view_all,
-            # CBAT keeps field inventory, reported disease, and production layers.
-            # SIBAT additionally retains mortality and movement layers.
-            "allowed_layers": ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "meat"]
+            # CBAT field review focuses strictly on field inventory and disease surveillance.
+            # Production (milk/meat), slaughter, and movement layers are excluded for CBAT.
+            "allowed_layers": ["cattle", "disease"]
             if str(u_role).upper() == "CBAT" else
             ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "mortality", "movement", "meat"],
             "allowed_modes": ["2D"],
@@ -927,10 +927,10 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
 
     total_livestock = sum(b["total_livestock"] for b in scoped_b)
     total_cattle = sum(b["cattle"] for b in scoped_b)
-    total_milk = sum(b["milk"] for b in scoped_b)
-    total_farmer_meat = sum(b["farmer_meat"] for b in scoped_b)
-    total_slaughter_yield = sum(b["slaughter_yield"] for b in scoped_b)
-    total_slaughter_heads = sum(b["slaughter_heads"] for b in scoped_b)
+    total_milk = sum(b["milk"] for b in scoped_b) if "milk" in allowed_layers else 0
+    total_farmer_meat = sum(b["farmer_meat"] for b in scoped_b) if "farmer_meat" in allowed_layers else 0
+    total_slaughter_yield = sum(b["slaughter_yield"] for b in scoped_b) if ("slaughter_yield" in allowed_layers or "meat" in allowed_layers) else 0
+    total_slaughter_heads = sum(b["slaughter_heads"] for b in scoped_b) if ("slaughter_yield" in allowed_layers or "meat" in allowed_layers) else 0
     total_meat = total_slaughter_yield  # Legacy alias for slaughterhouse yield
     total_disease = sum(b["disease_cases"] for b in scoped_b)
     total_active_disease = sum(b["active_cases"] for b in scoped_b)
@@ -938,7 +938,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     total_farmers = sum(b["farmers_count"] for b in scoped_b)
 
     top_cattle = sorted(scoped_b, key=lambda x: x["cattle"], reverse=True)[:5]
-    top_milk = sorted(scoped_b, key=lambda x: x["milk"], reverse=True)[:5]
+    top_milk = sorted(scoped_b, key=lambda x: x["milk"], reverse=True)[:5] if "milk" in allowed_layers else []
     top_farmer_meat = sorted(scoped_b, key=lambda x: x["farmer_meat"], reverse=True)[:5] if "farmer_meat" in allowed_layers else []
     top_slaughter_yield = sorted(scoped_b, key=lambda x: x["slaughter_yield"], reverse=True)[:5] if ("slaughter_yield" in allowed_layers or "meat" in allowed_layers) else []
     alert_barangays = [b for b in scoped_b if b["active_cases"] > 0 or b["disease_cases"] > 0]

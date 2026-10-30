@@ -107,11 +107,13 @@ export function MunicipalOverview({
   const isSlaughter = userScope?.role === 'SLAUGHTERHOUSESTAFF';
   const isSibat = userScope?.role === 'SIBAT' || isCbat;
 
-  const showFarmerMeat = !userScope || userScope.allowed_layers.includes('farmer_meat');
+  const showMilk = !isCbat && (!userScope || userScope.allowed_layers.includes('milk'));
+  const showFarmerMeat = !isCbat && (!userScope || userScope.allowed_layers.includes('farmer_meat'));
   const showSlaughterYield =
-    !userScope ||
-    userScope.allowed_layers.includes('slaughter_yield') ||
-    userScope.allowed_layers.includes('meat');
+    !isCbat &&
+    (!userScope ||
+      userScope.allowed_layers.includes('slaughter_yield') ||
+      userScope.allowed_layers.includes('meat'));
   const showMovement = !isFarmer && !isCbat && Boolean(userScope?.allowed_layers?.includes('movement'));
 
   const overviewTitle =
@@ -248,14 +250,16 @@ export function MunicipalOverview({
             </div>
           </div>
 
-          <div className="bg-sky-50/90 border border-sky-200/80 rounded-xl p-2.5">
-            <div className="text-xl font-black text-sky-950 font-mono">
-              {(summary.total_milk / 1000).toFixed(1)}k L
+          {showMilk && (
+            <div className="bg-sky-50/90 border border-sky-200/80 rounded-xl p-2.5">
+              <div className="text-xl font-black text-sky-950 font-mono">
+                {(summary.total_milk / 1000).toFixed(1)}k L
+              </div>
+              <div className="text-[10px] font-bold text-sky-800 uppercase tracking-wider">
+                🥛 Dairy Yield
+              </div>
             </div>
-            <div className="text-[10px] font-bold text-sky-800 uppercase tracking-wider">
-              🥛 Dairy Yield
-            </div>
-          </div>
+          )}
 
           <div
             className={`rounded-xl p-2.5 border ${
@@ -493,48 +497,50 @@ export function MunicipalOverview({
         </div>
 
         {/* Top 5 Barangays by Dairy Milk */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
-              <Milk className="size-3.5 text-sky-600" />
-              Top Barangays by Dairy Yield
-            </span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase">Liters</span>
-          </div>
+        {showMilk && (
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-xs text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                <Milk className="size-3.5 text-sky-600" />
+                Top Barangays by Dairy Yield
+              </span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase">Liters</span>
+            </div>
 
-          <div className="space-y-2 pt-1">
-            {summary.top_milk.filter(b => b.milk > 0).length > 0 ? (
-              summary.top_milk.filter(b => b.milk > 0).map((b, i) => (
-                <button
-                  key={b.name}
-                  type="button"
-                  onClick={() => handleBarangayClick(b.name)}
-                  className="w-full text-left group cursor-pointer"
-                >
-                  <div className="flex justify-between items-center text-xs mb-1">
-                    <span className="font-semibold text-slate-700 group-hover:text-sky-800 transition-colors flex items-center gap-1.5">
-                      <span className="size-4 rounded-full bg-sky-100 text-sky-800 text-[10px] font-black flex items-center justify-center">
-                        {i + 1}
+            <div className="space-y-2 pt-1">
+              {summary.top_milk.filter(b => b.milk > 0).length > 0 ? (
+                summary.top_milk.filter(b => b.milk > 0).map((b, i) => (
+                  <button
+                    key={b.name}
+                    type="button"
+                    onClick={() => handleBarangayClick(b.name)}
+                    className="w-full text-left group cursor-pointer"
+                  >
+                    <div className="flex justify-between items-center text-xs mb-1">
+                      <span className="font-semibold text-slate-700 group-hover:text-sky-800 transition-colors flex items-center gap-1.5">
+                        <span className="size-4 rounded-full bg-sky-100 text-sky-800 text-[10px] font-black flex items-center justify-center">
+                          {i + 1}
+                        </span>
+                        {b.name}
                       </span>
-                      {b.name}
-                    </span>
-                    <span className="font-bold font-mono text-sky-950">
-                      {b.milk.toLocaleString()} L
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className="bg-sky-600 h-full rounded-full transition-all"
-                      style={{ width: `${Math.max(5, (b.milk / maxMilk) * 100)}%` }}
-                    />
-                  </div>
-                </button>
-              ))
-            ) : (
-              <p className="text-xs text-slate-400 italic">No milk production recorded yet</p>
-            )}
+                      <span className="font-bold font-mono text-sky-950">
+                        {b.milk.toLocaleString()} L
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-sky-600 h-full rounded-full transition-all"
+                        style={{ width: `${Math.max(5, (b.milk / maxMilk) * 100)}%` }}
+                      />
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <p className="text-xs text-slate-400 italic">No milk production recorded yet</p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Top 5 Barangays by Farmer Meat */}
         {showFarmerMeat && summary.top_farmer_meat && summary.top_farmer_meat.filter((b) => b.farmer_meat > 0).length > 0 && (

@@ -125,14 +125,16 @@ export function RoleAwareGISContainer({
     const raw = gisData?.user_scope?.allowed_layers;
     if (!raw) {
       return isCbat
-        ? (['cattle', 'disease', 'milk', 'farmer_meat', 'slaughter_yield', 'meat'] as MapLayer[])
+        ? (['cattle', 'disease'] as MapLayer[])
         : undefined;
     }
-    return isCbat ? raw.filter((l) => l !== 'movement') : raw;
+    return isCbat
+      ? raw.filter((l) => !['movement', 'milk', 'farmer_meat', 'slaughter_yield', 'meat'].includes(l))
+      : raw;
   }, [gisData?.user_scope?.allowed_layers, isCbat]);
 
   const activeLayer = useMemo(() => {
-    if (isCbat && requestedLayer === 'movement') {
+    if (isCbat && ['movement', 'milk', 'farmer_meat', 'slaughter_yield', 'meat'].includes(requestedLayer)) {
       return 'cattle';
     }
     if (allowedLayers?.length && !allowedLayers.includes(requestedLayer)) {
@@ -357,13 +359,9 @@ export function RoleAwareGISContainer({
   }, [periodMovements, gisData?.movements, showMovementTimeline, uniqueMovementDates, movementDateIndex, movementTimelineMode]);
 
   // Clear selected movement permit if it leaves the visible timeline date window
-  useEffect(() => {
-    if (!selectedMovement) return;
-    const isStillVisible = activeDisplayMovements.some((m) => m.id === selectedMovement.id);
-    if (!isStillVisible) {
-      setSelectedMovement(null);
-    }
-  }, [activeDisplayMovements, selectedMovement]);
+  if (selectedMovement && !activeDisplayMovements.some((m) => m.id === selectedMovement.id)) {
+    setSelectedMovement(null);
+  }
 
   const handleMovementYearChange = useCallback((year: string) => {
     setSelectedMovementYear(year);

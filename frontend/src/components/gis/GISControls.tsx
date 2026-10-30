@@ -168,20 +168,22 @@ export function GISControls({
 
   const { user } = useAuth();
   const userRole = (user?.role || userScope?.role || '').toUpperCase();
-  const isCbat = userRole === 'CBAT';
+  const isCbat = userRole === 'CBAT' || (userScope?.role || '').toUpperCase() === 'CBAT';
   const isFarmerRole = userRole === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
 
   const allLayerOptions: { id: MapLayer; label: string; icon: string }[] = useMemo(() => {
     const list: { id: MapLayer; label: string; icon: string }[] = [
       { id: 'cattle', label: livestockLabel, icon: '🐄' },
       { id: 'disease', label: 'Disease', icon: '🩺' },
-      { id: 'milk', label: 'Recorded Milk (Farmer-reported)', icon: '🥛' },
-      { id: 'farmer_meat', label: 'Recorded Meat Yield (Farmer-reported)', icon: '🥩' },
-      { id: 'slaughter_yield', label: 'Slaughter Yield', icon: '🔪' },
-      { id: 'mortality', label: 'Mortality', icon: '☠️' },
     ];
     if (!isCbat) {
-      list.push({ id: 'movement', label: 'Movement', icon: '🚛' });
+      list.push(
+        { id: 'milk', label: 'Recorded Milk (Farmer-reported)', icon: '🥛' },
+        { id: 'farmer_meat', label: 'Recorded Meat Yield (Farmer-reported)', icon: '🥩' },
+        { id: 'slaughter_yield', label: 'Slaughter Yield', icon: '🔪' },
+        { id: 'mortality', label: 'Mortality', icon: '☠️' },
+        { id: 'movement', label: 'Movement', icon: '🚛' },
+      );
     }
     return list;
   }, [livestockLabel, isCbat]);
@@ -195,9 +197,9 @@ export function GISControls({
       (opt) =>
         (userScope.allowed_layers.includes(opt.id) ||
           (opt.id === 'slaughter_yield' && userScope.allowed_layers.includes('meat' as MapLayer))) &&
-        (!isCbat || opt.id !== 'movement')
+        (!isCbat || !['movement', 'milk', 'farmer_meat', 'slaughter_yield', 'meat'].includes(opt.id))
     );
-  }, [allLayerOptions, userScope?.allowed_layers, isCbat]);
+  }, [allLayerOptions, userScope, isCbat]);
 
   const activeOption = layerOptions.find((opt) => opt.id === currentLayer) || layerOptions[0] || allLayerOptions[0];
   const canUse3D = !userScope || userScope.allowed_modes?.includes('3D');
