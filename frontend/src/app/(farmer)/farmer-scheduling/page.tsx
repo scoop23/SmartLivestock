@@ -48,9 +48,15 @@ CalendarDays,
 CalendarPlus,
 Check,
 CheckCircle2,
+ChevronLeft,
+ChevronRight,
+ClipboardList,
 Clock,
 Clock3,
 CloudRain,
+FileText,
+GraduationCap,
+HeartPulse,
 Info,
 Loader2,
 MapPin,
@@ -58,6 +64,9 @@ Pencil,
 Phone,
 RefreshCw,
 Sparkles,
+Syringe,
+Target,
+Users,
 X,
 } from "lucide-react";
 import Image from "next/image";
@@ -78,12 +87,57 @@ function programImageUrl(path: string): string {
   return `${getActiveApiUrl().replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+function formatShortDate(value: string | Date): string {
+  const d = typeof value === "string" ? localDateFromIso(value) : value;
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function getProgramFallbackImage(category?: string | null, title?: string | null): string {
+  const text = `${category || ""} ${title || ""}`.toUpperCase();
+  if (text.includes("SWINE") || text.includes("PIG") || text.includes("BABOY")) return "/images/species-swine.jpg";
+  if (text.includes("GOAT") || text.includes("KAMBING")) return "/images/species-goat.jpg";
+  if (text.includes("CARABAO") || text.includes("KALABAW")) return "/images/species-carabao.jpg";
+  return "/images/species-cattle.jpg";
+}
+
+function parseBulletPoints(text?: string | null, defaults: string[] = []): string[] {
+  if (!text || !text.trim()) return defaults;
+  const items = text
+    .split(/[\n•\r]+/)
+    .map((s) => s.trim().replace(/^[-*•]\s*/, ""))
+    .filter((s) => s.length > 0);
+  return items.length > 0 ? items : defaults;
+}
+
+function getProgramIcon(category: string) {
+  const cat = category?.toUpperCase() || "";
+  if (cat.includes("VACCIN") || cat.includes("INJECT")) {
+    return <Syringe className="size-5 text-emerald-800" />;
+  }
+  if (cat.includes("DEWORM") || cat.includes("MEDIC")) {
+    return <Sparkles className="size-5 text-emerald-800" />;
+  }
+  if (cat.includes("SEMINAR") || cat.includes("TRAIN")) {
+    return <GraduationCap className="size-5 text-emerald-800" />;
+  }
+  if (cat.includes("CENSUS") || cat.includes("SURVEY")) {
+    return <ClipboardList className="size-5 text-emerald-800" />;
+  }
+  return <HeartPulse className="size-5 text-emerald-800" />;
+}
+
 function FarmerSchedulingContent() {
   const searchParams = useSearchParams();
   const urlScheduleParam = searchParams.get("scheduleId") || searchParams.get("schedule");
   const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
   const [bookings, setBookings] = useState<ProgramBooking[]>([]);
   const [scheduleId, setScheduleId] = useState("");
+  const [detailsSchedule, setDetailsSchedule] = useState<ProgramSchedule | null>(null);
   const [calendarDate, setCalendarDate] = useState<Date | null>(null);
   const [time, setTime] = useState("");
   const [loading, setLoading] = useState(true);
@@ -137,6 +191,7 @@ function FarmerSchedulingContent() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCalendarDate(localDateFromIso(target.date));
       setScheduleId(String(target.id));
+      setDetailsSchedule(target);
       const frame = window.requestAnimationFrame(() => {
         const el = document.getElementById(`program-card-${target.id}`) || document.getElementById("program-details-section");
         el?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -223,6 +278,7 @@ function FarmerSchedulingContent() {
       setHighlightedBookingId(booking.id);
       setScheduleId("");
       setTime("");
+      setDetailsSchedule(null);
       window.history.replaceState({}, "", window.location.pathname);
       await refresh();
     } catch (e) {
@@ -612,11 +668,11 @@ function FarmerSchedulingContent() {
                   <div className="min-w-0 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500">
-                        2. Choose Field Program
+                        {calendarDate ? `Programs on ${formatShortDate(calendarDate)}` : "2. Choose Field Program"}
                       </h3>
                       {calendarDate ? (
                         <span className="text-xs sm:text-sm font-semibold text-slate-600">
-                          {formatLongDate(isoFromLocalDate(calendarDate))}
+                          {programsOnDate.length} {programsOnDate.length === 1 ? "program" : "programs"}
                         </span>
                       ) : null}
                     </div>
@@ -626,7 +682,7 @@ function FarmerSchedulingContent() {
                         <CalendarDays className="mx-auto size-8 text-emerald-600" />
                         <h4 className="mt-2 text-sm sm:text-base font-bold text-slate-800">Choose a date first</h4>
                         <p className="mt-1 text-xs sm:text-sm text-slate-600">
-                          Select a highlighted date on the calendar to see programs available for booking.
+                          Select a highlighted date on the calendar to see programs available in Padre Garcia.
                         </p>
                       </div>
                     ) : null}
@@ -649,44 +705,38 @@ function FarmerSchedulingContent() {
                         const alreadyBooked = confirmedScheduleIds.has(schedule.id);
                         const isFull = !isUnlimited && (schedule.registration_status === "FULL" || (schedule.capacity > 0 && schedule.remaining_slots === 0));
                         const isClosed = !schedule.is_open || schedule.registration_status === "CLOSED" || schedule.registration_status === "NOT_OPEN" || schedule.registration_status === "CANCELLED" || schedule.registration_status === "COMPLETED";
-                        const isSelected = selected?.id === schedule.id;
+                        const scheduleTimes = schedule.available_times?.length ? schedule.available_times : PROGRAM_TIME_SLOTS;
+
                         const programPhotos = [
                           ...(schedule.cover_image ? [programImageUrl(schedule.cover_image)] : []),
                           ...(schedule.photos ?? []).map((photo) => programImageUrl(photo.image)),
                         ];
-
-                        const bookedPercent = schedule.capacity
-                          ? Math.min(100, Math.round((schedule.booking_count / schedule.capacity) * 100))
-                          : 0;
+                        const cardPhoto = programPhotos.length > 0
+                          ? programPhotos[0]
+                          : getProgramFallbackImage(schedule.category, schedule.program);
+                        const displayPhotos = programPhotos.length > 0 ? programPhotos : [cardPhoto];
 
                         return (
                           <div
                             key={schedule.id}
                             id={`program-card-${schedule.id}`}
                             onClick={() => {
-                              if (isClosed) return;
-                              if (!isUnlimited && (isFull || alreadyBooked)) return;
                               setScheduleId(String(schedule.id));
+                              setDetailsSchedule(schedule);
                               setTime("");
                             }}
-                            className={`group relative flex flex-col justify-between rounded-2xl border p-4.5 transition-all duration-200 ${
-                              isClosed || (!isUnlimited && (isFull || alreadyBooked))
-                                ? "cursor-not-allowed border-slate-200 bg-slate-50/60 opacity-80"
-                                : isSelected
-                                  ? "cursor-pointer border-emerald-600 bg-emerald-50/30 ring-2 ring-emerald-600 shadow-sm"
-                                  : isUnlimited
-                                    ? "cursor-pointer border-emerald-200/90 bg-gradient-to-b from-emerald-50/20 to-white hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-xs"
-                                    : "cursor-pointer border-slate-200 bg-white hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-xs"
-                            }`}
+                            className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-4.5 sm:p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-xs cursor-pointer space-y-4"
                           >
-                            <div className="-mx-4.5 -mt-4.5 mb-3 overflow-hidden rounded-t-2xl bg-gradient-to-br from-emerald-50 to-slate-100">
-                              <div className="h-40 w-full sm:h-48">
+                            {/* Card Photo with proper padding */}
+                            <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100 shadow-2xs">
+                              <div className="h-44 w-full sm:h-52">
                                 <ActivityPhotoCarousel
-                                  photos={programPhotos}
+                                  photos={displayPhotos}
                                   alt={`${schedule.program} activity`}
+                                  fit="contain"
                                   onImageClick={(initialIndex) =>
                                     setPhotoViewer({
-                                      photos: programPhotos,
+                                      photos: displayPhotos,
                                       alt: `${schedule.program} activity`,
                                       initialIndex,
                                     })
@@ -694,443 +744,94 @@ function FarmerSchedulingContent() {
                                 />
                               </div>
                             </div>
+
                             <div className="space-y-3">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0"><h4 className="line-clamp-2 text-base font-black text-slate-900 tracking-tight transition-colors group-hover:text-emerald-800">{schedule.program}</h4><Badge variant="outline" className="mt-1 text-[10px]">{schedule.category.replaceAll("_", " ")}</Badge></div>
-                                <Badge
-                                  variant="outline"
-                                  className={`shrink-0 text-xs font-bold uppercase tracking-wider ${
-                                    isClosed
-                                      ? "border-slate-200 bg-slate-100 text-slate-600"
+                              {/* Top Row: Category Icon & Badges */}
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800 shrink-0 border border-emerald-100/60">
+                                  {getProgramIcon(schedule.category)}
+                                </div>
+                                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                  <Badge
+                                    variant="outline"
+                                    className="border-emerald-200 bg-emerald-50/80 text-emerald-900 font-bold text-xs capitalize"
+                                  >
+                                    {schedule.category.toLowerCase().replace(/_/g, " ")}
+                                  </Badge>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs font-bold uppercase tracking-wider ${
+                                      isClosed
+                                        ? "border-slate-200 bg-slate-100 text-slate-600"
+                                        : isUnlimited
+                                          ? "border-emerald-300 bg-emerald-100 text-emerald-950 font-black"
+                                          : isFull
+                                            ? "border-amber-200 bg-amber-50 text-amber-900"
+                                            : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                                    }`}
+                                  >
+                                    {isClosed
+                                      ? (schedule.registration_status === "NOT_OPEN" ? "OPENS SOON" : "CLOSED")
                                       : isUnlimited
-                                        ? "border-emerald-300 bg-emerald-100 text-emerald-950 font-black shadow-2xs"
-                                        : isFull
-                                          ? "border-amber-200 bg-amber-50 text-amber-900"
-                                          : "border-emerald-200 bg-emerald-50 text-emerald-800"
-                                  }`}
-                                >
-                                  {isClosed
-                                    ? (schedule.registration_status === "NOT_OPEN" ? "OPENS SOON" : "CLOSED")
-                                    : isUnlimited
-                                      ? "OPEN ADMISSION · WALK-IN"
-                                      : alreadyBooked
-                                        ? "BOOKED"
-                                        : isFull
-                                          ? "FULL"
-                                          : "OPEN FOR REGISTRATION"}
-                                </Badge>
+                                        ? "OPEN WALK-IN"
+                                        : alreadyBooked
+                                          ? "BOOKED"
+                                          : isFull
+                                            ? "FULL"
+                                            : "OPEN FOR REGISTRATION"}
+                                  </Badge>
+                                </div>
                               </div>
 
-                              {/* Details: Venue & Time Window */}
+                              {/* Title */}
+                              <h4 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-snug transition-colors group-hover:text-emerald-800">
+                                {schedule.program}
+                              </h4>
+
+                              {/* Key Schedule Information */}
                               <div className="space-y-1.5 text-xs sm:text-sm text-slate-600 font-medium">
                                 <div className="flex items-center gap-2">
-                                  <CalendarDays className="size-3.5 shrink-0 text-emerald-700" />
-                                  <span className="font-semibold text-slate-800">{formatLongDate(schedule.date)}</span>
+                                  <CalendarDays className="size-4 shrink-0 text-emerald-700" />
+                                  <span className="font-semibold text-slate-800">{formatShortDate(schedule.date)}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <Clock3 className="size-3.5 shrink-0 text-slate-400" />
+                                  <Clock3 className="size-4 shrink-0 text-slate-400" />
                                   <span>
-                                    {formatTime(selectedAvailableTimes[0])} –{" "}
-                                    {formatTime(selectedAvailableTimes[selectedAvailableTimes.length - 1])}
+                                    {formatTime(scheduleTimes[0])} – {formatTime(scheduleTimes[scheduleTimes.length - 1])}
                                   </span>
                                 </div>
                                 {schedule.location ? (
                                   <div className="flex items-center gap-2">
-                                    <MapPin className="size-3.5 shrink-0 text-rose-500" />
+                                    <MapPin className="size-4 shrink-0 text-rose-500" />
                                     <span className="truncate">{schedule.location}</span>
                                   </div>
                                 ) : null}
-                                {schedule.barangay_name ? <div className="text-xs font-semibold text-slate-500">For {schedule.barangay_name} farmers</div> : <div className="text-xs font-semibold text-slate-500">Municipality-wide program</div>}
-                                {schedule.registration_deadline ? <div className="text-xs font-semibold text-amber-800">Register by {formatLongDate(schedule.registration_deadline)}</div> : null}
-                                {schedule.registration_opens && schedule.registration_status === "NOT_OPEN" ? <div className="text-xs font-semibold text-sky-800">Registration opens {formatLongDate(schedule.registration_opens)}</div> : null}
-                                {schedule.description ? <p className="line-clamp-3 leading-relaxed text-slate-700">{schedule.description}</p> : null}
-                                {schedule.objectives ? <p className="line-clamp-2 text-xs text-slate-600"><strong>Objectives:</strong> {schedule.objectives}</p> : null}
-                                {schedule.eligibility ? <p className="line-clamp-2 text-xs text-slate-600"><strong>Who can join:</strong> {schedule.eligibility}</p> : null}
-                                {schedule.contact_information ? <p className="text-xs text-slate-600"><strong>Contact:</strong> {schedule.contact_information}</p> : null}
-                                {schedule.farmer_notes ? (
-                                  <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
-                                    <Info className="mt-0.5 size-4 shrink-0 text-amber-700" />
-                                    <div><p className="font-bold">Reminder</p><p className="mt-0.5 whitespace-pre-wrap font-normal">{schedule.farmer_notes}</p></div>
-                                  </div>
-                                ) : null}
+                                <div className="text-xs font-semibold text-slate-500 pt-0.5">
+                                  {schedule.barangay_name ? `For ${schedule.barangay_name} farmers` : "Municipality-wide program"}
+                                </div>
                               </div>
-
-                              {/* Capacity Bar */}
-                              {isUnlimited ? (
-                                <div className="flex items-center gap-2 rounded-xl bg-emerald-50/90 border border-emerald-200 p-2.5 text-xs text-emerald-950 font-medium">
-                                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-                                  <span><strong>No slot limit:</strong> Open walk-in attendance. No reservation needed.</span>
-                                </div>
-                              ) : (
-                                <div className="space-y-1.5 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
-                                  <div className="flex items-center justify-between text-xs sm:text-sm">
-                                    <span className="font-medium text-slate-700">
-                                      Capacity: <strong className="font-bold text-slate-900">{schedule.booking_count}</strong>/{schedule.capacity}
-                                    </span>
-                                    <span className="font-bold text-emerald-800">
-                                      {isFull ? (
-                                        <span className="text-amber-800">0 left</span>
-                                      ) : (
-                                        `${schedule.remaining_slots} left`
-                                      )}
-                                    </span>
-                                  </div>
-                                  {schedule.capacity > 0 ? (
-                                    <Progress
-                                      value={bookedPercent}
-                                      className="h-1.5 rounded-full bg-slate-200 [&>div]:bg-emerald-600"
-                                    />
-                                  ) : null}
-                                </div>
-                              )}
                             </div>
 
-                            {/* Select / Active Button State */}
-                            <div className="mt-4 pt-3 border-t border-slate-100">
+                            {/* View Details Button */}
+                            <div className="pt-2">
                               <Button
                                 type="button"
-                                size="sm"
-                                disabled={isClosed || (!isUnlimited && (isFull || alreadyBooked))}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setScheduleId(String(schedule.id));
+                                  setDetailsSchedule(schedule);
                                   setTime("");
                                 }}
-                                className={`w-full h-9 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-                                  isSelected
-                                    ? "bg-emerald-800 text-white shadow-xs"
-                                    : isUnlimited
-                                      ? "border border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
-                                      : alreadyBooked
-                                        ? "bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed"
-                                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                                }`}
+                                className="w-full h-10 rounded-xl bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"
                               >
-                                {isClosed ? (
-                                  <span>{schedule.registration_status === "NOT_OPEN" ? "Opens soon" : "Registration closed"}</span>
-                                ) : isUnlimited ? (
-                                  isSelected ? (
-                                    <span className="inline-flex items-center gap-1.5">
-                                      <Check className="size-4" /> Viewing Activity Details
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1.5">
-                                      <Sparkles className="size-3.5 text-emerald-700" /> View Activity Details (Walk-in)
-                                    </span>
-                                  )
-                                ) : alreadyBooked ? (
-                                  <span>Already booked</span>
-                                ) : isFull ? (
-                                  <span>Fully booked</span>
-                                ) : isSelected ? (
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <Check className="size-4" /> Selected
-                                  </span>
-                                ) : (
-                                  <span>Select this program</span>
-                                )}
+                                <span>View Details</span>
+                                <ChevronRight className="size-4" />
                               </Button>
                             </div>
                           </div>
                         );
                       })}
                     </div>
-
-                    {/* Step 3: Time Slot Selection & Confirmation Drawer OR Open Walk-in Activity Details */}
-                    {selected ? (
-                      selected.capacity === 0 ? (
-                        <div
-                          id="program-details-section"
-                          className="mt-6 rounded-3xl border-2 border-emerald-500/50 bg-gradient-to-br from-emerald-50 via-teal-50/20 to-white p-5 sm:p-7 shadow-sm space-y-6 animate-in fade-in-50 duration-200"
-                        >
-                          {/* Top Banner */}
-                          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-emerald-200/80 pb-5">
-                            <div className="flex items-start gap-3.5">
-                              {selected.cover_image ? (
-                                <div className="size-16 sm:size-20 rounded-2xl overflow-hidden border border-emerald-300 shrink-0 relative shadow-xs bg-slate-100">
-                                  <Image
-                                    src={programImageUrl(selected.cover_image)}
-                                    alt={selected.program}
-                                    fill
-                                    unoptimized
-                                    className="object-cover"
-                                  />
-                                </div>
-                              ) : null}
-                              <div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <Badge className="bg-emerald-800 text-white font-black text-xs px-2.5 py-0.5">
-                                    Open Municipal Program
-                                  </Badge>
-                                  <Badge variant="outline" className="border-emerald-300 bg-white text-emerald-900 font-bold text-xs">
-                                    No Booking Required
-                                  </Badge>
-                                </div>
-                                <h3 className="mt-1.5 text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
-                                  {selected.program}
-                                </h3>
-                                <p className="mt-1 text-xs sm:text-sm font-medium text-slate-600">
-                                  Activity scheduled on <strong className="text-slate-900">{formatLongDate(selected.date)}</strong>
-                                  {selected.location ? <> at <strong className="text-slate-900">{selected.location}</strong></> : ""}.
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="rounded-2xl border border-emerald-300 bg-emerald-100/90 px-4 py-2.5 text-left sm:text-right">
-                              <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-950">Capacity Status</p>
-                              <p className="text-sm sm:text-base font-black text-emerald-900">Open Walk-in · Unlimited</p>
-                            </div>
-                          </div>
-
-                          {/* Direct "No Booking Needed" Encouragement Callout */}
-                          <div className="rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50/80 p-4 sm:p-5 flex items-start gap-3.5 text-emerald-950 shadow-2xs">
-                            <div className="size-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                              <CheckCircle2 className="size-5 stroke-[2.5]" />
-                            </div>
-                            <div className="space-y-1">
-                              <h4 className="text-sm sm:text-base font-black text-emerald-950">
-                                No Booking Needed — Walk-in Welcome!
-                              </h4>
-                              <p className="text-xs sm:text-sm text-emerald-900 leading-relaxed font-medium">
-                                This activity is open to all registered livestock farmers with no participant or slot limits.
-                                You do <strong>not</strong> need to book an appointment slot online—simply arrive directly at the venue during operating hours.
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Program Activity & Report Details Grid */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Schedule & Hours */}
-                            <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs">
-                              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
-                                <Clock className="size-4 text-emerald-700" />
-                                <span>Activity Hours / Schedule</span>
-                              </div>
-                              <p className="text-sm font-bold text-slate-900">
-                                {selected.available_times?.length
-                                  ? `${formatTime(selected.available_times[0])} – ${formatTime(selected.available_times[selected.available_times.length - 1])}`
-                                  : "During official office hours (8:00 AM – 5:00 PM)"}
-                              </p>
-                              <div className="flex flex-wrap gap-1.5 pt-1">
-                                {(selected.available_times?.length ? selected.available_times : PROGRAM_TIME_SLOTS).map((timeSlot) => (
-                                  <span
-                                    key={timeSlot}
-                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold"
-                                  >
-                                    {formatTime(timeSlot)}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Location & Venue */}
-                            <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs">
-                              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
-                                <MapPin className="size-4 text-rose-600" />
-                                <span>Venue / Location</span>
-                              </div>
-                              <p className="text-sm font-bold text-slate-900 break-words">
-                                {selected.location || "Padre Garcia Municipal Agriculture Office (MAO)"}
-                              </p>
-                              <p className="text-xs text-slate-500 font-medium">
-                                {selected.barangay_name ? `Designated for farmers of Barangay ${selected.barangay_name}` : "Open municipality-wide across all barangays of Padre Garcia."}
-                              </p>
-                            </div>
-
-                            {/* Description */}
-                            {selected.description ? (
-                              <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs md:col-span-2">
-                                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
-                                  <Info className="size-4 text-sky-700" />
-                                  <span>Program Description & Report</span>
-                                </div>
-                                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal whitespace-pre-wrap">
-                                  {selected.description}
-                                </p>
-                              </div>
-                            ) : null}
-
-                            {/* Objectives */}
-                            {selected.objectives ? (
-                              <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs">
-                                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
-                                  <Sparkles className="size-4 text-amber-600" />
-                                  <span>Objectives & Services Provided</span>
-                                </div>
-                                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal whitespace-pre-wrap">
-                                  {selected.objectives}
-                                </p>
-                              </div>
-                            ) : null}
-
-                            {/* Eligibility & Contact */}
-                            <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs">
-                              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
-                                <Phone className="size-4 text-emerald-700" />
-                                <span>Eligibility & Inquiries</span>
-                              </div>
-                              {selected.eligibility ? (
-                                <p className="text-xs text-slate-600 leading-relaxed">
-                                  <strong className="text-slate-800">Who can attend:</strong> {selected.eligibility}
-                                </p>
-                              ) : (
-                                <p className="text-xs text-slate-600">
-                                  <strong className="text-slate-800">Eligibility:</strong> Open to all registered livestock farmers in Padre Garcia.
-                                </p>
-                              )}
-                              {selected.contact_information ? (
-                                <p className="text-xs text-slate-600 pt-1">
-                                  <strong className="text-slate-800">Inquiries:</strong> {selected.contact_information}
-                                </p>
-                              ) : (
-                                <p className="text-xs text-slate-600 pt-1">
-                                  <strong className="text-slate-800">Office:</strong> Municipal Agriculture Office (MAO) Padre Garcia
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Farmer Notes / Reminders */}
-                            {selected.farmer_notes ? (
-                              <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4.5 space-y-1.5 shadow-2xs md:col-span-2 text-amber-950">
-                                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-900">
-                                  <Info className="size-4 text-amber-700 shrink-0" />
-                                  <span>Guidelines & What to Bring (Farmer Reminder)</span>
-                                </div>
-                                <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed text-amber-900 font-medium">
-                                  {selected.farmer_notes}
-                                </p>
-                              </div>
-                            ) : null}
-                          </div>
-
-                          {/* Bottom Confirmation Bar */}
-                          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-emerald-200/80 pt-4">
-                            <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-emerald-900">
-                              <Check className="size-4 text-emerald-700 shrink-0" />
-                              <span>You are welcome to attend freely. No registration fee or reservation needed.</span>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                setScheduleId("");
-                                setTime("");
-                              }}
-                              className="h-10 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
-                            >
-                              Close Details
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-6 rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 via-emerald-50/40 to-white p-4 sm:p-6 shadow-xs space-y-4">
-                          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-emerald-200/60 pb-3.5">
-                            <div className="flex items-start gap-3">
-                              {selected.cover_image ? (
-                                <div className="size-14 sm:size-16 rounded-xl overflow-hidden border border-emerald-200/80 shrink-0 relative shadow-2xs bg-slate-100">
-                                  <Image
-                                    src={programImageUrl(selected.cover_image)}
-                                    alt={selected.program}
-                                    fill
-                                    unoptimized
-                                    className="object-cover"
-                                  />
-                                </div>
-                              ) : null}
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="rounded-full bg-emerald-800 px-2.5 py-0.5 text-xs font-black text-white">
-                                    Step 3
-                                  </span>
-                                  <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                                    Pick Arrival Time Slot
-                                  </h3>
-                                </div>
-                                <p className="mt-1 text-xs sm:text-sm font-medium text-slate-600">
-                                  Reserving for <strong className="text-slate-900">{selected.program}</strong> on{" "}
-                                  <strong className="text-slate-900">{formatLongDate(selected.date)}</strong>
-                                  {selected.location ? ` at ${selected.location}` : ""}.
-                                </p>
-                              </div>
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className="border-emerald-300 bg-white text-emerald-900 font-bold text-xs sm:text-sm px-3 py-1"
-                            >
-                              {`${selected.remaining_slots} slots available`}
-                            </Badge>
-                          </div>
-
-                          {/* Slot Buttons */}
-                          <div className="space-y-2">
-                            <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700 block">
-                              Choose Your Preferred Arrival Time:
-                            </label>
-                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                              {availableTimes.map((slot) => {
-                                const isSlotActive = time === slot;
-                                return (
-                                  <Button
-                                    key={slot}
-                                    type="button"
-                                    variant={isSlotActive ? "default" : "outline"}
-                                    disabled={busy || (selected.capacity > 0 && selected.remaining_slots === 0) || confirmedScheduleIds.has(selected.id)}
-                                    onClick={() => setTime(slot)}
-                                    className={`h-11 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-                                      isSlotActive
-                                        ? "bg-emerald-800 text-white hover:bg-emerald-900 shadow-sm ring-2 ring-emerald-800/30"
-                                        : "border-slate-200 bg-white text-slate-800 hover:bg-emerald-50 hover:border-emerald-300"
-                                    }`}
-                                  >
-                                    <Clock className="mr-1.5 size-3.5" />
-                                    <span>{formatTime(slot)}</span>
-                                  </Button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {confirmedScheduleIds.has(selected.id) ? (
-                            <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs sm:text-sm font-semibold text-amber-900">
-                              You already have an active booking for this program. To modify your time, cancel your existing reservation below first.
-                            </p>
-                          ) : null}
-
-                          {/* Bottom Confirmation Bar */}
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-emerald-200/60 pt-4">
-                            <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-600">
-                              <Info className="size-4 shrink-0 text-emerald-700" />
-                              <span>Official municipal service. Free of charge for registered farmers.</span>
-                            </div>
-
-                            <Button
-                              type="button"
-                              disabled={
-                                busy ||
-                                !time ||
-                                availableTimes.length === 0 ||
-                                confirmedScheduleIds.has(selected.id)
-                              }
-                              onClick={book}
-                              className="h-11 gap-2 rounded-xl bg-emerald-800 px-6 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-emerald-900 active:scale-95 transition-all cursor-pointer"
-                            >
-                              {busy ? (
-                                <Loader2 className="size-4 animate-spin" />
-                              ) : (
-                                <CalendarCheck className="size-4" />
-                              )}
-                              <span>Confirm Reservation</span>
-                            </Button>
-                          </div>
-                        </div>
-                      )
-                    ) : (
-                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-5 text-center">
-                        <p className="text-xs sm:text-sm font-medium text-slate-500">
-                          Click on any program card above to open its full activity details or available appointment time slots.
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </>
               )}
@@ -1339,6 +1040,316 @@ function FarmerSchedulingContent() {
         </section>
         </div>
       </div>
+
+      {/* Program Activity Details Dialog Popup (Left design with picture on top) */}
+      <Dialog
+        open={detailsSchedule !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailsSchedule(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg sm:max-w-xl md:max-w-2xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-3xl bg-white border border-slate-200 shadow-2xl space-y-4">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{detailsSchedule?.program || "Activity Details"}</DialogTitle>
+            <DialogDescription>
+              Detailed information and schedule for {detailsSchedule?.program}
+            </DialogDescription>
+          </DialogHeader>
+
+          {detailsSchedule ? (
+            <div className="space-y-4 sm:space-y-5">
+              {/* Top Navigation */}
+              <button
+                type="button"
+                onClick={() => setDetailsSchedule(null)}
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="size-4" />
+                <span>Back to Field Program Schedule</span>
+              </button>
+
+              {(() => {
+                const bannerPhoto = detailsSchedule.cover_image
+                  ? programImageUrl(detailsSchedule.cover_image)
+                  : (detailsSchedule.photos?.[0]?.image
+                      ? programImageUrl(detailsSchedule.photos[0].image)
+                      : getProgramFallbackImage(detailsSchedule.category, detailsSchedule.program));
+                const programTimes = detailsSchedule.available_times?.length
+                  ? detailsSchedule.available_times
+                  : PROGRAM_TIME_SLOTS;
+                const startTimeStr = formatTime(programTimes[0]);
+                const endTimeStr = formatTime(programTimes[programTimes.length - 1]);
+                const isUnlimited = detailsSchedule.capacity === 0;
+                const isAlreadyBooked = confirmedScheduleIds.has(detailsSchedule.id);
+                const isFull = !isUnlimited && (detailsSchedule.registration_status === "FULL" || (detailsSchedule.capacity > 0 && detailsSchedule.remaining_slots === 0));
+
+                return (
+                  <>
+                    {/* Picture Hero Banner with Text Overlay (Screen 3 style) */}
+                    <div className="relative h-56 sm:h-64 md:h-72 w-full overflow-hidden rounded-2xl bg-slate-900 shadow-md">
+                      <Image
+                        src={bannerPhoto}
+                        alt={detailsSchedule.program}
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30" />
+
+                      <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-5 text-white">
+                        {/* Top Badges */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge className="bg-[#0F5A38] text-white font-bold text-xs px-3 py-1 shadow-xs border-0">
+                            {detailsSchedule.barangay_name
+                              ? `Barangay ${detailsSchedule.barangay_name} Program`
+                              : "Open Municipal Program"}
+                          </Badge>
+                          <Badge variant="outline" className="border-white/40 bg-white/90 text-slate-900 font-bold text-xs px-3 py-1 shadow-xs backdrop-blur-xs">
+                            {isUnlimited ? "No Registration Needed" : "Slot Reservation Available"}
+                          </Badge>
+                        </div>
+
+                        {/* Title & Key details */}
+                        <div className="space-y-1.5">
+                          <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm">
+                            {detailsSchedule.program}
+                          </h3>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm font-semibold text-slate-100">
+                            <span className="flex items-center gap-1.5">
+                              <CalendarDays className="size-4 text-emerald-400 shrink-0" />
+                              {formatShortDate(detailsSchedule.date)}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="size-4 text-emerald-400 shrink-0" />
+                              {startTimeStr} – {endTimeStr}
+                            </span>
+                            {detailsSchedule.location ? (
+                              <span className="flex items-center gap-1.5">
+                                <MapPin className="size-4 text-rose-400 shrink-0" />
+                                {detailsSchedule.location}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Open Walk-in / Slot Callout Box */}
+                    <div className="flex items-start gap-3 rounded-2xl border border-emerald-300 bg-emerald-50/80 p-4 sm:p-4.5 text-emerald-950">
+                      <div className="size-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                        <CheckCircle2 className="size-5" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <h4 className="text-sm sm:text-base font-black text-emerald-950">
+                          {isUnlimited
+                            ? "Open Walk-in for All Eligible Farmers"
+                            : "Guaranteed Slot Reservation Available"}
+                        </h4>
+                        <p className="text-xs sm:text-sm text-emerald-900 leading-relaxed font-medium">
+                          {isUnlimited
+                            ? "You can attend directly at the venue during operating hours. No booking or reservation needed."
+                            : "Reserve your preferred arrival time window below to guarantee priority service."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* About this Program */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-9 items-center justify-center rounded-xl bg-slate-100 text-emerald-700 shrink-0 mt-0.5">
+                        <FileText className="size-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-900">About this Program</h4>
+                        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal whitespace-pre-line">
+                          {detailsSchedule.description ||
+                            `Free vaccination for all cattle in Barangay Manggas. Help protect your livestock from common diseases.`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Date & Time */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-9 items-center justify-center rounded-xl bg-slate-100 text-emerald-700 shrink-0 mt-0.5">
+                        <CalendarDays className="size-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-900">Date & Time</h4>
+                        <p className="text-xs sm:text-sm text-slate-700 font-medium flex items-center gap-2">
+                          <CalendarDays className="size-3.5 text-slate-400" />
+                          <span>{formatShortDate(detailsSchedule.date)}</span>
+                        </p>
+                        <p className="text-xs sm:text-sm text-slate-500 font-normal flex items-center gap-2">
+                          <Clock className="size-3.5 text-slate-400" />
+                          <span>{startTimeStr} – {endTimeStr}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Venue / Location */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-9 items-center justify-center rounded-xl bg-slate-100 text-emerald-700 shrink-0 mt-0.5">
+                        <MapPin className="size-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-900">Venue / Location</h4>
+                        <p className="text-xs sm:text-sm text-slate-800 font-semibold">{detailsSchedule.location || "Banaba Covered Court"}</p>
+                        <p className="text-xs sm:text-sm text-slate-500 font-normal">
+                          {detailsSchedule.barangay_name
+                            ? `Designated for farmers of Barangay ${detailsSchedule.barangay_name}`
+                            : "Designated for all registered livestock farmers in Padre Garcia"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 2-Column Objectives & Services Provided */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Objectives */}
+                      <div className="flex items-start gap-3">
+                        <div className="flex size-9 items-center justify-center rounded-xl bg-slate-100 text-emerald-700 shrink-0 mt-0.5">
+                          <Target className="size-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900">Objectives</h4>
+                          <ul className="space-y-0.5 text-xs sm:text-sm text-slate-600 font-normal">
+                            {parseBulletPoints(detailsSchedule.objectives, [
+                              "Prevent common cattle diseases",
+                              "Promote healthier livestock",
+                            ]).map((bullet, idx) => (
+                              <li key={idx}>{bullet}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      {/* Services Provided */}
+                      <div className="flex items-start gap-3">
+                        <div className="flex size-9 items-center justify-center rounded-xl bg-slate-100 text-emerald-700 shrink-0 mt-0.5">
+                          <Sparkles className="size-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900">Services Provided</h4>
+                          <p className="text-xs sm:text-sm text-slate-600 font-normal">
+                            Free {detailsSchedule.category.toLowerCase().replace(/_/g, " ")} vaccination
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Eligibility & Inquiries */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-9 items-center justify-center rounded-xl bg-slate-100 text-emerald-700 shrink-0 mt-0.5">
+                        <Users className="size-5" />
+                      </div>
+                      <div className="space-y-1.5 w-full">
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-900">Eligibility & Inquiries</h4>
+                        <ul className="space-y-1 text-xs sm:text-sm text-slate-600 font-normal">
+                          <li className="flex items-start gap-2">
+                            <span className="text-slate-400 font-black">•</span>
+                            <span>
+                              {detailsSchedule.eligibility ||
+                                (detailsSchedule.barangay_name
+                                  ? `Open to all registered livestock farmers in Barangay ${detailsSchedule.barangay_name}.`
+                                  : "Open to all registered livestock farmers in Padre Garcia.")}
+                            </span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-slate-400 font-black">•</span>
+                            <span>
+                              {detailsSchedule.contact_information
+                                ? `For inquiries, contact: ${detailsSchedule.contact_information}`
+                                : "For inquiries, contact the Municipal Agriculture Office (MAO)."}
+                            </span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Guidelines & Reminders */}
+                    {detailsSchedule.farmer_notes ? (
+                      <div className="flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+                        <Info className="size-5 shrink-0 text-amber-700 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="font-bold text-xs sm:text-sm">Guidelines & Reminders</p>
+                          <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed text-amber-900 font-medium">
+                            {detailsSchedule.farmer_notes}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Slot Reservation Options (for programs with limited capacity) */}
+                    {!isUnlimited ? (
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 sm:p-5 space-y-3.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800">
+                            Choose Preferred Arrival Time:
+                          </label>
+                          <Badge variant="outline" className="border-emerald-300 bg-white text-emerald-900 font-bold text-xs">
+                            {isFull ? "0 slots left" : `${detailsSchedule.remaining_slots} slots available`}
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {programTimes.map((slot) => {
+                            const isSlotActive = time === slot && scheduleId === String(detailsSchedule.id);
+                            return (
+                              <Button
+                                key={slot}
+                                type="button"
+                                variant={isSlotActive ? "default" : "outline"}
+                                disabled={busy || isFull || isAlreadyBooked}
+                                onClick={() => {
+                                  setScheduleId(String(detailsSchedule.id));
+                                  setTime(slot);
+                                }}
+                                className={`h-10 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                                  isSlotActive
+                                    ? "bg-emerald-800 text-white shadow-xs"
+                                    : "border-slate-200 bg-white text-slate-800 hover:bg-emerald-50"
+                                }`}
+                              >
+                                <Clock className="mr-1.5 size-3.5" />
+                                <span>{formatTime(slot)}</span>
+                              </Button>
+                            );
+                          })}
+                        </div>
+
+                        {isAlreadyBooked ? (
+                          <p className="text-xs font-semibold text-amber-800">
+                            You already have an active reservation for this program.
+                          </p>
+                        ) : (
+                          <Button
+                            type="button"
+                            disabled={busy || !time || scheduleId !== String(detailsSchedule.id)}
+                            onClick={book}
+                            className="w-full h-11 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                          >
+                            {busy ? <Loader2 className="size-4 animate-spin" /> : <CalendarCheck className="size-4" />}
+                            <span>Confirm Slot Reservation</span>
+                          </Button>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {/* Bottom Close Button */}
+                    <Button
+                      type="button"
+                      onClick={() => setDetailsSchedule(null)}
+                      className="w-full h-11 sm:h-12 rounded-xl bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold text-sm sm:text-base tracking-wide shadow-xs cursor-pointer"
+                    >
+                      Back to Schedule
+                    </Button>
+                  </>
+                );
+              })()}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={photoViewer !== null}

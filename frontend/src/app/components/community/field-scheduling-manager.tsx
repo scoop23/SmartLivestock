@@ -345,6 +345,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     ? visibleSchedules.filter((schedule) => schedule.date === isoFromLocalDate(calendarDate))
     : visibleSchedules;
   const accent = role === "sibat" ? "bg-[#1A365D] hover:bg-[#152c4b]" : "bg-[#2D5A27] hover:bg-[#24461f]";
+  const createProgramAccent = "bg-[#2D5A27] hover:bg-[#24461f]";
   const pageTitle = "Livestock Programs";
 
   return (
@@ -371,7 +372,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
             <Button
               type="button"
               onClick={startCreate}
-              className={`h-10 gap-2 rounded-xl px-4 text-xs sm:text-sm font-bold text-white shadow-xs ${accent}`}
+              className={`h-10 gap-2 rounded-xl px-4 text-xs sm:text-sm font-bold text-white shadow-xs ${createProgramAccent}`}
             >
               <Plus className="size-4" />
               <span>Create Program</span>
@@ -470,7 +471,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                 title="No scheduled programs yet"
                 description="Create a program date to make appointment slots available for farmer registration."
                 action={
-                  <Button type="button" onClick={startCreate} className={`mt-2 h-10 px-4 text-xs sm:text-sm font-bold text-white rounded-xl ${accent}`}>
+                  <Button type="button" onClick={startCreate} className={`mt-2 h-10 px-4 text-xs sm:text-sm font-bold text-white rounded-xl ${createProgramAccent}`}>
                     <Plus className="mr-1.5 size-4" /> Create Program
                   </Button>
                 }

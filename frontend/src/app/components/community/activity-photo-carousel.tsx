@@ -14,12 +14,14 @@ export function ActivityPhotoCarousel({
   photos,
   alt,
   variant = "card",
+  fit = "cover",
   initialIndex = 0,
   onImageClick,
 }: {
   photos: string[];
   alt: string;
   variant?: "card" | "dialog";
+  fit?: "cover" | "contain";
   initialIndex?: number;
   onImageClick?: (index: number) => void;
 }) {
@@ -78,20 +80,54 @@ export function ActivityPhotoCarousel({
                     event.stopPropagation();
                     onImageClick(index);
                   }}
-                  className="group/image size-full cursor-zoom-in overflow-hidden text-left"
+                  className="group/image size-full cursor-zoom-in overflow-hidden text-left relative flex items-center justify-center bg-slate-100"
                 >
-                  <img
-                    src={photo}
-                    alt={`${alt}, photo ${index + 1} of ${photos.length}`}
-                    className={`size-full transition-transform duration-300 ${isDialog ? "object-contain" : "object-cover group-hover/image:scale-105"}`}
-                  />
+                  {fit === "contain" && !isDialog ? (
+                    <>
+                      <img
+                        src={photo}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 size-full object-cover blur-md opacity-25 scale-110"
+                      />
+                      <img
+                        src={photo}
+                        alt={`${alt}, photo ${index + 1} of ${photos.length}`}
+                        className="relative z-10 size-full object-contain"
+                      />
+                    </>
+                  ) : (
+                    <img
+                      src={photo}
+                      alt={`${alt}, photo ${index + 1} of ${photos.length}`}
+                      className={`size-full transition-transform duration-300 ${isDialog ? "object-contain" : "object-cover group-hover/image:scale-105"}`}
+                    />
+                  )}
                 </button>
               ) : (
-                <img
-                  src={photo}
-                  alt={`${alt}, photo ${index + 1} of ${photos.length}`}
-                  className={`size-full ${isDialog ? "object-contain" : "object-cover transition-transform duration-300 group-hover:scale-105"}`}
-                />
+                <div className="size-full relative flex items-center justify-center bg-slate-100 overflow-hidden">
+                  {fit === "contain" && !isDialog ? (
+                    <>
+                      <img
+                        src={photo}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 size-full object-cover blur-md opacity-25 scale-110"
+                      />
+                      <img
+                        src={photo}
+                        alt={`${alt}, photo ${index + 1} of ${photos.length}`}
+                        className="relative z-10 size-full object-contain"
+                      />
+                    </>
+                  ) : (
+                    <img
+                      src={photo}
+                      alt={`${alt}, photo ${index + 1} of ${photos.length}`}
+                      className={`size-full ${isDialog ? "object-contain" : "object-cover transition-transform duration-300 group-hover:scale-105"}`}
+                    />
+                  )}
+                </div>
               )}
             </CarouselItem>
           ))}
