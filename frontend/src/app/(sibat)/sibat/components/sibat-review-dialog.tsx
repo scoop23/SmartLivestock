@@ -1,6 +1,7 @@
 "use client";
 
 import { httpError } from "@/lib/http-error";
+import { formatAgeClassification, formatCalendarDate, formatLivestockAge } from "@/lib/livestock-age";
 import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,20 +30,23 @@ import {
   ClipboardCheck,
   Egg,
   FileText,
+  Hourglass,
   Icon,
   Info,
   Layers,
   MapPin,
-  MessageSquare,
   Milk,
   Pencil,
   RotateCcw,
   Save,
   Scissors,
   Send,
+  Shield,
   ShoppingBag,
+  Scale,
   Sparkles,
   Sprout,
+  Tag,
   User,
   X,
 } from "lucide-react";
@@ -255,12 +259,6 @@ function SibatReviewDialogContent({
     animalTagLabel = `Batch ${submission.batchCode}`;
     animalNotice = "Enrolled in cooperative herd roster.";
   }
-
-  // Farmer remarks resolution
-  const farmerRemarks =
-    submission.notes?.trim() ||
-    (submission.salePurpose ? `Purpose: ${submission.salePurpose}` : null) ||
-    "No additional remarks submitted by farmer.";
 
   const handleSaveEdits = async () => {
     try {
@@ -547,6 +545,107 @@ function SibatReviewDialogContent({
           </div>
         )}
 
+        {/* Quick animal profile summary */}
+        {submission.sourceType === "INVENTORY" && !isBatch && (
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 sm:gap-3">
+            <div className="flex min-h-[100px] flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs sm:p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Ear Tag ID</span>
+                <Tag className="size-3.5 text-slate-400" />
+              </div>
+              <div className="mt-1 min-w-0">
+                <span className="block truncate text-base font-bold tracking-tight text-slate-900 sm:text-lg">
+                  {submission.tagNumber || `ANIMAL-${submission.rawId}`}
+                </span>
+                <span className="mt-0.5 flex items-center gap-1 text-[10px] font-mono font-medium text-emerald-700 sm:text-[11px]">
+                  <Check className="size-3 shrink-0 text-emerald-600 stroke-[3]" />
+                  {submission.tagNumber ? "Standard Tag & Barcode Confirmed" : "System ID Assigned"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex min-h-[100px] flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs sm:p-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Assigned Herd</span>
+                <Layers className={`size-3.5 ${submission.batchCode ? "text-teal-700" : "text-slate-400"}`} />
+              </div>
+              <div className="mt-1 min-w-0">
+                <span className="block truncate font-mono text-base font-bold tracking-tight text-slate-900 sm:text-lg">
+                  {submission.batchCode || "None (Individual)"}
+                </span>
+                <span className="mt-0.5 block truncate text-[10px] font-mono text-slate-500 sm:text-[11px]">
+                  {submission.batchName || (submission.batchCode ? "Assigned Herd Group" : "Not grouped in a herd")}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex min-h-[100px] flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs sm:p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Scale Weight</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-mono ${submission.weight != null ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-400"}`}>
+                  {submission.weight != null ? "Weighed" : "Unweighed"}
+                </span>
+              </div>
+              <div className="mt-1">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
+                    {submission.weight != null ? Number(submission.weight).toFixed(2) : "—"}
+                  </span>
+                  {submission.weight != null && <span className="text-xs font-mono font-bold text-slate-500">kg</span>}
+                </div>
+                <span className="mt-0.5 block truncate text-[10px] font-mono text-slate-500">
+                  {submission.createdAt ? `Registered: ${formatCalendarDate(submission.createdAt)}` : "No weigh-ins"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex min-h-[100px] flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs sm:p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Birth Date</span>
+                <Calendar className="size-3.5 text-slate-400" />
+              </div>
+              <div className="mt-1 min-w-0">
+                <span className="block truncate text-sm font-bold tracking-tight text-slate-900 sm:text-base">
+                  {submission.birthDate ? formatCalendarDate(submission.birthDate) : "Birth date unrecorded"}
+                </span>
+                <span className="mt-0.5 block truncate text-[10px] font-mono text-slate-500">
+                  {submission.barangayName ? `Barangay ${submission.barangayName}` : `Owner: ${submission.farmerName}`}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex min-h-[100px] flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs sm:p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Age / Class</span>
+                <Hourglass className="size-3.5 text-slate-400" />
+              </div>
+              <div className="mt-1 min-w-0">
+                <span className="block truncate text-sm font-bold tracking-tight text-slate-900 sm:text-base">
+                  {formatLivestockAge(submission.age)} • {formatAgeClassification(submission.ageClassification)}
+                </span>
+                <span className="mt-0.5 block truncate text-[10px] font-mono text-slate-500">
+                  {submission.sex || "Sex unrecorded"} • Individual Animal
+                </span>
+              </div>
+            </div>
+
+            <div className={`flex min-h-[100px] flex-col justify-between rounded-2xl border p-3.5 shadow-2xs sm:p-4 ${submission.lastVaccinationDate ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200/80 bg-white"}`}>
+              <div className="flex items-center justify-between">
+                <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${submission.lastVaccinationDate ? "text-emerald-800" : "text-slate-400"}`}>Vaccination Status</span>
+                <Shield className={`size-4 ${submission.lastVaccinationDate ? "text-emerald-600" : "text-slate-400"}`} />
+              </div>
+              <div className="mt-1 min-w-0">
+                <span className="block truncate text-sm font-bold tracking-tight text-slate-900 sm:text-base">
+                  {submission.lastVaccinationDate ? `Vaccinated (${formatCalendarDate(submission.lastVaccinationDate)})` : "Unvaccinated / Pending"}
+                </span>
+                <span className={`mt-0.5 block truncate text-[10px] font-mono ${submission.lastVaccinationDate ? "text-emerald-700" : "text-slate-500"}`}>
+                  {submission.lastVaccinationDate ? "Vaccination date on record" : "No vaccination logged yet"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ═══ Main 2-Column Grid ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4 items-start">
           {/* LEFT COLUMN: Record details */}
@@ -830,19 +929,6 @@ function SibatReviewDialogContent({
                     {new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(
                       submission.saleTotalPrice
                     )}
-                  </span>
-                </div>
-              )}
-
-              {/* Farmer remarks */}
-              {!isEditing && (
-                <div className="flex items-start justify-between gap-2 pt-1.5 border-t border-slate-100">
-                  <div className="flex items-center gap-2 text-slate-500 shrink-0">
-                    <MessageSquare className="size-3.5 text-slate-400" />
-                    <span className="text-[11px] sm:text-xs font-medium">Farmer remarks</span>
-                  </div>
-                  <span className="text-xs sm:text-sm font-semibold text-slate-900 text-right max-w-[60%] break-words">
-                    {farmerRemarks}
                   </span>
                 </div>
               )}
