@@ -2,90 +2,67 @@
 
 import { ActivityPhotoCarousel } from "@/app/components/community/activity-photo-carousel";
 import {
-  CommunityEmptyState,
-  CommunitySkeleton,
-  PROGRAM_TIME_SLOTS,
-  daysUntil,
-  formatLongDate,
-  formatTime,
-  isUpcoming,
+CommunityEmptyState,
+CommunitySkeleton,
+PROGRAM_TIME_SLOTS,
+daysUntil,
+formatLongDate,
+formatTime,
+isUpcoming,
 } from "@/app/components/community/community-ui";
-import { QrCodePass } from "@/components/qr-code-pass";
+import { PageHeader } from "@/app/components/page-header";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+AlertDialog,
+AlertDialogAction,
+AlertDialogCancel,
+AlertDialogContent,
+AlertDialogDescription,
+AlertDialogFooter,
+AlertDialogHeader,
+AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/contexts/auth-context";
-import api, { getActiveApiUrl } from "@/lib/axios";
+import api,{ getActiveApiUrl } from "@/lib/axios";
 import {
-  ProgramBooking,
-  ProgramSchedule,
-  apiError,
-  getBookings,
-  getSchedules,
+ProgramBooking,
+ProgramSchedule,
+apiError,
+getBookings,
+getSchedules,
 } from "@/lib/community-api";
 import {
-  Award,
-  Bell,
-  Building2,
-  CalendarCheck,
-  CalendarDays,
-  CalendarPlus,
-  Camera,
-  Check,
-  CheckCircle2,
-  ChevronLeft,
-  ClipboardList,
-  Clock,
-  Clock3,
-  CloudRain,
-  Copy,
-  Edit3,
-  FileText,
-  GraduationCap,
-  HeartPulse,
-  Home,
-  Info,
-  Loader2,
-  Mail,
-  MapPin,
-  Pencil,
-  Phone,
-  QrCode,
-  RefreshCw,
-  Shield,
-  ShieldCheck,
-  Sparkles,
-  Syringe,
-  Target,
-  Users,
-  User as UserIcon,
-  X,
+CalendarCheck,
+CalendarDays,
+CalendarPlus,
+Check,
+CheckCircle2,
+Clock,
+Clock3,
+CloudRain,
+Info,
+Loader2,
+MapPin,
+Pencil,
+Phone,
+RefreshCw,
+Sparkles,
+X,
 } from "lucide-react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { Suspense,useCallback,useEffect,useMemo,useState } from "react";
 
 function localDateFromIso(value: string): Date {
   const [year, month, day] = value.slice(0, 10).split("-").map(Number);
@@ -101,38 +78,12 @@ function programImageUrl(path: string): string {
   return `${getActiveApiUrl().replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-function parseBulletPoints(text: string | null | undefined, defaultItems: string[] = []): string[] {
-  if (!text || !text.trim()) return defaultItems;
-  const rawLines = text
-    .split(/[\r\n]+|[•\u2022]|;/)
-    .map((s) => s.trim().replace(/^[-*•]\s*/, ""))
-    .filter(Boolean);
-  if (rawLines.length > 0) return rawLines;
-  return [text.trim()];
-}
-
-function getCategoryIcon(category: string) {
-  switch (category) {
-    case "VACCINATION":
-      return <Syringe className="size-6 text-emerald-700" />;
-    case "ANIMAL_HEALTH":
-      return <HeartPulse className="size-6 text-emerald-700" />;
-    case "SEMINAR":
-      return <GraduationCap className="size-6 text-emerald-700" />;
-    case "CENSUS":
-      return <ClipboardList className="size-6 text-emerald-700" />;
-    default:
-      return <Sparkles className="size-6 text-emerald-700" />;
-  }
-}
-
 function FarmerSchedulingContent() {
   const searchParams = useSearchParams();
   const urlScheduleParam = searchParams.get("scheduleId") || searchParams.get("schedule");
   const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
   const [bookings, setBookings] = useState<ProgramBooking[]>([]);
   const [scheduleId, setScheduleId] = useState("");
-  const [activityDetailsSchedule, setActivityDetailsSchedule] = useState<ProgramSchedule | null>(null);
   const [calendarDate, setCalendarDate] = useState<Date | null>(null);
   const [time, setTime] = useState("");
   const [loading, setLoading] = useState(true);
@@ -153,35 +104,6 @@ function FarmerSchedulingContent() {
   const [cancelingTarget, setCancelingTarget] = useState<ProgramBooking | null>(null);
   const [editingBooking, setEditingBooking] = useState<ProgramBooking | null>(null);
   const [editTime, setEditTime] = useState("");
-
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"programs" | "bookings" | "guidelines">("programs");
-  const [copiedId, setCopiedId] = useState(false);
-  const [showIdPassModal, setShowIdPassModal] = useState(false);
-
-  const userDisplayName =
-    user?.firstName && user?.lastName
-      ? `${user.firstName} ${user.lastName}`
-      : user?.username || "Mark Angelo Bathan";
-
-  const userInitials =
-    user?.firstName && user?.lastName
-      ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-      : "MB";
-
-  const farmName = "Garcia Heritage Cattle & Swine Farm";
-  const farmerBarangay = user?.barangay || "Poblacion";
-  const farmerSitio = "Sitio Ilaya, Purok 3";
-  const farmerPhone = user?.phoneNumber || "0917-555-8291";
-  const farmerEmail = user?.email || "markangelo.bathan@smartlivestock.ph";
-  const rsbsaId = "RSBSA-04-10-18-00921";
-
-  const handleCopyRsbsa = () => {
-    navigator.clipboard.writeText(rsbsaId);
-    setCopiedId(true);
-    toast.success("RSBSA ID copied to clipboard!");
-    setTimeout(() => setCopiedId(false), 2000);
-  };
 
   const load = useCallback(async () => {
     try {
@@ -214,13 +136,9 @@ function FarmerSchedulingContent() {
     if (target) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCalendarDate(localDateFromIso(target.date));
-      if (target.capacity === 0) {
-        setActivityDetailsSchedule(target);
-      } else {
-        setScheduleId(String(target.id));
-      }
+      setScheduleId(String(target.id));
       const frame = window.requestAnimationFrame(() => {
-        const el = document.getElementById(`program-card-${target.id}`);
+        const el = document.getElementById(`program-card-${target.id}`) || document.getElementById("program-details-section");
         el?.scrollIntoView({ behavior: "smooth", block: "center" });
       });
       return () => window.cancelAnimationFrame(frame);
@@ -367,160 +285,100 @@ function FarmerSchedulingContent() {
 
   return (
     <>
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* 1. Profile-Style Hero Header Banner (Matches Profile Design) */}
-        <div className="relative rounded-3xl bg-gradient-to-r from-emerald-950 via-[#1B3E18] to-slate-900 border border-emerald-900/60 shadow-md overflow-hidden w-full text-white">
-          {/* Subtle Organic Mesh Overlay */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(52,211,153,0.25),transparent_55%)] pointer-events-none" />
-          <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+      <PageHeader
+        title="Livestock Programs"
+        subtitle="Browse farmer programs, register for an activity, and manage your bookings."
+        variant="farmer"
+        maxWidthClass="w-full"
+        action={
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => void refresh()}
+            disabled={isFetching}
+            className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
+            title="Refresh schedules"
+            aria-label="Refresh schedules"
+          >
+            <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
+          </Button>
+        }
+      />
 
-          {/* Top Badges & Municipal Registry Ribbon */}
-          <div className="px-5 sm:px-7 pt-5 pb-0 flex items-center justify-between gap-3 relative z-10 flex-wrap">
-            <div className="text-emerald-200/80 text-[10px] sm:text-[11px] font-mono uppercase tracking-wider flex items-center gap-1.5">
-              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Padre Garcia Agricultural Management System (PGAMS) | Field Operations</span>
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
+        {/* Sleek Schedule Telemetry Ribbon (Replaces redundant KPI cards while clearly presenting all 3 insights) */}
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:px-5 sm:py-3 shadow-xs md:flex-row md:items-center md:justify-between animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
+          {/* Key Insight 1: Nearest Scheduled Farm Visit */}
+          <div className="flex items-center gap-3 min-w-0">
+            <span
+              className={`flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-xl ${
+                nextVisit ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+              }`}
+            >
+              {nextVisit ? <Clock3 className="size-4.5 sm:size-5" /> : <CalendarCheck className="size-4.5 sm:size-5" />}
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+                  {nextVisit ? "Next Farm Visit" : "Field Appointments"}
+                </span>
+                {nextVisit ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-950">
+                    {daysUntil(nextVisit.date) === 0
+                      ? "Today"
+                      : daysUntil(nextVisit.date) === 1
+                        ? "Tomorrow"
+                        : `In ${daysUntil(nextVisit.date)} days`}
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-xs sm:text-sm font-bold text-slate-900 mt-0.5 whitespace-normal break-words">
+                {nextVisit ? (
+                  <>
+                    <span>{nextVisit.program}</span>
+                    <span className="text-slate-400 font-normal"> · </span>
+                    <span className="text-emerald-800 font-bold">{formatLongDate(nextVisit.date)}</span>
+                    <span className="text-slate-400 font-normal"> at </span>
+                    <span className="text-slate-700 font-semibold">{formatTime(nextVisit.time)}</span>
+                  </>
+                ) : (
+                  <span className="text-slate-600 font-medium">
+                    No active appointments reserved · Pick an open program date below to book
+                  </span>
+                )}
+              </p>
             </div>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/15 backdrop-blur-md text-emerald-100 border border-white/20 shadow-sm">
-                <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                Verified Agricultural Schedule
+          {/* Key Insights 2 & 3: Interactive Status Badges */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0 border-t border-slate-100 pt-2.5 md:border-t-0 md:pt-0">
+            <button
+              type="button"
+              onClick={() => {
+                setBookingFilter("upcoming");
+                const el = document.getElementById("my-bookings-section");
+                el?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/70 px-3 py-1.5 text-xs font-bold text-emerald-900 transition-colors cursor-pointer"
+              title="View my upcoming bookings"
+            >
+              <CalendarCheck className="size-4 text-emerald-700" />
+              <span>
+                <strong>{upcoming.length}</strong> Reserved {upcoming.length === 1 ? "Slot" : "Slots"}
+              </span>
+            </button>
+
+            <div
+              className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50/70 px-3 py-1.5 text-xs font-bold text-sky-900"
+              title="Programs open across Padre Garcia"
+            >
+              <CalendarDays className="size-4 text-sky-700" />
+              <span>
+                <strong>{schedules.length}</strong> Open {schedules.length === 1 ? "Program" : "Programs"}
               </span>
             </div>
           </div>
-
-          {/* Profile Card Main Row */}
-          <div className="p-5 sm:p-7 md:p-8 pt-4 sm:pt-6 relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 min-w-0">
-              {/* Avatar Pill with Camera Icon */}
-              <div className="relative group shrink-0">
-                <div className="size-24 sm:size-28 rounded-3xl bg-emerald-800/80 border-4 border-white/30 shadow-xl text-white font-black text-3xl sm:text-4xl flex items-center justify-center overflow-hidden relative">
-                  {user?.profileImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={user.profileImage}
-                      alt={userDisplayName}
-                      className="size-full object-cover"
-                    />
-                  ) : (
-                    <span>{userInitials}</span>
-                  )}
-                </div>
-
-                <div
-                  className="absolute -bottom-1 -right-1 size-7 rounded-full bg-emerald-500 text-white border-2 border-white flex items-center justify-center shadow-md z-15"
-                  title="Account Verified"
-                >
-                  <Camera className="size-3.5 text-white" />
-                </div>
-              </div>
-
-              {/* Profile Identity Details */}
-              <div className="space-y-2 min-w-0">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
-                    {userDisplayName}
-                  </h1>
-                  <Badge className="text-[10px] font-black uppercase px-2.5 py-0.5 border bg-emerald-500/30 text-emerald-100 border-emerald-400/40 backdrop-blur-xs">
-                    LIVESTOCK RAISER
-                  </Badge>
-                </div>
-
-                <p className="text-xs sm:text-sm font-bold text-emerald-100/90">
-                  {farmName}
-                </p>
-
-                {/* Meta Quick Pills */}
-                <div className="flex items-center gap-3 text-xs pt-1 flex-wrap">
-                  <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/15 font-medium text-white shadow-2xs">
-                    <MapPin className="size-3 text-emerald-300" />
-                    <span>{farmerSitio}, Brgy. {farmerBarangay}, Padre Garcia, Batangas</span>
-                  </span>
-
-                  <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/15 font-medium text-white shadow-2xs">
-                    <Phone className="size-3 text-emerald-300" />
-                    <span>{farmerPhone}</span>
-                  </span>
-
-                  <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/15 font-medium text-white shadow-2xs">
-                    <Mail className="size-3 text-emerald-300" />
-                    <span>{farmerEmail}</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Button Strip & Verified Pills */}
-            <div className="flex flex-col sm:flex-row md:flex-col items-start sm:items-center md:items-end gap-3 self-stretch md:self-center justify-end pt-3 md:pt-0 border-t md:border-t-0 border-white/15">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-mono font-bold text-emerald-100 bg-white/15 px-2.5 py-1 rounded-full border border-white/20 backdrop-blur-xs">
-                  {rsbsaId}
-                </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-white text-emerald-950 shadow-xs">
-                  <CheckCircle2 className="size-3.5 text-emerald-600" />
-                  Verified by MAO
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => void refresh()}
-                  disabled={isFetching}
-                  className="bg-white hover:bg-emerald-50 text-[#1B3E18] font-black text-xs rounded-xl h-9 px-4 gap-1.5 shadow-md transition-all cursor-pointer"
-                >
-                  <RefreshCw className={`size-3.5 text-[#2D5A27] ${isFetching ? "animate-spin" : ""}`} />
-                  <span>Refresh</span>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowIdPassModal(true)}
-                  className="rounded-xl text-xs font-bold h-9 px-3.5 gap-1.5 bg-white/15 hover:bg-white/25 border-white/25 text-white backdrop-blur-md transition-all cursor-pointer"
-                >
-                  <QrCode className="size-3.5 text-emerald-300" />
-                  <span>Pass QR</span>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 2. Navigation Tabs Bar (Matches Profile Tabs Style) */}
-        <div className="bg-white p-2 rounded-2xl border border-slate-200/90 shadow-2xs overflow-x-auto no-scrollbar w-full">
-          <TabsList className="bg-slate-100/90 p-1.5 rounded-xl h-auto grid grid-cols-1 sm:grid-cols-3 gap-1.5 w-full">
-            <TabsTrigger
-              value="programs"
-              onClick={() => setActiveTab("programs")}
-              data-state={activeTab === "programs" ? "active" : "inactive"}
-              className="px-4 py-2.5 rounded-lg text-xs font-bold data-[state=active]:bg-[#2D5A27] data-[state=active]:text-white data-[state=active]:font-black data-[state=active]:shadow-xs flex items-center justify-center gap-2 text-slate-600 cursor-pointer transition-all"
-            >
-              <CalendarDays className="size-4" />
-              <span>Program Schedule & Booking</span>
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="bookings"
-              onClick={() => setActiveTab("bookings")}
-              data-state={activeTab === "bookings" ? "active" : "inactive"}
-              className="px-4 py-2.5 rounded-lg text-xs font-bold data-[state=active]:bg-[#2D5A27] data-[state=active]:text-white data-[state=active]:font-black data-[state=active]:shadow-xs flex items-center justify-center gap-2 text-slate-600 cursor-pointer transition-all"
-            >
-              <CalendarCheck className="size-4" />
-              <span>My Appointments ({upcoming.length})</span>
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="guidelines"
-              onClick={() => setActiveTab("guidelines")}
-              data-state={activeTab === "guidelines" ? "active" : "inactive"}
-              className="px-4 py-2.5 rounded-lg text-xs font-bold data-[state=active]:bg-[#2D5A27] data-[state=active]:text-white data-[state=active]:font-black data-[state=active]:shadow-xs flex items-center justify-center gap-2 text-slate-600 cursor-pointer transition-all"
-            >
-              <FileText className="size-4" />
-              <span>Program Guidelines & Venues</span>
-            </TabsTrigger>
-          </TabsList>
         </div>
 
         {/* Global Notifications */}
@@ -564,235 +422,9 @@ function FarmerSchedulingContent() {
           </div>
         ) : null}
 
-        {/* 3. Two-Column Dashboard Layout (Matches Profile Grid: Left Info & Overview, Right Active Workspace) */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full items-start">
-          {/* Left Column: Account Overview, Agricultural Credentials, Farm Information */}
-          <div className="xl:col-span-5 space-y-6">
-            {/* Card 1: Account Overview (Exact match to profile screenshot) */}
-            <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
-              <CardContent className="p-5 sm:p-6 space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-700">
-                    <Bell className="size-4.5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-black text-slate-900">Account Overview</h3>
-                    <p className="text-xs text-slate-500 font-medium">Summary of your profile and registration status.</p>
-                  </div>
-                </div>
-
-                {/* 3 Metric Chips Row */}
-                <div className="grid grid-cols-3 gap-2.5 pt-1">
-                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col items-center text-center gap-1">
-                    <div className="size-8 rounded-full bg-emerald-100 text-emerald-700 grid place-items-center">
-                      <UserIcon className="size-4" />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Profile Status</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800">
-                      <CheckCircle2 className="size-3 text-emerald-600" /> Complete
-                    </span>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col items-center text-center gap-1">
-                    <div className="size-8 rounded-full bg-emerald-100 text-emerald-700 grid place-items-center">
-                      <FileText className="size-4" />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">RSBSA Registration</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800">
-                      <CheckCircle2 className="size-3 text-emerald-600" /> Verified by MAO
-                    </span>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col items-center text-center gap-1">
-                    <div className="size-8 rounded-full bg-sky-100 text-sky-700 grid place-items-center">
-                      <Shield className="size-4" />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Account Security</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-800">
-                      <CheckCircle2 className="size-3 text-sky-600" /> 2FA Active
-                    </span>
-                  </div>
-                </div>
-
-                {/* Telemetry Highlight: Next Farm Visit / Active Program */}
-                <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-xs text-emerald-950 flex items-start gap-2.5">
-                  <Clock3 className="size-4 text-emerald-700 shrink-0 mt-0.5" />
-                  <div className="space-y-0.5">
-                    <p className="font-bold">
-                      {nextVisit ? `Next Field Visit: ${nextVisit.program}` : "Next Field Visit: No pending appointments"}
-                    </p>
-                    <p className="text-emerald-900 text-[11px]">
-                      {nextVisit
-                        ? `${formatLongDate(nextVisit.date)} at ${formatTime(nextVisit.time)} · ${
-                            schedules.find((s) => s.id === nextVisit.schedule)?.location || "Padre Garcia"
-                          }`
-                        : "Browse highlighted program dates on the schedule calendar to reserve a slot."}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Card 2: Agricultural Credentials (Exact match to profile screenshot) */}
-            <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
-              <CardContent className="p-5 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                    <Award className="size-4 text-[#2D5A27]" />
-                    <span>Agricultural Credentials</span>
-                  </span>
-                  <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-black uppercase">
-                    OFFICIAL
-                  </Badge>
-                </div>
-
-                {/* RSBSA Code Callout */}
-                <div className="p-3.5 rounded-2xl bg-slate-50/90 border border-slate-200/80 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      RSBSA Identification No.
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleCopyRsbsa}
-                      className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
-                    >
-                      {copiedId ? <Check className="size-3 text-emerald-600" /> : <Copy className="size-3" />}
-                      <span>{copiedId ? "Copied" : "Copy"}</span>
-                    </button>
-                  </div>
-                  <div className="text-sm font-mono font-black text-slate-900 tracking-tight">
-                    {rsbsaId}
-                  </div>
-                </div>
-
-                {/* Directory */}
-                <div className="space-y-2.5 text-xs">
-                  <div className="flex items-start justify-between gap-2 py-1 border-b border-slate-100">
-                    <span className="text-slate-500 font-medium">Assigned Office</span>
-                    <span className="font-bold text-slate-800 text-right">Municipal Agriculture Office (MAO)</span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-2 py-1 border-b border-slate-100">
-                    <span className="text-slate-500 font-medium">Cooperative / Association</span>
-                    <span className="font-bold text-slate-800 text-right">Padre Garcia Cattle Raisers Association (PGCRA)</span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-2 py-1">
-                    <span className="text-slate-500 font-medium">Open Programs</span>
-                    <span className="font-bold text-emerald-800 text-right">{schedules.length} Active in Municipality</span>
-                  </div>
-                </div>
-
-                {/* Green Notice Box */}
-                <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-xs text-emerald-900 flex items-start gap-2.5">
-                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <p className="text-[11px] leading-relaxed">
-                    <strong>Your account is linked to the official municipal registry.</strong> Your information and livestock records are protected under the Padre Garcia agricultural data governance policy.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Card 3: Farm Information (Exact match to profile screenshot) */}
-            <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
-              <CardContent className="p-5 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                    <Home className="size-4 text-[#2D5A27]" />
-                    <span>Farm Information</span>
-                  </span>
-                  <span className="text-xs font-bold text-emerald-800 flex items-center gap-1">
-                    <Edit3 className="size-3" /> Edit
-                  </span>
-                </div>
-
-                <div className="space-y-2.5 text-xs">
-                  <div className="flex items-start justify-between gap-2 py-1 border-b border-slate-100">
-                    <span className="text-slate-500 font-medium">Farm / Holding Facility Name</span>
-                    <span className="font-bold text-slate-800 text-right">{farmName}</span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-2 py-1 border-b border-slate-100">
-                    <span className="text-slate-500 font-medium">Operation Type</span>
-                    <span className="font-bold text-slate-800 text-right">Semi-Commercial Cattle & Dairy</span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-2 py-1 border-b border-slate-100">
-                    <span className="text-slate-500 font-medium">Sitio / Street / Zone</span>
-                    <span className="font-bold text-slate-800 text-right">{farmerSitio}</span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-2 py-1 border-b border-slate-100">
-                    <span className="text-slate-500 font-medium">Barangay</span>
-                    <span className="font-bold text-slate-800 text-right">{farmerBarangay}</span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-2 py-1">
-                    <span className="text-slate-500 font-medium">Municipality & ZIP</span>
-                    <span className="font-bold text-slate-800 text-right">Padre Garcia, Batangas (4224)</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column: Interactive Scheduling Suite & Bookings */}
-          <div className="xl:col-span-7 space-y-6">
-            {/* Guidelines Card (Shown when guidelines tab is selected) */}
-            {activeTab === "guidelines" ? (
-              <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs overflow-hidden animate-in fade-in duration-300">
-                <div className="border-b border-slate-100 p-5 sm:p-6">
-                  <h3 className="flex items-center gap-2.5 text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                    <FileText className="size-5 text-emerald-700" />
-                    <span>Official Program Guidelines & Venue Reminders</span>
-                  </h3>
-                  <p className="mt-1 text-xs text-slate-500 font-medium">
-                    Standard operating protocols established by the Municipal Agriculture Office (MAO) of Padre Garcia.
-                  </p>
-                </div>
-                <CardContent className="p-5 sm:p-6 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-                      <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                        <Clock className="size-3.5 text-emerald-700" /> Arrival Window
-                      </span>
-                      <p className="text-slate-600 leading-relaxed">
-                        Please arrive within 15 minutes of your reserved time slot to ensure proper queueing and veterinary triage.
-                      </p>
-                    </div>
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-                      <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                        <Award className="size-3.5 text-emerald-700" /> Identification Required
-                      </span>
-                      <p className="text-slate-600 leading-relaxed">
-                        Bring your RSBSA stub or present your Digital Municipal ID Pass QR code on-site for immediate attendee check-in.
-                      </p>
-                    </div>
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-                      <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                        <ShieldCheck className="size-3.5 text-emerald-700" /> Animal Biosecurity
-                      </span>
-                      <p className="text-slate-600 leading-relaxed">
-                        Livestock showing acute respiratory symptoms, vesicular lesions, or high fever must be reported immediately prior to transport.
-                      </p>
-                    </div>
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-                      <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                        <Phone className="size-3.5 text-emerald-700" /> MAO Hotline
-                      </span>
-                      <p className="text-slate-600 leading-relaxed">
-                        For rescheduling, venue changes, or weather emergencies, contact the Municipal Agriculture Office at (043) 555-8291.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : null}
-
         {/* 2. Interactive Booking Suite */}
         <section aria-label="Book a program appointment" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
-          <Card className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+          <Card className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
             {/* Header & Guided Stepper */}
             <div className="border-b border-slate-100 bg-gradient-to-r from-emerald-50/50 via-slate-50/30 to-white p-4 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1033,11 +665,7 @@ function FarmerSchedulingContent() {
                             id={`program-card-${schedule.id}`}
                             onClick={() => {
                               if (isClosed) return;
-                              if (isUnlimited) {
-                                setActivityDetailsSchedule(schedule);
-                                return;
-                              }
-                              if (isFull || alreadyBooked) return;
+                              if (!isUnlimited && (isFull || alreadyBooked)) return;
                               setScheduleId(String(schedule.id));
                               setTime("");
                             }}
@@ -1165,10 +793,6 @@ function FarmerSchedulingContent() {
                                 disabled={isClosed || (!isUnlimited && (isFull || alreadyBooked))}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (isUnlimited) {
-                                    setActivityDetailsSchedule(schedule);
-                                    return;
-                                  }
                                   setScheduleId(String(schedule.id));
                                   setTime("");
                                 }}
@@ -1185,9 +809,15 @@ function FarmerSchedulingContent() {
                                 {isClosed ? (
                                   <span>{schedule.registration_status === "NOT_OPEN" ? "Opens soon" : "Registration closed"}</span>
                                 ) : isUnlimited ? (
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <Sparkles className="size-3.5 text-emerald-700" /> View Details (Walk-in)
-                                  </span>
+                                  isSelected ? (
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <Check className="size-4" /> Viewing Activity Details
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <Sparkles className="size-3.5 text-emerald-700" /> View Activity Details (Walk-in)
+                                    </span>
+                                  )
                                 ) : alreadyBooked ? (
                                   <span>Already booked</span>
                                 ) : isFull ? (
@@ -1200,18 +830,6 @@ function FarmerSchedulingContent() {
                                   <span>Select this program</span>
                                 )}
                               </Button>
-                              {!isUnlimited ? (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActivityDetailsSchedule(schedule);
-                                  }}
-                                  className="mt-2 text-center w-full text-xs font-semibold text-emerald-800 hover:text-emerald-950 hover:underline cursor-pointer"
-                                >
-                                  View Activity Details
-                                </button>
-                              ) : null}
                             </div>
                           </div>
                         );
@@ -1223,23 +841,174 @@ function FarmerSchedulingContent() {
                       selected.capacity === 0 ? (
                         <div
                           id="program-details-section"
-                          className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 text-center flex flex-col items-center justify-center gap-3 animate-in fade-in-50 duration-200 shadow-2xs"
+                          className="mt-6 rounded-3xl border-2 border-emerald-500/50 bg-gradient-to-br from-emerald-50 via-teal-50/20 to-white p-5 sm:p-7 shadow-sm space-y-6 animate-in fade-in-50 duration-200"
                         >
-                          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-900">
-                            <Sparkles className="size-4 text-emerald-700" />
-                            <span>Open Municipal Program</span>
+                          {/* Top Banner */}
+                          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-emerald-200/80 pb-5">
+                            <div className="flex items-start gap-3.5">
+                              {selected.cover_image ? (
+                                <div className="size-16 sm:size-20 rounded-2xl overflow-hidden border border-emerald-300 shrink-0 relative shadow-xs bg-slate-100">
+                                  <Image
+                                    src={programImageUrl(selected.cover_image)}
+                                    alt={selected.program}
+                                    fill
+                                    unoptimized
+                                    className="object-cover"
+                                  />
+                                </div>
+                              ) : null}
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge className="bg-emerald-800 text-white font-black text-xs px-2.5 py-0.5">
+                                    Open Municipal Program
+                                  </Badge>
+                                  <Badge variant="outline" className="border-emerald-300 bg-white text-emerald-900 font-bold text-xs">
+                                    No Booking Required
+                                  </Badge>
+                                </div>
+                                <h3 className="mt-1.5 text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
+                                  {selected.program}
+                                </h3>
+                                <p className="mt-1 text-xs sm:text-sm font-medium text-slate-600">
+                                  Activity scheduled on <strong className="text-slate-900">{formatLongDate(selected.date)}</strong>
+                                  {selected.location ? <> at <strong className="text-slate-900">{selected.location}</strong></> : ""}.
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="rounded-2xl border border-emerald-300 bg-emerald-100/90 px-4 py-2.5 text-left sm:text-right">
+                              <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-950">Capacity Status</p>
+                              <p className="text-sm sm:text-base font-black text-emerald-900">Open Walk-in · Unlimited</p>
+                            </div>
                           </div>
-                          <p className="text-xs sm:text-sm font-medium text-emerald-950 max-w-lg">
-                            <strong>{selected.program}</strong> is open for walk-in attendance on {formatLongDate(selected.date)}. No slot booking or advance reservation is required.
-                          </p>
-                          <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                            <Button
-                              type="button"
-                              onClick={() => setActivityDetailsSchedule(selected)}
-                              className="h-10 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold shadow-xs cursor-pointer px-4"
-                            >
-                              <Sparkles className="size-3.5 mr-1.5 text-emerald-300" /> View Activity Details
-                            </Button>
+
+                          {/* Direct "No Booking Needed" Encouragement Callout */}
+                          <div className="rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50/80 p-4 sm:p-5 flex items-start gap-3.5 text-emerald-950 shadow-2xs">
+                            <div className="size-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                              <CheckCircle2 className="size-5 stroke-[2.5]" />
+                            </div>
+                            <div className="space-y-1">
+                              <h4 className="text-sm sm:text-base font-black text-emerald-950">
+                                No Booking Needed — Walk-in Welcome!
+                              </h4>
+                              <p className="text-xs sm:text-sm text-emerald-900 leading-relaxed font-medium">
+                                This activity is open to all registered livestock farmers with no participant or slot limits.
+                                You do <strong>not</strong> need to book an appointment slot online—simply arrive directly at the venue during operating hours.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Program Activity & Report Details Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Schedule & Hours */}
+                            <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs">
+                              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                                <Clock className="size-4 text-emerald-700" />
+                                <span>Activity Hours / Schedule</span>
+                              </div>
+                              <p className="text-sm font-bold text-slate-900">
+                                {selected.available_times?.length
+                                  ? `${formatTime(selected.available_times[0])} – ${formatTime(selected.available_times[selected.available_times.length - 1])}`
+                                  : "During official office hours (8:00 AM – 5:00 PM)"}
+                              </p>
+                              <div className="flex flex-wrap gap-1.5 pt-1">
+                                {(selected.available_times?.length ? selected.available_times : PROGRAM_TIME_SLOTS).map((timeSlot) => (
+                                  <span
+                                    key={timeSlot}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold"
+                                  >
+                                    {formatTime(timeSlot)}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Location & Venue */}
+                            <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs">
+                              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                                <MapPin className="size-4 text-rose-600" />
+                                <span>Venue / Location</span>
+                              </div>
+                              <p className="text-sm font-bold text-slate-900 break-words">
+                                {selected.location || "Padre Garcia Municipal Agriculture Office (MAO)"}
+                              </p>
+                              <p className="text-xs text-slate-500 font-medium">
+                                {selected.barangay_name ? `Designated for farmers of Barangay ${selected.barangay_name}` : "Open municipality-wide across all barangays of Padre Garcia."}
+                              </p>
+                            </div>
+
+                            {/* Description */}
+                            {selected.description ? (
+                              <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs md:col-span-2">
+                                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                                  <Info className="size-4 text-sky-700" />
+                                  <span>Program Description & Report</span>
+                                </div>
+                                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal whitespace-pre-wrap">
+                                  {selected.description}
+                                </p>
+                              </div>
+                            ) : null}
+
+                            {/* Objectives */}
+                            {selected.objectives ? (
+                              <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs">
+                                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                                  <Sparkles className="size-4 text-amber-600" />
+                                  <span>Objectives & Services Provided</span>
+                                </div>
+                                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal whitespace-pre-wrap">
+                                  {selected.objectives}
+                                </p>
+                              </div>
+                            ) : null}
+
+                            {/* Eligibility & Contact */}
+                            <div className="rounded-2xl border border-slate-200 bg-white p-4.5 space-y-2 shadow-2xs">
+                              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                                <Phone className="size-4 text-emerald-700" />
+                                <span>Eligibility & Inquiries</span>
+                              </div>
+                              {selected.eligibility ? (
+                                <p className="text-xs text-slate-600 leading-relaxed">
+                                  <strong className="text-slate-800">Who can attend:</strong> {selected.eligibility}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-slate-600">
+                                  <strong className="text-slate-800">Eligibility:</strong> Open to all registered livestock farmers in Padre Garcia.
+                                </p>
+                              )}
+                              {selected.contact_information ? (
+                                <p className="text-xs text-slate-600 pt-1">
+                                  <strong className="text-slate-800">Inquiries:</strong> {selected.contact_information}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-slate-600 pt-1">
+                                  <strong className="text-slate-800">Office:</strong> Municipal Agriculture Office (MAO) Padre Garcia
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Farmer Notes / Reminders */}
+                            {selected.farmer_notes ? (
+                              <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4.5 space-y-1.5 shadow-2xs md:col-span-2 text-amber-950">
+                                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-900">
+                                  <Info className="size-4 text-amber-700 shrink-0" />
+                                  <span>Guidelines & What to Bring (Farmer Reminder)</span>
+                                </div>
+                                <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed text-amber-900 font-medium">
+                                  {selected.farmer_notes}
+                                </p>
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {/* Bottom Confirmation Bar */}
+                          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-emerald-200/80 pt-4">
+                            <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-emerald-900">
+                              <Check className="size-4 text-emerald-700 shrink-0" />
+                              <span>You are welcome to attend freely. No registration fee or reservation needed.</span>
+                            </div>
                             <Button
                               type="button"
                               variant="outline"
@@ -1247,9 +1016,9 @@ function FarmerSchedulingContent() {
                                 setScheduleId("");
                                 setTime("");
                               }}
-                              className="h-10 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer px-4"
+                              className="h-10 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
                             >
-                              Close
+                              Close Details
                             </Button>
                           </div>
                         </div>
@@ -1284,23 +1053,12 @@ function FarmerSchedulingContent() {
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setActivityDetailsSchedule(selected)}
-                                className="h-8 rounded-xl border-emerald-300 bg-white text-xs font-bold text-emerald-900 hover:bg-emerald-50 cursor-pointer"
-                              >
-                                <Sparkles className="size-3.5 mr-1 text-emerald-700" /> Details
-                              </Button>
-                              <Badge
-                                variant="outline"
-                                className="border-emerald-300 bg-white text-emerald-900 font-bold text-xs sm:text-sm px-3 py-1"
-                              >
-                                {`${selected.remaining_slots} slots available`}
-                              </Badge>
-                            </div>
+                            <Badge
+                              variant="outline"
+                              className="border-emerald-300 bg-white text-emerald-900 font-bold text-xs sm:text-sm px-3 py-1"
+                            >
+                              {`${selected.remaining_slots} slots available`}
+                            </Badge>
                           </div>
 
                           {/* Slot Buttons */}
@@ -1579,292 +1337,8 @@ function FarmerSchedulingContent() {
             </CardContent>
           </Card>
         </section>
-          </div>
         </div>
       </div>
-
-      {/* Digital Municipal ID Pass Modal (Matches Profile Pass QR) */}
-      <Dialog open={showIdPassModal} onOpenChange={setShowIdPassModal}>
-        <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl p-6 rounded-3xl bg-white border-0 shadow-2xl max-h-[94vh] overflow-y-auto">
-          <DialogHeader className="space-y-1 text-center">
-            <DialogTitle className="text-xl font-black text-slate-900">
-              Farmer profile identification
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Field personnel and MAO inspectors can scan this profile QR to verify your registered farmer status and attendance.
-            </DialogDescription>
-          </DialogHeader>
-
-          {user?.farmerId ? (
-            <QrCodePass
-              code={`SL-FARMER:${user.farmerId}`}
-              qrPayload={`SL-FARMER:${user.farmerId}`}
-              title="Farmer account QR"
-              subtitle="Show this QR to field inspectors to look up your registered programs and livestock."
-              ownerName={userDisplayName}
-              status="ACCOUNT ID"
-              compact
-            />
-          ) : (
-            <QrCodePass
-              code="SL-FARMER:041018"
-              qrPayload="SL-FARMER:041018-00921"
-              title="Farmer account QR"
-              subtitle="Show this QR to field inspectors to look up your registered programs and livestock."
-              ownerName={userDisplayName}
-              status="ACCOUNT ID"
-              compact
-            />
-          )}
-
-          <Button
-            type="button"
-            onClick={() => setShowIdPassModal(false)}
-            className="w-full bg-[#2D5A27] hover:bg-[#234620] text-white font-bold text-xs rounded-xl h-9.5 cursor-pointer mt-2"
-          >
-            Close Pass
-          </Button>
-        </DialogContent>
-      </Dialog>
-
-      {/* Activity Details Popup Modal (Matches user specifications from field programs) */}
-      <Dialog
-        open={activityDetailsSchedule !== null}
-        onOpenChange={(open) => {
-          if (!open) setActivityDetailsSchedule(null);
-        }}
-      >
-        <DialogContent className="w-full max-w-lg sm:max-w-xl md:max-w-2xl max-h-[92vh] overflow-y-auto p-5 sm:p-6 rounded-3xl border-slate-200 shadow-2xl bg-white block space-y-4">
-          {activityDetailsSchedule ? (
-            <div className="space-y-4 text-left">
-              <DialogHeader className="sr-only">
-                <DialogTitle>{activityDetailsSchedule.program}</DialogTitle>
-                <DialogDescription>
-                  Full program schedule and venue details for {activityDetailsSchedule.program}
-                </DialogDescription>
-              </DialogHeader>
-
-              {/* Top Navigation / Back link */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setActivityDetailsSchedule(null)}
-                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer group -ml-1 py-1 px-1.5 rounded-lg hover:bg-slate-100"
-                >
-                  <ChevronLeft className="size-4 text-slate-600 group-hover:text-emerald-800 transition-transform group-hover:-translate-x-0.5" />
-                  <span>Back to Field Program Schedule</span>
-                </button>
-              </div>
-
-              {/* Image Banner at Top (Where arrow points) */}
-              <div className="relative w-full h-48 sm:h-56 md:h-64 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/80 shadow-xs shrink-0">
-                <Image
-                  src={
-                    activityDetailsSchedule.cover_image
-                      ? programImageUrl(activityDetailsSchedule.cover_image)
-                      : activityDetailsSchedule.photos?.[0]?.image
-                        ? programImageUrl(activityDetailsSchedule.photos[0].image)
-                        : "/images/species-cattle.jpg"
-                  }
-                  alt={activityDetailsSchedule.program}
-                  fill
-                  unoptimized
-                  className="object-cover"
-                  priority
-                />
-              </div>
-
-              {/* Badges Row */}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#14532d] text-white shadow-2xs">
-                  {activityDetailsSchedule.barangay_name
-                    ? `Barangay ${activityDetailsSchedule.barangay_name} Program`
-                    : "Open Municipal Program"}
-                </span>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border border-slate-200 bg-slate-100 text-slate-700">
-                  {activityDetailsSchedule.capacity === 0 ? "No Registration Needed" : "Registration Required"}
-                </span>
-              </div>
-
-              {/* Category Icon + Program Title + Subtitle */}
-              <div className="flex items-start gap-3.5 pt-1">
-                <div className="size-11 sm:size-12 rounded-2xl bg-emerald-100/90 text-emerald-800 flex items-center justify-center shrink-0 border border-emerald-200/70 shadow-2xs">
-                  {getCategoryIcon(activityDetailsSchedule.category)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug">
-                    {activityDetailsSchedule.program}
-                  </h3>
-                  <p className="mt-1 text-xs sm:text-sm font-medium text-slate-600">
-                    Activity scheduled on{" "}
-                    <strong className="text-slate-900">{formatLongDate(activityDetailsSchedule.date)}</strong>
-                    {activityDetailsSchedule.location ? (
-                      <>
-                        {" "}at <strong className="text-slate-900">{activityDetailsSchedule.location}</strong>
-                      </>
-                    ) : null}
-                    .
-                  </p>
-                </div>
-              </div>
-
-              {/* Highlight Callout Box */}
-              <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-3.5 sm:p-4 flex items-start gap-3 shadow-2xs">
-                <div className="size-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                  <Check className="size-3.5 stroke-[3]" />
-                </div>
-                <div className="space-y-0.5">
-                  <h4 className="text-sm sm:text-base font-bold text-slate-900">
-                    {activityDetailsSchedule.capacity === 0
-                      ? "Open Walk-in for All Eligible Farmers"
-                      : "Appointment Registration for All Eligible Farmers"}
-                  </h4>
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-                    {activityDetailsSchedule.capacity === 0
-                      ? "You can attend directly at the venue during operating hours. No booking or reservation needed."
-                      : "Select your preferred arrival time window from the schedule page to confirm your slot."}
-                  </p>
-                </div>
-              </div>
-
-              {/* Structured Activity Information List */}
-              <div className="space-y-4 pt-1 divide-y divide-slate-100 [&>*:not(:first-child)]:pt-4">
-                {/* Date & Time */}
-                <div className="flex items-start gap-3.5">
-                  <div className="size-9 sm:size-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 text-emerald-700 shadow-2xs">
-                    <CalendarDays className="size-5" />
-                  </div>
-                  <div className="space-y-0.5 flex-1">
-                    <h5 className="text-sm font-bold text-slate-900">Date & Time</h5>
-                    <p className="text-xs sm:text-sm font-medium text-slate-700">
-                      {formatLongDate(activityDetailsSchedule.date)}
-                    </p>
-                    <p className="text-xs sm:text-sm font-medium text-slate-500">
-                      {activityDetailsSchedule.available_times?.length
-                        ? `${formatTime(activityDetailsSchedule.available_times[0])} – ${formatTime(
-                            activityDetailsSchedule.available_times[
-                              activityDetailsSchedule.available_times.length - 1
-                            ],
-                          )}`
-                        : "8:00 AM – 1:30 PM"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Venue / Location */}
-                <div className="flex items-start gap-3.5">
-                  <div className="size-9 sm:size-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0 text-rose-600 shadow-2xs">
-                    <MapPin className="size-5" />
-                  </div>
-                  <div className="space-y-0.5 flex-1">
-                    <h5 className="text-sm font-bold text-slate-900">Venue / Location</h5>
-                    <p className="text-xs sm:text-sm font-bold text-slate-800 break-words">
-                      {activityDetailsSchedule.location || "Banaba Covered Court"}
-                    </p>
-                    <p className="text-xs text-slate-500 font-medium">
-                      {activityDetailsSchedule.barangay_name
-                        ? `Designated for farmers of Barangay ${activityDetailsSchedule.barangay_name}`
-                        : "Open municipality-wide across all barangays of Padre Garcia"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Program Description */}
-                {activityDetailsSchedule.description ? (
-                  <div className="flex items-start gap-3.5">
-                    <div className="size-9 sm:size-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 text-emerald-700 shadow-2xs">
-                      <FileText className="size-5" />
-                    </div>
-                    <div className="space-y-0.5 flex-1">
-                      <h5 className="text-sm font-bold text-slate-900">Program Description</h5>
-                      <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal whitespace-pre-wrap">
-                        {activityDetailsSchedule.description}
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-
-                {/* Objectives & Services Provided */}
-                <div className="flex items-start gap-3.5">
-                  <div className="size-9 sm:size-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center shrink-0 text-teal-700 shadow-2xs">
-                    <Target className="size-5" />
-                  </div>
-                  <div className="space-y-1.5 flex-1">
-                    <h5 className="text-sm font-bold text-slate-900">Objectives & Services Provided</h5>
-                    <ul className="space-y-1 text-xs sm:text-sm text-slate-600">
-                      {parseBulletPoints(activityDetailsSchedule.objectives, [
-                        "Prevent common cattle diseases",
-                        "Promote healthier and more productive livestock",
-                        "Free cattle vaccination",
-                      ]).map((item, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <span className="text-slate-400 font-bold">•</span>
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Eligibility & Inquiries */}
-                <div className="flex items-start gap-3.5">
-                  <div className="size-9 sm:size-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 text-emerald-700 shadow-2xs">
-                    <Users className="size-5" />
-                  </div>
-                  <div className="space-y-1.5 flex-1">
-                    <h5 className="text-sm font-bold text-slate-900">Eligibility & Inquiries</h5>
-                    <ul className="space-y-1 text-xs sm:text-sm text-slate-600">
-                      <li className="flex items-start gap-2">
-                        <span className="text-slate-400 font-bold">•</span>
-                        <span>
-                          {activityDetailsSchedule.eligibility?.trim() ||
-                            (activityDetailsSchedule.barangay_name
-                              ? `Open to all registered livestock farmers in Barangay ${activityDetailsSchedule.barangay_name}.`
-                              : "Open to all registered livestock farmers in Barangay Manggas.")}
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-slate-400 font-bold">•</span>
-                        <span>
-                          {activityDetailsSchedule.contact_information?.trim()
-                            ? `For inquiries, contact: ${activityDetailsSchedule.contact_information}`
-                            : "For inquiries, contact the Municipal Agriculture Office (MAO)."}
-                        </span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Guidelines & Reminders (if notes present) */}
-                {activityDetailsSchedule.farmer_notes ? (
-                  <div className="flex items-start gap-3.5">
-                    <div className="size-9 sm:size-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0 text-amber-700 shadow-2xs">
-                      <Info className="size-5" />
-                    </div>
-                    <div className="space-y-0.5 flex-1">
-                      <h5 className="text-sm font-bold text-amber-950">Guidelines & Reminders</h5>
-                      <p className="text-xs sm:text-sm text-amber-900 whitespace-pre-wrap leading-relaxed">
-                        {activityDetailsSchedule.farmer_notes}
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Bottom Go Back Button */}
-              <div className="pt-2">
-                <Button
-                  type="button"
-                  onClick={() => setActivityDetailsSchedule(null)}
-                  className="w-full h-11 sm:h-12 rounded-2xl bg-[#0F5A38] hover:bg-[#0c462c] text-white font-bold text-sm sm:text-base shadow-sm transition-all cursor-pointer"
-                >
-                  Go Back to Schedule
-                </Button>
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={photoViewer !== null}
