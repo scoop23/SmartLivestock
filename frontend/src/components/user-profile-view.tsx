@@ -1071,36 +1071,38 @@ export function UserProfileView() {
 
             {/* Bottom Action Buttons */}
             <div className="flex items-center gap-2.5">
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                onClick={() => {
-                  const nextState = !isEditing;
-                  setIsEditing(nextState);
-                  if (nextState) {
-                    setActiveTab("overview");
-                    scrollToDetails();
+              {!isFieldReviewer && (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    const nextState = !isEditing;
+                    setIsEditing(nextState);
+                    if (nextState) {
+                      setActiveTab("overview");
+                      scrollToDetails();
+                    }
+                  }}
+                  className={
+                    isEditing
+                      ? "bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-bold text-xs rounded-xl h-9.5 px-4 gap-2 shadow-md transition-all cursor-pointer ring-2 ring-white/60"
+                      : "bg-white hover:bg-emerald-50 text-[#0c3824] font-bold text-xs rounded-xl h-9.5 px-4 gap-2 shadow-md transition-all cursor-pointer"
                   }
-                }}
-                className={
-                  isEditing
-                    ? "bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-bold text-xs rounded-xl h-9.5 px-4 gap-2 shadow-md transition-all cursor-pointer ring-2 ring-white/60"
-                    : "bg-white hover:bg-emerald-50 text-[#0c3824] font-bold text-xs rounded-xl h-9.5 px-4 gap-2 shadow-md transition-all cursor-pointer"
-                }
-              >
-                {isEditing ? (
-                  <>
-                    <X className="size-3.5 stroke-[3]" />
-                    <span>Exit Edit</span>
-                  </>
-                ) : (
-                  <>
-                    <Edit3 className="size-3.5 text-[#0c3824]" />
-                    <span>Edit Profile</span>
-                  </>
-                )}
-              </Button>
+                >
+                  {isEditing ? (
+                    <>
+                      <X className="size-3.5 stroke-[3]" />
+                      <span>Exit Edit</span>
+                    </>
+                  ) : (
+                    <>
+                      <Edit3 className="size-3.5 text-[#0c3824]" />
+                      <span>Edit Profile</span>
+                    </>
+                  )}
+                </Button>
+              )}
 
               <Button
                 type="button"
