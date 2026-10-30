@@ -561,6 +561,9 @@ class PublicAnnouncementSerializer(serializers.ModelSerializer):
 
 
 class ProgramBookingSerializer(serializers.ModelSerializer):
+    # Farmers confirm a reservation without choosing a time; the booking view
+    # assigns one from the schedule's offered times inside its transaction.
+    time = serializers.TimeField(required=False)
     farmer_name = serializers.SerializerMethodField()
     farmer_barangay = serializers.SerializerMethodField()
     date = serializers.DateField(source="schedule.date", read_only=True)

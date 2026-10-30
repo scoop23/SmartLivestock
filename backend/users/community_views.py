@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.db import IntegrityError, transaction
 from django.db.models import Q, Prefetch
 from django.shortcuts import get_object_or_404
@@ -380,17 +382,10 @@ def bookings(request):
     serializer = ProgramBookingSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     schedule = serializer.validated_data["schedule"]
-    chosen_time = serializer.validated_data["time"]
+    requested_time = serializer.validated_data.get("time")
     try:
         with transaction.atomic():
             schedule = ProgramSchedule.objects.select_for_update().get(pk=schedule.pk)
-            # Validate against this program's own times, not a global preset list.
-            offered_times = schedule.available_times or list(PROGRAM_TIME_SLOTS)
-            if chosen_time.strftime("%H:%M") not in offered_times:
-                return Response({"time": ["Choose one of this program's offered times."]}, status=400)
-            current_local_time = timezone.localtime().time().replace(tzinfo=None)
-            if schedule.date == timezone.localdate() and chosen_time <= current_local_time:
-                return Response({"time": ["This appointment time has already passed. Choose a later time."]}, status=400)
             if (
                 schedule.publication_status != ProgramSchedule.PublicationStatus.PUBLISHED
                 or not schedule.is_open
@@ -413,7 +408,41 @@ def bookings(request):
             confirmed_count = schedule.bookings.filter(status=ProgramBooking.Status.CONFIRMED).count()
             if schedule.capacity > 0 and confirmed_count >= schedule.capacity:
                 return Response({"detail": "This program is fully booked."}, status=400)
-            booking = serializer.save(farmer=request.user, schedule=schedule)
+
+            # Use the program's offered times and current confirmed bookings to
+            # assign an arrival time only after locking the schedule. This keeps
+            # simultaneous reservations from choosing based on stale client data.
+            offered_times = schedule.available_times or list(PROGRAM_TIME_SLOTS)
+            local_now = timezone.localtime()
+            local_today = local_now.date()
+            current_local_time = local_now.time().replace(tzinfo=None)
+            if requested_time is not None:
+                if requested_time.strftime("%H:%M") not in offered_times:
+                    return Response({"time": ["Choose one of this program's offered times."]}, status=400)
+                if schedule.date == local_today and requested_time <= current_local_time:
+                    return Response({"time": ["This appointment time has already passed. Choose a later time."]}, status=400)
+                chosen_time = requested_time
+            else:
+                booking_counts = {}
+                confirmed_times = schedule.bookings.filter(
+                    status=ProgramBooking.Status.CONFIRMED
+                ).values_list("time", flat=True)
+                for booked_time in confirmed_times:
+                    time_key = booked_time.strftime("%H:%M")
+                    booking_counts[time_key] = booking_counts.get(time_key, 0) + 1
+
+                available_options = []
+                for offered_time in offered_times:
+                    candidate = datetime.strptime(offered_time, "%H:%M").time()
+                    if schedule.date == local_today and candidate <= current_local_time:
+                        continue
+                    available_options.append((booking_counts.get(offered_time, 0), candidate))
+
+                if not available_options:
+                    return Response({"detail": "No future arrival times remain for this program."}, status=400)
+                chosen_time = min(available_options)[1]
+
+            booking = serializer.save(farmer=request.user, schedule=schedule, time=chosen_time)
     except IntegrityError:
         return Response({"detail": "You already have a confirmed booking for this program."}, status=400)
     create_notification(request.user, title="Booking confirmed", message=f"{schedule.program} on {schedule.date} at {chosen_time.strftime('%H:%M')}.", link="/farmer-scheduling")

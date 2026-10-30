@@ -53,7 +53,6 @@ ChevronRight,
 ClipboardList,
 Clock,
 Clock3,
-CloudRain,
 FileText,
 GraduationCap,
 HeartPulse,
@@ -61,7 +60,6 @@ Info,
 Loader2,
 MapPin,
 Pencil,
-Phone,
 RefreshCw,
 Sparkles,
 Syringe,
@@ -139,7 +137,6 @@ function FarmerSchedulingContent() {
   const [scheduleId, setScheduleId] = useState("");
   const [detailsSchedule, setDetailsSchedule] = useState<ProgramSchedule | null>(null);
   const [calendarDate, setCalendarDate] = useState<Date | null>(null);
-  const [time, setTime] = useState("");
   const [loading, setLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -253,18 +250,16 @@ function FarmerSchedulingContent() {
     () => new Set(bookings.filter((booking) => booking.status === "CONFIRMED").map((booking) => booking.schedule)),
     [bookings],
   );
-  const selectedAvailableTimes = selected?.available_times?.length ? selected.available_times : PROGRAM_TIME_SLOTS;
-  const availableTimes = useMemo(() => (selected && (selected.capacity === 0 || selected.remaining_slots > 0) ? selectedAvailableTimes : []), [selected, selectedAvailableTimes]);
-
   async function book() {
-    if (!scheduleId || !time || confirmedScheduleIds.has(Number(scheduleId))) return;
+    const bookingSchedule = detailsSchedule ?? selected;
+    if (!scheduleId || !bookingSchedule || confirmedScheduleIds.has(Number(scheduleId))) return;
+
     setBusy(true);
     setError("");
     setMessage("");
     try {
       const { data: booking } = await api.post<ProgramBooking>("/community/bookings/", {
         schedule: Number(scheduleId),
-        time,
       });
       if (window.matchMedia("(min-width: 1024px)").matches) {
         setBookingToastClosing(false);
@@ -273,11 +268,10 @@ function FarmerSchedulingContent() {
           `${booking.program} on ${formatLongDate(booking.date)} at ${formatTime(booking.time)}.`,
         );
       }
-      setMessage("Booking confirmed! Please arrive at the scheduled time.");
+      setMessage(`Booking confirmed! Your assigned arrival time is ${formatTime(booking.time)}.`);
       setBookingFilter("upcoming");
       setHighlightedBookingId(booking.id);
       setScheduleId("");
-      setTime("");
       setDetailsSchedule(null);
       window.history.replaceState({}, "", window.location.pathname);
       await refresh();
@@ -490,7 +484,7 @@ function FarmerSchedulingContent() {
                     <span>Reserve an Appointment</span>
                   </h2>
                   <p className="mt-1 text-xs sm:text-sm font-medium text-slate-500">
-                    Select a highlighted date, choose an active field program, and pick your arrival time window.
+                    Select a highlighted date and active field program, then confirm your reservation.
                   </p>
                 </div>
 
@@ -520,14 +514,12 @@ function FarmerSchedulingContent() {
                   <span className="text-slate-300">→</span>
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 ${
-                      time
+                      selected
                         ? "bg-emerald-800 text-white font-black shadow-xs"
-                        : selected
-                          ? "border border-emerald-300 bg-emerald-50 text-emerald-800"
-                          : "bg-slate-100 text-slate-400"
+                        : "bg-slate-100 text-slate-400"
                     }`}
                   >
-                    <span>3. Time</span>
+                    <span>3. Confirm</span>
                   </span>
                 </div>
               </div>
@@ -566,7 +558,6 @@ function FarmerSchedulingContent() {
                         onSelect={(day) => {
                           setCalendarDate(day ?? null);
                           setScheduleId("");
-                          setTime("");
                         }}
                         disabled={(day) => !datesWithPrograms.has(isoFromLocalDate(day))}
                         modifiers={{
@@ -596,7 +587,6 @@ function FarmerSchedulingContent() {
                             onClick={() => {
                               setCalendarDate(null);
                               setScheduleId("");
-                              setTime("");
                             }}
                             className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 cursor-pointer"
                           >
@@ -606,62 +596,6 @@ function FarmerSchedulingContent() {
                       </div>
                     </div>
 
-                    {/* Municipal Guidelines & Veterinary Contacts Card */}
-                    <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs space-y-3.5">
-                      {/* Header */}
-                      <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
-                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">
-                          <Phone className="size-4" />
-                        </div>
-                        <div>
-                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
-                            Municipal Support & Guidelines
-                          </h4>
-                          <p className="text-[11px] text-slate-500 font-medium">
-                            Padre Garcia Municipal Agriculture Office (MAO)
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Hotlines Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 space-y-0.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
-                            <span className="size-1.5 rounded-full bg-emerald-600" />
-                            MAO Central Desk
-                          </span>
-                          <p className="text-xs font-black text-slate-900">(043) 515-2888</p>
-                          <p className="text-[10px] text-slate-500">mao@padregarcia.gov.ph</p>
-                        </div>
-
-                        <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/70 space-y-0.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-                            <span className="size-1.5 rounded-full bg-amber-600" />
-                            Biosecurity & Vet Desk
-                          </span>
-                          <p className="text-xs font-black text-slate-900">(043) 515-2889</p>
-                          <p className="text-[10px] text-slate-500">Rapid animal health response</p>
-                        </div>
-                      </div>
-
-                      {/* Weather Advisory Banner */}
-                      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-sky-50/80 border border-sky-200/80 text-sky-950">
-                        <CloudRain className="size-4 text-sky-700 shrink-0 mt-0.5" />
-                        <div className="text-[11px] leading-relaxed">
-                          <strong className="font-bold block text-sky-900">Weather & Field Notice:</strong>
-                          Outdoor visits and field vaccinations may be rescheduled during severe rainfall or weather advisories. Registered farmers will receive direct updates.
-                        </div>
-                      </div>
-
-                      {/* Operating Hours Note */}
-                      <div className="flex items-center justify-between pt-0.5 text-[11px] text-slate-500">
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="size-3.5 text-slate-400" />
-                          <span>Mon – Fri: 8:00 AM – 5:00 PM</span>
-                        </div>
-                        <span className="font-semibold text-slate-600">Poblacion, Padre Garcia</span>
-                      </div>
-                    </div>
                   </div>
 
                   {/* Right Column: Programs on Selected Date & Booking Form */}
@@ -723,7 +657,6 @@ function FarmerSchedulingContent() {
                             onClick={() => {
                               setScheduleId(String(schedule.id));
                               setDetailsSchedule(schedule);
-                              setTime("");
                             }}
                             className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-4.5 sm:p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-xs cursor-pointer space-y-4"
                           >
@@ -820,7 +753,6 @@ function FarmerSchedulingContent() {
                                   e.stopPropagation();
                                   setScheduleId(String(schedule.id));
                                   setDetailsSchedule(schedule);
-                                  setTime("");
                                 }}
                                 className="w-full h-10 rounded-xl bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"
                               >
@@ -1150,7 +1082,7 @@ function FarmerSchedulingContent() {
                         <p className="text-xs sm:text-sm text-emerald-900 leading-relaxed font-medium">
                           {isUnlimited
                             ? "You can attend directly at the venue during operating hours. No booking or reservation needed."
-                            : "Reserve your preferred arrival time window below to guarantee priority service."}
+                            : "Confirm your reservation below. An arrival time will be assigned automatically within the program schedule."}
                         </p>
                       </div>
                     </div>
@@ -1279,43 +1211,20 @@ function FarmerSchedulingContent() {
                       </div>
                     ) : null}
 
-                    {/* Slot Reservation Options (for programs with limited capacity) */}
+                    {/* Slot Reservation (arrival time assigned automatically) */}
                     {!isUnlimited ? (
                       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 sm:p-5 space-y-3.5">
                         <div className="flex items-center justify-between">
                           <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800">
-                            Choose Preferred Arrival Time:
+                            Slot Reservation
                           </label>
                           <Badge variant="outline" className="border-emerald-300 bg-white text-emerald-900 font-bold text-xs">
                             {isFull ? "0 slots left" : `${detailsSchedule.remaining_slots} slots available`}
                           </Badge>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          {programTimes.map((slot) => {
-                            const isSlotActive = time === slot && scheduleId === String(detailsSchedule.id);
-                            return (
-                              <Button
-                                key={slot}
-                                type="button"
-                                variant={isSlotActive ? "default" : "outline"}
-                                disabled={busy || isFull || isAlreadyBooked}
-                                onClick={() => {
-                                  setScheduleId(String(detailsSchedule.id));
-                                  setTime(slot);
-                                }}
-                                className={`h-10 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-                                  isSlotActive
-                                    ? "bg-emerald-800 text-white shadow-xs"
-                                    : "border-slate-200 bg-white text-slate-800 hover:bg-emerald-50"
-                                }`}
-                              >
-                                <Clock className="mr-1.5 size-3.5" />
-                                <span>{formatTime(slot)}</span>
-                              </Button>
-                            );
-                          })}
-                        </div>
+                        <p className="text-xs leading-relaxed text-slate-600">
+                          Your arrival time will be assigned automatically within {startTimeStr} – {endTimeStr}.
+                        </p>
 
                         {isAlreadyBooked ? (
                           <p className="text-xs font-semibold text-amber-800">
@@ -1324,7 +1233,7 @@ function FarmerSchedulingContent() {
                         ) : (
                           <Button
                             type="button"
-                            disabled={busy || !time || scheduleId !== String(detailsSchedule.id)}
+                            disabled={busy || isFull || scheduleId !== String(detailsSchedule.id)}
                             onClick={book}
                             className="w-full h-11 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                           >
