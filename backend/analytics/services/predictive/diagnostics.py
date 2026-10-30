@@ -735,9 +735,19 @@ def get_forecast_readiness_diagnostics(
             if total_attempted_cutoffs == 0:
                 validation_details = "Dataset length is insufficient to simulate an out-of-sample holdout window."
             else:
+                primary_reason = ""
+                if backtest_diagnostics:
+                    reasons = [d.get("reason") for d in backtest_diagnostics if d.get("reason")]
+                    if reasons:
+                        primary_reason = f" {reasons[0]}"
+
+                source_word = "submission" if domain == "production" else "approval"
+                fallback_explanation = (
+                    f"Records for simulated past cutoffs had {source_word} timestamps at or after the cutoff date."
+                )
                 validation_details = (
-                    f"0 of {total_attempted_cutoffs} historical cutoffs qualified. "
-                    "Records for simulated past cutoffs had approval timestamps after the cutoff date."
+                    f"{valid_cutoffs_count} of {total_attempted_cutoffs} historical cutoffs qualified."
+                    f"{primary_reason or f' {fallback_explanation}'}"
                 )
     elif usable_observations >= 12:
         validation_status = "NOT_YET_VALIDATED"

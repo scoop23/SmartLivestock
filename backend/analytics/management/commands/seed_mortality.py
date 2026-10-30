@@ -17,7 +17,7 @@ EDUCATIONAL OVERVIEW & DISEASE-MORTALITY TRACEABILITY:
    `--clean` safely removes ONLY synthetic mortality records.
 """
 
-from datetime import date
+from datetime import date, datetime, time, timedelta
 import numpy as np
 
 from django.core.management.base import BaseCommand
@@ -135,11 +135,24 @@ class Command(BaseCommand):
             # Alternate between disease-linked mortality and independent causes
             if disease_cases and (i % 2 == 0):
                 disease_case = disease_cases[(i // 2) % len(disease_cases)]
+                # Ensure the mortality chronologically follows disease onset (3-7 days later)
+                if disease_case.record_date:
+                    potential_death_date = disease_case.record_date + timedelta(days=int(rng.choice([3, 5, 7, 10])))
+                    if potential_death_date <= today:
+                        record_date = potential_death_date
                 cause = f"Complications arising from {disease_case.name}"
                 source_case = disease_case
             else:
                 cause = INDEPENDENT_CAUSES[i % len(INDEPENDENT_CAUSES)]
                 source_case = None
+
+            # Submission timestamp (Farmer/Biosecurity officer logs event on record_date)
+            created_at_dt = timezone.make_aware(
+                datetime.combine(record_date, time(8, int(rng.choice([15, 30, 45]))))
+            )
+            # MAO Weekly Review SLA: batch approval occurs ~7 days later (5-7 days)
+            review_delay = int(rng.choice([5, 6, 7]))
+            reviewed_at_dt = min(created_at_dt + timedelta(days=review_delay), timezone.now())
 
             record = MortalityRecord(
                 livestock=animal,
@@ -149,13 +162,19 @@ class Command(BaseCommand):
                 record_date=record_date,
                 status=MortalityRecord.MortalityRecordStatus.APPROVED,
                 reviewed_by=mao_user,
-                reviewed_at=timezone.now(),
+                reviewed_at=reviewed_at_dt,
                 review_remarks=f"{SEED_MARKER_MORTALITY} Verified municipal mortality entry #{i+1}.",
                 created_by=creator_user,
             )
+            record._synthetic_created_at = created_at_dt
             records_to_create.append(record)
 
         MortalityRecord.objects.bulk_create(records_to_create)
+        # auto_now_add replaces created_at during insert; restore the synthetic
+        # historical submission time afterward for backtest evaluation.
+        for r in records_to_create:
+            r.created_at = r._synthetic_created_at
+        MortalityRecord.objects.bulk_update(records_to_create, ["created_at"], batch_size=500)
         self.stdout.write(
             self.style.SUCCESS(
                 f"Successfully seeded {len(records_to_create)} synthetic mortality records with marker '{SEED_MARKER_MORTALITY}'."

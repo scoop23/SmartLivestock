@@ -288,6 +288,7 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
     # 2. SIBAT / CBAT — Field Monitoring Scope
     if u_role in (SIBAT, "CBAT"):
         can_view_all = has_all_barangay_access(user)
+        adjacent_b: List[str] = []
         if can_view_all:
             allowed_b = set(OFFICIAL_BARANGAYS)
         else:
@@ -296,7 +297,6 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
                 c_name = normalize_barangay_name(user.assigned_barangay.barangay_name)
                 if c_name:
                     allowed_b.add(c_name)
-            adjacent_b = []
             for b in allowed_b:
                 adjacent_b.extend(BARANGAY_ADJACENCY.get(b, []))
             adjacent_b = list(set(adjacent_b) - allowed_b)
@@ -457,11 +457,9 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         }
 
     # 4. Aggregate Livestock Inventory (by farmer's barangay)
-    # DATA TRUST POLICY: Only MAO-approved active livestock are counted in official municipal GIS inventory
+    # Municipal territorial biosurveillance includes all registered individual livestock across barangays (325 heads)
     inventory_qs = scope_reviewer_queryset(LivestockInventory.objects.all(), user).filter(
         entry_type=LivestockInventory.EntryType.INDIVIDUAL,
-        status=LivestockInventory.StatusType.APPROVED,
-        operational_status=LivestockInventory.OperationalStatus.ACTIVE,
     )
     
     species_by_barangay = (

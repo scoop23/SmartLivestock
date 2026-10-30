@@ -98,7 +98,7 @@ class ForecastReadinessDiagnosticsTests(TestCase):
         self.assertEqual(data["status"], "success")
         self.assertIn("summary_cards", data)
         self.assertIn("diagnostics", data)
-        self.assertEqual(len(data["summary_cards"]), 4)
+        self.assertEqual(len(data["summary_cards"]), len(CORE_DIAGNOSTIC_TARGETS))
 
         card_ids = [c["id"] for c in data["summary_cards"]]
         self.assertIn("milk", card_ids)
@@ -216,7 +216,7 @@ class ForecastReadinessDiagnosticsTests(TestCase):
         forecast availability is decoupled: forecast_available=True, validation_status='NOT_YET_VALIDATED'.
         """
         # Seed 24 months for Milk without backdating approval timestamps
-        call_command("seed_productions", months=24)
+        call_command("seed_productions", months=24, include_milk=True)
         try:
             diag = get_forecast_readiness_diagnostics("production", "MILK", "LITERS", user=self.mao_user)
             self.assertTrue(diag["forecast_available"])
@@ -239,7 +239,7 @@ class ForecastReadinessDiagnosticsTests(TestCase):
         Synthetic seed rows retain their real insertion timestamps, so they cannot
         manufacture historical approval windows.
         """
-        call_command("seed_productions", months=36)
+        call_command("seed_productions", months=36, include_milk=True)
         try:
             diag = get_forecast_readiness_diagnostics("production", "MILK", "LITERS", user=self.mao_user)
             self.assertTrue(diag["forecast_available"])
