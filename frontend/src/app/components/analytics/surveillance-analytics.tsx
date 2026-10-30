@@ -955,113 +955,114 @@ export default function SurveillanceAnalytics() {
       </div>
 
       {/* ----------------------------------------------------------------- */}
-      {/* C. 4 EXECUTIVE METRIC HUD CARDS                                   */}
+      {/* C. 4 EXECUTIVE METRIC HUD (Continuous Scoreboard Ribbon)          */}
       {/* ----------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Disease Reports (30d) */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-              Disease Reports (30d)
-            </span>
-            <div className="flex size-7 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
-              <Stethoscope className="size-4" />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-mono font-black text-slate-900">
-              {number(data.disease.last_30_days.reports)}
-            </span>
-            <span className="text-xs font-semibold text-rose-600">
-              {number(data.disease.last_30_days.affected_heads ?? 0)} heads
-            </span>
-          </div>
-          <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Distinct linked animals</span>
-            <span className="font-mono font-bold text-slate-700">
-              {number(data.disease.last_30_days.distinct_identified_livestock)}
-            </span>
-          </div>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+            30-Day Surveillance Telemetry • Municipal Health Metrics
+          </span>
+          <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
+            Non-interactive Summary
+          </span>
         </div>
 
-        {/* Reported Deaths (30d) */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-              Reported Deaths (30d)
-            </span>
-            <div className="flex size-7 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-              <AlertTriangle className="size-4" />
+        <div className="rounded-2xl border border-slate-700/80 bg-slate-800/85 text-slate-100 divide-y sm:divide-y-0 sm:divide-x divide-slate-700/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 select-none cursor-default overflow-hidden shadow-xs backdrop-blur-xs">
+          {/* Disease Reports (30d) */}
+          <div className="p-3.5 sm:p-4 bg-slate-800/60">
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <span className="size-1.5 rounded-full bg-rose-400 shrink-0 shadow-xs" />
+              <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
+                Disease Reports (30d)
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-mono font-black text-white tracking-tight">
+                {number(data.disease.last_30_days.reports)}
+              </span>
+              <span className="text-xs font-semibold text-rose-400">
+                {number(data.disease.last_30_days.affected_heads ?? 0)} heads
+              </span>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Distinct linked animals</span>
+              <span className="font-mono font-bold text-slate-200">
+                {number(data.disease.last_30_days.distinct_identified_livestock)}
+              </span>
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-mono font-black text-slate-900">
-              {number(data.mortality.last_30_days.deaths ?? 0)}
-            </span>
-            <span className="text-xs font-semibold text-amber-700">
-              {number(data.mortality.last_30_days.reports)} reports
-            </span>
-          </div>
-          <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Distinct identified animals</span>
-            <span className="font-mono font-bold text-slate-700">
-              {number(data.mortality.identified_animals_last_30_days)}
-            </span>
-          </div>
-        </div>
 
-        {/* Early-Warning Alert Status */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-              Disease Alert Status
-            </span>
-            <div
-              className={`flex size-7 items-center justify-center rounded-lg ${
+          {/* Reported Deaths (30d) */}
+          <div className="p-3.5 sm:p-4 bg-slate-800/60">
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <span className="size-1.5 rounded-full bg-amber-400 shrink-0 shadow-xs" />
+              <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
+                Reported Deaths (30d)
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-mono font-black text-white tracking-tight">
+                {number(data.mortality.last_30_days.deaths ?? 0)}
+              </span>
+              <span className="text-xs font-semibold text-amber-400">
+                {number(data.mortality.last_30_days.reports)} reports
+              </span>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Distinct identified animals</span>
+              <span className="font-mono font-bold text-slate-200">
+                {number(data.mortality.identified_animals_last_30_days)}
+              </span>
+            </div>
+          </div>
+
+          {/* Early-Warning Alert Status */}
+          <div className="p-3.5 sm:p-4 bg-slate-800/60">
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <span className={`size-1.5 rounded-full shrink-0 shadow-xs ${
                 data.disease.alert.level === "ELEVATED"
-                  ? "bg-rose-100 text-rose-700"
+                  ? "bg-rose-400"
                   : data.disease.alert.level === "WATCH"
-                  ? "bg-amber-100 text-amber-800"
-                  : "bg-emerald-100 text-emerald-800"
-              }`}
-            >
-              <Activity className="size-4" />
+                  ? "bg-amber-400"
+                  : "bg-emerald-400"
+              }`} />
+              <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
+                Disease Alert Status
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                {alertMeta[data.disease.alert.level]?.badge ?? data.disease.alert.level}
+              </span>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Complete week heads</span>
+              <span className="font-mono font-bold text-slate-200">
+                {number(data.disease.latest_complete_week.affected_heads ?? 0)} heads
+              </span>
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xl font-extrabold text-slate-900">
-              {alertMeta[data.disease.alert.level]?.badge ?? data.disease.alert.level}
-            </span>
-          </div>
-          <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Complete week heads</span>
-            <span className="font-mono font-bold text-slate-700">
-              {number(data.disease.latest_complete_week.affected_heads ?? 0)} heads
-            </span>
-          </div>
-        </div>
 
-        {/* Estimated Mortality Rate */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-              Estimated Mortality Rate
-            </span>
-            <div className="flex size-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700">
-              <TrendingUp className="size-4" />
+          {/* Estimated Mortality Rate */}
+          <div className="p-3.5 sm:p-4 bg-slate-800/60">
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <span className="size-1.5 rounded-full bg-indigo-400 shrink-0 shadow-xs" />
+              <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
+                Estimated Mortality Rate
+              </span>
             </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-mono font-black text-slate-900">
-              {data.mortality.rate_percent === null ? "Unavailable" : `${data.mortality.rate_percent}%`}
-            </span>
-            <span className="text-xs font-semibold text-slate-500">30d rate</span>
-          </div>
-          <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Population denominator</span>
-            <span className="font-mono font-bold text-slate-700">
-              {number(data.mortality.population_denominator)} heads
-            </span>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-mono font-black text-white tracking-tight">
+                {data.mortality.rate_percent === null ? "Unavailable" : `${data.mortality.rate_percent}%`}
+              </span>
+              <span className="text-xs font-semibold text-slate-400">30d rate</span>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Population denominator</span>
+              <span className="font-mono font-bold text-slate-200">
+                {number(data.mortality.population_denominator)} heads
+              </span>
+            </div>
           </div>
         </div>
       </div>

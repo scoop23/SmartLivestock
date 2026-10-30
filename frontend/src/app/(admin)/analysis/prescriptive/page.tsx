@@ -271,84 +271,87 @@ export default function PrescriptiveAnalyticsLandingPage() {
         </div>
 
         {/* ----------------------------------------------------------------- */}
-        {/* C. EXECUTIVE DECISION METRICS (4 Sleek Cards)                     */}
+        {/* C. EXECUTIVE DECISION METRICS (Continuous Scoreboard Ribbon)      */}
         {/* ----------------------------------------------------------------- */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-amber-300 transition-all relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">
-                Active Recommendations
-              </span>
-              <div className="size-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-800">
-                <Lightbulb className="size-4" />
-              </div>
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-mono font-extrabold text-slate-900 tracking-tight">
-                {allRecommendations.length}
-              </div>
-              <p className="mt-1 text-[11px] text-slate-500 leading-tight">
-                Quantitative threshold triggers evaluated
-              </p>
-            </div>
-          </Card>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+              Evaluated Rule Telemetry • Municipal Metric Readout
+            </span>
+            <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
+              Non-interactive Summary
+            </span>
+          </div>
 
-          <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-rose-300 transition-all relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">
-                High Priority Alerts
-              </span>
-              <div className="size-8 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-800">
-                <ShieldAlert className="size-4" />
+          <div className="rounded-2xl border border-slate-700/80 bg-slate-800/85 text-slate-100 divide-y sm:divide-y-0 sm:divide-x divide-slate-700/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 select-none cursor-default overflow-hidden shadow-xs backdrop-blur-xs">
+            <div className="p-3.5 sm:p-4 bg-slate-800/60">
+              <div className="flex items-center gap-1.5 text-slate-400">
+                <span className="size-1.5 rounded-full bg-amber-400 shrink-0 shadow-xs" />
+                <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
+                  Active Recommendations
+                </span>
+              </div>
+              <div className="mt-2">
+                <div className="text-2xl sm:text-3xl font-mono font-black text-white tracking-tight">
+                  {allRecommendations.length}
+                </div>
+                <p className="mt-0.5 text-[11px] text-slate-400 leading-tight">
+                  Quantitative threshold triggers evaluated
+                </p>
               </div>
             </div>
-            <div className="mt-3">
-              <div className="text-2xl font-mono font-extrabold text-slate-900 tracking-tight">
-                {highPriorityCount}
-              </div>
-              <p className="mt-1 text-[11px] text-slate-500 leading-tight">
-                Requires immediate veterinary / administrative action
-              </p>
-            </div>
-          </Card>
 
-          <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-teal-300 transition-all relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">
-                Medium Priority Triggers
-              </span>
-              <div className="size-8 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-800">
-                <Scale className="size-4" />
+            <div className="p-3.5 sm:p-4 bg-slate-800/60">
+              <div className="flex items-center gap-1.5 text-slate-400">
+                <span className="size-1.5 rounded-full bg-rose-400 shrink-0 shadow-xs" />
+                <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
+                  High Priority Alerts
+                </span>
+              </div>
+              <div className="mt-2">
+                <div className="text-2xl sm:text-3xl font-mono font-black text-white tracking-tight">
+                  {highPriorityCount}
+                </div>
+                <p className="mt-0.5 text-[11px] text-slate-400 leading-tight">
+                  Requires immediate veterinary action
+                </p>
               </div>
             </div>
-            <div className="mt-3">
-              <div className="text-2xl font-mono font-extrabold text-slate-900 tracking-tight">
-                {mediumPriorityCount}
-              </div>
-              <p className="mt-1 text-[11px] text-slate-500 leading-tight">
-                Operational improvements and farm-level alerts
-              </p>
-            </div>
-          </Card>
 
-          <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-emerald-300 transition-all relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">
-                Municipal Governance
-              </span>
-              <div className="size-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-800">
-                <CheckCircle2 className="size-4" />
+            <div className="p-3.5 sm:p-4 bg-slate-800/60">
+              <div className="flex items-center gap-1.5 text-slate-400">
+                <span className="size-1.5 rounded-full bg-teal-400 shrink-0 shadow-xs" />
+                <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
+                  Medium Priority Triggers
+                </span>
+              </div>
+              <div className="mt-2">
+                <div className="text-2xl sm:text-3xl font-mono font-black text-white tracking-tight">
+                  {mediumPriorityCount}
+                </div>
+                <p className="mt-0.5 text-[11px] text-slate-400 leading-tight">
+                  Operational improvements and farm-level alerts
+                </p>
               </div>
             </div>
-            <div className="mt-3">
-              <div className="text-2xl font-mono font-extrabold text-emerald-800 tracking-tight">
-                100% Advisory
+
+            <div className="p-3.5 sm:p-4 bg-slate-800/60">
+              <div className="flex items-center gap-1.5 text-slate-400">
+                <span className="size-1.5 rounded-full bg-emerald-400 shrink-0 shadow-xs" />
+                <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
+                  Municipal Governance
+                </span>
               </div>
-              <p className="mt-1 text-[11px] text-slate-500 leading-tight">
-                Zero automated mutations; officer discretion enforced
-              </p>
+              <div className="mt-2">
+                <div className="text-2xl sm:text-3xl font-mono font-black text-emerald-400 tracking-tight">
+                  100% Advisory
+                </div>
+                <p className="mt-0.5 text-[11px] text-slate-400 leading-tight">
+                  Zero automated mutations; officer discretion enforced
+                </p>
+              </div>
             </div>
-          </Card>
+          </div>
         </div>
 
         {/* ----------------------------------------------------------------- */}
