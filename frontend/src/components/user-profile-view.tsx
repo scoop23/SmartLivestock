@@ -24,6 +24,7 @@ import {
 Activity,
 AlertTriangle,
 Award,
+Bell,
 Building2,
 Camera,
 Check,
@@ -33,10 +34,10 @@ Copy,
 Edit3,
 Eye,
 EyeOff,
+FileText,
 Globe,
 Key,
 Lock,
-LogOut,
 Mail,
 MapPin,
 Phone,
@@ -54,10 +55,35 @@ import React,{ useEffect,useRef,useState } from "react";
 import { toast } from "sonner";
 
 export function UserProfileView() {
-  const { user, logout, updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const normalizedRole = user?.role?.toUpperCase();
   const isFarmer = normalizedRole === "FARMER";
   const isFieldReviewer = normalizedRole === "SIBAT" || normalizedRole === "CBAT";
+  const isSlaughterhouse = normalizedRole === "SLAUGHTERHOUSESTAFF" || normalizedRole === "SLAUGHTERHOUSE";
+  const isAuction = normalizedRole === "AUCTION";
+  const isAdminOrMao = normalizedRole === "ADMIN" || normalizedRole === "MAO";
+
+  const rolePillLabel = isFarmer
+    ? "LIVESTOCK RAISER"
+    : isFieldReviewer
+    ? "SIBAT / CBAT VALIDATOR"
+    : isSlaughterhouse
+    ? "SLAUGHTERHOUSE STAFF"
+    : isAuction
+    ? "AUCTION PERSONNEL"
+    : isAdminOrMao
+    ? "SYSTEM ADMINISTRATOR"
+    : "MUNICIPAL OFFICIAL";
+
+  const roleVerifiedBadge = isFarmer
+    ? "Verified by MAO"
+    : isFieldReviewer
+    ? "Authorized Validator"
+    : isSlaughterhouse
+    ? "Certified Operator"
+    : isAuction
+    ? "Authorized Marshall"
+    : "Verified Official";
   const { fontScale, setFontScale, fontTheme, setFontTheme } = useAccessibilitySettings();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "overview";
@@ -70,9 +96,11 @@ export function UserProfileView() {
       "text-size": "settings",
     };
     const resolvedTab = tabAliases[requestedTab] || requestedTab;
-    const validTabs = ["overview", "security", "notifications", "activity", "settings"];
+    const validTabs = isFarmer
+      ? ["overview", "security", "notifications", "documents", "activity", "settings"]
+      : ["overview", "security", "notifications", "activity", "settings"];
     setActiveTab(validTabs.includes(resolvedTab) ? resolvedTab : "overview");
-  }, [searchParams]);
+  }, [searchParams, isFarmer]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showIdPassModal, setShowIdPassModal] = useState(false);
@@ -98,9 +126,9 @@ export function UserProfileView() {
 
   // Profile Information State
   const [formData, setFormData] = useState({
-    firstName: user?.firstName || "Municipal",
-    lastName: user?.lastName || "Officer",
-    email: user?.email || "officer@padregarcia.gov.ph",
+    firstName: user?.firstName || (user?.role === "FARMER" ? "Mark Angelo" : "Municipal"),
+    lastName: user?.lastName || (user?.role === "FARMER" ? "Bathan" : "Officer"),
+    email: user?.email || (user?.role === "FARMER" ? "markangelo.bathan@smartlivestock.ph" : "officer@padregarcia.gov.ph"),
     phone: "0917-555-8291",
     alternatePhone: "0998-444-1280",
     barangay: "Poblacion",
@@ -251,6 +279,18 @@ export function UserProfileView() {
       ? "Municipal Livestock Officer"
       : "Municipal Agriculture Officer";
 
+  const roleFacilitySubtitle = isFarmer
+    ? (formData.farmName || "Garcia Heritage Cattle & Swine Farm")
+    : isFieldReviewer
+    ? "Padre Garcia Livestock Biosecurity & Movement Office"
+    : isSlaughterhouse
+    ? "Padre Garcia Municipal Slaughterhouse Division"
+    : isAuction
+    ? "Padre Garcia Livestock Auction Market Facility"
+    : isAdminOrMao
+    ? "Padre Garcia Municipal Agriculture Office (MAO)"
+    : (formData.department || "Municipal Agriculture Office (MAO)");
+
   const roleColorBadge =
     user?.role === "FARMER"
       ? "bg-emerald-100 text-emerald-800 border-emerald-300"
@@ -390,6 +430,516 @@ export function UserProfileView() {
     toast.success("Session revoked successfully");
   };
 
+  const renderSecurityContent = () => (
+    <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+      <CardContent className="p-5 sm:p-7 space-y-6">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900">
+              Authentication, Password & 2FA
+            </h3>
+            <p className="text-xs text-slate-500">
+              Keep your municipal livestock database account secured against unauthorized access.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
+            <ShieldCheck className="size-4" />
+            <span>Protected</span>
+          </div>
+        </div>
+
+        {/* 2FA Toggle Card */}
+        <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="size-10 rounded-2xl bg-emerald-100 text-[#2D5A27] flex items-center justify-center shrink-0">
+              <Smartphone className="size-5" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-900">Two-Factor Authentication (2FA)</h4>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Requires a one-time SMS verification code sent to {formData.phone} when logging in.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            <Switch
+              checked={securitySettings.twoFactorEnabled}
+              onCheckedChange={(val) => {
+                setSecuritySettings({ ...securitySettings, twoFactorEnabled: val });
+                toast.success(`Two-factor authentication ${val ? "enabled" : "disabled"}`);
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Password Change Form */}
+        <form onSubmit={handleUpdatePassword} className="space-y-4 max-w-xl">
+          <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+            <Key className="size-3.5 text-[#1E4D6B]" />
+            <span>Change Account Password</span>
+          </h4>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-700">Current Password</Label>
+            <Input
+              type={showPass ? "text" : "password"}
+              placeholder="Enter current password"
+              value={passwords.current}
+              onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+              className="h-9.5 text-xs rounded-xl bg-slate-50/80 focus-visible:ring-[#1E4D6B]"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">New Password</Label>
+              <Input
+                type={showPass ? "text" : "password"}
+                placeholder="Min. 8 characters"
+                value={passwords.newPass}
+                onChange={(e) => setPasswords({ ...passwords, newPass: e.target.value })}
+                className="h-9.5 text-xs rounded-xl bg-slate-50/80 focus-visible:ring-[#1E4D6B]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">Confirm New Password</Label>
+              <Input
+                type={showPass ? "text" : "password"}
+                placeholder="Repeat new password"
+                value={passwords.confirm}
+                onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                className="h-9.5 text-xs rounded-xl bg-slate-50/80 focus-visible:ring-[#1E4D6B]"
+              />
+            </div>
+          </div>
+
+          {/* Password Strength Indicator */}
+          {passwords.newPass && (
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[11px] text-slate-500 font-medium">Password Strength:</span>
+                <span className="text-[11px] font-bold text-slate-800">{passStrength.label}</span>
+              </div>
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${passStrength.color}`}
+                  style={{ width: `${passStrength.score}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-2">
+            <button
+              type="button"
+              onClick={() => setShowPass(!showPass)}
+              className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1.5 font-semibold cursor-pointer"
+            >
+              {showPass ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+              <span>{showPass ? "Hide Passwords" : "Show Passwords"}</span>
+            </button>
+
+            <Button
+              type="submit"
+              size="sm"
+              disabled={isSaving || !passwords.newPass}
+              className="bg-[#1E4D6B] hover:bg-[#16384f] text-white font-bold text-xs rounded-xl gap-2 h-9 px-5 shadow-xs cursor-pointer"
+            >
+              <Lock className="size-3.5" />
+              <span>{isSaving ? "Updating..." : "Update Password"}</span>
+            </Button>
+          </div>
+        </form>
+
+        {/* Active Authorized Sessions */}
+        <div className="space-y-3 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+              <Globe className="size-3.5 text-slate-600" />
+              <span>Authorized Logged-in Devices ({activeSessions.length})</span>
+            </h4>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setActiveSessions((prev) => prev.filter((s) => s.current));
+                toast.success("Other device sessions have been revoked");
+              }}
+              className="text-[11px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2 cursor-pointer"
+            >
+              Sign Out Other Devices
+            </Button>
+          </div>
+
+          <div className="space-y-2.5">
+            {activeSessions.map((session) => (
+              <div
+                key={session.id}
+                className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-xl bg-slate-200/80 text-slate-700 flex items-center justify-center shrink-0">
+                    <Smartphone className="size-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900">{session.device}</span>
+                      {session.current && (
+                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[9px] font-black uppercase px-1.5 py-0.2">
+                          Current Device
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500">{session.location}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+                    {session.lastActive}
+                  </span>
+                  {!session.current && (
+                    <button
+                      type="button"
+                      onClick={() => handleRevokeSession(session.id)}
+                      title="Revoke Session"
+                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderNotificationsContent = () => (
+    <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+      <CardContent className="p-5 sm:p-7 space-y-6">
+        <div className="pb-4 border-b border-slate-100">
+          <h3 className="text-base sm:text-lg font-black text-slate-900">
+            Notification & Alert Dispatch Channels
+          </h3>
+          <p className="text-xs text-slate-500">
+            Configure automated livestock health alerts, biosecurity warnings, and municipal bulletins.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-2.5">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+              <AlertTriangle className="size-3.5 text-rose-600" />
+              <span>Emergency Biosecurity & Health Dispatches</span>
+            </span>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-rose-50/40 border border-rose-100/80">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">Quarantine Outbreak SMS Broadcasts</h4>
+                  <p className="text-[11px] text-slate-500">
+                    Instant mobile text alert if foot-and-mouth or ASF is detected within Padre Garcia.
+                  </p>
+                </div>
+                <Switch
+                  checked={notifSettings.smsQuarantineAlerts}
+                  onCheckedChange={(val) => {
+                    setNotifSettings({ ...notifSettings, smsQuarantineAlerts: val });
+                    toast.success(`Quarantine SMS alerts ${val ? "enabled" : "disabled"}`);
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">Municipal Vaccination Campaign Reminders</h4>
+                  <p className="text-[11px] text-slate-500">
+                    Advance notices of scheduled barangay cattle and carabao immunization rounds.
+                  </p>
+                </div>
+                <Switch
+                  checked={notifSettings.smsBiosecurity}
+                  onCheckedChange={(val) => {
+                    setNotifSettings({ ...notifSettings, smsBiosecurity: val });
+                    toast.success(`Vaccination campaign notices ${val ? "enabled" : "disabled"}`);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 pt-3 border-t border-slate-100">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+              <Mail className="size-3.5 text-sky-700" />
+              <span>Data Validation & Audit Reports</span>
+            </span>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">SIBAT Certification & Audit Emails</h4>
+                  <p className="text-[11px] text-slate-500">
+                    Receive official PDF certificates when your livestock records are validated.
+                  </p>
+                </div>
+                <Switch
+                  checked={notifSettings.emailAuditCertification}
+                  onCheckedChange={(val) => {
+                    setNotifSettings({ ...notifSettings, emailAuditCertification: val });
+                    toast.success(`Audit email alerts ${val ? "enabled" : "disabled"}`);
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">Weekly Agricultural Census Digest</h4>
+                  <p className="text-[11px] text-slate-500">
+                    Weekly market trends, cattle auction trade prices, and municipal livestock summaries.
+                  </p>
+                </div>
+                <Switch
+                  checked={notifSettings.emailWeeklyDigest}
+                  onCheckedChange={(val) => {
+                    setNotifSettings({ ...notifSettings, emailWeeklyDigest: val });
+                    toast.success(`Weekly digest ${val ? "enabled" : "disabled"}`);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderDocumentsContent = () => (
+    <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+      <CardContent className="p-5 sm:p-7 space-y-4">
+        <div>
+          <h3 className="text-base sm:text-lg font-black text-slate-900">Registration &amp; Accreditation Documents</h3>
+          <p className="text-xs text-slate-500">Review your submitted Government ID and RSBSA files or upload a replacement if MAO requested a correction.</p>
+        </div>
+        <RegistrationDocumentsPanel variant="profile" />
+      </CardContent>
+    </Card>
+  );
+
+  const renderActivityContent = () => (
+    <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+      <CardContent className="p-5 sm:p-7 space-y-5">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900">
+              Municipal Session & Action Audit Log
+            </h3>
+            <p className="text-xs text-slate-500">
+              Immutable record of database operations and authentication activity.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => toast.success("Audit trail exported to CSV")}
+            className="rounded-xl text-xs font-bold h-8 px-3 border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
+          >
+            Export CSV
+          </Button>
+        </div>
+
+        <div className="space-y-2.5">
+          {auditEvents.map((evt) => (
+            <div
+              key={evt.id}
+              className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
+            >
+              <div className="flex items-center gap-3">
+                <div className="size-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                  <Activity className="size-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-900">{evt.action}</span>
+                    <Badge className="bg-slate-200/80 text-slate-700 border-0 text-[9px] font-mono">
+                      {evt.category}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-mono">IP: {evt.ip} | Padre Garcia Server</p>
+                </div>
+              </div>
+
+              <span className="text-[11px] text-slate-400 font-medium shrink-0">
+                {evt.timestamp}
+              </span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderSettingsContent = () => (
+    <div className="space-y-4">
+      <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900">Guided tutorials</h3>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">
+              Turn tutorials on or off throughout SmartLivestock on this browser.
+            </p>
+          </div>
+          <TutorialAutoToggle />
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+        <CardContent className="p-5 sm:p-7 space-y-5">
+          <div className="pb-4 border-b border-slate-100">
+            <h3 className="text-base sm:text-lg font-black text-slate-900">
+              Make text easier to read
+            </h3>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">
+              Choose a size that feels comfortable. This setting applies throughout SmartLivestock on this browser.
+            </p>
+          </div>
+
+          <div role="group" aria-label="Text size" className="grid gap-3 sm:grid-cols-3">
+            {([
+              {
+                value: "standard",
+                label: "Standard",
+                description: "The usual text size",
+              },
+              {
+                value: "comfortable",
+                label: "Comfortable",
+                description: "Recommended for easier reading",
+              },
+              {
+                value: "extra-large",
+                label: "Extra large",
+                description: "The largest text size",
+              },
+            ] as const).map((option) => {
+              const selected = fontScale === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setFontScale(option.value)}
+                  className={`min-h-24 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 cursor-pointer ${
+                    selected
+                      ? "border-emerald-700 bg-emerald-50 ring-2 ring-emerald-700/20"
+                      : "border-slate-200 bg-white hover:border-emerald-400 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="text-base font-bold text-slate-900">{option.label}</span>
+                    {option.value === "comfortable" && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-900">
+                        Recommended
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-2 block text-sm leading-relaxed text-slate-600">
+                    {option.description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-sm text-slate-600" aria-live="polite">
+            Current text size: {fontScale === "extra-large" ? "Extra large" : fontScale === "standard" ? "Standard" : "Comfortable"}.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+        <CardContent className="p-5 sm:p-7 space-y-5">
+          <div className="flex flex-col gap-2 pb-4 border-b border-slate-100 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-slate-900">
+                Typography Style (Font Theme)
+              </h3>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                Switch between the Nexus Modern font (Plus Jakarta Sans & Space Grotesk) and the classic system font (Inter).
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="nexus-font-toggle" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                {fontTheme === "nexus" ? "Nexus Active" : "Classic Active"}
+              </Label>
+              <Switch
+                id="nexus-font-toggle"
+                checked={fontTheme === "nexus"}
+                onCheckedChange={(checked) => setFontTheme(checked ? "nexus" : "inter")}
+              />
+            </div>
+          </div>
+
+          <div role="group" aria-label="Font Theme" className="grid gap-3 sm:grid-cols-2">
+            {[
+              {
+                value: "nexus" as const,
+                title: "Nexus Modern",
+                subtitle: "Plus Jakarta Sans + Space Grotesk + JetBrains Mono",
+                preview: "BIO-NODE PG-200 // Dairy & Livestock Telemetry Nexus",
+                recommended: true,
+              },
+              {
+                value: "inter" as const,
+                title: "Classic Inter",
+                subtitle: "Inter + System Sans-Serif & Monospace",
+                preview: "Padre Garcia Municipal Agriculture Information System",
+                recommended: false,
+              },
+            ].map((option) => {
+              const selected = fontTheme === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setFontTheme(option.value)}
+                  className={`min-h-24 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 cursor-pointer ${
+                    selected
+                      ? "border-emerald-700 bg-emerald-50 ring-2 ring-emerald-700/20"
+                      : "border-slate-200 bg-white hover:border-emerald-400 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm sm:text-base font-bold text-slate-900">{option.title}</span>
+                    {option.recommended && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-900">
+                        Active / Recommended
+                      </span>
+                    )}
+                  </div>
+                  <span className="mt-1 block text-xs text-slate-500 font-medium">
+                    {option.subtitle}
+                  </span>
+                  <span className={`mt-2 block text-xs p-2 rounded-lg border bg-white/70 text-slate-700 ${option.value === "nexus" ? "font-mono" : "font-sans"}`}>
+                    {option.preview}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-sm text-slate-600" aria-live="polite">
+            Current active font: <strong className="text-slate-800">{fontTheme === "nexus" ? "Nexus Modern (Plus Jakarta Sans, Space Grotesk & JetBrains Mono)" : "Classic (Inter)"}</strong>.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   return (
     <div className="w-full space-y-5 relative">
       {/* Profile section. */}
@@ -408,34 +958,21 @@ export function UserProfileView() {
         </>
       )}
 
-      {/* Profile section. */}
-      <div className={`relative rounded-3xl bg-gradient-to-r from-emerald-950 via-[#1B3E18] to-slate-900 border border-emerald-900/60 shadow-md overflow-hidden w-full transition-all text-white ${
-        isEditing ? "z-30 ring-2 ring-emerald-400/50 shadow-xl" : ""
-      }`}>
-        {/* Subtle Organic Mesh Overlay */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(52,211,153,0.25),transparent_55%)] pointer-events-none" />
-        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+      {/* Universal Hero Banner matching the design for all roles */}
+      <div
+        className={`relative rounded-3xl bg-gradient-to-r from-[#041d13] via-[#092e1e] to-[#052317] border border-emerald-900/70 shadow-lg overflow-hidden w-full transition-all text-white p-5 sm:p-7 ${
+          isEditing ? "z-30 ring-2 ring-emerald-400/50 shadow-xl" : ""
+        }`}
+      >
+        {/* Subtle organic background patterns */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(16,185,129,0.18),transparent_60%)] pointer-events-none" />
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
-        {/* Top Badges & Municipal Header */}
-        <div className="px-5 sm:px-7 pt-5 pb-0 flex items-center justify-between gap-3 relative z-10 flex-wrap">
-          <div className="text-emerald-200/80 text-[10px] sm:text-[11px] font-mono uppercase tracking-wider flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Padre Garcia Agricultural Management System (PGAMS) | Official Registry</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/15 backdrop-blur-md text-emerald-100 border border-white/20 shadow-sm">
-              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-              Verified Agricultural ID
-            </span>
-          </div>
-        </div>
-
-        {/* Profile Card Main Row */}
-        <div className="p-5 sm:p-7 md:p-8 pt-4 sm:pt-6 relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          {/* Left side: Avatar + Identity */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 min-w-0">
-            {/* Avatar Pill with Camera Hover and Functional Photo Upload */}
-            <div className="relative group shrink-0">
+            {/* Avatar Square with Monogram & Camera Button */}
+            <div className="relative shrink-0">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -443,7 +980,7 @@ export function UserProfileView() {
                 className="hidden"
                 onChange={handlePhotoChange}
               />
-              <div className="size-24 sm:size-28 rounded-3xl bg-emerald-800/80 border-4 border-white/30 shadow-xl text-white font-black text-3xl sm:text-4xl flex items-center justify-center transition-transform group-hover:scale-102 overflow-hidden relative">
+              <div className="size-24 sm:size-28 rounded-2xl bg-[#0f4d34] border border-[#1b6b49] shadow-xl text-white font-extrabold text-3xl sm:text-4xl flex items-center justify-center overflow-hidden relative">
                 {profilePhotoUrl ? (
                   <img
                     src={profilePhotoUrl}
@@ -461,1197 +998,624 @@ export function UserProfileView() {
                 )}
               </div>
 
-              {/* Camera Hover Action Overlay */}
+              {/* Camera Button at Bottom Right */}
               <button
                 type="button"
                 title="Upload or Change Photo"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploadingPhoto}
-                className="absolute inset-0 rounded-3xl bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 cursor-pointer disabled:pointer-events-none z-10"
+                className="absolute -bottom-1 -right-1 size-8 rounded-full bg-white text-[#0f4d34] border border-slate-200 flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-transform cursor-pointer disabled:pointer-events-none z-10"
               >
-                <Camera className="size-6 text-white drop-shadow-md" />
-                <span className="text-[10px] font-bold text-white drop-shadow-sm">
-                  Change Photo
-                </span>
+                <Camera className="size-4 text-[#0f4d34]" />
               </button>
-
-              <div
-                className="absolute -bottom-1 -right-1 size-7 rounded-full bg-emerald-500 text-white border-2 border-white flex items-center justify-center shadow-md z-15"
-                title="Account Verified"
-              >
-                <Check className="size-4 stroke-[3]" />
-              </div>
             </div>
 
-            {/* Profile Identity Details with High-Contrast Bright Text */}
+            {/* Identity Details */}
             <div className="space-y-2 min-w-0">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className={`text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight drop-shadow-sm ${user?.role?.toUpperCase() === "FARMER" ? "whitespace-normal break-words" : "truncate"}`}>
-                  {userDisplayName}
+              {/* Row 1: Full Name + Role pill badge */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight">
+                  {formData.firstName || formData.lastName
+                    ? `${formData.firstName} ${formData.lastName}`.trim()
+                    : userDisplayName}
                 </h1>
-                <Badge className="text-[10px] font-black uppercase px-2.5 py-0.5 border bg-emerald-500/30 text-emerald-100 border-emerald-400/40 backdrop-blur-xs">
-                  {user?.role || "ADMIN"}
-                </Badge>
-                <span className="text-[11px] font-mono font-bold text-emerald-100 bg-white/15 px-2 py-0.5 rounded-lg border border-white/20 backdrop-blur-xs">
-                  {formData.rsbsaId}
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-[#106644] text-[#a7f3d0] border border-[#1d8258]/60 shadow-xs">
+                  {rolePillLabel}
                 </span>
               </div>
 
-              <p className="text-xs sm:text-sm font-bold flex items-center gap-2 flex-wrap drop-shadow-xs">
-                <span className="text-emerald-300 font-extrabold">{roleDisplay}</span>
-                <span className="text-emerald-400 font-black">|</span>
-                <span className="text-emerald-100/90 font-semibold">{formData.department}</span>
+              {/* Row 2: Farm Name / Role Facility Subtitle */}
+              <p className="text-sm font-medium text-white/90">
+                {roleFacilitySubtitle}
               </p>
 
-              {/* Meta Quick Pills */}
-              <div className="flex items-center gap-3 text-xs pt-1 flex-wrap">
-                <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/15 font-medium text-white shadow-2xs">
-                  <MapPin className="size-3 text-emerald-300" />
-                  <span>Brgy. {formData.barangay}, Padre Garcia</span>
+              {/* Row 3: Location */}
+              <div className="flex items-center gap-1.5 text-xs text-emerald-100/80">
+                <MapPin className="size-3.5 text-emerald-400 shrink-0" />
+                <span>
+                  {formData.sitio ? `${formData.sitio}, ` : ""}Brgy. {formData.barangay || "Poblacion"}, Padre Garcia, Batangas
+                </span>
+              </div>
+
+              {/* Row 4: Phone & Email pills */}
+              <div className="flex items-center gap-2.5 text-xs pt-1 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs border border-white/10 backdrop-blur-xs font-medium">
+                  <Phone className="size-3 text-emerald-300 shrink-0" />
+                  <span>{formData.phone || "0917-555-8291"}</span>
                 </span>
 
-                <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/15 font-medium text-white shadow-2xs">
-                  <Phone className="size-3 text-emerald-300" />
-                  <span>{formData.phone}</span>
-                </span>
-
-                <span className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/15 font-medium text-white shadow-2xs">
-                  <Mail className="size-3 text-emerald-300" />
-                  <span>{formData.email}</span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs border border-white/10 backdrop-blur-xs font-medium">
+                  <Mail className="size-3 text-emerald-300 shrink-0" />
+                  <span>{formData.email || "markangelo.bathan@smartlivestock.ph"}</span>
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Action Button Strip */}
-          <div className="flex items-center gap-2.5 self-stretch md:self-center justify-end pt-3 md:pt-0 border-t md:border-t-0 border-white/15">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => {
-                const nextState = !isEditing;
-                setIsEditing(nextState);
-                if (nextState) {
-                  setActiveTab("overview");
-                  scrollToDetails();
-                }
-              }}
-              className={
-                isEditing
-                  ? "bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-black text-xs rounded-xl h-9.5 px-4 gap-1.5 shadow-md transition-all cursor-pointer ring-2 ring-white/60"
-                  : "bg-white hover:bg-emerald-50 text-[#1B3E18] font-black text-xs rounded-xl h-9.5 px-4 gap-1.5 shadow-md transition-all cursor-pointer"
-              }
-            >
-              {isEditing ? (
-                <>
-                  <X className="size-3.5 stroke-[3]" />
-                  <span>Exit Edit Mode</span>
-                </>
-              ) : (
-                <>
-                  <Edit3 className="size-3.5 text-[#2D5A27]" />
-                  <span>Edit Profile</span>
-                </>
-              )}
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowIdPassModal(true)}
-              className="rounded-xl text-xs font-bold h-9.5 px-3.5 gap-1.5 bg-white/15 hover:bg-white/25 border-white/25 text-white backdrop-blur-md transition-all cursor-pointer"
-            >
-              <QrCode className="size-3.5 text-emerald-300" />
-              <span className="hidden sm:inline">Pass QR</span>
-            </Button>
-
-            <Button
-              variant="default"
-              size="sm"
-              onClick={logout}
-              className="h-9.5 rounded-xl border border-red-500/80 bg-red-600 px-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-red-700 hover:text-white active:bg-red-800 cursor-pointer gap-1.5"
-              title="Sign Out"
-            >
-              <LogOut className="size-3.5 text-white" />
-              <span className="hidden sm:inline">Logout</span>
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Profile section. */}
-      <div className={`grid grid-cols-2 ${isFarmer ? "md:grid-cols-2" : "md:grid-cols-4"} gap-3 sm:gap-4 w-full`}>
-        {/* Metric 1 */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Profile Health</span>
-            <CheckCircle2 className="size-4 text-emerald-600" />
-          </div>
-          <div className="text-xl sm:text-2xl font-black text-slate-900">100%</div>
-          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-            <div className="bg-emerald-600 h-full rounded-full w-full" />
-          </div>
-          <span className="text-[10px] text-emerald-700 font-bold block">RSBSA Certified & Verified</span>
-        </div>
-
-        {!isFarmer && !isFieldReviewer && (
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Biosecurity Clear</span>
-              <ShieldCheck className="size-4 text-[#2D5A27]" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900">Level 3</div>
-            <p className="text-[11px] text-slate-500 font-medium truncate">Outbreak Quarantine Exempt</p>
-            <span className="text-[10px] text-slate-400 font-semibold block">Audit: Q3 2026 Valid</span>
-          </div>
-        )}
-
-        {/* Metric 3 */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Account Security</span>
-            <Key className="size-4 text-sky-700" />
-          </div>
-          <div className="text-xl sm:text-2xl font-black text-slate-900">2FA Active</div>
-          <p className="text-[11px] text-slate-500 font-medium truncate">SMS + JWT Encrypted</p>
-          <span className="text-[10px] text-emerald-700 font-bold block">3 Authorized Sessions</span>
-        </div>
-
-        {!isFarmer && (
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-1.5">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                {isFieldReviewer ? "Assigned Barangay/s" : "Municipal Scope"}
+          {/* Right side: Top Badges + Bottom Action Buttons */}
+          <div className="flex flex-col justify-between items-start lg:items-end gap-5 self-stretch lg:self-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-white/15">
+            {/* Top Badges */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-mono font-medium bg-white/10 text-white/90 border border-white/10 backdrop-blur-xs">
+                {formData.rsbsaId || "RSBSA-04-10-18-00921"}
               </span>
-              <Building2 className="size-4 text-purple-700" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900">
-              {isFieldReviewer
-                ? user?.accessScope === "ALL_BARANGAYS"
-                  ? "All Barangays"
-                  : user?.assignedBarangayName || "Unassigned"
-                : "18 Barangays"}
-            </div>
-            <p className="text-[11px] text-slate-500 font-medium truncate">
-              {isFieldReviewer ? "Your assigned area" : "Padre Garcia Jurisdiction"}
-            </p>
-            {!isFieldReviewer && <span className="text-[10px] text-purple-700 font-bold block">Livestock Capital PH</span>}
-          </div>
-        )}
-      </div>
 
-      {/* Profile section. */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full items-start">
-        {/* Profile section. */}
-        <div className={`xl:col-span-4 space-y-5 transition-opacity duration-300 ${
-          isEditing ? "opacity-75" : "opacity-100"
-        }`}>
-          {/* Identity & RSBSA Snapshot Card */}
-          <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
-            <CardContent className="p-5 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                  <Award className="size-4 text-[#2D5A27]" />
-                  <span>Agricultural Credentials</span>
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-white text-[#083321] shadow-sm">
+                <span className="size-4 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                  <Check className="size-2.5 stroke-[3]" />
                 </span>
-                <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-black uppercase">
-                  Official
-                </Badge>
-              </div>
+                <span>{roleVerifiedBadge}</span>
+              </span>
+            </div>
 
-              {/* RSBSA Code Callout */}
-              <div className="p-3.5 rounded-2xl bg-slate-50/90 border border-slate-200/80 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    RSBSA Identification No.
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyRsbsa}
-                    className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
-                  >
-                    {copiedId ? <Check className="size-3 text-emerald-600" /> : <Copy className="size-3" />}
-                    <span>{copiedId ? "Copied" : "Copy"}</span>
-                  </button>
-                </div>
-                <div className="text-sm font-mono font-black text-slate-900 tracking-tight">
-                  {formData.rsbsaId}
-                </div>
-              </div>
-
-              {/* Contact & Location Directory */}
-              <div className="space-y-2.5 text-xs">
-                <div className="flex items-start justify-between gap-2 py-1 border-b border-slate-100">
-                  <span className="text-slate-500 font-medium">Assigned Office</span>
-                  <span className="font-bold text-slate-800 text-right">{formData.department}</span>
-                </div>
-
-                <div className="flex items-start justify-between gap-2 py-1 border-b border-slate-100">
-                  <span className="text-slate-500 font-medium">Cooperative / Association</span>
-                  <span className="font-bold text-slate-800 text-right">{formData.cooperative}</span>
-                </div>
-
-                <div className="flex items-start justify-between gap-2 py-1 border-b border-slate-100">
-                  <span className="text-slate-500 font-medium">Farm / Facility</span>
-                  <span className="font-bold text-slate-800 text-right">{formData.farmName}</span>
-                </div>
-
-                <div className="flex items-start justify-between gap-2 py-1 border-b border-slate-100">
-                  <span className="text-slate-500 font-medium">Barangay & Sitio</span>
-                  <span className="font-bold text-slate-800 text-right">
-                    {formData.sitio}, Brgy. {formData.barangay}
-                  </span>
-                </div>
-
-                <div className="flex items-start justify-between gap-2 py-1 border-b border-slate-100">
-                  <span className="text-slate-500 font-medium">Municipality & ZIP</span>
-                  <span className="font-bold text-slate-800 text-right">
-                    {formData.municipality}, Batangas ({formData.zipCode})
-                  </span>
-                </div>
-
-                <div className="flex items-start justify-between gap-2 py-1">
-                  <span className="text-slate-500 font-medium">Alternate Phone</span>
-                  <span className="font-bold text-slate-800 text-right">{formData.alternatePhone}</span>
-                </div>
-              </div>
-
-              {/* Digital Pass Button */}
+            {/* Bottom Action Buttons */}
+            <div className="flex items-center gap-2.5">
               <Button
                 type="button"
-                onClick={() => setShowIdPassModal(true)}
-                className="w-full bg-[#2D5A27] hover:bg-[#23461f] text-white font-bold text-xs rounded-xl h-9.5 gap-2 shadow-xs cursor-pointer"
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  const nextState = !isEditing;
+                  setIsEditing(nextState);
+                  if (nextState) {
+                    setActiveTab("overview");
+                    scrollToDetails();
+                  }
+                }}
+                className={
+                  isEditing
+                    ? "bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-bold text-xs rounded-xl h-9.5 px-4 gap-2 shadow-md transition-all cursor-pointer ring-2 ring-white/60"
+                    : "bg-white hover:bg-emerald-50 text-[#0c3824] font-bold text-xs rounded-xl h-9.5 px-4 gap-2 shadow-md transition-all cursor-pointer"
+                }
               >
-                <QrCode className="size-4" />
-                <span>Open Digital Municipal ID Card</span>
+                {isEditing ? (
+                  <>
+                    <X className="size-3.5 stroke-[3]" />
+                    <span>Exit Edit</span>
+                  </>
+                ) : (
+                  <>
+                    <Edit3 className="size-3.5 text-[#0c3824]" />
+                    <span>Edit Profile</span>
+                  </>
+                )}
               </Button>
-            </CardContent>
-          </Card>
 
-          {/* System Privileges & Clearance Card */}
-          <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
-            <CardContent className="p-5 space-y-3.5">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5 pb-2 border-b border-slate-100">
-                <ShieldCheck className="size-4 text-emerald-700" />
-                <span>System Access & Clearances</span>
-              </span>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                  <CheckCircle className="size-4 text-emerald-600 shrink-0" />
-                  <div>
-                    <p className="font-bold text-slate-800">Livestock Herd Registry</p>
-                    <p className="text-[10px] text-slate-500">Read & Write permission across registered cattle heads</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                  <CheckCircle className="size-4 text-emerald-600 shrink-0" />
-                  <div>
-                    <p className="font-bold text-slate-800">Biosecurity Disease Reporting</p>
-                    <p className="text-[10px] text-slate-500">Rapid submission directly to Municipal Veterinarian</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                  <CheckCircle className="size-4 text-emerald-600 shrink-0" />
-                  <div>
-                    <p className="font-bold text-slate-800">Production & Dairy Yield Logging</p>
-                    <p className="text-[10px] text-slate-500">Certified weighing & slaughterhouse export</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                  <CheckCircle className="size-4 text-emerald-600 shrink-0" />
-                  <div>
-                    <p className="font-bold text-slate-800">Municipal Trading Clearance</p>
-                    <p className="text-[10px] text-slate-500">Traceability certificate generation authorized</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Data Privacy Note */}
-              <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-[11px] text-emerald-900 space-y-1">
-                <span className="font-black uppercase tracking-wider text-[10px] text-emerald-950 flex items-center gap-1">
-                  <Shield className="size-3 text-emerald-700" />
-                  <span>RA 10173 Data Privacy Sealed</span>
-                </span>
-                <p className="text-emerald-800/90 leading-relaxed font-normal">
-                  Your biometric, livestock records, and location data are encrypted and safeguarded under the municipal agricultural governance charter of Padre Garcia.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Profile section. */}
-        <div ref={detailsSectionRef} className="xl:col-span-8 space-y-5 relative z-30 scroll-mt-20">
-          {/* Live Edit Mode Status Banner */}
-          {isEditing && (
-            <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-emerald-900 via-[#1B3E18] to-emerald-950 border-2 border-emerald-400 shadow-2xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-3 duration-300">
-              <div className="flex items-center gap-3.5">
-                <div className="size-11 rounded-2xl bg-emerald-500/30 border border-emerald-300/50 flex items-center justify-center shrink-0 shadow-inner">
-                  <Edit3 className="size-5 text-emerald-200 animate-pulse" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm sm:text-base font-black tracking-tight text-white">
-                      Profile Edit Mode Active
-                    </h4>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-400 text-emerald-950 shadow-xs">
-                      <span className="size-1.5 rounded-full bg-emerald-950 animate-ping" />
-                      Live Edit
-                    </span>
-                  </div>
-                  <p className="text-xs text-emerald-200/90 font-medium pt-0.5">
-                    Update your personal details, mobile contact, and farm facility records below.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditing(false)}
-                  className="text-xs font-bold text-emerald-200 hover:text-white hover:bg-white/10 rounded-xl h-9 px-3.5 cursor-pointer"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={isSaving}
-                  onClick={() => handleSaveProfile()}
-                  className="bg-white hover:bg-emerald-50 text-emerald-950 font-black text-xs rounded-xl h-9 px-4.5 shadow-md cursor-pointer gap-2 transition-all"
-                >
-                  <Save className="size-3.5 text-emerald-800" />
-                  <span>{isSaving ? "Saving..." : "Save Changes"}</span>
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowIdPassModal(true)}
+                className="rounded-xl text-xs font-semibold h-9.5 px-3.5 gap-2 bg-white/10 hover:bg-white/20 border-white/20 text-white backdrop-blur-md transition-all cursor-pointer"
+              >
+                <QrCode className="size-3.5 text-white" />
+                <span>Pass QR</span>
+              </Button>
             </div>
-          )}
+          </div>
+        </div>
+      </div>
 
-          <Tabs
-            value={activeTab}
-            onValueChange={(val) => {
-              setActiveTab(val);
-              if (typeof window !== "undefined" && window.innerWidth < 1024) {
-                scrollToDetails();
-              }
-            }}
-            className="w-full space-y-4"
-          >
-            {/* Enhanced Full-Width Tab Strip */}
-            <div className="bg-white p-2 rounded-2xl border border-slate-200/90 shadow-2xs overflow-x-auto no-scrollbar w-full">
-              <TabsList className="bg-slate-100/90 p-1.5 rounded-xl h-auto grid grid-cols-2 lg:grid-cols-5 gap-1.5 w-full">
-                <TabsTrigger
-                  value="overview"
-                  className="px-3 py-2 rounded-lg text-xs font-bold data-[state=active]:bg-[#2D5A27] data-[state=active]:text-white data-[state=active]:font-black data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 text-slate-600 cursor-pointer transition-all"
-                >
-                  <span>Account Details</span>
-                </TabsTrigger>
-
-                <TabsTrigger
-                  value="security"
-                  className="px-3 py-2 rounded-lg text-xs font-bold data-[state=active]:bg-[#1E4D6B] data-[state=active]:text-white data-[state=active]:font-black data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 text-slate-600 cursor-pointer transition-all"
-                >
-                  <span>Security & 2FA</span>
-                </TabsTrigger>
-
-                <TabsTrigger
-                  value="notifications"
-                  className="px-3 py-2 rounded-lg text-xs font-bold data-[state=active]:bg-purple-700 data-[state=active]:text-white data-[state=active]:font-black data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 text-slate-600 cursor-pointer transition-all"
-                >
-                  <span>Alert Preferences</span>
-                </TabsTrigger>
-
+      {/* Profile section. */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(val) => {
+          setActiveTab(val);
+          if (typeof window !== "undefined" && window.innerWidth < 1024) {
+            scrollToDetails();
+          }
+        }}
+        className="w-full space-y-4"
+      >
+        <div className="bg-white p-1.5 sm:p-2 rounded-2xl border border-slate-200/90 shadow-2xs overflow-x-auto no-scrollbar w-full">
+          <TabsList className={`bg-transparent p-0 h-auto w-full ${isFarmer ? "grid grid-cols-2 lg:grid-cols-4 gap-2" : "flex flex-wrap sm:flex-nowrap gap-1.5"}`}>
+            <TabsTrigger
+              value="overview"
+              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap"
+            >
+              <UserIcon className="size-4" />
+              <span>{isFarmer ? "My Profile" : "Account Details"}</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="security"
+              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap"
+            >
+              <Shield className="size-4" />
+              <span>{isFarmer ? "Security & Password" : "Security & 2FA"}</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="notifications"
+              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap"
+            >
+              <Bell className="size-4" />
+              <span>Alert Preferences</span>
+            </TabsTrigger>
+            {isFarmer ? (
+              <TabsTrigger
+                value="documents"
+                className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-emerald-50/70 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-500 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap"
+              >
+                <FileText className="size-4" />
+                <span>Registration Documents</span>
+              </TabsTrigger>
+            ) : (
+              <>
                 <TabsTrigger
                   value="activity"
-                  className="px-3 py-2 rounded-lg text-xs font-bold data-[state=active]:bg-emerald-700 data-[state=active]:text-white data-[state=active]:font-black data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 text-slate-600 cursor-pointer transition-all"
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-300 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap shrink-0 sm:shrink"
                 >
+                  <Activity className="size-4" />
                   <span>Audit Logs</span>
                 </TabsTrigger>
-
                 <TabsTrigger
                   value="settings"
-                  className="px-3 py-2 rounded-lg text-xs font-bold data-[state=active]:bg-sky-700 data-[state=active]:text-white data-[state=active]:font-black data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 text-slate-600 cursor-pointer transition-all"
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800 data-[state=active]:border-emerald-300 border border-transparent flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-slate-50 cursor-pointer transition-all whitespace-nowrap shrink-0 sm:shrink"
                 >
                   <span>Settings</span>
                 </TabsTrigger>
-              </TabsList>
-            </div>
+              </>
+            )}
+          </TabsList>
+        </div>
 
-            {/* Profile section. */}
-            <TabsContent value="overview" className="space-y-4 mt-0">
-              <Card className={`rounded-3xl border bg-white transition-all duration-300 ${
-                isEditing
-                  ? "ring-4 ring-emerald-500/30 border-emerald-400 shadow-2xl"
-                  : "border-slate-200/90 shadow-xs"
-              }`}>
-                <CardContent className="p-5 sm:p-7 space-y-6">
-                  <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+        {/* Tab Content: Unified 2-Column Overview for All Roles */}
+        <TabsContent value="overview" className="mt-0 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 w-full items-start">
+            {/* Left Column: Account Overview + Official Credentials */}
+            <div className="space-y-5">
+              {/* Card 1: Account Overview */}
+              <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+                <CardContent className="p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <Bell className="size-5 text-slate-700" />
                     <div>
-                      <h3 className="text-base sm:text-lg font-black text-slate-900">
-                        Personal & Agricultural Details
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        Official municipal profile records for Padre Garcia MAO and livestock programs.
-                      </p>
+                      <h3 className="text-base font-bold text-slate-900">Account Overview</h3>
+                      <p className="text-xs text-slate-500">Summary of your profile and registration status.</p>
                     </div>
-                    {isEditing ? (
-                      <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 text-[10px] font-black uppercase tracking-wider px-2.5 py-1">
-                        Editing Mode Active
-                      </Badge>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setIsEditing(true);
-                          scrollToDetails();
-                        }}
-                        className="rounded-xl text-xs font-bold h-8 px-3 border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
-                      >
-                        <Edit3 className="size-3 mr-1" />
-                        Edit Fields
-                      </Button>
-                    )}
                   </div>
 
-                  <form onSubmit={handleSaveProfile} className="space-y-6">
-                    {/* Section 1: Basic Identity */}
-                    <div className="space-y-3">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                        <UserIcon className="size-3.5 text-[#2D5A27]" />
-                        <span>Section 1: Contact & Personal Identity</span>
-                      </h4>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-slate-700">First Name</Label>
-                          <Input
-                            disabled={!isEditing}
-                            value={formData.firstName}
-                            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                            className={isEditing
-                              ? "h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
-                              : "h-9.5 text-xs rounded-xl bg-slate-50/80 disabled:opacity-80 disabled:bg-slate-50 focus-visible:ring-[#2D5A27] transition-all"}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-slate-700">Last Name</Label>
-                          <Input
-                            disabled={!isEditing}
-                            value={formData.lastName}
-                            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                            className={isEditing
-                              ? "h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
-                              : "h-9.5 text-xs rounded-xl bg-slate-50/80 disabled:opacity-80 disabled:bg-slate-50 focus-visible:ring-[#2D5A27] transition-all"}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-slate-700">Official Email</Label>
-                          <Input
-                            disabled={!isEditing}
-                            type="email"
-                            value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            className={isEditing
-                              ? "h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
-                              : "h-9.5 text-xs rounded-xl bg-slate-50/80 disabled:opacity-80 disabled:bg-slate-50 focus-visible:ring-[#2D5A27] transition-all"}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-slate-700">Mobile</Label>
-                          <Input
-                            disabled={!isEditing}
-                            value={formData.phone}
-                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                            className={isEditing
-                              ? "h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
-                              : "h-9.5 text-xs rounded-xl bg-slate-50/80 disabled:opacity-80 disabled:bg-slate-50 focus-visible:ring-[#2D5A27] transition-all"}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5 sm:col-span-2">
-                          <Label className="text-xs font-bold text-slate-700">Alternate Mobile (Optional)</Label>
-                          <Input
-                            disabled={!isEditing}
-                            value={formData.alternatePhone}
-                            onChange={(e) => setFormData({ ...formData, alternatePhone: e.target.value })}
-                            className={isEditing
-                              ? "h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
-                              : "h-9.5 text-xs rounded-xl bg-slate-50/80 disabled:opacity-80 disabled:bg-slate-50 focus-visible:ring-[#2D5A27] transition-all"}
-                          />
-                        </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 flex items-center gap-3">
+                      <div className="size-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                        <UserIcon className="size-4" />
                       </div>
-                    </div>
-
-                    {/* Section 2: Farm & Holding Facility */}
-                    <div className="space-y-3 pt-3 border-t border-slate-100">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                        <Building2 className="size-3.5 text-[#2D5A27]" />
-                        <span>Section 2: Farm Holding & Location</span>
-                      </h4>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-slate-700">Farm / Holding Facility Name</Label>
-                          <Input
-                            disabled={!isEditing}
-                            value={formData.farmName}
-                            onChange={(e) => setFormData({ ...formData, farmName: e.target.value })}
-                            className={isEditing
-                              ? "h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
-                              : "h-9.5 text-xs rounded-xl bg-slate-50/80 disabled:opacity-80 disabled:bg-slate-50 focus-visible:ring-[#2D5A27] transition-all"}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-slate-700">Operation Type</Label>
-                          <Input
-                            disabled={!isEditing}
-                            value={formData.farmType}
-                            onChange={(e) => setFormData({ ...formData, farmType: e.target.value })}
-                            className={isEditing
-                              ? "h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
-                              : "h-9.5 text-xs rounded-xl bg-slate-50/80 disabled:opacity-80 disabled:bg-slate-50 focus-visible:ring-[#2D5A27] transition-all"}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-slate-700">Sitio / Street / Zone</Label>
-                          <Input
-                            disabled={!isEditing}
-                            value={formData.sitio}
-                            onChange={(e) => setFormData({ ...formData, sitio: e.target.value })}
-                            className={isEditing
-                              ? "h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
-                              : "h-9.5 text-xs rounded-xl bg-slate-50/80 disabled:opacity-80 disabled:bg-slate-50 focus-visible:ring-[#2D5A27] transition-all"}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-slate-700">Barangay</Label>
-                          <Input
-                            disabled={!isEditing}
-                            value={formData.barangay}
-                            onChange={(e) => setFormData({ ...formData, barangay: e.target.value })}
-                            className={isEditing
-                              ? "h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
-                              : "h-9.5 text-xs rounded-xl bg-slate-50/80 disabled:opacity-80 disabled:bg-slate-50 focus-visible:ring-[#2D5A27] transition-all"}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5 sm:col-span-2">
-                          <Label className="text-xs font-bold text-slate-700">Cooperative / Association</Label>
-                          <Input
-                            disabled={!isEditing}
-                            value={formData.cooperative}
-                            onChange={(e) => setFormData({ ...formData, cooperative: e.target.value })}
-                            className={isEditing
-                              ? "h-9.5 text-xs rounded-xl bg-emerald-50/40 border-emerald-400 text-slate-900 font-semibold focus-visible:ring-emerald-600 focus-visible:border-emerald-600 transition-all shadow-2xs"
-                              : "h-9.5 text-xs rounded-xl bg-slate-50/80 disabled:opacity-80 disabled:bg-slate-50 focus-visible:ring-[#2D5A27] transition-all"}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Section 3: Official Municipal Governance */}
-                    <div className="space-y-3 pt-3 border-t border-slate-100">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                        <Award className="size-3.5 text-[#2D5A27]" />
-                        <span>Section 3: Municipal Registration & Designation</span>
-                      </h4>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-slate-700">RSBSA Number (Protected)</Label>
-                          <Input
-                            disabled
-                            value={formData.rsbsaId}
-                            className="h-9.5 text-xs font-mono font-bold rounded-xl bg-slate-100 text-slate-700"
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-bold text-slate-700">Department / Office</Label>
-                          <Input
-                            disabled
-                            value={formData.department}
-                            className="h-9.5 text-xs rounded-xl bg-slate-100 text-slate-700"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Bottom Save Button Bar */}
-                    {isEditing && (
-                      <div className="pt-4 flex items-center justify-end gap-2.5 border-t border-slate-100">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setIsEditing(false)}
-                          className="text-xs font-bold rounded-xl h-9 px-4 cursor-pointer text-slate-600 hover:text-slate-900"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="submit"
-                          size="sm"
-                          disabled={isSaving}
-                          className="bg-[#2D5A27] hover:bg-[#23461f] text-white font-bold text-xs rounded-xl gap-2 h-9 px-5 shadow-md cursor-pointer"
-                        >
-                          <Save className="size-3.5" />
-                          <span>{isSaving ? "Saving Updates..." : "Save Profile Updates"}</span>
-                        </Button>
-                      </div>
-                    )}
-                  </form>
-                </CardContent>
-              </Card>
-
-              {isFarmer && (
-                <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
-                  <CardContent className="p-5 sm:p-7 space-y-4">
-                    <div>
-                      <h3 className="text-base sm:text-lg font-black text-slate-900">
-                        Registration &amp; Accreditation Documents
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        Review your submitted Government ID and RSBSA files or upload a replacement if MAO requested a correction.
-                      </p>
-                    </div>
-                    <RegistrationDocumentsPanel variant="profile" />
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            <TabsContent value="settings" className="space-y-4 mt-0">
-              <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
-                <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
-                  <div>
-                    <h3 className="text-base sm:text-lg font-black text-slate-900">Guided tutorials</h3>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                      Turn tutorials on or off throughout SmartLivestock on this browser.
-                    </p>
-                  </div>
-                  <TutorialAutoToggle />
-                </CardContent>
-              </Card>
-              <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
-                <CardContent className="p-5 sm:p-7 space-y-5">
-                  <div className="pb-4 border-b border-slate-100">
-                    <h3 className="text-base sm:text-lg font-black text-slate-900">
-                      Make text easier to read
-                    </h3>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                      Choose a size that feels comfortable. This setting applies throughout SmartLivestock on this browser.
-                    </p>
-                  </div>
-
-                  <div role="group" aria-label="Text size" className="grid gap-3 sm:grid-cols-3">
-                    {([
-                      {
-                        value: "standard",
-                        label: "Standard",
-                        description: "The usual text size",
-                      },
-                      {
-                        value: "comfortable",
-                        label: "Comfortable",
-                        description: "Recommended for easier reading",
-                      },
-                      {
-                        value: "extra-large",
-                        label: "Extra large",
-                        description: "The largest text size",
-                      },
-                    ] as const).map((option) => {
-                      const selected = fontScale === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() => setFontScale(option.value)}
-                          className={`min-h-24 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 ${
-                            selected
-                              ? "border-emerald-700 bg-emerald-50 ring-2 ring-emerald-700/20"
-                              : "border-slate-200 bg-white hover:border-emerald-400 hover:bg-slate-50"
-                          }`}
-                        >
-                          <span className="flex items-center justify-between gap-2">
-                            <span className="text-base font-bold text-slate-900">{option.label}</span>
-                            {option.value === "comfortable" && (
-                              <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-900">
-                                Recommended
-                              </span>
-                            )}
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-500 font-medium">Profile Status</p>
+                        <p className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                          <span className="size-3.5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                            <Check className="size-2 stroke-[3]" />
                           </span>
-                          <span className="mt-2 block text-sm leading-relaxed text-slate-600">
-                            {option.description}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="text-sm text-slate-600" aria-live="polite">
-                    Current text size: {fontScale === "extra-large" ? "Extra large" : fontScale === "standard" ? "Standard" : "Comfortable"}.
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Typography Theme Toggle */}
-              <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
-                <CardContent className="p-5 sm:p-7 space-y-5">
-                  <div className="flex flex-col gap-2 pb-4 border-b border-slate-100 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="text-base sm:text-lg font-black text-slate-900">
-                        Typography Style (Font Theme)
-                      </h3>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                        Switch between the Nexus Modern font (Plus Jakarta Sans & Space Grotesk) and the classic system font (Inter).
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="nexus-font-toggle" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                        {fontTheme === "nexus" ? "Nexus Active" : "Classic Active"}
-                      </Label>
-                      <Switch
-                        id="nexus-font-toggle"
-                        checked={fontTheme === "nexus"}
-                        onCheckedChange={(checked) => setFontTheme(checked ? "nexus" : "inter")}
-                      />
-                    </div>
-                  </div>
-
-                  <div role="group" aria-label="Font Theme" className="grid gap-3 sm:grid-cols-2">
-                    {[
-                      {
-                        value: "nexus" as const,
-                        title: "Nexus Modern",
-                        subtitle: "Plus Jakarta Sans + Space Grotesk + JetBrains Mono",
-                        preview: "BIO-NODE PG-200 // Dairy & Livestock Telemetry Nexus",
-                        recommended: true,
-                      },
-                      {
-                        value: "inter" as const,
-                        title: "Classic Inter",
-                        subtitle: "Inter + System Sans-Serif & Monospace",
-                        preview: "Padre Garcia Municipal Agriculture Information System",
-                        recommended: false,
-                      },
-                    ].map((option) => {
-                      const selected = fontTheme === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() => setFontTheme(option.value)}
-                          className={`min-h-24 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 cursor-pointer ${
-                            selected
-                              ? "border-emerald-700 bg-emerald-50 ring-2 ring-emerald-700/20"
-                              : "border-slate-200 bg-white hover:border-emerald-400 hover:bg-slate-50"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm sm:text-base font-bold text-slate-900">{option.title}</span>
-                            {option.recommended && (
-                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-900">
-                                Active / Recommended
-                              </span>
-                            )}
-                          </div>
-                          <span className="mt-1 block text-xs text-slate-500 font-medium">
-                            {option.subtitle}
-                          </span>
-                          <span className={`mt-2 block text-xs p-2 rounded-lg border bg-white/70 text-slate-700 ${option.value === "nexus" ? "font-mono" : "font-sans"}`}>
-                            {option.preview}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="text-sm text-slate-600" aria-live="polite">
-                    Current active font: <strong className="text-slate-800">{fontTheme === "nexus" ? "Nexus Modern (Plus Jakarta Sans, Space Grotesk & JetBrains Mono)" : "Classic (Inter)"}</strong>.
-                  </p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Profile section. */}
-            <TabsContent value="security" className="space-y-4 mt-0">
-              <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
-                <CardContent className="p-5 sm:p-7 space-y-6">
-                  <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                    <div>
-                      <h3 className="text-base sm:text-lg font-black text-slate-900">
-                        Authentication, Password & 2FA
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        Keep your municipal livestock database account secured against unauthorized access.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
-                      <ShieldCheck className="size-4" />
-                      <span>Protected</span>
-                    </div>
-                  </div>
-
-                  {/* 2FA Toggle Card */}
-                  <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="size-10 rounded-2xl bg-emerald-100 text-[#2D5A27] flex items-center justify-center shrink-0">
-                        <Smartphone className="size-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900">Two-Factor Authentication (2FA)</h4>
-                        <p className="text-[11px] text-slate-500 leading-relaxed">
-                          Requires a one-time SMS verification code sent to {formData.phone} when logging in.
+                          Complete
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      <Switch
-                        checked={securitySettings.twoFactorEnabled}
-                        onCheckedChange={(val) => {
-                          setSecuritySettings({ ...securitySettings, twoFactorEnabled: val });
-                          toast.success(`Two-factor authentication ${val ? "enabled" : "disabled"}`);
-                        }}
-                      />
+
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 flex items-center gap-3">
+                      <div className="size-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                        <FileText className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-500 font-medium">
+                          {isFarmer ? "RSBSA Registration" : "Accreditation"}
+                        </p>
+                        <p className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                          <span className="size-3.5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                            <Check className="size-2 stroke-[3]" />
+                          </span>
+                          {roleVerifiedBadge}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 flex items-center gap-3">
+                      <div className="size-9 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                        <ShieldCheck className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-500 font-medium">Account Security</p>
+                        <p className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                          <span className="size-3.5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                            <Check className="size-2 stroke-[3]" />
+                          </span>
+                          {securitySettings.twoFactorEnabled ? "2FA Active" : "Standard"}
+                        </p>
+                      </div>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
 
-                  {/* Password Change Form */}
-                  <form onSubmit={handleUpdatePassword} className="space-y-4 max-w-xl">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                      <Key className="size-3.5 text-[#1E4D6B]" />
-                      <span>Change Account Password</span>
-                    </h4>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-slate-700">Current Password</Label>
-                      <Input
-                        type={showPass ? "text" : "password"}
-                        placeholder="Enter current password"
-                        value={passwords.current}
-                        onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                        className="h-9.5 text-xs rounded-xl bg-slate-50/80 focus-visible:ring-[#1E4D6B]"
-                      />
+              {/* Card 2: Agricultural / Official Credentials */}
+              <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+                <CardContent className="p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <Building2 className="size-5 text-emerald-700" />
+                      <h3 className="text-base font-bold text-slate-900">
+                        {isFarmer ? "Agricultural Credentials" : "Official Municipal Credentials"}
+                      </h3>
                     </div>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      OFFICIAL
+                    </span>
+                  </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-bold text-slate-700">New Password</Label>
-                        <Input
-                          type={showPass ? "text" : "password"}
-                          placeholder="Min. 8 characters"
-                          value={passwords.newPass}
-                          onChange={(e) => setPasswords({ ...passwords, newPass: e.target.value })}
-                          className="h-9.5 text-xs rounded-xl bg-slate-50/80 focus-visible:ring-[#1E4D6B]"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-bold text-slate-700">Confirm New Password</Label>
-                        <Input
-                          type={showPass ? "text" : "password"}
-                          placeholder="Repeat new password"
-                          value={passwords.confirm}
-                          onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                          className="h-9.5 text-xs rounded-xl bg-slate-50/80 focus-visible:ring-[#1E4D6B]"
-                        />
+                  <div className="space-y-3.5 text-xs">
+                    <div className="flex items-center justify-between py-1 border-b border-slate-100/80">
+                      <span className="text-slate-500 font-medium">
+                        {isFarmer ? "RSBSA Identification No." : "Municipal Credential / ID No."}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-slate-900">{formData.rsbsaId}</span>
+                        <button
+                          type="button"
+                          onClick={handleCopyRsbsa}
+                          className="p-1 rounded text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                          title="Copy ID"
+                        >
+                          {copiedId ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
+                        </button>
                       </div>
                     </div>
 
-                    {/* Password Strength Indicator */}
-                    {passwords.newPass && (
-                      <div className="space-y-1.5 pt-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-[11px] text-slate-500 font-medium">Password Strength:</span>
-                          <span className="text-[11px] font-bold text-slate-800">{passStrength.label}</span>
-                        </div>
-                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-300 ${passStrength.color}`}
-                            style={{ width: `${passStrength.score}%` }}
-                          />
-                        </div>
+                    <div className="flex items-center justify-between py-1 border-b border-slate-100/80">
+                      <span className="text-slate-500 font-medium">Assigned Office</span>
+                      <span className="font-bold text-slate-900 text-right">{formData.department}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1 border-b border-slate-100/80">
+                      <span className="text-slate-500 font-medium">
+                        {isFarmer ? "Cooperative / Association" : "Division / Operations Unit"}
+                      </span>
+                      <span className="font-bold text-slate-900 text-right">
+                        {isFarmer
+                          ? formData.cooperative
+                          : isFieldReviewer
+                          ? "Biosecurity & Surveillance Team (SIBAT/CBAT)"
+                          : isSlaughterhouse
+                          ? "Meat Inspection & Processing Division"
+                          : isAuction
+                          ? "Auction Floor Operations & Clearance"
+                          : "Padre Garcia LGU Administration"}
+                      </span>
+                    </div>
+
+                    {!isFarmer && (
+                      <div className="flex items-center justify-between py-1">
+                        <span className="text-slate-500 font-medium">Jurisdiction & Scope</span>
+                        <span className="font-bold text-slate-900 text-right">
+                          {isFieldReviewer
+                            ? (user?.accessScope === "ALL_BARANGAYS" ? "All Barangays" : user?.assignedBarangayName || "Padre Garcia Sector")
+                            : "Padre Garcia Municipal Coverage (18 Barangays)"}
+                        </span>
                       </div>
                     )}
-
-                    <div className="flex items-center justify-between pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowPass(!showPass)}
-                        className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1.5 font-semibold cursor-pointer"
-                      >
-                        {showPass ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                        <span>{showPass ? "Hide Passwords" : "Show Passwords"}</span>
-                      </button>
-
-                      <Button
-                        type="submit"
-                        size="sm"
-                        disabled={isSaving || !passwords.newPass}
-                        className="bg-[#1E4D6B] hover:bg-[#16384f] text-white font-bold text-xs rounded-xl gap-2 h-9 px-5 shadow-xs cursor-pointer"
-                      >
-                        <Lock className="size-3.5" />
-                        <span>{isSaving ? "Updating..." : "Update Password"}</span>
-                      </Button>
-                    </div>
-                  </form>
-
-                  {/* Active Authorized Sessions */}
-                  <div className="space-y-3 pt-4 border-t border-slate-100">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                        <Globe className="size-3.5 text-slate-600" />
-                        <span>Authorized Logged-in Devices ({activeSessions.length})</span>
-                      </h4>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setActiveSessions((prev) => prev.filter((s) => s.current));
-                          toast.success("Other device sessions have been revoked");
-                        }}
-                        className="text-[11px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2 cursor-pointer"
-                      >
-                        Sign Out Other Devices
-                      </Button>
-                    </div>
-
-                    <div className="space-y-2.5">
-                      {activeSessions.map((session) => (
-                        <div
-                          key={session.id}
-                          className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="size-9 rounded-xl bg-slate-200/80 text-slate-700 flex items-center justify-center shrink-0">
-                              <Smartphone className="size-4" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-slate-900">{session.device}</span>
-                                {session.current && (
-                                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[9px] font-black uppercase px-1.5 py-0.2">
-                                    Current Device
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-[11px] text-slate-500">{session.location}</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
-                              {session.lastActive}
-                            </span>
-                            {!session.current && (
-                              <button
-                                type="button"
-                                onClick={() => handleRevokeSession(session.id)}
-                                title="Revoke Session"
-                                className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="size-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Profile section. */}
-            <TabsContent value="notifications" className="space-y-4 mt-0">
-              <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
-                <CardContent className="p-5 sm:p-7 space-y-6">
-                  <div className="pb-4 border-b border-slate-100">
-                    <h3 className="text-base sm:text-lg font-black text-slate-900">
-                      Notification & Alert Dispatch Channels
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Configure automated livestock health alerts, biosecurity warnings, and municipal bulletins.
-                    </p>
                   </div>
 
-                  <div className="space-y-4">
-                    {/* Category A */}
-                    <div className="space-y-2.5">
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                        <AlertTriangle className="size-3.5 text-rose-600" />
-                        <span>Emergency Biosecurity & Health Dispatches</span>
-                      </span>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-rose-50/40 border border-rose-100/80">
-                          <div>
-                            <h4 className="text-xs font-bold text-slate-900">Quarantine Outbreak SMS Broadcasts</h4>
-                            <p className="text-[11px] text-slate-500">
-                              Instant mobile text alert if foot-and-mouth or ASF is detected within Padre Garcia.
-                            </p>
-                          </div>
-                          <Switch
-                            checked={notifSettings.smsQuarantineAlerts}
-                            onCheckedChange={(val) => {
-                              setNotifSettings({ ...notifSettings, smsQuarantineAlerts: val });
-                              toast.success(`Quarantine SMS alerts ${val ? "enabled" : "disabled"}`);
-                            }}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80">
-                          <div>
-                            <h4 className="text-xs font-bold text-slate-900">Municipal Vaccination Campaign Reminders</h4>
-                            <p className="text-[11px] text-slate-500">
-                              Advance notices of scheduled barangay cattle and carabao immunization rounds.
-                            </p>
-                          </div>
-                          <Switch
-                            checked={notifSettings.smsBiosecurity}
-                            onCheckedChange={(val) => {
-                              setNotifSettings({ ...notifSettings, smsBiosecurity: val });
-                              toast.success(`Vaccination campaign notices ${val ? "enabled" : "disabled"}`);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Category B */}
-                    <div className="space-y-2.5 pt-3 border-t border-slate-100">
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                        <Mail className="size-3.5 text-sky-700" />
-                        <span>Data Validation & Audit Reports</span>
-                      </span>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80">
-                          <div>
-                            <h4 className="text-xs font-bold text-slate-900">SIBAT Certification & Audit Emails</h4>
-                            <p className="text-[11px] text-slate-500">
-                              Receive official PDF certificates when your livestock records are validated.
-                            </p>
-                          </div>
-                          <Switch
-                            checked={notifSettings.emailAuditCertification}
-                            onCheckedChange={(val) => {
-                              setNotifSettings({ ...notifSettings, emailAuditCertification: val });
-                              toast.success(`Audit email alerts ${val ? "enabled" : "disabled"}`);
-                            }}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80">
-                          <div>
-                            <h4 className="text-xs font-bold text-slate-900">Weekly Agricultural Census Digest</h4>
-                            <p className="text-[11px] text-slate-500">
-                              Weekly market trends, cattle auction trade prices, and municipal livestock summaries.
-                            </p>
-                          </div>
-                          <Switch
-                            checked={notifSettings.emailWeeklyDigest}
-                            onCheckedChange={(val) => {
-                              setNotifSettings({ ...notifSettings, emailWeeklyDigest: val });
-                              toast.success(`Weekly digest ${val ? "enabled" : "disabled"}`);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Profile section. */}
-            <TabsContent value="activity" className="space-y-4 mt-0">
-              <Card className="rounded-3xl border border-slate-200/90 bg-white shadow-xs">
-                <CardContent className="p-5 sm:p-7 space-y-5">
-                  <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                    <div>
-                      <h3 className="text-base sm:text-lg font-black text-slate-900">
-                        Municipal Session & Action Audit Log
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        Immutable record of database operations and authentication activity.
+                  {/* RA 10173 Data Governance Callout (System Access & Clearances removed) */}
+                  <div className="rounded-xl bg-[#f0fdf4] border border-[#bbf7d0] p-4 flex items-start gap-3 mt-4">
+                    <span className="size-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <Check className="size-3 stroke-[3]" />
+                    </span>
+                    <div className="space-y-0.5 text-xs">
+                      <p className="font-bold text-emerald-950">
+                        Your account is linked to the official municipal registry.
                       </p>
+                      <p className="text-emerald-800 leading-relaxed font-normal">
+                        Your information and official records are protected under the Padre Garcia data governance policy and RA 10173 Data Privacy Act.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Column: Personal Information + Farm/Office Information */}
+            <div ref={detailsSectionRef} className="space-y-5 scroll-mt-20">
+              {/* Card 3: Personal Information */}
+              <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+                <CardContent className="p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <UserIcon className="size-5 text-slate-700" />
+                      <h3 className="text-base font-bold text-slate-900">Personal Information</h3>
                     </div>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => toast.success("Audit trail exported to CSV")}
-                      className="rounded-xl text-xs font-bold h-8 px-3 border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
+                      onClick={() => setIsEditing(!isEditing)}
+                      className="h-7 px-2.5 text-xs font-semibold rounded-lg border-emerald-200 text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900 flex items-center gap-1.5 cursor-pointer"
                     >
-                      Export CSV
+                      <Edit3 className="size-3" />
+                      <span>{isEditing ? "Done" : "Edit"}</span>
                     </Button>
                   </div>
 
-                  <div className="space-y-2.5">
-                    {auditEvents.map((evt) => (
-                      <div
-                        key={evt.id}
-                        className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="size-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                            <Activity className="size-4" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-900">{evt.action}</span>
-                              <Badge className="bg-slate-200/80 text-slate-700 border-0 text-[9px] font-mono">
-                                {evt.category}
-                              </Badge>
-                            </div>
-                            <p className="text-[11px] text-slate-500 font-mono">IP: {evt.ip} | Padre Garcia Server</p>
-                          </div>
+                  {isEditing ? (
+                    <div className="space-y-3 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs font-semibold text-slate-600">First Name</Label>
+                          <Input
+                            value={formData.firstName}
+                            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                            className="h-9 text-xs rounded-lg"
+                          />
                         </div>
-
-                        <span className="text-[11px] text-slate-400 font-medium shrink-0">
-                          {evt.timestamp}
+                        <div className="space-y-1">
+                          <Label className="text-xs font-semibold text-slate-600">Last Name</Label>
+                          <Input
+                            value={formData.lastName}
+                            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                            className="h-9 text-xs rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-slate-600">Email Address</Label>
+                        <Input
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          className="h-9 text-xs rounded-lg"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs font-semibold text-slate-600">Mobile Number</Label>
+                          <Input
+                            value={formData.phone}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            className="h-9 text-xs rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs font-semibold text-slate-600">Alternate Number (Optional)</Label>
+                          <Input
+                            value={formData.alternatePhone}
+                            onChange={(e) => setFormData({ ...formData, alternatePhone: e.target.value })}
+                            className="h-9 text-xs rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div className="pt-2 flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isSaving}
+                          onClick={() => handleSaveProfile()}
+                          className="bg-[#2D5A27] hover:bg-[#23461f] text-white text-xs font-bold rounded-lg h-8 px-4"
+                        >
+                          <Save className="size-3 mr-1" />
+                          {isSaving ? "Saving..." : "Save Changes"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 text-xs">
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100/80">
+                        <span className="text-slate-500 font-medium">First Name</span>
+                        <span className="font-bold text-slate-900">{formData.firstName}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100/80">
+                        <span className="text-slate-500 font-medium">Last Name</span>
+                        <span className="font-bold text-slate-900">{formData.lastName}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100/80">
+                        <span className="text-slate-500 font-medium">Email Address</span>
+                        <span className="font-bold text-slate-900">{formData.email}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100/80">
+                        <span className="text-slate-500 font-medium">Mobile Number</span>
+                        <span className="font-bold text-slate-900">{formData.phone}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1">
+                        <span className="text-slate-500 font-medium">Alternate Number</span>
+                        <span className="font-bold text-slate-900">
+                          {formData.alternatePhone ? `${formData.alternatePhone} (Optional)` : "0998-444-1280 (Optional)"}
                         </span>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
 
-      {/* Profile section. */}
+              {/* Card 4: Farm Information (for Farmer) / Office & Facility Information (for non-farmer) */}
+              <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+                <CardContent className="p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <Building2 className="size-5 text-emerald-700" />
+                      <h3 className="text-base font-bold text-slate-900">
+                        {isFarmer ? "Farm Information" : "Office & Facility Information"}
+                      </h3>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditing(!isEditing)}
+                      className="h-7 px-2.5 text-xs font-semibold rounded-lg border-emerald-200 text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Edit3 className="size-3" />
+                      <span>{isEditing ? "Done" : "Edit"}</span>
+                    </Button>
+                  </div>
+
+                  {isEditing ? (
+                    <div className="space-y-3 pt-1">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-slate-600">
+                          {isFarmer ? "Farm / Holding Facility Name" : "Office / Facility Name"}
+                        </Label>
+                        <Input
+                          value={formData.farmName}
+                          onChange={(e) => setFormData({ ...formData, farmName: e.target.value })}
+                          className="h-9 text-xs rounded-lg"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-slate-600">
+                          {isFarmer ? "Operation Type" : "Operation Scope / Designation"}
+                        </Label>
+                        <Input
+                          value={formData.farmType}
+                          onChange={(e) => setFormData({ ...formData, farmType: e.target.value })}
+                          className="h-9 text-xs rounded-lg"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs font-semibold text-slate-600">
+                            {isFarmer ? "Sitio / Street / Zone" : "Station Address / Street"}
+                          </Label>
+                          <Input
+                            value={formData.sitio}
+                            onChange={(e) => setFormData({ ...formData, sitio: e.target.value })}
+                            className="h-9 text-xs rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs font-semibold text-slate-600">
+                            {isFarmer ? "Barangay" : "Barangay Assignment"}
+                          </Label>
+                          <Input
+                            value={formData.barangay}
+                            onChange={(e) => setFormData({ ...formData, barangay: e.target.value })}
+                            className="h-9 text-xs rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs font-semibold text-slate-600">Municipality</Label>
+                          <Input
+                            value={formData.municipality}
+                            onChange={(e) => setFormData({ ...formData, municipality: e.target.value })}
+                            className="h-9 text-xs rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs font-semibold text-slate-600">ZIP Code</Label>
+                          <Input
+                            value={formData.zipCode}
+                            onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                            className="h-9 text-xs rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div className="pt-2 flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isSaving}
+                          onClick={() => handleSaveProfile()}
+                          className="bg-[#2D5A27] hover:bg-[#23461f] text-white text-xs font-bold rounded-lg h-8 px-4"
+                        >
+                          <Save className="size-3 mr-1" />
+                          {isSaving ? "Saving..." : "Save Changes"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 text-xs">
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100/80">
+                        <span className="text-slate-500 font-medium">
+                          {isFarmer ? "Farm / Holding Facility Name" : "Office / Facility Name"}
+                        </span>
+                        <span className="font-bold text-slate-900">
+                          {isFarmer ? formData.farmName : (formData.farmName || roleFacilitySubtitle)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100/80">
+                        <span className="text-slate-500 font-medium">
+                          {isFarmer ? "Operation Type" : "Operation Scope"}
+                        </span>
+                        <span className="font-bold text-slate-900">
+                          {isFarmer ? formData.farmType : (formData.farmType || "Municipal Regulatory & Field Operations")}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100/80">
+                        <span className="text-slate-500 font-medium">
+                          {isFarmer ? "Sitio / Street / Zone" : "Station Address / Street"}
+                        </span>
+                        <span className="font-bold text-slate-900">{formData.sitio}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100/80">
+                        <span className="text-slate-500 font-medium">
+                          {isFarmer ? "Barangay" : "Barangay Assignment"}
+                        </span>
+                        <span className="font-bold text-slate-900">{formData.barangay}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-1">
+                        <span className="text-slate-500 font-medium">Municipality & ZIP</span>
+                        <span className="font-bold text-slate-900">{formData.municipality}, Batangas ({formData.zipCode})</span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="security" className="space-y-4 mt-0">
+          {renderSecurityContent()}
+        </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-4 mt-0">
+          {renderNotificationsContent()}
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-4 mt-0">
+          {renderDocumentsContent()}
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-4 mt-0">
+          {renderActivityContent()}
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-4 mt-0">
+          {renderSettingsContent()}
+        </TabsContent>
+      </Tabs>
+
+      {/* Profile QR Pass modal for all roles */}
       <Dialog open={showIdPassModal} onOpenChange={setShowIdPassModal}>
         <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl p-6 rounded-3xl bg-white border-0 shadow-2xl max-h-[94vh] overflow-y-auto">
           <DialogHeader className="space-y-1 text-center">
             <DialogTitle className="text-xl font-black text-slate-900">
-              Farmer profile identification
+              {isFarmer ? "Farmer Profile Identification" : `${rolePillLabel} Identification`}
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Auction staff can scan this profile QR to find your registered livestock. It identifies your Farmer account; it does not prove that an animal or sale is approved.
+              {isFarmer
+                ? "Auction staff can scan this profile QR to find your registered livestock. It identifies your Farmer account; it does not prove that an animal or sale is approved."
+                : "Official municipal personnel verification QR code for Padre Garcia MAO and livestock monitoring systems."}
             </DialogDescription>
           </DialogHeader>
 
-          {user?.role === "FARMER" && user.farmerId ? (
+          {isFarmer && user?.farmerId ? (
             <QrCodePass
               code={`SL-FARMER:${user.farmerId}`}
               qrPayload={`SL-FARMER:${user.farmerId}`}
@@ -1662,17 +1626,21 @@ export function UserProfileView() {
               compact
             />
           ) : (
-            <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
-              <QrCode className="size-8 text-slate-500" />
-              <p className="text-sm font-semibold text-slate-900">Farmer profile QR unavailable</p>
-              <p className="max-w-md text-xs leading-relaxed text-slate-600">A QR is generated for registered Farmer profiles once the account details load.</p>
-            </div>
+            <QrCodePass
+              code={`SL-${user?.role || "OFFICIAL"}:${formData.rsbsaId || user?.username || "PGAMS-2026"}`}
+              qrPayload={`SL-${user?.role || "OFFICIAL"}:${formData.rsbsaId || user?.username || "PGAMS-2026"}`}
+              title={`${rolePillLabel} Identification`}
+              subtitle="Official municipal verification QR code for Padre Garcia MAO livestock management system."
+              ownerName={`${formData.firstName} ${formData.lastName}`.trim() || userDisplayName}
+              status={roleVerifiedBadge.toUpperCase()}
+              compact
+            />
           )}
 
           <Button
             type="button"
             onClick={() => setShowIdPassModal(false)}
-            className="w-full bg-[#2D5A27] hover:bg-[#23461f] text-white font-bold text-xs rounded-xl h-9.5 cursor-pointer"
+            className="w-full bg-[#2D5A27] hover:bg-[#23461f] text-white font-bold text-xs rounded-xl h-9.5 cursor-pointer mt-4"
           >
             Done
           </Button>
