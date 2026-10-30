@@ -742,11 +742,14 @@ export function HeaderNotifications({
       <PopoverContent
         align="end"
         sideOffset={8}
-        collisionPadding={12}
-        className="w-[480px] max-w-[calc(100vw-24px)] max-h-[calc(100vh-32px)] flex flex-col p-3 rounded-2xl border border-slate-200/90 shadow-2xl bg-white overflow-hidden text-slate-800 z-50 animate-in fade-in-50 zoom-in-95"
+        collisionPadding={16}
+        className="w-[480px] max-w-[calc(100vw-24px)] flex flex-col p-3 rounded-2xl border border-slate-200/90 shadow-2xl bg-white overflow-hidden text-slate-800 z-50 animate-in fade-in-50 zoom-in-95"
+        style={{
+          maxHeight: "min(560px, var(--radix-popover-content-available-height, calc(100dvh - 96px)))",
+        }}
       >
         {/* Top Header */}
-        <div className="flex items-start justify-between gap-2.5 sm:gap-3">
+        <div className="flex items-start justify-between gap-2.5 sm:gap-3 shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
             <div className="size-9 sm:size-10 rounded-xl bg-[#EAF5EC] text-[#2D5A27] flex items-center justify-center shrink-0 shadow-2xs">
               <Bell className="size-5 text-[#2D5A27] stroke-[2.2]" />
@@ -774,7 +777,7 @@ export function HeaderNotifications({
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 my-3">
+        <div className="flex items-center gap-1.5 my-3 shrink-0">
           <button
             type="button"
             onClick={() => setFilter("all")}
@@ -824,7 +827,7 @@ export function HeaderNotifications({
         </div>
 
         {/* Notifications Scrollable List */}
-        <div className="space-y-1 max-h-[540px] sm:max-h-[580px] overflow-y-auto pr-1">
+        <div className="space-y-1 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1">
           {isLoading ? (
             <div className="py-16 px-4 text-center flex flex-col items-center justify-center space-y-3">
               <div className="w-8 h-8 border-3 border-[#1E4D2B] border-t-transparent rounded-full animate-spin" />
@@ -968,7 +971,7 @@ export function HeaderNotifications({
             const targetRoute = getNotificationRouteForRole(variant, user?.role, pathname);
             router.push(targetRoute);
           }}
-          className="w-full py-2.5 bg-[#EAF5EC] hover:bg-[#DCF0DF] text-[#1A3D22] border border-[#2D5A27]/25 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer mt-3 shadow-2xs active:scale-[0.99]"
+          className="w-full py-2.5 bg-[#EAF5EC] hover:bg-[#DCF0DF] text-[#1A3D22] border border-[#2D5A27]/25 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer mt-3 shadow-2xs active:scale-[0.99] shrink-0"
         >
           <FileText className="size-4 sm:size-4.5 stroke-[2.2]" />
           <span>View All Notifications</span>
