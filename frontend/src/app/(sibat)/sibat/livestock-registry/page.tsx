@@ -1,7 +1,6 @@
 "use client";
 
 import type { BatchApiItem, LivestockBatchItem } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
-import { RegisterLivestockDialog } from "@/app/(farmer)/livestock-inventory/components/register-livestock-dialog";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -29,28 +28,32 @@ import { cowHead } from "@lucide/lab";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Baby,
   ClipboardList,
   Eye,
   FileSpreadsheet,
   Icon,
   Layers,
+  LayoutGrid,
   MapPin,
-  Plus,
   RotateCcw,
   Search,
+  TableProperties,
   Tag,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import CensusDetailsDialog from "../census-details-dialog";
 import CensusSubmissionsView from "../census-submissions-view";
 import SibatReviewDialog from "../components/sibat-review-dialog";
 import SibatStatusBadge from "../components/sibat-status-badge";
 import {
   mapBatchToUnified,
+  mapCalvingToUnified,
   mapInventoryToUnified,
+  useCalvingFromFarmers,
   useCensusSubmission,
   type CensusSubmissionRecord,
   type RawInventoryRecord,
@@ -64,7 +67,7 @@ const CowHeadIcon = ({ className }: { className?: string }) => (
 
 const PAGE_SIZE = 10;
 type RegistryStatusFilter = "ALL" | "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION";
-type RegistryTab = "all" | "individual" | "herds" | "census";
+type RegistryTab = "all" | "individual" | "herds" | "calving" | "census";
 
 type RegistryBatchRecord = BatchApiItem;
 
@@ -82,7 +85,7 @@ function SibatLivestockRegistryContent() {
   const tabParam = searchParams.get("tab") as RegistryTab | null;
 
   const initialTab: RegistryTab =
-    tabParam === "individual" || tabParam === "herds" || tabParam === "census"
+    tabParam === "individual" || tabParam === "herds" || tabParam === "calving" || tabParam === "census"
       ? tabParam
       : batchId
         ? "herds"
@@ -116,19 +119,39 @@ function SibatLivestockRegistryContent() {
   } = useCensusSubmission();
   const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
 
-  // Add animal dialog state
-  const [isAddAnimalOpen, setIsAddAnimalOpen] = useState(false);
-  const { data: livestockTypes = {} } = useQuery<Record<string, number>>({
-    queryKey: ["livestock-types"],
-    queryFn: async () => {
-      const response = await api.get<{ id: number; name: string }[]>("/livestock/types/");
-      return (response.data || []).reduce<Record<string, number>>((acc, curr) => {
-        acc[curr.name] = curr.id;
-        return acc;
-      }, {});
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  // View Mode: Table vs Card view (defaults to card on small screens, table on desktop)
+  const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const recordsSectionRef = useRef<HTMLDivElement>(null);
+  const firstRecordRef = useRef<HTMLElement | null>(null);
+  const recordsListRef = useRef<HTMLDivElement>(null);
+  const censusListRef = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setViewMode("card");
+    }
+  }, []);
+
+  // Smooth scroll down to records when active tab changes on mobile/tablet so 1st card is in view
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      const timer = setTimeout(() => {
+        if (activeTab === "census") {
+          censusListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else if (firstRecordRef.current) {
+          firstRecordRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else if (recordsListRef.current) {
+          recordsListRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab]);
 
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -179,6 +202,9 @@ function SibatLivestockRegistryContent() {
     enabled: !batchId && Boolean(user),
   });
 
+  // Fetch calving & birth records
+  const calvingQuery = useCalvingFromFarmers();
+
   // Combine and sort records
   const registryRecords = useMemo(() => {
     const rawInv = inventoryQuery.data;
@@ -202,10 +228,15 @@ function SibatLivestockRegistryContent() {
         : [];
     const herds = batchId ? [] : batchList.map(mapBatchToUnified);
 
-    return [...individuals, ...batchInventories, ...herds].sort((a, b) => {
+    const rawCalvings = calvingQuery.data;
+    const calvings = batchId
+      ? []
+      : (Array.isArray(rawCalvings) ? rawCalvings : []).map(mapCalvingToUnified);
+
+    return [...individuals, ...batchInventories, ...herds, ...calvings].sort((a, b) => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [inventoryQuery.data, batchesQuery.data, batchId]);
+  }, [inventoryQuery.data, batchesQuery.data, calvingQuery.data, batchId]);
 
   // Open an inventory review dialog after navigating here from the review queue.
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -258,6 +289,7 @@ function SibatLivestockRegistryContent() {
     const set = new Set<string>();
     set.add("Individual Tagged");
     set.add("Herd / Batch");
+    set.add("Calving / Birth");
     registryRecords.forEach((r) => {
       if (r.livestockTypeName) set.add(r.livestockTypeName);
     });
@@ -267,11 +299,15 @@ function SibatLivestockRegistryContent() {
   // Tab counts
   const allCount = registryRecords.length;
   const individualCount = useMemo(
-    () => registryRecords.filter((r) => r.entryType === "INDIVIDUAL").length,
+    () => registryRecords.filter((r) => r.sourceType === "INVENTORY" && r.entryType === "INDIVIDUAL").length,
     [registryRecords]
   );
   const herdsCount = useMemo(
     () => registryRecords.filter((r) => r.entryType === "BATCH").length,
+    [registryRecords]
+  );
+  const calvingCount = useMemo(
+    () => registryRecords.filter((r) => r.sourceType === "CALVING").length,
     [registryRecords]
   );
   const censusCount = censuses.length;
@@ -281,6 +317,7 @@ function SibatLivestockRegistryContent() {
   );
 
   const handleTabChange = (tab: RegistryTab) => {
+    firstRecordRef.current = null;
     setActiveTab(tab);
     setPage(1);
     const newParams = new URLSearchParams(searchParams.toString());
@@ -294,17 +331,20 @@ function SibatLivestockRegistryContent() {
 
     return registryRecords.filter((record) => {
       // 0. Tab Filter
-      if (activeTab === "individual" && record.entryType !== "INDIVIDUAL") {
+      if (activeTab === "individual" && (record.sourceType !== "INVENTORY" || record.entryType !== "INDIVIDUAL")) {
         return false;
       }
       if (activeTab === "herds" && record.entryType !== "BATCH") {
+        return false;
+      }
+      if (activeTab === "calving" && record.sourceType !== "CALVING") {
         return false;
       }
 
       // 1. Text Query (farmer name or record ID)
       if (q) {
         const matchesQuery =
-          `${record.farmerName} ${record.tagNumber || ""} ${record.batchCode || ""} ${record.rawId}`
+          `${record.farmerName} ${record.tagNumber || ""} ${record.calfTag || ""} ${record.damTag || ""} ${record.batchCode || ""} ${record.rawId}`
             .toLowerCase()
             .includes(q) ||
           (record.barangayName && record.barangayName.toLowerCase().includes(q)) ||
@@ -326,13 +366,16 @@ function SibatLivestockRegistryContent() {
 
       // 3. Record Type Filter
       if (recordType !== "All Record Types") {
-        if (recordType === "Individual Tagged" && record.entryType !== "INDIVIDUAL") {
+        if (recordType === "Individual Tagged" && (record.sourceType !== "INVENTORY" || record.entryType !== "INDIVIDUAL")) {
           return false;
         }
         if (recordType === "Herd / Batch" && record.entryType !== "BATCH") {
           return false;
         }
-        if (recordType !== "Individual Tagged" && recordType !== "Herd / Batch") {
+        if (recordType === "Calving / Birth" && record.sourceType !== "CALVING") {
+          return false;
+        }
+        if (recordType !== "Individual Tagged" && recordType !== "Herd / Batch" && recordType !== "Calving / Birth") {
           if (record.livestockTypeName?.toLowerCase() !== recordType.toLowerCase()) {
             return false;
           }
@@ -491,30 +534,6 @@ function SibatLivestockRegistryContent() {
         hideIconOnMobile
         showTutorialToggle={false}
         mobileActionsInline
-        action={
-          <div className="flex items-center gap-2">
-            {activeTab === "census" ? (
-              <Button
-                asChild
-                className="bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold h-9 px-3.5 shadow-sm cursor-pointer border border-white/20"
-              >
-                <Link href="/sibat/census/submit">
-                  <Plus className="size-3.5 mr-1" />
-                  <span>Submit Census</span>
-                </Link>
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={() => setIsAddAnimalOpen(true)}
-                className="bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold h-9 px-3.5 shadow-sm cursor-pointer border border-white/20"
-              >
-                <Plus className="size-3.5 mr-1" />
-                <span>Add Animal</span>
-              </Button>
-            )}
-          </div>
-        }
       />
 
       {/* ── UNIFIED RECORD TABS (All Animals, Individual, Herds, Census) ── */}
@@ -606,7 +625,35 @@ function SibatLivestockRegistryContent() {
               </span>
             </button>
 
-            {/* 4. Census */}
+            {/* 4. Calving */}
+            <button
+              type="button"
+              onClick={() => handleTabChange("calving")}
+              className={cn(
+                "group flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-3 px-3.5 sm:px-5 border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
+                activeTab === "calving"
+                  ? "border-emerald-700 text-emerald-950 font-black"
+                  : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300 font-semibold"
+              )}
+            >
+              <Baby
+                className={cn(
+                  "size-4 sm:size-4.5 transition-colors",
+                  activeTab === "calving" ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600"
+                )}
+              />
+              <span>Calving Records</span>
+              <span
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold tabular-nums transition-colors",
+                  activeTab === "calving" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                )}
+              >
+                {calvingCount}
+              </span>
+            </button>
+
+            {/* 5. Census */}
             <button
               type="button"
               onClick={() => handleTabChange("census")}
@@ -637,7 +684,7 @@ function SibatLivestockRegistryContent() {
         </div>
       </div>
 
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div ref={recordsSectionRef} id="records-list-anchor" className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 scroll-mt-6">
         {/* Navigation Breadcrumb / Back Link */}
         <div className="flex items-center justify-between">
           <Link
@@ -685,7 +732,7 @@ function SibatLivestockRegistryContent() {
 
         {activeTab === "census" ? (
           /* ── CENSUS SUBMISSIONS VIEW ── */
-          <div className="space-y-6">
+          <div ref={censusListRef} className="space-y-6 scroll-mt-6">
             {isLoadingCensus ? (
               <Card className="p-8 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-3" />
@@ -869,12 +916,47 @@ function SibatLivestockRegistryContent() {
           )}
         </Card>
 
-        {/* Result Line */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs sm:text-sm px-1 font-medium text-slate-500">
-          <strong className="text-slate-900 font-bold">
-            {filteredRecords.length} {filteredRecords.length === 1 ? "record" : "records"} found
-          </strong>
-          <span>Showing farmer submissions</span>
+        {/* Result Line & View Switcher */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs sm:text-sm px-1 font-medium text-slate-500">
+          <div className="flex items-center gap-2">
+            <strong className="text-slate-900 font-bold">
+              {filteredRecords.length} {filteredRecords.length === 1 ? "record" : "records"} found
+            </strong>
+            <span className="text-slate-300">•</span>
+            <span>Showing farmer submissions</span>
+          </div>
+
+          {/* View Mode Switcher: Table vs Cards */}
+          <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-start sm:self-auto border border-slate-200/80 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                viewMode === "table"
+                  ? "bg-white text-slate-900 shadow-2xs"
+                  : "text-slate-500 hover:text-slate-900"
+              )}
+              title="Table view"
+            >
+              <TableProperties className="size-3.5" />
+              <span>Table View</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("card")}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                viewMode === "card"
+                  ? "bg-white text-slate-900 shadow-2xs"
+                  : "text-slate-500 hover:text-slate-900"
+              )}
+              title="Card view"
+            >
+              <LayoutGrid className="size-3.5" />
+              <span>Card View</span>
+            </button>
+          </div>
         </div>
 
         {/* Loading State */}
@@ -883,10 +965,11 @@ function SibatLivestockRegistryContent() {
             <p className="text-sm font-semibold text-slate-500">Loading farmer records…</p>
           </Card>
         ) : filteredRecords.length > 0 ? (
-          /* Main Records List: Desktop Table + Mobile Cards */
-          <div className="space-y-4">
-            {/* DESKTOP TABLE VIEW (hidden on mobile, visible on md+) */}
-            <Card className="hidden md:block rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
+          /* Main Records List: Table View or Cards View */
+          <div ref={recordsListRef} className="space-y-4">
+            {viewMode === "table" ? (
+              /* TABLE VIEW */
+              <Card className="rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader className="bg-slate-50/80">
@@ -912,16 +995,21 @@ function SibatLivestockRegistryContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pageRecords.map((r) => {
-                      const isIndividual = r.entryType === "INDIVIDUAL";
+                    {pageRecords.map((r, idx) => {
+                      const isCalving = r.sourceType === "CALVING";
                       const isBatch = r.entryType === "BATCH" || r.sourceType === "BATCH";
                       const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—";
 
                       return (
                         <TableRow
                           key={`${r.sourceType}-${r.rawId}`}
+                          ref={(el) => {
+                            if (idx === 0) {
+                              firstRecordRef.current = el;
+                            }
+                          }}
                           data-review-record-id={r.id}
-                          className={`cursor-pointer border-b border-slate-100 transition-colors ${r.id === focusRecordKey ? "bg-emerald-50 ring-2 ring-inset ring-emerald-400" : "hover:bg-slate-50/80"}`}
+                          className={`cursor-pointer border-b border-slate-100 scroll-mt-24 transition-colors ${r.id === focusRecordKey ? "bg-emerald-50 ring-2 ring-inset ring-emerald-400" : "hover:bg-slate-50/80"}`}
                           onClick={() => {
                             setFocusedRecordId((prev) => (prev === r.id ? null : r.id));
                           }}
@@ -929,9 +1017,15 @@ function SibatLivestockRegistryContent() {
                           {/* Ear Tag / Herd Tag */}
                           <TableCell className="py-3.5 pl-5">
                             <b className="font-mono text-xs font-black text-slate-900 block">
-                              {isBatch ? (r.batchCode || r.tagNumber || `#${r.rawId}`) : (r.tagNumber || `#${r.rawId}`)}
+                              {isCalving ? (r.calfTag ? `Calf Tag #${r.calfTag}` : `Calving #${r.rawId}`) : isBatch ? (r.batchCode || r.tagNumber || `#${r.rawId}`) : (r.tagNumber || `#${r.rawId}`)}
                             </b>
-                            {!isBatch && r.batchCode && (
+                            {isCalving ? (
+                              <div className="mt-1 flex items-center gap-1">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide bg-purple-50 text-purple-900 border border-purple-200 shadow-2xs">
+                                  Dam Tag: <strong className="font-mono">{r.damTag || "Registered Dam"}</strong>
+                                </span>
+                              </div>
+                            ) : !isBatch && r.batchCode ? (
                               <div className="mt-1 flex items-center gap-1">
                                 <Link
                                   href={`/sibat/batches?batchId=${encodeURIComponent(r.batchId || r.batchCode)}&animalId=${r.rawId}&tag=${encodeURIComponent(r.tagNumber || "")}&from=registry`}
@@ -943,11 +1037,13 @@ function SibatLivestockRegistryContent() {
                                   <span>Herd Tag: <strong className="font-mono">{r.batchCode}</strong></span>
                                 </Link>
                               </div>
-                            )}
+                            ) : null}
                             <span className="block text-[11px] text-slate-400 font-medium mt-0.5">
-                              {isBatch
-                                ? r.batchName || "Herd Container"
-                                : [r.livestockTypeName, r.breed].filter(Boolean).join(" • ") || r.sex || "Individual Animal"}
+                              {isCalving
+                                ? [r.livestockTypeName || "Cattle", r.breed || r.damBreed, r.calfSex].filter(Boolean).join(" • ")
+                                : isBatch
+                                  ? r.batchName || "Herd Container"
+                                  : [r.livestockTypeName, r.breed].filter(Boolean).join(" • ") || r.sex || "Individual Animal"}
                             </span>
                           </TableCell>
 
@@ -962,7 +1058,12 @@ function SibatLivestockRegistryContent() {
                           {/* Record Type */}
                           <TableCell className="py-3.5">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              {isBatch ? (
+                              {isCalving ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-purple-50 text-purple-800 border border-purple-200 shadow-2xs">
+                                  <Baby className="size-3 text-purple-700" />
+                                  Calving
+                                </span>
+                              ) : isBatch ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
                                   <Layers className="size-3 text-amber-700" />
                                   Herd
@@ -973,14 +1074,18 @@ function SibatLivestockRegistryContent() {
                                   Individual
                                 </span>
                               )}
-                              {!isBatch && r.batchCode && (
+                              {!isBatch && !isCalving && r.batchCode && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-200">
                                   <Layers className="size-2.5 text-amber-700" />
                                   Herd Tag: {r.batchCode}
                                 </span>
                               )}
                             </div>
-                            {isBatch && r.quantity ? (
+                            {isCalving ? (
+                              <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
+                                Ease: {r.calvingEase || "Normal"}{r.birthWeight ? ` • ${r.birthWeight} kg` : ""}
+                              </span>
+                            ) : isBatch && r.quantity ? (
                               <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
                                 {r.quantity} heads
                               </span>
@@ -1037,9 +1142,9 @@ function SibatLivestockRegistryContent() {
                                     setFocusedRecordId(r.id);
                                     setSelectedSubmission(r);
                                   }}
-                                  className="h-8 px-3 rounded-xl text-xs font-extrabold bg-slate-50 hover:bg-[#1A365D] hover:text-white text-slate-800 border-slate-200 transition-all cursor-pointer"
+                                  className="h-8 px-3 rounded-xl text-xs font-extrabold bg-slate-50 hover:bg-slate-100 text-slate-900 border-slate-300 transition-all cursor-pointer shadow-2xs"
                                 >
-                                  <Eye className="size-3.5 mr-1" /> Review Record
+                                  <Eye className="size-3.5 mr-1 text-slate-800" /> Review Record
                                 </Button>
                               </div>
                             )}
@@ -1051,25 +1156,37 @@ function SibatLivestockRegistryContent() {
                 </Table>
               </div>
             </Card>
-
-            {/* MOBILE CARDS VIEW (visible on mobile < md, hidden on md+) */}
-            <div className="grid grid-cols-1 gap-3 md:hidden">
-              {pageRecords.map((r) => {
+          ) : (
+            /* CARDS VIEW */
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {pageRecords.map((r, idx) => {
+                const isCalving = r.sourceType === "CALVING";
                 const isBatch = r.entryType === "BATCH" || r.sourceType === "BATCH";
                 const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—";
 
                 return (
                   <article
-                    key={`mobile-${r.sourceType}-${r.rawId}`}
+                    key={`card-${r.sourceType}-${r.rawId}`}
+                    ref={(el) => {
+                      if (idx === 0) {
+                        firstRecordRef.current = el;
+                      }
+                    }}
                     data-review-record-id={r.id}
-                    className={`rounded-2xl border p-4 shadow-2xs space-y-2.5 transition-all ${r.id === focusRecordKey ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-300" : "border-slate-200/90 bg-white"}`}
+                    className={`rounded-2xl border p-4 shadow-2xs space-y-2.5 scroll-mt-24 transition-all ${r.id === focusRecordKey ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-300" : "border-slate-200/90 bg-white hover:border-slate-300"}`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <b className="font-mono text-xs font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg">
-                          {isBatch ? (r.batchCode || r.tagNumber || `#${r.rawId}`) : (r.tagNumber || `#${r.rawId}`)}
+                          {isCalving ? (r.calfTag || `#${r.rawId}`) : isBatch ? (r.batchCode || r.tagNumber || `#${r.rawId}`) : (r.tagNumber || `#${r.rawId}`)}
                         </b>
-                        {!isBatch && r.batchCode && (
+                        {isCalving && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-pink-100 text-pink-900 border border-pink-200">
+                            <Baby className="size-2.5 text-pink-700" />
+                            Calving {r.damTag ? `• Dam: ${r.damTag}` : ""}
+                          </span>
+                        )}
+                        {!isBatch && !isCalving && r.batchCode && (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
                             <Layers className="size-2.5 text-amber-700" />
                             Herd Tag: {r.batchCode}
@@ -1081,8 +1198,9 @@ function SibatLivestockRegistryContent() {
 
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">
-                        {r.livestockTypeName || (isBatch ? "Herd" : "Livestock")}
-                        {isBatch ? ` (${r.quantity} heads)` : ""}
+                        {isCalving
+                          ? `Calving Record ${r.calfSex ? `(${r.calfSex})` : ""}`
+                          : (r.livestockTypeName || (isBatch ? "Herd" : "Livestock")) + (isBatch ? ` (${r.quantity} heads)` : "")}
                       </h3>
                       <p className="text-xs text-slate-600 mt-0.5">
                         <b className="text-slate-900 font-bold">{r.farmerName}</b> • {r.barangayName}
@@ -1090,8 +1208,14 @@ function SibatLivestockRegistryContent() {
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-100">
-                      <span>Submitted {dateStr}</span>
-                      {r.breed && <span className="font-medium text-slate-500">{r.breed}</span>}
+                      <span>{isCalving ? `Calved ${dateStr}` : `Submitted ${dateStr}`}</span>
+                      {isCalving ? (
+                        <span className="font-medium text-slate-500">
+                          {r.calvingEase || (r.birthWeight ? `${r.birthWeight} kg` : "Calf")}
+                        </span>
+                      ) : (
+                        r.breed && <span className="font-medium text-slate-500">{r.breed}</span>
+                      )}
                     </div>
 
                     {isBatch ? (
@@ -1110,11 +1234,11 @@ function SibatLivestockRegistryContent() {
                           type="button"
                           variant="outline"
                           onClick={() => { setFocusedRecordId(r.id); setSelectedSubmission(r); }}
-                          className="w-full h-10 rounded-xl text-xs font-extrabold bg-[#1A365D] text-white hover:bg-[#132742] cursor-pointer shadow-2xs"
+                          className="w-full h-10 rounded-xl text-xs font-extrabold text-slate-900 border-slate-300 bg-white hover:bg-slate-50 cursor-pointer shadow-2xs"
                         >
-                          <Eye className="size-3.5 mr-1" /> Review Record
+                          <Eye className="size-3.5 mr-1 text-slate-800" /> Review Record
                         </Button>
-                        {(r.batchId || r.batchCode) && (
+                        {(r.batchId || r.batchCode) && !isCalving && (
                           <Button
                             asChild
                             variant="outline"
@@ -1131,8 +1255,9 @@ function SibatLivestockRegistryContent() {
                 );
               })}
             </div>
+          )}
 
-            {/* Pagination footer */}
+          {/* Pagination footer */}
             {filteredRecords.length > PAGE_SIZE && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200/80 shadow-2xs px-4 py-3 text-xs">
                 <span className="text-[11px] text-slate-500 font-medium">
@@ -1208,17 +1333,6 @@ function SibatLivestockRegistryContent() {
           }}
         />
       )}
-
-      {/* Add Animal Dialog */}
-      <RegisterLivestockDialog
-        open={isAddAnimalOpen}
-        onOpenChange={setIsAddAnimalOpen}
-        livestockTypes={livestockTypes}
-        existingTags={existingTags}
-        onSuccess={() => {
-          void queryClient.invalidateQueries({ queryKey: ["sibat", "livestock-registry"] });
-        }}
-      />
 
       {/* Census Details Dialog */}
       <CensusDetailsDialog
