@@ -127,7 +127,7 @@ export interface SibatValidationRecord {
   };
 }
 
-const MORTALITY_DIALOG_WIDTH = "w-[calc(100vw-1rem)] sm:w-full max-w-[calc(100vw-1rem)] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl";
+const INSPECTION_DIALOG_WIDTH = "w-[calc(100vw-1rem)] min-w-0 max-w-[calc(100vw-1rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] md:max-w-[calc(100vw-3rem)] lg:max-w-6xl";
 
 function DiseaseReadOnlyDetails({
   record,
@@ -863,8 +863,8 @@ function SibatInspectionDialogContent({
         ref={dialogContentRef}
         aria-describedby="sibat-inspection-description"
         className={isReadOnly
-          ? `max-h-[95dvh] sm:max-h-[92vh] ${MORTALITY_DIALOG_WIDTH} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl`
-          : `max-h-[95dvh] sm:max-h-[92vh] ${MORTALITY_DIALOG_WIDTH} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl sm:p-6 lg:p-8`}
+          ? `max-h-[95dvh] sm:max-h-[92vh] ${INSPECTION_DIALOG_WIDTH} grid-cols-1 min-w-0 overflow-x-hidden overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl`
+          : `max-h-[95dvh] sm:max-h-[92vh] ${INSPECTION_DIALOG_WIDTH} grid-cols-1 min-w-0 gap-2 overflow-x-hidden overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xl sm:gap-4 sm:p-6 lg:p-8`}
       >
         {isDisease && isReadOnly ? (
           <DiseaseReadOnlyDetails
