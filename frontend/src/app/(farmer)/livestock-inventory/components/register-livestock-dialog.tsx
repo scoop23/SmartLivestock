@@ -1001,7 +1001,7 @@ function RegisterLivestockDialogContent({
   return (
     <>
       <Dialog open={open} onOpenChange={handleModalClose}>
-        <DialogContent className="w-full max-w-[96vw] sm:max-w-3xl md:max-w-4xl h-[92vh] sm:h-[88vh] max-h-[880px] flex flex-col rounded-3xl p-0 border-0 shadow-2xl overflow-hidden bg-white">
+        <DialogContent className="w-full max-w-[96vw] sm:max-w-3xl md:max-w-4xl h-[92vh] sm:h-[88vh] max-h-[880px] flex flex-col rounded-3xl p-0 border-0 shadow-2xl overflow-hidden bg-white [&>button:last-child]:text-emerald-100 [&>button:last-child]:opacity-100 [&>button:last-child:hover]:bg-white/10 [&>button:last-child:hover]:text-white">
           {/* Header Banner */}
           <div className="shrink-0 bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white p-4 sm:p-5 relative">
             <div className="flex items-center justify-between">
