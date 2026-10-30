@@ -102,8 +102,8 @@ function SibatLivestockRegistryContent() {
     setPage(1);
   };
   const setFarmer = (value: string) => { updateFarmer(value); setPage(1); };
-  const [recordType, updateRecordType] = useState("All Record Types");
-  const setRecordType = (value: string) => { updateRecordType(value); setPage(1); };
+  const [species, updateSpecies] = useState("All Species");
+  const setSpecies = (value: string) => { updateSpecies(value); setPage(1); };
   const [status, updateStatus] = useState<RegistryStatusFilter>(() => (batchId ? "ALL" : "ALL"));
   const setStatus = (value: RegistryStatusFilter) => { updateStatus(value); setPage(1); };
   const [requestedPage, setPage] = useState(1);
@@ -284,12 +284,9 @@ function SibatLivestockRegistryContent() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [registryRecords, barangay, hasAllBarangayAccess, user]);
 
-  // Unique record types in loaded data
-  const availableRecordTypes = useMemo(() => {
+  // Unique livestock species in loaded data
+  const availableSpecies = useMemo(() => {
     const set = new Set<string>();
-    set.add("Individual Tagged");
-    set.add("Herd / Batch");
-    set.add("Calving / Birth");
     registryRecords.forEach((r) => {
       if (r.livestockTypeName) set.add(r.livestockTypeName);
     });
@@ -369,22 +366,9 @@ function SibatLivestockRegistryContent() {
         return false;
       }
 
-      // 3. Record Type Filter
-      if (recordType !== "All Record Types") {
-        if (recordType === "Individual Tagged" && (record.sourceType !== "INVENTORY" || record.entryType !== "INDIVIDUAL")) {
-          return false;
-        }
-        if (recordType === "Herd / Batch" && record.entryType !== "BATCH") {
-          return false;
-        }
-        if (recordType === "Calving / Birth" && record.sourceType !== "CALVING") {
-          return false;
-        }
-        if (recordType !== "Individual Tagged" && recordType !== "Herd / Batch" && recordType !== "Calving / Birth") {
-          if (record.livestockTypeName?.toLowerCase() !== recordType.toLowerCase()) {
-            return false;
-          }
-        }
+      // 3. Species Filter
+      if (species !== "All Species" && record.livestockTypeName?.toLowerCase() !== species.toLowerCase()) {
+        return false;
       }
 
       // 4. Status Filter
@@ -401,7 +385,7 @@ function SibatLivestockRegistryContent() {
 
       return true;
     });
-  }, [registryRecords, activeTab, query, barangay, farmer, recordType, status]);
+  }, [registryRecords, activeTab, query, barangay, farmer, species, status]);
 
   // Reset page when any filter updates
 
@@ -467,14 +451,14 @@ function SibatLivestockRegistryContent() {
     query.trim() !== "" ||
     barangay !== "All Barangays" ||
     farmer !== "All Farmers" ||
-    recordType !== "All Record Types" ||
+    species !== "All Species" ||
     status !== "ALL";
 
   const handleResetFilters = () => {
     setQuery("");
     setBarangay("All Barangays");
     setFarmer("All Farmers");
-    setRecordType("All Record Types");
+    setSpecies("All Species");
     setStatus("ALL");
     setPage(1);
   };
@@ -699,19 +683,6 @@ function SibatLivestockRegistryContent() {
             <ArrowLeft className="size-3.5" /> Back to Dashboard
           </Link>
 
-          {activeTab === "herds" && (
-            <Button
-              asChild
-              size="sm"
-              variant="outline"
-              className="h-8 rounded-xl text-xs font-bold border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 cursor-pointer shadow-2xs"
-            >
-              <Link href="/sibat/batches">
-                <Layers className="size-3.5 mr-1 text-emerald-700" /> Open Full Herd Manager
-              </Link>
-            </Button>
-          )}
-
           {batchId && activeTab !== "herds" && (
             <Button
               asChild
@@ -864,19 +835,19 @@ function SibatLivestockRegistryContent() {
               </Select>
             )}
 
-            {/* 3. Filter by Record Type */}
-            <Select value={recordType} onValueChange={(val) => setRecordType(val)}>
+            {/* 3. Filter by Species */}
+            <Select value={species} onValueChange={(val) => setSpecies(val)}>
               <SelectTrigger
-                aria-label="Filter by record type"
+                aria-label="Filter by species"
                 className="h-10 rounded-xl border-slate-200 bg-slate-50/80 text-xs sm:text-sm cursor-pointer"
               >
-                <SelectValue placeholder="All Record Types" />
+                <SelectValue placeholder="All Species" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="All Record Types">All Record Types</SelectItem>
-                {availableRecordTypes.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
+                <SelectItem value="All Species">All Species</SelectItem>
+                {availableSpecies.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
                   </SelectItem>
                 ))}
               </SelectContent>
