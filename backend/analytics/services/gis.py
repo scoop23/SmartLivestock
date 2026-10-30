@@ -17,6 +17,7 @@ requests from the browser.
 """
 
 import logging
+import math
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 from django.db.models import Count, F, Q, Sum
@@ -96,6 +97,21 @@ NAME_CANONICAL_MAP: Dict[str, str] = {
     "tamak": "Tamak",
     "tangob": "Tangob",
 }
+
+def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    Computes great-circle distance (km) between two coordinates using the Haversine formula.
+    Used for municipal epidemiological monitoring radius and exposure buffering.
+    """
+    R = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2.0) ** 2 +
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+         math.sin(dlon / 2.0) ** 2)
+    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+    return R * c
+
 
 # Accurate polygon centroids [latitude, longitude] calculated from official geometry
 BARANGAY_CENTROIDS: Dict[str, List[float]] = {
@@ -280,18 +296,20 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
                 c_name = normalize_barangay_name(user.assigned_barangay.barangay_name)
                 if c_name:
                     allowed_b.add(c_name)
+            adjacent_b = []
+            for b in allowed_b:
+                adjacent_b.extend(BARANGAY_ADJACENCY.get(b, []))
+            adjacent_b = list(set(adjacent_b) - allowed_b)
 
         return {
             "role": u_role,
             "scope": "MUNICIPAL" if can_view_all else "ASSIGNED_BARANGAYS",
             "allowed_barangays": allowed_b,
-            "adjacent_barangays": [],
+            "adjacent_barangays": adjacent_b,
             "can_view_all_barangays": can_view_all,
-            # CBAT field review focuses strictly on field inventory and disease surveillance.
-            # Production (milk/meat), slaughter, and movement layers are excluded for CBAT.
-            "allowed_layers": ["cattle", "disease"]
-            if str(u_role).upper() == "CBAT" else
-            ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "mortality", "movement", "meat"],
+            # SIBAT / CBAT field review focuses on field inventory, disease surveillance, and mortality.
+            # Production (milk/meat), slaughter, and movement layers are excluded.
+            "allowed_layers": ["cattle", "disease", "mortality"],
             "allowed_modes": ["2D"],
             "can_use_simulation": False,
             "can_use_advanced_analytics": False,
@@ -417,6 +435,11 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             "fmd_active_cases": 0,
             "affected_heads": 0,
             "disease_risk": "low",
+            "disease_zone": "safe",
+            "disease_zone_label": "Outside Monitoring Radius",
+            "nearest_outbreak": None,
+            "nearest_outbreak_dist_km": None,
+            "is_in_monitoring_radius": False,
             "recent_diseases": [],
             "milk": 0.0,
             "farmer_meat": 0.0,
@@ -537,15 +560,56 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         if row["recent_cases_cnt"] and d_name and d_name not in b_entry["recent_diseases"]:
             b_entry["recent_diseases"].append(d_name)
 
-    # Administrative surveillance tiers; these do not diagnose active infection.
+    # -------------------------------------------------------------------------
+    # Spatial Risk Classification (Haversine Distance & Monitoring Radius):
+    # Rule 1: Even ONE (>= 1) confirmed/approved disease case triggers RED ("high" / Outbreak Site).
+    #         Cattle count alone is NOT the basis for Red — 1 confirmed case flags the barangay immediately.
+    # Rule 2: Neighboring/nearby barangays within the monitoring radius (3.5 km default) turn ORANGE ("medium").
+    #         They are potentially exposed due to proximity, but do not have confirmed infected animals yet.
+    # Rule 3: Distant barangays outside the monitoring radius remain GREEN ("low" / Safe).
+    # Rule 4: Suspected but unvalidated reports do NOT trigger a Red outbreak. Only approved cases trigger Red.
+    # -------------------------------------------------------------------------
+    MONITORING_RADIUS_KM = 3.5
+    confirmed_outbreak_barangays = [
+        name for name, b in barangays_data.items()
+        if b.get("active_cases", 0) >= 1 or b.get("fmd_active_cases", 0) >= 1
+    ]
+
     for name, b_entry in barangays_data.items():
-        active = b_entry["active_cases"]
-        if active >= 3 or recent_affected_by_barangay.get(name, 0) >= 10:
+        if name in confirmed_outbreak_barangays:
             b_entry["disease_risk"] = "high"
-        elif active > 0:
-            b_entry["disease_risk"] = "medium"
+            b_entry["disease_zone"] = "outbreak"
+            b_entry["disease_zone_label"] = "Confirmed Outbreak Site"
+            b_entry["nearest_outbreak"] = name
+            b_entry["nearest_outbreak_dist_km"] = 0.0
+            b_entry["is_in_monitoring_radius"] = False
         else:
-            b_entry["disease_risk"] = "low"
+            min_dist = float("inf")
+            nearest_outbreak = None
+            for outbreak_name in confirmed_outbreak_barangays:
+                pos1 = BARANGAY_CENTROIDS.get(name)
+                pos2 = BARANGAY_CENTROIDS.get(outbreak_name)
+                if pos1 and pos2:
+                    d = haversine_km(pos1[0], pos1[1], pos2[0], pos2[1])
+                    if d < min_dist:
+                        min_dist = d
+                        nearest_outbreak = outbreak_name
+
+            if nearest_outbreak and min_dist <= MONITORING_RADIUS_KM:
+                b_entry["disease_risk"] = "medium"
+                b_entry["disease_zone"] = "monitoring_radius"
+                b_entry["disease_zone_label"] = f"Within Monitoring Radius ({round(min_dist, 2)} km from {nearest_outbreak})"
+                b_entry["nearest_outbreak"] = nearest_outbreak
+                b_entry["nearest_outbreak_dist_km"] = round(min_dist, 2)
+                b_entry["is_in_monitoring_radius"] = True
+            else:
+                b_entry["disease_risk"] = "low"
+                b_entry["disease_zone"] = "safe"
+                b_entry["disease_zone_label"] = "Outside Monitoring Radius"
+                b_entry["is_in_monitoring_radius"] = False
+                if nearest_outbreak:
+                    b_entry["nearest_outbreak"] = nearest_outbreak
+                    b_entry["nearest_outbreak_dist_km"] = round(min_dist, 2)
 
     # 7. Aggregate Production (Milk in Liters)
     # Farmer-reported layer uses current RECORDED logs only. Historical approval-
@@ -841,7 +905,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
 
     for b_name, b_entry in barangays_data.items():
         is_in_scope = (b_name in allowed_barangays_set) or user_scope["can_view_all_barangays"]
-        is_adjacent = (u_role == FARMER) and (b_name in adjacent_barangays_set)
+        is_adjacent = (u_role in (FARMER, "CBAT", SIBAT)) and (b_name in adjacent_barangays_set)
         b_entry["is_in_scope"] = is_in_scope
         b_entry["is_adjacent"] = is_adjacent
 
@@ -867,15 +931,13 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             b_entry["movement_in"] = 0
             b_entry["inspections_count"] = 0
 
-            # If adjacent to farmer's registered barangay, retain approved disease surveillance data
-            # to provide early perimeter biosecurity warning without revealing private herd inventory.
+            # Preserve municipal public health zoning (Red Outbreak / Orange Monitoring / Green Safe)
+            # while zeroing out private livestock numbers to protect farmer data privacy.
             if not is_adjacent:
-                b_entry["disease_cases"] = 0
-                b_entry["active_cases"] = 0
-                b_entry["fmd_active_cases"] = 0
                 b_entry["affected_heads"] = 0
-                b_entry["disease_risk"] = "low"
                 b_entry["recent_diseases"] = []
+                # Keep active_cases, fmd_active_cases, disease_risk, disease_zone, is_in_monitoring_radius
+                # for municipal public health visualization
             else:
                 if b_entry.get("active_cases", 0) > 0 or b_entry.get("disease_cases", 0) > 0:
                     adjacent_disease_alerts.append({
@@ -886,6 +948,10 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
                         "disease_cases": b_entry.get("disease_cases", 0),
                         "affected_heads": b_entry.get("affected_heads", 0),
                         "disease_risk": b_entry.get("disease_risk", "low"),
+                        "disease_zone": b_entry.get("disease_zone", "safe"),
+                        "is_in_monitoring_radius": b_entry.get("is_in_monitoring_radius", False),
+                        "nearest_outbreak": b_entry.get("nearest_outbreak"),
+                        "nearest_outbreak_dist_km": b_entry.get("nearest_outbreak_dist_km"),
                         "recent_diseases": list(b_entry.get("recent_diseases", [])),
                     })
             continue
@@ -976,7 +1042,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         try:
             from users.models import Notification
             for alert in adjacent_disease_alerts:
-                title = f"Biosecurity Alert: Disease in Neighboring Brgy. {alert['name']}"
+                title = f"Biosecurity Advisory: Monitoring Radius Watch (Brgy. {alert['name']})"
                 has_recent = Notification.objects.filter(
                     user=user,
                     notification_type=Notification.NotificationType.DISEASE,
@@ -991,9 +1057,10 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
                         priority=Notification.Priority.HIGH,
                         title=title,
                         message=(
-                            f"There are {alert['active_cases']} approved disease case(s){symptoms_str} "
-                            f"reported in Brgy. {alert['name']}, which directly borders your barangay. "
-                            f"Please monitor your livestock and maintain biosecurity."
+                            f"Brgy. {alert['name']} has {alert['active_cases']} confirmed disease case(s){symptoms_str}. "
+                            f"Your barangay is within the precautionary monitoring radius (Orange Zone). "
+                            f"Your barangay currently has NO confirmed cases. "
+                            f"Please observe strict biosecurity, disinfect barn perimeters, and report any symptoms immediately."
                         ),
                         link="/farmer/gis-user-map",
                     )

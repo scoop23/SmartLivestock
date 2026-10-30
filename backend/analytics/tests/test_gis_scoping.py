@@ -292,3 +292,79 @@ class GISRoleScopingTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["user_scope"]["role"], "FARMER")
         self.assertEqual(response.data["farmer_stats"]["my_cattle"], 8)
+
+    def test_haversine_single_case_outbreak_and_monitoring_radius(self):
+        """
+        User Scenario Verification:
+        1. Single confirmed FMD case in Barangay Bawi -> Bawi becomes Red (disease_risk='high', zone='outbreak').
+        2. Neighboring Barangay Manggas has 0 confirmed cases, but is within 3.5 km radius -> Orange (disease_risk='medium', zone='monitoring_radius').
+        3. Far barangays (e.g. Tangob, San Miguel) > 3.5 km away remain Green (disease_risk='low', zone='safe').
+        4. Suspected unvalidated reports do NOT make a barangay Red.
+        """
+        today = timezone.localdate()
+        # Clean any existing disease cases from setUp
+        DiseaseCase.objects.all().delete()
+
+        # Farmer in Bawi
+        b_bawi, _ = Barangay.objects.get_or_create(
+            barangay_name="Bawi",
+            defaults={"latitude": Decimal("13.886475"), "longitude": Decimal("121.232434")}
+        )
+        bawi_farmer = Farmer.objects.create(
+            user=self.admin_user,
+            barangay=b_bawi,
+            address="Purok 1, Bawi",
+        )
+        bawi_animal = LivestockInventory.objects.create(
+            farmer=bawi_farmer,
+            livestock_type=self.cattle_type,
+            entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+            quantity=1,
+            tag_number="BAWI-001",
+            status=LivestockInventory.StatusType.APPROVED,
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+            created_by=self.admin_user,
+        )
+
+        # 1 Single Confirmed FMD case in Bawi
+        DiseaseCase.objects.create(
+            livestock=bawi_animal,
+            name="FMD Symptoms",
+            affected_count=1,
+            record_date=today,
+            status=DiseaseCase.DiseaseStatus.APPROVED,
+            inspection_details={"fmdAssessment": "SUSPECTED"},
+            created_by=self.admin_user,
+        )
+
+        # 1 Unvalidated / Suspected case in Manggas (must NOT cause red status)
+        DiseaseCase.objects.create(
+            livestock=LivestockInventory.objects.filter(farmer=self.farmer_profile_2).first(),
+            name="Suspected Lameness",
+            affected_count=1,
+            record_date=today,
+            status=DiseaseCase.DiseaseStatus.PENDING,
+            inspection_details={"fmdAssessment": "SUSPECTED"},
+            created_by=self.farmer_user_2,
+        )
+
+        data = get_gis_aggregated_data(self.admin_user)
+        b_dict = data["barangays_dict"]
+
+        # Rule 1: Host barangay with 1 confirmed case is RED
+        self.assertEqual(b_dict["Bawi"]["active_cases"], 1)
+        self.assertEqual(b_dict["Bawi"]["disease_risk"], "high")
+        self.assertEqual(b_dict["Bawi"]["disease_zone"], "outbreak")
+
+        # Rule 2: Manggas has 0 confirmed cases, but is within 3.5 km monitoring radius of Bawi -> ORANGE
+        self.assertEqual(b_dict["Manggas"]["active_cases"], 0)
+        self.assertEqual(b_dict["Manggas"]["disease_risk"], "medium")
+        self.assertEqual(b_dict["Manggas"]["disease_zone"], "monitoring_radius")
+        self.assertTrue(b_dict["Manggas"]["is_in_monitoring_radius"])
+        self.assertEqual(b_dict["Manggas"]["nearest_outbreak"], "Bawi")
+
+        # Rule 3: Far barangay San Miguel (> 3.5 km from Bawi) has 0 confirmed cases -> GREEN
+        self.assertEqual(b_dict["San Miguel"]["active_cases"], 0)
+        self.assertEqual(b_dict["San Miguel"]["disease_risk"], "low")
+        self.assertEqual(b_dict["San Miguel"]["disease_zone"], "safe")
+        self.assertFalse(b_dict["San Miguel"]["is_in_monitoring_radius"])
