@@ -774,9 +774,7 @@ export function OfficialReportsWorkspace({
       ) : null}
       <main className="w-full space-y-6 px-3.5 py-4 pb-14 sm:px-6 lg:px-8 lg:py-6">
         {/* 1. Top Header */}
-        {isBarangayWorkspace ? (
-          reportingAreaPill
-        ) : (
+        {!isBarangayWorkspace && (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3.5">
               <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-100/70 text-emerald-800 sm:size-14">
