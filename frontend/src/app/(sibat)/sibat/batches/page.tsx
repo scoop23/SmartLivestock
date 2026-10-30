@@ -1039,6 +1039,7 @@ function SibatBatchesVerificationContent() {
       };
     });
   const [bulkVerifyOpen, setBulkVerifyOpen] = useState(false);
+  const [bulkVerifyRemarks, setBulkVerifyRemarks] = useState("");
   const [bulkVerifying, setBulkVerifying] = useState(false);
 
   const [confirmAction, setConfirmAction] = useState<{
@@ -1488,17 +1489,24 @@ function SibatBatchesVerificationContent() {
 
   async function verifySelectedAnimals() {
     if (!activeBatch || selectedPendingAnimals.length === 0 || selectedPendingAnimals.length !== selectedAnimalIds.length) return;
+    if (!bulkVerifyRemarks.trim()) {
+      toast.error("Field verification remarks required", {
+        description: "Please enter your on-site field verification notes before confirming.",
+      });
+      return;
+    }
     setBulkVerifying(true);
     try {
       const results = await Promise.allSettled(selectedPendingAnimals.map((animal) =>
         api.post(`livestock/inventory/${animal.id}/review/`, {
           status: "VERIFIED",
-          remarks: "Field verification completed in the herd registry.",
+          remarks: bulkVerifyRemarks.trim(),
         }),
       ));
       const verifiedCount = results.filter((result) => result.status === "fulfilled").length;
       const failedCount = results.length - verifiedCount;
       setBulkVerifyOpen(false);
+      setBulkVerifyRemarks("");
       setSelectedAnimalIds([]);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["sibat-batches-drilldown"] }),
@@ -3173,7 +3181,7 @@ function SibatBatchesVerificationContent() {
               You have selected {selectedPendingAnimals.length} {selectedPendingAnimals.length === 1 ? "animal" : "animals"} for official field verification.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="space-y-4 py-5 text-slate-800 text-xs font-mono">
+          <div className="space-y-4 py-4 text-slate-800 text-xs font-mono">
             <h4 className="font-bold uppercase tracking-wider text-emerald-950">WHAT HAPPENS NEXT:</h4>
             <div className="flex gap-3 bg-emerald-50 p-3.5 rounded-xl border border-emerald-200">
               <CheckCircle2 className="mt-0.5 size-4.5 shrink-0 text-emerald-600" />
@@ -3182,14 +3190,27 @@ function SibatBatchesVerificationContent() {
                 <p className="mt-1 text-emerald-800 leading-relaxed font-sans text-xs">These animals will advance to the Municipal Agriculture Office (MAO) review queue for final approval.</p>
               </div>
             </div>
-            <p className="text-slate-500 text-[11px]">Proceed only if you have physically checked the ear tags and confirmed animal health on site.</p>
+
+            <div className="space-y-1.5 font-sans">
+              <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                <span>Field Verification Remarks <span className="text-rose-600 font-black">*</span></span>
+                <span className="text-[10px] text-rose-600 font-semibold">Required</span>
+              </label>
+              <Textarea
+                placeholder="Enter field observations, ear tag confirmation results, and visual health findings..."
+                value={bulkVerifyRemarks}
+                onChange={(e) => setBulkVerifyRemarks(e.target.value)}
+                className="min-h-[75px] rounded-xl border border-slate-200 p-2.5 text-xs resize-none"
+              />
+            </div>
+            <p className="text-slate-500 text-[11px] font-sans">Proceed only if you have physically checked the ear tags and confirmed animal health on site.</p>
           </div>
           <AlertDialogFooter className="grid grid-cols-1 gap-2 sm:grid-cols-2 pt-2">
             <AlertDialogCancel className="min-h-11 w-full rounded-xl border-slate-300 font-mono text-xs font-bold">CANCEL</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => { event.preventDefault(); void verifySelectedAnimals(); }}
-              disabled={bulkVerifying || selectedPendingAnimals.length === 0 || selectedPendingAnimals.length !== selectedAnimalIds.length}
-              className="min-h-11 w-full rounded-xl bg-emerald-700 font-mono text-xs font-bold text-white hover:bg-emerald-800 shadow-holo-glow-emerald"
+              disabled={bulkVerifying || !bulkVerifyRemarks.trim() || selectedPendingAnimals.length === 0 || selectedPendingAnimals.length !== selectedAnimalIds.length}
+              className="min-h-11 w-full rounded-xl bg-emerald-700 font-mono text-xs font-bold text-white hover:bg-emerald-800 shadow-holo-glow-emerald disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {bulkVerifying ? "SAVING…" : "CONFIRM VERIFICATION"}
             </AlertDialogAction>

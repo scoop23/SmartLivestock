@@ -290,9 +290,11 @@ function SibatReviewDialogContent({
   };
 
   const handleReviewAction = async (newStatus: "VERIFIED" | "SUBJECT_TO_REVISION") => {
-    if (newStatus === "SUBJECT_TO_REVISION" && !remarks.trim()) {
-      toast.error("Revision remarks required", {
-        description: "Please enter verification remarks explaining what the farmer needs to clarify or correct.",
+    if (!remarks.trim()) {
+      toast.error(newStatus === "SUBJECT_TO_REVISION" ? "Revision remarks required" : "Field verification remarks required", {
+        description: newStatus === "SUBJECT_TO_REVISION"
+          ? "Please enter verification remarks explaining what the farmer needs to clarify or correct."
+          : "Please enter your on-site field verification findings before confirming this record.",
       });
       return;
     }
@@ -909,18 +911,19 @@ function SibatReviewDialogContent({
 
               {/* Remarks Textarea */}
               {!isFarmerProduction && <div>
-                <Label className="text-[11px] sm:text-xs font-semibold text-slate-700 block mb-1">
-                  Verification Remarks (Optional)
+                <Label className="text-[11px] sm:text-xs font-bold text-slate-800 flex items-center justify-between mb-1">
+                  <span>Field Verification Remarks <span className="text-rose-600 font-black">*</span></span>
+                  <span className="text-[10px] font-semibold text-rose-600">Required</span>
                 </Label>
                 <Textarea
-                  placeholder="Enter field observations or validation remarks..."
+                  placeholder="Enter field observations, ear tag confirmation, health inspection, or validation remarks..."
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                   disabled={!isPending || reviewMutation.isPending}
                   className="min-h-[75px] sm:min-h-[85px] w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#1b4332] focus-visible:border-[#1b4332] resize-none shadow-2xs"
                 />
                 <p className="text-[10.5px] text-slate-500 mt-1 leading-relaxed">
-                  Include observations on actual stock, weights, documents, or any discrepancies noted during the field check.
+                  Include physical observations on ear tags, animal health, weights, or discrepancy notes from the in-person field check.
                 </p>
               </div>}
 
@@ -970,8 +973,8 @@ function SibatReviewDialogContent({
                 type="button"
                 variant="outline"
                 onClick={() => handleReviewAction("SUBJECT_TO_REVISION")}
-                disabled={reviewMutation.isPending}
-                className="h-8.5 px-3.5 rounded-xl border-rose-300 bg-rose-50/70 text-rose-700 hover:bg-rose-100 hover:border-rose-400 hover:text-rose-800 font-semibold text-xs flex items-center justify-center gap-1.5 w-full sm:w-auto transition-colors shadow-2xs"
+                disabled={reviewMutation.isPending || !remarks.trim()}
+                className="h-8.5 px-3.5 rounded-xl border-rose-300 bg-rose-50/70 text-rose-700 hover:bg-rose-100 hover:border-rose-400 hover:text-rose-800 font-semibold text-xs flex items-center justify-center gap-1.5 w-full sm:w-auto transition-colors shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RotateCcw className="size-3 text-rose-600" />
                 Return for Revision
@@ -980,8 +983,8 @@ function SibatReviewDialogContent({
               <Button
                 type="button"
                 onClick={() => handleReviewAction("VERIFIED")}
-                disabled={reviewMutation.isPending}
-                className="h-8.5 px-4.5 rounded-xl bg-[#1b4332] hover:bg-[#143326] text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs w-full sm:w-auto"
+                disabled={reviewMutation.isPending || !remarks.trim()}
+                className="h-8.5 px-4.5 rounded-xl bg-[#1b4332] hover:bg-[#143326] text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send className="size-3" />
                 {reviewMutation.isPending
