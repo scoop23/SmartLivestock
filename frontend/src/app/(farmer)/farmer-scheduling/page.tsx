@@ -518,7 +518,7 @@ function FarmerSchedulingContent() {
                         }}
                         modifiersClassNames={{
                           programDate:
-                            "bg-emerald-100/90 font-black text-emerald-950 hover:bg-emerald-200 transition-colors",
+                            "font-bold [&>button]:after:absolute [&>button]:after:bottom-1 [&>button]:after:left-1/2 [&>button]:after:-translate-x-1/2 [&>button]:after:size-1.5 [&>button]:after:rounded-full [&>button]:after:bg-emerald-600 [&>button]:after:content-[''] [&>button[data-selected-single=true]]:after:bg-white",
                         }}
                         className="w-full mx-auto [--cell-size:2.25rem] sm:[--cell-size:2.65rem] lg:[--cell-size:2.85rem] xl:[--cell-size:3.15rem]"
                         classNames={{
