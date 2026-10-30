@@ -29,7 +29,6 @@ import {
   Upload,
   Users,
   Wand2,
-  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -1042,14 +1041,6 @@ function RegisterLivestockDialogContent({
                   </DialogDescription>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => handleModalClose(false)}
-                className="size-8 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                title="Close"
-              >
-                <X className="size-4" />
-              </button>
             </div>
           </div>
 
