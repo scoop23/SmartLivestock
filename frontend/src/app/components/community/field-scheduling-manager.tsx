@@ -223,6 +223,10 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     event.preventDefault();
     setError("");
     const payload: SchedulePayload = { ...form, farmer_audience: role === "admin" ? "ALL_FARMERS" : form.farmer_audience, available_times: [...form.available_times].sort(), capacity: Number(form.capacity), program: form.program.trim(), description: form.description.trim(), objectives: form.objectives.trim(), location: form.location.trim(), farmer_notes: form.farmer_notes.trim(), eligibility: form.eligibility.trim(), contact_information: form.contact_information.trim(), registration_opens: form.registration_opens || null, registration_deadline: form.registration_deadline || null, barangay: form.barangay ? Number(form.barangay) : null };
+    if (!payload.location) {
+      setError("Enter a venue or location before adding or saving the program.");
+      return;
+    }
     if (form.capacity.trim() === "" || !Number.isInteger(payload.capacity) || payload.capacity < 0 || payload.capacity > 10000) {
       setError("Capacity must be unlimited or a whole number from 1 to 10,000.");
       return;
@@ -756,6 +760,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                 Venue
                 <Input
                   id="schedule-location"
+                  required
                   maxLength={200}
                   value={form.location}
                   onChange={(event) => setForm({ ...form, location: event.target.value })}
