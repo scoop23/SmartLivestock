@@ -129,7 +129,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
       : isSlaughterhouse
       ? "Slaughterhouse Announcements & Advisories"
       : isFarmer
-      ? "Farm activities & updates"
+      ? "Community Announcements"
       : "Municipal Activities & Advisories";
 
   const headerSubtitle =
