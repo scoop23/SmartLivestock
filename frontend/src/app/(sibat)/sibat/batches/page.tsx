@@ -998,6 +998,8 @@ function SibatBatchesVerificationContent() {
     tagParam ||
     (typeof document !== "undefined" && document.referrer?.includes("/sibat/livestock-registry"))
   );
+  const backDestination = isFromRegistry ? "/sibat/livestock-registry" : "/sibat";
+  const backLabel = isFromRegistry ? "Back to Livestock Registry" : "Back to Dashboard";
   const herdPageTitle = user?.accessScope === "ALL_BARANGAYS"
     ? "Herds in All Barangays"
     : user?.assignedBarangayName
@@ -1728,6 +1730,19 @@ function SibatBatchesVerificationContent() {
           hideIconOnMobile
           showTutorialToggle={false}
           mobileActionsInline
+          action={(
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(backDestination)}
+              aria-label={backLabel}
+              title={backLabel}
+              className="h-11 w-11 shrink-0 rounded-xl border-white/20 bg-white/15 p-0 text-white shadow-xs backdrop-blur-xs transition-all hover:bg-white/25 active:scale-95 sm:w-auto sm:gap-1.5 sm:rounded-2xl sm:px-3.5 sm:text-xs sm:font-semibold"
+            >
+              <ArrowLeft className="size-4" />
+              <span className="hidden sm:inline">{backLabel}</span>
+            </Button>
+          )}
         />
         <div className="mx-auto w-full p-4 sm:p-6 lg:px-8 lg:py-8 space-y-6">
           <ValidationLoadingScreen
@@ -1815,6 +1830,18 @@ function SibatBatchesVerificationContent() {
         action={
           isDrilldownOpen ? undefined : (
             <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push(backDestination)}
+                aria-label={backLabel}
+                title={backLabel}
+                className="h-10 w-10 shrink-0 rounded-xl border-white/20 bg-white/15 p-0 text-white shadow-xs backdrop-blur-xs transition-all hover:bg-white/25 active:scale-95 sm:h-10 sm:w-auto sm:gap-1.5 sm:px-3.5 sm:text-xs sm:font-semibold"
+              >
+                <ArrowLeft className="size-4" />
+                <span className="hidden sm:inline">{backLabel}</span>
+              </Button>
+
               <Button
                 type="button"
                 variant="outline"
