@@ -951,13 +951,7 @@ function FarmerSchedulingContent() {
                   />
                 </div>
               ) : (
-                <div
-                  className={
-                    bookingFilter === "upcoming"
-                      ? "grid grid-cols-1 gap-3"
-                      : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-                  }
-                >
+                <div className="grid grid-cols-1 gap-3">
                   {displayedBookings.map((booking) => {
                     const isConfirmed = booking.status === "CONFIRMED";
                     const isFuture = isUpcoming(booking.date);
@@ -971,14 +965,14 @@ function FarmerSchedulingContent() {
                         className={`flex flex-col justify-between overflow-hidden rounded-2xl border bg-white shadow-xs transition-all ${
                           isUpcomingList
                             ? "gap-4 border-l-4 border-l-emerald-700 p-4 lg:flex-row lg:items-center lg:p-5"
-                            : "p-4.5"
+                            : "gap-4 p-4 lg:flex-row lg:items-center lg:p-5"
                         } ${
                           highlightedBookingId === booking.id
                             ? "border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-200 shadow-md"
                             : "border-slate-200 hover:border-slate-300 hover:shadow-sm"
                         }`}
                       >
-                        <div className={isUpcomingList ? "flex min-w-0 flex-1 items-center gap-4" : "min-w-0"}>
+                        <div className="flex min-w-0 flex-1 items-center gap-4">
                           {isUpcomingList ? (
                             <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-emerald-50">
                               {getProgramIcon(booking.category ?? "OTHER")}
@@ -987,9 +981,7 @@ function FarmerSchedulingContent() {
 
                           <div className="min-w-0 flex-1 space-y-3">
                             <div
-                              className={`flex flex-wrap items-center gap-y-1 ${
-                                isUpcomingList ? "justify-start gap-x-2" : "justify-between gap-x-3"
-                              }`}
+                              className="flex flex-wrap items-center justify-start gap-x-2 gap-y-1"
                             >
                               <div className="min-w-0">
                                 <h4 className="line-clamp-2 text-base font-black tracking-tight text-slate-900">
@@ -1021,11 +1013,7 @@ function FarmerSchedulingContent() {
 
                             {/* Date, time, and venue details */}
                             <div
-                              className={
-                                isUpcomingList
-                                  ? "flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-slate-600 sm:text-sm"
-                                  : "space-y-1.5 text-xs font-medium text-slate-600 sm:text-sm"
-                              }
+                              className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-slate-600 sm:text-sm"
                             >
                               <div className="flex items-center gap-2">
                                 <CalendarDays className="size-4 shrink-0 text-emerald-700" />
