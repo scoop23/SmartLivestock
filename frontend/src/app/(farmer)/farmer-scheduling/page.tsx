@@ -34,6 +34,8 @@ DialogHeader,
 DialogTitle,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { QrCodePass } from "@/components/qr-code-pass";
+import { useAuth } from "@/contexts/auth-context";
 import api,{ getActiveApiUrl } from "@/lib/axios";
 import {
 ProgramBooking,
@@ -60,6 +62,7 @@ Info,
 Loader2,
 MapPin,
 Pencil,
+QrCode,
 RefreshCw,
 Sparkles,
 Syringe,
@@ -129,7 +132,20 @@ function getProgramIcon(category: string) {
   return <HeartPulse className="size-5 text-emerald-800" />;
 }
 
+function getBookingCategoryLabel(category?: ProgramSchedule["category"]) {
+  const labels: Record<ProgramSchedule["category"], string> = {
+    VACCINATION: "Vaccination Program",
+    ANIMAL_HEALTH: "Animal Health Program",
+    CENSUS: "Livestock Census",
+    SEMINAR: "Seminar or Training",
+    ASSISTANCE: "Agricultural Assistance",
+    OTHER: "Field Program",
+  };
+  return labels[category ?? "OTHER"];
+}
+
 function FarmerSchedulingContent() {
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const urlScheduleParam = searchParams.get("scheduleId") || searchParams.get("schedule");
   const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
@@ -137,6 +153,7 @@ function FarmerSchedulingContent() {
   const [scheduleId, setScheduleId] = useState("");
   const [detailsSchedule, setDetailsSchedule] = useState<ProgramSchedule | null>(null);
   const [calendarDate, setCalendarDate] = useState<Date | null>(null);
+  const [showIdPassModal, setShowIdPassModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -153,8 +170,14 @@ function FarmerSchedulingContent() {
     initialIndex: number;
   } | null>(null);
   const [cancelingTarget, setCancelingTarget] = useState<ProgramBooking | null>(null);
+  const [cancelledBooking, setCancelledBooking] = useState<ProgramBooking | null>(null);
   const [editingBooking, setEditingBooking] = useState<ProgramBooking | null>(null);
   const [editTime, setEditTime] = useState("");
+
+  const userDisplayName =
+    user?.firstName && user?.lastName
+      ? `${user.firstName} ${user.lastName}`
+      : user?.username || "Registered Farmer";
 
   const load = useCallback(async () => {
     try {
@@ -276,7 +299,48 @@ function FarmerSchedulingContent() {
       window.history.replaceState({}, "", window.location.pathname);
       await refresh();
     } catch (e) {
-      setError(apiError(e));
+      const bookingError = apiError(e);
+      if (bookingError === "This program is no longer available.") {
+        const unavailableSchedule: ProgramSchedule = {
+          ...bookingSchedule,
+          is_open: false,
+          registration_status: "CLOSED",
+        };
+        setDetailsSchedule(unavailableSchedule);
+        setSchedules((current) =>
+          current.map((schedule) =>
+            schedule.id === unavailableSchedule.id ? unavailableSchedule : schedule,
+          ),
+        );
+        setError("");
+      } else if (bookingError === "This program is fully booked.") {
+        const fullSchedule: ProgramSchedule = {
+          ...bookingSchedule,
+          remaining_slots: 0,
+          registration_status: "FULL",
+        };
+        setDetailsSchedule(fullSchedule);
+        setSchedules((current) =>
+          current.map((schedule) =>
+            schedule.id === fullSchedule.id ? fullSchedule : schedule,
+          ),
+        );
+        setError("");
+      } else if (bookingError === "Registration is not open yet.") {
+        const notOpenSchedule: ProgramSchedule = {
+          ...bookingSchedule,
+          registration_status: "NOT_OPEN",
+        };
+        setDetailsSchedule(notOpenSchedule);
+        setSchedules((current) =>
+          current.map((schedule) =>
+            schedule.id === notOpenSchedule.id ? notOpenSchedule : schedule,
+          ),
+        );
+        setError("");
+      } else {
+        setError(bookingError);
+      }
     } finally {
       setBusy(false);
     }
@@ -284,16 +348,17 @@ function FarmerSchedulingContent() {
 
   async function handleConfirmCancel() {
     if (!cancelingTarget) return;
-    const targetId = cancelingTarget.id;
+    const bookingToCancel = cancelingTarget;
     setBusy(true);
     setError("");
     setMessage("");
     try {
-      await api.patch(`/community/bookings/${targetId}/`, {
+      await api.patch(`/community/bookings/${bookingToCancel.id}/`, {
         status: "CANCELLED",
       });
-      setMessage("Booking cancelled.");
       setCancelingTarget(null);
+      setBookingFilter("past");
+      setCancelledBooking(bookingToCancel);
       await refresh();
     } catch (e) {
       setError(apiError(e));
@@ -341,17 +406,30 @@ function FarmerSchedulingContent() {
         variant="farmer"
         maxWidthClass="w-full"
         action={
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => void refresh()}
-            disabled={isFetching}
-            className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
-            title="Refresh schedules"
-            aria-label="Refresh schedules"
-          >
-            <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowIdPassModal(true)}
+              className="h-11 px-3.5 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0 flex items-center gap-1.5 font-bold text-xs"
+              title="Show my digital farmer QR pass"
+            >
+              <QrCode className="size-4 text-emerald-300" />
+              <span className="hidden sm:inline">Pass QR</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => void refresh()}
+              disabled={isFetching}
+              className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
+              title="Refresh schedules"
+              aria-label="Refresh schedules"
+            >
+              <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         }
       />
 
@@ -503,18 +581,20 @@ function FarmerSchedulingContent() {
                   <span className="text-slate-300">→</span>
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 ${
-                      selected
+                      detailsSchedule
                         ? "bg-emerald-100 text-emerald-900 font-black"
-                        : "bg-slate-100 text-slate-600"
+                        : calendarDate && programsOnDate.length > 0
+                          ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                          : "bg-slate-100 text-slate-600"
                     }`}
                   >
                     <span>2. Program</span>
-                    {selected ? <Check className="size-3 text-emerald-700" /> : null}
+                    {detailsSchedule ? <Check className="size-3 text-emerald-700" /> : null}
                   </span>
                   <span className="text-slate-300">→</span>
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 ${
-                      selected
+                      detailsSchedule
                         ? "bg-emerald-800 text-white font-black shadow-xs"
                         : "bg-slate-100 text-slate-400"
                     }`}
@@ -756,7 +836,17 @@ function FarmerSchedulingContent() {
                                 }}
                                 className="w-full h-10 rounded-xl bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"
                               >
-                                <span>View Details</span>
+                                <span>
+                                  {isUnlimited
+                                    ? "View Activity Details"
+                                    : alreadyBooked
+                                      ? "View Booking Details"
+                                      : isFull
+                                        ? "View Program Details (Full)"
+                                        : isClosed
+                                          ? "View Program Details"
+                                          : "View Details & Reserve"}
+                                </span>
                                 <ChevronRight className="size-4" />
                               </Button>
                             </div>
@@ -864,77 +954,134 @@ function FarmerSchedulingContent() {
                   />
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div
+                  className={
+                    bookingFilter === "upcoming"
+                      ? "grid grid-cols-1 gap-3"
+                      : "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                  }
+                >
                   {displayedBookings.map((booking) => {
                     const isConfirmed = booking.status === "CONFIRMED";
                     const isFuture = isUpcoming(booking.date);
                     const countdown = daysUntil(booking.date);
                     const canCancel = isConfirmed && isFuture;
+                    const isUpcomingList = bookingFilter === "upcoming";
 
                     return (
                       <Card
                         key={booking.id}
-                        className={`flex flex-col justify-between overflow-hidden rounded-2xl border bg-white p-4.5 shadow-xs transition-all ${
+                        className={`flex flex-col justify-between overflow-hidden rounded-2xl border bg-white shadow-xs transition-all ${
+                          isUpcomingList
+                            ? "gap-4 border-l-4 border-l-emerald-700 p-4 lg:flex-row lg:items-center lg:p-5"
+                            : "p-4.5"
+                        } ${
                           highlightedBookingId === booking.id
                             ? "border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-200 shadow-md"
                             : "border-slate-200 hover:border-slate-300 hover:shadow-sm"
                         }`}
                       >
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <h4 className="line-clamp-2 text-base font-black text-slate-900 tracking-tight">
-                              {booking.program}
-                            </h4>
-                            <Badge
-                              variant="outline"
-                              className={`shrink-0 text-xs font-bold uppercase tracking-wider ${
-                                isConfirmed
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                                  : "border-slate-200 bg-slate-100 text-slate-600"
+                        <div className={isUpcomingList ? "flex min-w-0 flex-1 items-center gap-4" : "min-w-0"}>
+                          {isUpcomingList ? (
+                            <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                              {getProgramIcon(booking.category ?? "OTHER")}
+                            </div>
+                          ) : null}
+
+                          <div className="min-w-0 flex-1 space-y-3">
+                            <div
+                              className={`flex flex-wrap items-center gap-y-1 ${
+                                isUpcomingList ? "justify-start gap-x-2" : "justify-between gap-x-3"
                               }`}
                             >
-                              {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
-                            </Badge>
-                          </div>
-                          {highlightedBookingId === booking.id ? (
-                            <Badge className="w-fit border-emerald-200 bg-emerald-100 text-emerald-900">
-                              Just booked
-                            </Badge>
-                          ) : null}
-                          {booking.program_status === "CANCELLED" ? <p className="text-xs font-bold text-rose-700">This program was cancelled.</p> : null}
+                              <div className="min-w-0">
+                                <h4 className="line-clamp-2 text-base font-black tracking-tight text-slate-900">
+                                  {booking.program}
+                                </h4>
+                                {isUpcomingList ? (
+                                  <p className="text-sm font-medium text-slate-500">
+                                    {getBookingCategoryLabel(booking.category)}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={`shrink-0 text-xs font-bold uppercase tracking-wider ${
+                                  isConfirmed
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                                    : "border-slate-200 bg-slate-100 text-slate-600"
+                                }`}
+                              >
+                                {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
+                              </Badge>
+                            </div>
+                            {highlightedBookingId === booking.id ? (
+                              <Badge className="w-fit border-emerald-200 bg-emerald-100 text-emerald-900">
+                                Just booked
+                              </Badge>
+                            ) : null}
+                            {booking.program_status === "CANCELLED" ? <p className="text-xs font-bold text-rose-700">This program was cancelled.</p> : null}
 
-                          {/* Date and Time Details */}
-                          <div className="space-y-1.5 text-xs sm:text-sm text-slate-600 font-medium">
-                            <div className="flex items-center gap-2">
-                              <CalendarDays className="size-4 shrink-0 text-emerald-700" />
-                              <span className="font-semibold text-slate-800">
-                                {formatLongDate(booking.date)}
-                              </span>
+                            {/* Date, time, and venue details */}
+                            <div
+                              className={
+                                isUpcomingList
+                                  ? "flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-slate-600 sm:text-sm"
+                                  : "space-y-1.5 text-xs font-medium text-slate-600 sm:text-sm"
+                              }
+                            >
+                              <div className="flex items-center gap-2">
+                                <CalendarDays className="size-4 shrink-0 text-emerald-700" />
+                                <span className="font-semibold text-slate-800">
+                                  {formatLongDate(booking.date)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock className="size-4 shrink-0 text-slate-400" />
+                                <span>{formatTime(booking.time)}</span>
+                              </div>
+                              {booking.location?.trim() ? (
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <MapPin className="size-4 shrink-0 text-rose-500" />
+                                  <span className="truncate">{booking.location}</span>
+                                </div>
+                              ) : null}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Clock className="size-4 shrink-0 text-slate-400" />
-                              <span>{formatTime(booking.time)}</span>
-                            </div>
-                          </div>
 
-                          {/* Countdown Indicator */}
-                          {isConfirmed && isFuture ? (
-                            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 border border-emerald-200/80">
-                              <Sparkles className="size-3.5 text-emerald-600" />
-                              <span>
-                                {countdown === 0
-                                  ? "Scheduled for Today!"
-                                  : countdown === 1
-                                    ? "Scheduled for Tomorrow"
-                                    : `In ${countdown} days`}
-                              </span>
-                            </div>
-                          ) : null}
+                            {/* Countdown Indicator */}
+                            {isConfirmed && isFuture ? (
+                              <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                                <Sparkles className="size-3.5 text-emerald-600" />
+                                <span>
+                                  {countdown === 0
+                                    ? "Scheduled for Today!"
+                                    : countdown === 1
+                                      ? "Scheduled for Tomorrow"
+                                      : `In ${countdown} days`}
+                                </span>
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
 
                         {/* Action Footer */}
                         {canCancel ? (
-                          <div className="mt-4 flex flex-wrap justify-end gap-1.5 border-t border-slate-100 pt-3">
+                          <div
+                            className={`mt-4 flex flex-wrap justify-end gap-1.5 border-t border-slate-100 pt-3 ${
+                              isUpcomingList ? "lg:mt-0 lg:shrink-0 lg:border-0 lg:pt-0" : ""
+                            }`}
+                          >
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowIdPassModal(true)}
+                              className="h-10 gap-1.5 rounded-xl border border-emerald-200 bg-white px-3 text-xs font-bold text-emerald-800 hover:bg-emerald-50 sm:text-sm cursor-pointer"
+                              title="Show digital QR attendance pass"
+                            >
+                              <QrCode className="size-3.5" />
+                              <span>View Pass</span>
+                            </Button>
                             <Button
                               type="button"
                               variant="ghost"
@@ -944,7 +1091,7 @@ function FarmerSchedulingContent() {
                                 setEditingBooking(booking);
                                 setEditTime(booking.time.slice(0, 5));
                               }}
-                              className="h-9 gap-1.5 rounded-xl px-3 text-xs sm:text-sm font-bold text-emerald-800 hover:bg-emerald-50 cursor-pointer"
+                              className="h-10 gap-1.5 rounded-xl border border-emerald-200 bg-white px-3 text-xs font-bold text-emerald-800 hover:bg-emerald-50 sm:text-sm cursor-pointer"
                             >
                               <Pencil className="size-3.5" />
                               <span>Edit Time</span>
@@ -955,7 +1102,7 @@ function FarmerSchedulingContent() {
                               size="sm"
                               disabled={busy}
                               onClick={() => setCancelingTarget(booking)}
-                              className="h-8 gap-1.5 rounded-xl px-3 text-xs sm:text-sm font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 cursor-pointer"
+                              className="h-10 gap-1.5 rounded-xl border border-rose-200 bg-white px-3 text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 sm:text-sm cursor-pointer"
                             >
                               <X className="size-3.5" />
                               <span>Cancel Reservation</span>
@@ -979,6 +1126,7 @@ function FarmerSchedulingContent() {
         onOpenChange={(open) => {
           if (!open) {
             setDetailsSchedule(null);
+            setScheduleId("");
           }
         }}
       >
@@ -995,7 +1143,10 @@ function FarmerSchedulingContent() {
               {/* Top Navigation */}
               <button
                 type="button"
-                onClick={() => setDetailsSchedule(null)}
+                onClick={() => {
+                  setDetailsSchedule(null);
+                  setScheduleId("");
+                }}
                 className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-emerald-800 transition-colors cursor-pointer"
               >
                 <ChevronLeft className="size-4" />
@@ -1015,6 +1166,15 @@ function FarmerSchedulingContent() {
                 const endTimeStr = formatTime(programTimes[programTimes.length - 1]);
                 const isUnlimited = detailsSchedule.capacity === 0;
                 const isAlreadyBooked = confirmedScheduleIds.has(detailsSchedule.id);
+                const isClosed =
+                  detailsSchedule.publication_status !== "PUBLISHED" ||
+                  !detailsSchedule.is_open ||
+                  [
+                    "CLOSED",
+                    "NOT_OPEN",
+                    "CANCELLED",
+                    "COMPLETED",
+                  ].includes(detailsSchedule.registration_status);
                 const isFull = !isUnlimited && (detailsSchedule.registration_status === "FULL" || (detailsSchedule.capacity > 0 && detailsSchedule.remaining_slots === 0));
 
                 return (
@@ -1039,7 +1199,15 @@ function FarmerSchedulingContent() {
                               : "Open Municipal Program"}
                           </Badge>
                           <Badge variant="outline" className="border-white/40 bg-white/90 text-slate-900 font-bold text-xs px-3 py-1 shadow-xs backdrop-blur-xs">
-                            {isUnlimited ? "No Registration Needed" : "Slot Reservation Available"}
+                            {isUnlimited
+                              ? "No Registration Needed"
+                              : isClosed
+                                ? (detailsSchedule.registration_status === "NOT_OPEN" ? "Opens Soon" : "Registration Closed")
+                                : isAlreadyBooked
+                                  ? "Already Booked"
+                                  : isFull
+                                    ? "Fully Booked"
+                                    : "Slot Reservation Available"}
                           </Badge>
                         </div>
 
@@ -1077,12 +1245,28 @@ function FarmerSchedulingContent() {
                         <h4 className="text-sm sm:text-base font-black text-emerald-950">
                           {isUnlimited
                             ? "Open Walk-in for All Eligible Farmers"
-                            : "Guaranteed Slot Reservation Available"}
+                            : isClosed
+                              ? (detailsSchedule.registration_status === "NOT_OPEN" ? "Registration Opens Soon" : "Registration Closed")
+                              : isAlreadyBooked
+                                ? "Reservation Already Confirmed"
+                                : isFull
+                                  ? "Program Capacity Reached"
+                                  : "Guaranteed Slot Reservation Available"}
                         </h4>
                         <p className="text-xs sm:text-sm text-emerald-900 leading-relaxed font-medium">
                           {isUnlimited
                             ? "You can attend directly at the venue during operating hours. No booking or reservation needed."
-                            : "Confirm your reservation below. An arrival time will be assigned automatically within the program schedule."}
+                            : isClosed
+                              ? (detailsSchedule.registration_status === "NOT_OPEN"
+                                  ? detailsSchedule.registration_opens
+                                    ? `Registration opens on ${formatShortDate(detailsSchedule.registration_opens)}.`
+                                    : "Registration will open soon. Please check back later."
+                                  : "This program is no longer accepting new reservations.")
+                              : isAlreadyBooked
+                                ? "You have already reserved a slot for this program. Review your booking under My Scheduled Programs."
+                                : isFull
+                                  ? "All available appointment slots for this program date have been claimed."
+                                  : "Confirm your reservation below. An arrival time will be assigned automatically within the program schedule."}
                         </p>
                       </div>
                     </div>
@@ -1218,22 +1402,44 @@ function FarmerSchedulingContent() {
                           <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800">
                             Slot Reservation
                           </label>
-                          <Badge variant="outline" className="border-emerald-300 bg-white text-emerald-900 font-bold text-xs">
-                            {isFull ? "0 slots left" : `${detailsSchedule.remaining_slots} slots available`}
+                          <Badge variant="outline" className={`font-bold text-xs ${
+                            isClosed
+                              ? "border-slate-300 bg-slate-100 text-slate-600"
+                              : isFull
+                                ? "border-amber-300 bg-amber-50 text-amber-900"
+                                : "border-emerald-300 bg-white text-emerald-900"
+                          }`}>
+                            {isClosed
+                              ? (detailsSchedule.registration_status === "NOT_OPEN" ? "Opens soon" : "Registration closed")
+                              : isFull
+                                ? "0 slots left"
+                                : `${detailsSchedule.remaining_slots} slots available`}
                           </Badge>
                         </div>
                         <p className="text-xs leading-relaxed text-slate-600">
                           Your arrival time will be assigned automatically within {startTimeStr} – {endTimeStr}.
                         </p>
 
-                        {isAlreadyBooked ? (
+                        {isClosed ? (
+                          <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-semibold leading-relaxed text-amber-900">
+                            {detailsSchedule.registration_status === "NOT_OPEN"
+                              ? detailsSchedule.registration_opens
+                                ? `Registration opens on ${formatShortDate(detailsSchedule.registration_opens)}.`
+                                : "Registration will open soon. Please check back later."
+                              : "This program is no longer available. You can’t reserve a slot."}
+                          </p>
+                        ) : isAlreadyBooked ? (
                           <p className="text-xs font-semibold text-amber-800">
                             You already have an active reservation for this program.
+                          </p>
+                        ) : isFull ? (
+                          <p className="text-xs font-semibold text-amber-800">
+                            This program is currently fully booked. Please check back later if slots become available.
                           </p>
                         ) : (
                           <Button
                             type="button"
-                            disabled={busy || isFull || scheduleId !== String(detailsSchedule.id)}
+                            disabled={busy || isClosed || isFull || scheduleId !== String(detailsSchedule.id)}
                             onClick={book}
                             className="w-full h-11 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                           >
@@ -1247,7 +1453,10 @@ function FarmerSchedulingContent() {
                     {/* Bottom Close Button */}
                     <Button
                       type="button"
-                      onClick={() => setDetailsSchedule(null)}
+                      onClick={() => {
+                        setDetailsSchedule(null);
+                        setScheduleId("");
+                      }}
                       className="w-full h-11 sm:h-12 rounded-xl bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold text-sm sm:text-base tracking-wide shadow-xs cursor-pointer"
                     >
                       Back to Schedule
@@ -1307,19 +1516,27 @@ function FarmerSchedulingContent() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {(editingBooking?.available_times?.length ? editingBooking.available_times : PROGRAM_TIME_SLOTS).map((slot) => (
-              <Button
-                key={slot}
-                type="button"
-                variant={editTime === slot ? "default" : "outline"}
-                disabled={busy}
-                onClick={() => setEditTime(slot)}
-                className={editTime === slot ? "min-h-11 bg-emerald-800 text-white hover:bg-emerald-900" : "min-h-11"}
-              >
-                <Clock className="mr-1.5 size-3.5" />
-                {formatTime(slot)}
-              </Button>
-            ))}
+            {(() => {
+              const nowTimeStr = `${String(new Date().getHours()).padStart(2, "0")}:${String(new Date().getMinutes()).padStart(2, "0")}`;
+              const isToday = editingBooking?.date === isoFromLocalDate(new Date());
+              return (editingBooking?.available_times?.length ? editingBooking.available_times : PROGRAM_TIME_SLOTS).map((slot) => {
+                const isPastSlot = isToday && slot <= nowTimeStr;
+                return (
+                  <Button
+                    key={slot}
+                    type="button"
+                    variant={editTime === slot ? "default" : "outline"}
+                    disabled={busy || isPastSlot}
+                    onClick={() => setEditTime(slot)}
+                    className={editTime === slot ? "min-h-11 bg-emerald-800 text-white hover:bg-emerald-900" : "min-h-11"}
+                    title={isPastSlot ? "Time has already passed today" : undefined}
+                  >
+                    <Clock className="mr-1.5 size-3.5" />
+                    <span>{formatTime(slot)}</span>
+                  </Button>
+                );
+              });
+            })()}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
@@ -1353,26 +1570,29 @@ function FarmerSchedulingContent() {
           if (!isOpen && !busy) setCancelingTarget(null);
         }}
       >
-        <AlertDialogContent className="rounded-2xl max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-              Cancel Appointment Reservation?
+        <AlertDialogContent className="max-w-md rounded-2xl">
+          <AlertDialogHeader className="items-center text-center">
+            <span className="flex size-14 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+              <span aria-hidden="true" className="text-3xl font-black leading-none">!</span>
+            </span>
+            <AlertDialogTitle className="text-base font-black tracking-tight text-slate-900 sm:text-lg">
+              Cancel Reservation?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+            <AlertDialogDescription className="text-center text-xs font-medium leading-relaxed text-slate-600 sm:text-sm">
               Are you sure you want to cancel your booking for{" "}
               <strong className="text-slate-900">{cancelingTarget?.program}</strong> on{" "}
               <strong className="text-slate-900">
                 {cancelingTarget ? formatLongDate(cancelingTarget.date) : ""}
               </strong>
-              ? This slot will immediately be made available for other farmers in Padre Garcia.
+              ?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 sm:gap-0 pt-3">
+          <AlertDialogFooter className="gap-2 pt-3 sm:gap-0">
             <AlertDialogCancel
               disabled={busy}
-              className="h-10 px-4 rounded-xl text-xs sm:text-sm font-bold"
+              className="h-10 rounded-xl px-4 text-xs font-bold sm:text-sm"
             >
-              Keep My Booking
+              No, Go Back
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={busy}
@@ -1380,7 +1600,7 @@ function FarmerSchedulingContent() {
                 e.preventDefault();
                 void handleConfirmCancel();
               }}
-              className="h-10 px-4 rounded-xl text-xs sm:text-sm font-bold bg-rose-700 text-white hover:bg-rose-800"
+              className="h-10 rounded-xl bg-rose-700 px-4 text-xs font-bold text-white hover:bg-rose-800 sm:text-sm"
             >
               {busy ? (
                 <>
@@ -1388,12 +1608,76 @@ function FarmerSchedulingContent() {
                   Cancelling…
                 </>
               ) : (
-                "Yes, Cancel Reservation"
+                "Yes, Cancel"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={cancelledBooking !== null}
+        onOpenChange={(open) => {
+          if (!open) setCancelledBooking(null);
+        }}
+      >
+        <DialogContent className="max-w-sm rounded-2xl p-6">
+          <DialogHeader className="items-center text-center">
+            <span className="flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <Check className="size-7" />
+            </span>
+            <DialogTitle className="text-lg font-black text-slate-900">
+              Reservation Cancelled
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-slate-600">
+              Your reservation for{" "}
+              <strong className="text-slate-900">{cancelledBooking?.program}</strong> has been moved to Past Bookings.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center">
+            <Button
+              type="button"
+              onClick={() => setCancelledBooking(null)}
+              className="h-10 w-full rounded-xl bg-emerald-800 font-bold text-white hover:bg-emerald-900 sm:w-36"
+            >
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Digital Municipal ID Pass Modal */}
+      <Dialog open={showIdPassModal} onOpenChange={setShowIdPassModal}>
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl p-6 rounded-3xl bg-white border-0 shadow-2xl max-h-[94vh] overflow-y-auto">
+          <DialogHeader className="space-y-1 text-center">
+            <DialogTitle className="text-xl font-black text-slate-900">
+              Farmer Municipal Pass
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Present this QR pass to Municipal Agriculture Office (MAO) staff or field inspectors at the venue to verify attendance.
+            </DialogDescription>
+          </DialogHeader>
+
+          <QrCodePass
+            code={user?.farmerId ? `SL-FARMER:${user.farmerId}` : "SL-FARMER:041018"}
+            qrPayload={user?.farmerId ? `SL-FARMER:${user.farmerId}` : "SL-FARMER:041018-00921"}
+            title="Farmer Attendance Pass"
+            subtitle="Show this QR to field inspectors to look up your registered programs and verify attendance."
+            ownerName={userDisplayName}
+            barangay={user?.barangay || "Padre Garcia"}
+            status="ACTIVE"
+            compact
+          />
+
+          <Button
+            type="button"
+            onClick={() => setShowIdPassModal(false)}
+            className="w-full bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold text-xs rounded-xl h-10 cursor-pointer mt-2"
+          >
+            Close Pass
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       {bookingToast ? (
         <div
