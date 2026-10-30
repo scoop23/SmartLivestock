@@ -1,7 +1,7 @@
 'use client';
 
 import type { Feature } from "geojson";
-import type { Layer, Path, LeafletMouseEvent } from "leaflet";
+import type { GeoJSON as LeafletGeoJSON, Layer, LeafletMouseEvent, Path } from "leaflet";
 /**
  * ============================================================================
  * SmartLivestock GIS — Interactive Map Canvas (`GISMap.tsx`)
@@ -380,6 +380,7 @@ export function GISMap({
   const [heightScale, setHeightScale] = useState<number>(1);
   const [heightScaleDraft, setHeightScaleDraft] = useState<number>(1);
   const mapRootRef = useRef<HTMLDivElement>(null);
+  const geoJsonRef = useRef<LeafletGeoJSON | null>(null);
   // Shared by the Leaflet and Giro3D click handlers so both modes treat drags the same way.
   const suppressClickUntilRef = useRef(0);
 
@@ -394,24 +395,45 @@ export function GISMap({
   const selectedLivestockTypeRef = useRef(selectedLivestockType);
   const userScopeRef = useRef(userScope);
   const showAdjacentOutbreakColorRef = useRef(showAdjacentOutbreakColor && showAdjacentDiseaseAlerts);
-  showAdjacentOutbreakColorRef.current = showAdjacentOutbreakColor && showAdjacentDiseaseAlerts;
 
   const showAdjacentOutbreakDotsRef = useRef(showAdjacentOutbreakDots && showAdjacentDiseaseAlerts);
-  showAdjacentOutbreakDotsRef.current = showAdjacentOutbreakDots && showAdjacentDiseaseAlerts;
 
   useLayoutEffect(() => {
-  barangaysByNameRef.current = barangaysByName;
-  activeLayerRef.current = activeLayer;
-  diseaseSubModeRef.current = diseaseSubMode;
-  selectedBarangayRef.current = selectedBarangay;
-  simulatedStatesRef.current = simulatedStates;
-  onSelectBarangayRef.current = onSelectBarangay;
-  viewModeRef.current = viewMode;
-  selectedLivestockTypeRef.current = selectedLivestockType;
-  userScopeRef.current = userScope;
-  showAdjacentOutbreakColorRef.current = showAdjacentOutbreakColor && showAdjacentDiseaseAlerts;
-  showAdjacentOutbreakDotsRef.current = showAdjacentOutbreakDots && showAdjacentDiseaseAlerts;
+    barangaysByNameRef.current = barangaysByName;
+    activeLayerRef.current = activeLayer;
+    diseaseSubModeRef.current = diseaseSubMode;
+    selectedBarangayRef.current = selectedBarangay;
+    simulatedStatesRef.current = simulatedStates;
+    onSelectBarangayRef.current = onSelectBarangay;
+    viewModeRef.current = viewMode;
+    selectedLivestockTypeRef.current = selectedLivestockType;
+    userScopeRef.current = userScope;
+    showAdjacentOutbreakColorRef.current = showAdjacentOutbreakColor && showAdjacentDiseaseAlerts;
+    showAdjacentOutbreakDotsRef.current = showAdjacentOutbreakDots && showAdjacentDiseaseAlerts;
   }, [barangaysByName, activeLayer, diseaseSubMode, selectedBarangay, simulatedStates, onSelectBarangay, viewMode, selectedLivestockType, userScope, showAdjacentOutbreakColor, showAdjacentOutbreakDots, showAdjacentDiseaseAlerts]);
+
+  // Dynamically re-style all existing Leaflet polygon vector layers immediately upon data load or prop toggle
+  // This eliminates the bug where colors only appeared on hover/mouseout
+  useEffect(() => {
+    const layer = geoJsonRef.current;
+    if (!layer) return;
+    layer.eachLayer((child) => {
+      const sublayer = child as Path & { feature?: Feature };
+      if (typeof sublayer.setStyle === 'function' && sublayer.feature) {
+        sublayer.setStyle(getGeoJSONStyle(sublayer.feature));
+      }
+    });
+  }, [
+    barangaysByName,
+    activeLayer,
+    diseaseSubMode,
+    showAdjacentOutbreakColor,
+    showAdjacentOutbreakDots,
+    showAdjacentDiseaseAlerts,
+    selectedBarangay,
+    selectedLivestockType,
+    viewMode,
+  ]);
 
   useEffect(() => {
     const root = mapRootRef.current;
@@ -531,9 +553,20 @@ export function GISMap({
       if (data?.disease_cases > 0) return '#0284c7';
       return '#10b981';
     }
-    if (risk === 'high') return '#D32F2F';
-    if (risk === 'medium') return '#FFA726';
-    return '#66BB6A';
+    if (diseaseSubMode === 'surveillance') {
+      const data = barangaysByName[bName];
+      const isConfirmed = (data?.active_cases ?? 0) > 0 || ((data?.fmd_active_cases ?? 0) > 0) || risk === 'high';
+      const isMonitoring = !isConfirmed && (risk === 'medium' || Boolean(data?.is_in_monitoring_radius));
+      if (isConfirmed) return '#ef4444'; // Red: Confirmed outbreak site (>= 1 case)
+      if (isMonitoring) return '#f97316'; // Orange: Within monitoring radius (precautionary)
+      return '#10b981'; // Green: Safe / outside monitoring radius
+    }
+    // Default 'reported' mode: only color barangays that actually have active reported cases, NO false radius colors
+    const data = barangaysByName[bName];
+    if ((data?.active_cases ?? 0) > 0) {
+      return '#ef4444'; // Red: Active confirmed disease case
+    }
+    return '#f8fafc'; // Clean uncolored baseline
   };
 
   const getMilkColor = (milk: number): string => {
@@ -568,6 +601,18 @@ export function GISMap({
     return '#f8fafc'; // No recorded deaths (slate-50 clean background)
   };
 
+  /**
+   * Thematic Movement / Livestock Inspection Clearance Choropleth Fill Colors (Indigo Palette)
+   * Scaled by total inspection / clearance records filed for this origin barangay.
+   */
+  const getMovementColor = (recordCount: number): string => {
+    if (recordCount >= 10) return '#312e81'; // 10+ records: Very High (indigo-900)
+    if (recordCount >= 6) return '#4f46e5';  // 6–9 records: High (indigo-600)
+    if (recordCount >= 3) return '#818cf8';  // 3–5 records: Moderate (indigo-400)
+    if (recordCount >= 1) return '#c7d2fe';  // 1–2 records: Low (indigo-200)
+    return '#f8fafc';                        // 0 records: Baseline (clean slate-50)
+  };
+
   const getLayerColor = (data: BarangayGISData): string => {
     switch (activeLayer) {
       case 'cattle':
@@ -583,8 +628,12 @@ export function GISMap({
         return getSlaughterYieldColor(data.slaughter_yield ?? data.meat ?? 0);
       case 'mortality':
         return getMortalityColor(getMortalityDeaths(data, selectedLivestockTypeRef.current));
-      case 'movement':
-        return data.movement_out > 0 ? '#fee2e2' : '#f1f5f9';
+      case 'movement': {
+        const recordCount = (data.inspections_count ?? 0) > 0
+          ? data.inspections_count
+          : (data.movement_out > 0 ? 1 : 0);
+        return getMovementColor(recordCount);
+      }
       default:
         return '#cbd5e1';
     }
@@ -607,31 +656,59 @@ export function GISMap({
       };
     }
 
-    const isFarmerRole = scope?.role === 'FARMER';
+    const isFarmerRole = (scope?.role || userScopeRef.current?.role || '').toUpperCase() === 'FARMER' || scope?.scope === 'OWN_BARANGAY';
     const isFarmer2D = isFarmerRole && viewMode === '2D';
 
-    // Out-of-scope barangays:
-    if (!isInScope) {
+    // 1. When on Disease Layer in 'surveillance' mode: Display full municipal Haversine risk triage
+    // (Red = Outbreak, Orange = Within Monitoring Radius, Green = Safe / Clear) across all 18 barangays
+    if (activeLayer === 'disease' && diseaseSubMode === 'surveillance') {
+      const isOutbreakColorActive = showAdjacentOutbreakColor && showAdjacentDiseaseAlerts;
+      const risk = data.disease_risk;
+      const isConfirmed = (data.active_cases > 0) || ((data.fmd_active_cases ?? 0) > 0) || risk === 'high';
+      const isMonitoring = !isConfirmed && (risk === 'medium' || Boolean(data.is_in_monitoring_radius));
+
+      // If user toggles OFF the outbreak warning colors in surveillance mode:
+      if (!isOutbreakColorActive && (isConfirmed || isMonitoring)) {
+        return {
+          fillColor: '#f8fafc',
+          fillOpacity: 0.35,
+          color: isSelected ? '#ffffff' : '#94a3b8',
+          weight: isSelected ? 3.5 : isInScope ? 2.5 : 1.2,
+          className: isInScope ? (isFarmerRole ? 'farmer-own-barangay' : 'assigned-barangay') : '',
+        };
+      }
+
+      const fillColor = isConfirmed
+        ? '#ef4444' // Red: Confirmed outbreak site (>= 1 case)
+        : isMonitoring
+        ? '#f97316' // Orange: Precautionary monitoring radius (0 cases)
+        : '#10b981'; // Green: Safe / outside monitoring radius
+
+      const borderColor = isSelected
+        ? '#ffffff'
+        : isInScope
+        ? (isFarmerRole ? '#ffffff' : '#38bdf8') // Highlight own registered/assigned barangay
+        : isConfirmed
+        ? '#dc2626'
+        : isMonitoring
+        ? '#ea580c'
+        : '#059669';
+
+      return {
+        fillColor,
+        fillOpacity: isInScope ? 0.72 : isConfirmed ? 0.60 : isMonitoring ? 0.45 : 0.30,
+        color: borderColor,
+        weight: isSelected ? 3.5 : isInScope ? 3.0 : isConfirmed ? 2.2 : isMonitoring ? 1.8 : 1.2,
+        dashArray: isMonitoring && !isInScope ? '4, 4' : undefined,
+        className: isInScope ? (isFarmerRole ? 'farmer-own-barangay' : 'assigned-barangay') : '',
+      };
+    }
+
+    // 2. Out-of-scope barangays:
+    // When in simulation or trend submodes, all 18 barangays are rendered for municipal context
+    const isMunicipalDiseaseModel = activeLayer === 'disease' && (diseaseSubMode === 'simulation' || diseaseSubMode === 'trend');
+    if (!isInScope && !isMunicipalDiseaseModel) {
       if (isFarmer2D) {
-        if (showAdjacentOutbreakColorRef.current && data.is_adjacent && (data.active_cases > 0 || data.disease_cases > 0)) {
-          return {
-            fillColor: '#7f1d1d',
-            fillOpacity: 0.45,
-            color: '#ef4444',
-            weight: 2.5,
-            dashArray: '5, 5',
-            className: 'farmer-adjacent-disease-polygon',
-          };
-        }
-        if (showAdjacentOutbreakColorRef.current && data.is_adjacent) {
-          return {
-            fillColor: '#064e3b',
-            fillOpacity: 0.25,
-            color: '#059669',
-            weight: 1.5,
-            className: 'farmer-adjacent-safe-polygon',
-          };
-        }
         // Neighboring barangays stay visible, but darken to mark the jurisdiction boundary.
         return {
           fillColor: '#000000',
@@ -656,10 +733,14 @@ export function GISMap({
       ? isSelected ? 0.95 : 0.85
       : isSelected ? 0.7 : 0.55;
 
+    const ownBorderColor = isFarmerRole
+      ? (data.disease_risk === 'high' ? '#ef4444' : data.disease_risk === 'medium' ? '#f97316' : '#4ade80')
+      : isMortality ? '#334155' : viewMode === '3D' ? '#0f290f' : '#1e3a1e';
+
     return {
       fillColor: getLayerColor(data),
       fillOpacity,
-      color: isSelected ? '#ffffff' : isFarmerRole ? '#4ade80' : isMortality ? '#334155' : viewMode === '3D' ? '#0f290f' : '#1e3a1e',
+      color: isSelected ? '#ffffff' : ownBorderColor,
       weight: isSelected ? 3.5 : isFarmerRole ? 3.0 : isMortality ? 2.0 : viewMode === '3D' ? 2.5 : 1.8,
       className: isFarmerRole ? 'farmer-own-barangay' : '',
     };
@@ -673,7 +754,20 @@ export function GISMap({
     const scope = userScopeRef.current;
     const isInScope = data?.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(name));
 
-    if (!isInScope) {
+    if (!isInScope && !(layer === 'disease' && (subMode === 'surveillance' || subMode === 'simulation' || subMode === 'trend'))) {
+      if (layer === 'disease' && subMode === 'surveillance') {
+        const zone = data?.disease_zone;
+        const dist = data?.nearest_outbreak_dist_km;
+        const nearest = data?.nearest_outbreak;
+        if (data?.disease_risk === 'high' || zone === 'outbreak') {
+          return `<strong>Brgy. ${name}</strong><br/><span style="color: #ef4444; font-weight: bold;">🚨 Confirmed Outbreak Site</span><br/><span style="font-size: 9.5px; opacity: 0.9">${data?.active_cases || 1} active confirmed case(s)</span>`;
+        } else if (data?.disease_risk === 'medium' || zone === 'monitoring_radius') {
+          const distText = dist != null ? ` (${dist} km from Brgy. ${nearest})` : nearest ? ` (Near Brgy. ${nearest})` : '';
+          return `<strong>Brgy. ${name}</strong><br/><span style="color: #f97316; font-weight: bold;">⚠️ Within Monitoring Radius${distText}</span><br/><span style="font-size: 9.5px; opacity: 0.9">Spatial buffer zone (Haversine 3.5km)</span>`;
+        } else {
+          return `<strong>Brgy. ${name}</strong><br/><span style="color: #10b981; font-weight: bold;">✅ Outside Monitoring Radius</span><br/><span style="font-size: 9.5px; opacity: 0.9">Safe / Outside 3.5km monitoring radius</span>`;
+        }
+      }
       if (showAdjacentOutbreakColorRef.current && data?.is_adjacent) {
         const hasDisease = (data.active_cases ?? 0) > 0 || (data.disease_cases ?? 0) > 0;
         const diseaseInfo = hasDisease
@@ -713,7 +807,16 @@ export function GISMap({
             : 'NO REPORTED ACTIVITY';
         tooltipMetric = `Surveillance: ${trendStatus} (${data.active_cases} recent reports (90 days), ${data.disease_cases} historical total)`;
       } else {
-        tooltipMetric = `${data.active_cases} approved reports (90 days) (${data.disease_risk.toUpperCase()})`;
+        const riskLabel =
+          data.disease_risk === 'high'
+            ? '🚨 CONFIRMED OUTBREAK (≥ 1 Case)'
+            : data.disease_risk === 'medium'
+            ? '⚠️ MONITORING RADIUS (Precautionary)'
+            : '✅ SAFE / UNAFFECTED';
+        const distInfo = data.disease_risk === 'medium' && data.nearest_outbreak
+          ? ` • ${data.nearest_outbreak_dist_km ?? ''} km from ${data.nearest_outbreak}`
+          : '';
+        tooltipMetric = `${data.active_cases} confirmed • ${riskLabel}${distInfo}`;
       }
     } else if (layer === 'milk') {
       tooltipMetric = `${data.milk.toLocaleString()} L milk`;
@@ -736,7 +839,12 @@ export function GISMap({
         ? `Recorded Mortality: ${deaths} ${typeLabel} deaths<br/><span style="font-size: 9.5px; opacity: 0.85">${causes}</span>`
         : `No recorded ${typeLabel.toLowerCase()} deaths`;
     } else if (layer === 'movement') {
-      tooltipMetric = `${data.movement_out} heads moved`;
+      const recordCount = (data.inspections_count ?? 0) > 0
+        ? data.inspections_count
+        : (data.movement_out > 0 ? 1 : 0);
+      tooltipMetric = recordCount > 0
+        ? `${recordCount} inspection record${recordCount === 1 ? '' : 's'} (${data.movement_out} heads moved)`
+        : 'No movement inspection records';
     }
 
     return `<strong>${name}</strong><br/><span style="font-size: 10px; opacity: 0.9">${tooltipMetric}</span>`;
@@ -748,10 +856,6 @@ export function GISMap({
     const name = feature.properties?.name;
     if (!name) return;
 
-    const data = barangaysByNameRef.current[name];
-    const scope = userScopeRef.current;
-    const isInScope = data?.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(name));
-
     layer.bindTooltip(buildTooltipText(name), {
       permanent: false,
       direction: 'center',
@@ -762,16 +866,8 @@ export function GISMap({
       mouseover: (e: LeafletMouseEvent) => {
         // Dynamically update tooltip content on hover
         layer.setTooltipContent(buildTooltipText(name));
-        const currentData = barangaysByNameRef.current[name];
-        const currentScope = userScopeRef.current;
-        const currentInScope = currentData?.is_in_scope ?? (!currentScope || currentScope.can_view_all_barangays || currentScope.allowed_barangays.includes(name));
-        const isRestrictedFarmer = currentScope?.role === 'FARMER' && !currentInScope && viewModeRef.current === '2D';
-
-        // Out-of-jurisdiction polygons stay black while their border signals hover.
-        const is2DMap = viewModeRef.current === '2D';
-        e.target.setStyle(isRestrictedFarmer
-          ? { fillColor: '#000000', fillOpacity: 0.55, weight: 2, color: '#fbbf24' }
-          : { weight: 3.5, fillOpacity: is2DMap ? 0.65 : 0.95, color: '#ffffff' });
+        // Highlighting border on hover without overriding the underlying fill color
+        e.target.setStyle({ weight: 3.5, color: '#ffffff' });
         e.target.bringToFront();
       },
       mouseout: (e: LeafletMouseEvent) => {
@@ -790,8 +886,8 @@ export function GISMap({
         // Leaflet still reports a click after some drag gestures; skip selection during the guard window.
         if (performance.now() < suppressClickUntilRef.current) return;
 
-        if (data) {
-          onSelectBarangayRef.current(data);
+        if (curData) {
+          onSelectBarangayRef.current(curData);
         } else {
           // Fallback baseline object if clicked before API responds
           onSelectBarangayRef.current({
@@ -862,16 +958,11 @@ export function GISMap({
             return acc;
           }, {} as Record<string, BarangayGISData>));
 
-    const isFarmerRole = userScope?.role === 'FARMER';
-    const farmerAllowed = userScope?.allowed_barangays || [];
+    const isFarmerRole = (userScope?.role || '').toUpperCase() === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
     const rawList = Object.values(sourceMap);
+    const isSurveillance = activeLayer === 'disease' && diseaseSubMode === 'surveillance';
 
-    // FARMER DATA ISOLATION: Farmers only see their own registered barangay!
-    const targetList = isFarmerRole
-      ? rawList.filter((b) => b.is_in_scope || farmerAllowed.includes(b.name))
-      : rawList;
-
-    return targetList.map((b) => {
+    return rawList.map((b) => {
       const scope = userScope;
       const isInScope = b.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(b.name));
 
@@ -887,7 +978,17 @@ export function GISMap({
           ? '🐾'
           : '🐄';
       let statText = isInScope ? `${lHeads}${lIcon}` : '—';
-      if (!isInScope) {
+
+      if (isSurveillance) {
+        const risk = b.disease_risk;
+        const isConfirmed = (b.active_cases > 0) || ((b.fmd_active_cases ?? 0) > 0) || risk === 'high';
+        const isMonitoring = !isConfirmed && (risk === 'medium' || Boolean(b.is_in_monitoring_radius));
+        statText = isConfirmed
+          ? `🚨${b.active_cases > 0 ? b.active_cases : '1+'}`
+          : isMonitoring
+          ? '⚠️3.5km'
+          : '✅Safe';
+      } else if (!isInScope) {
         statText = '—';
       } else if (activeLayer === 'disease') {
         if (diseaseSubMode === 'simulation' && simulatedStates?.[b.name]) {
@@ -912,15 +1013,26 @@ export function GISMap({
         const deaths = getMortalityDeaths(b, selectedLivestockType);
         statText = deaths > 0 ? `${deaths}☠️` : '0☠️';
       } else if (activeLayer === 'movement') {
-        statText = b.movement_out > 0 ? `${b.movement_out}🚛` : '—';
+        const recordCount = (b.inspections_count ?? 0) > 0
+          ? b.inspections_count
+          : (b.movement_out > 0 ? 1 : 0);
+        statText = recordCount > 0 ? `${recordCount}🚛` : '—';
       }
 
       const isGeographicallyRestricted = Boolean(scope && !scope.can_view_all_barangays);
       const isHighlightedScope = isGeographicallyRestricted && isInScope;
-      const isSubtleOut = isGeographicallyRestricted && !isInScope;
+      const isSubtleOut = isGeographicallyRestricted && !isInScope && !isSurveillance;
+
+      const risk = b.disease_risk;
+      const isConfirmed = (b.active_cases > 0) || ((b.fmd_active_cases ?? 0) > 0) || risk === 'high';
+      const isMonitoring = !isConfirmed && (risk === 'medium' || Boolean(b.is_in_monitoring_radius));
 
       const pillClass = isHighlightedScope
         ? 'permanent-centroid-pill highlight-own-farm'
+        : isSurveillance && isConfirmed
+        ? 'permanent-centroid-pill outbreak-site'
+        : isSurveillance && isMonitoring
+        ? 'permanent-centroid-pill monitoring-buffer'
         : isSubtleOut
         ? 'permanent-centroid-pill subtle-out-of-scope'
         : 'permanent-centroid-pill';
@@ -952,14 +1064,40 @@ export function GISMap({
   }, [leafletLib, barangaysByName, activeLayer, diseaseSubMode, simulatedStates, simulationColorMode, viewMode, selectedLivestockType, userScope]);
 
   const isFarmerRole = (userScope?.role || '').toUpperCase() === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
-  const adjacentAlertList = useMemo(() => {
-    if (!isFarmerRole || !showAdjacentDiseaseAlerts) return [];
-    if (adjacentDiseaseAlerts && adjacentDiseaseAlerts.length > 0) {
-      return adjacentDiseaseAlerts;
+
+  // Fast signature of current simulation month state across all barangays so React-Leaflet GeoJSON updates on every playback frame
+  const simStateKey = useMemo(() => {
+    if (activeLayer !== 'disease' || diseaseSubMode !== 'simulation' || !simulatedStates) {
+      return 'none';
     }
-    const adjSet = new Set(userScope?.adjacent_barangays || []);
+    return Object.entries(simulatedStates)
+      .map(([k, v]) => `${k}:${v.cases}:${v.transmissionPressure?.toFixed(2) ?? 0}`)
+      .join('|');
+  }, [activeLayer, diseaseSubMode, simulatedStates]);
+
+  const adjacentAlertList = useMemo(() => {
+    if (!showAdjacentDiseaseAlerts) return [];
+    if (isFarmerRole) {
+      if (adjacentDiseaseAlerts && adjacentDiseaseAlerts.length > 0) {
+        return adjacentDiseaseAlerts;
+      }
+      const adjSet = new Set(userScope?.adjacent_barangays || []);
+      return Object.values(barangaysByName)
+        .filter((b) => (b.is_adjacent || adjSet.has(b.name)) && (b.active_cases > 0 || (b.fmd_active_cases ?? 0) > 0 || b.disease_cases > 0))
+        .map((b) => ({
+          name: b.name,
+          db_name: b.db_name,
+          position: b.position,
+          active_cases: b.active_cases,
+          disease_cases: b.disease_cases,
+          affected_heads: b.affected_heads,
+          disease_risk: b.disease_risk,
+          recent_diseases: b.recent_diseases || [],
+        }));
+    }
+    // For municipal-wide roles (Admin, MAO, CBAT), display outbreak radar markers on active outbreak barangays
     return Object.values(barangaysByName)
-      .filter((b) => (b.is_adjacent || adjSet.has(b.name)) && (b.active_cases > 0 || b.disease_cases > 0))
+      .filter((b) => (b.active_cases > 0 || (b.fmd_active_cases ?? 0) > 0 || b.disease_risk === 'high'))
       .map((b) => ({
         name: b.name,
         db_name: b.db_name,
@@ -973,8 +1111,10 @@ export function GISMap({
   }, [isFarmerRole, showAdjacentDiseaseAlerts, adjacentDiseaseAlerts, barangaysByName, userScope?.adjacent_barangays]);
 
   // Generates visual pulsing dots randomly placed inside affected adjacent barangays
+  const isSurveillanceMode = activeLayer === 'disease' && diseaseSubMode === 'surveillance';
   const adjacentPulsingDots = useMemo(() => {
-    if (!isFarmerRole || !showAdjacentDiseaseAlerts || !showAdjacentOutbreakDots) return [];
+    // Adjacent outbreak dots ONLY appear in surveillance mode
+    if (!isSurveillanceMode || !showAdjacentDiseaseAlerts || !showAdjacentOutbreakDots) return [];
     const list: {
       key: string;
       position: [number, number];
@@ -1000,7 +1140,7 @@ export function GISMap({
       });
     }
     return list;
-  }, [isFarmerRole, showAdjacentDiseaseAlerts, showAdjacentOutbreakDots, adjacentAlertList]);
+  }, [isSurveillanceMode, showAdjacentDiseaseAlerts, showAdjacentOutbreakDots, adjacentAlertList]);
 
   const dataCount = Object.keys(barangaysByName).length;
 
@@ -1047,6 +1187,16 @@ export function GISMap({
           background: rgba(6, 78, 59, 0.95) !important;
           border: 1.5px solid rgba(74, 222, 128, 0.9) !important;
           box-shadow: 0 0 14px rgba(74, 222, 128, 0.45) !important;
+        }
+        .permanent-centroid-pill.outbreak-site {
+          background: rgba(185, 28, 28, 0.95) !important;
+          border: 1.5px solid rgba(248, 113, 113, 0.95) !important;
+          box-shadow: 0 0 14px rgba(239, 68, 68, 0.6) !important;
+        }
+        .permanent-centroid-pill.monitoring-buffer {
+          background: rgba(194, 65, 12, 0.92) !important;
+          border: 1.5px solid rgba(251, 146, 60, 0.9) !important;
+          box-shadow: 0 0 10px rgba(249, 115, 22, 0.5) !important;
         }
         .permanent-centroid-pill.subtle-out-of-scope {
           background: rgba(15, 23, 42, 0.70) !important;
@@ -1251,9 +1401,10 @@ export function GISMap({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {/* Choropleth Polygon Boundaries: Key includes dataCount and outbreak toggles so layer remounts immediately */}
+          {/* Choropleth Polygon Boundaries: Key includes dataCount, outbreak toggles, and simStateKey so layer remounts immediately on simulation playback */}
           <GeoJSON
-            key={`geojson-${activeLayer}-${selectedLivestockType || 'all'}-${diseaseSubMode}-${simulationColorMode}-${viewMode}-${selectedBarangay?.name || 'none'}-${dataCount}-${showAdjacentOutbreakColor && showAdjacentDiseaseAlerts ? 'col-on' : 'col-off'}`}
+            ref={geoJsonRef}
+            key={`geojson-${activeLayer}-${selectedLivestockType || 'all'}-${diseaseSubMode}-${simulationColorMode}-${viewMode}-${selectedBarangay?.name || 'none'}-${dataCount}-${showAdjacentOutbreakColor && showAdjacentDiseaseAlerts ? 'col-on' : 'col-off'}-${simStateKey}`}
             data={padreGarciaGeojson as unknown as FeatureCollection}
             style={getGeoJSONStyle}
             onEachFeature={onEachFeature}
@@ -1269,9 +1420,8 @@ export function GISMap({
             />
           ))}
 
-          {/* Pulsing Dots & Detailed Popups on Adjacent Outbreak Barangays (Farmer View) */}
-          {isFarmerRole &&
-            adjacentPulsingDots.map((dot) => {
+          {/* Pulsing Dots & Detailed Popups on Adjacent Outbreak Barangays (Active exclusively in Surveillance mode) */}
+          {adjacentPulsingDots.map((dot) => {
               const beaconIcon = leafletLib
                 ? leafletLib.divIcon({
                     className: 'adjacent-disease-beacon-container',

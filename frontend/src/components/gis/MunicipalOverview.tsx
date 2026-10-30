@@ -102,7 +102,7 @@ export function MunicipalOverview({
   const { user } = useAuth();
   const userRole = (user?.role || userScope?.role || '').toUpperCase();
   const isFarmer = userRole === 'FARMER' || userScope?.role === 'FARMER';
-  const isCbat = userRole === 'CBAT' || userScope?.role === 'CBAT';
+  const isCbat = ['CBAT', 'SIBAT'].includes(userRole) || ['CBAT', 'SIBAT'].includes((userScope?.role || '').toUpperCase());
   const isAuction = userScope?.role === 'AUCTION';
   const isSlaughter = userScope?.role === 'SLAUGHTERHOUSESTAFF';
   const isSibat = userScope?.role === 'SIBAT' || isCbat;

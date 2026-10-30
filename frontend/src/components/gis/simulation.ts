@@ -431,9 +431,11 @@ export function computeAnnualSimulationTrajectory(
       const hasLivestock = getClovenHoofedHeads(b) > 0;
 
       let risk: 'low' | 'medium' | 'high' | 'critical' = 'low';
-      if (normP >= 0.70 || cases >= 15) risk = 'critical';
-      else if (normP >= 0.40 || cases >= 6) risk = 'high';
-      else if (normP >= 0.20 || cases >= 2) risk = 'medium';
+      // Municipal Spatial Rule: Even ONE (>= 1) confirmed case flags the barangay as critical/outbreak site (Red).
+      // Areas with 0 cases but transmission pressure from neighboring outbreaks are tiered into high/medium (Orange Precautionary Zone).
+      if (cases >= 1) risk = 'critical';
+      else if (normP >= 0.35) risk = 'high';
+      else if (normP >= 0.10) risk = 'medium';
 
       states[b.name] = {
         cases,

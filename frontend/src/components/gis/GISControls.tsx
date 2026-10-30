@@ -58,7 +58,9 @@ Compass,
 Layers,
 PanelRightClose,
 PanelRightOpen,
+Radio,
 RotateCcw,
+ShieldAlert,
 TrendingUp,
 Zap,
 } from 'lucide-react';
@@ -94,6 +96,7 @@ interface GISControlsProps {
   showAdjacentOutbreakDots?: boolean;
   onToggleAdjacentOutbreakDots?: () => void;
   adjacentDiseaseAlertsCount?: number;
+  onOpenForecaster?: () => void;
 }
 
 export function GISControls({
@@ -124,6 +127,7 @@ export function GISControls({
   showAdjacentOutbreakDots = true,
   onToggleAdjacentOutbreakDots,
   adjacentDiseaseAlertsCount = 0,
+  onOpenForecaster,
 }: GISControlsProps) {
   // Collapsible control panel state (collapsed by default for map-first view)
   const [isExpanded, setIsExpanded] = useState<boolean>(defaultExpanded);
@@ -168,20 +172,20 @@ export function GISControls({
 
   const { user } = useAuth();
   const userRole = (user?.role || userScope?.role || '').toUpperCase();
-  const isCbat = userRole === 'CBAT' || (userScope?.role || '').toUpperCase() === 'CBAT';
+  const isCbat = ['CBAT', 'SIBAT'].includes(userRole) || ['CBAT', 'SIBAT'].includes((userScope?.role || '').toUpperCase());
   const isFarmerRole = userRole === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
 
   const allLayerOptions: { id: MapLayer; label: string; icon: string }[] = useMemo(() => {
     const list: { id: MapLayer; label: string; icon: string }[] = [
       { id: 'cattle', label: livestockLabel, icon: '🐄' },
       { id: 'disease', label: 'Disease', icon: '🩺' },
+      { id: 'mortality', label: 'Mortality', icon: '☠️' },
     ];
     if (!isCbat) {
       list.push(
         { id: 'milk', label: 'Recorded Milk (Farmer-reported)', icon: '🥛' },
         { id: 'farmer_meat', label: 'Recorded Meat Yield (Farmer-reported)', icon: '🥩' },
         { id: 'slaughter_yield', label: 'Slaughter Yield', icon: '🔪' },
-        { id: 'mortality', label: 'Mortality', icon: '☠️' },
         { id: 'movement', label: 'Movement', icon: '🚛' },
       );
     }
@@ -203,8 +207,10 @@ export function GISControls({
 
   const activeOption = layerOptions.find((opt) => opt.id === currentLayer) || layerOptions[0] || allLayerOptions[0];
   const canUse3D = !userScope || userScope.allowed_modes?.includes('3D');
-  const canUseSim = !userScope || userScope.can_use_simulation;
-  const canUseTrend = !isCbat;
+  const canUseSim = Boolean(userScope?.can_use_simulation) && !isFarmerRole && !isCbat;
+  const canUseSurveillance = true;
+  const canUseTrend = !isCbat && !isFarmerRole;
+  const canUseHaversineForecaster = Boolean(onOpenForecaster);
 
   return (
     <div ref={containerRef} className="flex flex-col gap-2 pointer-events-auto">
@@ -473,105 +479,6 @@ export function GISControls({
                     </button>
                   );
                 })}
-
-                {/* Adjacent Outbreak Pulse Dots & Color Toggles (in the map layer section) */}
-                {onToggleAdjacentDiseaseAlerts && (isFarmerRole || adjacentDiseaseAlertsCount > 0) && (
-                  <div className="pt-2 mt-1 border-t border-slate-100 flex flex-col gap-1.5 col-span-full">
-                    {/* Master Outbreak Toggle: Toggles both Color and Dots together */}
-                    <button
-                      type="button"
-                      onClick={onToggleAdjacentDiseaseAlerts}
-                      role="switch"
-                      aria-checked={showAdjacentDiseaseAlerts}
-                      className={`min-h-[42px] sm:min-h-[36px] px-3 py-2 rounded-xl border flex items-center justify-between text-xs font-bold transition-all cursor-pointer ${
-                        showAdjacentDiseaseAlerts
-                          ? 'bg-rose-50 border-rose-300 text-rose-950 shadow-2xs ring-2 ring-rose-400/20'
-                          : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-base shrink-0">🚨</span>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-extrabold truncate">Adjacent Outbreak Dots</span>
-                            {adjacentDiseaseAlertsCount > 0 && (
-                              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-black bg-rose-200/80 text-rose-900 shrink-0">
-                                {adjacentDiseaseAlertsCount} active
-                              </span>
-                            )}
-                          </div>
-                          <span className={`text-[10px] block truncate ${showAdjacentDiseaseAlerts ? 'text-rose-700 font-semibold' : 'text-slate-400'}`}>
-                            {showAdjacentOutbreakColor && showAdjacentOutbreakDots
-                              ? 'Perimeter color & pulsing dots active'
-                              : showAdjacentOutbreakColor
-                              ? 'Border color warning active (dots hidden)'
-                              : showAdjacentOutbreakDots
-                              ? 'Pulsing sonar dots active (color hidden)'
-                              : 'Click to show border disease warnings'}
-                          </span>
-                        </div>
-                      </div>
-                      <span className={`text-[10.5px] uppercase font-mono font-black px-2 py-0.5 rounded-md shrink-0 ml-2 ${
-                        showAdjacentOutbreakColor && showAdjacentOutbreakDots
-                          ? 'bg-rose-600 text-white'
-                          : showAdjacentDiseaseAlerts
-                          ? 'bg-amber-600 text-white'
-                          : 'bg-slate-200 text-slate-700'
-                      }`}>
-                        {showAdjacentOutbreakColor && showAdjacentOutbreakDots
-                          ? 'ALL ON'
-                          : showAdjacentDiseaseAlerts
-                          ? 'PARTIAL'
-                          : 'OFF'}
-                      </span>
-                    </button>
-
-                    {/* Sub-toggles: Separate Color & Dot Toggles */}
-                    <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-                      <button
-                        type="button"
-                        onClick={onToggleAdjacentOutbreakColor}
-                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border flex items-center justify-between transition-all cursor-pointer ${
-                          showAdjacentOutbreakColor
-                            ? 'bg-rose-100/70 text-rose-900 border-rose-300 shadow-2xs'
-                            : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'
-                        }`}
-                        title="Toggle red warning polygon fill color on adjacent barangays"
-                      >
-                        <span className="flex items-center gap-1 truncate">
-                          <span>🎨</span>
-                          <span>Border Color</span>
-                        </span>
-                        <span className={`font-mono text-[9.5px] px-1.5 py-0.2 rounded font-black ${
-                          showAdjacentOutbreakColor ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-600'
-                        }`}>
-                          {showAdjacentOutbreakColor ? 'ON' : 'OFF'}
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={onToggleAdjacentOutbreakDots}
-                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border flex items-center justify-between transition-all cursor-pointer ${
-                          showAdjacentOutbreakDots
-                            ? 'bg-rose-100/70 text-rose-900 border-rose-300 shadow-2xs'
-                            : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'
-                        }`}
-                        title="Toggle pulsing sonar radar dots on adjacent barangays"
-                      >
-                        <span className="flex items-center gap-1 truncate">
-                          <span>🔴</span>
-                          <span>Pulsing Dots</span>
-                        </span>
-                        <span className={`font-mono text-[9.5px] px-1.5 py-0.2 rounded font-black ${
-                          showAdjacentOutbreakDots ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-600'
-                        }`}>
-                          {showAdjacentOutbreakDots ? 'ON' : 'OFF'}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -669,50 +576,187 @@ export function GISControls({
 
               {diseaseSectionOpen && (
                 <div className="flex flex-col gap-1.5 pt-0.5">
-                  <div className={`grid grid-cols-1 sm:grid-cols-2 gap-1.5 ${canUseSim && canUseTrend ? 'lg:grid-cols-3' : ''}`}>
+                  {(canUseSurveillance || canUseSim || canUseTrend) && (
+                    <div className={`grid grid-cols-2 gap-1.5 ${canUseSim && canUseTrend ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+                      <button
+                        type="button"
+                        onClick={() => onDiseaseSubModeChange('reported')}
+                        className={`min-h-[40px] sm:min-h-[30px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
+                          diseaseSubMode === 'reported'
+                            ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                        title="Reported Cases: Real confirmed cases from database without geographic buffer zones"
+                      >
+                        <Activity className="size-3" />
+                        <span>Reported Cases</span>
+                      </button>
+
+                      {canUseSurveillance && (
+                        <button
+                          type="button"
+                          onClick={() => onDiseaseSubModeChange('surveillance')}
+                          className={`min-h-[40px] sm:min-h-[30px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
+                            diseaseSubMode === 'surveillance'
+                              ? 'bg-rose-700 text-white border-rose-800 shadow-2xs ring-2 ring-rose-400/50'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-rose-50 hover:text-rose-800'
+                          }`}
+                          title="Spatial Biosurveillance: Red (Outbreak), Orange (Haversine 3.5km Buffer), Green (Safe)"
+                        >
+                          <ShieldAlert className="size-3" />
+                          <span>Surveillance</span>
+                        </button>
+                      )}
+
+                      {canUseSim && (
+                        <button
+                          type="button"
+                          onClick={() => onDiseaseSubModeChange('simulation')}
+                          className={`min-h-[40px] sm:min-h-[30px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
+                            diseaseSubMode === 'simulation'
+                              ? 'bg-amber-600 text-white border-amber-700 shadow-2xs ring-2 ring-amber-400/50'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-800'
+                          }`}
+                          title="Epidemic Simulation: Dynamic month-by-month transmission trajectory"
+                        >
+                          <Zap className="size-3" />
+                          <span>Simulation</span>
+                        </button>
+                      )}
+
+                      {canUseTrend && (
+                        <button
+                          type="button"
+                          onClick={() => onDiseaseSubModeChange('trend')}
+                          className={`min-h-[40px] sm:min-h-[30px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
+                            diseaseSubMode === 'trend'
+                              ? 'bg-purple-700 text-white border-purple-800 shadow-2xs ring-2 ring-purple-400/50'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-purple-50 hover:text-purple-800'
+                          }`}
+                          title="Surveillance Trend: Last 90 days approved activity"
+                        >
+                          <TrendingUp className="size-3" />
+                          <span>Trend</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {diseaseSubMode === 'surveillance' && canUseSurveillance && (
+                    <div className="bg-rose-50/90 px-2.5 py-1.5 rounded-lg border border-rose-200 text-[10.5px] text-rose-950 leading-tight space-y-0.5">
+                      <span className="font-bold flex items-center gap-1 text-rose-900">
+                        <span className="size-2 rounded-full bg-rose-600" />
+                        Haversine Epidemiological Risk Classification:
+                      </span>
+                      <p className="text-[10px] text-slate-600">
+                        <strong>Red</strong> = Confirmed Outbreak (&ge; 1 case), <strong>Orange</strong> = Within Haversine 3.5 km radius, <strong>Green</strong> = Safe outside radius.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Adjacent Outbreak Pulse Dots & Color Toggles (ONLY IN SURVEILLANCE MODE) */}
+                  {diseaseSubMode === 'surveillance' && onToggleAdjacentDiseaseAlerts && (
+                    <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-1.5">
+                      {/* Master Outbreak Toggle: Toggles both Color and Dots together */}
+                      <button
+                        type="button"
+                        onClick={onToggleAdjacentDiseaseAlerts}
+                        role="switch"
+                        aria-checked={showAdjacentDiseaseAlerts}
+                        className={`min-h-[40px] sm:min-h-[34px] px-2.5 py-1.5 rounded-xl border flex items-center justify-between text-xs font-bold transition-all cursor-pointer ${
+                          showAdjacentDiseaseAlerts
+                            ? 'bg-rose-50 border-rose-300 text-rose-950 shadow-2xs ring-2 ring-rose-400/20'
+                            : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-base shrink-0">🚨</span>
+                          <div className="min-w-0">
+                            <span className="font-extrabold truncate block">Adjacent Outbreak Dots</span>
+                            <span className={`text-[9.5px] block truncate ${showAdjacentDiseaseAlerts ? 'text-rose-700 font-semibold' : 'text-slate-400'}`}>
+                              {showAdjacentOutbreakColor && showAdjacentOutbreakDots
+                                ? 'Dots & color active'
+                                : showAdjacentOutbreakColor
+                                ? 'Color active (dots hidden)'
+                                : showAdjacentOutbreakDots
+                                ? 'Pulsing dots active (color hidden)'
+                                : 'Click to show outbreak warnings'}
+                            </span>
+                          </div>
+                        </div>
+                        <span className={`text-[10px] uppercase font-mono font-black px-1.5 py-0.5 rounded shrink-0 ml-1.5 ${
+                          showAdjacentOutbreakColor && showAdjacentOutbreakDots
+                            ? 'bg-rose-600 text-white'
+                            : showAdjacentDiseaseAlerts
+                            ? 'bg-amber-600 text-white'
+                            : 'bg-slate-200 text-slate-700'
+                        }`}>
+                          {showAdjacentOutbreakColor && showAdjacentOutbreakDots
+                            ? 'ALL ON'
+                            : showAdjacentDiseaseAlerts
+                            ? 'PARTIAL'
+                            : 'OFF'}
+                        </span>
+                      </button>
+
+                      {/* Sub-toggles: Separate Color & Dot Toggles */}
+                      <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={onToggleAdjacentOutbreakColor}
+                          className={`px-2 py-1 rounded-lg text-[10.5px] font-bold border flex items-center justify-between transition-all cursor-pointer ${
+                            showAdjacentOutbreakColor
+                              ? 'bg-rose-100/70 text-rose-900 border-rose-300 shadow-2xs'
+                              : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-100'
+                          }`}
+                          title="Toggle red warning polygon fill color on adjacent barangays"
+                        >
+                          <span className="flex items-center gap-1 truncate">
+                            <span>🎨</span>
+                            <span>Color</span>
+                          </span>
+                          <span className={`font-mono text-[9px] px-1 py-0.2 rounded font-black ${
+                            showAdjacentOutbreakColor ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-600'
+                          }`}>
+                            {showAdjacentOutbreakColor ? 'ON' : 'OFF'}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={onToggleAdjacentOutbreakDots}
+                          className={`px-2 py-1 rounded-lg text-[10.5px] font-bold border flex items-center justify-between transition-all cursor-pointer ${
+                            showAdjacentOutbreakDots
+                              ? 'bg-rose-100/70 text-rose-900 border-rose-300 shadow-2xs'
+                              : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-100'
+                          }`}
+                          title="Toggle pulsing sonar radar dots on adjacent barangays"
+                        >
+                          <span className="flex items-center gap-1 truncate">
+                            <span>🔴</span>
+                            <span>Dots</span>
+                          </span>
+                          <span className={`font-mono text-[9px] px-1 py-0.2 rounded font-black ${
+                            showAdjacentOutbreakDots ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-600'
+                          }`}>
+                            {showAdjacentOutbreakDots ? 'ON' : 'OFF'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {canUseHaversineForecaster && (
                     <button
                       type="button"
-                      onClick={() => onDiseaseSubModeChange('reported')}
-                      className={`min-h-[40px] sm:min-h-[30px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
-                        diseaseSubMode === 'reported'
-                          ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
+                      onClick={onOpenForecaster}
+                      className="min-h-[34px] sm:min-h-[28px] w-full px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-indigo-200 bg-indigo-50/90 text-indigo-800 hover:bg-indigo-100 shadow-2xs"
+                      title="Open interactive Haversine Spatial Risk Forecaster modal"
                     >
-                      <Activity className="size-3" />
-                      <span>Reported Cases</span>
+                      <Radio className="size-3.5 text-indigo-600 animate-pulse" />
+                      <span>Haversine Spatial Risk Forecaster</span>
                     </button>
-
-                    {canUseSim && (
-                      <button
-                        type="button"
-                        onClick={() => onDiseaseSubModeChange('simulation')}
-                        className={`min-h-[40px] sm:min-h-[30px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
-                          diseaseSubMode === 'simulation'
-                            ? 'bg-amber-600 text-white border-amber-700 shadow-2xs ring-2 ring-amber-400/50'
-                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-800'
-                        }`}
-                      >
-                        <Zap className="size-3" />
-                        <span>Simulation</span>
-                      </button>
-                    )}
-
-                    {canUseTrend && (
-                      <button
-                        type="button"
-                        onClick={() => onDiseaseSubModeChange('trend')}
-                        className={`min-h-[40px] sm:min-h-[30px] px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 ${
-                          diseaseSubMode === 'trend'
-                            ? 'bg-purple-700 text-white border-purple-800 shadow-2xs ring-2 ring-purple-400/50'
-                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-purple-50 hover:text-purple-800'
-                        }`}
-                      >
-                        <TrendingUp className="size-3" />
-                        <span>Trend</span>
-                      </button>
-                    )}
-                  </div>
+                  )}
 
                   {diseaseSubMode === 'simulation' && (
                     <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-1.5 border border-slate-200">

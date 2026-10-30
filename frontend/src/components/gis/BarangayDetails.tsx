@@ -88,7 +88,7 @@ export function BarangayDetails({
   const userRole = (user?.role || userScope?.role || '').toUpperCase();
   const isAuthorized = ['CBAT', 'SIBAT', 'MAO', 'ADMIN'].includes(userRole);
   const isFarmer = userRole === 'FARMER' || userScope?.role === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
-  const isCbat = userRole === 'CBAT' || userScope?.role === 'CBAT';
+  const isCbat = ['CBAT', 'SIBAT'].includes(userRole) || ['CBAT', 'SIBAT'].includes((userScope?.role || '').toUpperCase());
   const showMovement = !isFarmer && !isCbat && Boolean(userScope?.allowed_layers?.includes('movement'));
   const showMilk = !isCbat && (!userScope || userScope.allowed_layers.includes('milk'));
   const showFarmerMeat = !isCbat && (!userScope || userScope.allowed_layers.includes('farmer_meat'));
@@ -413,7 +413,7 @@ export function BarangayDetails({
                 Neighboring Biosecurity Radar
               </span>
               {adjacentAlerts && adjacentAlerts.length > 0 ? (
-                <Badge className="bg-rose-600 text-white text-[10px] font-black px-1.5 py-0 animate-pulse">
+                <Badge className="bg-amber-600 text-white text-[10px] font-black px-1.5 py-0">
                   {adjacentAlerts.length} Neighbor{adjacentAlerts.length > 1 ? 's' : ''} Flagged
                 </Badge>
               ) : (
@@ -425,9 +425,12 @@ export function BarangayDetails({
 
             {adjacentAlerts && adjacentAlerts.length > 0 ? (
               <div className="space-y-1.5 pt-1">
-                <p className="text-[11px] text-rose-800 font-medium leading-tight">
-                  Approved disease reports detected in barangays directly bordering your location. Check pulsing markers on the map:
-                </p>
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-2 text-[11px] text-amber-900 leading-tight">
+                  <p className="font-bold flex items-center gap-1 text-amber-950 mb-0.5">
+                    <span>⚠️ Bordering Disease Activity</span>
+                  </p>
+                  Your barangay currently has <strong>0 confirmed cases</strong>. Neighboring barangays have confirmed disease reports. Maintain standard biosecurity measures.
+                </div>
                 <div className="space-y-1">
                   {adjacentAlerts.map((alert) => (
                     <div

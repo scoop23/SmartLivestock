@@ -41,7 +41,7 @@ export type ViewMode = '2D' | '3D';
 
 export type Movement3DDisplayMode = 'lines' | 'density' | 'both';
 
-export type DiseaseSubMode = 'reported' | 'simulation' | 'trend';
+export type DiseaseSubMode = 'reported' | 'surveillance' | 'simulation' | 'trend';
 export type SimulationColorMode = 'cases' | 'pressure';
 
 export interface SpeciesCount {
@@ -63,7 +63,12 @@ export interface BarangayGISData {
   active_cases: number;       // Approved reports in the last 90 days; legacy field name
   fmd_active_cases?: number;  // CBAT/SIBAT field-assessed suspected FMD, after MAO approval
   affected_heads: number;     // Animals affected by disease
-  disease_risk: 'low' | 'medium' | 'high'; // Derived from recent approved reports
+  disease_risk: 'low' | 'medium' | 'high'; // Derived from recent approved reports (Red=Outbreak, Orange=Monitoring Radius, Green=Safe)
+  disease_zone?: 'outbreak' | 'monitoring_radius' | 'safe';
+  disease_zone_label?: string;
+  nearest_outbreak?: string | null;
+  nearest_outbreak_dist_km?: number | null;
+  is_in_monitoring_radius?: boolean;
   recent_diseases: string[];  // Symptoms / disease names reported
   milk: number;               // Farmer-reported/recorded milk production in Liters
   farmer_meat: number;        // Farmer-reported meat-yield logs in kg (ProductionRecord)

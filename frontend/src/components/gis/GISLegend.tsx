@@ -35,7 +35,7 @@
  */
 
 import { Badge } from '@/components/ui/badge';
-import { Box,TrendingUp,Zap } from 'lucide-react';
+import { Box, ShieldAlert, TrendingUp, Zap } from 'lucide-react';
 import React from 'react';
 import { DiseaseSubMode,MapLayer,SimulationColorMode,ViewMode } from './types';
 
@@ -81,10 +81,16 @@ export function GISLegend({
           { color: '#10b981', label: 'No Reported Disease Activity' },
         ];
       }
+      if (diseaseSubMode === 'surveillance') {
+        return [
+          { color: '#ef4444', label: 'Red — Confirmed Outbreak (≥ 1 Case)' },
+          { color: '#f97316', label: 'Orange — Within Monitoring Radius (≤ 3.5 km)' },
+          { color: '#10b981', label: 'Green — Outside Monitoring Radius (Safe)' },
+        ];
+      }
       return [
-        { color: '#D32F2F', label: 'High — Elevated Recent Reports' },
-        { color: '#FFA726', label: 'Medium — Recent Approved Reports' },
-        { color: '#66BB6A', label: 'Low — No Recent Approved Reports' },
+        { color: '#ef4444', label: 'Active Reported Cases' },
+        { color: '#f8fafc', label: 'No Active Reports' },
       ];
     }
 
@@ -129,12 +135,15 @@ export function GISLegend({
         ];
       case 'movement':
         return [
-          { color: '#ef4444', label: '📤 Outbound Shipment (Padre Garcia → External)' },
-          { color: '#2563eb', label: '📥 Inbound Transport (External → Padre Garcia)' },
-          { color: '#10b981', label: '🔄 Local Intra-Municipal Transfer' },
-          { color: '#f59e0b', label: '⏳ Permit Under Inspection / Review' },
-          { color: '#1E4D2B', label: '🟢 Origin Barangay Centroid' },
-          { color: '#38bdf8', label: '✨ Active Selected Route' },
+          { color: '#312e81', label: '10+ Inspection Records (High transit)' },
+          { color: '#4f46e5', label: '6–9 Inspection Records' },
+          { color: '#818cf8', label: '3–5 Inspection Records' },
+          { color: '#c7d2fe', label: '1–2 Inspection Records' },
+          { color: '#f8fafc', label: '0 Records (Baseline)' },
+          { color: '#ef4444', label: '📤 Outbound Shipment' },
+          { color: '#2563eb', label: '📥 Inbound Transport' },
+          { color: '#10b981', label: '🔄 Intra-Municipal Transfer' },
+          { color: '#f59e0b', label: '⏳ Clearance Under Review' },
         ];
       default:
         return [];
@@ -178,7 +187,7 @@ export function GISLegend({
     slaughter_yield: { title: 'Slaughterhouse Carcass Yield', icon: '🔪' },
     meat: { title: 'Slaughterhouse Carcass Yield', icon: '🔪' },
     mortality: { title: mortalityTitle, icon: '☠️' },
-    movement: { title: 'Live Cow Movement', icon: '🚛' },
+    movement: { title: 'Livestock Movement Records', icon: '🚛' },
   };
 
   const { title, icon } = titles[layer];
@@ -217,6 +226,10 @@ export function GISLegend({
           ) : layer === 'disease' && diseaseSubMode === 'simulation' ? (
             <Badge className="bg-amber-500 text-white text-[9px] px-1 py-0 font-mono">
               <Zap className="size-2 mr-0.5 inline" /> SIM
+            </Badge>
+          ) : layer === 'disease' && diseaseSubMode === 'surveillance' ? (
+            <Badge className="bg-rose-700 text-white text-[9px] px-1 py-0 font-mono">
+              <ShieldAlert className="size-2 mr-0.5 inline" /> SURVEILLANCE
             </Badge>
           ) : layer === 'disease' && diseaseSubMode === 'trend' ? (
             <Badge className="bg-purple-600 text-white text-[9px] px-1 py-0 font-mono">

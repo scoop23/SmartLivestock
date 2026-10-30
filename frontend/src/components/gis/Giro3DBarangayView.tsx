@@ -104,8 +104,23 @@ function getMetricValue(
         item.species.toLowerCase() === livestockType.toLowerCase()
       )?.heads ?? (livestockType.toLowerCase() === 'cattle' ? data.mortality : 0);
     case 'movement':
-      return data.movement_out;
+      return (data?.inspections_count ?? 0) > 0
+        ? data!.inspections_count
+        : ((data?.movement_out ?? 0) > 0 ? 1 : 0);
   }
+}
+
+/**
+ * Thematic Movement / Livestock Inspection Clearance Choropleth Fill Colors (Indigo Palette)
+ * Scaled by total inspection / clearance records filed for this origin barangay.
+ * Matches 2D GISMap.tsx: 10+ (#312e81), 6-9 (#4f46e5), 3-5 (#818cf8), 1-2 (#c7d2fe), 0 (#f8fafc).
+ */
+function getMovementColor(recordCount: number): string {
+  if (recordCount >= 10) return '#312e81'; // 10+ records: Very High (indigo-900)
+  if (recordCount >= 6) return '#4f46e5';  // 6–9 records: High (indigo-600)
+  if (recordCount >= 3) return '#818cf8';  // 3–5 records: Moderate (indigo-400)
+  if (recordCount >= 1) return '#c7d2fe';  // 1–2 records: Low (indigo-200)
+  return '#f8fafc';                        // 0 records: Baseline (clean slate-50)
 }
 
 // Each map layer has its own four-step palette; ratio is the feature's value relative to the layer maximum.
@@ -115,7 +130,12 @@ function getLayerColor(
   diseaseSubMode: DiseaseSubMode,
   simulationColorMode: SimulationColorMode,
   simulation: SimulatedBarangayState | undefined,
+  value?: number,
 ): string {
+  if (layer === 'movement') {
+    return getMovementColor(value ?? 0);
+  }
+
   if (layer === 'disease' && diseaseSubMode === 'simulation') {
     if (simulation && !simulation.hasLivestock && simulation.cases === 0) return '#94a3b8';
     if (simulationColorMode === 'pressure') {
@@ -140,7 +160,7 @@ function getLayerColor(
     slaughter_yield: ['#fef3c7', '#fbbf24', '#ea580c', '#7c2d12'],
     meat: ['#fef3c7', '#fbbf24', '#ea580c', '#7c2d12'],
     mortality: ['#fee2e2', '#fca5a5', '#ef4444', '#7f1d1d'],
-    movement: ['#e0f2fe', '#38bdf8', '#0284c7', '#0c4a6e'],
+    movement: ['#c7d2fe', '#818cf8', '#4f46e5', '#312e81'],
   };
   const palette = palettes[layer];
   return palette[Math.min(3, Math.floor(Math.min(0.999, ratio) * palette.length))];
@@ -542,6 +562,7 @@ export function Giro3DBarangayView({
                   diseaseSubMode,
                   simulationColorMode,
                   simulatedStatesRef.current?.[name],
+                  value,
                 ) : '#475569',
                 opacity: hovered ? 1 : inScope ? 0.94 : 0.48,
                 // The GIS choropleth should keep its data colors without depending on scene lights.
@@ -1511,22 +1532,21 @@ export function Giro3DBarangayView({
     };
     let surfacesByName = getSurfacesByName();
 
-    // Aggregate active movement volume (heads) per origin barangay from active timeline movements
-    const activeHeadsByBarangay = new Map<string, number>();
+    // Aggregate active movement inspection records per origin barangay from active timeline movements
+    const activeRecordsByBarangay = new Map<string, number>();
     if (isMovementLayer && isTimelineActive && movements && movements.length > 0) {
       const sortedKeys = Array.from(featuresByNameRef.current.keys()).sort((a, b) => b.length - a.length);
       for (const move of movements) {
         const originKey = getMovementOriginKey(move, sortedKeys, barangaysByNameRef.current);
         if (originKey) {
-          const heads = Math.max(1, move.heads || 1);
-          activeHeadsByBarangay.set(originKey, (activeHeadsByBarangay.get(originKey) ?? 0) + heads);
+          activeRecordsByBarangay.set(originKey, (activeRecordsByBarangay.get(originKey) ?? 0) + 1);
         }
       }
     }
 
     const maxMovementMetric = Math.max(
       largestMetricRef.current,
-      ...(movements || []).map((m) => m.heads || 0),
+      ...Array.from(activeRecordsByBarangay.values()),
       1,
     );
 
@@ -1543,15 +1563,17 @@ export function Giro3DBarangayView({
         if (isFlat) {
           targetH = 2;
         } else if (isTimelineActive) {
-          const heads = activeHeadsByBarangay.get(lowerName) ?? 0;
-          targetH = heads > 0
-            ? getExtrusionHeight(heads, maxMovementMetric, heightScaleRef.current)
+          const recCount = activeRecordsByBarangay.get(lowerName) ?? 0;
+          targetH = recCount > 0
+            ? getExtrusionHeight(recCount, maxMovementMetric, heightScaleRef.current)
             : 2;
         } else {
-          // Timeline not active -> use municipal baseline movement_out
-          const heads = data?.movement_out ?? 0;
-          targetH = heads > 0
-            ? getExtrusionHeight(heads, largestMetricRef.current, heightScaleRef.current)
+          // Timeline not active -> use municipal baseline inspections_count / movement records
+          const recCount = (data?.inspections_count ?? 0) > 0
+            ? data!.inspections_count
+            : ((data?.movement_out ?? 0) > 0 ? 1 : 0);
+          targetH = recCount > 0
+            ? getExtrusionHeight(recCount, largestMetricRef.current, heightScaleRef.current)
             : 2;
         }
       }
@@ -1720,14 +1742,25 @@ export function Giro3DBarangayView({
       <div className="pointer-events-none absolute bottom-1 right-2 z-10 rounded bg-slate-950/70 px-1.5 py-0.5 text-[9px] text-white/80">
         © OpenStreetMap contributors
       </div>
-      {hoverInfo && (
-        <div
-          className="pointer-events-none absolute z-20 rounded-md border border-white/20 bg-slate-950/95 px-2.5 py-1.5 text-xs font-medium text-white shadow-lg"
-          style={{ left: hoverInfo.x + 14, top: hoverInfo.y + 14 }}
-        >
-          Brgy. {hoverInfo.name}
-        </div>
-      )}
+      {hoverInfo && (() => {
+        const data = barangaysByName[hoverInfo.name] || barangaysByName[hoverInfo.name.toLowerCase()];
+        const recCount = data ? ((data.inspections_count ?? 0) > 0 ? data.inspections_count : (data.movement_out > 0 ? 1 : 0)) : 0;
+        return (
+          <div
+            className="pointer-events-none absolute z-20 rounded-md border border-white/20 bg-slate-950/95 px-2.5 py-1.5 text-xs font-medium text-white shadow-lg space-y-0.5"
+            style={{ left: hoverInfo.x + 14, top: hoverInfo.y + 14 }}
+          >
+            <div className="font-bold">Brgy. {hoverInfo.name}</div>
+            {activeLayer === 'movement' && data && (
+              <div className="text-[10.5px] text-indigo-300">
+                {recCount > 0
+                  ? `${recCount} inspection record${recCount === 1 ? '' : 's'} (${data.movement_out} heads)`
+                  : 'No inspection records'}
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {error && (
         <div role="alert" className="absolute inset-x-4 top-4 z-10 rounded-lg bg-red-950/90 p-3 text-sm text-white">
           3D map could not load: {error}

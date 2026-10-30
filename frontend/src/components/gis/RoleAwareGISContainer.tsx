@@ -38,16 +38,36 @@ import { useClientReady } from "@/hooks/use-browser-state";
 
 import { useIsMobile } from '@/components/ui/use-mobile';
 import api from '@/lib/axios';
-import { ArrowLeft,Info,Loader2,X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Info, Loader2, Radio, ShieldAlert, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { GISControls } from './GISControls';
 import { GISLegend } from './GISLegend';
 import { GISMap } from './GISMap';
 import { GISSidebar } from './GISSidebar';
 import { GISTimeline } from './GISTimeline';
+
+const PadreGarciaForecaster = dynamic(
+  () => import('@/app/components/analytics/haversine'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-96 flex items-center justify-center bg-slate-900 rounded-2xl text-slate-400">
+        Loading Spatial Forecaster...
+      </div>
+    ),
+  }
+);
 import { MovementTimelinePlayer } from './MovementTimelinePlayer';
 import {
 computeAnnualSimulationTrajectory,
@@ -114,18 +134,32 @@ export function RoleAwareGISContainer({
   const gisData = telemetry.data ?? null;
   const isLoading = telemetry.isPending || telemetry.isFetching;
   const [showInitialLoadingScreen, setShowInitialLoadingScreen] = useState(true);
-  const [isAdjacentAlertDismissed, setIsAdjacentAlertDismissed] = useState(false);
+  const [isAdjacentAlertOpen, setIsAdjacentAlertOpen] = useState<boolean>(true);
   const loadingScreenPortalRoot = ready ? document.body : null;
 
   // Active layer & perspective states
-  const [requestedLayer, setActiveLayer] = useState<MapLayer>('cattle');
+  const [requestedLayer, setActiveLayer] = useState<MapLayer>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const layerParam = params.get('layer');
+      if (layerParam && ['cattle', 'disease', 'milk', 'farmer_meat', 'slaughter_yield', 'mortality', 'movement'].includes(layerParam)) {
+        return layerParam as MapLayer;
+      }
+    }
+    return 'cattle';
+  });
+  const [showForecasterDialog, setShowForecasterDialog] = useState<boolean>(false);
   const [simulationColorMode, setSimulationColorMode] = useState<SimulationColorMode>('cases');
-  const isCbat = (user?.role || gisData?.user_scope?.role || '').toUpperCase() === 'CBAT';
+  const isCbat = ['CBAT', 'SIBAT'].includes((user?.role || '').toUpperCase()) ||
+                 ['CBAT', 'SIBAT'].includes((gisData?.user_scope?.role || '').toUpperCase());
+  const isFarmer = (user?.role || gisData?.user_scope?.role || '').toUpperCase() === 'FARMER' ||
+                   gisData?.user_scope?.scope === 'OWN_BARANGAY';
+
   const allowedLayers = useMemo(() => {
     const raw = gisData?.user_scope?.allowed_layers;
     if (!raw) {
       return isCbat
-        ? (['cattle', 'disease'] as MapLayer[])
+        ? (['cattle', 'disease', 'mortality'] as MapLayer[])
         : undefined;
     }
     return isCbat
@@ -145,9 +179,10 @@ export function RoleAwareGISContainer({
   const [selectedLivestockType, setSelectedLivestockType] = useState<string>('Cattle');
   const [viewMode, setViewMode] = useState<ViewMode>('2D');
   const [diseaseSubMode, setDiseaseSubMode] = useState<DiseaseSubMode>('reported');
-  const activeDiseaseSubMode: DiseaseSubMode = user?.role?.toUpperCase() === 'CBAT' && diseaseSubMode === 'trend'
-    ? 'reported'
-    : diseaseSubMode;
+  const activeDiseaseSubMode: DiseaseSubMode =
+    (isCbat || isFarmer) && (diseaseSubMode === 'simulation' || diseaseSubMode === 'trend')
+      ? 'reported'
+      : diseaseSubMode;
   const [barangaySelection, setBarangaySelection] = useState<{ scope: string; name: string | null } | null>(null);
   const initialName = gisData?.user_scope?.allowed_barangays?.length === 1 ? gisData.user_scope.allowed_barangays[0] : null;
   const selectedName = barangaySelection?.scope === scopeKey ? barangaySelection.name : initialName;
@@ -434,7 +469,7 @@ export function RoleAwareGISContainer({
     return ['Cattle'];
   }, [gisData]);
 
-  const canUseSimulation = gisData?.user_scope?.can_use_simulation ?? false;
+  const canUseSimulation = !isCbat && !isFarmer && (gisData?.user_scope?.can_use_simulation ?? false);
 
   return (
     <div className="relative w-full h-full max-h-full min-h-0 overflow-hidden flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white">
@@ -477,33 +512,71 @@ export function RoleAwareGISContainer({
           showAdjacentOutbreakDots={showAdjacentOutbreakDots}
         />
 
-        {/* Proactive Farmer Adjacent Disease Alert Floating Pill */}
-        {!isAdjacentAlertDismissed &&
-          showAdjacentDiseaseAlerts &&
-          ((user?.role || gisData?.user_scope?.role || '').toUpperCase() === 'FARMER') &&
+        {/* Proactive Neighboring Disease Alert with Map Toggle (Farmer & CBAT) */}
+        {showAdjacentDiseaseAlerts &&
+          (isFarmer || isCbat) &&
           gisData?.adjacent_disease_alerts &&
           gisData.adjacent_disease_alerts.length > 0 && (
-            <div className="absolute top-[calc(4.25rem+env(safe-area-inset-top,0px))] left-4 right-4 sm:left-auto sm:right-4 z-[890] max-w-sm bg-rose-950/90 text-white border border-rose-500/70 rounded-xl p-2.5 shadow-xl backdrop-blur-md flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-base animate-pulse shrink-0">⚠️</span>
-                <div className="text-xs min-w-0">
-                  <span className="font-extrabold text-white block truncate">
-                    Neighboring Alert: {gisData.adjacent_disease_alerts.map((a) => a.name).join(', ')}
-                  </span>
-                  <span className="text-[10px] text-rose-200 block truncate">
-                    Pulsing markers on map show bordering disease reports.
-                  </span>
+            <div className="absolute top-[calc(4.25rem+env(safe-area-inset-top,0px))] left-4 right-4 sm:left-auto sm:right-4 z-[890] transition-all">
+              {isAdjacentAlertOpen ? (
+                <div className="max-w-md bg-rose-950/95 text-white border border-rose-500/70 rounded-2xl p-3 shadow-2xl backdrop-blur-md flex flex-col gap-2.5 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <span className="text-base animate-pulse shrink-0 mt-0.5">⚠️</span>
+                      <div className="text-xs min-w-0">
+                        <span className="font-black text-rose-100 block">
+                          Bordering Disease Alert ({gisData.adjacent_disease_alerts.length} Neighbor{gisData.adjacent_disease_alerts.length > 1 ? 's' : ''})
+                        </span>
+                        <span className="text-[11px] text-rose-200/90 leading-tight block mt-0.5">
+                          Active confirmed disease cases reported in bordering: <strong className="text-white">{gisData.adjacent_disease_alerts.map((a) => a.name).join(', ')}</strong>.
+                        </span>
+                      </div>
+                    </div>
+                    {/* Minimize / Collapse Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => setIsAdjacentAlertOpen(false)}
+                      className="shrink-0 p-1 text-rose-300 hover:text-white hover:bg-rose-900/70 rounded-lg transition-colors cursor-pointer"
+                      aria-label="Minimize border alert"
+                      title="Minimize alert banner"
+                    >
+                      <ChevronUp className="size-4" />
+                    </button>
+                  </div>
+
+                  {/* Action Bar inside Alert Pill */}
+                  <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-rose-800/60">
+                    <span className="text-[10px] text-rose-300/80 font-mono">
+                      {activeLayer === 'disease' ? '• Viewing Disease Layer' : '• Farm Inventory View'}
+                    </span>
+                    {activeLayer !== 'disease' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveLayer('disease');
+                          setDiseaseSubMode('surveillance');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-black shadow-xs cursor-pointer transition-all flex items-center gap-1"
+                      >
+                        <ShieldAlert className="size-3" />
+                        <span>Switch to Disease Map</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAdjacentAlertDismissed(true)}
-                className="shrink-0 p-1 text-rose-200 hover:text-white hover:bg-rose-900/60 rounded-lg transition-colors cursor-pointer"
-                aria-label="Dismiss neighboring alert"
-                title="Dismiss alert"
-              >
-                <X className="size-4" />
-              </button>
+              ) : (
+                /* Collapsed Floating Toggle Button — User never loses access! */
+                <button
+                  type="button"
+                  onClick={() => setIsAdjacentAlertOpen(true)}
+                  className="bg-rose-950/90 hover:bg-rose-900 text-rose-200 hover:text-white px-3 py-1.5 rounded-xl shadow-lg border border-rose-500/60 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 backdrop-blur-md"
+                  title="Click to expand neighboring disease alert details"
+                >
+                  <span className="size-2 rounded-full bg-rose-500 animate-ping shrink-0" />
+                  <span>⚠️ {gisData.adjacent_disease_alerts.length} Border Alert{gisData.adjacent_disease_alerts.length > 1 ? 's' : ''}</span>
+                  <ChevronDown className="size-3.5 text-rose-300" />
+                </button>
+              )}
             </div>
           )}
 
@@ -550,6 +623,7 @@ export function RoleAwareGISContainer({
             showAdjacentOutbreakDots={showAdjacentOutbreakDots}
             onToggleAdjacentOutbreakDots={() => setShowAdjacentOutbreakDots((prev) => !prev)}
             adjacentDiseaseAlertsCount={gisData?.adjacent_disease_alerts?.length ?? 0}
+            onOpenForecaster={!isCbat && !isFarmer ? () => setShowForecasterDialog(true) : undefined}
           />
         </div>
 
@@ -687,6 +761,24 @@ export function RoleAwareGISContainer({
             <Loader2 className="size-3.5 animate-spin text-emerald-400" />
             <span className="font-semibold tracking-wide">Syncing Telemetry...</span>
           </div>
+        )}
+
+        {/* 9. Haversine Epidemic Risk Forecaster Dialog */}
+        {!isCbat && !isFarmer && (
+          <Dialog open={showForecasterDialog} onOpenChange={setShowForecasterDialog}>
+            <DialogContent className="max-w-5xl sm:max-w-6xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 bg-slate-50 border-slate-200 shadow-2xl">
+              <DialogHeader className="mb-2">
+                <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <Radio className="size-5 text-indigo-600 animate-pulse" />
+                  Haversine Epidemic Risk Forecaster & Spatial Triage
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-600">
+                  Interactive Great-Circle Geodesic Distance simulation for Padre Garcia, Batangas. Simulates 3.5 km buffer zones and single confirmed case outbreak declarations.
+                </DialogDescription>
+              </DialogHeader>
+              <PadreGarciaForecaster />
+            </DialogContent>
+          </Dialog>
         )}
       </div>
       {showInitialLoadingScreen && loadingScreenPortalRoot
