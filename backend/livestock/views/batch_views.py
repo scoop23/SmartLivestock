@@ -451,14 +451,11 @@ def batch_detail(request, pk):
     if request.method == "DELETE":
         if user_role not in {"CBAT", "SIBAT", "MAO", "ADMIN"}:
             require_action(user, "batches", "edit_own")
-        if batch.animals.exclude(
-            status__in=[
-                LivestockInventory.StatusType.PENDING,
-                LivestockInventory.StatusType.SUBJECT_TO_REVISION,
-            ]
+        if batch.animals.filter(
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE
         ).exists():
             return Response(
-                {"error": "A batch with verified or approved animals cannot be deleted."},
+                {"error": "Only herds with zero active heads can be deleted."},
                 status=status.HTTP_409_CONFLICT,
             )
         # Batch-only events use SET_NULL in the schema; deleting their source would
@@ -473,7 +470,9 @@ def batch_detail(request, pk):
         # Protected event history must survive an attempted herd deletion.
         try:
             with transaction.atomic():
-                batch.animals.all().delete()
+                # Keep historical animal records; deleting an empty herd only
+                # removes their current grouping assignment.
+                batch.animals.update(batch=None)
                 batch.delete()
         except ProtectedError:
             return Response(
@@ -481,7 +480,7 @@ def batch_detail(request, pk):
                 status=status.HTTP_409_CONFLICT,
             )
         return Response(
-            {"message": f"Batch '{batch.batch_code}' and linked records deleted."},
+            {"message": f"Herd '{batch.batch_code}' deleted; individual livestock records were kept."},
             status=status.HTTP_200_OK,
         )
 
@@ -509,9 +508,12 @@ def batch_add_animals(request, pk):
         require_action(user, "batches", "edit_own")
         batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(of=("self",)), request.user), pk=pk)
 
-    if batch.status != LivestockBatch.StatusType.ACTIVE:
+    reopen_empty_batch = batch.status != LivestockBatch.StatusType.ACTIVE
+    if reopen_empty_batch and batch.animals.filter(
+        operational_status=LivestockInventory.OperationalStatus.ACTIVE
+    ).exists():
         return Response(
-            {"error": "Animals can only be added to an ACTIVE batch."},
+            {"error": "Only an empty herd can be reopened for new animals."},
             status=status.HTTP_409_CONFLICT,
         )
     # The marker is retained as historical metadata for older reports. It no
@@ -550,6 +552,9 @@ def batch_add_animals(request, pk):
 
     created_animals = []
     with transaction.atomic():
+        if reopen_empty_batch:
+            batch.status = LivestockBatch.StatusType.ACTIVE
+            batch.save(update_fields=["status", "updated_at"])
         for animal in animals_data:
             created = LivestockInventory.objects.create(
                 batch=batch,

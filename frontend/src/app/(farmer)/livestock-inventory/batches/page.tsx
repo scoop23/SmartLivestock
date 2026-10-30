@@ -469,6 +469,8 @@ export default function BatchOverviewPage() {
   const [isGalleryManagerOpen, setIsGalleryManagerOpen] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
   const [isWeighModalOpen, setIsWeighModalOpen] = useState(false);
+  const [isDeleteHerdOpen, setIsDeleteHerdOpen] = useState(false);
+  const [isDeletingHerd, setIsDeletingHerd] = useState(false);
   const [weighTarget, setWeighTarget] = useState<BatchIndividual | null>(null);
   const [newWeightInput, setNewWeightInput] = useState<string>("");
   const [manageHerdTarget, setManageHerdTarget] = useState<BatchIndividual | null>(null);
@@ -675,7 +677,35 @@ export default function BatchOverviewPage() {
     setIsHerdDetailsOpen(true);
   };
 
-  const canAddAnimalsToCurrentBatch = currentBatch?.status === "ACTIVE";
+  const canAddAnimalsToCurrentBatch = Boolean(
+    currentBatch && (currentBatch.status === "ACTIVE" || currentBatch.activeCount === 0),
+  );
+
+  const handleDeleteEmptyHerd = async () => {
+    if (!currentBatch) return;
+    if (currentBatch.activeCount !== 0) {
+      toast.error("Only a herd with zero active heads can be deleted.");
+      return;
+    }
+
+    setIsDeletingHerd(true);
+    try {
+      await api.delete(`livestock/batches/${currentBatch.id}/`);
+      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.batches });
+      await queryClient.invalidateQueries({ queryKey: INVENTORY_QUERY_KEYS.inventory });
+      setIsDeleteHerdOpen(false);
+      setIsHerdDetailsOpen(false);
+      setSelectedBatchId("");
+      toast.success("Empty herd deleted. Individual livestock records were kept.");
+    } catch (error: unknown) {
+      const response = isAxiosError<BatchActionErrorResponse>(error)
+        ? error.response?.data
+        : undefined;
+      toast.error(response?.error || response?.detail || "Could not delete this herd.");
+    } finally {
+      setIsDeletingHerd(false);
+    }
+  };
 
   const individualReviewSummary = currentBatch?.individuals.reduce(
     (summary, animal) => {
@@ -1517,11 +1547,28 @@ export default function BatchOverviewPage() {
                           disabled={!canAddAnimalsToCurrentBatch}
                           className="col-span-2 sm:col-span-1 h-9 sm:h-8.5 gap-1.5 rounded-lg bg-emerald-700 px-3.5 text-xs font-bold text-white hover:bg-emerald-800 shadow-2xs disabled:bg-slate-300 w-full sm:w-auto"
                         >
-                          <Plus className="size-3.5 stroke-[3]" /> Add Animal
+                          <Plus className="size-3.5 stroke-[3]" />
+                          {currentBatch.status === "ACTIVE" ? "Add Animal" : "Reopen & Add Animal"}
+                        </Button>
+                      )}
+                      {currentBatch.activeCount === 0 && backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsDeleteHerdOpen(true)}
+                          className="col-span-2 h-9 gap-1.5 rounded-lg border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50 sm:col-span-1 sm:w-auto"
+                        >
+                          <Trash2 className="size-3.5" /> Delete Empty Herd
                         </Button>
                       )}
                     </div>
                   </div>
+
+                  {currentBatch.status !== "ACTIVE" && currentBatch.activeCount === 0 && (
+                    <div className="mx-3 mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      This herd has no active heads. Adding an animal will reopen it.
+                    </div>
+                  )}
 
                   {currentBatch.reviewRemarks && (
                     <div className="mx-3 mb-3 rounded-lg border border-amber-300 bg-amber-50 p-2.5">
@@ -2591,6 +2638,47 @@ export default function BatchOverviewPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      <Dialog
+        open={isDeleteHerdOpen}
+        onOpenChange={(open) => {
+          if (!isDeletingHerd) setIsDeleteHerdOpen(open);
+        }}
+      >
+        <DialogContent className="w-[calc(100vw-1.5rem)] rounded-2xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-800">
+              <Trash2 className="size-5" /> Delete empty herd?
+            </DialogTitle>
+            <DialogDescription>
+              Delete {currentBatch?.batchName || currentBatch?.batchCode || "this herd"}? It has zero active heads. Individual livestock records will remain in your inventory.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+            Herds with linked production, sale, disease, or mortality history must be kept and cannot be deleted.
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isDeletingHerd}
+              onClick={() => setIsDeleteHerdOpen(false)}
+            >
+              Keep Herd
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isDeletingHerd || currentBatch?.activeCount !== 0}
+              onClick={() => void handleDeleteEmptyHerd()}
+            >
+              {isDeletingHerd ? "Deleting…" : "Delete Empty Herd"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ManageHerdDialog
         open={Boolean(manageHerdTarget)}

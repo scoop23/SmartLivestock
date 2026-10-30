@@ -161,15 +161,15 @@ function ManageHerdDialogContent({
   const [newHerdPen, setNewHerdPen] = useState("");
   const [newHerdFeed, setNewHerdFeed] = useState("");
 
-  // Eligible active herds of the same species
+  // Herds of the same species that are active or empty and can be reopened
   const eligibleHerds = useMemo(() => {
     if (!activeItem) return [];
     const targetSpecies = (activeItem.livestockTypeName || "").trim().toLowerCase();
     return allBatches.filter((b) => {
       const isSameSpecies = (b.livestockTypeName || "").trim().toLowerCase() === targetSpecies;
-      const isActive = b.status === "ACTIVE";
+      const isAvailable = b.status === "ACTIVE" || b.totalAnimals === 0;
       const isDifferentFromCurrent = !activeItem.batchId || Number(b.id) !== Number(activeItem.batchId);
-      return isSameSpecies && isActive && isDifferentFromCurrent;
+      return isSameSpecies && isAvailable && isDifferentFromCurrent;
     });
   }, [allBatches, activeItem]);
 
@@ -693,6 +693,11 @@ function ManageHerdDialogContent({
                                   <Users className="size-3 text-emerald-700" />
                                   {herd.totalAnimals} {herd.totalAnimals === 1 ? "animal" : "animals"}
                                 </span>
+                                {herd.status !== "ACTIVE" && herd.totalAnimals === 0 && (
+                                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                    Reopens when assigned
+                                  </span>
+                                )}
                                 {herd.housingPen && (
                                   <span className="inline-flex items-center gap-1">
                                     <MapPin className="size-3 text-slate-400" />

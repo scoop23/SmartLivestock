@@ -696,15 +696,6 @@ def manage_inventory_herd(request, pk):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            if new_batch.status != LivestockBatch.StatusType.ACTIVE:
-                return Response(
-                    {
-                        "error": "Livestock can only be assigned or moved to an active herd.",
-                        "batch": ["This herd is no longer active."],
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
             if new_batch.livestock_type_id != inventory.livestock_type_id:
                 return Response(
                     {
@@ -746,6 +737,20 @@ def manage_inventory_herd(request, pk):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+            if new_batch.status != LivestockBatch.StatusType.ACTIVE:
+                if new_batch.animals.filter(
+                    operational_status=LivestockInventory.OperationalStatus.ACTIVE
+                ).exists():
+                    return Response(
+                        {
+                            "error": "Only an empty herd can be reopened for new livestock.",
+                            "batch": ["The selected herd is inactive and still has active heads."],
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+                new_batch.status = LivestockBatch.StatusType.ACTIVE
+                new_batch.save(update_fields=["status", "updated_at"])
 
             history_action = (
                 LivestockHerdMembershipHistory.ActionType.MOVED
