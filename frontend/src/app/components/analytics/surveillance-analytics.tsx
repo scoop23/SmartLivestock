@@ -27,7 +27,6 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
-  Sparkles,
   Stethoscope,
   Table as TableIcon,
   TrendingUp,
@@ -49,6 +48,21 @@ import {
   YAxis,
 } from "recharts";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+
+const PadreGarciaForecaster = dynamic(
+  () => import("@/app/components/analytics/haversine"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-96 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col items-center justify-center p-6 text-center text-slate-500">
+        <Activity className="size-8 text-rose-600 animate-spin mb-2" />
+        <p className="font-bold text-sm">Loading Haversine Spatial Risk Canvas...</p>
+        <p className="text-xs text-slate-400 mt-1">Calculating geodesic coordinates and proximity buffers...</p>
+      </div>
+    ),
+  }
+);
 
 type PeriodTotals = {
   reports: number;
@@ -2015,21 +2029,28 @@ export default function SurveillanceAnalytics() {
       </details>
 
       {/* ----------------------------------------------------------------- */}
-      {/* H. SPATIAL BIOSURVEILLANCE WORKSPACE CALLOUT                     */}
+      {/* H. SPATIAL BIOSURVEILLANCE & HAVERSINE RISK FORECASTER            */}
+      {/* ----------------------------------------------------------------- */}
+      <section aria-label="Haversine Spatial Biosurveillance" className="pt-2">
+        <PadreGarciaForecaster />
+      </section>
+
+      {/* ----------------------------------------------------------------- */}
+      {/* I. SPATIAL BIOSURVEILLANCE WORKSPACE CALLOUT                     */}
       {/* ----------------------------------------------------------------- */}
       <div className="rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50/70 via-white to-teal-50/60 p-5 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="flex size-2 rounded-full bg-rose-600 animate-pulse" />
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-rose-900">
-              Spatial Health Surveillance
+              Full-Screen Municipal GIS
             </span>
           </div>
           <h3 className="text-base font-bold text-slate-900">
-            Inspect Barangay Outbreak Clusters on Municipal GIS
+            Inspect Barangay Outbreak Clusters &amp; Movement Routes
           </h3>
           <p className="text-xs sm:text-sm text-slate-600">
-            Cross-reference registered livestock locations with reported disease clusters and quarantine perimeters across Padre Garcia.
+            Open the dedicated 2D/3D GIS workspace to inspect cattle inventories, farmer registries, transport clearances, and livestock densities across all 18 barangays.
           </p>
         </div>
         <Button
