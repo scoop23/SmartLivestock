@@ -20,7 +20,7 @@ import api from "@/lib/axios";
 import { apiError,getBarangays,getBookings,getSchedules,type BarangayOption,type ProgramBooking,type ProgramFarmerAudience,type ProgramPublicationStatus,type ProgramSchedule } from "@/lib/community-api";
 import { ArrowLeft,CalendarDays,ClipboardList,Clock3,FileText,Image as ImageIcon,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Settings,Trash2,UnlockKeyhole,Users,Zap } from "lucide-react";
 import Image from "next/image";
-import { useCallback,useEffect,useMemo,useState,type FormEvent } from "react";
+import { useCallback,useEffect,useMemo,useRef,useState,type FormEvent } from "react";
 import { CommunityEmptyState,CommunityErrorCard,CommunitySkeleton,formatLongDate,formatTime,PROGRAM_TIME_SLOTS,todayIso,type CommunityRole } from "./community-ui";
 
 type ManagerRole = Extract<CommunityRole, "admin" | "sibat">;
@@ -79,7 +79,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [startTime, setStartTime] = useState<string>(PROGRAM_TIME_SLOTS[0]);
   const [endTime, setEndTime] = useState<string>(PROGRAM_TIME_SLOTS[PROGRAM_TIME_SLOTS.length - 1]);
   const [selected, setSelected] = useState<ProgramSchedule | null>(null);
-  const [bookingCancelTarget, setBookingCancelTarget] = useState<ProgramBooking | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [conflictPayload, setConflictPayload] = useState<SchedulePayload | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -88,6 +87,9 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [search, setSearch] = useState("");
   const [calendarDate, setCalendarDate] = useState<Date | null>(null);
   const [filter, setFilter] = useState<"all" | "upcoming" | "published" | "draft" | "completed" | "cancelled">("all");
+  const [highlightedScheduleId, setHighlightedScheduleId] = useState<number | null>(null);
+  const [pendingScrollScheduleId, setPendingScrollScheduleId] = useState<number | null>(null);
+  const scrolledScheduleId = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -135,6 +137,15 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (pendingScrollScheduleId === null || scrolledScheduleId.current === pendingScrollScheduleId) return;
+    const card = document.getElementById(`program-schedule-${pendingScrollScheduleId}`);
+    if (!card) return;
+
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    scrolledScheduleId.current = pendingScrollScheduleId;
+  }, [pendingScrollScheduleId, schedules]);
 
   const bookingsBySchedule = useMemo(() => {
     const grouped = new Map<number, ProgramBooking[]>();
@@ -184,6 +195,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   }
 
   async function persistSchedule(payload: SchedulePayload) {
+    const isCreating = editing === null;
     setBusy(true);
     setError("");
     const requestPayload: Partial<SchedulePayload> = { ...payload };
@@ -202,8 +214,13 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         if (removeCover) formData.append("remove_cover_image", "true");
         body = formData;
       }
-      if (editing) await api.patch(`/community/schedules/${editing.id}/`, body);
-      else await api.post("/community/schedules/", body);
+      let createdScheduleId: number | null = null;
+      if (editing) {
+        await api.patch(`/community/schedules/${editing.id}/`, body);
+      } else {
+        const { data: createdSchedule } = await api.post<ProgramSchedule>("/community/schedules/", body);
+        createdScheduleId = createdSchedule.id;
+      }
       setConflictPayload(null);
       setFormOpen(false);
       setEditing(null);
@@ -211,6 +228,13 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       setCoverFile(null);
       setCoverPreview("");
       setRemoveCover(false);
+      if (isCreating && createdScheduleId !== null) {
+        setFilter("all");
+        setSearch("");
+        setCalendarDate(null);
+        setHighlightedScheduleId(createdScheduleId);
+        setPendingScrollScheduleId(createdScheduleId);
+      }
       await refresh();
     } catch (e) {
       setError(apiError(e));
@@ -299,34 +323,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     }
   }
 
-  async function recordAttendance(booking: ProgramBooking, status: "ATTENDED" | "NO_SHOW") {
-    setBusy(true);
-    setError("");
-    try {
-      await api.patch(`/community/bookings/${booking.id}/`, { status });
-      await refresh();
-    } catch (e) {
-      setError(apiError(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function cancelBooking() {
-    if (!bookingCancelTarget) return;
-    setBusy(true);
-    setError("");
-    try {
-      await api.patch(`/community/bookings/${bookingCancelTarget.id}/`, { status: "CANCELLED" });
-      setBookingCancelTarget(null);
-      await refresh();
-    } catch (e) {
-      setError(apiError(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const selectedBookings = selected ? (bookingsBySchedule.get(selected.id) ?? []).slice().sort((a, b) => a.time.localeCompare(b.time)) : [];
   const selectedHasBookingHistory = pendingAction ? (bookingsBySchedule.get(pendingAction.schedule.id)?.length ?? 0) > 0 : false;
   const selectedIsPast = pendingAction ? pendingAction.schedule.date < todayIso() : false;
@@ -339,6 +335,9 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       || (filter === "completed" && (schedule.publication_status === "COMPLETED" || schedule.registration_status === "COMPLETED"))
       || (filter === "cancelled" && schedule.publication_status === "CANCELLED");
     return matchesSearch && matchesFilter;
+  }).sort((a, b) => {
+    const createdAtDifference = Date.parse(b.created_at) - Date.parse(a.created_at);
+    return createdAtDifference || b.id - a.id;
   });
   const visibleProgramDates = new Set(visibleSchedules.map((schedule) => schedule.date));
   const displayedSchedules = calendarDate
@@ -486,6 +485,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               const roster = bookingsBySchedule.get(schedule.id) ?? [];
               const scheduleTimes = schedule.available_times?.length ? schedule.available_times : PROGRAM_TIME_SLOTS;
               const hasHistory = roster.length > 0;
+              const isNewlyCreated = schedule.id === highlightedScheduleId;
               const isPastSchedule = schedule.date < todayIso();
               const status = schedule.registration_status;
               const statusConfig = {
@@ -504,7 +504,12 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               return (
                 <Card
                   key={schedule.id}
-                  className="min-w-0 overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-xs transition-shadow hover:shadow-md"
+                  id={`program-schedule-${schedule.id}`}
+                  className={`scroll-mt-24 min-w-0 overflow-hidden rounded-2xl border bg-white shadow-xs transition-all hover:shadow-md ${
+                    isNewlyCreated
+                      ? "border-emerald-400 bg-emerald-50/50 ring-2 ring-emerald-200"
+                      : "border-blue-100"
+                  }`}
                 >
                   <CardContent className="space-y-4 p-4 sm:space-y-5 sm:p-6">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -512,6 +517,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                       <div className="min-w-0 flex-1">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-800">{schedule.category.replaceAll("_", " ")}</Badge>
+                          {isNewlyCreated ? <Badge className="border border-emerald-300 bg-emerald-600 text-white">Just created</Badge> : null}
                           <Badge variant="outline" className="border-slate-200 text-slate-700">{schedule.date >= todayIso() ? "Upcoming" : "Past activity"}</Badge>
                           <Badge variant="outline" className={statusConfig.className}>{statusConfig.label}</Badge>
                         </div>
@@ -882,7 +888,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                             <th className="px-3.5 py-2.5">Barangay</th>
                             <th className="px-3.5 py-2.5">Time Slot</th>
                             <th className="px-3.5 py-2.5 text-center">Status</th>
-                            <th className="px-3.5 py-2.5 text-center">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
@@ -895,16 +900,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                                 <Badge variant="outline" className={`text-xs font-bold ${booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : booking.status === "NO_SHOW" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
                                   {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
                                 </Badge>
-                              </td>
-                              <td className="px-3.5 py-2.5 text-center align-middle">
-                                <div className="flex flex-wrap items-center justify-center gap-1.5">
-                                  {booking.status === "CONFIRMED" && (selected.date < todayIso() || (selected.date === todayIso() && booking.time.slice(0, 5) <= localTimeNow())) ? <>
-                                    <Button type="button" variant="outline" disabled={busy} onClick={() => void recordAttendance(booking, "ATTENDED")} className="h-8 px-2 text-[11px]">Present</Button>
-                                    <Button type="button" variant="outline" disabled={busy} onClick={() => void recordAttendance(booking, "NO_SHOW")} className="h-8 px-2 text-[11px]">No-show</Button>
-                                  </> : null}
-                                  {booking.status === "CONFIRMED" && (selected.date > todayIso() || (selected.date === todayIso() && booking.time.slice(0, 5) > localTimeNow())) ? <Button type="button" variant="outline" disabled={busy} onClick={() => setBookingCancelTarget(booking)} className="h-8 px-2 text-[11px] text-rose-700 hover:text-rose-800">Cancel booking</Button> : null}
-                                  {booking.status !== "CONFIRMED" ? <span className="text-slate-400">—</span> : null}
-                                </div>
                               </td>
                             </tr>
                           ))}
@@ -929,8 +924,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                             <Clock3 className="size-3 text-slate-400" />
                             {formatTime(booking.time)}
                           </div>
-                          {booking.status === "CONFIRMED" && (selected.date < todayIso() || (selected.date === todayIso() && booking.time.slice(0, 5) <= localTimeNow())) ? <div className="flex gap-2 pt-1"><Button type="button" variant="outline" disabled={busy} onClick={() => void recordAttendance(booking, "ATTENDED")} className="h-8 text-xs">Mark attended</Button><Button type="button" variant="outline" disabled={busy} onClick={() => void recordAttendance(booking, "NO_SHOW")} className="h-8 text-xs">Mark no-show</Button></div> : null}
-                          {booking.status === "CONFIRMED" && (selected.date > todayIso() || (selected.date === todayIso() && booking.time.slice(0, 5) > localTimeNow())) ? <Button type="button" variant="outline" disabled={busy} onClick={() => setBookingCancelTarget(booking)} className="mt-1 h-8 text-xs text-rose-700 hover:text-rose-800">Cancel booking</Button> : null}
                         </div>
                       ))}
                     </div>
@@ -960,23 +953,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
           ) : null}
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={bookingCancelTarget !== null} onOpenChange={(open) => { if (!open && !busy) setBookingCancelTarget(null); }}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-bold text-slate-900">Cancel this farmer booking?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-slate-600">
-              {bookingCancelTarget ? `${bookingCancelTarget.farmer_name}'s place will be released and the farmer will be notified. The booking will remain in program history.` : null}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy} className="h-9 text-xs">Keep booking</AlertDialogCancel>
-            <AlertDialogAction disabled={busy || !bookingCancelTarget} onClick={(event) => { event.preventDefault(); void cancelBooking(); }} className="h-9 bg-rose-700 text-xs text-white hover:bg-rose-800">
-              {busy ? "Cancelling…" : "Cancel booking"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Conflict Alert Dialog */}
       <AlertDialog open={conflictPayload !== null} onOpenChange={(open) => { if (!open) setConflictPayload(null); }}>
