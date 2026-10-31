@@ -33,7 +33,7 @@ class NLPDatasetReviewAPITests(TestCase):
         self.users = {role: self.make_user(role.lower(), role) for role in (
             "MAO", "ADMIN", "SIBAT", "CBAT", "FARMER", "AUCTION", "SLAUGHTERHOUSESTAFF",
         )}
-        self.users["DEVELOPER"] = self.make_user("nlp_developer", "ADMIN", nlp_developer=True)
+        self.users["DEVELOPER"] = self.make_user("nlp_developer", "MAO", nlp_developer=True)
         self.barangay = Barangay.objects.create(
             barangay_name="San Roque", latitude=Decimal("13.880000"), longitude=Decimal("121.210000"),
         )
@@ -74,11 +74,12 @@ class NLPDatasetReviewAPITests(TestCase):
         denied_users = [self.users[role] for role in (
             "MAO", "ADMIN", "SIBAT", "CBAT", "FARMER", "AUCTION", "SLAUGHTERHOUSESTAFF",
         )]
+        denied_users.append(self.make_user("admin_nlp_developer", "ADMIN", nlp_developer=True))
         denied_users.append(self.make_user("unassigned_superuser", "ADMIN", is_superuser=True))
         for user in denied_users:
             role = user.role.role_name
             self.client.force_authenticate(user)
-            self.assertEqual(self.client.get(url).status_code, 403, role)
+            self.assertEqual(self.client.get(url).status_code, 403, f"{role} {user.username}")
             self.assertEqual(self.client.post(reverse("nlp-dataset-review", args=[self.training["example_id"]]),
                                               {"decision": "accepted"}, format="json").status_code, 403, role)
 

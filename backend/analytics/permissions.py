@@ -29,7 +29,7 @@ def user_is_nlp_developer(user):
 
 
 class IsNLPDeveloper(BasePermission):
-    """Require explicit developer-group membership, independent of an app role."""
+    """Require an MAO role and explicit developer-group membership."""
 
     def has_permission(self, request, view):
         return user_is_nlp_developer(request.user)

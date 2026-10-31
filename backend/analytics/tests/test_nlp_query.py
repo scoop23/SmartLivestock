@@ -315,17 +315,17 @@ class AskSmartLivestockQueryTests(TestCase):
         # Approved active heads are 3 in San Roque and 11 in Banaba Ibaba.
         self.assertIn("approved active", result["coverage_note"])
 
-    def test_production_trend_uses_recorded_rows_only(self):
+    def test_mao_production_trend_returns_private_notice_without_querying_records(self):
         self.make_production(self.cattle_record, self.farmer, "MILK", "LITERS", "3",
                              date(2026, 6, 10), "RECORDED")
         self.make_production(self.cattle_record, self.farmer, "MILK", "LITERS", "900",
                              date(2026, 6, 10), "APPROVED")
-        result = self.ask(self.farmer_user, "Show my monthly milk production for the last six months.")
-        self.assertEqual(sum(row["quantity"] for row in result["results"]), 28)
-        self.assertEqual(len(result["results"]), 2)
-        self.assertEqual([row["label"] for row in result["results"]], ["May 2026", "Jun 2026"])
-        self.assertIn("farmer-recorded", result["answer"])
-        # The result carries the real recorded months; the API does not fill absent months with zero.
+        with patch("analytics.services.nlp_query._production_results") as production_handler:
+            result = self.ask(self.mao, "Show monthly milk production for the last six months.")
+        self.assertEqual(result["status"], "restricted")
+        self.assertEqual(result["results"], [])
+        self.assertIn("private Farmer production records", result["answer"])
+        production_handler.assert_not_called()
 
     def test_disease_by_barangay_excludes_pending_records_and_out_of_period_events(self):
         result = self.ask(self.mao, "Which barangays reported the most cattle diseases this quarter?")
@@ -342,28 +342,41 @@ class AskSmartLivestockQueryTests(TestCase):
         ])
         self.assertIn("not a mortality rate", result["answer"])
 
-    def test_production_breakdown_keeps_units_separate(self):
-        result = self.ask(self.farmer_user, "Break down my production by type")
-        values = {row["production_type"]: row["unit"] for row in result["results"]}
-        self.assertEqual(values, {"EGGS": "PIECES", "MILK": "LITERS"})
-        self.assertEqual(result["visualization"]["type"], "table")
+    def test_mao_production_breakdown_is_restricted_before_building_a_visualization(self):
+        with patch("analytics.services.nlp_query._production_results") as production_handler:
+            result = self.ask(self.mao, "Break down Farmer production by type")
+        self.assertEqual(result["status"], "restricted")
+        self.assertEqual(result["results"], [])
+        self.assertNotIn("visualization", result)
+        production_handler.assert_not_called()
 
     def test_pending_mao_queue_reuses_workload_service_and_reports_domain_counts(self):
         result = self.ask(self.mao, "Which production records are pending MAO review?")
         self.assertEqual(result["results"], [])
         self.assertIsNotNone(result["as_of"])
 
-    def test_sibat_all_barangays_request_stays_within_assignment(self):
-        self.make_individual_heads(self.farmer, self.cattle, 3)
-        self.make_individual_heads(self.farmer, self.goat, 2)
-        result = self.ask(self.sibat, "How many active livestock heads by barangay across all barangays?")
-        self.assertEqual(result["results"], [{"barangay": "San Roque", "current_heads": 5}])
-
-    def test_sibat_cannot_name_an_unassigned_barangay(self):
-        result = self.ask(self.sibat, "Compare cattle mortality in Banaba Ibaba by barangay this quarter")
-        self.assertEqual(result["status"], "clarification")
-        self.assertEqual(result["results"], [])
-        self.assertNotIn("Banaba Ibaba", result["answer"])
+    def test_only_mao_can_access_the_query_service(self):
+        other_roles = (
+            self.make_user("nlp_admin_denied", "ADMIN"),
+            self.sibat,
+            self.make_user("nlp_cbat_denied", "CBAT"),
+            self.farmer_user,
+            self.make_user("nlp_auction_denied", "AUCTION"),
+            self.make_user("nlp_slaughter_denied", "SLAUGHTERHOUSESTAFF"),
+        )
+        questions = (
+            "How many cattle are currently registered?",
+            "Magkano ang gatas na naitala ngayong buwan?",
+            "Ipakita ang meat yield ngayong quarter.",
+            "Pakita produksiyon ng gatas sa barangay.",
+        )
+        with patch("analytics.services.nlp_pipeline.interpret_question") as parser:
+            for user in other_roles:
+                for question in questions:
+                    with self.subTest(role=user.role.role_name, question=question):
+                        with self.assertRaises(PermissionDenied):
+                            self.ask(user, question)
+            parser.assert_not_called()
 
     def test_no_matching_inventory_is_empty_not_an_observed_zero(self):
         result = self.ask(self.mao, "How many swine are currently registered?")
@@ -375,13 +388,17 @@ class AskSmartLivestockQueryTests(TestCase):
         anonymous = self.client.post(url, {"question": "How many cattle are currently registered?"}, format="json")
         self.assertIn(anonymous.status_code, (401, 403))
 
-        self.client.force_authenticate(self.farmer_user)
-        farmer_response = self.client.post(url, {"question": "How many cattle are currently registered?"}, format="json")
-        self.assertEqual(farmer_response.status_code, 403)
-
-        self.client.force_authenticate(self.sibat)
-        pending_response = self.client.post(url, {"question": "Which submissions are waiting for MAO approval?"}, format="json")
-        self.assertEqual(pending_response.status_code, 403)
+        denied_roles = (
+            self.make_user("api_admin_denied", "ADMIN"), self.sibat,
+            self.make_user("api_cbat_denied", "CBAT"), self.farmer_user,
+            self.make_user("api_auction_denied", "AUCTION"),
+            self.make_user("api_slaughter_denied", "SLAUGHTERHOUSESTAFF"),
+        )
+        for user in denied_roles:
+            with self.subTest(role=user.role.role_name):
+                self.client.force_authenticate(user)
+                denied = self.client.post(url, {"question": "How many cattle are currently registered?"}, format="json")
+                self.assertEqual(denied.status_code, 403)
 
         self.client.force_authenticate(self.mao)
         response = self.client.post(url, {"question": "How many cattle are currently registered?"}, format="json")
@@ -483,7 +500,7 @@ class AskSmartLivestockQueryTests(TestCase):
         self.assertEqual(ambiguous["status"], "ambiguous")
         self.assertEqual(ambiguous["results"], [])
 
-    def test_farmer_count_is_denied_to_sibat_and_allowed_for_admin(self):
+    def test_farmer_count_is_available_only_to_mao(self):
         question = "How many cattle does Farmer Juan Dela Cruz have?"
         self.make_individual_heads(self.farmer, self.cattle, 2)
         self.client.force_authenticate(self.mao)
@@ -498,21 +515,14 @@ class AskSmartLivestockQueryTests(TestCase):
         admin = self.make_user("admin_farmer_count", "ADMIN")
         self.client.force_authenticate(admin)
         response = self.client.post(reverse("nlp-query"), {"question": question}, format="json")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["intent"], "farmer_livestock_count")
+        self.assertEqual(response.status_code, 403)
 
-    def test_sibat_production_and_health_scopes_and_missing_assignment(self):
+    def test_field_roles_cannot_query_even_assigned_barangay_analytics(self):
         self.make_production(self.other_cattle_record, self.other_farmer, "MILK", "LITERS",
                              "400", date(2026, 6, 1), "RECORDED")
-        result = self.ask(self.sibat, "Show milk production this quarter")
-        self.assertEqual(result["status"], "restricted")
-        self.assertEqual(result["results"], [])
-        self.assertIn("private Farmer production records", result["answer"])
-        result = self.ask(self.sibat, "Show disease cases across all barangays this quarter")
-        self.assertEqual([row["barangay"] for row in result["results"]], ["San Roque"])
-        self.sibat.assigned_barangay = None
-        self.sibat.save(update_fields=["assigned_barangay"])
-        self.assertEqual(self.ask(self.sibat, "Show current heads by barangay")["results"], [])
+        for question in ("Show milk production this quarter", "Show disease cases this quarter"):
+            with self.subTest(question=question), self.assertRaises(PermissionDenied):
+                self.ask(self.sibat, question)
 
     def test_municipal_roles_cannot_query_private_production_in_any_wording(self):
         admin = self.make_user("admin_private_production", "ADMIN")
@@ -531,17 +541,21 @@ class AskSmartLivestockQueryTests(TestCase):
             for user in (self.mao, admin, self.sibat, cbat):
                 for question in questions:
                     with self.subTest(role=user.role.role_name, question=question):
-                        result = self.ask(user, question)
-                        self.assertEqual(result["status"], "restricted")
-                        self.assertEqual(result["results"], [])
-                        self.assertIn("private Farmer production records", result["answer"])
+                        if user is self.mao:
+                            result = self.ask(user, question)
+                            self.assertEqual(result["status"], "restricted")
+                            self.assertEqual(result["results"], [])
+                            self.assertIn("private Farmer production records", result["answer"])
+                        else:
+                            with self.assertRaises(PermissionDenied):
+                                self.ask(user, question)
             production_handler.assert_not_called()
         from analytics.services.nlp_query import _activity_query
         with self.assertRaises(PermissionDenied):
             _activity_query(ProductionRecord.objects.all(), user=self.mao, period=None,
                             barangay_id=None, species_name=None)
 
-    def test_farmer_production_queries_are_owner_scoped_and_include_linked_meat_log(self):
+    def test_farmer_cannot_query_own_or_another_farmers_production_through_nlp(self):
         own_meat = self.make_production(
             self.cattle_record, self.farmer, "MEAT", "KILOGRAMS", "12",
             date(2026, 6, 10), "RECORDED",
@@ -555,30 +569,37 @@ class AskSmartLivestockQueryTests(TestCase):
             production_type="MILK", unit="LITERS", quantity=Decimal("3"),
             record_date=date(2026, 6, 20), status="RECORDED", created_by=self.mao,
         )
-        result = self.ask(self.farmer_user, "How much milk did I produce this quarter?")
-        self.assertEqual(result["status"], "answered")
-        self.assertEqual(sum(row["quantity"] for row in result["results"]), 28)
-        self.assertTrue(all(row["unit"] == "LITERS" for row in result["results"]))
-
-        meat = self.ask(self.farmer_user, "Show my meat yield this quarter")
-        self.assertEqual(meat["status"], "answered")
-        self.assertEqual(sum(row["quantity"] for row in meat["results"]), 12)
-        self.assertIn("farmer-recorded", meat["answer"])
+        with patch("analytics.services.nlp_query._production_results") as production_handler:
+            for question in (
+                "How much milk did I produce this quarter?",
+                "Show my meat yield this quarter",
+                "Show Farmer Maria Santos milk production this quarter",
+            ):
+                with self.subTest(question=question), self.assertRaises(PermissionDenied):
+                    self.ask(self.farmer_user, question)
+            production_handler.assert_not_called()
 
     def test_farmer_cannot_query_another_farmer_or_municipal_domains(self):
-        with self.assertRaises(PermissionDenied):
-            self.ask(self.farmer_user, "Show Farmer Maria Santos milk production this quarter")
-        with self.assertRaises(PermissionDenied):
-            self.ask(self.farmer_user, "How many cattle are registered?")
+        self.client.force_authenticate(self.farmer_user)
+        for question in (
+            "How much milk did I produce this quarter?",
+            "Show Farmer Maria Santos milk production this quarter",
+            "How many cattle are registered?",
+        ):
+            with self.subTest(question=question):
+                with self.assertRaises(PermissionDenied):
+                    self.ask(self.farmer_user, question)
+                response = self.client.post(reverse("nlp-query"), {"question": question}, format="json")
+                self.assertEqual(response.status_code, 403)
 
     def test_official_slaughter_questions_are_not_substituted_with_meat_yield(self):
-        for user in (self.mao, self.sibat):
-            result = self.ask(user, "How many official slaughter records were approved this quarter?")
-            self.assertNotEqual(result.get("intent"), "production_trend")
-            self.assertEqual(result["results"], [])
-            self.assertIn("Official slaughter records are a separate municipal dataset", result["answer"])
-        with self.assertRaises(PermissionDenied):
-            self.ask(self.farmer_user, "How many official slaughter records were approved this quarter?")
+        result = self.ask(self.mao, "How many official slaughter records were approved this quarter?")
+        self.assertNotEqual(result.get("intent"), "production_trend")
+        self.assertEqual(result["results"], [])
+        self.assertIn("Official slaughter records are a separate municipal dataset", result["answer"])
+        for user in (self.sibat, self.farmer_user):
+            with self.assertRaises(PermissionDenied):
+                self.ask(user, "How many official slaughter records were approved this quarter?")
 
     def test_staff_production_forecast_routes_are_blocked_before_data_services(self):
         routes = (
@@ -621,24 +642,25 @@ class AskSmartLivestockQueryTests(TestCase):
         self.assertTrue({"slaughter", "auction"}.issubset(set(requested_domains)))
         self.assertFalse(any(item["domain"] == "production" for item in result["summary_cards"]))
 
-    def test_all_barangay_sibat_does_not_gain_mao_queue_authority(self):
+    def test_all_barangays_permission_does_not_grant_sibat_nlp_access(self):
         self.make_individual_heads(self.farmer, self.cattle, 3)
         self.make_individual_heads(self.other_farmer, self.cattle, 11)
         self.sibat.access_scope = "ALL_BARANGAYS"
         self.sibat.save(update_fields=["access_scope"])
-        result = self.ask(self.sibat, "How many cattle are currently registered?")
-        self.assertEqual(result["results"][0]["current_heads"], 14)
+        with self.assertRaises(PermissionDenied):
+            self.ask(self.sibat, "How many cattle are currently registered?")
         with self.assertRaises(PermissionDenied):
             self.ask(self.sibat, "Which records are pending MAO approval?")
 
     def test_evaluation_api_is_read_only_and_requires_developer_group(self):
         url = reverse("nlp-evaluation")
         for user in (self.sibat, self.farmer_user, self.mao, self.make_user("admin", "ADMIN"),
+                     self.make_user("admin_nlp_developer", "ADMIN", nlp_developer=True),
                      self.make_user("unassigned_superuser", "ADMIN", is_superuser=True)):
             self.client.force_authenticate(user)
             self.assertEqual(self.client.get(url).status_code, 403)
             self.assertEqual(self.client.get(url, {"compare": "1"}).status_code, 403)
-        developer = self.make_user("nlp_developer", "ADMIN", nlp_developer=True)
+        developer = self.make_user("nlp_developer", "MAO", nlp_developer=True)
         self.client.force_authenticate(developer)
         result = self.client.get(url)
         self.assertEqual(result.status_code, 200)
@@ -655,14 +677,15 @@ class AskSmartLivestockQueryTests(TestCase):
         for payload in ({}, {"question": "   "}, {"question": ["milk"]}, {"question": None}):
             self.assertEqual(self.client.post(reverse("nlp-query"), payload, format="json").status_code, 400)
 
-    def test_mixed_units_are_not_merged_into_a_line_chart(self):
+    def test_mixed_unit_production_query_is_restricted_before_visualization(self):
         self.make_production(self.cattle_record, self.farmer, "MILK", "KILOGRAMS",
                              "6", date(2026, 6, 10), "RECORDED")
-        result = self.ask(self.farmer_user, "Show my monthly milk production this quarter")
-        self.assertEqual(result["visualization"]["type"], "table")
-        self.assertEqual({row["unit"] for row in result["results"]}, {"LITERS", "KILOGRAMS"})
+        result = self.ask(self.mao, "Show monthly milk production this quarter")
+        self.assertEqual(result["status"], "restricted")
+        self.assertEqual(result["results"], [])
+        self.assertNotIn("visualization", result)
 
-    def test_production_barangay_filter_follows_owner_at_record(self):
+    def test_mao_production_question_with_barangay_filter_remains_private(self):
         self.make_production(self.cattle_record, self.other_farmer, "MILK", "LITERS",
                              "400", date(2026, 6, 10), "RECORDED")
         result = self.ask(self.mao, "Show milk production by barangay in San Roque this quarter")

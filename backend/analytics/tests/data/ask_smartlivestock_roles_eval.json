@@ -1,9 +1,9 @@
 [
   {"role": "MAO", "question": "How many cattle are currently registered?", "http_status": 200, "intent": "population_summary"},
   {"role": "MAO", "question": "Which records are pending MAO approval?", "http_status": 200, "intent": "pending_reviews"},
-  {"role": "ADMIN", "question": "How many cattle are currently registered?", "http_status": 200, "intent": "population_summary"},
-  {"role": "SIBAT", "question": "How many cattle are currently registered?", "http_status": 200, "intent": "population_summary"},
-  {"role": "CBAT", "question": "How many cattle are currently registered?", "http_status": 200, "intent": "population_summary"},
+  {"role": "ADMIN", "question": "How many cattle are currently registered?", "http_status": 403, "intent": null},
+  {"role": "SIBAT", "question": "How many cattle are currently registered?", "http_status": 403, "intent": null},
+  {"role": "CBAT", "question": "How many cattle are currently registered?", "http_status": 403, "intent": null},
   {"role": "SIBAT", "question": "Which records are pending MAO approval?", "http_status": 403, "intent": null},
   {"role": "CBAT", "question": "Which records are pending MAO approval?", "http_status": 403, "intent": null},
   {"role": "SIBAT", "question": "How many cattle does Farmer Berto Pagsubok own?", "http_status": 403, "intent": null},
