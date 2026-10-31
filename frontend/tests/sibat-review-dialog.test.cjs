@@ -38,6 +38,7 @@ function loadComponent(source) {
     if (id === "../sibat-analytics") return {
       useReviewSubmission: () => ({ isPending: false }),
       useUpdateSubmissionData: () => ({ isPending: false }),
+      useAvailableBatches: () => ({ data: [] }),
     };
     if (id === "./milk-anomaly-assessment-card" || id.includes("milk-anomaly-assessment-card")) return { MilkAnomalyAssessmentCard: wrapper };
     if (id === "./sibat-status-badge") return loadComponent(ts.transpileModule(

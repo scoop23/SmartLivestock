@@ -51,9 +51,10 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
+  useAvailableBatches,
   useReviewSubmission,
   useUpdateSubmissionData,
   type UnifiedSubmissionItem,
@@ -206,12 +207,47 @@ function SibatReviewDialogContent({
   const [editBreed, setEditBreed] = useState(submission?.breed || "");
   const [editSex, setEditSex] = useState(submission?.sex || "Female");
   const [editWeight, setEditWeight] = useState(submission?.weight != null ? String(submission.weight) : "");
+  const [editBirthDate, setEditBirthDate] = useState(submission?.birthDate || "");
+  const [editLastVaccinationDate, setEditLastVaccinationDate] = useState(submission?.lastVaccinationDate || "");
+  const [editBatchId, setEditBatchId] = useState<number | null>(submission?.batchId ?? null);
   const [editHousingPen, setEditHousingPen] = useState(submission?.housingPen || "");
   const [editFeedType, setEditFeedType] = useState(submission?.feedType || "");
   const [editTargetWeight, setEditTargetWeight] = useState(submission?.targetWeight ? String(submission.targetWeight) : "");
 
+  useEffect(() => {
+    if (submission) {
+      setEditTagNumber(submission.tagNumber || "");
+      setEditBreed(submission.breed || "");
+      setEditSex(submission.sex || "Female");
+      setEditWeight(submission.weight != null ? String(submission.weight) : "");
+      setEditBirthDate(submission.birthDate || "");
+      setEditLastVaccinationDate(submission.lastVaccinationDate || "");
+      setEditBatchId(submission.batchId ?? null);
+      setEditHousingPen(submission.housingPen || "");
+      setEditFeedType(submission.feedType || "");
+      setEditTargetWeight(submission.targetWeight ? String(submission.targetWeight) : "");
+      setIsEditing(false);
+    }
+  }, [submission]);
+
+  const editSectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isEditing) {
+      const timer = setTimeout(() => {
+        editSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [isEditing]);
+
   const reviewMutation = useReviewSubmission();
   const updateMutation = useUpdateSubmissionData();
+  const batchesQuery = useAvailableBatches(Boolean(isEditing && submission?.sourceType === "INVENTORY"));
+  const availableBatches = batchesQuery.data ?? [];
 
   if (!submission) return null;
 
@@ -271,16 +307,19 @@ function SibatReviewDialogContent({
 
   const handleSaveEdits = async () => {
     try {
-      const payload: Record<string, string | number> = {};
+      const payload: Record<string, string | number | null> = {};
       if (isBatch) {
         if (editHousingPen !== undefined) payload.housing_pen = editHousingPen;
         if (editFeedType !== undefined) payload.feed_type = editFeedType;
         if (editTargetWeight) payload.target_weight = parseFloat(editTargetWeight);
       } else {
-        if (editTagNumber) payload.tag_number = editTagNumber;
-        if (editBreed) payload.breed = editBreed;
+        if (editTagNumber.trim()) payload.tag_number = editTagNumber.trim();
+        if (editBreed.trim()) payload.breed = editBreed.trim();
         if (editSex) payload.sex = editSex;
-        if (editWeight) payload.weight = parseFloat(editWeight);
+        if (editWeight !== "") payload.weight = parseFloat(editWeight);
+        if (editBirthDate) payload.birth_date = editBirthDate;
+        payload.last_vaccination_date = editLastVaccinationDate || null;
+        payload.batch = editBatchId ?? null;
       }
       await updateMutation.mutateAsync({
         id: submission.rawId,
@@ -554,107 +593,6 @@ function SibatReviewDialogContent({
           </div>
         )}
 
-        {/* Quick animal profile summary */}
-        {submission.sourceType === "INVENTORY" && !isBatch && (
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 sm:gap-3">
-            <div className="flex min-h-[100px] flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs sm:p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Ear Tag ID</span>
-                <Tag className="size-3.5 text-slate-400" />
-              </div>
-              <div className="mt-1 min-w-0">
-                <span className="block truncate text-base font-bold tracking-tight text-slate-900 sm:text-lg">
-                  {submission.tagNumber || `ANIMAL-${submission.rawId}`}
-                </span>
-                <span className="mt-0.5 flex items-center gap-1 text-[10px] font-mono font-medium text-emerald-700 sm:text-[11px]">
-                  <Check className="size-3 shrink-0 text-emerald-600 stroke-[3]" />
-                  {submission.tagNumber ? "Standard Tag & Barcode Confirmed" : "System ID Assigned"}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex min-h-[100px] flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs sm:p-4">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Assigned Herd</span>
-                <Layers className={`size-3.5 ${submission.batchCode ? "text-teal-700" : "text-slate-400"}`} />
-              </div>
-              <div className="mt-1 min-w-0">
-                <span className="block truncate font-mono text-base font-bold tracking-tight text-slate-900 sm:text-lg">
-                  {submission.batchCode || "None (Individual)"}
-                </span>
-                <span className="mt-0.5 block truncate text-[10px] font-mono text-slate-500 sm:text-[11px]">
-                  {submission.batchName || (submission.batchCode ? "Assigned Herd Group" : "Not grouped in a herd")}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex min-h-[100px] flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs sm:p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Scale Weight</span>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-mono ${submission.weight != null ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-400"}`}>
-                  {submission.weight != null ? "Weighed" : "Unweighed"}
-                </span>
-              </div>
-              <div className="mt-1">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
-                    {submission.weight != null ? Number(submission.weight).toFixed(2) : "—"}
-                  </span>
-                  {submission.weight != null && <span className="text-xs font-mono font-bold text-slate-500">kg</span>}
-                </div>
-                <span className="mt-0.5 block truncate text-[10px] font-mono text-slate-500">
-                  {submission.createdAt ? `Registered: ${formatCalendarDate(submission.createdAt)}` : "No weigh-ins"}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex min-h-[100px] flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs sm:p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Birth Date</span>
-                <Calendar className="size-3.5 text-slate-400" />
-              </div>
-              <div className="mt-1 min-w-0">
-                <span className="block truncate text-sm font-bold tracking-tight text-slate-900 sm:text-base">
-                  {submission.birthDate ? formatCalendarDate(submission.birthDate) : "Birth date unrecorded"}
-                </span>
-                <span className="mt-0.5 block truncate text-[10px] font-mono text-slate-500">
-                  {submission.barangayName ? `Barangay ${submission.barangayName}` : `Owner: ${submission.farmerName}`}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex min-h-[100px] flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs sm:p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Age / Class</span>
-                <Hourglass className="size-3.5 text-slate-400" />
-              </div>
-              <div className="mt-1 min-w-0">
-                <span className="block truncate text-sm font-bold tracking-tight text-slate-900 sm:text-base">
-                  {formatLivestockAge(submission.age)} • {formatAgeClassification(submission.ageClassification)}
-                </span>
-                <span className="mt-0.5 block truncate text-[10px] font-mono text-slate-500">
-                  {submission.sex || "Sex unrecorded"} • Individual Animal
-                </span>
-              </div>
-            </div>
-
-            <div className={`flex min-h-[100px] flex-col justify-between rounded-2xl border p-3.5 shadow-2xs sm:p-4 ${submission.lastVaccinationDate ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200/80 bg-white"}`}>
-              <div className="flex items-center justify-between">
-                <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${submission.lastVaccinationDate ? "text-emerald-800" : "text-slate-400"}`}>Vaccination Status</span>
-                <Shield className={`size-4 ${submission.lastVaccinationDate ? "text-emerald-600" : "text-slate-400"}`} />
-              </div>
-              <div className="mt-1 min-w-0">
-                <span className="block truncate text-sm font-bold tracking-tight text-slate-900 sm:text-base">
-                  {submission.lastVaccinationDate ? `Vaccinated (${formatCalendarDate(submission.lastVaccinationDate)})` : "Unvaccinated / Pending"}
-                </span>
-                <span className={`mt-0.5 block truncate text-[10px] font-mono ${submission.lastVaccinationDate ? "text-emerald-700" : "text-slate-500"}`}>
-                  {submission.lastVaccinationDate ? "Vaccination date on record" : "No vaccination logged yet"}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* ═══ Main 2-Column Grid ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4 items-start">
           {/* LEFT COLUMN: Record details */}
@@ -672,195 +610,457 @@ function SibatReviewDialogContent({
                 </div>
 
                 {/* Edit toggle for individual animal or batch inventory */}
-                {isPending && (!isBatch && submission.sourceType === "INVENTORY" || isBatch) && (
+                {(isPending || isReturned) && (!isBatch && submission.sourceType === "INVENTORY" || isBatch) && (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant={isEditing ? "outline" : "ghost"}
                     size="sm"
                     onClick={() => setIsEditing(!isEditing)}
-                    className="h-6.5 text-[11px] text-slate-600 hover:text-slate-900 gap-1 px-2 rounded-md shrink-0"
+                    className={`h-7 text-xs font-semibold gap-1.5 px-2.5 rounded-lg shrink-0 cursor-pointer ${
+                      isEditing
+                        ? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    }`}
                   >
-                    <Pencil className="size-2.5" />
-                    {isEditing ? "Cancel" : "Edit"}
+                    {isEditing ? (
+                      <>
+                        <X className="size-3 text-amber-700" />
+                        Cancel
+                      </>
+                    ) : (
+                      <>
+                        <Pencil className="size-3 text-[#1b4332]" />
+                        Edit
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
 
-              {!isBatch && submission.sourceType === "INVENTORY" && !isEditing && (
+              {!isBatch && submission.sourceType === "INVENTORY" && (
                 <div className="pt-2">
                   <AnimalPhoto key={`${submission.id}-${submission.photoUrl || "no-photo"}`} submission={submission} />
                 </div>
               )}
 
-              {/* Editable form mode (for inventory / batch records) */}
-              {isEditing ? (
-                <div className="pt-2.5 space-y-2.5">
-                  {!isBatch ? (
-                    <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-emerald-200">
-                      <p className="text-[10.5px] font-bold uppercase text-emerald-800 tracking-wider">
-                        Edit Animal Identification
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-[10.5px] font-bold text-slate-600">Ear Tag #</Label>
-                          <Input
-                            value={editTagNumber}
-                            onChange={(e) => setEditTagNumber(e.target.value)}
-                            placeholder="e.g. SWN-01-05"
-                            className="h-7.5 text-xs rounded-lg mt-0.5"
-                          />
-                        </div>
-                        <LivestockBreedField
-                          id="sibat-review-breed"
-                          species={submission.livestockTypeName}
-                          label="Breed"
-                          value={editBreed}
-                          onChange={setEditBreed}
-                          placeholder="Select breed"
-                          controlClassName="h-7.5 rounded-lg text-xs"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-[10.5px] font-bold text-slate-600">Sex</Label>
-                          <select
-                            value={editSex}
-                            onChange={(e) => setEditSex(e.target.value)}
-                            className="h-7.5 w-full text-xs rounded-lg border border-slate-200 bg-white px-2 mt-0.5 font-medium"
-                          >
-                            <option value="Female">Female</option>
-                            <option value="Male">Male</option>
-                          </select>
-                        </div>
-                        <div>
-                          <Label className="text-[10.5px] font-bold text-slate-600">Body Weight (kg)</Label>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            value={editWeight}
-                            onChange={(e) => setEditWeight(e.target.value)}
-                            placeholder="65.0"
-                            className="h-7.5 text-xs rounded-lg mt-0.5"
-                          />
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleSaveEdits}
-                        disabled={updateMutation.isPending}
-                        className="w-full h-7.5 text-xs bg-[#1b4332] hover:bg-[#143326] text-white font-bold rounded-lg mt-1 gap-1.5"
-                      >
-                        <Save className="size-3" />
-                        {updateMutation.isPending ? "Saving..." : "Save Animal Updates"}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-emerald-200">
-                      <p className="text-[10.5px] font-bold uppercase text-emerald-800 tracking-wider">
-                        Edit Herd Housing & Target
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-[10.5px] font-bold text-slate-600">Housing / Pen</Label>
-                          <Input
-                            value={editHousingPen}
-                            onChange={(e) => setEditHousingPen(e.target.value)}
-                            placeholder="e.g. Pen 3 Fattening"
-                            className="h-7.5 text-xs rounded-lg mt-0.5"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-[10.5px] font-bold text-slate-600">Feed Ration</Label>
-                          <Input
-                            value={editFeedType}
-                            onChange={(e) => setEditFeedType(e.target.value)}
-                            placeholder="e.g. Commercial Grower"
-                            className="h-7.5 text-xs rounded-lg mt-0.5"
-                          />
-                        </div>
-                      </div>
+              {/* Editable form mode for batch records */}
+              {isEditing && isBatch ? (
+                <div ref={editSectionRef} className="pt-2.5 space-y-2.5 scroll-mt-4">
+                  <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-emerald-200">
+                    <p className="text-[10.5px] font-bold uppercase text-emerald-800 tracking-wider">
+                      Edit Herd Housing & Target
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="text-[10.5px] font-bold text-slate-600">Target Weight (kg)</Label>
+                        <Label className="text-[10.5px] font-bold text-slate-600">Housing / Pen</Label>
                         <Input
-                          type="number"
-                          step="0.5"
-                          value={editTargetWeight}
-                          onChange={(e) => setEditTargetWeight(e.target.value)}
-                          placeholder="90"
+                          value={editHousingPen}
+                          onChange={(e) => setEditHousingPen(e.target.value)}
+                          placeholder="e.g. Pen 3 Fattening"
                           className="h-7.5 text-xs rounded-lg mt-0.5"
                         />
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleSaveEdits}
-                        disabled={updateMutation.isPending}
-                        className="w-full h-7.5 text-xs bg-[#1b4332] hover:bg-[#143326] text-white font-bold rounded-lg mt-1 gap-1.5"
-                      >
-                        <Save className="size-3" />
-                        {updateMutation.isPending ? "Saving..." : "Save Herd Updates"}
-                      </Button>
+                      <div>
+                        <Label className="text-[10.5px] font-bold text-slate-600">Feed Ration</Label>
+                        <Input
+                          value={editFeedType}
+                          onChange={(e) => setEditFeedType(e.target.value)}
+                          placeholder="e.g. Commercial Grower"
+                          className="h-7.5 text-xs rounded-lg mt-0.5"
+                        />
+                      </div>
                     </div>
-                  )}
+                    <div>
+                      <Label className="text-[10.5px] font-bold text-slate-600">Target Weight (kg)</Label>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        value={editTargetWeight}
+                        onChange={(e) => setEditTargetWeight(e.target.value)}
+                        placeholder="90"
+                        className="h-7.5 text-xs rounded-lg mt-0.5"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleSaveEdits}
+                      disabled={updateMutation.isPending}
+                      className="w-full h-7.5 text-xs bg-[#1b4332] hover:bg-[#143326] text-white font-bold rounded-lg mt-1 gap-1.5"
+                    >
+                      <Save className="size-3" />
+                      {updateMutation.isPending ? "Saving..." : "Save Herd Updates"}
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 /* Standard Display List */
-                <div className="divide-y divide-slate-100">
-                  {/* Farmer */}
-                  <div className="flex items-center justify-between gap-2 py-1.5">
-                    <div className="flex items-center gap-2 text-slate-500 shrink-0">
-                      <User className="size-3.5 text-slate-400" />
-                      <span className="text-[11px] sm:text-xs font-medium">Farmer</span>
+                <div className="space-y-2.5 pt-2">
+                  <div className="divide-y divide-slate-100">
+                    {/* Farmer */}
+                    <div className="flex items-center justify-between gap-2 py-1.5">
+                      <div className="flex items-center gap-2 text-slate-500 shrink-0">
+                        <User className="size-3.5 text-slate-400" />
+                        <span className="text-[11px] sm:text-xs font-medium">Farmer</span>
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
+                        {submission.farmerName}
+                      </span>
                     </div>
-                    <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
-                      {submission.farmerName}
-                    </span>
+
+                    {/* Barangay */}
+                    <div className="flex items-center justify-between gap-2 py-1.5">
+                      <div className="flex items-center gap-2 text-slate-500 shrink-0">
+                        <MapPin className="size-3.5 text-slate-400" />
+                        <span className="text-[11px] sm:text-xs font-medium">Barangay</span>
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
+                        {submission.barangayName}
+                      </span>
+                    </div>
+
+                    {/* Species */}
+                    <div className="flex items-center justify-between gap-2 py-1.5">
+                      <div className="flex items-center gap-2 text-slate-500 shrink-0">
+                        <Icon iconNode={cowHead} className="size-3.5 text-slate-400" />
+                        <span className="text-[11px] sm:text-xs font-medium">Species</span>
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
+                        {submission.livestockTypeName || "Livestock"}
+                      </span>
+                    </div>
+
+                    {/* Source-specific production or weight measure (shown if not individual inventory) */}
+                    {submission.sourceType !== "INVENTORY" && (
+                      <div className="flex items-center justify-between gap-2 py-1.5">
+                        <div className="flex items-center gap-2 text-slate-500 shrink-0">
+                          <Scale className="size-3.5 text-slate-400" />
+                          <span className="text-[11px] sm:text-xs font-medium">{reviewMetricLabel}</span>
+                        </div>
+                        <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
+                          {reviewMetricValue}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Record date */}
+                    <div className="flex items-center justify-between gap-2 py-1.5">
+                      <div className="flex items-center gap-2 text-slate-500 shrink-0">
+                        <Calendar className="size-3.5 text-slate-400" />
+                        <span className="text-[11px] sm:text-xs font-medium">Record date</span>
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
+                        {formatReviewDate(submission.recordDate || submission.createdAt)}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Barangay */}
-                  <div className="flex items-center justify-between gap-2 py-1.5">
-                    <div className="flex items-center gap-2 text-slate-500 shrink-0">
-                      <MapPin className="size-3.5 text-slate-400" />
-                      <span className="text-[11px] sm:text-xs font-medium">Barangay</span>
-                    </div>
-                    <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
-                      {submission.barangayName}
-                    </span>
-                  </div>
+                  {/* Animal Profile Summary (6 Cards) - Edit or View Mode */}
+                  {submission.sourceType === "INVENTORY" && !isBatch && (
+                    isEditing ? (
+                      <div ref={editSectionRef} className="space-y-2.5 pt-2 border-t border-slate-100 scroll-mt-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10.5px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                            <Pencil className="size-3" /> Edit Animal Details
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">Verify physical tags and scale weights</span>
+                        </div>
 
-                  {/* Species */}
-                  <div className="flex items-center justify-between gap-2 py-1.5">
-                    <div className="flex items-center gap-2 text-slate-500 shrink-0">
-                      <Icon iconNode={cowHead} className="size-3.5 text-slate-400" />
-                      <span className="text-[11px] sm:text-xs font-medium">Species</span>
-                    </div>
-                    <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
-                      {submission.livestockTypeName || "Livestock"}
-                    </span>
-                  </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
+                          {/* 1. Ear Tag ID Input */}
+                          <div className="flex flex-col justify-between rounded-xl border border-emerald-300 bg-emerald-50/20 p-2.5 sm:p-3 shadow-2xs">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800">Ear Tag #</Label>
+                              <Tag className="size-3.5 text-emerald-600" />
+                            </div>
+                            <Input
+                              value={editTagNumber}
+                              onChange={(e) => setEditTagNumber(e.target.value)}
+                              placeholder="e.g. SALLIY-001"
+                              className="h-8 text-xs font-bold rounded-lg mt-1.5 bg-white border-slate-200 focus-visible:ring-emerald-600"
+                            />
+                            <span className="mt-1 text-[9.5px] font-mono text-slate-400">Ear tag applied on field check</span>
+                          </div>
 
-                  {/* Source-specific production or weight measure */}
-                  <div className="flex items-center justify-between gap-2 py-1.5">
-                    <div className="flex items-center gap-2 text-slate-500 shrink-0">
-                      <Scale className="size-3.5 text-slate-400" />
-                      <span className="text-[11px] sm:text-xs font-medium">{reviewMetricLabel}</span>
-                    </div>
-                    <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
-                      {reviewMetricValue}
-                    </span>
-                  </div>
+                          {/* 2. Assigned Herd Select */}
+                          <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">Assigned Herd</Label>
+                              <Layers className="size-3.5 text-slate-400" />
+                            </div>
+                            <select
+                              value={editBatchId ?? ""}
+                              onChange={(e) => setEditBatchId(e.target.value ? Number(e.target.value) : null)}
+                              className="h-8 w-full text-xs font-medium rounded-lg border border-slate-200 bg-white px-2 mt-1.5"
+                            >
+                              <option value="">None (Individual Animal)</option>
+                              {availableBatches.map((b) => (
+                                <option key={b.id} value={b.id}>
+                                  {b.batch_code} {b.batch_name ? `(${b.batch_name})` : ""}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="mt-1 text-[9.5px] font-mono text-slate-400">Optional herd enrollment</span>
+                          </div>
 
-                  {/* Record date */}
-                  <div className="flex items-center justify-between gap-2 py-1.5">
-                    <div className="flex items-center gap-2 text-slate-500 shrink-0">
-                      <Calendar className="size-3.5 text-slate-400" />
-                      <span className="text-[11px] sm:text-xs font-medium">Record date</span>
-                    </div>
-                    <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
-                      {formatReviewDate(submission.recordDate || submission.createdAt)}
-                    </span>
-                  </div>
+                          {/* 3. Scale Weight Input */}
+                          <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">Scale Weight</Label>
+                              <Scale className="size-3.5 text-slate-400" />
+                            </div>
+                            <div className="relative mt-1.5">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={editWeight}
+                                onChange={(e) => setEditWeight(e.target.value)}
+                                placeholder="0.00"
+                                className="h-8 text-xs font-bold rounded-lg pr-8 bg-white border-slate-200"
+                              />
+                              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-400">kg</span>
+                            </div>
+                            <span className="mt-1 text-[9.5px] font-mono text-slate-400">Recorded on-site weight</span>
+                          </div>
+
+                          {/* 4. Birth Date Input */}
+                          <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">Birth Date</Label>
+                              <Calendar className="size-3.5 text-slate-400" />
+                            </div>
+                            <Input
+                              type="date"
+                              value={editBirthDate}
+                              onChange={(e) => setEditBirthDate(e.target.value)}
+                              max={new Date().toISOString().split("T")[0]}
+                              className="h-8 text-xs rounded-lg mt-1.5 bg-white border-slate-200"
+                            />
+                            <span className="mt-1 text-[9.5px] font-mono text-slate-400">Calving / birth date</span>
+                          </div>
+
+                          {/* 5. Age / Class (Breed & Sex) */}
+                          <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">Breed & Sex</Label>
+                              <Hourglass className="size-3.5 text-slate-400" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                              <select
+                                value={editSex}
+                                onChange={(e) => setEditSex(e.target.value)}
+                                className="h-8 w-full text-xs font-medium rounded-lg border border-slate-200 bg-white px-2"
+                              >
+                                <option value="Female">Female</option>
+                                <option value="Male">Male</option>
+                              </select>
+                              <LivestockBreedField
+                                id="sibat-review-breed"
+                                species={submission.livestockTypeName}
+                                value={editBreed}
+                                onChange={setEditBreed}
+                                placeholder="Breed"
+                                controlClassName="h-8 rounded-lg text-xs"
+                              />
+                            </div>
+                            <span className="mt-1 text-[9.5px] font-mono text-slate-400">Physical classification</span>
+                          </div>
+
+                          {/* 6. Vaccination Status Input */}
+                          <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">Last Vaccination</Label>
+                              <Shield className="size-3.5 text-slate-400" />
+                            </div>
+                            <Input
+                              type="date"
+                              value={editLastVaccinationDate}
+                              onChange={(e) => setEditLastVaccinationDate(e.target.value)}
+                              max={new Date().toISOString().split("T")[0]}
+                              className="h-8 text-xs rounded-lg mt-1.5 bg-white border-slate-200"
+                            />
+                            <span className="mt-1 text-[9.5px] font-mono text-slate-400">Leave blank if pending</span>
+                          </div>
+                        </div>
+
+                        {/* Save / Cancel buttons */}
+                        <div className="flex items-center gap-2 pt-1.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleSaveEdits}
+                            disabled={updateMutation.isPending}
+                            className="flex-1 h-8 text-xs bg-[#1b4332] hover:bg-[#143326] text-white font-bold rounded-xl gap-1.5 cursor-pointer shadow-xs"
+                          >
+                            <Save className="size-3.5" />
+                            {updateMutation.isPending ? "Saving changes..." : "Save Animal Updates"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditTagNumber(submission.tagNumber || "");
+                              setEditBreed(submission.breed || "");
+                              setEditSex(submission.sex || "Female");
+                              setEditWeight(submission.weight != null ? String(submission.weight) : "");
+                              setEditBirthDate(submission.birthDate || "");
+                              setEditLastVaccinationDate(submission.lastVaccinationDate || "");
+                              setEditBatchId(submission.batchId ?? null);
+                              setIsEditing(false);
+                            }}
+                            disabled={updateMutation.isPending}
+                            className="h-8 px-3 text-xs font-semibold rounded-xl cursor-pointer"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 pt-2 border-t border-slate-100">
+                        {/* 1. Ear Tag ID */}
+                        <div
+                          onClick={() => (isPending || isReturned) && setIsEditing(true)}
+                          className={`flex min-h-[82px] flex-col justify-between rounded-xl border border-slate-200/80 bg-slate-50/60 p-2.5 sm:p-3 shadow-2xs transition-all ${(isPending || isReturned) ? "hover:border-emerald-300 hover:bg-emerald-50/30 cursor-pointer group" : ""}`}
+                          title={(isPending || isReturned) ? "Click to edit animal details" : undefined}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Ear Tag ID</span>
+                            <div className="flex items-center gap-1">
+                              {(isPending || isReturned) && <Pencil className="size-2.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                              <Tag className="size-3.5 text-slate-400" />
+                            </div>
+                          </div>
+                          <div className="mt-1 min-w-0">
+                            <span className="block truncate text-sm sm:text-base font-bold tracking-tight text-slate-900">
+                              {submission.tagNumber || `ANIMAL-${submission.rawId}`}
+                            </span>
+                            <span className="mt-0.5 flex items-center gap-1 text-[9.5px] font-mono font-medium text-emerald-700 sm:text-[10.5px]">
+                              <Check className="size-3 shrink-0 text-emerald-600 stroke-[3]" />
+                              <span className="truncate">{submission.tagNumber ? "Standard Tag & Barcode Confirmed" : "System ID Assigned"}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 2. Assigned Herd */}
+                        <div
+                          onClick={() => (isPending || isReturned) && setIsEditing(true)}
+                          className={`flex min-h-[82px] flex-col justify-between rounded-xl border border-slate-200/80 bg-slate-50/60 p-2.5 sm:p-3 shadow-2xs transition-all ${(isPending || isReturned) ? "hover:border-emerald-300 hover:bg-emerald-50/30 cursor-pointer group" : ""}`}
+                          title={(isPending || isReturned) ? "Click to edit animal details" : undefined}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Assigned Herd</span>
+                            <div className="flex items-center gap-1">
+                              {(isPending || isReturned) && <Pencil className="size-2.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                              <Layers className={`size-3.5 ${submission.batchCode ? "text-teal-700" : "text-slate-400"}`} />
+                            </div>
+                          </div>
+                          <div className="mt-1 min-w-0">
+                            <span className="block truncate font-mono text-sm sm:text-base font-bold tracking-tight text-slate-900">
+                              {submission.batchCode || "None (Individual)"}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[9.5px] font-mono text-slate-500 sm:text-[10.5px]">
+                              {submission.batchName || (submission.batchCode ? "Assigned Herd Group" : "Not grouped in a herd")}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 3. Scale Weight */}
+                        <div
+                          onClick={() => (isPending || isReturned) && setIsEditing(true)}
+                          className={`flex min-h-[82px] flex-col justify-between rounded-xl border border-slate-200/80 bg-slate-50/60 p-2.5 sm:p-3 shadow-2xs transition-all ${(isPending || isReturned) ? "hover:border-emerald-300 hover:bg-emerald-50/30 cursor-pointer group" : ""}`}
+                          title={(isPending || isReturned) ? "Click to edit animal details" : undefined}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Scale Weight</span>
+                            <span className={`rounded-full px-1.5 py-0.5 text-[9.5px] font-mono ${submission.weight != null ? "bg-emerald-50 text-emerald-800 border border-emerald-200/60" : "bg-slate-100 text-slate-400"}`}>
+                              {submission.weight != null ? "Weighed" : "Unweighed"}
+                            </span>
+                          </div>
+                          <div className="mt-1">
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-lg sm:text-xl font-black tracking-tight text-slate-900">
+                                {submission.weight != null ? Number(submission.weight).toFixed(2) : "—"}
+                              </span>
+                              {submission.weight != null && <span className="text-[11px] font-mono font-bold text-slate-500">kg</span>}
+                            </div>
+                            <span className="mt-0.5 block truncate text-[9.5px] font-mono text-slate-500 sm:text-[10.5px]">
+                              {submission.createdAt ? `Registered: ${formatCalendarDate(submission.createdAt)}` : "No weigh-ins"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 4. Birth Date */}
+                        <div
+                          onClick={() => (isPending || isReturned) && setIsEditing(true)}
+                          className={`flex min-h-[82px] flex-col justify-between rounded-xl border border-slate-200/80 bg-slate-50/60 p-2.5 sm:p-3 shadow-2xs transition-all ${(isPending || isReturned) ? "hover:border-emerald-300 hover:bg-emerald-50/30 cursor-pointer group" : ""}`}
+                          title={(isPending || isReturned) ? "Click to edit animal details" : undefined}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Birth Date</span>
+                            <div className="flex items-center gap-1">
+                              {(isPending || isReturned) && <Pencil className="size-2.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                              <Calendar className="size-3.5 text-slate-400" />
+                            </div>
+                          </div>
+                          <div className="mt-1 min-w-0">
+                            <span className="block truncate text-xs sm:text-sm font-bold tracking-tight text-slate-900">
+                              {submission.birthDate ? formatCalendarDate(submission.birthDate) : "Birth date unrecorded"}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[9.5px] font-mono text-slate-500 sm:text-[10.5px]">
+                              {submission.barangayName ? `Barangay ${submission.barangayName}` : `Owner: ${submission.farmerName}`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 5. Age / Class */}
+                        <div
+                          onClick={() => (isPending || isReturned) && setIsEditing(true)}
+                          className={`flex min-h-[82px] flex-col justify-between rounded-xl border border-slate-200/80 bg-slate-50/60 p-2.5 sm:p-3 shadow-2xs transition-all ${(isPending || isReturned) ? "hover:border-emerald-300 hover:bg-emerald-50/30 cursor-pointer group" : ""}`}
+                          title={(isPending || isReturned) ? "Click to edit animal details" : undefined}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Age / Class</span>
+                            <div className="flex items-center gap-1">
+                              {(isPending || isReturned) && <Pencil className="size-2.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                              <Hourglass className="size-3.5 text-slate-400" />
+                            </div>
+                          </div>
+                          <div className="mt-1 min-w-0">
+                            <span className="block truncate text-xs sm:text-sm font-bold tracking-tight text-slate-900">
+                              {formatLivestockAge(submission.age)} • {formatAgeClassification(submission.ageClassification)}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[9.5px] font-mono text-slate-500 sm:text-[10.5px]">
+                              {submission.sex || "Sex unrecorded"} • Individual Animal
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 6. Vaccination Status */}
+                        <div
+                          onClick={() => (isPending || isReturned) && setIsEditing(true)}
+                          className={`flex min-h-[82px] flex-col justify-between rounded-xl border p-2.5 sm:p-3 shadow-2xs transition-all ${(isPending || isReturned) ? "hover:border-emerald-300 hover:bg-emerald-50/30 cursor-pointer group" : ""} ${submission.lastVaccinationDate ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200/80 bg-slate-50/60"}`}
+                          title={(isPending || isReturned) ? "Click to edit animal details" : undefined}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${submission.lastVaccinationDate ? "text-emerald-800" : "text-slate-400"}`}>Vaccination Status</span>
+                            <div className="flex items-center gap-1">
+                              {(isPending || isReturned) && <Pencil className="size-2.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                              <Shield className={`size-3.5 ${submission.lastVaccinationDate ? "text-emerald-600" : "text-slate-400"}`} />
+                            </div>
+                          </div>
+                          <div className="mt-1 min-w-0">
+                            <span className="block truncate text-xs sm:text-sm font-bold tracking-tight text-slate-900">
+                              {submission.lastVaccinationDate ? `Vaccinated (${formatCalendarDate(submission.lastVaccinationDate)})` : "Unvaccinated / Pending"}
+                            </span>
+                            <span className={`mt-0.5 block truncate text-[9.5px] font-mono ${submission.lastVaccinationDate ? "text-emerald-700" : "text-slate-500"} sm:text-[10.5px]`}>
+                              {submission.lastVaccinationDate ? "Vaccination date on record" : "No vaccination logged yet"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  )}
                 </div>
               )}
 
