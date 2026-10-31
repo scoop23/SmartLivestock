@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { apiError,getBarangays,getBookings,getSchedules,type BarangayOption,type ProgramBooking,type ProgramFarmerAudience,type ProgramPublicationStatus,type ProgramSchedule } from "@/lib/community-api";
-import { ArrowLeft,CalendarDays,CheckCircle2,ChevronDown,ChevronUp,ClipboardList,Clock3,FileText,Image as ImageIcon,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Settings,Sparkles,Trash2,UnlockKeyhole,Users,Zap } from "lucide-react";
+import { ArrowLeft,CalendarDays,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,ClipboardList,Clock3,FileText,GraduationCap,HeartPulse,Image as ImageIcon,Info,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Settings,Sparkles,Trash2,UnlockKeyhole,Users,Zap } from "lucide-react";
 import Image from "next/image";
 import { useCallback,useEffect,useMemo,useRef,useState,type FormEvent } from "react";
 import { CommunityEmptyState,CommunitySkeleton,formatLongDate,formatTime,PROGRAM_TIME_SLOTS,todayIso,type CommunityRole } from "./community-ui";
@@ -64,6 +64,117 @@ function ProgramCalendarDayButton(props: React.ComponentProps<typeof CalendarDay
   );
 }
 
+function formatProgramTableDate(iso: string): string {
+  if (!iso) return "—";
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatProgramTimeWindow(availableTimes?: readonly string[]): string {
+  const times = availableTimes?.length ? [...availableTimes].sort() : [];
+  if (!times.length) return "8:00 AM - 5:00 PM";
+  if (times.length === 1) return formatTime(times[0]);
+  return `${formatTime(times[0])} - ${formatTime(times[times.length - 1])}`;
+}
+
+function getCategoryIconConfig(category: ProgramSchedule["category"], programTitle: string) {
+  const title = (programTitle || "").toLowerCase();
+  if (category === "VACCINATION" || title.includes("vaccin")) {
+    return {
+      container: "bg-blue-100/70 text-blue-600 border border-blue-200/60",
+      icon: <CalendarDays className="size-5 text-blue-600" />,
+    };
+  }
+  if (title.includes("deworm") || title.includes("parasite")) {
+    return {
+      container: "bg-amber-100/70 text-amber-700 border border-amber-200/60",
+      icon: <Sparkles className="size-5 text-amber-700" />,
+    };
+  }
+  if (category === "ANIMAL_HEALTH" || title.includes("health") || title.includes("check")) {
+    return {
+      container: "bg-rose-100/70 text-rose-600 border border-rose-200/60",
+      icon: <HeartPulse className="size-5 text-rose-600" />,
+    };
+  }
+  if (category === "SEMINAR" || title.includes("seminar") || title.includes("train")) {
+    return {
+      container: "bg-violet-100/70 text-violet-600 border border-violet-200/60",
+      icon: <GraduationCap className="size-5 text-violet-600" />,
+    };
+  }
+  if (category === "CENSUS") {
+    return {
+      container: "bg-emerald-100/70 text-emerald-700 border border-emerald-200/60",
+      icon: <ClipboardList className="size-5 text-emerald-700" />,
+    };
+  }
+  return {
+    container: "bg-emerald-100/70 text-emerald-700 border border-emerald-200/60",
+    icon: <CalendarDays className="size-5 text-emerald-700" />,
+  };
+}
+
+function renderProgramStatusBadge(schedule: ProgramSchedule) {
+  if (schedule.publication_status === "CANCELLED" || schedule.registration_status === "CANCELLED") {
+    return (
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200/60 whitespace-nowrap">
+        Cancelled
+      </span>
+    );
+  }
+  if (
+    schedule.publication_status === "COMPLETED" ||
+    schedule.registration_status === "COMPLETED" ||
+    schedule.date < todayIso()
+  ) {
+    return (
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200/60 whitespace-nowrap">
+        Completed
+      </span>
+    );
+  }
+  if (schedule.date === todayIso()) {
+    return (
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200/60 whitespace-nowrap">
+        Ongoing Today
+      </span>
+    );
+  }
+  if (schedule.is_open && schedule.registration_status === "AVAILABLE") {
+    return (
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 whitespace-nowrap">
+        Registration Open
+      </span>
+    );
+  }
+  if (schedule.registration_status === "FULL") {
+    return (
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200/60 whitespace-nowrap">
+        Full
+      </span>
+    );
+  }
+  if (schedule.publication_status === "DRAFT") {
+    return (
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
+        Draft
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
+      Registration Closed
+    </span>
+  );
+}
+
 export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const { user } = useAuth();
   const [schedules, setSchedules] = useState<ProgramSchedule[]>([]);
@@ -82,6 +193,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [startTime, setStartTime] = useState<string>(PROGRAM_TIME_SLOTS[0]);
   const [endTime, setEndTime] = useState<string>(PROGRAM_TIME_SLOTS[PROGRAM_TIME_SLOTS.length - 1]);
   const [selected, setSelected] = useState<ProgramSchedule | null>(null);
+  const [showBookingsRoster, setShowBookingsRoster] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [conflictPayload, setConflictPayload] = useState<SchedulePayload | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -89,7 +201,8 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [removeCover, setRemoveCover] = useState(false);
   const [search, setSearch] = useState("");
   const [calendarDate, setCalendarDate] = useState<Date | null>(null);
-  const [filter, setFilter] = useState<"all" | "upcoming" | "published" | "draft" | "completed" | "cancelled">("all");
+  const [filter, setFilter] = useState<"all" | "upcoming" | "ongoing" | "completed" | "cancelled">("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [highlightedScheduleId, setHighlightedScheduleId] = useState<number | null>(null);
   const [highlightedBookingId, setHighlightedBookingId] = useState<number | null>(null);
   const [notificationBookingId, setNotificationBookingId] = useState<number | null>(null);
@@ -228,8 +341,27 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     (booking) => booking.status === "CONFIRMED" && visibleScheduleIds.has(booking.schedule),
   );
   const confirmedCount = visibleConfirmedBookings.length;
-  const openCount = schedules.filter((schedule) => schedule.is_open).length;
+  const openCount = schedules.filter(
+    (schedule) =>
+      schedule.is_open &&
+      schedule.registration_status !== "CANCELLED" &&
+      schedule.registration_status !== "COMPLETED" &&
+      schedule.date >= todayIso(),
+  ).length;
+  const ongoingTodayCount = schedules.filter(
+    (schedule) => schedule.date === todayIso() && schedule.publication_status !== "CANCELLED",
+  ).length;
+  const completedCount = schedules.filter(
+    (schedule) =>
+      schedule.publication_status === "COMPLETED" ||
+      schedule.registration_status === "COMPLETED" ||
+      (schedule.date < todayIso() && schedule.publication_status !== "CANCELLED"),
+  ).length;
   const uniqueFarmers = new Set(visibleConfirmedBookings.map((booking) => booking.farmer_name)).size;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filter, calendarDate]);
 
   function startCreate() {
     setEditing(null);
@@ -433,25 +565,60 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       window.clearTimeout(clearHighlight);
     };
   }, [highlightedBookingId, selected, bookings]);
-  const visibleSchedules = schedules.filter((schedule) => {
-    const matchesSearch = `${schedule.program} ${schedule.location} ${schedule.barangay_name || ""}`.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filter === "all"
-      || (filter === "upcoming" && schedule.date >= todayIso() && schedule.publication_status === "PUBLISHED")
-      || (filter === "published" && schedule.publication_status === "PUBLISHED")
-      || (filter === "draft" && schedule.publication_status === "DRAFT")
-      || (filter === "completed" && (schedule.publication_status === "COMPLETED" || schedule.registration_status === "COMPLETED"))
-      || (filter === "cancelled" && schedule.publication_status === "CANCELLED");
-    return matchesSearch && matchesFilter;
-  }).sort((a, b) => {
-    const createdAtDifference = Date.parse(b.created_at) - Date.parse(a.created_at);
-    return createdAtDifference || b.id - a.id;
-  });
-  const visibleProgramDates = new Set(visibleSchedules.map((schedule) => schedule.date));
-  const displayedSchedules = calendarDate
-    ? visibleSchedules.filter((schedule) => schedule.date === isoFromLocalDate(calendarDate))
-    : visibleSchedules;
-  const accent = role === "sibat" ? "bg-[#1A365D] hover:bg-[#152c4b]" : "bg-[#2D5A27] hover:bg-[#24461f]";
-  const createProgramAccent = "bg-[#2D5A27] hover:bg-[#24461f]";
+  const visibleSchedules = useMemo(() => {
+    return schedules
+      .filter((schedule) => {
+        const q = search.trim().toLowerCase();
+        const matchesSearch =
+          !q ||
+          `${schedule.program} ${schedule.location} ${schedule.barangay_name || ""}`
+            .toLowerCase()
+            .includes(q);
+
+        let matchesFilter = true;
+        if (filter === "upcoming") {
+          matchesFilter = schedule.date > todayIso() && schedule.publication_status !== "CANCELLED";
+        } else if (filter === "ongoing") {
+          matchesFilter = schedule.date === todayIso() && schedule.publication_status !== "CANCELLED";
+        } else if (filter === "completed") {
+          matchesFilter =
+            schedule.publication_status === "COMPLETED" ||
+            schedule.registration_status === "COMPLETED" ||
+            (schedule.date < todayIso() && schedule.publication_status !== "CANCELLED");
+        } else if (filter === "cancelled") {
+          matchesFilter =
+            schedule.publication_status === "CANCELLED" ||
+            schedule.registration_status === "CANCELLED";
+        }
+
+        return matchesSearch && matchesFilter;
+      })
+      .sort((a, b) => {
+        const dateComparison = b.date.localeCompare(a.date);
+        if (dateComparison !== 0) return dateComparison;
+        return b.id - a.id;
+      });
+  }, [schedules, search, filter]);
+
+  const visibleProgramDates = useMemo(
+    () => new Set(visibleSchedules.map((schedule) => schedule.date)),
+    [visibleSchedules],
+  );
+
+  const displayedSchedules = useMemo(() => {
+    return calendarDate
+      ? visibleSchedules.filter((schedule) => schedule.date === isoFromLocalDate(calendarDate))
+      : visibleSchedules;
+  }, [visibleSchedules, calendarDate]);
+
+  const pageSize = 8;
+  const totalPages = Math.max(1, Math.ceil(displayedSchedules.length / pageSize));
+  const clampedPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (clampedPage - 1) * pageSize;
+  const endIndex = Math.min(displayedSchedules.length, startIndex + pageSize);
+  const paginatedSchedules = displayedSchedules.slice(startIndex, endIndex);
+
+  const accent = "bg-[#14532d] hover:bg-[#0f3d21]";
   const pageTitle = "Livestock Programs";
 
   return (
@@ -478,7 +645,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
             <Button
               type="button"
               onClick={startCreate}
-              className={`h-10 gap-2 rounded-xl px-4 text-xs sm:text-sm font-bold text-white shadow-xs ${createProgramAccent}`}
+              className="h-10 gap-2 rounded-xl px-4 text-xs sm:text-sm font-bold text-white shadow-xs bg-[#14532d] hover:bg-[#0f3d21]"
             >
               <Plus className="size-4" />
               <span>Create Program</span>
@@ -488,303 +655,397 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       />
 
       <div className={role === "sibat" ? "w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6" : "w-full space-y-4 p-3 sm:p-4 md:p-5"}>
-        {/* KPIs */}
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3">
-          <KpiCard
-            title="Program dates"
-            value={schedules.length}
-            icon={<CalendarDays className="size-4" />}
-            description="All scheduled programs"
-            variant="emerald"
-            isLoading={loading}
-          />
-          <KpiCard
-            title="Confirmed bookings"
-            value={confirmedCount}
-            icon={<Users className="size-4" />}
-            description="Across listed programs"
-            variant="sky"
-            isLoading={loading}
-          />
-          <KpiCard
-            title="Farmers involved"
-            value={uniqueFarmers}
-            icon={<Clock3 className="size-4" />}
-            description={`${openCount} of ${schedules.length} open for booking`}
-            variant="orange"
-            isLoading={loading}
-          />
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative min-w-0 flex-1 sm:max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search programs" aria-label="Search programs" className="h-10 pl-9" />
-          </div>
-          <div className="flex flex-wrap gap-1.5" aria-label="Filter programs">
-            {(["all", "upcoming", "published", "draft", "completed", "cancelled"] as const).map((key) => (
-              <Button key={key} type="button" variant={filter === key ? "default" : "outline"} onClick={() => setFilter(key)} className="h-9 rounded-xl px-3 text-xs font-bold capitalize">
-                {key}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[21rem_minmax(0,1fr)] lg:gap-5">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-5 lg:sticky lg:top-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><CalendarDays className="size-5 text-blue-600" /> Program Calendar</h2>
-              <p className="mt-1 text-xs text-slate-500">Select a highlighted date to view its programs.</p>
-            </div>
-            <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
-              <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-blue-600" /> {visibleProgramDates.size} scheduled dates</span>
-              {calendarDate ? <button type="button" onClick={() => setCalendarDate(null)} className="text-blue-700 hover:text-blue-900">Clear date</button> : null}
-            </div>
-          </div>
-          <div className="mx-auto max-w-xl rounded-xl border border-slate-100 bg-slate-50/70 p-2 sm:p-3 lg:max-w-none">
-            <Calendar
-              mode="single"
-              selected={calendarDate ?? undefined}
-              onSelect={(day) => setCalendarDate(day ?? null)}
-              components={{ DayButton: ProgramCalendarDayButton }}
-              disabled={(day) => !visibleProgramDates.has(isoFromLocalDate(day))}
-              modifiers={{ programDate: [...visibleProgramDates].map(localDateFromIso) }}
-              modifiersClassNames={{ programDate: "bg-blue-100 font-extrabold text-blue-950 hover:bg-blue-200" }}
-              className="mx-auto w-full [--cell-size:2.5rem] sm:[--cell-size:2.75rem]"
-              classNames={{ caption_label: "text-base font-extrabold text-slate-900", weekday: "flex-1 text-center text-xs font-bold text-slate-500", day_button: "mx-auto aspect-square h-auto max-h-(--cell-size) w-full max-w-(--cell-size) text-sm font-semibold" }}
-            />
-          </div>
-        </section>
-
-        <div className="min-w-0 space-y-4">
-        {/* Schedule Grid */}
-        {loading ? (
-          <CommunitySkeleton cards={4} />
-        ) : programsLoadFailed && schedules.length === 0 ? (
-          <div className="flex justify-center rounded-xl border border-slate-200 bg-white p-6">
-            <Button type="button" variant="outline" onClick={() => void refresh()} disabled={refreshing}>
-              <RefreshCw className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />
-              {refreshing ? "Retrying…" : "Retry loading programs"}
-            </Button>
-          </div>
-        ) : schedules.length === 0 ? (
-          <Card className="rounded-xl border border-slate-200 bg-white shadow-xs">
-            <CardContent className="p-6">
-              <CommunityEmptyState
-                icon={<CalendarDays className="size-5" />}
-                title="No scheduled programs yet"
-                description="Create a program date to make appointment slots available for farmer registration."
-                action={
-                  <Button type="button" onClick={startCreate} className={`mt-2 h-10 px-4 text-xs sm:text-sm font-bold text-white rounded-xl ${createProgramAccent}`}>
-                    <Plus className="mr-1.5 size-4" /> Create Program
-                  </Button>
-                }
-              />
-            </CardContent>
-          </Card>
-        ) : (
-          displayedSchedules.length === 0 ? (
-            <Card className="rounded-xl border border-slate-200 bg-white shadow-xs"><CardContent className="p-6"><CommunityEmptyState icon={<Search className="size-5" />} title="No programs match" description="Try another search or filter." /></CardContent></Card>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <p className="text-xs font-bold text-slate-500">
-                  Showing {displayedSchedules.length} program{displayedSchedules.length === 1 ? "" : "s"}
+        <div className="grid items-start gap-5 lg:grid-cols-[21rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
+          {/* LEFT: Program Calendar */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs lg:sticky lg:top-4 space-y-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="flex items-center gap-2 text-base font-extrabold text-slate-900">
+                  <CalendarDays className="size-5 text-[#14532d]" /> Program Calendar
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Select a highlighted date to filter programs.
                 </p>
-                <Button
+              </div>
+              <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2.5 rounded-full bg-[#14532d]" /> {visibleProgramDates.size} dates
+                </span>
+                {calendarDate ? (
+                  <button
+                    type="button"
+                    onClick={() => setCalendarDate(null)}
+                    className="text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer"
+                  >
+                    Clear date
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mx-auto max-w-xl rounded-xl border border-slate-100 bg-slate-50/70 p-2 sm:p-3 lg:max-w-none">
+              <Calendar
+                mode="single"
+                selected={calendarDate ?? undefined}
+                onSelect={(day) => setCalendarDate(day ?? null)}
+                components={{ DayButton: ProgramCalendarDayButton }}
+                disabled={(day) => !visibleProgramDates.has(isoFromLocalDate(day))}
+                modifiers={{ programDate: [...visibleProgramDates].map(localDateFromIso) }}
+                modifiersClassNames={{ programDate: "bg-emerald-100 font-extrabold text-emerald-950 hover:bg-emerald-200" }}
+                className="mx-auto w-full [--cell-size:2.5rem] sm:[--cell-size:2.75rem]"
+                classNames={{
+                  caption_label: "text-base font-extrabold text-slate-900",
+                  weekday: "flex-1 text-center text-xs font-bold text-slate-500",
+                  day_button: "mx-auto aspect-square h-auto max-h-(--cell-size) w-full max-w-(--cell-size) text-sm font-semibold",
+                }}
+              />
+            </div>
+
+            {calendarDate && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-900 flex items-center justify-between">
+                <span>Filtered by: <strong>{formatProgramTableDate(isoFromLocalDate(calendarDate))}</strong></span>
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    const allExpanded = displayedSchedules.length > 0 && displayedSchedules.every((s) => expandedScheduleIds.has(s.id));
-                    if (allExpanded) {
-                      setExpandedScheduleIds(new Set());
-                    } else {
-                      setExpandedScheduleIds(new Set(displayedSchedules.map((s) => s.id)));
-                    }
-                  }}
-                  className="h-8 px-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  onClick={() => setCalendarDate(null)}
+                  className="font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
                 >
-                  {displayedSchedules.length > 0 && displayedSchedules.every((s) => expandedScheduleIds.has(s.id)) ? (
-                    <>
-                      <ChevronUp className="mr-1 size-3.5" /> Collapse All
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="mr-1 size-3.5" /> Expand All
-                    </>
-                  )}
-                </Button>
+                  Show all
+                </button>
+              </div>
+            )}
+          </section>
+
+          {/* RIGHT: UI matching requested screenshot */}
+          <div className="min-w-0 space-y-5">
+            {/* 4 Stat Cards */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+              {/* Total Programs */}
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-4.5 shadow-xs flex items-center gap-3.5">
+                <div className="size-11 sm:size-12 shrink-0 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700">
+                  <CalendarDays className="size-5 sm:size-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-600 truncate">Total Programs</p>
+                  <p className="mt-0.5 text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{schedules.length}</p>
+                  <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500 font-medium truncate">All scheduled programs</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-5">
-                {displayedSchedules.map((schedule) => {
-                  const roster = bookingsBySchedule.get(schedule.id) ?? [];
-                  const scheduleTimes = schedule.available_times?.length ? schedule.available_times : PROGRAM_TIME_SLOTS;
-                  const hasHistory = roster.length > 0;
-                  const isNewlyCreated = schedule.id === highlightedScheduleId;
-                  const isPastSchedule = schedule.date < todayIso();
-                  const isExpanded = expandedScheduleIds.has(schedule.id);
-                  const status = schedule.registration_status;
-                  const statusConfig = {
-                    AVAILABLE: { label: "OPEN", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
-                    FULL: { label: "FULL", className: "border-amber-200 bg-amber-50 text-amber-900" },
-                    CLOSED: { label: "CLOSED", className: "border-slate-200 bg-slate-100 text-slate-700" },
-                    NOT_OPEN: { label: "REGISTRATION NOT OPEN", className: "border-sky-200 bg-sky-50 text-sky-700" },
-                    COMPLETED: { label: "COMPLETED", className: "border-slate-200 bg-slate-100 text-slate-600" },
-                    CANCELLED: { label: "CANCELLED", className: "border-rose-200 bg-rose-50 text-rose-700" },
-                  }[status] || { label: status, className: "border-slate-200 bg-slate-100 text-slate-700" };
+              {/* Open for Registration */}
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-4.5 shadow-xs flex items-center gap-3.5">
+                <div className="size-11 sm:size-12 shrink-0 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-700">
+                  <Users className="size-5 sm:size-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-600 truncate">Open for Registration</p>
+                  <p className="mt-0.5 text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{openCount}</p>
+                  <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500 font-medium truncate">Farmers can still join</p>
+                </div>
+              </div>
 
-                  const bookedPercent = schedule.capacity
-                    ? Math.min(100, Math.round((schedule.booking_count / schedule.capacity) * 100))
-                    : 0;
+              {/* Ongoing Today */}
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-4.5 shadow-xs flex items-center gap-3.5">
+                <div className="size-11 sm:size-12 shrink-0 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-700">
+                  <Clock3 className="size-5 sm:size-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-600 truncate">Ongoing Today</p>
+                  <p className="mt-0.5 text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{ongoingTodayCount}</p>
+                  <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500 font-medium truncate">Currently running</p>
+                </div>
+              </div>
 
+              {/* Completed */}
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-4.5 shadow-xs flex items-center gap-3.5">
+                <div className="size-11 sm:size-12 shrink-0 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
+                  <CheckCircle2 className="size-5 sm:size-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-600 truncate">Completed</p>
+                  <p className="mt-0.5 text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{completedCount}</p>
+                  <p className="mt-0.5 text-[11px] sm:text-xs text-slate-500 font-medium truncate">Finished activities</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Search and Filters */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative min-w-0 flex-1 sm:max-w-md">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search programs..."
+                  aria-label="Search programs"
+                  className="h-10 sm:h-11 rounded-2xl border-slate-200 bg-white pl-10 text-sm shadow-xs focus-visible:ring-emerald-600"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2" aria-label="Filter programs">
+                {([
+                  { key: "all", label: "All" },
+                  { key: "upcoming", label: "Upcoming" },
+                  { key: "ongoing", label: "Ongoing" },
+                  { key: "completed", label: "Completed" },
+                  { key: "cancelled", label: "Cancelled" },
+                ] as const).map(({ key, label }) => {
+                  const isActive = filter === key;
                   return (
-                    <Card
-                      key={schedule.id}
-                      id={`program-schedule-${schedule.id}`}
-                      className={`scroll-mt-24 min-w-0 overflow-hidden rounded-2xl border bg-white shadow-xs transition-all hover:shadow-md ${
-                        isNewlyCreated
-                          ? "border-emerald-400 bg-emerald-50/50 ring-2 ring-emerald-200"
-                          : "border-blue-100"
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setFilter(key)}
+                      className={`h-9 sm:h-10 rounded-xl px-4 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                        isActive
+                          ? "bg-[#14532d] text-white shadow-xs"
+                          : "border border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                       }`}
                     >
-                      <CardContent className="space-y-4 p-4 sm:space-y-5 sm:p-6">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center min-w-0 flex-1">
-                            <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white"><CalendarDays className="size-8" /></div>
-                            <div className="min-w-0 flex-1">
-                              <div className="mb-2 flex flex-wrap items-center gap-2">
-                                <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-800">{schedule.category.replaceAll("_", " ")}</Badge>
-                                {isNewlyCreated ? <Badge className="border border-emerald-300 bg-emerald-600 text-white">Just created</Badge> : null}
-                                <Badge variant="outline" className="border-slate-200 text-slate-700">{schedule.date >= todayIso() ? "Upcoming" : "Past activity"}</Badge>
-                                <Badge variant="outline" className={statusConfig.className}>{statusConfig.label}</Badge>
-                              </div>
-                              <CardTitle className="break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{schedule.program}</CardTitle>
-                              <CardDescription className="mt-1 text-sm text-slate-500 sm:text-base">Activity scheduled for {formatLongDate(schedule.date)}</CardDescription>
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => toggleExpandedSchedule(schedule.id)}
-                            className="self-start h-9 px-3 text-xs font-bold text-slate-700 hover:text-slate-900 border-slate-200 hover:bg-slate-50 shrink-0"
-                            aria-expanded={isExpanded}
-                          >
-                            {isExpanded ? (
-                              <>
-                                <ChevronUp className="mr-1.5 size-4 text-slate-500" /> Collapse
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown className="mr-1.5 size-4 text-slate-500" /> View Details
-                              </>
-                            )}
-                          </Button>
-                        </div>
-
-                        <div className="grid gap-3 rounded-xl border border-blue-100 bg-blue-50/70 p-4 sm:grid-cols-3 sm:gap-0 sm:p-5">
-                          <div className="flex items-center gap-3 sm:border-r sm:border-blue-200 sm:px-4 sm:first:pl-1"><Clock3 className="size-7 shrink-0 text-blue-600" /><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Time Window</p><p className="mt-1 font-bold text-slate-900">{scheduleTimes.length > 1 ? `${formatTime(scheduleTimes[0])} – ${formatTime(scheduleTimes[scheduleTimes.length - 1])}` : formatTime(scheduleTimes[0])}</p></div></div>
-                          <div className="flex items-center gap-3 sm:border-r sm:border-blue-200 sm:px-5"><MapPin className="size-7 shrink-0 text-blue-600" /><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Location</p><p className="mt-1 break-words font-bold text-slate-900">{schedule.location || "Location not set"}</p></div></div>
-                          <div className="flex items-center gap-3 sm:px-5"><CalendarDays className="size-7 shrink-0 text-blue-600" /><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Status</p><Badge className={`mt-1 ${schedule.is_open ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>{schedule.is_open ? "Registration Open" : "Registration Closed"}</Badge></div></div>
-                        </div>
-
-                        {isExpanded && (
-                          <div className="space-y-4 pt-1 sm:space-y-5">
-                            <section className="rounded-xl border border-slate-200 p-4 sm:p-5">
-                              <h3 className="mb-3 flex items-center gap-2 text-base font-extrabold text-slate-900"><FileText className="size-5 text-blue-600" /> Instructions &amp; Description</h3>
-                              <p className="min-h-14 whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-4 text-sm leading-relaxed text-slate-600">{schedule.description || "No activity description provided."}</p>
-                            </section>
-
-                            <section className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 sm:p-5">
-                              <h3 className="mb-3 flex items-center gap-2 text-base font-extrabold text-slate-900"><ClipboardList className="size-5 text-amber-600" /> Relevant Notes for Farmers</h3>
-                              <p className="min-h-12 whitespace-pre-wrap break-words rounded-lg bg-amber-100/60 p-4 text-sm text-slate-700">{schedule.farmer_notes || "No additional notes for farmers."}</p>
-                            </section>
-
-                            <section className="rounded-xl border border-slate-200 p-4 sm:p-5">
-                              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                                <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Users className="size-5 text-emerald-600" /> Registered Farmers ({roster.length})</h3>
-                                <span className="text-sm font-semibold text-slate-500">Capacity: {schedule.capacity === 0 ? "No limit" : `${schedule.capacity} slots`}</span>
-                              </div>
-                              {roster.length === 0 ? (
-                                <div className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-500"><Users className="size-8 text-slate-400" /><span>No farmer bookings recorded yet for this session.</span></div>
-                              ) : (
-                                <div className="flex flex-col gap-3 rounded-lg bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                                  <div><p className="font-bold text-slate-900">{schedule.capacity === 0 ? `${schedule.booking_count} farmers booked · No limit` : `${schedule.booking_count} of ${schedule.capacity} slots booked`}</p>{schedule.capacity > 0 ? <><p className="mt-1 text-sm text-slate-500">{schedule.remaining_slots} slots remaining</p><Progress value={bookedPercent} aria-label={`${schedule.booking_count} of ${schedule.capacity} slots booked`} className="mt-3 h-2 max-w-md bg-slate-200 [&>div]:rounded-full [&>div]:bg-emerald-600" /></> : null}</div>
-                                  <Button type="button" variant="outline" onClick={() => setSelected(schedule)} className="h-10 shrink-0 font-bold text-blue-700"><Users className="mr-2 size-4" /> View Farmers ({roster.length})</Button>
-                                </div>
-                              )}
-                              {roster.length === 0 ? <Progress value={bookedPercent} aria-label={`${schedule.booking_count} of ${schedule.capacity} slots booked`} className="sr-only" /> : null}
-                            </section>
-                          </div>
-                        )}
-
-                        {schedule.can_manage ? (
-                          <section className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 sm:p-5">
-                            <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Settings className="size-5 text-blue-700" /> Activity Controls</h3>
-                            <p className="mb-4 mt-1 text-sm text-slate-500">Manage registration and activity actions separately.</p>
-                            <div className="grid gap-3 lg:grid-cols-2">
-                              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-white p-4">
-                                <div><p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Registration Control</p><Badge className={schedule.is_open ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}>{schedule.is_open ? "Registration is Open" : "Registration is Closed"}</Badge></div>
-                                <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "Registration controls are unavailable for a past activity." : undefined} onClick={() => setPendingAction({ schedule, action: schedule.is_open ? "close" : "reopen" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50">{schedule.is_open ? <><LockKeyhole className="mr-2 size-4" /> Close Registration</> : <><UnlockKeyhole className="mr-2 size-4" /> Reopen Registration</>}</Button>
-                              </div>
-                              <div className="rounded-lg border border-blue-200 bg-white p-4">
-                                <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-blue-700"><Zap className="size-4" /> Activity Actions</p>
-                                <div className="flex flex-wrap gap-2">
-                                  <Button type="button" variant="outline" onClick={() => startEdit(schedule)} className="h-10 font-bold text-blue-700"><Pencil className="mr-2 size-4" /> Edit Activity</Button>
-                                  {schedule.publication_status === "PUBLISHED" && schedule.date <= todayIso() ? <Button type="button" variant="outline" onClick={() => setPendingAction({ schedule, action: "complete" })} className="h-10 font-bold text-blue-700"><CalendarDays className="mr-2 size-4" /> End Activity</Button> : null}
-                                  {schedule.publication_status === "DRAFT" ? <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "Past activities cannot be published." : undefined} onClick={() => setPendingAction({ schedule, action: "publish" })} className="h-10 font-bold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">Publish</Button> : schedule.publication_status === "PUBLISHED" ? <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "Past activities cannot be unpublished." : undefined} onClick={() => setPendingAction({ schedule, action: "unpublish" })} className="h-10 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Unpublish</Button> : null}
-                                  {schedule.publication_status === "PUBLISHED" ? <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "A past activity can no longer be cancelled." : undefined} onClick={() => setPendingAction({ schedule, action: "cancel" })} className="h-10 font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50">Cancel Activity</Button> : null}
-                                  <Button type="button" variant="outline" title={hasHistory && !isPastSchedule ? "Schedules with bookings can be deleted after their date." : "Delete program"} disabled={hasHistory && !isPastSchedule} onClick={() => setPendingAction({ schedule, action: "delete" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="mr-2 size-4" /> Delete</Button>
-                                </div>
-                              </div>
-                            </div>
-                          </section>
-                        ) : (
-                          <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">View-only program · Created by another CBAT officer.</p>
-                        )}
-
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                          <p className="flex flex-wrap gap-2 text-xs text-slate-500">
-                            <Badge variant="outline" className="text-[11px]">{schedule.farmer_audience === "ALL_FARMERS" ? "All Barangays" : `Farmers in ${schedule.barangay_name || "program barangay"}`}</Badge>
-                            <Badge variant="outline" className="text-[11px]">{schedule.publication_status}</Badge>
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleExpandedSchedule(schedule.id)}
-                              className="h-9 px-3 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                            >
-                              {isExpanded ? (
-                                <>
-                                  <ChevronUp className="mr-1.5 size-4 text-slate-500" />
-                                  Hide Details
-                                </>
-                              ) : (
-                                <>
-                                  <ChevronDown className="mr-1.5 size-4 text-slate-500" />
-                                  View Details
-                                </>
-                              )}
-                            </Button>
-                            <Button type="button" variant="outline" onClick={() => setSelected(schedule)} className="h-9 font-bold text-blue-700">
-                              <Users className="mr-2 size-4" /> View Bookings ({roster.length})
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      {label}
+                    </button>
                   );
                 })}
               </div>
             </div>
-          )
-        )}
-        </div>
+
+            {/* Programs List */}
+            {loading ? (
+              <CommunitySkeleton cards={4} />
+            ) : programsLoadFailed && schedules.length === 0 ? (
+              <div className="flex justify-center rounded-2xl border border-slate-200 bg-white p-8">
+                <Button type="button" variant="outline" onClick={() => void refresh()} disabled={refreshing}>
+                  <RefreshCw className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />
+                  {refreshing ? "Retrying…" : "Retry loading programs"}
+                </Button>
+              </div>
+            ) : schedules.length === 0 ? (
+              <Card className="rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <CardContent className="p-8">
+                  <CommunityEmptyState
+                    icon={<CalendarDays className="size-6" />}
+                    title="No scheduled programs yet"
+                    description="Create a program date to make appointment slots available for farmer registration."
+                    action={
+                      <Button
+                        type="button"
+                        onClick={startCreate}
+                        className="mt-3 h-10 px-4 text-xs sm:text-sm font-bold text-white rounded-xl bg-[#14532d] hover:bg-[#0f3d21]"
+                      >
+                        <Plus className="mr-1.5 size-4" /> Create Program
+                      </Button>
+                    }
+                  />
+                </CardContent>
+              </Card>
+            ) : displayedSchedules.length === 0 ? (
+              <Card className="rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <CardContent className="p-8">
+                  <CommunityEmptyState
+                    icon={<Search className="size-6" />}
+                    title="No programs match"
+                    description="Try another search or filter, or clear your date selection."
+                    action={
+                      (search || filter !== "all" || calendarDate) ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setSearch("");
+                            setFilter("all");
+                            setCalendarDate(null);
+                          }}
+                          className="mt-3 h-9 px-3.5 text-xs font-bold rounded-xl"
+                        >
+                          Reset filters
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {/* Table Header */}
+                <div className="hidden lg:grid grid-cols-[minmax(220px,2fr)_minmax(130px,1.2fr)_minmax(130px,1.2fr)_minmax(160px,1.5fr)_minmax(140px,1.2fr)_minmax(90px,0.8fr)_36px] items-center gap-4 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <span>Program Name</span>
+                  <span>Date</span>
+                  <span>Time</span>
+                  <span>Location</span>
+                  <span>Status</span>
+                  <span>Registered</span>
+                  <span className="sr-only">Actions</span>
+                </div>
+
+                {/* Rows matching screenshot */}
+                <div className="space-y-3">
+                  {paginatedSchedules.map((schedule) => {
+                    const isRegistrationOpen = schedule.is_open && schedule.registration_status === "AVAILABLE";
+                    const iconConfig = getCategoryIconConfig(schedule.category, schedule.program);
+
+                    return (
+                      <div
+                        key={schedule.id}
+                        id={`program-schedule-${schedule.id}`}
+                        onClick={() => setSelected(schedule)}
+                        className={`group cursor-pointer rounded-2xl border p-4 sm:p-4.5 transition-all duration-150 hover:shadow-md ${
+                          schedule.id === highlightedScheduleId
+                            ? "border-emerald-400 bg-emerald-50/60 ring-2 ring-emerald-200 shadow-sm"
+                            : isRegistrationOpen
+                              ? "border-emerald-200/90 bg-emerald-50/20 hover:border-emerald-300 hover:bg-emerald-50/40"
+                              : "border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/70"
+                        }`}
+                      >
+                        {/* Desktop Layout */}
+                        <div className="hidden lg:grid grid-cols-[minmax(220px,2fr)_minmax(130px,1.2fr)_minmax(130px,1.2fr)_minmax(160px,1.5fr)_minmax(140px,1.2fr)_minmax(90px,0.8fr)_36px] items-center gap-4">
+                          {/* Program Name with Icon */}
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <div className={`size-11 shrink-0 rounded-xl flex items-center justify-center ${iconConfig.container}`}>
+                              {iconConfig.icon}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-slate-900 text-sm sm:text-base leading-snug truncate">
+                                {schedule.program}
+                              </p>
+                              {schedule.barangay_name && (
+                                <p className="text-xs text-slate-500 truncate mt-0.5">
+                                  {schedule.barangay_name}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Date */}
+                          <div className="text-sm font-medium text-slate-700 whitespace-nowrap">
+                            {formatProgramTableDate(schedule.date)}
+                          </div>
+
+                          {/* Time */}
+                          <div className="text-sm font-medium text-slate-600 whitespace-nowrap">
+                            {formatProgramTimeWindow(schedule.available_times)}
+                          </div>
+
+                          {/* Location */}
+                          <div className="text-sm font-bold text-slate-900 truncate">
+                            {schedule.location || "Location not set"}
+                          </div>
+
+                          {/* Status Badge */}
+                          <div>
+                            {renderProgramStatusBadge(schedule)}
+                          </div>
+
+                          {/* Registered */}
+                          <div className="text-sm font-bold text-slate-900 whitespace-nowrap">
+                            {schedule.capacity === 0 ? `${schedule.booking_count} / ∞` : `${schedule.booking_count} / ${schedule.capacity}`}
+                          </div>
+
+                          {/* Chevron */}
+                          <div className="flex justify-end">
+                            <ChevronRight className="size-5 text-slate-400 group-hover:text-slate-800 group-hover:translate-x-0.5 transition-transform" />
+                          </div>
+                        </div>
+
+                        {/* Mobile / Tablet Layout */}
+                        <div className="lg:hidden flex flex-col gap-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`size-10 shrink-0 rounded-xl flex items-center justify-center ${iconConfig.container}`}>
+                                {iconConfig.icon}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-900 text-sm sm:text-base leading-snug">
+                                  {schedule.program}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  {formatProgramTableDate(schedule.date)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="shrink-0">
+                              {renderProgramStatusBadge(schedule)}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
+                            <div className="flex items-center gap-1.5 text-slate-600 truncate">
+                              <Clock3 className="size-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate">{formatProgramTimeWindow(schedule.available_times)}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-slate-600 truncate">
+                              <MapPin className="size-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate">{schedule.location || "Location not set"}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 text-xs font-semibold text-slate-700">
+                            <span>
+                              Registered: <strong className="text-slate-900">{schedule.capacity === 0 ? `${schedule.booking_count}` : `${schedule.booking_count} / ${schedule.capacity}`}</strong>
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-emerald-800 font-bold group-hover:translate-x-0.5 transition-transform">
+                              View Details <ChevronRight className="size-4" />
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Pagination matching screenshot */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-500">
+                    {displayedSchedules.length === 0
+                      ? "Showing 0 programs"
+                      : `Showing ${startIndex + 1}-${endIndex} of ${displayedSchedules.length} program${displayedSchedules.length === 1 ? "" : "s"}`}
+                  </p>
+
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      disabled={clampedPage <= 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      className="size-8 sm:size-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="size-4" />
+                    </Button>
+
+                    {Array.from({ length: totalPages }).map((_, index) => {
+                      const pageNum = index + 1;
+                      const isCurrent = pageNum === clampedPage;
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`size-8 sm:size-9 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center transition-all ${
+                            isCurrent
+                              ? "bg-[#14532d] text-white shadow-xs"
+                              : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      disabled={clampedPage >= totalPages}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      className="size-8 sm:size-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1023,137 +1284,297 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         </DialogContent>
       </Dialog>
 
-      {/* View Bookings Dialog */}
-      <Dialog open={selected !== null} onOpenChange={(open) => { if (!open) setSelected(null); }}>
-        <DialogContent className="max-h-[94dvh] w-[calc(100vw-1rem)] max-w-none overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-2xl sm:w-[calc(100vw-2rem)] sm:max-w-6xl sm:p-7">
+      {/* View Bookings / Program Details Dialog matching screenshot */}
+      <Dialog
+        open={selected !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelected(null);
+            setShowBookingsRoster(false);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[92dvh] w-[calc(100vw-1.5rem)] max-w-2xl overflow-y-auto rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-7 shadow-2xl space-y-4">
           {selected ? (
-            <div className="space-y-4 sm:space-y-5">
-              <button type="button" onClick={() => setSelected(null)} className="inline-flex items-center gap-2 rounded-lg px-1 py-1 text-sm font-bold text-blue-700 hover:text-blue-900">
-                <ArrowLeft className="size-4" /> Back to Activities
-              </button>
-
-              <section className="flex flex-col gap-4 sm:flex-row sm:items-center rounded-2xl border border-blue-100 bg-white p-4 sm:p-6">
-                <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm"><CalendarDays className="size-8" /></div>
+            <div className="space-y-4">
+              {/* Header: Blue Icon + Title + Badges */}
+              <div className="flex items-start gap-4">
+                <div className="flex size-14 sm:size-16 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
+                  <CalendarDays className="size-7 sm:size-8 stroke-[1.8]" />
+                </div>
                 <div className="min-w-0 flex-1">
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-800">{selected.category.replaceAll("_", " ")}</Badge>
-                    <Badge variant="outline" className="border-slate-200 text-slate-700">{selected.date >= todayIso() ? "Upcoming" : "Past activity"}</Badge>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                      {selected.category.replaceAll("_", " ")}
+                    </span>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                      {selected.publication_status === "PUBLISHED"
+                        ? "Published"
+                        : selected.publication_status.charAt(0) + selected.publication_status.slice(1).toLowerCase()}
+                    </span>
                   </div>
-                  <DialogHeader className="space-y-1 text-left">
-                    <DialogTitle className="break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{selected.program}</DialogTitle>
-                    <DialogDescription className="text-sm text-slate-500 sm:text-base">Activity scheduled for {formatLongDate(selected.date)}</DialogDescription>
+                  <DialogHeader className="p-0 text-left">
+                    <DialogTitle className="break-words text-2xl sm:text-3xl font-black tracking-tight text-slate-950 mt-1">
+                      {selected.program}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
+                      Activity scheduled for {formatProgramTableDate(selected.date)}
+                    </DialogDescription>
                   </DialogHeader>
                 </div>
-              </section>
+              </div>
 
-              <section className="grid gap-3 rounded-2xl border border-blue-100 bg-blue-50/70 p-4 sm:grid-cols-3 sm:gap-0 sm:p-5">
-                <div className="flex items-center gap-3 sm:border-r sm:border-blue-200 sm:px-4 sm:first:pl-1"><Clock3 className="size-7 shrink-0 text-blue-600" /><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Time Window</p><p className="mt-1 font-bold text-slate-900">{selected.available_times?.length ? `${formatTime(selected.available_times[0])} – ${formatTime(selected.available_times[selected.available_times.length - 1])}` : "Schedule not set"}</p></div></div>
-                <div className="flex items-center gap-3 sm:border-r sm:border-blue-200 sm:px-5"><MapPin className="size-7 shrink-0 text-blue-600" /><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Location</p><p className="mt-1 break-words font-bold text-slate-900">{selected.location || "Location not set"}</p></div></div>
-                <div className="flex items-center gap-3 sm:px-5"><CalendarDays className="size-7 shrink-0 text-blue-600" /><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Status</p><Badge className={`mt-1 ${selected.publication_status === "CANCELLED" ? "bg-rose-100 text-rose-800" : selected.is_open ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>{selected.publication_status === "CANCELLED" ? "Cancelled" : selected.is_open ? "Registration Open" : "Registration Closed"}</Badge></div></div>
-              </section>
-
-              <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                <h3 className="mb-3 flex items-center gap-2 text-lg font-extrabold text-slate-900"><FileText className="size-5 text-blue-600" /> Instructions &amp; Description</h3>
-                <p className="whitespace-pre-wrap break-words rounded-xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-600">{selected.description || "No activity description provided."}</p>
-              </section>
-
-              <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 sm:p-5">
-                <h3 className="mb-3 flex items-center gap-2 text-lg font-extrabold text-slate-900"><ClipboardList className="size-5 text-amber-600" /> Relevant Notes for Farmers</h3>
-                <p className="whitespace-pre-wrap break-words rounded-xl bg-amber-100/60 p-4 text-sm text-slate-700">{selected.farmer_notes || "No additional notes for farmers."}</p>
-              </section>
-
-              <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="flex items-center gap-2 text-lg font-extrabold text-slate-900"><Users className="size-5 text-emerald-600" /> Registered Farmers ({selectedBookings.length})</h3>
-                  <span className="text-sm font-semibold text-slate-500">Capacity: {selected.capacity === 0 ? "No limit" : `${selected.capacity} slots`}</span>
+              {/* 3-Column Info Box: Time window | Location | Registered */}
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-0 sm:divide-x sm:divide-slate-200/70 shadow-xs">
+                {/* Time window */}
+                <div className="flex items-center gap-3 sm:px-3 first:pl-1">
+                  <Clock3 className="size-6 sm:size-7 text-blue-600 shrink-0 stroke-[1.8]" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-slate-500">Time window</p>
+                    <p className="text-sm font-bold text-slate-900 mt-0.5 whitespace-nowrap">
+                      {formatProgramTimeWindow(selected.available_times)}
+                    </p>
+                  </div>
                 </div>
 
-                {selectedBookings.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs sm:text-sm text-slate-500 font-medium">
-                    No farmer bookings recorded for this program yet.
-                  </p>
+                {/* Location */}
+                <div className="flex items-center gap-3 sm:px-4">
+                  <MapPin className="size-6 sm:size-7 text-blue-600 shrink-0 stroke-[1.8]" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-slate-500">Location</p>
+                    <p className="text-sm font-bold text-slate-900 mt-0.5 line-clamp-2 break-words">
+                      {selected.location || "Location not set"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Registered */}
+                <div className="flex items-center gap-3 sm:px-4">
+                  <Users className="size-6 sm:size-7 text-blue-600 shrink-0 stroke-[1.8]" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-slate-500">Registered</p>
+                    <p className="text-sm font-bold text-slate-900 mt-0.5">
+                      {selected.capacity === 0
+                        ? `${selected.booking_count}`
+                        : `${selected.booking_count} / ${selected.capacity}`}
+                    </p>
+                    <p className="text-[11px] font-medium text-slate-400">slots filled</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Instructions & Description */}
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 space-y-2 shadow-xs">
+                <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900">
+                  <FileText className="size-5 text-blue-600" />
+                  Instructions &amp; Description
+                </h3>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  {selected.description || "No activity description provided."}
+                </p>
+              </div>
+
+              {/* Relevant Notes for Farmers (amber styling) */}
+              <div className="rounded-2xl border border-amber-200/80 bg-[#fffbeb]/60 p-4 sm:p-5 space-y-2.5 shadow-xs">
+                <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900">
+                  <ClipboardList className="size-5 text-amber-600" />
+                  Relevant Notes for Farmers
+                </h3>
+                {selected.farmer_notes ? (
+                  <ul className="space-y-1.5 text-sm text-slate-700">
+                    {selected.farmer_notes
+                      .split("\n")
+                      .map((l) => l.trim())
+                      .filter((l) => l.length > 0)
+                      .map((line, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-slate-400 select-none">•</span>
+                          <span>{line.replace(/^[-*•]\s*/, "")}</span>
+                        </li>
+                      ))}
+                  </ul>
                 ) : (
-                  <>
-                    {/* Desktop Table View */}
-                    <div className="hidden sm:block overflow-hidden rounded-xl border border-slate-200">
-                      <table className="w-full text-left text-xs sm:text-sm">
-                        <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
-                          <tr>
-                            <th className="px-3.5 py-2.5">Farmer Name</th>
-                            <th className="px-3.5 py-2.5">Barangay</th>
-                            <th className="px-3.5 py-2.5">Time Slot</th>
-                            <th className="px-3.5 py-2.5 text-center">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
+                  <p className="text-sm text-slate-500">No additional notes for farmers.</p>
+                )}
+              </div>
+
+              {/* Registered Farmers */}
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 space-y-3.5 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900">
+                    <Users className="size-5 text-emerald-600" />
+                    Registered Farmers ({selectedBookings.length})
+                  </h3>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-500">
+                    Capacity: {selected.capacity === 0 ? "No limit" : `${selected.capacity} slots`}
+                  </span>
+                </div>
+
+                {!showBookingsRoster ? (
+                  <div className="rounded-xl bg-slate-50/70 border border-slate-100 p-6 sm:p-7 flex flex-col items-center justify-center text-center gap-3">
+                    <Users className="size-10 text-slate-400 stroke-[1.5]" />
+                    <p className="text-xs sm:text-sm font-medium text-slate-500">
+                      {selectedBookings.length === 0
+                        ? "No farmer bookings recorded yet for this session."
+                        : `${selectedBookings.length} farmer booking${selectedBookings.length === 1 ? "" : "s"} recorded.`}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowBookingsRoster(true)}
+                      className="h-10 px-4 rounded-xl border-slate-200 bg-white font-bold text-slate-700 hover:bg-slate-50 text-xs sm:text-sm shadow-xs"
+                    >
+                      <Users className="mr-2 size-4 text-slate-600" />
+                      View Bookings ({selectedBookings.length})
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                      <span className="text-xs font-semibold text-slate-500">
+                        {selectedBookings.length} registered participant{selectedBookings.length === 1 ? "" : "s"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowBookingsRoster(false)}
+                        className="text-xs font-bold text-emerald-800 hover:underline cursor-pointer"
+                      >
+                        Hide Bookings
+                      </button>
+                    </div>
+
+                    {selectedBookings.length === 0 ? (
+                      <p className="text-xs text-slate-500 text-center py-4">No bookings yet.</p>
+                    ) : (
+                      <>
+                        {/* Desktop Table View */}
+                        <div className="hidden sm:block overflow-hidden rounded-xl border border-slate-200">
+                          <table className="w-full text-left text-xs sm:text-sm">
+                            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                              <tr>
+                                <th className="px-3.5 py-2.5">Farmer Name</th>
+                                <th className="px-3.5 py-2.5">Barangay</th>
+                                <th className="px-3.5 py-2.5">Time Slot</th>
+                                <th className="px-3.5 py-2.5 text-center">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                              {selectedBookings.map((booking) => (
+                                <tr
+                                  key={booking.id}
+                                  id={"program-booking-" + booking.id + "-desktop"}
+                                  className={highlightedBookingId === booking.id ? "bg-emerald-100 ring-2 ring-inset ring-emerald-400" : "hover:bg-slate-50/60"}
+                                >
+                                  <td className="px-3.5 py-2.5 font-bold text-slate-900">{booking.farmer_name}</td>
+                                  <td className="px-3.5 py-2.5 text-slate-600">{booking.farmer_barangay || "—"}</td>
+                                  <td className="px-3.5 py-2.5 font-semibold text-slate-700">{formatTime(booking.time)}</td>
+                                  <td className="px-3.5 py-2.5 text-center align-middle">
+                                    <Badge variant="outline" className={`text-xs font-bold ${booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : booking.status === "NO_SHOW" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                                      {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Mobile Stacked Cards View */}
+                        <div className="sm:hidden space-y-2">
                           {selectedBookings.map((booking) => (
-                            <tr
+                            <div
                               key={booking.id}
-                              id={"program-booking-" + booking.id + "-desktop"}
-                              className={highlightedBookingId === booking.id ? "bg-emerald-100 ring-2 ring-inset ring-emerald-400" : "hover:bg-slate-50/60"}
+                              id={"program-booking-" + booking.id + "-mobile"}
+                              className={highlightedBookingId === booking.id
+                                ? "rounded-lg border p-3 space-y-1.5 transition-colors border-emerald-500 bg-emerald-100 ring-2 ring-emerald-300"
+                                : "rounded-lg border p-3 space-y-1.5 transition-colors border-slate-200 bg-slate-50/60"}
                             >
-                              <td className="px-3.5 py-2.5 font-bold text-slate-900">{booking.farmer_name}</td>
-                              <td className="px-3.5 py-2.5 text-slate-600">{booking.farmer_barangay || "—"}</td>
-                              <td className="px-3.5 py-2.5 font-semibold text-slate-700">{formatTime(booking.time)}</td>
-                              <td className="px-3.5 py-2.5 text-center align-middle">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className="text-xs sm:text-sm font-bold text-slate-900">{booking.farmer_name}</p>
+                                  <p className="text-xs text-slate-500">{booking.farmer_barangay || "Barangay not provided"}</p>
+                                </div>
                                 <Badge variant="outline" className={`text-xs font-bold ${booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : booking.status === "NO_SHOW" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
                                   {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
                                 </Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Mobile Stacked Cards View */}
-                    <div className="sm:hidden space-y-2">
-                      {selectedBookings.map((booking) => (
-                        <div
-                          key={booking.id}
-                          id={"program-booking-" + booking.id + "-mobile"}
-                          className={highlightedBookingId === booking.id
-                            ? "rounded-lg border p-3 space-y-1.5 transition-colors border-emerald-500 bg-emerald-100 ring-2 ring-emerald-300"
-                            : "rounded-lg border p-3 space-y-1.5 transition-colors border-slate-200 bg-slate-50/60"}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-xs sm:text-sm font-bold text-slate-900">{booking.farmer_name}</p>
-                              <p className="text-xs text-slate-500">{booking.farmer_barangay || "Barangay not provided"}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold">
+                                <Clock3 className="size-3 text-slate-400" />
+                                {formatTime(booking.time)}
+                              </div>
                             </div>
-                            <Badge variant="outline" className={`text-xs font-bold ${booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : booking.status === "NO_SHOW" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
-                              {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold">
-                            <Clock3 className="size-3 text-slate-400" />
-                            {formatTime(booking.time)}
-                          </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </>
+                      </>
+                    )}
+                  </div>
                 )}
-              </section>
+              </div>
 
-              {selected.can_manage ? <section className="rounded-2xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5">
-                <h3 className="mb-1 flex items-center gap-2 text-lg font-extrabold text-slate-900"><Settings className="size-5 text-blue-700" /> Activity Controls</h3>
-                <p className="mb-4 text-sm text-slate-500">Manage registration and activity actions separately.</p>
-                <div className="grid gap-3 lg:grid-cols-2">
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-white p-4">
-                    <div><p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Registration Control</p><Badge className={selected.is_open ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}>{selected.is_open ? "Registration is Open" : "Registration is Closed"}</Badge></div>
-                    <Button type="button" variant="outline" disabled={busy || selected.date < todayIso()} title={selected.date < todayIso() ? "Registration controls are unavailable for a past activity." : undefined} onClick={() => setPendingAction({ schedule: selected, action: selected.is_open ? "close" : "reopen" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50">{selected.is_open ? <><LockKeyhole className="mr-2 size-4" /> Close Registration</> : <><UnlockKeyhole className="mr-2 size-4" /> Reopen Registration</>}</Button>
+              {/* Bottom Notice / Controls */}
+              {selected.can_manage ? (
+                <section className="rounded-2xl border border-blue-200/80 bg-blue-50/40 p-4 sm:p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="flex items-center gap-2 text-sm sm:text-base font-extrabold text-slate-900">
+                      <Settings className="size-4.5 text-blue-700" />
+                      Activity Controls
+                    </h3>
+                    <Badge variant="outline" className={selected.is_open ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-100 text-slate-700"}>
+                      {selected.is_open ? "Registration is Open" : "Registration is Closed"}
+                    </Badge>
                   </div>
-                  <div className="rounded-xl border border-blue-200 bg-white p-4">
-                    <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-blue-700"><Zap className="size-4" /> Activity Actions</p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" disabled={busy} onClick={() => startEdit(selected)} className="h-10 font-bold text-blue-700"><Pencil className="mr-2 size-4" /> Edit Activity</Button>
-                      {selected.publication_status === "PUBLISHED" && selected.date <= todayIso() ? <Button type="button" variant="outline" disabled={busy} onClick={() => setPendingAction({ schedule: selected, action: "complete" })} className="h-10 font-bold text-blue-700"><CalendarDays className="mr-2 size-4" /> End Activity</Button> : null}
-                      <Button type="button" variant="outline" disabled={busy} onClick={() => setPendingAction({ schedule: selected, action: "delete" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50"><Trash2 className="mr-2 size-4" /> Delete</Button>
-                    </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={busy || selected.date < todayIso()}
+                      title={selected.date < todayIso() ? "Registration controls are unavailable for a past activity." : undefined}
+                      onClick={() => setPendingAction({ schedule: selected, action: selected.is_open ? "close" : "reopen" })}
+                      className="h-9 font-bold text-xs rounded-xl"
+                    >
+                      {selected.is_open ? <><LockKeyhole className="mr-1.5 size-3.5" /> Close Registration</> : <><UnlockKeyhole className="mr-1.5 size-3.5" /> Reopen Registration</>}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => startEdit(selected)}
+                      className="h-9 font-bold text-blue-700 text-xs rounded-xl"
+                    >
+                      <Pencil className="mr-1.5 size-3.5" /> Edit Activity
+                    </Button>
+                    {selected.publication_status === "PUBLISHED" && selected.date <= todayIso() ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => setPendingAction({ schedule: selected, action: "complete" })}
+                        className="h-9 font-bold text-blue-700 text-xs rounded-xl"
+                      >
+                        <CalendarDays className="mr-1.5 size-3.5" /> End Activity
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => setPendingAction({ schedule: selected, action: "delete" })}
+                      className="h-9 border-rose-300 font-bold text-rose-700 hover:bg-rose-50 text-xs rounded-xl ml-auto"
+                    >
+                      <Trash2 className="mr-1.5 size-3.5" /> Delete
+                    </Button>
                   </div>
+                </section>
+              ) : (
+                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 sm:p-4 flex items-center gap-2.5 text-xs sm:text-sm text-slate-600">
+                  <Info className="size-4.5 text-blue-600 shrink-0" />
+                  <span>View-only program · Created by another CBAT officer.</span>
                 </div>
-              </section> : <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">View-only program · Created by another CBAT officer.</p>}
+              )}
             </div>
           ) : null}
         </DialogContent>
