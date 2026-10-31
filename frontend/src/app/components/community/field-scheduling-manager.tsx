@@ -18,10 +18,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { apiError,getBarangays,getBookings,getSchedules,type BarangayOption,type ProgramBooking,type ProgramFarmerAudience,type ProgramPublicationStatus,type ProgramSchedule } from "@/lib/community-api";
-import { ArrowLeft,CalendarDays,ClipboardList,Clock3,FileText,Image as ImageIcon,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Settings,Trash2,UnlockKeyhole,Users,Zap } from "lucide-react";
+import { ArrowLeft,CalendarDays,CheckCircle2,ChevronDown,ChevronUp,ClipboardList,Clock3,FileText,Image as ImageIcon,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Settings,Sparkles,Trash2,UnlockKeyhole,Users,Zap } from "lucide-react";
 import Image from "next/image";
 import { useCallback,useEffect,useMemo,useRef,useState,type FormEvent } from "react";
-import { CommunityEmptyState,CommunityErrorCard,CommunitySkeleton,formatLongDate,formatTime,PROGRAM_TIME_SLOTS,todayIso,type CommunityRole } from "./community-ui";
+import { CommunityEmptyState,CommunitySkeleton,formatLongDate,formatTime,PROGRAM_TIME_SLOTS,todayIso,type CommunityRole } from "./community-ui";
 
 type ManagerRole = Extract<CommunityRole, "admin" | "sibat">;
 type ScheduleAction = "close" | "reopen" | "delete" | "publish" | "unpublish" | "cancel" | "complete";
@@ -72,7 +72,10 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [programErrorMessage, setProgramErrorMessage] = useState("");
+  const [canRetryProgramLoad, setCanRetryProgramLoad] = useState(false);
+  const [programsLoadFailed, setProgramsLoadFailed] = useState(false);
+  const [saveSuccessDialog, setSaveSuccessDialog] = useState<{ title: string; description: string } | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ProgramSchedule | null>(null);
   const [form, setForm] = useState<ScheduleForm>(emptyForm);
@@ -91,8 +94,32 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [highlightedBookingId, setHighlightedBookingId] = useState<number | null>(null);
   const [notificationBookingId, setNotificationBookingId] = useState<number | null>(null);
   const [pendingScrollScheduleId, setPendingScrollScheduleId] = useState<number | null>(null);
+  const [expandedScheduleIds, setExpandedScheduleIds] = useState<Set<number>>(() => new Set());
   const scrolledScheduleId = useRef<number | null>(null);
   const handledBookingId = useRef<number | null>(null);
+
+  const toggleExpandedSchedule = (id: number) => {
+    setExpandedScheduleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (pendingScrollScheduleId !== null) {
+      setExpandedScheduleIds((prev) => new Set(prev).add(pendingScrollScheduleId));
+    }
+  }, [pendingScrollScheduleId]);
+
+  const showErrorDialog = useCallback((message: string, canRetryLoad = false) => {
+    setProgramErrorMessage(message);
+    setCanRetryProgramLoad(canRetryLoad);
+  }, []);
 
   useEffect(() => {
     const value = Number(new URLSearchParams(window.location.search).get("bookingId"));
@@ -110,31 +137,31 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
       if (schedulesResult.status === "fulfilled") {
         setSchedules(schedulesResult.value);
+        setProgramsLoadFailed(false);
+        setProgramErrorMessage("");
+        setCanRetryProgramLoad(false);
+      } else {
+        setProgramsLoadFailed(true);
+        showErrorDialog(apiError(schedulesResult.reason), true);
       }
       if (bookingsResult.status === "fulfilled") {
         setBookings(bookingsResult.value);
       }
       if (barangaysResult.status === "fulfilled") setBarangays(barangaysResult.value);
 
-      if (schedulesResult.status === "rejected" && bookingsResult.status === "rejected") {
-        setError(apiError(schedulesResult.reason));
-      } else if (schedulesResult.status === "rejected") {
-        setError(apiError(schedulesResult.reason));
-      } else if (bookingsResult.status === "rejected") {
+      if (bookingsResult.status === "rejected") {
         if (process.env.NODE_ENV !== "production") {
           console.warn("[FieldSchedulingManager] Bookings load warning:", bookingsResult.reason);
         }
-        setError("");
-      } else {
-        setError("");
       }
     } catch (e) {
-      setError(apiError(e));
+      setProgramsLoadFailed(true);
+      showErrorDialog(apiError(e), true);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [showErrorDialog]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -231,7 +258,8 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   async function persistSchedule(payload: SchedulePayload) {
     const isCreating = editing === null;
     setBusy(true);
-    setError("");
+    setProgramErrorMessage("");
+    setCanRetryProgramLoad(false);
     const requestPayload: Partial<SchedulePayload> = { ...payload };
     // The API rejects edits that submit a historical date. Keep it fixed while allowing other details to change.
     if (editing && editing.date < todayIso() && payload.date === editing.date) delete requestPayload.date;
@@ -269,64 +297,93 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         setHighlightedScheduleId(createdScheduleId);
         setPendingScrollScheduleId(createdScheduleId);
       }
-      await refresh();
+      setSaveSuccessDialog({
+        title: isCreating ? "Program Saved!" : "Program Updated!",
+        description: `${payload.program} · ${formatLongDate(payload.date)}`,
+      });
     } catch (e) {
-      setError(apiError(e));
+      const message = apiError(e);
+      showErrorDialog(message);
     } finally {
       setBusy(false);
     }
   }
 
+  async function continueAnyway() {
+    if (!conflictPayload || busy) return;
+    const payload = conflictPayload;
+    setConflictPayload(null);
+    await persistSchedule(payload);
+  }
+
   function saveSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
+    setProgramErrorMessage("");
+    setCanRetryProgramLoad(false);
     const payload: SchedulePayload = { ...form, farmer_audience: role === "admin" ? "ALL_FARMERS" : form.farmer_audience, available_times: [...form.available_times].sort(), capacity: Number(form.capacity), program: form.program.trim(), description: form.description.trim(), objectives: form.objectives.trim(), location: form.location.trim(), farmer_notes: form.farmer_notes.trim(), eligibility: form.eligibility.trim(), contact_information: form.contact_information.trim(), registration_opens: form.registration_opens || null, registration_deadline: form.registration_deadline || null, barangay: form.barangay ? Number(form.barangay) : null };
     if (!payload.location) {
-      setError("Enter a venue or location before adding or saving the program.");
+      showErrorDialog("Enter a venue or location before adding or saving the program.");
       return;
     }
     if (form.capacity.trim() === "" || !Number.isInteger(payload.capacity) || payload.capacity < 0 || payload.capacity > 10000) {
-      setError("Capacity must be unlimited or a whole number from 1 to 10,000.");
+      showErrorDialog("Capacity must be unlimited or a whole number from 1 to 10,000.");
       return;
     }
     if (editing && payload.capacity > 0 && payload.capacity < editing.booking_count) {
-      setError(`Capacity cannot be lower than the ${editing.booking_count} confirmed bookings.`);
+      showErrorDialog(`Capacity cannot be lower than the ${editing.booking_count} confirmed bookings.`);
       return;
     }
     if (endTime < startTime) {
-      setError("The end time must be the same as or later than the start time.");
+      showErrorDialog("The end time must be the same as or later than the start time.");
       return;
     }
     if (payload.available_times.length === 0) {
-      setError("Choose a valid start and end time for the activity.");
+      showErrorDialog("Choose a valid start and end time for the activity.");
       return;
     }
     if (payload.farmer_audience === "BARANGAY_ONLY" && !payload.barangay) {
-      setError("Choose a program barangay when access is limited to farmers in that barangay.");
+      showErrorDialog("Choose a program barangay when access is limited to farmers in that barangay.");
       return;
     }
     if (payload.date === todayIso()) {
       const now = localTimeNow();
       if (startTime <= now) {
-        setError("For today's activity, choose a start time later than the current time.");
+        showErrorDialog("For today's activity, choose a start time later than the current time.");
         return;
       }
       const pastTimes = payload.available_times.filter(
         (time) => time <= now && !editing?.booked_times.includes(time),
       );
       if (pastTimes.length > 0) {
-        setError("For today's schedule, remove past appointment times and choose a later time.");
+        showErrorDialog("For today's schedule, remove past appointment times and choose a later time.");
         return;
       }
     }
+    const duplicateProgram = schedules.find((schedule) =>
+      schedule.id !== editing?.id &&
+      schedule.date === payload.date &&
+      schedule.program.trim().toLocaleLowerCase() === payload.program.trim().toLocaleLowerCase()
+    );
+    if (duplicateProgram) {
+      const message = `“${duplicateProgram.program}” is already scheduled on ${formatLongDate(duplicateProgram.date)}.`;
+      showErrorDialog(message);
+      return;
+    }
     const normalizedLocation = payload.location.trim().toLocaleLowerCase();
-    const conflict = schedules.find((schedule) =>
+    const overlappingSchedules = schedules.filter((schedule) =>
       schedule.id !== editing?.id &&
       schedule.date === payload.date &&
       normalizedLocation !== "" &&
       schedule.location.trim().toLocaleLowerCase() === normalizedLocation &&
       (schedule.available_times || PROGRAM_TIME_SLOTS).some((time) => payload.available_times.includes(time))
     );
+    const unlimitedConflict = overlappingSchedules.find((schedule) => payload.capacity === 0 || schedule.capacity === 0);
+    if (unlimitedConflict) {
+      const message = "A no-limit program cannot overlap another program at the same venue and time.";
+      showErrorDialog(message);
+      return;
+    }
+    const conflict = overlappingSchedules[0];
     if (conflict) {
       setConflictPayload(payload);
       return;
@@ -339,7 +396,8 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     const { schedule, action } = pendingAction;
     if (action === "delete" && (bookingsBySchedule.get(schedule.id)?.length ?? 0) > 0 && schedule.date >= todayIso()) return;
     setBusy(true);
-    setError("");
+    setProgramErrorMessage("");
+    setCanRetryProgramLoad(false);
     try {
       if (action === "delete") await api.delete(`/community/schedules/${schedule.id}/`);
       else if (action === "close" || action === "reopen") await api.patch(`/community/schedules/${schedule.id}/`, { is_open: action === "reopen" });
@@ -351,7 +409,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       setPendingAction(null);
       await refresh();
     } catch (e) {
-      setError(apiError(e));
+      showErrorDialog(apiError(e));
     } finally {
       setBusy(false);
     }
@@ -430,12 +488,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       />
 
       <div className={role === "sibat" ? "w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6" : "w-full space-y-4 p-3 sm:p-4 md:p-5"}>
-        {error ? (
-          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-red-800">
-            {error}
-          </p>
-        ) : null}
-
         {/* KPIs */}
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3">
           <KpiCard
@@ -509,8 +561,13 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         {/* Schedule Grid */}
         {loading ? (
           <CommunitySkeleton cards={4} />
-        ) : error && schedules.length === 0 ? (
-          <CommunityErrorCard message={error} onRetry={() => void refresh()} />
+        ) : programsLoadFailed && schedules.length === 0 ? (
+          <div className="flex justify-center rounded-xl border border-slate-200 bg-white p-6">
+            <Button type="button" variant="outline" onClick={() => void refresh()} disabled={refreshing}>
+              <RefreshCw className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />
+              {refreshing ? "Retrying…" : "Retry loading programs"}
+            </Button>
+          </div>
         ) : schedules.length === 0 ? (
           <Card className="rounded-xl border border-slate-200 bg-white shadow-xs">
             <CardContent className="p-6">
@@ -529,114 +586,203 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         ) : (
           displayedSchedules.length === 0 ? (
             <Card className="rounded-xl border border-slate-200 bg-white shadow-xs"><CardContent className="p-6"><CommunityEmptyState icon={<Search className="size-5" />} title="No programs match" description="Try another search or filter." /></CardContent></Card>
-          ) : <div className="grid grid-cols-1 gap-5">
-            {displayedSchedules.map((schedule) => {
-              const roster = bookingsBySchedule.get(schedule.id) ?? [];
-              const scheduleTimes = schedule.available_times?.length ? schedule.available_times : PROGRAM_TIME_SLOTS;
-              const hasHistory = roster.length > 0;
-              const isNewlyCreated = schedule.id === highlightedScheduleId;
-              const isPastSchedule = schedule.date < todayIso();
-              const status = schedule.registration_status;
-              const statusConfig = {
-                AVAILABLE: { label: "OPEN", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
-                FULL: { label: "FULL", className: "border-amber-200 bg-amber-50 text-amber-900" },
-                CLOSED: { label: "CLOSED", className: "border-slate-200 bg-slate-100 text-slate-700" },
-                NOT_OPEN: { label: "REGISTRATION NOT OPEN", className: "border-sky-200 bg-sky-50 text-sky-700" },
-                COMPLETED: { label: "COMPLETED", className: "border-slate-200 bg-slate-100 text-slate-600" },
-                CANCELLED: { label: "CANCELLED", className: "border-rose-200 bg-rose-50 text-rose-700" },
-              }[status] || { label: status, className: "border-slate-200 bg-slate-100 text-slate-700" };
-
-              const bookedPercent = schedule.capacity
-                ? Math.min(100, Math.round((schedule.booking_count / schedule.capacity) * 100))
-                : 0;
-
-              return (
-                <Card
-                  key={schedule.id}
-                  id={`program-schedule-${schedule.id}`}
-                  className={`scroll-mt-24 min-w-0 overflow-hidden rounded-2xl border bg-white shadow-xs transition-all hover:shadow-md ${
-                    isNewlyCreated
-                      ? "border-emerald-400 bg-emerald-50/50 ring-2 ring-emerald-200"
-                      : "border-blue-100"
-                  }`}
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <p className="text-xs font-bold text-slate-500">
+                  Showing {displayedSchedules.length} program{displayedSchedules.length === 1 ? "" : "s"}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const allExpanded = displayedSchedules.length > 0 && displayedSchedules.every((s) => expandedScheduleIds.has(s.id));
+                    if (allExpanded) {
+                      setExpandedScheduleIds(new Set());
+                    } else {
+                      setExpandedScheduleIds(new Set(displayedSchedules.map((s) => s.id)));
+                    }
+                  }}
+                  className="h-8 px-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 >
-                  <CardContent className="space-y-4 p-4 sm:space-y-5 sm:p-6">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                      <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white"><CalendarDays className="size-8" /></div>
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-800">{schedule.category.replaceAll("_", " ")}</Badge>
-                          {isNewlyCreated ? <Badge className="border border-emerald-300 bg-emerald-600 text-white">Just created</Badge> : null}
-                          <Badge variant="outline" className="border-slate-200 text-slate-700">{schedule.date >= todayIso() ? "Upcoming" : "Past activity"}</Badge>
-                          <Badge variant="outline" className={statusConfig.className}>{statusConfig.label}</Badge>
+                  {displayedSchedules.length > 0 && displayedSchedules.every((s) => expandedScheduleIds.has(s.id)) ? (
+                    <>
+                      <ChevronUp className="mr-1 size-3.5" /> Collapse All
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="mr-1 size-3.5" /> Expand All
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5">
+                {displayedSchedules.map((schedule) => {
+                  const roster = bookingsBySchedule.get(schedule.id) ?? [];
+                  const scheduleTimes = schedule.available_times?.length ? schedule.available_times : PROGRAM_TIME_SLOTS;
+                  const hasHistory = roster.length > 0;
+                  const isNewlyCreated = schedule.id === highlightedScheduleId;
+                  const isPastSchedule = schedule.date < todayIso();
+                  const isExpanded = expandedScheduleIds.has(schedule.id);
+                  const status = schedule.registration_status;
+                  const statusConfig = {
+                    AVAILABLE: { label: "OPEN", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
+                    FULL: { label: "FULL", className: "border-amber-200 bg-amber-50 text-amber-900" },
+                    CLOSED: { label: "CLOSED", className: "border-slate-200 bg-slate-100 text-slate-700" },
+                    NOT_OPEN: { label: "REGISTRATION NOT OPEN", className: "border-sky-200 bg-sky-50 text-sky-700" },
+                    COMPLETED: { label: "COMPLETED", className: "border-slate-200 bg-slate-100 text-slate-600" },
+                    CANCELLED: { label: "CANCELLED", className: "border-rose-200 bg-rose-50 text-rose-700" },
+                  }[status] || { label: status, className: "border-slate-200 bg-slate-100 text-slate-700" };
+
+                  const bookedPercent = schedule.capacity
+                    ? Math.min(100, Math.round((schedule.booking_count / schedule.capacity) * 100))
+                    : 0;
+
+                  return (
+                    <Card
+                      key={schedule.id}
+                      id={`program-schedule-${schedule.id}`}
+                      className={`scroll-mt-24 min-w-0 overflow-hidden rounded-2xl border bg-white shadow-xs transition-all hover:shadow-md ${
+                        isNewlyCreated
+                          ? "border-emerald-400 bg-emerald-50/50 ring-2 ring-emerald-200"
+                          : "border-blue-100"
+                      }`}
+                    >
+                      <CardContent className="space-y-4 p-4 sm:space-y-5 sm:p-6">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center min-w-0 flex-1">
+                            <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white"><CalendarDays className="size-8" /></div>
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-2 flex flex-wrap items-center gap-2">
+                                <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-800">{schedule.category.replaceAll("_", " ")}</Badge>
+                                {isNewlyCreated ? <Badge className="border border-emerald-300 bg-emerald-600 text-white">Just created</Badge> : null}
+                                <Badge variant="outline" className="border-slate-200 text-slate-700">{schedule.date >= todayIso() ? "Upcoming" : "Past activity"}</Badge>
+                                <Badge variant="outline" className={statusConfig.className}>{statusConfig.label}</Badge>
+                              </div>
+                              <CardTitle className="break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{schedule.program}</CardTitle>
+                              <CardDescription className="mt-1 text-sm text-slate-500 sm:text-base">Activity scheduled for {formatLongDate(schedule.date)}</CardDescription>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleExpandedSchedule(schedule.id)}
+                            className="self-start h-9 px-3 text-xs font-bold text-slate-700 hover:text-slate-900 border-slate-200 hover:bg-slate-50 shrink-0"
+                            aria-expanded={isExpanded}
+                          >
+                            {isExpanded ? (
+                              <>
+                                <ChevronUp className="mr-1.5 size-4 text-slate-500" /> Collapse
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="mr-1.5 size-4 text-slate-500" /> View Details
+                              </>
+                            )}
+                          </Button>
                         </div>
-                        <CardTitle className="break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{schedule.program}</CardTitle>
-                        <CardDescription className="mt-1 text-sm text-slate-500 sm:text-base">Activity scheduled for {formatLongDate(schedule.date)}</CardDescription>
-                      </div>
-                    </div>
 
-                    <div className="grid gap-3 rounded-xl border border-blue-100 bg-blue-50/70 p-4 sm:grid-cols-3 sm:gap-0 sm:p-5">
-                      <div className="flex items-center gap-3 sm:border-r sm:border-blue-200 sm:px-4 sm:first:pl-1"><Clock3 className="size-7 shrink-0 text-blue-600" /><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Time Window</p><p className="mt-1 font-bold text-slate-900">{scheduleTimes.length > 1 ? `${formatTime(scheduleTimes[0])} – ${formatTime(scheduleTimes[scheduleTimes.length - 1])}` : formatTime(scheduleTimes[0])}</p></div></div>
-                      <div className="flex items-center gap-3 sm:border-r sm:border-blue-200 sm:px-5"><MapPin className="size-7 shrink-0 text-blue-600" /><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Location</p><p className="mt-1 break-words font-bold text-slate-900">{schedule.location || "Location not set"}</p></div></div>
-                      <div className="flex items-center gap-3 sm:px-5"><CalendarDays className="size-7 shrink-0 text-blue-600" /><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Status</p><Badge className={`mt-1 ${schedule.is_open ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>{schedule.is_open ? "Registration Open" : "Registration Closed"}</Badge></div></div>
-                    </div>
-
-                    <section className="rounded-xl border border-slate-200 p-4 sm:p-5">
-                      <h3 className="mb-3 flex items-center gap-2 text-base font-extrabold text-slate-900"><FileText className="size-5 text-blue-600" /> Instructions &amp; Description</h3>
-                      <p className="min-h-14 whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-4 text-sm leading-relaxed text-slate-600">{schedule.description || "No activity description provided."}</p>
-                    </section>
-
-                    <section className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 sm:p-5">
-                      <h3 className="mb-3 flex items-center gap-2 text-base font-extrabold text-slate-900"><ClipboardList className="size-5 text-amber-600" /> Relevant Notes for Farmers</h3>
-                      <p className="min-h-12 whitespace-pre-wrap break-words rounded-lg bg-amber-100/60 p-4 text-sm text-slate-700">{schedule.farmer_notes || "No additional notes for farmers."}</p>
-                    </section>
-
-                    <section className="rounded-xl border border-slate-200 p-4 sm:p-5">
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Users className="size-5 text-emerald-600" /> Registered Farmers ({roster.length})</h3>
-                        <span className="text-sm font-semibold text-slate-500">Capacity: {schedule.capacity === 0 ? "No limit" : `${schedule.capacity} slots`}</span>
-                      </div>
-                      {roster.length === 0 ? (
-                        <div className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-500"><Users className="size-8 text-slate-400" /><span>No farmer bookings recorded yet for this session.</span></div>
-                      ) : (
-                        <div className="flex flex-col gap-3 rounded-lg bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div><p className="font-bold text-slate-900">{schedule.capacity === 0 ? `${schedule.booking_count} farmers booked · No limit` : `${schedule.booking_count} of ${schedule.capacity} slots booked`}</p>{schedule.capacity > 0 ? <><p className="mt-1 text-sm text-slate-500">{schedule.remaining_slots} slots remaining</p><Progress value={bookedPercent} aria-label={`${schedule.booking_count} of ${schedule.capacity} slots booked`} className="mt-3 h-2 max-w-md bg-slate-200 [&>div]:rounded-full [&>div]:bg-emerald-600" /></> : null}</div>
-                          <Button type="button" variant="outline" onClick={() => setSelected(schedule)} className="h-10 shrink-0 font-bold text-blue-700"><Users className="mr-2 size-4" /> View Farmers ({roster.length})</Button>
+                        <div className="grid gap-3 rounded-xl border border-blue-100 bg-blue-50/70 p-4 sm:grid-cols-3 sm:gap-0 sm:p-5">
+                          <div className="flex items-center gap-3 sm:border-r sm:border-blue-200 sm:px-4 sm:first:pl-1"><Clock3 className="size-7 shrink-0 text-blue-600" /><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Time Window</p><p className="mt-1 font-bold text-slate-900">{scheduleTimes.length > 1 ? `${formatTime(scheduleTimes[0])} – ${formatTime(scheduleTimes[scheduleTimes.length - 1])}` : formatTime(scheduleTimes[0])}</p></div></div>
+                          <div className="flex items-center gap-3 sm:border-r sm:border-blue-200 sm:px-5"><MapPin className="size-7 shrink-0 text-blue-600" /><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Location</p><p className="mt-1 break-words font-bold text-slate-900">{schedule.location || "Location not set"}</p></div></div>
+                          <div className="flex items-center gap-3 sm:px-5"><CalendarDays className="size-7 shrink-0 text-blue-600" /><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Status</p><Badge className={`mt-1 ${schedule.is_open ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>{schedule.is_open ? "Registration Open" : "Registration Closed"}</Badge></div></div>
                         </div>
-                      )}
-                      {roster.length === 0 ? <Progress value={bookedPercent} aria-label={`${schedule.booking_count} of ${schedule.capacity} slots booked`} className="sr-only" /> : null}
-                    </section>
 
-                      {schedule.can_manage ? <section className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 sm:p-5">
-                      <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Settings className="size-5 text-blue-700" /> Activity Controls</h3>
-                      <p className="mb-4 mt-1 text-sm text-slate-500">Manage registration and activity actions separately.</p>
-                      <div className="grid gap-3 lg:grid-cols-2">
-                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-white p-4">
-                          <div><p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Registration Control</p><Badge className={schedule.is_open ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}>{schedule.is_open ? "Registration is Open" : "Registration is Closed"}</Badge></div>
-                          <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "Registration controls are unavailable for a past activity." : undefined} onClick={() => setPendingAction({ schedule, action: schedule.is_open ? "close" : "reopen" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50">{schedule.is_open ? <><LockKeyhole className="mr-2 size-4" /> Close Registration</> : <><UnlockKeyhole className="mr-2 size-4" /> Reopen Registration</>}</Button>
-                        </div>
-                        <div className="rounded-lg border border-blue-200 bg-white p-4">
-                          <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-blue-700"><Zap className="size-4" /> Activity Actions</p>
-                          <div className="flex flex-wrap gap-2">
-                            <Button type="button" variant="outline" onClick={() => startEdit(schedule)} className="h-10 font-bold text-blue-700"><Pencil className="mr-2 size-4" /> Edit Activity</Button>
-                            {schedule.publication_status === "PUBLISHED" && schedule.date <= todayIso() ? <Button type="button" variant="outline" onClick={() => setPendingAction({ schedule, action: "complete" })} className="h-10 font-bold text-blue-700"><CalendarDays className="mr-2 size-4" /> End Activity</Button> : null}
-                            {schedule.publication_status === "DRAFT" ? <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "Past activities cannot be published." : undefined} onClick={() => setPendingAction({ schedule, action: "publish" })} className="h-10 font-bold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">Publish</Button> : schedule.publication_status === "PUBLISHED" ? <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "Past activities cannot be unpublished." : undefined} onClick={() => setPendingAction({ schedule, action: "unpublish" })} className="h-10 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Unpublish</Button> : null}
-                            {schedule.publication_status === "PUBLISHED" ? <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "A past activity can no longer be cancelled." : undefined} onClick={() => setPendingAction({ schedule, action: "cancel" })} className="h-10 font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50">Cancel Activity</Button> : null}
-                            <Button type="button" variant="outline" title={hasHistory && !isPastSchedule ? "Schedules with bookings can be deleted after their date." : "Delete program"} disabled={hasHistory && !isPastSchedule} onClick={() => setPendingAction({ schedule, action: "delete" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="mr-2 size-4" /> Delete</Button>
+                        {isExpanded && (
+                          <div className="space-y-4 pt-1 sm:space-y-5">
+                            <section className="rounded-xl border border-slate-200 p-4 sm:p-5">
+                              <h3 className="mb-3 flex items-center gap-2 text-base font-extrabold text-slate-900"><FileText className="size-5 text-blue-600" /> Instructions &amp; Description</h3>
+                              <p className="min-h-14 whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-4 text-sm leading-relaxed text-slate-600">{schedule.description || "No activity description provided."}</p>
+                            </section>
+
+                            <section className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 sm:p-5">
+                              <h3 className="mb-3 flex items-center gap-2 text-base font-extrabold text-slate-900"><ClipboardList className="size-5 text-amber-600" /> Relevant Notes for Farmers</h3>
+                              <p className="min-h-12 whitespace-pre-wrap break-words rounded-lg bg-amber-100/60 p-4 text-sm text-slate-700">{schedule.farmer_notes || "No additional notes for farmers."}</p>
+                            </section>
+
+                            <section className="rounded-xl border border-slate-200 p-4 sm:p-5">
+                              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Users className="size-5 text-emerald-600" /> Registered Farmers ({roster.length})</h3>
+                                <span className="text-sm font-semibold text-slate-500">Capacity: {schedule.capacity === 0 ? "No limit" : `${schedule.capacity} slots`}</span>
+                              </div>
+                              {roster.length === 0 ? (
+                                <div className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-500"><Users className="size-8 text-slate-400" /><span>No farmer bookings recorded yet for this session.</span></div>
+                              ) : (
+                                <div className="flex flex-col gap-3 rounded-lg bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                  <div><p className="font-bold text-slate-900">{schedule.capacity === 0 ? `${schedule.booking_count} farmers booked · No limit` : `${schedule.booking_count} of ${schedule.capacity} slots booked`}</p>{schedule.capacity > 0 ? <><p className="mt-1 text-sm text-slate-500">{schedule.remaining_slots} slots remaining</p><Progress value={bookedPercent} aria-label={`${schedule.booking_count} of ${schedule.capacity} slots booked`} className="mt-3 h-2 max-w-md bg-slate-200 [&>div]:rounded-full [&>div]:bg-emerald-600" /></> : null}</div>
+                                  <Button type="button" variant="outline" onClick={() => setSelected(schedule)} className="h-10 shrink-0 font-bold text-blue-700"><Users className="mr-2 size-4" /> View Farmers ({roster.length})</Button>
+                                </div>
+                              )}
+                              {roster.length === 0 ? <Progress value={bookedPercent} aria-label={`${schedule.booking_count} of ${schedule.capacity} slots booked`} className="sr-only" /> : null}
+                            </section>
+                          </div>
+                        )}
+
+                        {schedule.can_manage ? (
+                          <section className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 sm:p-5">
+                            <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900"><Settings className="size-5 text-blue-700" /> Activity Controls</h3>
+                            <p className="mb-4 mt-1 text-sm text-slate-500">Manage registration and activity actions separately.</p>
+                            <div className="grid gap-3 lg:grid-cols-2">
+                              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-white p-4">
+                                <div><p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Registration Control</p><Badge className={schedule.is_open ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}>{schedule.is_open ? "Registration is Open" : "Registration is Closed"}</Badge></div>
+                                <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "Registration controls are unavailable for a past activity." : undefined} onClick={() => setPendingAction({ schedule, action: schedule.is_open ? "close" : "reopen" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50">{schedule.is_open ? <><LockKeyhole className="mr-2 size-4" /> Close Registration</> : <><UnlockKeyhole className="mr-2 size-4" /> Reopen Registration</>}</Button>
+                              </div>
+                              <div className="rounded-lg border border-blue-200 bg-white p-4">
+                                <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-blue-700"><Zap className="size-4" /> Activity Actions</p>
+                                <div className="flex flex-wrap gap-2">
+                                  <Button type="button" variant="outline" onClick={() => startEdit(schedule)} className="h-10 font-bold text-blue-700"><Pencil className="mr-2 size-4" /> Edit Activity</Button>
+                                  {schedule.publication_status === "PUBLISHED" && schedule.date <= todayIso() ? <Button type="button" variant="outline" onClick={() => setPendingAction({ schedule, action: "complete" })} className="h-10 font-bold text-blue-700"><CalendarDays className="mr-2 size-4" /> End Activity</Button> : null}
+                                  {schedule.publication_status === "DRAFT" ? <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "Past activities cannot be published." : undefined} onClick={() => setPendingAction({ schedule, action: "publish" })} className="h-10 font-bold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">Publish</Button> : schedule.publication_status === "PUBLISHED" ? <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "Past activities cannot be unpublished." : undefined} onClick={() => setPendingAction({ schedule, action: "unpublish" })} className="h-10 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Unpublish</Button> : null}
+                                  {schedule.publication_status === "PUBLISHED" ? <Button type="button" variant="outline" disabled={isPastSchedule} title={isPastSchedule ? "A past activity can no longer be cancelled." : undefined} onClick={() => setPendingAction({ schedule, action: "cancel" })} className="h-10 font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50">Cancel Activity</Button> : null}
+                                  <Button type="button" variant="outline" title={hasHistory && !isPastSchedule ? "Schedules with bookings can be deleted after their date." : "Delete program"} disabled={hasHistory && !isPastSchedule} onClick={() => setPendingAction({ schedule, action: "delete" })} className="h-10 border-rose-300 font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="mr-2 size-4" /> Delete</Button>
+                                </div>
+                              </div>
+                            </div>
+                          </section>
+                        ) : (
+                          <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">View-only program · Created by another CBAT officer.</p>
+                        )}
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                          <p className="flex flex-wrap gap-2 text-xs text-slate-500">
+                            <Badge variant="outline" className="text-[11px]">{schedule.farmer_audience === "ALL_FARMERS" ? "All Barangays" : `Farmers in ${schedule.barangay_name || "program barangay"}`}</Badge>
+                            <Badge variant="outline" className="text-[11px]">{schedule.publication_status}</Badge>
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleExpandedSchedule(schedule.id)}
+                              className="h-9 px-3 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp className="mr-1.5 size-4 text-slate-500" />
+                                  Hide Details
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="mr-1.5 size-4 text-slate-500" />
+                                  View Details
+                                </>
+                              )}
+                            </Button>
+                            <Button type="button" variant="outline" onClick={() => setSelected(schedule)} className="h-9 font-bold text-blue-700">
+                              <Users className="mr-2 size-4" /> View Bookings ({roster.length})
+                            </Button>
                           </div>
                         </div>
-                      </div>
-                    </section> : <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">View-only program · Created by another CBAT officer.</p>}
-
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                      <p className="flex flex-wrap gap-2 text-xs text-slate-500"><Badge variant="outline" className="text-[11px]">{schedule.farmer_audience === "ALL_FARMERS" ? "All Barangays" : `Farmers in ${schedule.barangay_name || "program barangay"}`}</Badge><Badge variant="outline" className="text-[11px]">{schedule.publication_status}</Badge></p>
-                      <Button type="button" variant="outline" onClick={() => setSelected(schedule)} className="h-9 font-bold text-blue-700"><Users className="mr-2 size-4" /> View Bookings ({roster.length})</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )
         )}
         </div>
         </div>
@@ -695,7 +841,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               <div className="space-y-2">
                 <label htmlFor="program-cover" className="block text-xs sm:text-sm font-bold text-slate-700">Cover image or poster <span className="font-normal text-slate-400">(up to 8 MB)</span></label>
                 {coverPreview ? <div className="relative overflow-hidden rounded-xl border border-slate-200"><Image src={coverPreviewUrl(coverPreview)} alt="Program cover preview" width={1200} height={400} unoptimized className="h-36 w-full object-cover" /><Button type="button" variant="outline" onClick={() => { setCoverFile(null); setCoverPreview(""); setRemoveCover(true); }} className="absolute right-2 top-2 h-8 bg-white/95 text-xs">Remove image</Button></div> : <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500"><ImageIcon className="size-5" /> No cover image selected</div>}
-                <Input id="program-cover" type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 8 * 1024 * 1024) { setError("Choose an image that is 8 MB or smaller."); event.target.value = ""; return; } setCoverFile(file); setCoverPreview(URL.createObjectURL(file)); setRemoveCover(false); setError(""); }} className="h-10 text-xs" />
+                <Input id="program-cover" type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 8 * 1024 * 1024) { showErrorDialog("Choose an image that is 8 MB or smaller."); event.target.value = ""; return; } setCoverFile(file); setCoverPreview(URL.createObjectURL(file)); setRemoveCover(false); }} className="h-10 text-xs" />
               </div>
               <label className="block space-y-1.5 text-xs sm:text-sm font-bold text-slate-700">
                 Publication
@@ -1027,12 +1173,79 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy} className="h-9 text-xs">Cancel</AlertDialogCancel>
-            <AlertDialogAction disabled={busy || !conflictPayload} onClick={(event) => { event.preventDefault(); if (conflictPayload) void persistSchedule(conflictPayload); }} className="h-9 text-xs">
-              Continue anyway
-            </AlertDialogAction>
+            <Button type="button" disabled={busy || !conflictPayload} onClick={() => void continueAnyway()} className="h-9 text-xs">
+              {busy ? "Saving…" : "Continue anyway"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={Boolean(programErrorMessage)} onOpenChange={(open) => {
+        if (!open) {
+          setProgramErrorMessage("");
+          setCanRetryProgramLoad(false);
+        }
+      }}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-bold text-slate-900">{canRetryProgramLoad ? "Could not load programs" : "Could not complete request"}</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-600">{programErrorMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {canRetryProgramLoad ? (
+              <Button type="button" variant="outline" disabled={refreshing} onClick={() => {
+                setProgramErrorMessage("");
+                setCanRetryProgramLoad(false);
+                void refresh();
+              }} className="h-9 text-xs">
+                {refreshing ? "Retrying…" : "Retry"}
+              </Button>
+            ) : null}
+            <AlertDialogAction className="h-9 text-xs">Okay</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog
+        open={saveSuccessDialog !== null}
+        onOpenChange={(open) => {
+          if (!open && saveSuccessDialog) {
+            setSaveSuccessDialog(null);
+            void refresh();
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm rounded-3xl border border-emerald-100 bg-white p-7 text-center shadow-2xl">
+          <div className="flex flex-col items-center gap-3 py-2" role="status" aria-live="polite">
+            <div className="relative mb-1 flex size-20 items-center justify-center">
+              <span className="absolute inset-0 rounded-full bg-emerald-300 opacity-60 animate-ping-subtle motion-reduce:animate-none" />
+              <span className="relative flex size-20 items-center justify-center rounded-full bg-linear-to-tr from-[#1b4332] to-emerald-600 text-white shadow-xl shadow-emerald-900/25 animate-pop-bounce motion-reduce:animate-none">
+                <CheckCircle2 className="size-11 stroke-[2.5]" aria-hidden="true" />
+              </span>
+            </div>
+            <DialogHeader className="items-center gap-2 text-center">
+              <DialogTitle className="text-xl font-black tracking-tight text-slate-900">
+                {saveSuccessDialog?.title}
+              </DialogTitle>
+              <DialogDescription className="text-sm font-medium text-slate-600">
+                {saveSuccessDialog?.description}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+              <Sparkles className="size-3.5 text-emerald-600" aria-hidden="true" />
+              <span>Saved successfully</span>
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-center">
+            <Button type="button" onClick={() => {
+              setSaveSuccessDialog(null);
+              void refresh();
+            }} className="h-10 w-full rounded-xl bg-emerald-800 font-bold text-white hover:bg-emerald-900 sm:w-auto sm:min-w-32">
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm changes that affect registrations or program history */}
       <AlertDialog open={pendingAction !== null} onOpenChange={(open) => { if (!open) setPendingAction(null); }}>
