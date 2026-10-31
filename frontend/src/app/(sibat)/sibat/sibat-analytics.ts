@@ -932,6 +932,20 @@ export function useUpdateSubmissionData() {
   });
 }
 
+export function useAvailableBatches(enabled = true) {
+  return useQuery({
+    queryKey: ["livestock-batches-options"],
+    queryFn: async () => {
+      const res = await api.get<{ results?: Array<{ id: number; batch_code: string; batch_name?: string }> } | Array<{ id: number; batch_code: string; batch_name?: string }>>("livestock/batches/");
+      const data = res.data;
+      if (Array.isArray(data)) return data;
+      return data?.results ?? [];
+    },
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
 
 export function useReviewClinicalHealth() {
   const queryClient = useQueryClient();
