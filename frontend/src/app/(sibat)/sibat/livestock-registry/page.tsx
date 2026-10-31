@@ -120,18 +120,14 @@ function SibatLivestockRegistryContent() {
   const [selectedCensusForDetail, setSelectedCensusForDetail] = useState<CensusSubmissionRecord | null>(null);
 
   // View Mode: Table vs Card view (defaults to card on small screens, table on desktop)
-  const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const [viewMode, setViewMode] = useState<"table" | "card">(() =>
+    typeof window !== "undefined" && window.innerWidth < 768 ? "card" : "table"
+  );
   const recordsSectionRef = useRef<HTMLDivElement>(null);
   const firstRecordRef = useRef<HTMLElement | null>(null);
   const recordsListRef = useRef<HTMLDivElement>(null);
   const censusListRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
-      setViewMode("card");
-    }
-  }, []);
 
   // Smooth scroll down to records when active tab changes on mobile/tablet so 1st card is in view
   useEffect(() => {
@@ -525,19 +521,19 @@ function SibatLivestockRegistryContent() {
         mobileActionsInline
       />
 
-      {/* ── UNIFIED RECORD TABS (All Animals, Individual, Herds, Census) ── */}
-      <div className="border-b border-slate-200/90 bg-white shadow-2xs">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
+      {/* ── UNIFIED RECORD TABS (All Animals, Individual, Herds, Calving, Census) ── */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
+        <div className="overflow-x-auto no-scrollbar pb-1">
+          <div className="flex min-w-max w-full items-center justify-between gap-1 sm:gap-2 rounded-2xl border border-slate-200/90 bg-white p-1.5 sm:p-2 shadow-2xs">
             {/* 1. All Animals */}
             <button
               type="button"
               onClick={() => handleTabChange("all")}
               className={cn(
-                "group flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-3 px-3.5 sm:px-5 border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
+                "group inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-t-xl rounded-b-none border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
                 activeTab === "all"
-                  ? "border-emerald-700 text-emerald-950 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300 font-semibold"
+                  ? "border-emerald-700 bg-emerald-50/90 text-emerald-950 font-black"
+                  : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
               )}
             >
               <Icon
@@ -563,10 +559,10 @@ function SibatLivestockRegistryContent() {
               type="button"
               onClick={() => handleTabChange("individual")}
               className={cn(
-                "group flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-3 px-3.5 sm:px-5 border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
+                "group inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-t-xl rounded-b-none border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
                 activeTab === "individual"
-                  ? "border-emerald-700 text-emerald-950 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300 font-semibold"
+                  ? "border-emerald-700 bg-emerald-50/90 text-emerald-950 font-black"
+                  : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
               )}
             >
               <Tag
@@ -591,10 +587,10 @@ function SibatLivestockRegistryContent() {
               type="button"
               onClick={() => handleTabChange("herds")}
               className={cn(
-                "group flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-3 px-3.5 sm:px-5 border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
+                "group inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-t-xl rounded-b-none border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
                 activeTab === "herds"
-                  ? "border-emerald-700 text-emerald-950 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300 font-semibold"
+                  ? "border-emerald-700 bg-emerald-50/90 text-emerald-950 font-black"
+                  : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
               )}
             >
               <Layers
@@ -614,15 +610,15 @@ function SibatLivestockRegistryContent() {
               </span>
             </button>
 
-            {/* 4. Calving */}
+            {/* 4. Calving Records */}
             <button
               type="button"
               onClick={() => handleTabChange("calving")}
               className={cn(
-                "group flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-3 px-3.5 sm:px-5 border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
+                "group inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-t-xl rounded-b-none border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
                 activeTab === "calving"
-                  ? "border-emerald-700 text-emerald-950 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300 font-semibold"
+                  ? "border-emerald-700 bg-emerald-50/90 text-emerald-950 font-black"
+                  : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
               )}
             >
               <Baby
@@ -647,10 +643,10 @@ function SibatLivestockRegistryContent() {
               type="button"
               onClick={() => handleTabChange("census")}
               className={cn(
-                "group flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-3 px-3.5 sm:px-5 border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
+                "group inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-t-xl rounded-b-none border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
                 activeTab === "census"
-                  ? "border-emerald-700 text-emerald-950 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300 font-semibold"
+                  ? "border-emerald-700 bg-emerald-50/90 text-emerald-950 font-black"
+                  : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
               )}
             >
               <FileSpreadsheet
@@ -697,14 +693,6 @@ function SibatLivestockRegistryContent() {
           )}
         </div>
 
-        {/* Scope Strip */}
-        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 rounded-2xl border border-emerald-200/90 bg-emerald-50/70 p-3 sm:px-4 text-xs sm:text-sm text-emerald-950 shadow-2xs">
-          <MapPin className="size-4.5 text-emerald-700 shrink-0 mt-0.5 sm:mt-0" />
-          <span>
-            Showing only records from your assigned barangays:{" "}
-            <strong className="font-bold text-emerald-900">{registryScopeLabel}</strong>.
-          </span>
-        </div>
 
         {activeTab === "census" ? (
           /* ── CENSUS SUBMISSIONS VIEW ── */
