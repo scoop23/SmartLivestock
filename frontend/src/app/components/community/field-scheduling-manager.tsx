@@ -620,6 +620,15 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
   const accent = "bg-[#14532d] hover:bg-[#0f3d21]";
   const pageTitle = "Livestock Programs";
+  const pageEntrance = role === "sibat"
+    ? "animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both ease-out motion-reduce:animate-none"
+    : "";
+  const calendarEntrance = role === "sibat"
+    ? "animate-in fade-in slide-in-from-left-3 delay-100 duration-500 fill-mode-both ease-out motion-reduce:animate-none"
+    : "";
+  const programsEntrance = role === "sibat"
+    ? "animate-in fade-in slide-in-from-bottom-3 delay-150 duration-500 fill-mode-both ease-out motion-reduce:animate-none"
+    : "";
 
   return (
     <>
@@ -654,10 +663,10 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         }
       />
 
-      <div className={role === "sibat" ? "w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6" : "w-full space-y-4 p-3 sm:p-4 md:p-5"}>
+      <div className={`${role === "sibat" ? "w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6" : "w-full space-y-4 p-3 sm:p-4 md:p-5"} ${pageEntrance}`}>
         <div className="grid items-start gap-5 lg:grid-cols-[21rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
           {/* LEFT: Program Calendar */}
-          <section className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs lg:sticky lg:top-4 space-y-3.5">
+          <section className={`rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs lg:sticky lg:top-4 space-y-3.5 ${calendarEntrance}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="flex items-center gap-2 text-base font-extrabold text-slate-900">
@@ -716,7 +725,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
           </section>
 
           {/* RIGHT: UI matching requested screenshot */}
-          <div className="min-w-0 space-y-5">
+          <div className={`min-w-0 space-y-5 ${programsEntrance}`}>
             {/* 4 Stat Cards */}
             <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
               {/* Total Programs */}
