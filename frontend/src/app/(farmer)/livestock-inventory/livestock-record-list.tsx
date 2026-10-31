@@ -1136,185 +1136,192 @@ export default function LivestockRecordList({
       </div>}
 
       {/* ═══ 3. Sub-Header & Controls Bar ═══ */}
-      <div data-tour="records-controls" className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
-        {/* Clean Search Bar */}
-        <div className="relative w-full min-w-0 flex-1 sm:min-w-[220px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          <Input
-            placeholder="Search by ear tag, breed, or species..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-10 bg-slate-50/80 border-slate-200 rounded-lg h-12 text-base focus-visible:ring-[#1E4D2B]/30"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+      <div data-tour="records-controls" className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs flex flex-col gap-3">
+        {/* Row 1: Search Bar & Filters */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 w-full">
+          {/* Clean Search Bar */}
+          <div className="relative w-full min-w-0 flex-1 sm:min-w-[220px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <Input
+              placeholder="Search by ear tag, breed, or species..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-10 bg-slate-50/80 border-slate-200 rounded-lg h-11 sm:h-12 text-sm sm:text-base focus-visible:ring-[#1E4D2B]/30"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
 
-        {/* Inline Dropdown Filters & Actions */}
-        <div
-          className={cn(
-            "w-full flex-1 min-w-0 items-center gap-2",
-            centerViewToggle
-              ? "flex flex-nowrap overflow-x-auto pb-1"
-              : "grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end",
-          )}
-        >
-          {/* Species Dropdown */}
-          {showSpeciesFilter && livestockTypes && (
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger aria-label="Filter by livestock type" className={cn("min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700", centerViewToggle ? "w-[150px] shrink-0" : "w-full sm:w-[150px]")}>
-                <SelectValue placeholder="All Species" />
+          {/* Inline Dropdown Filters */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Species Dropdown */}
+            {showSpeciesFilter && livestockTypes && (
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger aria-label="Filter by livestock type" className="min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 w-full sm:w-[150px]">
+                  <SelectValue placeholder="All Species" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Species</SelectItem>
+                  {Object.entries(livestockTypes).map(([name, id]) => (
+                    <SelectItem key={id} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Sex Dropdown */}
+            {showSexFilter && (
+              <Select value={sexFilter} onValueChange={setSexFilter}>
+                <SelectTrigger aria-label="Filter by sex" className="min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 w-full sm:w-[150px]">
+                  <SelectValue placeholder="All Sexes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Sexes</SelectItem>
+                  <SelectItem value="FEMALE">Female</SelectItem>
+                  <SelectItem value="MALE">Male</SelectItem>
+                  <SelectItem value="CASTRATED">Castrated</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Status Dropdown */}
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as StatusType | "ALL")}
+            >
+              <SelectTrigger aria-label="Filter by review status" className="min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 w-full sm:w-[170px]">
+                <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Species</SelectItem>
-                {Object.entries(livestockTypes).map(([name, id]) => (
-                  <SelectItem key={id} value={name}>
-                    {name}
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="VERIFIED">Verified by SIBAT</SelectItem>
+                <SelectItem value="PENDING">Pending Review</SelectItem>
+                <SelectItem value="SUBJECT_TO_REVISION">Needs Revision</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Real-world herd lifecycle, separate from municipal validation */}
+            <Select
+              value={operationalFilter}
+              onValueChange={(value) => setOperationalFilter(value as OperationalStatus | "ALL")}
+            >
+              <SelectTrigger aria-label="Filter by livestock status" className="min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 w-full sm:w-[160px]">
+                <SelectValue placeholder="Herd Lifecycle" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Lifecycle</SelectItem>
+                <SelectItem value="ACTIVE">Active Herd</SelectItem>
+                <SelectItem value="SOLD">Sold</SelectItem>
+                <SelectItem value="DECEASED">Deceased</SelectItem>
+                <SelectItem value="SLAUGHTERED">Slaughtered</SelectItem>
+                <SelectItem value="MOVED_OUT">Moved Out</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Sorting Dropdown */}
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
+              <SelectTrigger aria-label="Sort livestock records" className="min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700 w-full sm:w-[150px]">
+                <div className="flex items-center gap-1.5 truncate">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <SelectValue placeholder="Sort by" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          )}
+          </div>
+        </div>
 
-          {/* Sex Dropdown */}
-          {showSexFilter && (
-            <Select value={sexFilter} onValueChange={setSexFilter}>
-              <SelectTrigger aria-label="Filter by sex" className={cn("min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700", centerViewToggle ? "w-[150px] shrink-0" : "w-full sm:w-[150px]")}>
-                <SelectValue placeholder="All Sexes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Sexes</SelectItem>
-                <SelectItem value="FEMALE">Female</SelectItem>
-                <SelectItem value="MALE">Male</SelectItem>
-                <SelectItem value="CASTRATED">Castrated</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
+        {/* Row 2: Under that — Record Count & Actions (View Toggle, Export, Add Record) */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100">
+          {/* Record Count & Reset Filters */}
+          <div className="flex items-center gap-3 text-xs text-slate-500 font-medium flex-wrap">
+            <span>
+              Showing <strong className="font-bold text-slate-800 tabular-nums">{filtered.length}</strong> of{" "}
+              <strong className="font-bold text-slate-800 tabular-nums">{items.length}</strong> livestock
+            </span>
 
-          {/* Status Dropdown */}
-          <Select
-            value={statusFilter}
-            onValueChange={(v) => setStatusFilter(v as StatusType | "ALL")}
-          >
-            <SelectTrigger aria-label="Filter by review status" className={cn("min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700", centerViewToggle ? "w-[170px] shrink-0" : "w-full sm:w-[170px]")}>
-              <SelectValue placeholder="All Statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Statuses</SelectItem>
-              <SelectItem value="APPROVED">Approved</SelectItem>
-              <SelectItem value="VERIFIED">Verified by SIBAT</SelectItem>
-              <SelectItem value="PENDING">Pending Review</SelectItem>
-              <SelectItem value="SUBJECT_TO_REVISION">Needs Revision</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Real-world herd lifecycle, separate from municipal validation */}
-          <Select
-            value={operationalFilter}
-            onValueChange={(value) => setOperationalFilter(value as OperationalStatus | "ALL")}
-          >
-            <SelectTrigger aria-label="Filter by livestock status" className={cn("min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700", centerViewToggle ? "w-[160px] shrink-0" : "w-full sm:w-[160px]")}>
-              <SelectValue placeholder="Herd Lifecycle" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Lifecycle</SelectItem>
-              <SelectItem value="ACTIVE">Active Herd</SelectItem>
-              <SelectItem value="SOLD">Sold</SelectItem>
-              <SelectItem value="DECEASED">Deceased</SelectItem>
-              <SelectItem value="SLAUGHTERED">Slaughtered</SelectItem>
-              <SelectItem value="MOVED_OUT">Moved Out</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Sorting Dropdown */}
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
-            <SelectTrigger aria-label="Sort livestock records" className={cn("min-h-11 rounded-lg border-slate-200 bg-slate-50/80 text-sm font-semibold text-slate-700", centerViewToggle ? "w-[150px] shrink-0" : "w-full sm:w-[150px]")}>
-              <div className="flex items-center gap-1.5 truncate">
-                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <SelectValue placeholder="Sort by" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* On the All Livestock page, center the switcher within the search/filter bar. */}
-          <div className={cn(centerViewToggle ? "shrink-0" : "col-span-2 sm:col-span-1")}>
-            {viewToggle}
+            {activeFilterCount > 0 && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={clearAllFilters}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700 hover:text-rose-800 hover:bg-rose-50 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="size-3.5" />
+                      <span>Reset filters ({activeFilterCount})</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    Reset filters ({activeFilterCount} active)
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
 
-          {/* Export Button */}
-          {showExport && <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleExportCSV}
-                  className="min-h-11 w-full sm:w-auto px-3 rounded-lg border-slate-200 bg-slate-50/80 hover:bg-slate-100 text-slate-700 font-bold text-sm gap-2 shrink-0"
-                >
-                  <Download className="w-3.5 h-3.5 text-slate-600" />
-                  <span className="hidden sm:inline">Export</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                Export filtered records as CSV spreadsheet
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>}
+          {/* The 3 Actions: Card/Table View, Export, Add Record */}
+          <div className="flex items-center gap-2 justify-end flex-wrap">
+            {/* 1. Card / Table View Toggle */}
+            {viewToggle}
 
-          {/* Add Record Button */}
-          {showAddRecord && <Button
-            type="button"
-            onClick={() => {
-              if (onAddRecord) {
-                onAddRecord();
-              } else {
-                router.push("/livestock-inventory");
-              }
-            }}
-            className="min-h-11 w-full sm:w-auto px-3.5 rounded-lg bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold text-sm gap-2 shrink-0 shadow-2xs transition-all active:scale-95"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Record</span>
-          </Button>}
+            {/* 2. Export Button */}
+            {showExport && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleExportCSV}
+                      className="min-h-11 w-full sm:w-auto px-3 rounded-lg border-slate-200 bg-slate-50/80 hover:bg-slate-100 text-slate-700 font-bold text-sm gap-2 shrink-0 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-slate-600" />
+                      <span className="hidden sm:inline">Export</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    Export filtered records as CSV spreadsheet
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
 
-          {/* Reset Filters Icon */}
-          {activeFilterCount > 0 && (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={clearAllFilters}
-                    className={cn(
-                      "min-h-11 rounded-lg text-sm font-semibold text-rose-700 hover:text-rose-800 hover:bg-rose-50 transition-colors shrink-0",
-                      centerViewToggle
-                        ? "w-auto px-3"
-                        : "col-span-2 w-full sm:col-span-1 sm:w-auto sm:px-3",
-                    )}
-                  >
-                    <span className="inline-flex items-center justify-center gap-2"><RotateCcw className="size-4" /> Reset filters</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  Reset filters ({activeFilterCount} active)
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+            {/* 3. Add Record Button */}
+            {showAddRecord && (
+              <Button
+                type="button"
+                onClick={() => {
+                  if (onAddRecord) {
+                    onAddRecord();
+                  } else {
+                    router.push("/livestock-inventory");
+                  }
+                }}
+                className="min-h-11 w-full sm:w-auto px-3.5 rounded-lg bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold text-sm gap-2 shrink-0 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Record</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
