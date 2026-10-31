@@ -186,7 +186,6 @@ function FarmerSchedulingContent() {
   const [programTypeFilter, setProgramTypeFilter] = useState<"all" | "walkin" | "appointment">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"soonest" | "latest" | "title-asc" | "title-desc">("soonest");
-  const [showMoreDetails, setShowMoreDetails] = useState(false);
 
   const userDisplayName =
     user?.firstName && user?.lastName
@@ -357,7 +356,12 @@ function FarmerSchedulingContent() {
   );
   async function book() {
     const bookingSchedule = detailsSchedule ?? selected;
-    if (!scheduleId || !bookingSchedule || confirmedScheduleIds.has(Number(scheduleId))) return;
+    if (
+      !scheduleId ||
+      !bookingSchedule ||
+      bookingSchedule.capacity === 0 ||
+      confirmedScheduleIds.has(Number(scheduleId))
+    ) return;
 
     setBusy(true);
     setError("");
@@ -1292,7 +1296,6 @@ function FarmerSchedulingContent() {
           if (!open) {
             setDetailsSchedule(null);
             setScheduleId("");
-            setShowMoreDetails(false);
           }
         }}
       >
@@ -1446,9 +1449,9 @@ function FarmerSchedulingContent() {
                   </div>
                 </div>
 
-                {/* Optional Extended Details (Toggled via button or link) */}
-                {showMoreDetails ? (
-                  <div className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 animate-in fade-in-50 duration-200 text-xs sm:text-sm">
+                {/* Full Program Details (Always Visible Directly on Dialog) */}
+                {(detailsSchedule.objectives || detailsSchedule.farmer_notes || detailsSchedule.eligibility || detailsSchedule.contact_information) ? (
+                  <div className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 text-xs sm:text-sm">
                     {detailsSchedule.objectives ? (
                       <div className="space-y-1">
                         <h5 className="font-bold text-slate-900 flex items-center gap-1.5">
@@ -1464,7 +1467,7 @@ function FarmerSchedulingContent() {
                     ) : null}
 
                     {detailsSchedule.farmer_notes ? (
-                      <div className="space-y-1 border-t border-slate-200/80 pt-2.5">
+                      <div className={`space-y-1 ${detailsSchedule.objectives ? "border-t border-slate-200/80 pt-2.5" : ""}`}>
                         <h5 className="font-bold text-amber-900 flex items-center gap-1.5">
                           <Info className="size-3.5 text-amber-700" />
                           <span>Guidelines & Reminders</span>
@@ -1475,9 +1478,21 @@ function FarmerSchedulingContent() {
                       </div>
                     ) : null}
 
+                    {detailsSchedule.eligibility ? (
+                      <div className={`space-y-1 ${(detailsSchedule.objectives || detailsSchedule.farmer_notes) ? "border-t border-slate-200/80 pt-2.5" : ""}`}>
+                        <h5 className="font-bold text-slate-900 flex items-center gap-1.5">
+                          <CheckCircle2 className="size-3.5 text-emerald-700" />
+                          <span>Eligibility Requirements</span>
+                        </h5>
+                        <p className="text-slate-600 font-medium">
+                          {detailsSchedule.eligibility}
+                        </p>
+                      </div>
+                    ) : null}
+
                     {detailsSchedule.contact_information ? (
-                      <div className="space-y-1 border-t border-slate-200/80 pt-2.5">
-                        <h5 className="font-bold text-slate-900">Inquiries</h5>
+                      <div className={`space-y-1 ${(detailsSchedule.objectives || detailsSchedule.farmer_notes || detailsSchedule.eligibility) ? "border-t border-slate-200/80 pt-2.5" : ""}`}>
+                        <h5 className="font-bold text-slate-900">Inquiries & Contact</h5>
                         <p className="text-slate-600 font-medium">
                           Contact: {detailsSchedule.contact_information}
                         </p>
@@ -1487,22 +1502,24 @@ function FarmerSchedulingContent() {
                 ) : null}
 
                 {/* Bottom Action Area */}
-                {isUnlimited ? (
-                  <Button
-                    type="button"
-                    onClick={() => setShowMoreDetails((prev) => !prev)}
-                    className="w-full h-11 sm:h-12 bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer shadow-xs mt-4 transition-all"
-                  >
-                    <span>{showMoreDetails ? "Hide Full Program Details" : "View Full Program Details"}</span>
-                  </Button>
-                ) : isAlreadyBooked ? (
-                  <div className="mt-4 space-y-2">
+                <div className="mt-4">
+                  {isUnlimited ? (
                     <Button
                       type="button"
                       onClick={() => {
                         setDetailsSchedule(null);
                         setScheduleId("");
-                        setShowMoreDetails(false);
+                      }}
+                      className="w-full h-11 sm:h-12 bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-all"
+                    >
+                      <span>Close</span>
+                    </Button>
+                  ) : isAlreadyBooked ? (
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setDetailsSchedule(null);
+                        setScheduleId("");
                         const el = document.getElementById("my-bookings-section");
                         el?.scrollIntoView({ behavior: "smooth" });
                       }}
@@ -1511,16 +1528,7 @@ function FarmerSchedulingContent() {
                       <CalendarCheck className="size-4" />
                       <span>View My Booking</span>
                     </Button>
-                    <button
-                      type="button"
-                      onClick={() => setShowMoreDetails((prev) => !prev)}
-                      className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-700 cursor-pointer py-1"
-                    >
-                      {showMoreDetails ? "Hide Full Program Details" : "View Full Program Details"}
-                    </button>
-                  </div>
-                ) : isClosed || isFull ? (
-                  <div className="mt-4 space-y-2">
+                  ) : isClosed || isFull ? (
                     <Button
                       type="button"
                       disabled
@@ -1528,16 +1536,7 @@ function FarmerSchedulingContent() {
                     >
                       <span>{isClosed ? "Registration Closed" : "Fully Booked"}</span>
                     </Button>
-                    <button
-                      type="button"
-                      onClick={() => setShowMoreDetails((prev) => !prev)}
-                      className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-700 cursor-pointer py-1"
-                    >
-                      {showMoreDetails ? "Hide Full Program Details" : "View Full Program Details"}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mt-4 space-y-2">
+                  ) : (
                     <Button
                       type="button"
                       disabled={busy || isClosed || isFull || scheduleId !== String(detailsSchedule.id)}
@@ -1547,15 +1546,8 @@ function FarmerSchedulingContent() {
                       {busy ? <Loader2 className="size-4 animate-spin" /> : <CalendarCheck className="size-4" />}
                       <span>Confirm Slot Reservation</span>
                     </Button>
-                    <button
-                      type="button"
-                      onClick={() => setShowMoreDetails((prev) => !prev)}
-                      className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-700 cursor-pointer py-1"
-                    >
-                      {showMoreDetails ? "Hide Full Program Details" : "View Full Program Details"}
-                    </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             );
           })() : null}
