@@ -128,6 +128,18 @@ function SibatLivestockRegistryContent() {
   const recordsListRef = useRef<HTMLDivElement>(null);
   const censusListRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const activeTabRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (activeTabRef.current) {
+      activeTabRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }, [activeTab]);
 
   // Smooth scroll down to records when active tab changes on mobile/tablet so 1st card is in view
   useEffect(() => {
@@ -521,155 +533,8 @@ function SibatLivestockRegistryContent() {
         mobileActionsInline
       />
 
-      {/* ── UNIFIED RECORD TABS (All Animals, Individual, Herds, Calving, Census) ── */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-        <div className="overflow-x-auto no-scrollbar pb-1">
-          <div className="flex min-w-max w-full items-center justify-between gap-1 sm:gap-2 rounded-2xl border border-slate-200/90 bg-white p-1.5 sm:p-2 shadow-2xs">
-            {/* 1. All Animals */}
-            <button
-              type="button"
-              onClick={() => handleTabChange("all")}
-              className={cn(
-                "group inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-t-xl rounded-b-none border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
-                activeTab === "all"
-                  ? "border-emerald-700 bg-emerald-50/90 text-emerald-950 font-black"
-                  : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
-              )}
-            >
-              <Icon
-                iconNode={cowHead}
-                className={cn(
-                  "size-4.5 sm:size-5 transition-colors",
-                  activeTab === "all" ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600"
-                )}
-              />
-              <span>All Animals</span>
-              <span
-                className={cn(
-                  "px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold tabular-nums transition-colors",
-                  activeTab === "all" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
-                )}
-              >
-                {allCount}
-              </span>
-            </button>
-
-            {/* 2. Individual */}
-            <button
-              type="button"
-              onClick={() => handleTabChange("individual")}
-              className={cn(
-                "group inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-t-xl rounded-b-none border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
-                activeTab === "individual"
-                  ? "border-emerald-700 bg-emerald-50/90 text-emerald-950 font-black"
-                  : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
-              )}
-            >
-              <Tag
-                className={cn(
-                  "size-4 sm:size-4.5 transition-colors",
-                  activeTab === "individual" ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600"
-                )}
-              />
-              <span>Individual</span>
-              <span
-                className={cn(
-                  "px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold tabular-nums transition-colors",
-                  activeTab === "individual" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
-                )}
-              >
-                {individualCount}
-              </span>
-            </button>
-
-            {/* 3. Herds */}
-            <button
-              type="button"
-              onClick={() => handleTabChange("herds")}
-              className={cn(
-                "group inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-t-xl rounded-b-none border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
-                activeTab === "herds"
-                  ? "border-emerald-700 bg-emerald-50/90 text-emerald-950 font-black"
-                  : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
-              )}
-            >
-              <Layers
-                className={cn(
-                  "size-4 sm:size-4.5 transition-colors",
-                  activeTab === "herds" ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600"
-                )}
-              />
-              <span>Herds</span>
-              <span
-                className={cn(
-                  "px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold tabular-nums transition-colors",
-                  activeTab === "herds" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
-                )}
-              >
-                {herdsCount}
-              </span>
-            </button>
-
-            {/* 4. Calving Records */}
-            <button
-              type="button"
-              onClick={() => handleTabChange("calving")}
-              className={cn(
-                "group inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-t-xl rounded-b-none border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
-                activeTab === "calving"
-                  ? "border-emerald-700 bg-emerald-50/90 text-emerald-950 font-black"
-                  : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
-              )}
-            >
-              <Baby
-                className={cn(
-                  "size-4 sm:size-4.5 transition-colors",
-                  activeTab === "calving" ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600"
-                )}
-              />
-              <span>Calving Records</span>
-              <span
-                className={cn(
-                  "px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold tabular-nums transition-colors",
-                  activeTab === "calving" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
-                )}
-              >
-                {calvingCount}
-              </span>
-            </button>
-
-            {/* 5. Census */}
-            <button
-              type="button"
-              onClick={() => handleTabChange("census")}
-              className={cn(
-                "group inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-t-xl rounded-b-none border-b-2 font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap",
-                activeTab === "census"
-                  ? "border-emerald-700 bg-emerald-50/90 text-emerald-950 font-black"
-                  : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
-              )}
-            >
-              <FileSpreadsheet
-                className={cn(
-                  "size-4 sm:size-4.5 transition-colors",
-                  activeTab === "census" ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600"
-                )}
-              />
-              <span>Census</span>
-              <span
-                className={cn(
-                  "px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold tabular-nums transition-colors",
-                  activeTab === "census" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
-                )}
-              >
-                {censusCount}
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div ref={recordsSectionRef} id="records-list-anchor" className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 scroll-mt-6">
+      {/* ── TOP NAVIGATION & UNIFIED RECORD TABS ── */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-3 sm:space-y-4">
         {/* Navigation Breadcrumb / Back Link */}
         <div className="flex items-center justify-between">
           <Link
@@ -693,6 +558,167 @@ function SibatLivestockRegistryContent() {
           )}
         </div>
 
+        <div className="w-full rounded-2xl border border-slate-200/90 bg-white p-1 sm:p-1.5 shadow-2xs overflow-hidden">
+          <div
+            ref={tabsContainerRef}
+            className="overflow-x-auto no-scrollbar scroll-smooth flex items-center justify-start sm:justify-between gap-1 sm:gap-1.5 w-full snap-x snap-mandatory px-0.5"
+          >
+            {/* 1. All Animals */}
+            <button
+              ref={activeTab === "all" ? activeTabRef : null}
+              type="button"
+              onClick={() => handleTabChange("all")}
+              className={cn(
+                "group inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap shrink-0 snap-center",
+                activeTab === "all"
+                  ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950 font-black shadow-2xs ring-1 ring-emerald-500/20"
+                  : "border border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
+              )}
+            >
+              <Icon
+                iconNode={cowHead}
+                className={cn(
+                  "size-4 sm:size-4.5 transition-colors shrink-0",
+                  activeTab === "all" ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600"
+                )}
+              />
+              <span>
+                <span className="sm:hidden">All</span>
+                <span className="hidden sm:inline">All Animals</span>
+              </span>
+              <span
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold tabular-nums transition-colors shrink-0",
+                  activeTab === "all" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                )}
+              >
+                {allCount}
+              </span>
+            </button>
+
+            {/* 2. Individual */}
+            <button
+              ref={activeTab === "individual" ? activeTabRef : null}
+              type="button"
+              onClick={() => handleTabChange("individual")}
+              className={cn(
+                "group inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap shrink-0 snap-center",
+                activeTab === "individual"
+                  ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950 font-black shadow-2xs ring-1 ring-emerald-500/20"
+                  : "border border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
+              )}
+            >
+              <Tag
+                className={cn(
+                  "size-4 sm:size-4.5 transition-colors shrink-0",
+                  activeTab === "individual" ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600"
+                )}
+              />
+              <span>Individual</span>
+              <span
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold tabular-nums transition-colors shrink-0",
+                  activeTab === "individual" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                )}
+              >
+                {individualCount}
+              </span>
+            </button>
+
+            {/* 3. Herds */}
+            <button
+              ref={activeTab === "herds" ? activeTabRef : null}
+              type="button"
+              onClick={() => handleTabChange("herds")}
+              className={cn(
+                "group inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap shrink-0 snap-center",
+                activeTab === "herds"
+                  ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950 font-black shadow-2xs ring-1 ring-emerald-500/20"
+                  : "border border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
+              )}
+            >
+              <Layers
+                className={cn(
+                  "size-4 sm:size-4.5 transition-colors shrink-0",
+                  activeTab === "herds" ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600"
+                )}
+              />
+              <span>Herds</span>
+              <span
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold tabular-nums transition-colors shrink-0",
+                  activeTab === "herds" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                )}
+              >
+                {herdsCount}
+              </span>
+            </button>
+
+            {/* 4. Calving Records */}
+            <button
+              ref={activeTab === "calving" ? activeTabRef : null}
+              type="button"
+              onClick={() => handleTabChange("calving")}
+              className={cn(
+                "group inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap shrink-0 snap-center",
+                activeTab === "calving"
+                  ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950 font-black shadow-2xs ring-1 ring-emerald-500/20"
+                  : "border border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
+              )}
+            >
+              <Baby
+                className={cn(
+                  "size-4 sm:size-4.5 transition-colors shrink-0",
+                  activeTab === "calving" ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600"
+                )}
+              />
+              <span>
+                <span className="sm:hidden">Calving</span>
+                <span className="hidden sm:inline">Calving Records</span>
+              </span>
+              <span
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold tabular-nums transition-colors shrink-0",
+                  activeTab === "calving" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                )}
+              >
+                {calvingCount}
+              </span>
+            </button>
+
+            {/* 5. Census */}
+            <button
+              ref={activeTab === "census" ? activeTabRef : null}
+              type="button"
+              onClick={() => handleTabChange("census")}
+              className={cn(
+                "group inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer whitespace-nowrap shrink-0 snap-center",
+                activeTab === "census"
+                  ? "border border-emerald-300/80 bg-emerald-50 text-emerald-950 font-black shadow-2xs ring-1 ring-emerald-500/20"
+                  : "border border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50/80 font-semibold"
+              )}
+            >
+              <FileSpreadsheet
+                className={cn(
+                  "size-4 sm:size-4.5 transition-colors shrink-0",
+                  activeTab === "census" ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600"
+                )}
+              />
+              <span>Census</span>
+              <span
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold tabular-nums transition-colors shrink-0",
+                  activeTab === "census" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                )}
+              >
+                {censusCount}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div ref={recordsSectionRef} id="records-list-anchor" className="w-full px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6 scroll-mt-6">
 
         {activeTab === "census" ? (
           /* ── CENSUS SUBMISSIONS VIEW ── */
