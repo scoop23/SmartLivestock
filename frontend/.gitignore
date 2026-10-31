@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-gis-verification/
 /.next-qa/
 /out/
 
