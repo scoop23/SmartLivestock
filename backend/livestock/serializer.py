@@ -343,7 +343,7 @@ class LivestockInventorySerializer(serializers.Serializer):
 
     def validate(self, attrs):
         user = self.context["request"].user
-        farmer = getattr(user, "farmer_profile", None)
+        farmer = getattr(user, "farmer_profile", None) or (self.instance and self.instance.farmer)
         if farmer is None:
             raise serializers.ValidationError("A farmer profile is required.")
 

@@ -203,7 +203,10 @@ def inventory_detail(request, pk):
         inventory = get_object_or_404(scope_reviewer_queryset(base_qs, request.user), pk=pk)
 
     if request.method in ["PUT", "PATCH", "DELETE"]:
-        require_action(user, "inventory", "edit_own")
+        if request.method == "DELETE" or user_role not in {"CBAT", "SIBAT", "MAO", "ADMIN"}:
+            require_action(user, "inventory", "edit_own")
+        else:
+            require_action(user, "inventory", "review")
 
         # Approved/Verified identity data is locked, but the owning farmer may update
         # photo/avatar, routine profile maintenance fields (birth date, last vaccination date),
