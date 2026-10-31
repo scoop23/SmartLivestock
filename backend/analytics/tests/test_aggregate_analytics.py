@@ -100,7 +100,7 @@ class DescriptiveSummaryTests(TestCase):
                 quantity=Decimal(quantity), record_date=when, status=status,
                 created_by=self.user,
             )
-        production("APPROVED", date(2026, 9, 15), "1.25")
+        production("RECORDED", date(2026, 9, 15), "1.25")
         production("VERIFIED", date(2026, 9, 15), "90.00")
         production("APPROVED", date(2025, 1, 1), "40.00")
         DiseaseCase.objects.create(livestock=animal, name="FMD", affected_count=4, record_date=date(2026, 9, 16), status="APPROVED", created_by=self.user)
@@ -223,7 +223,7 @@ class DescriptiveSummaryTests(TestCase):
         for when, quantity in [(date(2025, 10, 31), "99"), (date(2025, 11, 1), "2"),
                                (date(2026, 1, 15), "3"), (self.today, "4"), (date(2026, 10, 2), "99")]:
             ProductionRecord.objects.create(livestock=animal, production_type="MILK", unit="LITERS",
-                                           quantity=Decimal(quantity), record_date=when, status="APPROVED", created_by=self.user)
+                                           quantity=Decimal(quantity), record_date=when, status="RECORDED", created_by=self.user)
         result = descriptive_summary(self.today)
         data = result["descriptive"]
         self.assertEqual(data["period"], {"start": "2025-11-01", "end": "2026-10-01"})
@@ -390,8 +390,8 @@ class AdminConsistencyTests(TestCase):
     def test_overview_current_month_units_and_historical_production_survive_exit(self):
         animal = self.animal(operational="SOLD")
         for kind, unit, when, quantity, status in [
-            ("MILK", "LITERS", self.today, "2.50", "APPROVED"),
-            ("MILK", "LITERS", date(2026, 9, 30), "99", "APPROVED"),
+            ("MILK", "LITERS", self.today, "2.50", "RECORDED"),
+            ("MILK", "LITERS", date(2026, 9, 30), "99", "RECORDED"),
             ("MILK", "LITERS", self.today, "50", "VERIFIED"),
             ("MEAT", "KILOGRAMS", self.today, "30", "APPROVED")]:
             ProductionRecord.objects.create(livestock=animal, production_type=kind,

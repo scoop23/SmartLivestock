@@ -88,8 +88,8 @@ class ForecastReadinessDiagnosticsTests(TestCase):
         res = self.client.get(url)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
-    def test_all_targets_overview_endpoint(self):
-        """Overview returns summary cards for the 4 core targets."""
+    def test_all_targets_overview_endpoint_omits_private_farmer_production(self):
+        """Municipal overview includes permitted domains but omits private production targets."""
         self.client.force_authenticate(user=self.mao_user)
         res = self.client.get("/api/analytics/predictive/diagnostics/")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
@@ -98,11 +98,14 @@ class ForecastReadinessDiagnosticsTests(TestCase):
         self.assertEqual(data["status"], "success")
         self.assertIn("summary_cards", data)
         self.assertIn("diagnostics", data)
-        self.assertEqual(len(data["summary_cards"]), len(CORE_DIAGNOSTIC_TARGETS))
-
         card_ids = [c["id"] for c in data["summary_cards"]]
-        self.assertIn("milk", card_ids)
-        self.assertIn("farmer_meat", card_ids)
+        permitted_ids = {
+            config["id"] for config in CORE_DIAGNOSTIC_TARGETS
+            if config["domain"] != "production"
+        }
+        self.assertEqual(set(card_ids), permitted_ids)
+        self.assertNotIn("milk", card_ids)
+        self.assertNotIn("farmer_meat", card_ids)
         self.assertIn("slaughter_meat", card_ids)
         self.assertIn("livestock_sales", card_ids)
 

@@ -947,13 +947,20 @@ def get_all_forecast_readiness_diagnostics(
     horizon_months: int = 6,
 ) -> Dict[str, Any]:
     """
-    Evaluates all four core municipal forecasting targets (Milk, Farmer Meat, Slaughter Meat, Livestock Sales)
-    and produces summary cards plus detailed diagnostic data for each.
+    Evaluates accessible core forecasting targets and returns summary cards plus
+    detailed diagnostics. Staff roles omit private Farmer milk and meat targets.
     """
     diagnostics_by_id: Dict[str, Any] = {}
     summary_cards: List[Dict[str, Any]] = []
+    # Municipal dashboards may still show permitted livestock, disease,
+    # mortality, slaughter, and auction diagnostics. Farmer milk/meat records
+    # are private, so do not even evaluate their readiness for staff roles.
+    from smartlivestock.workflows import role_name
+    private_to_farmer = role_name(user) in {"MAO", "ADMIN", "SIBAT", "CBAT"}
 
     for target_config in CORE_DIAGNOSTIC_TARGETS:
+        if private_to_farmer and target_config["domain"] == "production":
+            continue
         diag = get_forecast_readiness_diagnostics(
             domain=target_config["domain"],
             target=target_config["target"],

@@ -4,6 +4,10 @@ Welcome to the **SmartLivestock-Batangas Predictive Analytics Architecture & Mac
 
 This guide is designed for student developers, municipal agriculture data officers, and academic presentation panels. It explains not only what the system does, but **mathematically and conceptually how it works**, why specific design choices were made, and how to defend each layer.
 
+## Current privacy and API access boundary
+
+The dataset and modeling sections below describe source eligibility; they do not grant access to private Farmer records. Current municipal endpoints deny MAO/Admin, SIBAT, and CBAT access to Farmer milk and individual meat-yield forecasts, readiness diagnostics, and production recommendations. The municipal readiness overview omits those production targets. Ask SmartLivestock allows Farmers to query only their own `RECORDED` production. The individual livestock milk forecast is Farmer-only and checks ownership before reading that animal's `RECORDED` milk history. Disease, mortality, official slaughter, auction, and population analytics continue under their own status and barangay rules. See [the Farmer production and slaughter workflow](../../docs/farmer-production-and-slaughter-workflow.md) for the NLP boundary.
+
 ---
 
 ## The End-to-End Analytics Pipeline

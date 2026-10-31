@@ -37,7 +37,7 @@ type Visualization = {
   columns: { key: string; label: string }[];
 };
 type AskResponse = {
-  status: "answered" | "clarification" | "unsupported" | "not_found" | "ambiguous";
+  status: "answered" | "clarification" | "unsupported" | "not_found" | "ambiguous" | "restricted";
   question: string;
   intent?: string;
   answer: string;
@@ -69,14 +69,17 @@ type AskResponse = {
 
 const EXAMPLES = [
   "How many cattle are currently registered?",
-  "Show monthly milk production for the last six months.",
   "Which barangays reported the most cattle diseases this quarter?",
   "Compare cattle mortality across barangays this quarter.",
   "Which submissions are waiting for MAO approval?",
-  "Break down production by type.",
   "Ilang baka ang registered ngayon?",
   "How many cattle does Farmer Juan Dela Cruz have?",
   "Ilan ang baka ni Farmer Juan Dela Cruz?",
+];
+const FARMER_EXAMPLES = [
+  "Show my milk production for the last six months.",
+  "Show my meat yield this quarter.",
+  "Break down my production by type.",
 ];
 
 const SPECIES_COLORS = [
@@ -351,6 +354,8 @@ function ResultVisualization({ response }: { response: AskResponse }) {
 export function AskSmartLivestock() {
   const { user } = useAuth();
   const canAskAboutIndividualFarmers = ["MAO", "ADMIN"].includes(user?.role?.toUpperCase() ?? "");
+  const isFarmer = user?.role?.toUpperCase() === "FARMER";
+  const examples = isFarmer ? FARMER_EXAMPLES : EXAMPLES;
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState<AskResponse | null>(null);
   const [error, setError] = useState("");
@@ -407,7 +412,9 @@ export function AskSmartLivestock() {
           </div>
           <h2 className="mt-1 text-base font-black tracking-tight text-slate-900 sm:text-lg">Ask SmartLivestock</h2>
           <p id="ask-help" className="text-xs font-medium leading-relaxed text-slate-500">
-            Natural language decision intelligence query engine. Queries are scoped strictly to your account&apos;s authorized barangay and role records.
+            {isFarmer
+              ? "Ask about your own recorded milk, meat, egg, or wool logs. Other farmers’ production is private."
+              : "Natural language decision intelligence query engine. Queries are scoped strictly to your account&apos;s authorized barangay and role records."}
           </p>
         </div>
       </div>
@@ -426,7 +433,9 @@ export function AskSmartLivestock() {
               maxLength={500}
               aria-label="Ask a livestock analytics question"
               aria-describedby="ask-help"
-              placeholder={canAskAboutIndividualFarmers
+              placeholder={isFarmer
+                ? "Ask about your own production records…"
+                : canAskAboutIndividualFarmers
                 ? "Query livestock analytics, census totals, or a farmer's inventory…"
                 : "Ask about livestock population, production, disease, or mortality…"}
               className="h-11 rounded-xl pl-10 pr-4 font-mono text-xs sm:text-sm focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30"
@@ -466,7 +475,7 @@ export function AskSmartLivestock() {
           <Zap className="size-3 text-amber-500" />
           QUICK QUERIES:
         </span>
-        {EXAMPLES.filter((example) => {
+        {examples.filter((example) => {
           if (!canAskAboutIndividualFarmers && example.includes("Farmer ")) return false;
           return !["SIBAT", "CBAT"].includes(user?.role?.toUpperCase() || "") || !example.includes("MAO approval");
         }).map((example) => (
@@ -650,7 +659,9 @@ export function AskSmartLivestock() {
             <div className="space-y-3">
               <Alert variant={response.status === "clarification" ? "default" : "destructive"} className="rounded-xl">
                 <AlertTitle className="font-mono text-xs font-bold uppercase tracking-wider">
-                  {response.status === "unsupported"
+                  {response.status === "restricted"
+                    ? "PRIVATE FARMER PRODUCTION DATA"
+                    : response.status === "unsupported"
                     ? "UNSUPPORTED QUERY SCHEMA"
                     : response.status === "not_found"
                       ? "ENTITY NOT FOUND IN POSTGRESQL"

@@ -320,7 +320,7 @@ class AskSmartLivestockQueryTests(TestCase):
                              date(2026, 6, 10), "RECORDED")
         self.make_production(self.cattle_record, self.farmer, "MILK", "LITERS", "900",
                              date(2026, 6, 10), "APPROVED")
-        result = self.ask(self.mao, "Show monthly milk production for the last six months.")
+        result = self.ask(self.farmer_user, "Show my monthly milk production for the last six months.")
         self.assertEqual(sum(row["quantity"] for row in result["results"]), 28)
         self.assertEqual(len(result["results"]), 2)
         self.assertEqual([row["label"] for row in result["results"]], ["May 2026", "Jun 2026"])
@@ -343,7 +343,7 @@ class AskSmartLivestockQueryTests(TestCase):
         self.assertIn("not a mortality rate", result["answer"])
 
     def test_production_breakdown_keeps_units_separate(self):
-        result = self.ask(self.mao, "Break down production by type")
+        result = self.ask(self.farmer_user, "Break down my production by type")
         values = {row["production_type"]: row["unit"] for row in result["results"]}
         self.assertEqual(values, {"EGGS": "PIECES", "MILK": "LITERS"})
         self.assertEqual(result["visualization"]["type"], "table")
@@ -407,10 +407,10 @@ class AskSmartLivestockQueryTests(TestCase):
         }, format="json")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["status"], "answered")
-        self.assertEqual(response.data["answer"], "Eligible farmer-recorded production quantities grouped by month and livestock type; slaughter-linked projections are excluded.")
-        self.assertEqual(response.data["ai_explanation"]["status"], "generated")
-        self.assertEqual(provider.call_count, 1)
+        self.assertEqual(response.data["status"], "restricted")
+        self.assertIn("private Farmer production records", response.data["answer"])
+        self.assertEqual(response.data["ai_explanation"]["status"], "not_applicable")
+        self.assertEqual(provider.call_count, 0)
 
     def test_question_length_is_validated_by_api(self):
         self.client.force_authenticate(self.mao)
@@ -505,12 +505,121 @@ class AskSmartLivestockQueryTests(TestCase):
         self.make_production(self.other_cattle_record, self.other_farmer, "MILK", "LITERS",
                              "400", date(2026, 6, 1), "RECORDED")
         result = self.ask(self.sibat, "Show milk production this quarter")
-        self.assertEqual(sum(row["quantity"] for row in result["results"]), 25)
+        self.assertEqual(result["status"], "restricted")
+        self.assertEqual(result["results"], [])
+        self.assertIn("private Farmer production records", result["answer"])
         result = self.ask(self.sibat, "Show disease cases across all barangays this quarter")
         self.assertEqual([row["barangay"] for row in result["results"]], ["San Roque"])
         self.sibat.assigned_barangay = None
         self.sibat.save(update_fields=["assigned_barangay"])
         self.assertEqual(self.ask(self.sibat, "Show current heads by barangay")["results"], [])
+
+    def test_municipal_roles_cannot_query_private_production_in_any_wording(self):
+        admin = self.make_user("admin_private_production", "ADMIN")
+        cbat = self.make_user("cbat_private_production", "CBAT")
+        self.make_production(self.other_cattle_record, self.other_farmer, "MEAT", "KILOGRAMS",
+                             "400", date(2026, 6, 1), "RECORDED")
+        questions = (
+            "How much milk was produced this month?",
+            "Show the meat yield of Farmer Maria Santos",
+            "Compare gatas by barangay this quarter",
+            "Ilang kilo ng karne ang naitala ngayong quarter?",
+            "Ilang liters ng milk yield this month?",
+            "Ipakita ang produksyon ng gatas ngayong taon",
+        )
+        with patch("analytics.services.nlp_query._production_results") as production_handler:
+            for user in (self.mao, admin, self.sibat, cbat):
+                for question in questions:
+                    with self.subTest(role=user.role.role_name, question=question):
+                        result = self.ask(user, question)
+                        self.assertEqual(result["status"], "restricted")
+                        self.assertEqual(result["results"], [])
+                        self.assertIn("private Farmer production records", result["answer"])
+            production_handler.assert_not_called()
+        from analytics.services.nlp_query import _activity_query
+        with self.assertRaises(PermissionDenied):
+            _activity_query(ProductionRecord.objects.all(), user=self.mao, period=None,
+                            barangay_id=None, species_name=None)
+
+    def test_farmer_production_queries_are_owner_scoped_and_include_linked_meat_log(self):
+        own_meat = self.make_production(
+            self.cattle_record, self.farmer, "MEAT", "KILOGRAMS", "12",
+            date(2026, 6, 10), "RECORDED",
+        )
+        own_meat.slaughter = None
+        own_meat.save(update_fields=["slaughter"])
+        self.make_production(self.other_cattle_record, self.other_farmer, "MILK", "LITERS",
+                             "999", date(2026, 6, 10), "RECORDED")
+        ProductionRecord.objects.create(
+            livestock=self.cattle_record, farmer_at_record=self.farmer,
+            production_type="MILK", unit="LITERS", quantity=Decimal("3"),
+            record_date=date(2026, 6, 20), status="RECORDED", created_by=self.mao,
+        )
+        result = self.ask(self.farmer_user, "How much milk did I produce this quarter?")
+        self.assertEqual(result["status"], "answered")
+        self.assertEqual(sum(row["quantity"] for row in result["results"]), 28)
+        self.assertTrue(all(row["unit"] == "LITERS" for row in result["results"]))
+
+        meat = self.ask(self.farmer_user, "Show my meat yield this quarter")
+        self.assertEqual(meat["status"], "answered")
+        self.assertEqual(sum(row["quantity"] for row in meat["results"]), 12)
+        self.assertIn("farmer-recorded", meat["answer"])
+
+    def test_farmer_cannot_query_another_farmer_or_municipal_domains(self):
+        with self.assertRaises(PermissionDenied):
+            self.ask(self.farmer_user, "Show Farmer Maria Santos milk production this quarter")
+        with self.assertRaises(PermissionDenied):
+            self.ask(self.farmer_user, "How many cattle are registered?")
+
+    def test_official_slaughter_questions_are_not_substituted_with_meat_yield(self):
+        for user in (self.mao, self.sibat):
+            result = self.ask(user, "How many official slaughter records were approved this quarter?")
+            self.assertNotEqual(result.get("intent"), "production_trend")
+            self.assertEqual(result["results"], [])
+            self.assertIn("Official slaughter records are a separate municipal dataset", result["answer"])
+        with self.assertRaises(PermissionDenied):
+            self.ask(self.farmer_user, "How many official slaughter records were approved this quarter?")
+
+    def test_staff_production_forecast_routes_are_blocked_before_data_services(self):
+        routes = (
+            ("predictive-model-comparison", {"domain": "production", "target": "MILK"}),
+            ("predictive-forecast", {"domain": "production", "target": "MEAT"}),
+            ("predictive-readiness-diagnostics", {"domain": "production", "target": "MILK"}),
+            ("prescriptive-recommendations", {}),
+            ("livestock-milk-forecast", {}, {"livestock_id": 987654}),
+        )
+        for user in (self.mao, self.sibat):
+            self.client.force_authenticate(user)
+            for route in routes:
+                name, params, *kwargs = route
+                with self.subTest(role=user.role.role_name, route=name):
+                    url = reverse(name, kwargs=kwargs[0]) if kwargs else reverse(name)
+                    response = self.client.get(url, params)
+                    self.assertEqual(response.status_code, 403)
+                    self.assertIn("private", response.data["detail"].lower())
+
+    def test_staff_readiness_overview_skips_private_production_targets(self):
+        from analytics.services.predictive.diagnostics import get_all_forecast_readiness_diagnostics
+
+        diagnostic = {
+            "progress": {
+                "usable_observations": 0, "required_observations": 12,
+                "observations_progress_pct": 0, "valid_cutoffs_count": 0,
+                "total_cutoffs_count": 0, "milestone_label": "0: no data",
+            },
+            "forecast": {"model_name": None},
+            "forecast_status": "INSUFFICIENT_DATA", "forecast_available": False,
+            "validation_status": "NOT_READY", "readiness_status": "NOT_READY",
+            "blocker_summary": "No data", "next_step": "Collect records",
+            "last_evaluated_at": "2026-06-30T00:00:00+00:00",
+        }
+        with patch("analytics.services.predictive.diagnostics.get_forecast_readiness_diagnostics", return_value=diagnostic) as evaluate:
+            result = get_all_forecast_readiness_diagnostics(user=self.mao)
+
+        requested_domains = [call.kwargs["domain"] for call in evaluate.call_args_list]
+        self.assertNotIn("production", requested_domains)
+        self.assertTrue({"slaughter", "auction"}.issubset(set(requested_domains)))
+        self.assertFalse(any(item["domain"] == "production" for item in result["summary_cards"]))
 
     def test_all_barangay_sibat_does_not_gain_mao_queue_authority(self):
         self.make_individual_heads(self.farmer, self.cattle, 3)
@@ -549,7 +658,7 @@ class AskSmartLivestockQueryTests(TestCase):
     def test_mixed_units_are_not_merged_into_a_line_chart(self):
         self.make_production(self.cattle_record, self.farmer, "MILK", "KILOGRAMS",
                              "6", date(2026, 6, 10), "RECORDED")
-        result = self.ask(self.mao, "Show monthly milk production this quarter")
+        result = self.ask(self.farmer_user, "Show my monthly milk production this quarter")
         self.assertEqual(result["visualization"]["type"], "table")
         self.assertEqual({row["unit"] for row in result["results"]}, {"LITERS", "KILOGRAMS"})
 
@@ -557,5 +666,5 @@ class AskSmartLivestockQueryTests(TestCase):
         self.make_production(self.cattle_record, self.other_farmer, "MILK", "LITERS",
                              "400", date(2026, 6, 10), "RECORDED")
         result = self.ask(self.mao, "Show milk production by barangay in San Roque this quarter")
-        self.assertEqual(result["results"], [{"production_type": "MILK", "unit": "LITERS",
-                                             "quantity": 25.0, "records": 2, "barangay": "San Roque"}])
+        self.assertEqual(result["status"], "restricted")
+        self.assertEqual(result["results"], [])

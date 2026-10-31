@@ -380,7 +380,10 @@ export function ForecastReadinessDashboard({
   });
 
   const summaryCards = data?.summary_cards || [];
-  const selectedDiagnostic = data?.diagnostics?.[selectedTargetId];
+  const activeTargetId = data?.diagnostics?.[selectedTargetId]
+    ? selectedTargetId
+    : summaryCards[0]?.id || selectedTargetId;
+  const selectedDiagnostic = data?.diagnostics?.[activeTargetId];
   const isProductionTarget = selectedDiagnostic?.domain === "production";
   const observationLabel = selectedDiagnostic?.frequency === "WEEKLY" ? "week(s)" : "month(s)";
   const approvalBreakdown = selectedDiagnostic?.progress.approval_status_breakdown;
@@ -543,7 +546,7 @@ export function ForecastReadinessDashboard({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {summaryCards.map((card) => {
-              const isSelected = selectedTargetId === card.id;
+              const isSelected = activeTargetId === card.id;
               const progressPct = card.observations_progress_pct;
 
               return (

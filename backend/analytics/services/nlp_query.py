@@ -35,6 +35,15 @@ PRODUCTION_ALIASES = {
     "EGGS": ("egg", "eggs", "itlog"),
     "WOOL": ("wool", "fleece", "lana"),
 }
+_PRODUCTION_QUERY_TERMS = (
+    "production", "prodution", "produccion", "produksyon", "yield", "output",
+    "milk", "dairy", "gatas", "egg", "eggs", "itlog", "wool", "lana",
+    "meat", "karne",
+)
+_MUNICIPAL_PRODUCTION_NOTICE = (
+    "Farmer milk and meat-yield logs are private Farmer production records and are not available through municipal NLP queries. "
+    "Official slaughter records are a separate municipal dataset."
+)
 SPECIES_ALIASES = {
     "cattle": ("cattle", "cow", "cows", "baka", "bovine"),
     "carabao": ("carabao", "carabaos", "kalabaw", "buffalo", "buffaloes"),
@@ -69,6 +78,17 @@ def tokenize_question(value):
 def _contains(text, phrase):
     phrase = normalize_question(phrase)
     return bool(phrase and re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text))
+
+
+def _asks_for_production(text):
+    return any(_contains(text, term) for term in _PRODUCTION_QUERY_TERMS)
+
+
+def _asks_for_mao_queue(text):
+    return _contains(text, "mao") and any(_contains(text, term) for term in (
+        "waiting", "pending", "approval", "review", "naghihintay", "nakapila",
+        "pag-apruba", "pagsusuri",
+    ))
 
 
 def _month_start(today, months_back):
@@ -264,6 +284,7 @@ def _unknown_species_reference(text, species_names):
     known.update(token for name in species_names for token in normalize_question(name).split())
     ordinary = {
         "a", "an", "the", "all", "each", "how", "many", "much", "which", "what", "show", "compare",
+        "my", "mine", "akin", "aking", "ko", "ako",
         "reported", "report", "most", "more", "total", "current", "currently", "registered", "active", "approved",
         "heads", "animals", "animal", "livestock", "population", "inventory", "by", "per", "across", "in", "for",
         "of", "among", "from", "this", "last", "past", "previous", "quarter", "month", "months", "year", "years",
@@ -451,9 +472,12 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     if any(re.search(pattern, normalized) for pattern in override_patterns):
         return {"status": "unsupported", "message": "Ask SmartLivestock only runs fixed, permission-scoped analytics. It cannot change roles, bypass record scope or approval rules, run database commands, or reveal private records."}
 
+    if any(_contains(normalized, word) for word in ("slaughter", "slaughtered", "slaughterhouse", "katay")):
+        return {"status": "unsupported", "message": "Official slaughter records are a separate municipal dataset available through the slaughter report. Farmer meat-yield logs are private and are not available through municipal NLP queries."}
+
     unsupported_capabilities = (
         "weather", "sensor", "iot", "real time", "real-time", "auction", "subasta",
-        "slaughterhouse", "slaughter", "slaughtered", "katay", "diagnose", "diagnosis",
+        "diagnose", "diagnosis",
         "diagnostic", "treatment", "treat", "prescribe", "antibiotic", "dosage", "dose of",
         "severity", "clinical", "symptom", "symptoms", "fmd", "foot and mouth", "cause of death", "sanhi ng pagkamatay",
         "sales", "sold", "revenue", "profit", "benta", "sales records",
@@ -468,13 +492,17 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         )
     # Other named-owner and animal filters remain unsupported. Never answer a
     # different question with municipal totals.
-    if any(_contains(normalized, word) for word in ("farmer", "farmers", "raiser", "raisers", "magsasaka", "my", "mine", "akin", "own", "owns", "owner", "owned", "tag", "animal id", "farmer id")) or re.search(r"\bdoes\s+.+\s+have\b|\blivestock\s+\d+\b", normalized):
+    self_production_wording = _asks_for_production(normalized) and any(
+        _contains(normalized, word) for word in ("my", "mine", "akin", "aking", "ko", "ako")
+    )
+    owner_filters = ("farmer", "farmers", "raiser", "raisers", "magsasaka", "own", "owns", "owner", "owned", "tag", "animal id", "farmer id")
+    if (any(_contains(normalized, word) for word in owner_filters)
+            or (not self_production_wording and any(_contains(normalized, word) for word in ("my", "mine", "akin")))
+            or re.search(r"\bdoes\s+.+\s+have\b|\blivestock\s+\d+\b", normalized)):
         return {"status": "unsupported", "message": "The assistant does not yet implement farmer-count, individual-owner, or animal-ID filters. This is a query capability limitation, not a decision about your permissions. Use the authorized farmer directory or inventory instead."}
     queue_request = _contains(normalized, "mao") and any(_contains(normalized, word) for word in ("waiting", "pending", "approval", "review", "naghihintay", "nakapila", "pag-apruba", "pagsusuri"))
     if not queue_request and any(_contains(normalized, word) for word in ("sales", "sold", "revenue", "profit", "benta", "sold animals")):
         return {"status": "unsupported", "message": "Sales and sold-animal summaries are not implemented in this assistant. Use the existing trade records interface."}
-    if any(_contains(normalized, word) for word in ("slaughter", "slaughtered", "katay")):
-        return {"status": "unsupported", "message": "A separate slaughter summary is not implemented here. Ask for meat production to view farmer-reported yield; official slaughter output remains in the slaughter report."}
     if any(_contains(normalized, word) for word in ("rate", "rates", "percentage", "predict", "forecast")):
         return {"status": "unsupported", "message": "This assistant reports recorded counts and quantities, not rates, percentages, or forecasts."}
     signals = {
@@ -653,14 +681,22 @@ def _apply_species(queryset, species_name):
 
 
 def _activity_query(queryset, *, user, period, barangay_id, species_name):
-    scoped = scope_reviewer_queryset(queryset, user).filter(
+    if queryset.model is ProductionRecord and role_name(user) != "FARMER":
+        raise PermissionDenied("Farmer milk and meat-yield records are private to the owning Farmer.")
+    if role_name(user) == "FARMER" and queryset.model is ProductionRecord:
+        # Match Farmer history ownership: current snapshot ownership or the
+        # farmer's own creation for legacy rows without a snapshot. A linked
+        # slaughter notice does not change ownership of the personal yield log.
+        scoped = queryset.filter(Q(farmer_at_record__user=user) | Q(created_by=user))
+    else:
+        scoped = scope_reviewer_queryset(queryset, user)
+    scoped = scoped.filter(
         record_date__range=(date.fromisoformat(period["start"]), date.fromisoformat(period["end"])),
     )
     if queryset.model is ProductionRecord:
-        scoped = scoped.filter(
-            status=ProductionRecord.ProductionStatus.RECORDED,
-            slaughter__isnull=True,
-        )
+        scoped = scoped.filter(status=ProductionRecord.ProductionStatus.RECORDED)
+        if role_name(user) != "FARMER":
+            scoped = scoped.filter(slaughter__isnull=True)
     else:
         scoped = scoped.filter(status="APPROVED")
     if barangay_id is not None:
@@ -964,8 +1000,20 @@ def _farmer_livestock_count(question, parameters):
 def execute_question(question, *, user, today=None):
     """Parse one question, then execute only fixed, permission-scoped analytics."""
     # Defense in depth: the service is also safe when called without its view.
-    if role_name(user) not in ("MAO", "ADMIN", "SIBAT", "CBAT"):
+    caller_role = role_name(user)
+    if caller_role not in ("MAO", "ADMIN", "SIBAT", "CBAT", "FARMER"):
         raise PermissionDenied("Your role cannot access this analytics assistant.")
+    normalized_question = normalize_question(question)
+    if caller_role in ("MAO", "ADMIN", "SIBAT", "CBAT") and _asks_for_production(normalized_question) and not _asks_for_mao_queue(normalized_question):
+        # Enforce privacy before the parser can select a production handler and
+        # before any ProductionRecord queryset, aggregate, or explanation exists.
+        return {"status": "restricted", "question": question, "answer": _MUNICIPAL_PRODUCTION_NOTICE, "results": []}
+    if caller_role == "FARMER" and not _asks_for_production(normalized_question):
+        raise PermissionDenied("Farmers can use Ask SmartLivestock only for their own production records.")
+    if caller_role == "FARMER" and any(_contains(normalized_question, word) for word in (
+        "farmer", "raiser", "magsasaka", "owner", "owned by", "another farmer", "farmer id",
+    )):
+        raise PermissionDenied("Farmers can query only their own production records.")
     today = today or timezone.localdate()
     visible_barangays = list(
         scope_reviewer_queryset(Barangay.objects.all(), user)

@@ -17,7 +17,7 @@ EDUCATIONAL OVERVIEW & DISEASE-MORTALITY TRACEABILITY:
    `--clean` safely removes ONLY synthetic mortality records.
 """
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, timedelta
 import numpy as np
 
 from django.core.management.base import BaseCommand
@@ -146,14 +146,6 @@ class Command(BaseCommand):
                 cause = INDEPENDENT_CAUSES[i % len(INDEPENDENT_CAUSES)]
                 source_case = None
 
-            # Submission timestamp (Farmer/Biosecurity officer logs event on record_date)
-            created_at_dt = timezone.make_aware(
-                datetime.combine(record_date, time(8, int(rng.choice([15, 30, 45]))))
-            )
-            # MAO Weekly Review SLA: batch approval occurs ~7 days later (5-7 days)
-            review_delay = int(rng.choice([5, 6, 7]))
-            reviewed_at_dt = min(created_at_dt + timedelta(days=review_delay), timezone.now())
-
             record = MortalityRecord(
                 livestock=animal,
                 death_count=deaths,
@@ -162,19 +154,22 @@ class Command(BaseCommand):
                 record_date=record_date,
                 status=MortalityRecord.MortalityRecordStatus.APPROVED,
                 reviewed_by=mao_user,
-                reviewed_at=reviewed_at_dt,
+                reviewed_at=timezone.now(),
                 review_remarks=f"{SEED_MARKER_MORTALITY} Verified municipal mortality entry #{i+1}.",
                 created_by=creator_user,
             )
-            record._synthetic_created_at = created_at_dt
             records_to_create.append(record)
 
         MortalityRecord.objects.bulk_create(records_to_create)
-        # auto_now_add replaces created_at during insert; restore the synthetic
-        # historical submission time afterward for backtest evaluation.
+        # Synthetic event dates describe the example history, but the records
+        # only become available to this database when seeded. Keep their actual
+        # availability/review timestamps current so they cannot create fake
+        # historical backtest cutoffs.
+        seeded_at = timezone.now()
         for r in records_to_create:
-            r.created_at = r._synthetic_created_at
-        MortalityRecord.objects.bulk_update(records_to_create, ["created_at"], batch_size=500)
+            r.created_at = seeded_at
+            r.reviewed_at = seeded_at
+        MortalityRecord.objects.bulk_update(records_to_create, ["created_at", "reviewed_at"], batch_size=500)
         self.stdout.write(
             self.style.SUCCESS(
                 f"Successfully seeded {len(records_to_create)} synthetic mortality records with marker '{SEED_MARKER_MORTALITY}'."

@@ -12,7 +12,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 
 from livestock.models import Barangay, CensusSubmission, CensusSubmissionItem, Farmer
-from livestock.permission import isMAO, isSibat
+from livestock.permission import isMAO, isSibat, isFarmer
 from .services.descriptive import descriptive_summary
 from .services.overview import overview_summary
 from .services.population import official_inventory
@@ -147,7 +147,7 @@ class AskSmartLivestockSerializer(serializers.Serializer):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated, isMAO | isSibat])
+@permission_classes([IsAuthenticated, isMAO | isSibat | isFarmer])
 def nlp_query(request):
     """Answer one allowlisted analytics question using the caller's data scope."""
     serializer = AskSmartLivestockSerializer(data=request.data)
@@ -501,6 +501,8 @@ def predictive_model_comparison(request):
     slaughter, and auction domains.
     """
     domain = request.query_params.get("domain", "production").lower()
+    if domain == "production":
+        return Response({"detail": "Farmer milk and meat-yield records are private and unavailable for municipal forecasts."}, status=status.HTTP_403_FORBIDDEN)
     target = request.query_params.get("target") or request.query_params.get("production_type", "MILK")
     target = target.upper()
 
@@ -551,6 +553,8 @@ def predictive_forecast(request):
     Generates out-of-sample future projections using the best evaluated model across any domain.
     """
     domain = request.query_params.get("domain", "production").lower()
+    if domain == "production":
+        return Response({"detail": "Farmer milk and meat-yield records are private and unavailable for municipal forecasts."}, status=status.HTTP_403_FORBIDDEN)
     target = request.query_params.get("target") or request.query_params.get("production_type", "MILK")
     target = target.upper()
 
@@ -618,6 +622,8 @@ def predictive_readiness_diagnostics(request):
         )
 
         if domain or target:
+            if (domain or "production").lower() == "production":
+                return Response({"detail": "Farmer milk and meat-yield records are private and unavailable for municipal forecast diagnostics."}, status=status.HTTP_403_FORBIDDEN)
             res = get_forecast_readiness_diagnostics(
                 domain=domain or "production",
                 target=target or "MILK",
@@ -704,18 +710,19 @@ def _livestock_milk_forecast_response(request, livestock_id):
     from django.db.models import Count, Q, Sum
     from livestock.models import LivestockInventory
     from production.models import CalvingRecord, ProductionRecord, WeightRecord
-    from smartlivestock.workflows import require_action, role_name
+    from smartlivestock.workflows import role_name
     from .services.predictive.livestock_milk import forecast_livestock_milk
 
     # Scope the livestock queryset first. Every later data source (including the
     # demo option) is reached only after this object-level access check succeeds.
     user_role = role_name(request.user)
+    if user_role != "FARMER":
+        return Response({"detail": "Individual Farmer milk logs and forecasts are private to the owning Farmer."}, status=status.HTTP_403_FORBIDDEN)
     animals = LivestockInventory.objects.select_related("farmer__barangay", "livestock_type")
     if user_role == "FARMER":
         # Farmer access follows current ownership, so a previous owner receives the same 404 as an unknown ID.
         animals = animals.filter(farmer__user=request.user)
     else:
-        require_action(request.user, "production", "read_all")
         animals = scope_reviewer_queryset(animals, request.user)
     animal = get_object_or_404(animals, pk=livestock_id)
 
@@ -899,13 +906,7 @@ def prescriptive_recommendations(request):
     Evaluates transparent, evidence-based prescriptive rules based on forecasts
     and real municipal observations.
     """
-    from .services.predictive.rules import generate_prescriptive_recommendations
-
-    production_type = request.query_params.get("production_type", "MILK").upper()
-    unit = request.query_params.get("unit", "LITERS").upper()
-
-    res = generate_prescriptive_recommendations(production_type=production_type, unit=unit, user=request.user)
-    return Response(res)
+    return Response({"detail": "Farmer milk and meat-yield records are private and unavailable for municipal production recommendations."}, status=status.HTTP_403_FORBIDDEN)
 
 
 @api_view(["GET"])

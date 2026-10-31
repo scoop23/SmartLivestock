@@ -96,7 +96,7 @@ class PredictiveAnalyticsTests(TestCase):
         )
 
         # 2. Call seed command
-        call_command("seed_productions", months=24)
+        call_command("seed_productions", months=24, production_type="MILK")
         seeded_count = ProductionRecord.objects.filter(notes__contains=SEED_MARKER).count()
         self.assertEqual(seeded_count, 24)
 
@@ -333,8 +333,8 @@ class PredictiveAnalyticsTests(TestCase):
         request = factory.get("/api/analytics/predictive/", {"domain": "production", "target": "MILK", "unit": "LITERS"})
         force_authenticate(request, user=sibat_user)
         response = predictive_model_comparison(request)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["historical_trend"][0]["actual"], 10.0)
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("private", response.data["detail"])
 
         farmer_request = factory.get("/api/analytics/predictive/")
         force_authenticate(farmer_request, user=self.farmer_user)
@@ -347,7 +347,7 @@ class PredictiveAnalyticsTests(TestCase):
         do not leak future information.
         """
         # Seed 24 months of synthetic data
-        call_command("seed_productions", months=24)
+        call_command("seed_productions", months=24, production_type="MILK")
 
         df, meta = extract_monthly_production_series(production_type="MILK", unit="LITERS")
         self.assertIsNotNone(df)
@@ -368,7 +368,7 @@ class PredictiveAnalyticsTests(TestCase):
 
     def test_model_evaluation_metrics_and_comparison(self):
         """Seed timestamps do not count as historical backtest evidence."""
-        call_command("seed_productions", months=36)
+        call_command("seed_productions", months=36, production_type="MILK")
         result = evaluate_all_models(production_type="MILK", unit="LITERS")
         self.assertEqual(result["status"], "unvalidated")
         self.assertTrue(result["forecast_available"])
@@ -382,7 +382,7 @@ class PredictiveAnalyticsTests(TestCase):
         """
         Verify that out-of-sample future projections start strictly after the last historical date.
         """
-        call_command("seed_productions", months=36)
+        call_command("seed_productions", months=36, production_type="MILK")
 
         fc = generate_future_forecast(production_type="MILK", unit="LITERS", horizon_months=6)
         self.assertEqual(fc["status"], "unvalidated")
@@ -405,7 +405,7 @@ class PredictiveAnalyticsTests(TestCase):
         """
         Verify prescriptive rules generate evidence-backed recommendations.
         """
-        call_command("seed_productions", months=24)
+        call_command("seed_productions", months=24, production_type="MILK")
 
         rec_res = generate_prescriptive_recommendations(production_type="MILK", unit="LITERS")
         self.assertEqual(rec_res["status"], "partial")
@@ -646,7 +646,7 @@ class PredictiveAnalyticsTests(TestCase):
         self.assertEqual(eval_not_ready["readiness_status"], "NOT_READY")
 
         # Milk needs 24 monthly observations to cover two annual cycles.
-        call_command("seed_productions", months=12)
+        call_command("seed_productions", months=12, production_type="MILK")
         eval_ready = evaluate_all_models(production_type="MILK", unit="LITERS")
         self.assertEqual(eval_ready["status"], "insufficient_data")
         self.assertEqual(eval_ready["readiness_status"], "NOT_READY")
@@ -660,7 +660,7 @@ class PredictiveAnalyticsTests(TestCase):
         self.assertEqual(get_readiness_status(24, min_observations_required=18)[0], "QUALITY_READY")
 
         # Milk reaches QUALITY_READY at two annual cycles.
-        call_command("seed_productions", months=24)
+        call_command("seed_productions", months=24, production_type="MILK")
         eval_quality = evaluate_all_models(production_type="MILK", unit="LITERS")
         self.assertEqual(eval_quality["status"], "unvalidated")
         self.assertEqual(eval_quality["readiness_status"], "AVAILABLE_UNVALIDATED")
@@ -670,7 +670,7 @@ class PredictiveAnalyticsTests(TestCase):
 
     def test_seeded_synthetic_trend_is_not_claimed_as_baseline_validation(self):
         """Synthetic seed trends remain usable as projections, not as empirical validation."""
-        call_command("seed_productions", months=36)
+        call_command("seed_productions", months=36, production_type="MILK")
         result = evaluate_all_models(production_type="MILK", unit="LITERS")
         self.assertEqual(result["status"], "unvalidated")
         self.assertTrue(result["forecast_available"])
@@ -696,7 +696,7 @@ class PredictiveAnalyticsTests(TestCase):
     def test_model_failures_do_not_create_scores_without_valid_cutoffs(self):
         """A model fitting failure cannot turn demo data into validation evidence."""
         from unittest.mock import patch
-        call_command("seed_productions", months=24)
+        call_command("seed_productions", months=24, production_type="MILK")
         with patch.object(HoltWintersForecaster, "fit", side_effect=RuntimeError("simulated fit failure")):
             result = evaluate_all_models(production_type="MILK", unit="LITERS")
         self.assertEqual(result["status"], "unvalidated")
@@ -763,7 +763,7 @@ class PredictiveAnalyticsTests(TestCase):
         Verify that manual preferred_model does NOT overwrite the benchmark winner in evaluation_summary
         and sets is_user_override=True appropriately.
         """
-        call_command("seed_productions", months=36)
+        call_command("seed_productions", months=36, production_type="MILK")
 
         eval_res = evaluate_all_models(production_type="MILK", unit="LITERS")
         benchmark_winner = eval_res["selection"]["selected_model"]
@@ -792,7 +792,7 @@ class PredictiveAnalyticsTests(TestCase):
         """
         from unittest.mock import patch
 
-        call_command("seed_productions", months=24)
+        call_command("seed_productions", months=24, production_type="MILK")
 
         with patch.object(HoltWintersForecaster, "predict_steps", side_effect=RuntimeError("Prediction matrix singularity")):
             fc_res = generate_future_forecast(

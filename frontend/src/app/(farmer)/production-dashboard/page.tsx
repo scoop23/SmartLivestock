@@ -1,6 +1,7 @@
 "use client";
 
 import { PageHeader } from "@/app/components/page-header";
+import { AskSmartLivestock } from "@/app/components/ask-smartlivestock";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Info, Sparkles } from "lucide-react";
@@ -161,6 +162,7 @@ export default function ProductionDashboardPage() {
         ) : undefined}
       />
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
+        <AskSmartLivestock />
         {!isLoading && awaitingSpecies.length > 0 && (
           <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
             <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
