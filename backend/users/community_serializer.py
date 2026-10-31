@@ -321,6 +321,37 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     "available_times": "For today's schedule, choose times later than the current time."
                 })
+
+        conflict_fields = {"date", "location", "available_times", "capacity"}
+        if self.instance is None or conflict_fields.intersection(attrs):
+            candidate_capacity = attrs.get("capacity", self.instance.capacity if self.instance else 4)
+            candidate_location = str(attrs.get("location", self.instance.location if self.instance else "") or "").strip()
+            candidate_times = attrs.get(
+                "available_times",
+                self.instance.available_times if self.instance else list(PROGRAM_TIME_SLOTS),
+            ) or list(PROGRAM_TIME_SLOTS)
+            if candidate_location:
+                overlapping_schedules = ProgramSchedule.objects.filter(
+                    date=schedule_date,
+                    location__iexact=candidate_location,
+                    publication_status__in=(
+                        ProgramSchedule.PublicationStatus.DRAFT,
+                        ProgramSchedule.PublicationStatus.PUBLISHED,
+                    ),
+                    deleted_at__isnull=True,
+                )
+                if self.instance is not None:
+                    overlapping_schedules = overlapping_schedules.exclude(pk=self.instance.pk)
+
+                requested_times = set(candidate_times)
+                for existing in overlapping_schedules.only("capacity", "available_times"):
+                    existing_times = set(existing.available_times or PROGRAM_TIME_SLOTS)
+                    if requested_times.intersection(existing_times) and (
+                        candidate_capacity == 0 or existing.capacity == 0
+                    ):
+                        raise serializers.ValidationError({
+                            "capacity": "A no-limit program cannot overlap another program at the same venue and time."
+                        })
         return attrs
 
     def create(self, validated_data):
