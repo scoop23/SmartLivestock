@@ -348,7 +348,6 @@ function ResultVisualization({ response }: { response: AskResponse }) {
 
 export function AskSmartLivestock() {
   const { user } = useAuth();
-  if (user?.role?.toUpperCase() !== "MAO") return null;
   const examples = EXAMPLES;
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState<AskResponse | null>(null);
@@ -361,6 +360,8 @@ export function AskSmartLivestock() {
   const resultContentId = useId();
   // A ref changes immediately; React state alone cannot block same-tick clicks.
   const submitting = useRef(false);
+
+  if (user?.role?.toUpperCase() !== "MAO") return null;
 
   const ask = async (value: string) => {
     const trimmed = value.trim();
@@ -409,7 +410,7 @@ export function AskSmartLivestock() {
           </div>
           <h2 className="mt-1 text-base font-black tracking-tight text-slate-900 sm:text-lg">Ask SmartLivestock</h2>
           <p id="ask-help" className="text-xs font-medium leading-relaxed text-slate-500">
-            "Ask about authorized livestock, disease, mortality, and MAO review summaries. Farmer milk and meat-yield logs are private."
+            Ask about authorized livestock, disease, mortality, and MAO review summaries. Farmer milk and meat-yield logs are private.
           </p>
         </div>
       </div>
