@@ -21,27 +21,25 @@ The production forecast dataset uses a `RECORDED` log's submission timestamp
 (`created_at`) for historical cutoffs. Historical approval-state rows are
 excluded; a municipality does not receive Farmer production forecasts.
 
-Ask SmartLivestock applies a stricter access boundary than municipal summary
-reports: MAO/Admin, SIBAT, and CBAT cannot query Farmer milk or individual
-Farmer meat-yield `ProductionRecord` rows through the NLP assistant, including
-totals, trends, groupings, or charts. Those roles also cannot request production
-forecasts, forecast-readiness diagnostics, or production recommendations derived
-from these private logs. The NLP endpoint returns a permission-aware explanation
-without running a production query or sending results to the optional explanation
-provider. A Farmer can query only records owned by their Farmer profile (with
-the authenticated creator as a legacy fallback); the handler also filters by
-`RECORDED` status. Explicit references to another Farmer are denied. Official
-slaughter summaries remain a separate workflow and
-are not substituted for Farmer meat yield by Ask SmartLivestock.
+Ask SmartLivestock is available only to MAO-role users. Farmer, SIBAT, CBAT,
+Admin, Auction, and slaughterhouse accounts have no assistant access through the
+interface or API. Even MAO cannot query Farmer milk or individual Farmer
+meat-yield `ProductionRecord` rows, including totals, trends, groupings, or
+charts. Restricted production questions return a permission-aware explanation
+before a production query runs or any result reaches the optional explanation
+provider. Municipal users also cannot request production forecasts,
+forecast-readiness diagnostics, or recommendations derived from those private
+logs. Official slaughter records remain a separate municipal dataset and are
+not substituted for Farmer meat yield by Ask SmartLivestock.
 
-The rules-first NLP parser can still recognize supported production question
-shapes, but recognition does not grant access. Municipal production questions
-are refused before a `ProductionRecord` query. Pending MAO review questions use
-the review-workload service, whose production source is empty for the routine
-Farmer log workflow. Population, disease, mortality, and authorized review
-workload intents remain available according to their existing role and barangay
-scope. The checked-in NLP language/evaluation examples measure parsing only; they
-do not establish that an intent is authorized for every role.
+The rules-first NLP parser can still recognize supported question shapes, but
+recognition does not grant access. Production questions are refused before a
+`ProductionRecord` query. Pending MAO review questions use the review-workload
+service, whose production source is empty for the routine Farmer log workflow.
+MAO can use the assistant for its other supported population, disease,
+mortality, and review-workload intents. The checked-in NLP language/evaluation
+examples measure parsing and role responses separately; they do not establish
+that an intent is authorized for every role.
 
 An individual Farmer meat-yield entry submitted with exact selected animal IDs
 creates one linked `SlaughterRecord` in `PENDING`. This is a **Farmer-reported,

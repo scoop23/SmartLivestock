@@ -17,7 +17,7 @@ requires a new report. These outcomes do not certify a laboratory diagnosis.
 
 | Area | Farmer | SIBAT | MAO | Auction |
 | --- | --- | --- | --- | --- |
-| Production logs | Create/view/edit own farm logs and personal analytics; may query own `RECORDED` logs in Ask SmartLivestock; no review stage | No production verification or NLP access to Farmer milk/meat-yield logs; separate slaughter notices remain visible by barangay | No access to Farmer milk/meat-yield logs through NLP or their forecasts; no farmer-log approval; official slaughter review remains separate | No access |
+| Production logs | Create/view/edit own farm logs and personal analytics; no Ask SmartLivestock access or review stage | SIBAT/CBAT have no Ask SmartLivestock access or production verification; separate slaughter notices remain visible by barangay | Ask SmartLivestock is available to MAO only; MAO cannot query private Farmer milk/meat-yield logs or their forecasts; no farmer-log approval; official slaughter review remains separate | No Ask SmartLivestock access |
 | Inventory | Create/view own; edit/delete own pending/returned records | View scoped; verify pending or return | View municipal; approve verified or return | No access |
 | Sales | Create/view own; delete own pending sales | View scoped; no review authority | View municipal; no approval of completed transfer (Auction ownership transfers finalize sales) | Read only |
 | Calving | Create and view own records | View scoped; verify pending or return | View municipal; approve verified or return | No access |

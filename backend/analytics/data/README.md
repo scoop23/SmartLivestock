@@ -4,43 +4,42 @@
 
 `AskSmartLivestock` posts a question through the shared authenticated Axios
 client to `POST /api/analytics/nlp-query/`. The DRF serializer limits input to
-500 characters. The endpoint and service allow MAO/Admin and SIBAT only.
-Rules select an allowlisted operation and validate dates and entities. The
-backend applies the existing reviewer scope before aggregating approved
-records. Farmer-specific counts are restricted to MAO/Admin. The browser
-displays returned metadata and values; it does not calculate totals or invent
-answers.
+500 characters. Both endpoint and service allow only users with the MAO role.
+The frontend hides the assistant from all other roles, while server-side
+permissions reject direct API requests. Rules select an allowlisted operation
+and validate dates and entities. Farmer-specific inventory counts are MAO-only.
+Farmer milk and individual meat-yield production questions return a privacy
+notice before any production query or optional explanation. The browser displays
+returned metadata and values; it does not calculate totals or invent answers.
 
-Supported operations: current approved-active population (including barangay
-and species breakdown), monthly production, production breakdown, disease
-cases by barangay, recorded deaths by barangay, and current MAO review queues.
-Production categories are milk, meat, eggs and wool; species/category validity
-reuses production registration rules. Meat output includes linked slaughter
-carcass yield, but there is no separate slaughter-count intent. Sales, owner
-counts, individual-animal filters, mortality rates and forecasts are not
-implemented here. Farmer-specific livestock counts resolve an exact approved
-Farmer name or username and count approved, active, current individual animal
-rows by default. Explicit pending, verified, or subject-to-revision requests
-count records in that registration status and are labeled as non-approved
-inventory. Herd containers, legacy aggregate rows and sold animals are
-excluded from the default count. Duplicate names produce clarification rather
-than a guessed match. Other owner-based summaries remain unsupported.
-Farmers cannot access this assistant API under its existing policy. SIBAT
-scopes remain assigned-barangay or explicit ALL_BARANGAYS for existing
-municipal analytics, but SIBAT cannot query individual farmers or MAO queues.
-ALL_BARANGAYS never grants MAO review-queue authority.
+Supported operations include current approved-active population (including
+barangay and species breakdown), disease cases by barangay, recorded deaths by
+barangay, current MAO review queues, and exact Farmer inventory counts.
+Production question patterns are recognized but do not run: private Farmer
+production records are not exposed through this assistant. Official slaughter
+questions are explicitly identified as a separate municipal dataset and are
+not substituted with Farmer meat yield; the assistant does not currently
+provide a slaughter-count intent. Sales, owner counts, individual-animal
+filters, mortality rates and forecasts are not implemented here. Farmer
+inventory counts resolve an exact approved Farmer name or username and count
+approved, active, current individual animal rows by default. Explicit pending,
+verified, or subject-to-revision requests count records in that registration
+status and are labeled as non-approved inventory. Herd containers, legacy
+aggregate rows and sold animals are excluded from the default count. Duplicate
+names produce clarification rather than a guessed match. Only MAO-role users
+can use the assistant; Admin, SIBAT, CBAT, Farmer, Auction, and slaughterhouse
+roles are denied, regardless of SIBAT barangay scope.
 
 ## Review workflow decision
 
-The uncommitted NLP example model, its pending 0002 migration, create/seed/
-approve/reject endpoints, and database curation UI have been removed after
-checking their dependencies. The read-only MAO/Admin examples page remains at
-both `/analytics/nlp-example-review` and `/admin/analytics/nlp-example-review`
-for link compatibility. It calls `GET /api/analytics/nlp-evaluation/` and
-reports the production parser against checked-in language examples. It does
-not review livestock records, collect user questions, grant data access or
-train a model. A developer maintains examples with MAO metric guidance and
-SIBAT wording feedback.
+The evaluation and dataset-review page is available at both
+`/analytics/nlp-example-review` and `/admin/analytics/nlp-example-review` for
+link compatibility. Only MAO users in the `NLP Developers` group can access
+the page or its endpoints. It compares the production parser against
+checked-in language examples and supports append-only review events for
+training candidates; validation and test examples remain read-only. Reviewing
+an example does not promote it into production training or change query
+permissions. It does not review livestock records or collect user questions.
 
 ## Reproducible evaluation
 
@@ -133,13 +132,17 @@ running it. Deploy backend and frontend together for the new evaluation API.
 If another environment applied the abandoned 0002, assess that environment
 before migration cleanup; this revision does not drop any live table.
 
-Open Advanced Analytics, try cattle population, milk last six months, and
-sheep wool. Check the interpreted dates and filters. Try a named farmer,
-sold animals, conflicting species and invalid output/species: expect a safe
-limitation or clarification. As scoped SIBAT, query all barangays and verify
-only authorized rows; MAO queues must be denied. As Farmer, the API remains
-denied. On the examples page, check filters, pagination, error retry and
-mobile layout. These are manual steps, not claims of browser verification.
+As MAO, open Advanced Analytics and try population, disease, mortality, MAO
+review workload, and exact Farmer inventory questions. Ask about milk or meat
+yield in English, Filipino, or Taglish and verify a privacy notice with no
+production rows; the optional explanation must not run. Official slaughter
+questions should identify that dataset separately without substituting Farmer
+meat yield. Try ambiguous names, conflicting dates/species, and invalid
+output/species for safe clarification. As Admin, SIBAT, CBAT, Farmer, Auction,
+or slaughterhouse staff, the assistant should be absent from the UI and direct
+API requests should receive 403. Only an MAO user in `NLP Developers` can open
+the dataset/evaluation tools. These are manual steps, not claims of browser
+verification.
 
 ## Rules-first pipeline and controlled comparison
 
@@ -150,3 +153,22 @@ The older `evaluate_ask_smartlivestock_intents` command is a quick 80-fit
 raw-model comparison, not the validation-split experiment. Both use shared
 normalization/tokenization and neither enables live ML routing. The evaluation
 page now runs the comparison explicitly and shows language-processing steps.
+
+## Current role-boundary verification
+
+On 2026-10-31, the focused backend command below ran 54 tests successfully:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py test analytics.tests.test_nlp_query analytics.tests.test_nlp_dataset analytics.tests.test_nlp_pipeline analytics.tests.test_nlp_multilingual_data --verbosity 1
+```
+
+`.\.venv\Scripts\python.exe manage.py check` reported no issues, and
+`.\.venv\Scripts\python.exe manage.py makemigrations --check --dry-run` reported no changes.
+After the final Farmer API denial assertions were added, the focused query
+module was rerun with 37 passing tests:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py test analytics.tests.test_nlp_query --verbosity 1
+```
+
+Frontend checks were `npm.cmd run lint -- 'src/app/(farmer)/production-dashboard/page.tsx' 'src/app/(admin)/admin/page.tsx' 'src/app/(admin)/analysis/page.tsx' 'src/app/(admin)/analytics/nlp-example-review/page.tsx' 'src/app/components/ask-smartlivestock.tsx'` (0 errors, 8 warnings in `analysis/page.tsx`) and `npx.cmd tsc --noEmit --incremental false` (passed). These checks do not verify a deployed service or browser session.

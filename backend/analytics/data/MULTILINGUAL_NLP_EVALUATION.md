@@ -3,14 +3,17 @@
 ## What is running in production
 
 The Ask SmartLivestock component posts an authenticated question to
-`POST /api/analytics/nlp-query/`. DRF validates the question and checks its
-role permission. `analytics.services.nlp_query.parse_question()` then uses
-deterministic rules to recognize a small set of analytics intents, dates,
-species, production types, and known barangays. Only fixed analytics handlers
-run. Their querysets continue to enforce approved-record and reviewer/barangay
-scope. Unrecognized and unsupported requests are rejected or returned for
-clarification. TF-IDF can now suggest editable starting questions for unrecognized requests;
-its predictions never execute queries. spaCy remains offline only. Neither model creates filters, SQL, ORM expressions, or authority.
+`POST /api/analytics/nlp-query/`. Both the DRF endpoint and service allow only
+MAO-role users. `analytics.services.nlp_query.parse_question()` uses
+deterministic rules to recognize supported analytics intents, dates, species,
+and known barangays. Private Farmer milk and meat-yield questions are refused
+before a production handler or optional explanation runs. Other recognized
+intents use fixed analytics handlers and their domain-specific filters. The
+MAO review-workload query remains MAO-only, and no other role can use the NLP
+assistant. Unrecognized and unsupported requests are rejected or returned for
+clarification. TF-IDF suggests editable starting questions for unrecognized
+requests; its predictions never execute queries. spaCy remains offline only.
+Neither model creates filters, SQL, ORM expressions, or authority.
 
 The historical measurements below predate the word-plus-character TF-IDF
 update; rerun the command for current classifier measurements.

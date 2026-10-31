@@ -31,7 +31,7 @@ the 100-example training target shortfall.
 
 ## Human review
 
-MAO/Admin users can review training candidates at `/admin/analytics/nlp-example-review`.
+MAO users in the `NLP Developers` group can review training candidates at `/admin/analytics/nlp-example-review`.
 Accept/reject actions are append-only `NLPExampleReviewEvent` rows; accepting may
 record a corrected utterance and supported intent. Validation and test records
 are read-only. A review action is not a training action: the static source and
