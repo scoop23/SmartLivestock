@@ -33,8 +33,16 @@ DialogFooter,
 DialogHeader,
 DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { QrCodePass } from "@/components/qr-code-pass";
+import {
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import api,{ getActiveApiUrl } from "@/lib/axios";
 import {
@@ -63,6 +71,7 @@ MapPin,
 Pencil,
 QrCode,
 RefreshCw,
+Search,
 Sparkles,
 Syringe,
 Target,
@@ -174,6 +183,9 @@ function FarmerSchedulingContent() {
   const [cancelledBooking, setCancelledBooking] = useState<ProgramBooking | null>(null);
   const [editingBooking, setEditingBooking] = useState<ProgramBooking | null>(null);
   const [editTime, setEditTime] = useState("");
+  const [programTypeFilter, setProgramTypeFilter] = useState<"all" | "walkin" | "appointment">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"soonest" | "latest" | "title-asc" | "title-desc">("soonest");
 
   const userDisplayName =
     user?.firstName && user?.lastName
@@ -287,11 +299,57 @@ function FarmerSchedulingContent() {
   }, [bookingToastClosing]);
 
   const selected = schedules.find((schedule) => schedule.id === Number(scheduleId));
-  const datesWithPrograms = useMemo(() => new Set(schedules.map((schedule) => schedule.date)), [schedules]);
-  const programsOnDate = useMemo(
-    () => (calendarDate ? schedules.filter((schedule) => schedule.date === isoFromLocalDate(calendarDate)) : []),
-    [calendarDate, schedules],
+
+  const filteredSchedules = useMemo(() => {
+    return schedules.filter((schedule) => {
+      if (programTypeFilter === "walkin" && schedule.capacity !== 0) {
+        return false;
+      }
+      if (programTypeFilter === "appointment" && schedule.capacity === 0) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const text = `${schedule.program} ${schedule.location} ${schedule.barangay_name || ""} ${schedule.description || ""} ${schedule.category || ""}`.toLowerCase();
+        if (!text.includes(query)) return false;
+      }
+      return true;
+    });
+  }, [schedules, programTypeFilter, searchQuery]);
+
+  const sortedFilteredSchedules = useMemo(() => {
+    const list = [...filteredSchedules];
+    list.sort((a, b) => {
+      if (sortBy === "soonest") {
+        return a.date.localeCompare(b.date);
+      }
+      if (sortBy === "latest") {
+        return b.date.localeCompare(a.date);
+      }
+      if (sortBy === "title-asc") {
+        return a.program.localeCompare(b.program);
+      }
+      if (sortBy === "title-desc") {
+        return b.program.localeCompare(a.program);
+      }
+      return 0;
+    });
+    return list;
+  }, [filteredSchedules, sortBy]);
+
+  const datesWithPrograms = useMemo(
+    () => new Set(filteredSchedules.map((schedule) => schedule.date)),
+    [filteredSchedules],
   );
+
+  const displayedPrograms = useMemo(() => {
+    if (calendarDate) {
+      const selectedIso = isoFromLocalDate(calendarDate);
+      return sortedFilteredSchedules.filter((schedule) => schedule.date === selectedIso);
+    }
+    return sortedFilteredSchedules;
+  }, [calendarDate, sortedFilteredSchedules]);
+
   const confirmedScheduleIds = useMemo(
     () => new Set(bookings.filter((booking) => booking.status === "CONFIRMED").map((booking) => booking.schedule)),
     [bookings],
@@ -560,6 +618,84 @@ function FarmerSchedulingContent() {
           </div>
         ) : null}
 
+        {/* Programs Filter Toolbar */}
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3 sm:px-4 sm:py-3 shadow-xs md:flex-row md:items-center md:justify-between animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
+          {/* Left: Program Type Tabs (All Programs / Walk-in Programs / By Appointment) */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setProgramTypeFilter("all")}
+              className={`h-9 sm:h-10 rounded-full px-4 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                programTypeFilter === "all"
+                  ? "bg-[#0F5A38] text-white shadow-xs"
+                  : "bg-slate-100/80 text-slate-700 hover:bg-slate-200/80"
+              }`}
+            >
+              All Programs
+            </button>
+            <button
+              type="button"
+              onClick={() => setProgramTypeFilter("walkin")}
+              className={`h-9 sm:h-10 rounded-full px-4 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                programTypeFilter === "walkin"
+                  ? "bg-[#0F5A38] text-white shadow-xs"
+                  : "bg-slate-100/80 text-slate-700 hover:bg-slate-200/80"
+              }`}
+            >
+              Walk-in Programs
+            </button>
+            <button
+              type="button"
+              onClick={() => setProgramTypeFilter("appointment")}
+              className={`h-9 sm:h-10 rounded-full px-4 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                programTypeFilter === "appointment"
+                  ? "bg-[#0F5A38] text-white shadow-xs"
+                  : "bg-slate-100/80 text-slate-700 hover:bg-slate-200/80"
+              }`}
+            >
+              By Appointment
+            </button>
+          </div>
+
+          {/* Right: Search Input & Sort Dropdown */}
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
+            <div className="relative w-full sm:w-64 md:w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search programs..."
+                className="h-10 pl-9 pr-8 rounded-xl border-slate-200 bg-white text-xs sm:text-sm placeholder:text-slate-400 focus-visible:ring-emerald-600 font-medium"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  aria-label="Clear search"
+                >
+                  <X className="size-3.5" />
+                </button>
+              ) : null}
+            </div>
+
+            <div className="w-full sm:w-auto">
+              <Select value={sortBy} onValueChange={(val: "soonest" | "latest" | "title-asc" | "title-desc") => setSortBy(val)}>
+                <SelectTrigger className="h-10 w-full sm:w-[195px] rounded-xl border-slate-200 bg-white text-xs sm:text-sm font-bold text-slate-700 shadow-2xs">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent align="end" className="rounded-xl border-slate-200 shadow-lg">
+                  <SelectItem value="soonest" className="text-xs sm:text-sm font-medium">Date (Soonest First)</SelectItem>
+                  <SelectItem value="latest" className="text-xs sm:text-sm font-medium">Date (Furthest First)</SelectItem>
+                  <SelectItem value="title-asc" className="text-xs sm:text-sm font-medium">Program Name (A to Z)</SelectItem>
+                  <SelectItem value="title-desc" className="text-xs sm:text-sm font-medium">Program Name (Z to A)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
         {/* 2. Interactive Booking Suite */}
         <section aria-label="Book a program appointment" className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
           <Card className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
@@ -593,7 +729,7 @@ function FarmerSchedulingContent() {
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 ${
                       detailsSchedule
                         ? "bg-emerald-100 text-emerald-900 font-black"
-                        : calendarDate && programsOnDate.length > 0
+                        : displayedPrograms.length > 0
                           ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
                           : "bg-slate-100 text-slate-600"
                     }`}
@@ -692,39 +828,52 @@ function FarmerSchedulingContent() {
                   <div className="min-w-0 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500">
-                        {calendarDate ? `Programs on ${formatShortDate(calendarDate)}` : "2. Choose Field Program"}
+                        {calendarDate
+                          ? `Programs on ${formatShortDate(calendarDate)}`
+                          : programTypeFilter === "walkin"
+                            ? "Walk-in Programs"
+                            : programTypeFilter === "appointment"
+                              ? "By Appointment Programs"
+                              : "All Available Programs"}
                       </h3>
-                      {calendarDate ? (
-                        <span className="text-xs sm:text-sm font-semibold text-slate-600">
-                          {programsOnDate.length} {programsOnDate.length === 1 ? "program" : "programs"}
-                        </span>
-                      ) : null}
+                      <span className="text-xs sm:text-sm font-semibold text-slate-600">
+                        {displayedPrograms.length} {displayedPrograms.length === 1 ? "program" : "programs"}
+                      </span>
                     </div>
 
-                    {!calendarDate ? (
-                      <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/50 p-8 text-center">
-                        <CalendarDays className="mx-auto size-8 text-emerald-600" />
-                        <h4 className="mt-2 text-sm sm:text-base font-bold text-slate-800">Choose a date first</h4>
-                        <p className="mt-1 text-xs sm:text-sm text-slate-600">
-                          Select a highlighted date on the calendar to see programs available in Padre Garcia.
-                        </p>
-                      </div>
-                    ) : null}
-
-                    {/* No programs on this date */}
-                    {calendarDate && programsOnDate.length === 0 ? (
+                    {displayedPrograms.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
                         <CalendarDays className="mx-auto size-8 text-slate-300" />
-                        <h4 className="mt-2 text-sm sm:text-base font-bold text-slate-700">No programs on this date</h4>
+                        <h4 className="mt-2 text-sm sm:text-base font-bold text-slate-700">
+                          {calendarDate
+                            ? "No programs on this date match your filter"
+                            : "No programs match your search or filter"}
+                        </h4>
                         <p className="mt-1 text-xs sm:text-sm text-slate-500">
-                          Please pick one of the highlighted dates on the calendar to see available programs.
+                          {calendarDate
+                            ? "Try choosing another date on the calendar, or change your filter."
+                            : "Try adjusting your search terms or selecting another program type above."}
                         </p>
+                        {calendarDate ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setCalendarDate(null);
+                              setScheduleId("");
+                            }}
+                            className="mt-3 text-xs font-bold"
+                          >
+                            Show all dates
+                          </Button>
+                        ) : null}
                       </div>
                     ) : null}
 
                     {/* Program Cards Grid */}
                     <div className="grid grid-cols-1 gap-3">
-                      {programsOnDate.map((schedule) => {
+                      {displayedPrograms.map((schedule) => {
                         const isUnlimited = schedule.capacity === 0;
                         const alreadyBooked = confirmedScheduleIds.has(schedule.id);
                         const isFull = !isUnlimited && (schedule.registration_status === "FULL" || (schedule.capacity > 0 && schedule.remaining_slots === 0));
@@ -747,6 +896,9 @@ function FarmerSchedulingContent() {
                             onClick={() => {
                               setScheduleId(String(schedule.id));
                               setDetailsSchedule(schedule);
+                              if (!calendarDate) {
+                                setCalendarDate(localDateFromIso(schedule.date));
+                              }
                             }}
                             className="group relative flex items-stretch gap-3 rounded-2xl border border-slate-200/90 bg-white p-3 transition-all duration-200 hover:border-emerald-400 hover:shadow-xs cursor-pointer sm:gap-4 sm:p-4"
                           >
@@ -854,10 +1006,10 @@ function FarmerSchedulingContent() {
                         );
                       })}
                     </div>
-                    {programsOnDate.length > 0 ? (
+                    {displayedPrograms.length > 0 ? (
                       <div className="flex items-center gap-3 px-2 py-2 text-[11px] font-semibold tracking-wide text-slate-400">
                         <span aria-hidden="true" className="h-px flex-1 bg-slate-200" />
-                        <span>End of programs for this date</span>
+                        <span>End of matching programs</span>
                         <span aria-hidden="true" className="h-px flex-1 bg-slate-200" />
                       </div>
                     ) : null}
