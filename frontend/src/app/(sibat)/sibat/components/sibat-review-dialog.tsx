@@ -22,7 +22,6 @@ import {
 import { cowHead } from "@lucide/lab";
 import {
   Baby,
-  BarChart2,
   Beef,
   Calendar,
   Check,
@@ -234,6 +233,16 @@ function SibatReviewDialogContent({
   let animalNotice = "Recorded in farm inventory.";
   const isProductionObservation = submission.sourceType === "PRODUCTION" && !submission.slaughterDetails;
   const isFarmerProduction = submission.sourceType === "PRODUCTION";
+  const reviewMetricLabel = submission.sourceType === "PRODUCTION"
+    ? isProductionObservation ? "Recorded Yield" : "Slaughter Quantity"
+    : submission.sourceType === "SALE"
+      ? "Quantity Sold"
+      : submission.sourceType === "CALVING"
+        ? "Birth Weight"
+        : isBatch ? "Average Weight" : "Scale Weight";
+  const reviewMetricValue = submission.sourceType === "PRODUCTION" || submission.sourceType === "SALE"
+    ? submission.quantityDisplay
+    : submission.weight != null ? `${Number(submission.weight).toFixed(2)} kg` : "Not recorded";
 
   if (submission.sourceType === "PRODUCTION" && submission.slaughterDetails?.animals?.length) {
     animalCount = submission.slaughterDetails.quantity || submission.slaughterDetails.animals.length;
@@ -820,25 +829,25 @@ function SibatReviewDialogContent({
                     </span>
                   </div>
 
-                  {/* Enterprise */}
+                  {/* Species */}
                   <div className="flex items-center justify-between gap-2 py-1.5">
                     <div className="flex items-center gap-2 text-slate-500 shrink-0">
                       <Icon iconNode={cowHead} className="size-3.5 text-slate-400" />
-                      <span className="text-[11px] sm:text-xs font-medium">Enterprise</span>
+                      <span className="text-[11px] sm:text-xs font-medium">Species</span>
                     </div>
                     <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
                       {submission.livestockTypeName || "Livestock"}
                     </span>
                   </div>
 
-                  {/* Reported yield */}
+                  {/* Source-specific production or weight measure */}
                   <div className="flex items-center justify-between gap-2 py-1.5">
                     <div className="flex items-center gap-2 text-slate-500 shrink-0">
-                      <BarChart2 className="size-3.5 text-slate-400" />
-                      <span className="text-[11px] sm:text-xs font-medium">Reported yield</span>
+                      <Scale className="size-3.5 text-slate-400" />
+                      <span className="text-[11px] sm:text-xs font-medium">{reviewMetricLabel}</span>
                     </div>
                     <span className="text-xs sm:text-sm font-bold text-slate-900 text-right truncate max-w-[60%]">
-                      {submission.quantityDisplay}
+                      {reviewMetricValue}
                     </span>
                   </div>
 
