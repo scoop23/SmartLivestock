@@ -969,7 +969,7 @@ export function UserProfileView() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(16,185,129,0.18),transparent_60%)] pointer-events-none" />
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-stretch justify-between gap-6">
           {/* Left side: Avatar + Identity */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 min-w-0">
             {/* Avatar Square with Monogram & Camera Button */}
@@ -1054,7 +1054,7 @@ export function UserProfileView() {
           </div>
 
           {/* Right side: Top Badges + Bottom Action Buttons */}
-          <div className="flex flex-col justify-between items-start lg:items-end gap-5 self-stretch lg:self-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-white/15">
+          <div className="flex flex-col justify-between items-start lg:items-end gap-5 self-stretch pt-2 lg:pt-0 border-t lg:border-t-0 border-white/15">
             {/* Top Badges */}
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-mono font-medium bg-white/10 text-white/90 border border-white/10 backdrop-blur-xs">
