@@ -863,20 +863,98 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-3">
-                {/* Table Header */}
-                <div className="hidden lg:grid grid-cols-[minmax(220px,2fr)_minmax(130px,1.2fr)_minmax(130px,1.2fr)_minmax(160px,1.5fr)_minmax(140px,1.2fr)_minmax(90px,0.8fr)_36px] items-center gap-4 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-                  <span>Program Name</span>
-                  <span>Date</span>
-                  <span>Time</span>
-                  <span>Location</span>
-                  <span>Status</span>
-                  <span>Registered</span>
-                  <span className="sr-only">Actions</span>
+              <div className="space-y-4">
+                {/* Desktop Table Container with Solid Background & 100% Inline Columns */}
+                <div className="hidden lg:block rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
+                  <div className="overflow-x-auto no-scrollbar">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-50/90 border-b border-slate-200/80 text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="py-3.5 pl-5 sm:pl-6 pr-3 font-bold">Program Name</th>
+                          <th className="py-3.5 px-3 font-bold whitespace-nowrap">Date</th>
+                          <th className="py-3.5 px-3 font-bold whitespace-nowrap">Time</th>
+                          <th className="py-3.5 px-3 font-bold">Location</th>
+                          <th className="py-3.5 px-3 font-bold whitespace-nowrap">Status</th>
+                          <th className="py-3.5 px-3 font-bold whitespace-nowrap">Registered</th>
+                          <th className="py-3.5 pl-2 pr-10 sm:pr-14 lg:pr-16 text-right w-16 sm:w-20"><span className="sr-only">Actions</span></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {paginatedSchedules.map((schedule) => {
+                          const isRegistrationOpen = schedule.is_open && schedule.registration_status === "AVAILABLE";
+                          const iconConfig = getCategoryIconConfig(schedule.category, schedule.program);
+
+                          return (
+                            <tr
+                              key={schedule.id}
+                              id={`program-schedule-${schedule.id}`}
+                              onClick={() => setSelected(schedule)}
+                              className={`group cursor-pointer transition-colors ${
+                                schedule.id === highlightedScheduleId
+                                  ? "bg-emerald-100/70 ring-2 ring-inset ring-emerald-300"
+                                  : isRegistrationOpen
+                                    ? "bg-emerald-50/20 hover:bg-emerald-50/45"
+                                    : "hover:bg-slate-50/80"
+                              }`}
+                            >
+                              {/* Program Name with Icon */}
+                              <td className="py-4 pl-5 sm:pl-6 pr-3 align-middle">
+                                <div className="flex items-center gap-3.5 min-w-0">
+                                  <div className={`size-11 shrink-0 rounded-xl flex items-center justify-center ${iconConfig.container}`}>
+                                    {iconConfig.icon}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-slate-900 text-sm sm:text-base leading-snug">
+                                      {schedule.program}
+                                    </p>
+                                    {schedule.barangay_name && (
+                                      <p className="text-xs text-slate-500 mt-0.5">
+                                        {schedule.barangay_name}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Date */}
+                              <td className="py-4 px-3 text-sm font-medium text-slate-700 whitespace-nowrap align-middle">
+                                {formatProgramTableDate(schedule.date)}
+                              </td>
+
+                              {/* Time */}
+                              <td className="py-4 px-3 text-sm font-medium text-slate-600 whitespace-nowrap align-middle">
+                                {formatProgramTimeWindow(schedule.available_times)}
+                              </td>
+
+                              {/* Location */}
+                              <td className="py-4 px-3 text-sm font-bold text-slate-900 align-middle">
+                                <span className="line-clamp-2">{schedule.location || "Location not set"}</span>
+                              </td>
+
+                              {/* Status Badge */}
+                              <td className="py-4 px-3 whitespace-nowrap align-middle">
+                                {renderProgramStatusBadge(schedule)}
+                              </td>
+
+                              {/* Registered */}
+                              <td className="py-4 px-3 text-sm font-bold text-slate-900 whitespace-nowrap align-middle">
+                                {schedule.capacity === 0 ? `${schedule.booking_count} / ∞` : `${schedule.booking_count} / ${schedule.capacity}`}
+                              </td>
+
+                              {/* Chevron */}
+                              <td className="py-4 pl-2 pr-10 sm:pr-14 lg:pr-16 text-right align-middle">
+                                <ChevronRight className="size-5 text-slate-400 group-hover:text-slate-800 group-hover:translate-x-0.5 transition-transform inline-block mr-2 sm:mr-3" />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
-                {/* Rows matching screenshot */}
-                <div className="space-y-3">
+                {/* Mobile / Tablet Cards View */}
+                <div className="lg:hidden space-y-3">
                   {paginatedSchedules.map((schedule) => {
                     const isRegistrationOpen = schedule.is_open && schedule.registration_status === "AVAILABLE";
                     const iconConfig = getCategoryIconConfig(schedule.category, schedule.program);
@@ -884,9 +962,9 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     return (
                       <div
                         key={schedule.id}
-                        id={`program-schedule-${schedule.id}`}
+                        id={`program-schedule-${schedule.id}-mobile`}
                         onClick={() => setSelected(schedule)}
-                        className={`group cursor-pointer rounded-2xl border p-4 sm:p-4.5 transition-all duration-150 hover:shadow-md ${
+                        className={`group cursor-pointer rounded-2xl border p-4 transition-all duration-150 hover:shadow-md flex flex-col gap-3 ${
                           schedule.id === highlightedScheduleId
                             ? "border-emerald-400 bg-emerald-50/60 ring-2 ring-emerald-200 shadow-sm"
                             : isRegistrationOpen
@@ -894,96 +972,43 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                               : "border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/70"
                         }`}
                       >
-                        {/* Desktop Layout */}
-                        <div className="hidden lg:grid grid-cols-[minmax(220px,2fr)_minmax(130px,1.2fr)_minmax(130px,1.2fr)_minmax(160px,1.5fr)_minmax(140px,1.2fr)_minmax(90px,0.8fr)_36px] items-center gap-4">
-                          {/* Program Name with Icon */}
-                          <div className="flex items-center gap-3.5 min-w-0">
-                            <div className={`size-11 shrink-0 rounded-xl flex items-center justify-center ${iconConfig.container}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`size-10 shrink-0 rounded-xl flex items-center justify-center ${iconConfig.container}`}>
                               {iconConfig.icon}
                             </div>
                             <div className="min-w-0">
-                              <p className="font-bold text-slate-900 text-sm sm:text-base leading-snug truncate">
+                              <p className="font-bold text-slate-900 text-sm sm:text-base leading-snug">
                                 {schedule.program}
                               </p>
-                              {schedule.barangay_name && (
-                                <p className="text-xs text-slate-500 truncate mt-0.5">
-                                  {schedule.barangay_name}
-                                </p>
-                              )}
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                {formatProgramTableDate(schedule.date)}
+                              </p>
                             </div>
                           </div>
-
-                          {/* Date */}
-                          <div className="text-sm font-medium text-slate-700 whitespace-nowrap">
-                            {formatProgramTableDate(schedule.date)}
-                          </div>
-
-                          {/* Time */}
-                          <div className="text-sm font-medium text-slate-600 whitespace-nowrap">
-                            {formatProgramTimeWindow(schedule.available_times)}
-                          </div>
-
-                          {/* Location */}
-                          <div className="text-sm font-bold text-slate-900 truncate">
-                            {schedule.location || "Location not set"}
-                          </div>
-
-                          {/* Status Badge */}
-                          <div>
+                          <div className="shrink-0">
                             {renderProgramStatusBadge(schedule)}
-                          </div>
-
-                          {/* Registered */}
-                          <div className="text-sm font-bold text-slate-900 whitespace-nowrap">
-                            {schedule.capacity === 0 ? `${schedule.booking_count} / ∞` : `${schedule.booking_count} / ${schedule.capacity}`}
-                          </div>
-
-                          {/* Chevron */}
-                          <div className="flex justify-end">
-                            <ChevronRight className="size-5 text-slate-400 group-hover:text-slate-800 group-hover:translate-x-0.5 transition-transform" />
                           </div>
                         </div>
 
-                        {/* Mobile / Tablet Layout */}
-                        <div className="lg:hidden flex flex-col gap-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className={`size-10 shrink-0 rounded-xl flex items-center justify-center ${iconConfig.container}`}>
-                                {iconConfig.icon}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-bold text-slate-900 text-sm sm:text-base leading-snug">
-                                  {schedule.program}
-                                </p>
-                                <p className="text-xs text-slate-500 mt-0.5">
-                                  {formatProgramTableDate(schedule.date)}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="shrink-0">
-                              {renderProgramStatusBadge(schedule)}
-                            </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
+                          <div className="flex items-center gap-1.5 text-slate-600 truncate">
+                            <Clock3 className="size-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{formatProgramTimeWindow(schedule.available_times)}</span>
                           </div>
+                          <div className="flex items-center gap-1.5 text-slate-600 truncate">
+                            <MapPin className="size-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{schedule.location || "Location not set"}</span>
+                          </div>
+                        </div>
 
-                          <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-100">
-                            <div className="flex items-center gap-1.5 text-slate-600 truncate">
-                              <Clock3 className="size-3.5 text-slate-400 shrink-0" />
-                              <span className="truncate">{formatProgramTimeWindow(schedule.available_times)}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-slate-600 truncate">
-                              <MapPin className="size-3.5 text-slate-400 shrink-0" />
-                              <span className="truncate">{schedule.location || "Location not set"}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between pt-1 text-xs font-semibold text-slate-700">
-                            <span>
-                              Registered: <strong className="text-slate-900">{schedule.capacity === 0 ? `${schedule.booking_count}` : `${schedule.booking_count} / ${schedule.capacity}`}</strong>
-                            </span>
-                            <span className="inline-flex items-center gap-1 text-emerald-800 font-bold group-hover:translate-x-0.5 transition-transform">
-                              View Details <ChevronRight className="size-4" />
-                            </span>
-                          </div>
+                        <div className="flex items-center justify-between pt-1 text-xs font-semibold text-slate-700">
+                          <span>
+                            Registered: <strong className="text-slate-900">{schedule.capacity === 0 ? `${schedule.booking_count}` : `${schedule.booking_count} / ${schedule.capacity}`}</strong>
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-emerald-800 font-bold group-hover:translate-x-0.5 transition-transform">
+                            View Details <ChevronRight className="size-4" />
+                          </span>
                         </div>
                       </div>
                     );
@@ -1294,9 +1319,9 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
           }
         }}
       >
-        <DialogContent className="max-h-[92dvh] w-[calc(100vw-1.5rem)] max-w-2xl overflow-y-auto rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-7 shadow-2xl space-y-4">
+        <DialogContent className="max-h-[92dvh] w-[calc(100vw-2rem)] sm:max-w-3xl md:max-w-4xl lg:max-w-5xl overflow-y-auto rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-7 shadow-2xl space-y-5">
           {selected ? (
-            <div className="space-y-4">
+            <div className="space-y-5">
               {/* Header: Blue Icon + Title + Badges */}
               <div className="flex items-start gap-4">
                 <div className="flex size-14 sm:size-16 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
@@ -1325,37 +1350,43 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               </div>
 
               {/* 3-Column Info Box: Time window | Location | Registered */}
-              <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-0 sm:divide-x sm:divide-slate-200/70 shadow-xs">
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-5 grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-0 sm:divide-x sm:divide-slate-200/80 shadow-xs overflow-hidden">
                 {/* Time window */}
-                <div className="flex items-center gap-3 sm:px-3 first:pl-1">
-                  <Clock3 className="size-6 sm:size-7 text-blue-600 shrink-0 stroke-[1.8]" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-500">Time window</p>
-                    <p className="text-sm font-bold text-slate-900 mt-0.5 whitespace-nowrap">
+                <div className="flex items-center gap-3 min-w-0 sm:pr-4 sm:first:pl-0">
+                  <div className="size-10 sm:size-11 shrink-0 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                    <Clock3 className="size-5 sm:size-6 stroke-[1.8]" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Time window</p>
+                    <p className="text-sm sm:text-base font-extrabold text-slate-900 mt-0.5 truncate" title={formatProgramTimeWindow(selected.available_times)}>
                       {formatProgramTimeWindow(selected.available_times)}
                     </p>
                   </div>
                 </div>
 
                 {/* Location */}
-                <div className="flex items-center gap-3 sm:px-4">
-                  <MapPin className="size-6 sm:size-7 text-blue-600 shrink-0 stroke-[1.8]" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-500">Location</p>
-                    <p className="text-sm font-bold text-slate-900 mt-0.5 line-clamp-2 break-words">
+                <div className="flex items-center gap-3 min-w-0 sm:px-4">
+                  <div className="size-10 sm:size-11 shrink-0 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                    <MapPin className="size-5 sm:size-6 stroke-[1.8]" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Location</p>
+                    <p className="text-sm sm:text-base font-extrabold text-slate-900 mt-0.5 break-words line-clamp-2" title={selected.location || "Location not set"}>
                       {selected.location || "Location not set"}
                     </p>
                   </div>
                 </div>
 
                 {/* Registered */}
-                <div className="flex items-center gap-3 sm:px-4">
-                  <Users className="size-6 sm:size-7 text-blue-600 shrink-0 stroke-[1.8]" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-500">Registered</p>
-                    <p className="text-sm font-bold text-slate-900 mt-0.5">
+                <div className="flex items-center gap-3 min-w-0 sm:pl-4">
+                  <div className="size-10 sm:size-11 shrink-0 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                    <Users className="size-5 sm:size-6 stroke-[1.8]" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Registered</p>
+                    <p className="text-sm sm:text-base font-extrabold text-slate-900 mt-0.5 truncate">
                       {selected.capacity === 0
-                        ? `${selected.booking_count}`
+                        ? `${selected.booking_count} farmers`
                         : `${selected.booking_count} / ${selected.capacity}`}
                     </p>
                     <p className="text-[11px] font-medium text-slate-400">slots filled</p>
