@@ -689,7 +689,7 @@ function ReportIllnessDialogContent({
                   <Select
                     value={sourceDiseaseCaseId || "none"}
                     onValueChange={(value) => setSourceDiseaseCaseId(value === "none" ? "" : value)}
-                    disabled={isSubmitting || isLoadingDiseaseCases || linkableDiseaseCases.length === 0}
+                    disabled={isSubmitting || isFetchingDiseaseCases || linkableDiseaseCases.length === 0}
                   >
                     <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-rose-700">
                       <SelectValue placeholder="No disease report linked" />
@@ -706,7 +706,7 @@ function ReportIllnessDialogContent({
                     </SelectContent>
                   </Select>
                   <p className="text-xs leading-relaxed text-slate-500">
-                    {isLoadingDiseaseCases
+                    {isFetchingDiseaseCases
                       ? "Loading your disease reports..."
                       : linkableDiseaseCases.length
                         ? "Choose a report for the selected animal dated within the 30 days before this death. The link records a reference; it does not confirm the cause of death."
