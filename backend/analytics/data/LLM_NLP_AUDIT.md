@@ -1,5 +1,7 @@
 # Ask SmartLivestock NLP and optional explanation audit
 
+> **Historical audit snapshot (26 October 2026).** The request path and permissions described below predate the current Farmer production privacy boundary. Use [the current workflow policy](../../../docs/farmer-production-and-slaughter-workflow.md) and source code for present behavior.
+
 Audit date: 2026-10-26. This report describes the repository at the start of
 the optional explanation integration; it does not represent a live-provider
 test or a field accuracy study.

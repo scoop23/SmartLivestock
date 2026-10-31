@@ -1,5 +1,7 @@
 # Farmer log visibility / SIBAT setup
 
+> **Historical audit snapshot.** Account counts, assigned-barangay values, and endpoint observations below describe the audit-time database and are not current verification. Current production and slaughter access policy is documented in [the Farmer production and slaughter workflow](../docs/farmer-production-and-slaughter-workflow.md).
+
 ## Reproduced cause
 
 Read-only API requests confirmed that the four legacy SIBAT accounts have NULL assigned_barangay. Their private lists correctly return zero rows, but the portal did not explain the missing setup. No records were deleted. The assigned Manggas reviewer receives 20 inventory rows, 6 herds, 3 production records, 2 disease reports, 5 mortality reports and 1 census submission. MAO receives municipal records. These are inventory rows, not an active-head population calculation.

@@ -1,5 +1,7 @@
 # Ask SmartLivestock baseline (2026-10-26)
 
+> **Historical baseline.** Measurements and implementation details below describe commit `c1ddea7` before the current production privacy changes. They are not current authorization evidence; see [the current Farmer production and slaughter policy](../../../docs/farmer-production-and-slaughter-workflow.md).
+
 Inspected at `c1ddea7`; worktree initially clean. This audit describes source behavior,
 not deployed verification or a user study.
 

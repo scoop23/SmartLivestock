@@ -1,5 +1,7 @@
 # Audit remediation — 17 October 2026
 
+> **Historical remediation record (17 October 2026).** This records changes and checks from that date only; it is not current workflow, deployment, or test verification.
+
 Applies to the local working tree based on `ddd87bf`. No commit or deployment was
 created. Pre-existing Farmer report/header notification edits were preserved;
 the Farmer detail dialog received only the shared follow-up panel and a clearer

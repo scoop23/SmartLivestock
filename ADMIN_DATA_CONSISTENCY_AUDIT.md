@@ -1,5 +1,7 @@
 # SmartLivestock Admin data consistency audit
 
+> **Historical audit snapshot (2 October 2026).** Database measurements and remediation claims below reflect the stated baseline and are not current runtime verification.
+
 Audit date: 2026-10-02. Code baseline: `6a75410` on `main`. Source code, relevant Git changes, configured PostgreSQL aggregates, and isolated regression fixtures were examined. No real records were modified, reseeded, deleted, or reapproved.
 
 ## Root causes found

@@ -1,5 +1,7 @@
 # SmartLivestock — Final Pre-Predictive Analytics Freeze Audit
 
+> **Historical audit snapshot (2 October 2026).** Counts, workflow findings, and verification below describe that audit's database and source state; they are not current measurements. Current Farmer production privacy and eligibility are documented in [the workflow policy](../docs/farmer-production-and-slaughter-workflow.md) and [the analytics guide](analytics/PREDICTIVE_ANALYTICS_GUIDE.md).
+
 Audit date: 2 October 2026 (Asia/Manila). Repository: F:/Dev/SmartLivestock, branch main, starting commit 1ffc3f4. No predictive models, packages, schema changes or migrations were added. Real user/domain records were not changed; PostgreSQL workflow fixtures and notifications were rolled back.
 
 ## A. SYSTEM STATUS / Executive summary

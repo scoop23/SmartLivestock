@@ -1,5 +1,7 @@
 # SmartLivestock domain integrity audit - 2 October 2026
 
+> **Historical audit snapshot (2 October 2026).** Findings below describe the source and data state at that audit date. Do not treat its metrics or workflow statements as current verification; use the current [Farmer production and slaughter policy](../docs/farmer-production-and-slaughter-workflow.md) for those workflows.
+
 ## Scope
 
 Inspected livestock inventory/herd/census models, production/slaughter/sale/calving/weight/disposition models, disease/mortality models, movement inspection/items/clearance/meat models, staff roles and notifications, serializers, role/workflow helpers, reconciliation services, routes, relevant migration history, tests, descriptive/census analytics, valuation snapshots, and the related farmer/inspection/scanner forms.
