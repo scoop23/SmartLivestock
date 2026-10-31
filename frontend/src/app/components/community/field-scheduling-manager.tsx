@@ -864,17 +864,17 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               <div className="space-y-4">
                 {/* Desktop Table Container with Solid Background & 100% Inline Columns */}
                 <div className="hidden lg:block rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
-                  <div className="overflow-x-auto no-scrollbar">
+                  <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead className="bg-slate-50/90 border-b border-slate-200/80 text-xs font-bold uppercase tracking-wider text-slate-500">
                         <tr>
-                          <th className="py-3.5 pl-5 sm:pl-6 pr-3 font-bold">Program Name</th>
-                          <th className="py-3.5 px-3 font-bold whitespace-nowrap">Date</th>
-                          <th className="py-3.5 px-3 font-bold whitespace-nowrap">Time</th>
-                          <th className="py-3.5 px-3 font-bold">Location</th>
-                          <th className="py-3.5 px-3 font-bold whitespace-nowrap">Status</th>
-                          <th className="py-3.5 px-3 font-bold whitespace-nowrap">Registered</th>
-                          <th className="py-3.5 pl-2 pr-5 sm:pr-6 text-right font-bold whitespace-nowrap">Action</th>
+                          <th className="py-3.5 pl-4 sm:pl-5 pr-2.5 font-bold">Program Name</th>
+                          <th className="py-3.5 px-2.5 font-bold whitespace-nowrap">Date</th>
+                          <th className="py-3.5 px-2.5 font-bold whitespace-nowrap">Time</th>
+                          <th className="py-3.5 px-2.5 font-bold">Location</th>
+                          <th className="py-3.5 px-2.5 font-bold whitespace-nowrap">Status</th>
+                          <th className="py-3.5 px-2.5 font-bold whitespace-nowrap">Registered</th>
+                          <th className="py-3.5 px-4 text-right font-bold whitespace-nowrap sticky right-0 z-10 bg-slate-50 border-l border-slate-200/80">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -896,17 +896,17 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                               }`}
                             >
                               {/* Program Name with Icon */}
-                              <td className="py-4 pl-5 sm:pl-6 pr-3 align-middle">
-                                <div className="flex items-center gap-3.5 min-w-0">
-                                  <div className={`size-11 shrink-0 rounded-xl flex items-center justify-center ${iconConfig.container}`}>
+                              <td className="py-4 pl-4 sm:pl-5 pr-2.5 align-middle">
+                                <div className="flex items-center gap-3 min-w-0 max-w-[200px] xl:max-w-xs">
+                                  <div className={`size-10 shrink-0 rounded-xl flex items-center justify-center ${iconConfig.container}`}>
                                     {iconConfig.icon}
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="font-bold text-slate-900 text-sm sm:text-base leading-snug">
+                                    <p className="font-bold text-slate-900 text-sm leading-snug line-clamp-1" title={schedule.program}>
                                       {schedule.program}
                                     </p>
                                     {schedule.barangay_name && (
-                                      <p className="text-xs text-slate-500 mt-0.5">
+                                      <p className="text-xs text-slate-500 mt-0.5 truncate">
                                         {schedule.barangay_name}
                                       </p>
                                     )}
@@ -915,32 +915,40 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                               </td>
 
                               {/* Date */}
-                              <td className="py-4 px-3 text-sm font-medium text-slate-700 whitespace-nowrap align-middle">
+                              <td className="py-4 px-2.5 text-sm font-medium text-slate-700 whitespace-nowrap align-middle">
                                 {formatProgramTableDate(schedule.date)}
                               </td>
 
                               {/* Time */}
-                              <td className="py-4 px-3 text-sm font-medium text-slate-600 whitespace-nowrap align-middle">
+                              <td className="py-4 px-2.5 text-xs sm:text-sm font-medium text-slate-600 whitespace-nowrap align-middle">
                                 {formatProgramTimeWindow(schedule.available_times)}
                               </td>
 
                               {/* Location */}
-                              <td className="py-4 px-3 text-sm font-bold text-slate-900 align-middle">
-                                <span className="line-clamp-2">{schedule.location || "Location not set"}</span>
+                              <td className="py-4 px-2.5 text-sm font-bold text-slate-900 align-middle max-w-[130px]">
+                                <span className="line-clamp-1 truncate block" title={schedule.location || "Location not set"}>
+                                  {schedule.location || "Location not set"}
+                                </span>
                               </td>
 
                               {/* Status Badge */}
-                              <td className="py-4 px-3 whitespace-nowrap align-middle">
+                              <td className="py-4 px-2.5 whitespace-nowrap align-middle">
                                 {renderProgramStatusBadge(schedule)}
                               </td>
 
                               {/* Registered */}
-                              <td className="py-4 px-3 text-sm font-bold text-slate-900 whitespace-nowrap align-middle">
+                              <td className="py-4 px-2.5 text-sm font-bold text-slate-900 whitespace-nowrap align-middle">
                                 {schedule.capacity === 0 ? "No Limit" : `${schedule.booking_count} / ${schedule.capacity}`}
                               </td>
 
-                              {/* View Action Button */}
-                              <td className="py-4 pl-2 pr-5 sm:pr-6 text-right align-middle whitespace-nowrap">
+                              {/* View Action Button (Sticky Right) */}
+                              <td className={`py-4 px-4 text-right align-middle whitespace-nowrap sticky right-0 z-10 border-l border-slate-100 ${
+                                schedule.id === highlightedScheduleId
+                                  ? "bg-emerald-100/90"
+                                  : isRegistrationOpen
+                                    ? "bg-[#f8fcf9] group-hover:bg-[#edf7f1]"
+                                    : "bg-white group-hover:bg-slate-50/90"
+                              }`}>
                                 <Button
                                   type="button"
                                   size="sm"
