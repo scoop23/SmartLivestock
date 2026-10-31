@@ -5,6 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import Link from "next/link";
 import { KpiCard,type KpiVariant } from "@/components/ui/kpi-card";
 import { cowHead } from "@lucide/lab";
@@ -14,6 +20,7 @@ AlertTriangle,
 CheckCircle2,
 ChevronRight,
 Clock,
+Filter,
 HeartPulse,
 Icon,
 RefreshCw,
@@ -375,8 +382,8 @@ function ReportObservationContent() {
       { element: '[data-tour="report-disease-action"]', popover: { title: "Report a sick animal", description: "Choose this for symptoms or signs of illness. Report observations; do not guess a confirmed diagnosis.", side: "bottom", align: "center" } },
       { element: '[data-tour="report-mortality-action"]', popover: { title: "Report an animal death", description: "Choose this to record a death and the known or suspected cause for review.", side: "bottom", align: "center" } },
       { element: '[data-tour="report-kpis"]', popover: { title: "Report overview", description: "These counts summarize disease and mortality reports and show how many are pending, verified, or approved.", side: "bottom", align: "center" } },
-      { element: '[data-tour="report-filters"]', popover: { title: "Filter your reports", description: "Narrow the list by report type or review status. Filters change which report cards appear below.", side: "bottom", align: "start" } },
-      { element: '[data-tour="report-search"]', popover: { title: "Search reports", description: "Search by tag, symptoms or cause, breed, or report reference.", side: "bottom", align: "end" } },
+      { element: '[data-tour="report-search"]', popover: { title: "Search reports", description: "Search by tag, symptoms or cause, breed, or report reference.", side: "bottom", align: "start" } },
+      { element: '[data-tour="report-filters"]', popover: { title: "Filter your reports", description: "Narrow the list by report type or review status. Filters change which report cards appear below.", side: "bottom", align: "end" } },
     ];
     if (document.querySelector('[data-tour="report-card"]')) {
       candidates.push({ element: '[data-tour="report-card"]', popover: { title: "Open a report", description: "Each card summarizes one report. Select Details to open the full report, review progress, staff notes, photo evidence, and its QR pass.", side: "top", align: "center" } });
@@ -466,6 +473,72 @@ function ReportObservationContent() {
   const verifiedAndApprovedCases = activeReports.filter(
     (r) => r.status === "APPROVED" || r.status === "VERIFIED"
   ).length;
+  const revisionCases = activeReports.filter((r) => {
+    const s = (r.status || "") as string;
+    return s === "SUBJECT_TO_REVISION" || s === "SUBJECT_FOR_REVISION";
+  }).length;
+
+  const filterOptions = useMemo(() => [
+    {
+      id: "ALL" as const,
+      name: "All Reports",
+      label: `All (${activeReports.length})`,
+      count: activeReports.length,
+      icon: <Activity className="size-3.5 text-slate-500 shrink-0" />,
+    },
+    {
+      id: "DISEASE" as const,
+      name: "Sick Animals",
+      label: `Sick Animals (${totalDiseaseCases})`,
+      count: totalDiseaseCases,
+      icon: <Stethoscope className="size-3.5 text-amber-500 shrink-0" />,
+    },
+    {
+      id: "MORTALITY" as const,
+      name: "Deceased Animals",
+      label: `Deceased (${totalMortality})`,
+      count: totalMortality,
+      icon: <Skull className="size-3.5 text-rose-500 shrink-0" />,
+    },
+    {
+      id: "PENDING" as const,
+      name: "Pending Verification",
+      label: `Pending (${pendingVerification})`,
+      count: pendingVerification,
+      icon: <Clock className="size-3.5 text-sky-500 shrink-0" />,
+    },
+    {
+      id: "REVISION" as const,
+      name: "Needs Revision",
+      label: `Needs Revision (${revisionCases})`,
+      count: revisionCases,
+      icon: <AlertTriangle className="size-3.5 text-amber-600 shrink-0" />,
+    },
+    {
+      id: "VERIFIED" as const,
+      name: "Verified",
+      label: `Verified (${verifiedCases})`,
+      count: verifiedCases,
+      icon: <ShieldCheck className="size-3.5 text-indigo-500 shrink-0" />,
+    },
+    {
+      id: "APPROVED" as const,
+      name: "Approved",
+      label: `Approved (${approvedCases})`,
+      count: approvedCases,
+      icon: <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />,
+    },
+  ], [
+    activeReports.length,
+    totalDiseaseCases,
+    totalMortality,
+    pendingVerification,
+    revisionCases,
+    verifiedCases,
+    approvedCases,
+  ]);
+
+  const currentFilter = filterOptions.find((tab) => tab.id === filterType) ?? filterOptions[0];
 
   const kpis: {
     label: string;
@@ -614,37 +687,10 @@ function ReportObservationContent() {
               </span>
             </div>
 
-            {/* Filter Pills & Live Search */}
-            <div data-tour="report-filters" className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
-              {/* Filter Pills */}
-              <div className="flex flex-wrap gap-1.5">
-                {([
-                  { id: "ALL", label: `All (${activeReports.length})` },
-                  { id: "DISEASE", label: `Sick Animals (${totalDiseaseCases})` },
-                  { id: "MORTALITY", label: `Deceased (${totalMortality})` },
-                  { id: "PENDING", label: `Pending (${pendingVerification})` },
-                  { id: "REVISION", label: "Needs Revision" },
-                  { id: "VERIFIED", label: `Verified (${verifiedCases})` },
-                  { id: "APPROVED", label: `Approved (${approvedCases})` },
-                ] satisfies ReadonlyArray<{ id: HealthReportFilter; label: string }>).map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    aria-pressed={filterType === tab.id}
-                    onClick={() => setFilterType(tab.id)}
-                    className={`inline-flex min-h-11 items-center rounded-xl px-3.5 py-2 text-sm font-bold transition-all cursor-pointer ${
-                      filterType === tab.id
-                        ? "bg-[#2D5A27] text-white shadow-xs"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
+            {/* Filter Dropdown & Live Search */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
               {/* Search Bar */}
-              <div data-tour="report-search" className="relative w-full md:w-72">
+              <div data-tour="report-search" className="relative w-full sm:w-72">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   value={searchQuery}
@@ -652,6 +698,53 @@ function ReportObservationContent() {
                   placeholder="Search tag #, symptoms, diagnosis..."
                   className="pl-10 h-10 rounded-xl bg-slate-50 border-slate-200 text-xs font-medium focus:ring-2 focus:ring-[#2D5A27]"
                 />
+              </div>
+
+              {/* Shadcn Select Filter */}
+              <div data-tour="report-filters" className="flex items-center gap-2 w-full sm:w-auto">
+                <Select
+                  value={filterType}
+                  onValueChange={(val) => setFilterType(val as HealthReportFilter)}
+                >
+                  <SelectTrigger className="w-full sm:w-64 h-10 bg-slate-50 border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors focus:ring-2 focus:ring-[#2D5A27] cursor-pointer">
+                    <div className="flex items-center gap-2 truncate">
+                      <Filter className="size-3.5 text-slate-400 shrink-0" />
+                      {currentFilter.icon}
+                      <span className="truncate">{currentFilter.label}</span>
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-slate-200 shadow-xl max-h-72">
+                    {filterOptions.map((opt) => (
+                      <SelectItem
+                        key={opt.id}
+                        value={opt.id}
+                        className="rounded-xl text-xs font-bold py-2.5 cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between w-full gap-4">
+                          <div className="flex items-center gap-2">
+                            {opt.icon}
+                            <span>{opt.name}</span>
+                          </div>
+                          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
+                            {opt.count}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {filterType !== "ALL" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFilterType("ALL")}
+                    className="h-10 px-3 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl cursor-pointer shrink-0"
+                  >
+                    Reset
+                  </Button>
+                )}
               </div>
             </div>
 
