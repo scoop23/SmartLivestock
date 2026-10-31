@@ -8,9 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Card,CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { KpiCard } from "@/components/ui/kpi-card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { Activity,apiError,getActivities } from "@/lib/community-api";
 import {
 ArrowRight,
+CalendarDays,
+Filter,
+GraduationCap,
+HeartPulse,
 Megaphone,
 Pin,
 RefreshCw,
@@ -18,7 +28,7 @@ Search,
 ShieldAlert,
 X
 } from "lucide-react";
-import { useCallback,useEffect,useMemo,useState } from "react";
+import { useMemo, useState } from "react";
 import { ActivityDetailDialog } from "./activity-detail-dialog";
 import { ActivityPhotoCarousel } from "./activity-photo-carousel";
 import {
@@ -61,6 +71,46 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
     });
     return counts;
   }, [items]);
+
+  const filterOptions = useMemo(() => [
+    {
+      id: "All",
+      name: "All Bulletins",
+      label: `All (${categoryCounts["All"] ?? items.length})`,
+      count: categoryCounts["All"] ?? items.length,
+      icon: <Megaphone className="size-3.5 text-slate-500 shrink-0" />,
+    },
+    {
+      id: "Health",
+      name: "Animal Health",
+      label: `Health (${categoryCounts["Health"] ?? 0})`,
+      count: categoryCounts["Health"] ?? 0,
+      icon: <HeartPulse className="size-3.5 text-rose-500 shrink-0" />,
+    },
+    {
+      id: "Training",
+      name: "Training & Seminars",
+      label: `Training (${categoryCounts["Training"] ?? 0})`,
+      count: categoryCounts["Training"] ?? 0,
+      icon: <GraduationCap className="size-3.5 text-violet-500 shrink-0" />,
+    },
+    {
+      id: "Events",
+      name: "Municipal Events",
+      label: `Events (${categoryCounts["Events"] ?? 0})`,
+      count: categoryCounts["Events"] ?? 0,
+      icon: <CalendarDays className="size-3.5 text-sky-500 shrink-0" />,
+    },
+    {
+      id: "Advisories",
+      name: "Advisories & Notices",
+      label: `Advisories (${categoryCounts["Advisories"] ?? 0})`,
+      count: categoryCounts["Advisories"] ?? 0,
+      icon: <ShieldAlert className="size-3.5 text-amber-600 shrink-0" />,
+    },
+  ], [categoryCounts, items.length]);
+
+  const currentFilterConfig = filterOptions.find((opt) => opt.id === filter) ?? filterOptions[0];
 
   // Overall KPI stats for the farmer
   const pinnedCount = useMemo(
@@ -202,47 +252,56 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
 
         {/* Search & Filter Bar */}
         <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-3">
-          {/* Category Filter Pills with Badges */}
-          <div
-            className="-mx-1 flex min-w-0 gap-1.5 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-1 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
-            role="group"
-            aria-label="Filter activities by category"
-          >
-            {ACTIVITY_FILTERS.map((name) => {
-              const count = categoryCounts[name] ?? 0;
-              const isActive = filter === name;
-              const activeClass = isAuction
-                ? "bg-[#7C3AED] text-white hover:bg-[#6D28D9] shadow-xs"
-                : isSlaughterhouse
-                ? "bg-rose-700 text-white hover:bg-rose-800 shadow-xs"
-                : "bg-emerald-800 text-white hover:bg-emerald-900 shadow-xs";
-              return (
-                <Button
-                  key={name}
-                  type="button"
-                  size="sm"
-                  variant={isActive ? "default" : "outline"}
-                  onClick={() => setFilter(name)}
-                  aria-pressed={isActive}
-                  className={`h-9 shrink-0 gap-2 rounded-full px-3.5 text-xs sm:text-sm font-bold transition-all ${
-                    isActive
-                      ? activeClass
-                      : "border-slate-200 bg-slate-50/80 text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  <span>{name}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-black ${
-                      isActive
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-200/80 text-slate-700"
-                    }`}
+          {/* Category Filter Dropdown */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Select value={filter} onValueChange={setFilter}>
+              <SelectTrigger
+                className={`w-full sm:w-60 h-10 bg-slate-50 border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100 transition-colors focus:ring-2 ${
+                  isAuction
+                    ? "focus:ring-[#7C3AED]"
+                    : isSlaughterhouse
+                    ? "focus:ring-rose-600"
+                    : "focus:ring-[#2D5A27]"
+                } cursor-pointer`}
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <Filter className="size-3.5 text-slate-400 shrink-0" />
+                  {currentFilterConfig.icon}
+                  <span className="truncate">{currentFilterConfig.label}</span>
+                </div>
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 shadow-xl max-h-72">
+                {filterOptions.map((opt) => (
+                  <SelectItem
+                    key={opt.id}
+                    value={opt.id}
+                    className="rounded-xl text-xs sm:text-sm font-bold py-2.5 cursor-pointer"
                   >
-                    {count}
-                  </span>
-                </Button>
-              );
-            })}
+                    <div className="flex items-center justify-between w-full gap-4">
+                      <div className="flex items-center gap-2">
+                        {opt.icon}
+                        <span>{opt.name}</span>
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
+                        {opt.count}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {filter !== "All" && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setFilter("All")}
+                className="h-10 px-3 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl cursor-pointer shrink-0"
+              >
+                Reset
+              </Button>
+            )}
           </div>
 
           {/* Search Box */}

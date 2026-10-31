@@ -64,7 +64,7 @@ export const AUDIENCE_LABEL: Record<string, string> = {
 /** Visual tone per activity category so the feed is scannable at a glance. */
 export type ActivityCategoryConfig = {
   value: string;
-  group: "Programs" | "Health" | "Training" | "Events" | "Advisories";
+  group: "Health" | "Training" | "Events" | "Advisories";
   icon: LucideIcon;
   badge: string;
   iconClass: string;
@@ -72,36 +72,52 @@ export type ActivityCategoryConfig = {
 
 export const ACTIVITY_CATEGORIES: ActivityCategoryConfig[] = [
   { value: "General", group: "Events", icon: Megaphone, badge: "text-indigo-800 bg-indigo-50 border-indigo-200", iconClass: "text-indigo-600" },
-  { value: "Vaccination", group: "Programs", icon: Syringe, badge: "text-emerald-800 bg-emerald-50 border-emerald-200", iconClass: "text-emerald-700" },
+  { value: "Vaccination", group: "Health", icon: Syringe, badge: "text-emerald-800 bg-emerald-50 border-emerald-200", iconClass: "text-emerald-700" },
   { value: "Animal Health", group: "Health", icon: HeartPulse, badge: "text-rose-800 bg-rose-50 border-rose-200", iconClass: "text-rose-600" },
   { value: "Livestock Inspection", group: "Health", icon: ClipboardCheck, badge: "text-sky-800 bg-sky-50 border-sky-200", iconClass: "text-sky-700" },
   { value: "Disease Prevention", group: "Health", icon: ShieldAlert, badge: "text-amber-900 bg-amber-50 border-amber-200", iconClass: "text-amber-700" },
   { value: "Farmer Training", group: "Training", icon: GraduationCap, badge: "text-violet-800 bg-violet-50 border-violet-200", iconClass: "text-violet-700" },
   { value: "Seminar", group: "Training", icon: GraduationCap, badge: "text-violet-800 bg-violet-50 border-violet-200", iconClass: "text-violet-700" },
   { value: "Farmer Meeting", group: "Events", icon: Users, badge: "text-sky-800 bg-sky-50 border-sky-200", iconClass: "text-sky-700" },
-  { value: "Livestock Registration", group: "Programs", icon: ClipboardCheck, badge: "text-emerald-800 bg-emerald-50 border-emerald-200", iconClass: "text-emerald-700" },
-  { value: "Field Visit", group: "Programs", icon: MapPin, badge: "text-teal-800 bg-teal-50 border-teal-200", iconClass: "text-teal-700" },
+  { value: "Livestock Registration", group: "Events", icon: ClipboardCheck, badge: "text-emerald-800 bg-emerald-50 border-emerald-200", iconClass: "text-emerald-700" },
+  { value: "Field Visit", group: "Events", icon: MapPin, badge: "text-teal-800 bg-teal-50 border-teal-200", iconClass: "text-teal-700" },
   { value: "Market / Auction", group: "Events", icon: ShoppingBasket, badge: "text-orange-900 bg-orange-50 border-orange-200", iconClass: "text-orange-700" },
-  { value: "Livestock Program", group: "Programs", icon: CalendarDays, badge: "text-emerald-800 bg-emerald-50 border-emerald-200", iconClass: "text-emerald-700" },
+  { value: "Livestock Program", group: "Events", icon: CalendarDays, badge: "text-emerald-800 bg-emerald-50 border-emerald-200", iconClass: "text-emerald-700" },
   { value: "Biosecurity Advisory", group: "Advisories", icon: ShieldAlert, badge: "text-amber-900 bg-amber-50 border-amber-200", iconClass: "text-amber-700" },
   { value: "Emergency Notice", group: "Advisories", icon: Activity, badge: "text-rose-900 bg-rose-50 border-rose-200", iconClass: "text-rose-700" },
   { value: "Other", group: "Events", icon: Megaphone, badge: "text-slate-700 bg-slate-100 border-slate-200", iconClass: "text-slate-600" },
   // Retain existing category values so saved announcements remain readable/editable.
   { value: "Health Alert", group: "Health", icon: HeartPulse, badge: "text-rose-800 bg-rose-50 border-rose-200", iconClass: "text-rose-600" },
   { value: "Event", group: "Events", icon: CalendarDays, badge: "text-sky-800 bg-sky-50 border-sky-200", iconClass: "text-sky-700" },
-  { value: "Program", group: "Programs", icon: CalendarDays, badge: "text-emerald-800 bg-emerald-50 border-emerald-200", iconClass: "text-emerald-700" },
+  { value: "Program", group: "Events", icon: CalendarDays, badge: "text-emerald-800 bg-emerald-50 border-emerald-200", iconClass: "text-emerald-700" },
   { value: "Market Update", group: "Events", icon: ShoppingBasket, badge: "text-orange-900 bg-orange-50 border-orange-200", iconClass: "text-orange-700" },
   { value: "Field Memo", group: "Advisories", icon: Megaphone, badge: "text-slate-700 bg-slate-100 border-slate-200", iconClass: "text-slate-600" },
 ];
 
-export const ACTIVITY_FILTERS = ["All", "Programs", "Health", "Training", "Events", "Advisories"] as const;
+export const ACTIVITY_FILTERS = ["All", "Health", "Training", "Events", "Advisories"] as const;
 
-export function activityCategory(category: string) {
-  return ACTIVITY_CATEGORIES.find((entry) => entry.value === category) ?? ACTIVITY_CATEGORIES[0];
+export function activityCategory(category: string): ActivityCategoryConfig {
+  const clean = (category || "").trim().toLowerCase();
+  return (
+    ACTIVITY_CATEGORIES.find(
+      (entry) =>
+        entry.value.toLowerCase() === clean ||
+        entry.group.toLowerCase() === clean
+    ) ?? ACTIVITY_CATEGORIES[0]
+  );
 }
 
 export function categoryMatchesFilter(category: string, filter: string) {
-  return filter === "All" || activityCategory(category).group === filter;
+  if (filter === "All") return true;
+  const cleanCategory = (category || "").trim().toLowerCase();
+  const cleanFilter = filter.trim().toLowerCase();
+
+  if (cleanCategory === cleanFilter) return true;
+  if (cleanFilter === "advisories" && (cleanCategory === "advisory" || cleanCategory === "advisories")) return true;
+  if (cleanFilter === "events" && (cleanCategory === "event" || cleanCategory === "events")) return true;
+
+  const cat = activityCategory(category);
+  return cat.group.toLowerCase() === cleanFilter;
 }
 
 export const CATEGORY_TONE = Object.fromEntries(
