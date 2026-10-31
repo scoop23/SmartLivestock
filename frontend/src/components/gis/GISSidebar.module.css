@@ -7,6 +7,14 @@
 .panel {
   color-scheme: dark;
   color: #f3f1e7;
+  --foreground: oklch(0.985 0 0);
+  --color-foreground: #f3f1e7;
+  --card-foreground: #f3f1e7;
+  --color-card-foreground: #f3f1e7;
+  --popover-foreground: #f3f1e7;
+  --color-popover-foreground: #f3f1e7;
+  --muted-foreground: #babdaa;
+  --color-muted-foreground: #babdaa;
   background: linear-gradient(145deg, rgb(40 43 32 / 96%), rgb(24 29 25 / 96%));
   border-color: rgb(224 225 192 / 24%);
   box-shadow: 0 16px 55px rgb(0 0 0 / 35%), inset 0 1px 0 rgb(255 255 255 / 8%);
@@ -41,6 +49,11 @@
 .panel :where([class*="text-amber-"], [class*="text-orange-"], [class*="text-yellow-"]) { color: #e4c781; }
 .panel :where([class*="text-rose-"], [class*="text-red-"]) { color: #f3a99b; }
 .panel :where([class*="text-purple-"], [class*="text-indigo-"]) { color: #c6b8e7; }
+.panel :where([class*="text-foreground"]) { color: #f3f1e7; }
+.panel :where([data-slot="badge"]) {
+  color: #dedfd2;
+  border-color: rgb(224 225 192 / 24%);
+}
 .panel :where([class*="font-black"]) { font-weight: 600; }
 .panel :where([class*="font-mono"]) { font-family: inherit; font-variant-numeric: tabular-nums; }
 .panel :where([class*="uppercase"]) { text-transform: none; letter-spacing: 0.015em; }

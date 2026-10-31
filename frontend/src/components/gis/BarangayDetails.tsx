@@ -186,7 +186,7 @@ export function BarangayDetails({
       </div>
 
       {/* Content scroll area */}
-      <div data-gis-body className="p-4 space-y-4 overflow-y-auto flex-1 text-slate-800 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] overscroll-contain">
+      <div data-gis-body className="p-4 space-y-4 overflow-y-auto overflow-x-hidden flex-1 text-slate-800 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] overscroll-contain">
         {/* Quick Highlights Grid */}
         <div data-gis-metrics className="grid grid-cols-2 gap-2">
           <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl p-2.5 text-center">
@@ -538,26 +538,30 @@ export function BarangayDetails({
         )}
 
         {/* Mortality Records */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2 overflow-hidden min-w-0">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5 shrink-0">
               <Skull className="size-3.5 text-slate-700" />
               Recorded Mortality
             </span>
-            <span className="font-mono font-bold text-xs text-slate-900">
+            <span className="font-mono font-bold text-xs text-slate-900 truncate text-right">
               {data.mortality} head{data.mortality !== 1 ? 's' : ''}
             </span>
           </div>
 
           {data.mortality > 0 ? (
-            <div className="text-xs space-y-1.5 pt-1 border-t border-slate-100">
+            <div className="text-xs space-y-1.5 pt-1 border-t border-slate-100 min-w-0">
               {/* Species Breakdown if multi-species data exists */}
               {data.mortality_by_species && data.mortality_by_species.length > 0 && (
-                <div className="flex items-center justify-between text-[11px] text-slate-600">
-                  <span>Species Breakdown:</span>
-                  <div className="flex gap-1">
+                <div className="flex items-center justify-between text-[11px] text-slate-600 gap-2 min-w-0">
+                  <span className="shrink-0">Species Breakdown:</span>
+                  <div className="flex gap-1 flex-wrap justify-end min-w-0">
                     {data.mortality_by_species.map((sp, idx) => (
-                      <Badge key={idx} variant="outline" className="text-[10px] px-1.5 py-0 border-slate-200 bg-slate-50 font-mono">
+                      <Badge
+                        key={idx}
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 border-slate-300/40 bg-slate-50/10 text-slate-200 font-mono"
+                      >
                         {sp.species}: {sp.heads}
                       </Badge>
                     ))}
@@ -567,21 +571,25 @@ export function BarangayDetails({
 
               {/* Recent Deaths in Surveillance Window */}
               {data.recent_mortality !== undefined && data.recent_mortality > 0 && (
-                <div className="flex items-center justify-between text-[11px] text-slate-600">
-                  <span>Recent Deaths (90-day window):</span>
+                <div className="flex items-center justify-between text-[11px] text-slate-600 gap-2 min-w-0">
+                  <span className="shrink-0">Recent Deaths (90-day window):</span>
                   <span className="font-bold font-mono text-slate-900">{data.recent_mortality}</span>
                 </div>
               )}
 
               {/* Recorded Causes */}
               {data.mortality_causes.length > 0 && (
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
+                <div className="space-y-1 min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
                     Recorded Causes:
                   </span>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1.5 w-full min-w-0">
                     {data.mortality_causes.map((c, i) => (
-                      <Badge key={i} variant="outline" className="text-[10px] px-1.5 py-0 border-slate-300">
+                      <Badge
+                        key={i}
+                        variant="outline"
+                        className="text-[10px] sm:text-[10.5px] px-2 py-0.5 border-slate-300/40 bg-slate-50/10 text-slate-200 whitespace-normal break-words [overflow-wrap:anywhere] max-w-full text-left leading-snug font-normal h-auto shrink"
+                      >
                         {c}
                       </Badge>
                     ))}
