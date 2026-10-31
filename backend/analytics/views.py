@@ -23,7 +23,7 @@ from .services.review_workload import review_workload_summary
 from .services.surveillance import surveillance_summary
 from .services.predictive.surveillance_experiment import evaluate_surveillance_forecast_experiment
 from .services.nlp_query import execute_question
-from .permissions import IsNLPDeveloper
+from .permissions import IsMAOOnly, IsNLPDeveloper
 
 logger = logging.getLogger(__name__)
 
@@ -147,9 +147,9 @@ class AskSmartLivestockSerializer(serializers.Serializer):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated, isMAO | isSibat | isFarmer])
+@permission_classes([IsAuthenticated, IsMAOOnly])
 def nlp_query(request):
-    """Answer one allowlisted analytics question using the caller's data scope."""
+    """Answer one allowlisted analytics question for MAO users only."""
     serializer = AskSmartLivestockSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     # Retrieve the factual answer first. Passing request.user lets the existing

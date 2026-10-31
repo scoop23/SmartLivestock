@@ -103,7 +103,7 @@ const INTENTS = ["population_summary", "production_trend", "production_breakdown
 export default function NLPExamplesPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const authorized = user?.isNlpDeveloper === true;
+  const authorized = user?.role?.toUpperCase() === "MAO" && user?.isNlpDeveloper === true;
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);

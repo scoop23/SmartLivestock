@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/auth-context';
 import { AskSmartLivestock } from '@/app/components/ask-smartlivestock';
 import { PageHeader } from '@/app/components/page-header';
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ const CowHeadIcon = ({ className }: { className?: string }) => (
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { user } = useAuth();
   const analytics = useAdminDashboardAnalytics();
   const {
     data,
@@ -215,12 +217,13 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Rule-based analytics assistant */}
-      <div className="border-b border-slate-200/80 bg-white/95 backdrop-blur-xs">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
-          <AskSmartLivestock />
+      {user?.role?.toUpperCase() === "MAO" && (
+        <div className="border-b border-slate-200/80 bg-white/95 backdrop-blur-xs">
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
+            <AskSmartLivestock />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content Area */}
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">

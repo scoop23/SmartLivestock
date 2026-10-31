@@ -1001,19 +1001,13 @@ def execute_question(question, *, user, today=None):
     """Parse one question, then execute only fixed, permission-scoped analytics."""
     # Defense in depth: the service is also safe when called without its view.
     caller_role = role_name(user)
-    if caller_role not in ("MAO", "ADMIN", "SIBAT", "CBAT", "FARMER"):
-        raise PermissionDenied("Your role cannot access this analytics assistant.")
+    if caller_role != "MAO":
+        raise PermissionDenied("Only MAO users can access Ask SmartLivestock.")
     normalized_question = normalize_question(question)
-    if caller_role in ("MAO", "ADMIN", "SIBAT", "CBAT") and _asks_for_production(normalized_question) and not _asks_for_mao_queue(normalized_question):
+    if _asks_for_production(normalized_question) and not _asks_for_mao_queue(normalized_question):
         # Enforce privacy before the parser can select a production handler and
         # before any ProductionRecord queryset, aggregate, or explanation exists.
         return {"status": "restricted", "question": question, "answer": _MUNICIPAL_PRODUCTION_NOTICE, "results": []}
-    if caller_role == "FARMER" and not _asks_for_production(normalized_question):
-        raise PermissionDenied("Farmers can use Ask SmartLivestock only for their own production records.")
-    if caller_role == "FARMER" and any(_contains(normalized_question, word) for word in (
-        "farmer", "raiser", "magsasaka", "owner", "owned by", "another farmer", "farmer id",
-    )):
-        raise PermissionDenied("Farmers can query only their own production records.")
     today = today or timezone.localdate()
     visible_barangays = list(
         scope_reviewer_queryset(Barangay.objects.all(), user)

@@ -512,7 +512,7 @@ export default function AnalysisOverviewPage() {
         {/* ----------------------------------------------------------------- */}
         {/* D. MISSION CONTROL CENTERPIECE: NATURAL LANGUAGE ASSISTANT        */}
         {/* ----------------------------------------------------------------- */}
-        <section
+        {user?.role?.toUpperCase() === "MAO" && <section
           aria-label="Natural Language Query Assistant"
           className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden"
         >
@@ -537,7 +537,7 @@ export default function AnalysisOverviewPage() {
             </div>
 
             <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-              {user?.isNlpDeveloper ? (
+              {user?.role?.toUpperCase() === "MAO" && user?.isNlpDeveloper ? (
                 <Button asChild variant="outline" size="sm" className="h-8 text-xs font-semibold border-slate-200 hover:bg-slate-50 cursor-pointer">
                   <Link href="/admin/analytics/nlp-example-review">
                     <FileSearch className="mr-1.5 size-3.5 text-slate-500" />
@@ -578,7 +578,7 @@ export default function AnalysisOverviewPage() {
               <AskSmartLivestock />
             </div>
           )}
-        </section>
+        </section>}
 
         {/* ----------------------------------------------------------------- */}
         {/* E. SPECIALIZED WORKSPACES & WORKBENCHES                           */}
