@@ -623,11 +623,7 @@ function SibatPortalContent() {
                   </span>
                 </div>
 
-                <div className="pt-2 border-t border-emerald-100/80 flex items-center justify-between text-xs sm:text-sm font-extrabold text-emerald-800 group-hover:text-emerald-950">
-                  <span className="inline-flex items-center gap-1.5">
-                    Review Records
-                    <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
-                  </span>
+                <div className="pt-2 border-t border-emerald-100/80 flex items-center justify-end">
                   <span className="text-[11px] font-semibold text-slate-400 font-mono">
                     Click to open queue
                   </span>
