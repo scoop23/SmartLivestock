@@ -209,13 +209,62 @@ class FieldSchedulingPermissionApiTests(APITestCase):
         self.assertTrue(ProgramSchedule.objects.filter(pk=schedule_id).exists())
         self.assertTrue(ProgramBooking.objects.filter(schedule_id=schedule_id).exists())
 
-        empty_program = self.client.post(
-            "/community/schedules/", self._schedule_payload("No booking program"), format="json"
-        )
+        empty_payload = self._schedule_payload("No booking program")
+        empty_payload["location"] = "Different program venue"
+        empty_program = self.client.post("/community/schedules/", empty_payload, format="json")
         self.assertEqual(empty_program.status_code, status.HTTP_201_CREATED)
         self.assertEqual(
             self.client.delete(f"/community/schedules/{empty_program.data['id']}/").status_code,
             status.HTTP_204_NO_CONTENT,
+        )
+
+    def test_overlapping_program_slots_at_same_venue_and_date_are_blocked(self):
+        self.client.force_authenticate(self.sibat)
+        first_payload = {
+            **self._schedule_payload("Vaccination Drive"),
+            "available_times": ["08:00", "09:00"],
+            "capacity": 4,
+        }
+        first = self.client.post("/community/schedules/", first_payload, format="json")
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+
+        different_time = self.client.post(
+            "/community/schedules/",
+            {
+                **self._schedule_payload("Deworming Clinic"),
+                "available_times": ["10:00"],
+                "capacity": 6,
+            },
+            format="json",
+        )
+        self.assertEqual(different_time.status_code, status.HTTP_201_CREATED)
+
+        conflicting_edit = self.client.patch(
+            f"/community/schedules/{different_time.data['id']}/",
+            {"available_times": ["08:00"]},
+            format="json",
+        )
+        self.assertEqual(conflicting_edit.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("available_times", conflicting_edit.data)
+        self.assertEqual(
+            ProgramSchedule.objects.get(pk=different_time.data["id"]).available_times,
+            ["10:00"],
+        )
+
+        overlapping = self.client.post(
+            "/community/schedules/",
+            {
+                **self._schedule_payload("Livestock Seminar"),
+                "available_times": ["09:00", "11:00"],
+                "capacity": 10,
+            },
+            format="json",
+        )
+        self.assertEqual(overlapping.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("available_times", overlapping.data)
+        self.assertEqual(
+            ProgramSchedule.objects.filter(date=first.data["date"], location=first.data["location"]).count(),
+            2,
         )
 
     def test_sibat_can_remove_expired_schedule_without_losing_booking_history(self):

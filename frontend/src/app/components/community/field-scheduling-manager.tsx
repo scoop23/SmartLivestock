@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { apiError,getBarangays,getBookings,getSchedules,type BarangayOption,type ProgramBooking,type ProgramFarmerAudience,type ProgramPublicationStatus,type ProgramSchedule } from "@/lib/community-api";
-import { ArrowLeft,CalendarDays,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,ClipboardList,Clock3,FileText,GraduationCap,HeartPulse,Image as ImageIcon,Info,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Settings,Sparkles,Trash2,UnlockKeyhole,Users,Zap } from "lucide-react";
+import { ArrowLeft,CalendarDays,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,ClipboardList,Clock3,Eye,FileText,GraduationCap,HeartPulse,Image as ImageIcon,Info,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Settings,Sparkles,Trash2,UnlockKeyhole,Users,Zap } from "lucide-react";
 import Image from "next/image";
 import { useCallback,useEffect,useMemo,useRef,useState,type FormEvent } from "react";
 import { CommunityEmptyState,CommunitySkeleton,formatLongDate,formatTime,PROGRAM_TIME_SLOTS,todayIso,type CommunityRole } from "./community-ui";
@@ -94,7 +94,7 @@ function getCategoryIconConfig(category: ProgramSchedule["category"], programTit
   if (title.includes("deworm") || title.includes("parasite")) {
     return {
       container: "bg-amber-100/70 text-amber-700 border border-amber-200/60",
-      icon: <Sparkles className="size-5 text-amber-700" />,
+      icon: <HeartPulse className="size-5 text-amber-700" />,
     };
   }
   if (category === "ANIMAL_HEALTH" || title.includes("health") || title.includes("check")) {
@@ -195,7 +195,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [selected, setSelected] = useState<ProgramSchedule | null>(null);
   const [showBookingsRoster, setShowBookingsRoster] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
-  const [conflictPayload, setConflictPayload] = useState<SchedulePayload | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState("");
   const [removeCover, setRemoveCover] = useState(false);
@@ -415,7 +414,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         const { data: createdSchedule } = await api.post<ProgramSchedule>("/community/schedules/", body);
         createdScheduleId = createdSchedule.id;
       }
-      setConflictPayload(null);
       setFormOpen(false);
       setEditing(null);
       setForm(emptyForm);
@@ -439,13 +437,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
     } finally {
       setBusy(false);
     }
-  }
-
-  async function continueAnyway() {
-    if (!conflictPayload || busy) return;
-    const payload = conflictPayload;
-    setConflictPayload(null);
-    await persistSchedule(payload);
   }
 
   function saveSchedule(event: FormEvent<HTMLFormElement>) {
@@ -502,22 +493,20 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       return;
     }
     const normalizedLocation = payload.location.trim().toLocaleLowerCase();
-    const overlappingSchedules = schedules.filter((schedule) =>
-      schedule.id !== editing?.id &&
-      schedule.date === payload.date &&
-      normalizedLocation !== "" &&
-      schedule.location.trim().toLocaleLowerCase() === normalizedLocation &&
-      (schedule.available_times || PROGRAM_TIME_SLOTS).some((time) => payload.available_times.includes(time))
-    );
-    const unlimitedConflict = overlappingSchedules.find((schedule) => payload.capacity === 0 || schedule.capacity === 0);
-    if (unlimitedConflict) {
-      const message = "A no-limit program cannot overlap another program at the same venue and time.";
-      showErrorDialog(message);
-      return;
-    }
+    const isActiveSchedule = payload.publication_status === "DRAFT" || payload.publication_status === "PUBLISHED";
+    const overlappingSchedules = isActiveSchedule
+      ? schedules.filter((schedule) =>
+          schedule.id !== editing?.id &&
+          (schedule.publication_status === "DRAFT" || schedule.publication_status === "PUBLISHED") &&
+          schedule.date === payload.date &&
+          normalizedLocation !== "" &&
+          schedule.location.trim().toLocaleLowerCase() === normalizedLocation &&
+          (schedule.available_times || PROGRAM_TIME_SLOTS).some((time) => payload.available_times.includes(time))
+        )
+      : [];
     const conflict = overlappingSchedules[0];
     if (conflict) {
-      setConflictPayload(payload);
+      showErrorDialog(`“${conflict.program}” already has overlapping appointment times at ${conflict.location} on ${formatLongDate(conflict.date)}. Choose another venue, date, or time.`);
       return;
     }
     void persistSchedule(payload);
@@ -885,7 +874,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                           <th className="py-3.5 px-3 font-bold">Location</th>
                           <th className="py-3.5 px-3 font-bold whitespace-nowrap">Status</th>
                           <th className="py-3.5 px-3 font-bold whitespace-nowrap">Registered</th>
-                          <th className="py-3.5 pl-2 pr-10 sm:pr-14 lg:pr-16 text-right w-16 sm:w-20"><span className="sr-only">Actions</span></th>
+                          <th className="py-3.5 pl-2 pr-5 sm:pr-6 text-right font-bold whitespace-nowrap">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -947,12 +936,24 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
                               {/* Registered */}
                               <td className="py-4 px-3 text-sm font-bold text-slate-900 whitespace-nowrap align-middle">
-                                {schedule.capacity === 0 ? `${schedule.booking_count} / ∞` : `${schedule.booking_count} / ${schedule.capacity}`}
+                                {schedule.capacity === 0 ? "No Limit" : `${schedule.booking_count} / ${schedule.capacity}`}
                               </td>
 
-                              {/* Chevron */}
-                              <td className="py-4 pl-2 pr-10 sm:pr-14 lg:pr-16 text-right align-middle">
-                                <ChevronRight className="size-5 text-slate-400 group-hover:text-slate-800 group-hover:translate-x-0.5 transition-transform inline-block mr-2 sm:mr-3" />
+                              {/* View Action Button */}
+                              <td className="py-4 pl-2 pr-5 sm:pr-6 text-right align-middle whitespace-nowrap">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelected(schedule);
+                                  }}
+                                  className="h-8 px-3 rounded-lg border-slate-200 bg-white text-slate-700 font-bold text-xs hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                                >
+                                  <Eye className="size-3.5 text-slate-500 group-hover:text-emerald-700 transition-colors" />
+                                  <span>View</span>
+                                </Button>
                               </td>
                             </tr>
                           );
@@ -1013,7 +1014,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
                         <div className="flex items-center justify-between pt-1 text-xs font-semibold text-slate-700">
                           <span>
-                            Registered: <strong className="text-slate-900">{schedule.capacity === 0 ? `${schedule.booking_count}` : `${schedule.booking_count} / ${schedule.capacity}`}</strong>
+                            Registered: <strong className="text-slate-900">{schedule.capacity === 0 ? "No Limit" : `${schedule.booking_count} / ${schedule.capacity}`}</strong>
                           </span>
                           <span className="inline-flex items-center gap-1 text-emerald-800 font-bold group-hover:translate-x-0.5 transition-transform">
                             View Details <ChevronRight className="size-4" />
@@ -1395,10 +1396,12 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Registered</p>
                     <p className="text-sm sm:text-base font-extrabold text-slate-900 mt-0.5 truncate">
                       {selected.capacity === 0
-                        ? `${selected.booking_count} farmers`
+                        ? "No Limit"
                         : `${selected.booking_count} / ${selected.capacity}`}
                     </p>
-                    <p className="text-[11px] font-medium text-slate-400">slots filled</p>
+                    <p className="text-[11px] font-medium text-slate-400">
+                      {selected.capacity === 0 ? "Walk-in · no booking required" : "slots filled"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1619,27 +1622,6 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
           ) : null}
         </DialogContent>
       </Dialog>
-
-      {/* Conflict Alert Dialog */}
-      <AlertDialog open={conflictPayload !== null} onOpenChange={(open) => { if (!open) setConflictPayload(null); }}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-bold text-slate-900">Scheduling conflict detected</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-slate-600">
-              {conflictPayload ? (() => {
-                const location = schedules.find((schedule) => schedule.id !== editing?.id && schedule.date === conflictPayload.date && schedule.location.trim().toLocaleLowerCase() === conflictPayload.location.trim().toLocaleLowerCase());
-                return location ? `“${location.program}” is already scheduled at ${location.location} on ${formatLongDate(location.date)}. Both programs offer overlapping appointment times.` : "Another program may overlap at this date and location.";
-              })() : null}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy} className="h-9 text-xs">Cancel</AlertDialogCancel>
-            <Button type="button" disabled={busy || !conflictPayload} onClick={() => void continueAnyway()} className="h-9 text-xs">
-              {busy ? "Saving…" : "Continue anyway"}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={Boolean(programErrorMessage)} onOpenChange={(open) => {
         if (!open) {

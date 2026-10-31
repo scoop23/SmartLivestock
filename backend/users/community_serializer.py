@@ -322,9 +322,18 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
                     "available_times": "For today's schedule, choose times later than the current time."
                 })
 
-        conflict_fields = {"date", "location", "available_times", "capacity"}
-        if self.instance is None or conflict_fields.intersection(attrs):
-            candidate_capacity = attrs.get("capacity", self.instance.capacity if self.instance else 4)
+        conflict_fields = {"date", "location", "available_times", "capacity", "publication_status"}
+        candidate_publication_status = attrs.get(
+            "publication_status",
+            self.instance.publication_status if self.instance else ProgramSchedule.PublicationStatus.PUBLISHED,
+        )
+        if (
+            candidate_publication_status in (
+                ProgramSchedule.PublicationStatus.DRAFT,
+                ProgramSchedule.PublicationStatus.PUBLISHED,
+            )
+            and (self.instance is None or conflict_fields.intersection(attrs))
+        ):
             candidate_location = str(attrs.get("location", self.instance.location if self.instance else "") or "").strip()
             candidate_times = attrs.get(
                 "available_times",
@@ -344,13 +353,11 @@ class ProgramScheduleSerializer(serializers.ModelSerializer):
                     overlapping_schedules = overlapping_schedules.exclude(pk=self.instance.pk)
 
                 requested_times = set(candidate_times)
-                for existing in overlapping_schedules.only("capacity", "available_times"):
+                for existing in overlapping_schedules.only("available_times"):
                     existing_times = set(existing.available_times or PROGRAM_TIME_SLOTS)
-                    if requested_times.intersection(existing_times) and (
-                        candidate_capacity == 0 or existing.capacity == 0
-                    ):
+                    if requested_times.intersection(existing_times):
                         raise serializers.ValidationError({
-                            "capacity": "A no-limit program cannot overlap another program at the same venue and time."
+                            "available_times": "Another program is already scheduled at this venue on this date with one or more of these appointment times. Choose a different venue, date, or time."
                         })
         return attrs
 
