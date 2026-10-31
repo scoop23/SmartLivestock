@@ -518,7 +518,7 @@ export function RoleAwareGISContainer({
           (isFarmer || isCbat) &&
           gisData?.adjacent_disease_alerts &&
           gisData.adjacent_disease_alerts.length > 0 && (
-            <div className="absolute top-[calc(4.25rem+env(safe-area-inset-top,0px))] left-4 right-4 sm:left-auto sm:right-4 z-[890] transition-all">
+            <div className="absolute top-[calc(7.25rem+env(safe-area-inset-top,0px))] sm:top-[calc(4.25rem+env(safe-area-inset-top,0px))] left-4 right-4 sm:left-auto sm:right-4 z-[890] transition-all">
               {isAdjacentAlertOpen ? (
                 <div className="max-w-md bg-rose-950/95 text-white border border-rose-500/70 rounded-2xl p-3 shadow-2xl backdrop-blur-md flex flex-col gap-2.5 animate-in fade-in slide-in-from-top-2">
                   <div className="flex items-start justify-between gap-2">

@@ -58,6 +58,7 @@ CalendarDays,
 CalendarPlus,
 Check,
 CheckCircle2,
+ChevronLeft,
 ChevronRight,
 ClipboardList,
 Clock,
@@ -192,6 +193,7 @@ function FarmerSchedulingContent() {
   const [programTypeFilter, setProgramTypeFilter] = useState<"all" | "walkin" | "appointment">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"soonest" | "latest" | "title-asc" | "title-desc">("soonest");
+  const [programPage, setProgramPage] = useState(1);
 
   const [tabIndicatorStyle, setTabIndicatorStyle] = useState<{
     left: number;
@@ -399,6 +401,22 @@ function FarmerSchedulingContent() {
     }
     return sortedFilteredSchedules;
   }, [calendarDate, sortedFilteredSchedules]);
+
+  const PROGRAM_PAGE_SIZE = 5;
+  const totalProgramPages = Math.max(1, Math.ceil(displayedPrograms.length / PROGRAM_PAGE_SIZE));
+  const safeProgramPage = Math.min(Math.max(1, programPage), totalProgramPages);
+
+  const paginatedPrograms = useMemo(() => {
+    if (displayedPrograms.length <= PROGRAM_PAGE_SIZE) {
+      return displayedPrograms;
+    }
+    const start = (safeProgramPage - 1) * PROGRAM_PAGE_SIZE;
+    return displayedPrograms.slice(start, start + PROGRAM_PAGE_SIZE);
+  }, [displayedPrograms, safeProgramPage]);
+
+  useEffect(() => {
+    setProgramPage(1);
+  }, [calendarDate, programTypeFilter, searchQuery, sortBy]);
 
   const confirmedScheduleIds = useMemo(
     () => new Set(bookings.filter((booking) => booking.status === "CONFIRMED").map((booking) => booking.schedule)),
@@ -913,7 +931,8 @@ function FarmerSchedulingContent() {
                   <div className="min-w-0 space-y-4">
                     <div
                       key={`header-${programTypeFilter}`}
-                      className="flex flex-wrap items-center justify-between gap-2 animate-in fade-in-50 duration-300 fill-mode-both"
+                      id="available-programs-header"
+                      className="flex flex-wrap items-center justify-between gap-2 animate-in fade-in-50 duration-300 fill-mode-both scroll-mt-24"
                     >
                       <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500">
                         {calendarDate
@@ -925,7 +944,15 @@ function FarmerSchedulingContent() {
                               : "All Available Programs"}
                       </h3>
                       <span className="text-xs sm:text-sm font-semibold text-slate-600">
-                        {displayedPrograms.length} {displayedPrograms.length === 1 ? "program" : "programs"}
+                        {displayedPrograms.length > PROGRAM_PAGE_SIZE ? (
+                          <>
+                            Showing {(safeProgramPage - 1) * PROGRAM_PAGE_SIZE + 1}–{Math.min(safeProgramPage * PROGRAM_PAGE_SIZE, displayedPrograms.length)} of {displayedPrograms.length} {displayedPrograms.length === 1 ? "program" : "programs"}
+                          </>
+                        ) : (
+                          <>
+                            {displayedPrograms.length} {displayedPrograms.length === 1 ? "program" : "programs"}
+                          </>
+                        )}
                       </span>
                     </div>
 
@@ -964,10 +991,10 @@ function FarmerSchedulingContent() {
 
                     {/* Program Cards Grid */}
                     <div
-                      key={`grid-${programTypeFilter}`}
+                      key={`grid-${programTypeFilter}-page-${safeProgramPage}`}
                       className="grid grid-cols-1 gap-3 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both"
                     >
-                      {displayedPrograms.map((schedule) => {
+                      {paginatedPrograms.map((schedule) => {
                         const isUnlimited = schedule.capacity === 0;
                         const alreadyBooked = confirmedScheduleIds.has(schedule.id);
                         const isFull = !isUnlimited && (schedule.registration_status === "FULL" || (schedule.capacity > 0 && schedule.remaining_slots === 0));
@@ -1100,10 +1127,105 @@ function FarmerSchedulingContent() {
                         );
                       })}
                     </div>
+
+                    {/* Pagination Controls when greater than 5 */}
+                    {displayedPrograms.length > PROGRAM_PAGE_SIZE ? (
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                        <p className="text-xs font-medium text-slate-500">
+                          Page <span className="font-bold text-slate-800">{safeProgramPage}</span> of{" "}
+                          <span className="font-bold text-slate-800">{totalProgramPages}</span> ({displayedPrograms.length} total)
+                        </p>
+
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={safeProgramPage <= 1}
+                            onClick={() => {
+                              setProgramPage((p) => Math.max(1, p - 1));
+                              document.getElementById("available-programs-header")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                            }}
+                            className="h-8.5 gap-1 rounded-xl border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer shadow-2xs"
+                            aria-label="Previous page"
+                          >
+                            <ChevronLeft className="size-3.5" />
+                            <span className="hidden sm:inline">Previous</span>
+                          </Button>
+
+                          <div className="flex items-center gap-1">
+                            {(() => {
+                              const pages: (number | "ellipsis")[] = [];
+                              if (totalProgramPages <= 7) {
+                                for (let i = 1; i <= totalProgramPages; i++) pages.push(i);
+                              } else {
+                                pages.push(1);
+                                if (safeProgramPage > 3) pages.push("ellipsis");
+                                const start = Math.max(2, safeProgramPage - 1);
+                                const end = Math.min(totalProgramPages - 1, safeProgramPage + 1);
+                                for (let i = start; i <= end; i++) pages.push(i);
+                                if (safeProgramPage < totalProgramPages - 2) pages.push("ellipsis");
+                                pages.push(totalProgramPages);
+                              }
+                              return pages.map((item, idx) => {
+                                if (item === "ellipsis") {
+                                  return (
+                                    <span key={`ellipsis-${idx}`} className="px-1 text-xs text-slate-400 font-bold select-none">
+                                      …
+                                    </span>
+                                  );
+                                }
+                                const isActive = item === safeProgramPage;
+                                return (
+                                  <button
+                                    key={item}
+                                    type="button"
+                                    onClick={() => {
+                                      setProgramPage(item);
+                                      document.getElementById("available-programs-header")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                                    }}
+                                    className={`size-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                      isActive
+                                        ? "bg-[#0F5A38] text-white shadow-xs"
+                                        : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+                                    }`}
+                                    aria-current={isActive ? "page" : undefined}
+                                    aria-label={`Page ${item}`}
+                                  >
+                                    {item}
+                                  </button>
+                                );
+                              });
+                            })()}
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={safeProgramPage >= totalProgramPages}
+                            onClick={() => {
+                              setProgramPage((p) => Math.min(totalProgramPages, p + 1));
+                              document.getElementById("available-programs-header")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                            }}
+                            className="h-8.5 gap-1 rounded-xl border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer shadow-2xs"
+                            aria-label="Next page"
+                          >
+                            <span className="hidden sm:inline">Next</span>
+                            <ChevronRight className="size-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+
                     {displayedPrograms.length > 0 ? (
                       <div className="flex items-center gap-3 px-2 py-2 text-[11px] font-semibold tracking-wide text-slate-400">
                         <span aria-hidden="true" className="h-px flex-1 bg-slate-200" />
-                        <span>End of matching programs</span>
+                        <span>
+                          {displayedPrograms.length > PROGRAM_PAGE_SIZE
+                            ? `Page ${safeProgramPage} of ${totalProgramPages}`
+                            : "End of matching programs"}
+                        </span>
                         <span aria-hidden="true" className="h-px flex-1 bg-slate-200" />
                       </div>
                     ) : null}

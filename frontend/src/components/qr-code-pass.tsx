@@ -230,27 +230,27 @@ export function QrCodePass({
       </div>
 
       {/* Scanner Instructions & Verification Footer */}
-      <div className="w-full flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-100">
-        <span className="flex items-center gap-1 text-emerald-700 font-bold">
-          <ShieldCheck className="size-3.5" />
+      <div className="w-full flex items-center justify-between gap-1 text-[10px] text-slate-500 pt-1 border-t border-slate-100 flex-wrap sm:flex-nowrap">
+        <span className="flex items-center gap-1 text-emerald-700 font-bold whitespace-nowrap">
+          <ShieldCheck className="size-3.5 shrink-0" />
           Registry identity only
         </span>
-        <span className="font-mono text-slate-400">
+        <span className="font-mono text-slate-400 whitespace-nowrap text-right">
           {verifiedAt || "Record identifier only"}
         </span>
       </div>
 
       {/* Action Buttons */}
-      <div className="qr-code-pass-actions w-full flex items-center gap-2 pt-1">
+      <div className="qr-code-pass-actions w-full grid grid-cols-3 gap-2 pt-1">
         <Button
           variant="outline"
           size="sm"
           onClick={handleCopyLink}
-          className="min-h-11 flex-1 rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-50 gap-1.5"
+          className="min-h-10 min-w-0 px-2 rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-50 gap-1.5"
           title={variant === "clinical" ? "Copy the SmartLivestock report link" : "Copy the QR identifier"}
         >
-          {copied ? <Check className="size-3 text-emerald-600" /> : <Copy className="size-3" />}
-          <span>{copied ? "Copied" : variant === "clinical" ? "Copy link" : "Copy code"}</span>
+          {copied ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
+          <span className="truncate">{copied ? "Copied" : variant === "clinical" ? "Copy link" : "Copy code"}</span>
         </Button>
 
         <Button
@@ -258,21 +258,21 @@ export function QrCodePass({
           size="sm"
           onClick={handleDownloadQr}
           disabled={!qrDataUrl || !qrValue}
-          className="min-h-11 flex-1 rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-50 gap-1.5"
+          className="min-h-10 min-w-0 px-2 rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-50 gap-1.5"
           title="Download PNG barcode image"
         >
-          <Download className="size-3 text-slate-600" />
-          <span>Save PNG</span>
+          <Download className="size-3 shrink-0 text-slate-600" />
+          <span className="truncate">Save PNG</span>
         </Button>
 
         <Button
           size="sm"
           onClick={handlePrint}
-          className="min-h-11 rounded-xl text-xs font-bold bg-[#2D5A27] hover:bg-[#23461f] text-white gap-1.5 px-3 shadow-2xs"
+          className="min-h-10 min-w-0 px-2 rounded-xl text-xs font-bold bg-[#2D5A27] hover:bg-[#23461f] text-white gap-1.5 shadow-2xs"
           title="Print record QR"
         >
-          <Printer className="size-3" />
-          <span>Print</span>
+          <Printer className="size-3 shrink-0" />
+          <span className="truncate">Print</span>
         </Button>
       </div>
     </div>

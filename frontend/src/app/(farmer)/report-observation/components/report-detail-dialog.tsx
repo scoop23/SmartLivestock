@@ -211,35 +211,35 @@ export default function ReportDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         data-print-root
-        className="flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[96rem] min-w-0 flex-col overflow-hidden overscroll-contain rounded-[28px] border border-slate-200/90 bg-white p-0 shadow-2xl [&>button:last-child]:size-10 [&>button:last-child>svg]:size-6 sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[96rem]"
+        className="flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-4xl min-w-0 flex-col overflow-hidden overscroll-contain rounded-[28px] border border-slate-200/90 bg-white p-0 shadow-2xl [&>button:last-child]:size-10 [&>button:last-child>svg]:size-6 sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-4xl lg:max-w-5xl"
       >
         {/* Header - Clean white style with icon container and Close button */}
-        <div data-tour="report-detail-header" className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 bg-white p-4 pr-12 sm:p-6 sm:pr-14 lg:p-7 lg:pr-16">
+        <div data-tour="report-detail-header" className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 bg-white p-4 pr-12 sm:p-5 sm:pr-14 lg:p-6 lg:pr-16">
           <div className="flex items-center gap-3 min-w-0">
             <div
-              className={`size-12 sm:size-16 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs border ${
+              className={`size-12 sm:size-14 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs border ${
                 isMortality
                   ? "bg-rose-50 text-rose-800 border-rose-200/80"
                   : "bg-emerald-50 text-emerald-800 border-emerald-200/80"
               }`}
             >
               {isMortality ? (
-                <Skull className="size-6 sm:size-8 text-rose-700" />
+                <Skull className="size-6 sm:size-7 text-rose-700" />
               ) : (
-                <ClipboardList className="size-6 sm:size-8 text-[#2D5A27]" />
+                <ClipboardList className="size-6 sm:size-7 text-[#2D5A27]" />
               )}
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <DialogTitle className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
+                <DialogTitle className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
                   {isMortality ? "Mortality Incident Details" : "Health Observation Details"}
                 </DialogTitle>
-                <span className="font-mono text-xs sm:text-base font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/60">
+                <span className="font-mono text-xs sm:text-sm font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200/60">
                   Ref #{report.id}
                 </span>
               </div>
-              <DialogDescription className="text-xs sm:text-base text-slate-500 font-medium mt-1">
+              <DialogDescription className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
                 Official livestock health declaration and municipal review record
               </DialogDescription>
             </div>
@@ -381,7 +381,7 @@ export default function ReportDetailDialog({
             </div>
           </div>
 
-          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(320px,0.95fr)] lg:items-start">
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
           <div className="flex min-w-0 flex-col gap-4">
           {/* 2. Follow-up & case resolution card */}
           {!isMortality && <div className="order-5"><DiseaseCaseFollowUp key={report.id} caseId={report.id} /></div>}
@@ -816,7 +816,7 @@ export default function ReportDetailDialog({
         </div>
 
         {/* Footer Actions */}
-        <div data-tour="report-detail-actions" className="flex shrink-0 flex-col gap-2.5 border-t border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:p-4 lg:px-7">
+        <div data-tour="report-detail-actions" className="flex shrink-0 flex-col gap-2.5 border-t border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:p-4 lg:px-6">
             {report.status === "SUBJECT_TO_REVISION" && onEditReport && (
               <Button
                 type="button"

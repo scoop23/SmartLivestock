@@ -31,7 +31,7 @@ Skull,
 Stethoscope,
 X,
 } from "lucide-react";
-import React,{ useEffect,useMemo,useState } from "react";
+import React,{ useMemo,useState } from "react";
 import { toast } from "sonner";
 import { useUserInventory } from "../../livestock-inventory/livestock-inventory";
 import { FarmerReport,ReportType } from "../report-observation-types";
@@ -262,11 +262,10 @@ function ReportIllnessDialogContent({
     });
   }, [relatedDiseaseCases, recordDate]);
 
-  useEffect(() => {
-    if (sourceDiseaseCaseId && !linkableDiseaseCases.some((diseaseCase) => String(diseaseCase.id) === sourceDiseaseCaseId)) {
-      setSourceDiseaseCaseId("");
-    }
-  }, [linkableDiseaseCases, sourceDiseaseCaseId]);
+  const effectiveSourceDiseaseCaseId =
+    sourceDiseaseCaseId && linkableDiseaseCases.some((diseaseCase) => String(diseaseCase.id) === sourceDiseaseCaseId)
+      ? sourceDiseaseCaseId
+      : "";
 
   const toggleAnimal = (id: string) => {
     setSelectedInventoryIds((current) =>
@@ -351,8 +350,8 @@ function ReportIllnessDialogContent({
         const requestData = new FormData();
         if (reportType === "MORTALITY") {
           inventoryGroup.forEach((inventoryId) => requestData.append("livestocks", inventoryId));
-          if (!isEditMode && sourceDiseaseCaseId) {
-            requestData.append("source_disease_case", sourceDiseaseCaseId);
+          if (!isEditMode && effectiveSourceDiseaseCaseId) {
+            requestData.append("source_disease_case", effectiveSourceDiseaseCaseId);
           }
         } else {
           requestData.append("livestock", inventoryGroup[0]);
@@ -486,7 +485,7 @@ function ReportIllnessDialogContent({
   const isDisease = reportType === "DISEASE";
 
   return (
-    <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-3xl border border-slate-200/90 bg-white shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:max-h-[90dvh]">
+    <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-3xl border border-slate-200/90 bg-white shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-lg sm:max-h-[90dvh]">
         {/* Header - Clean white style matching design guide */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-white sticky top-0 z-10">
           <div className="flex items-center gap-3 min-w-0">
@@ -643,7 +642,7 @@ function ReportIllnessDialogContent({
                 <span className="text-[10px] font-bold text-slate-400">Tap all that apply</span>
               </Label>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {EASY_SIGNS.map((sign) => {
                   const isChecked = selectedSymptoms.includes(sign.label);
                   return (
@@ -687,7 +686,7 @@ function ReportIllnessDialogContent({
                     Link an earlier disease report (optional)
                   </Label>
                   <Select
-                    value={sourceDiseaseCaseId || "none"}
+                    value={effectiveSourceDiseaseCaseId || "none"}
                     onValueChange={(value) => setSourceDiseaseCaseId(value === "none" ? "" : value)}
                     disabled={isSubmitting || isFetchingDiseaseCases || linkableDiseaseCases.length === 0}
                   >

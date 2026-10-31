@@ -21,7 +21,7 @@ export default function ReportDetailsExampleDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-3xl sm:max-w-2xl">
+      <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-3xl sm:max-w-lg">
         <DialogHeader className="sticky top-0 z-10 flex-row items-start justify-between gap-3 border-b bg-white p-4 sm:p-5">
           <div className="min-w-0">
             <div className="mb-1 flex flex-wrap items-center gap-2">
