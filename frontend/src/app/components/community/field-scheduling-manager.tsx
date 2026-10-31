@@ -21,7 +21,7 @@ import { apiError,getBarangays,getBookings,getSchedules,type BarangayOption,type
 import { ArrowLeft,CalendarDays,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,ClipboardList,Clock3,Eye,FileText,GraduationCap,HeartPulse,Image as ImageIcon,Info,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Settings,Sparkles,Trash2,UnlockKeyhole,Users,Zap } from "lucide-react";
 import Image from "next/image";
 import { useCallback,useEffect,useMemo,useRef,useState,type FormEvent } from "react";
-import { CommunityEmptyState,CommunitySkeleton,formatLongDate,formatTime,PROGRAM_TIME_SLOTS,todayIso,type CommunityRole } from "./community-ui";
+import { CommunityEmptyState,CommunitySkeleton,formatLongDate,formatTime,PROGRAM_TIME_SLOTS,ProgramScheduleTableSkeleton,todayIso,type CommunityRole } from "./community-ui";
 
 type ManagerRole = Extract<CommunityRole, "admin" | "sibat">;
 type ScheduleAction = "close" | "reopen" | "delete" | "publish" | "unpublish" | "cancel" | "complete";
@@ -150,7 +150,7 @@ function renderProgramStatusBadge(schedule: ProgramSchedule) {
   if (schedule.is_open && schedule.registration_status === "AVAILABLE") {
     return (
       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 whitespace-nowrap">
-        Registration Open
+        {schedule.capacity === 0 ? "Open" : "Registration Open"}
       </span>
     );
   }
@@ -170,7 +170,7 @@ function renderProgramStatusBadge(schedule: ProgramSchedule) {
   }
   return (
     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
-      Registration Closed
+      {schedule.capacity === 0 ? "Closed" : "Registration Closed"}
     </span>
   );
 }
@@ -807,7 +807,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
             {/* Programs List */}
             {loading ? (
-              <CommunitySkeleton cards={4} />
+              <ProgramScheduleTableSkeleton rows={6} />
             ) : programsLoadFailed && schedules.length === 0 ? (
               <div className="flex justify-center rounded-2xl border border-slate-200 bg-white p-8">
                 <Button type="button" variant="outline" onClick={() => void refresh()} disabled={refreshing}>
@@ -1449,8 +1449,9 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                 )}
               </div>
 
-              {/* Registered Farmers */}
-              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 space-y-3.5 shadow-xs">
+              {/* Registered Farmers (Only shown if capacity is not No Limit) */}
+              {selected.capacity > 0 && (
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 space-y-3.5 shadow-xs">
                 <div className="flex items-center justify-between">
                   <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900">
                     <Users className="size-5 text-emerald-600" />
@@ -1561,8 +1562,9 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                   </div>
                 )}
               </div>
+            )}
 
-              {/* Bottom Notice / Controls */}
+            {/* Bottom Notice / Controls */}
               {selected.can_manage ? (
                 <section className="rounded-2xl border border-blue-200/80 bg-blue-50/40 p-4 sm:p-5 space-y-3">
                   <div className="flex items-center justify-between">
@@ -1571,7 +1573,9 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                       Activity Controls
                     </h3>
                     <Badge variant="outline" className={selected.is_open ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-100 text-slate-700"}>
-                      {selected.is_open ? "Registration is Open" : "Registration is Closed"}
+                      {selected.is_open
+                        ? selected.capacity === 0 ? "Open" : "Registration is Open"
+                        : selected.capacity === 0 ? "Closed" : "Registration is Closed"}
                     </Badge>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 pt-1">

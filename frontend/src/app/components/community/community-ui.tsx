@@ -221,6 +221,109 @@ export function CommunitySkeleton({ cards = 4 }: { cards?: number }) {
   );
 }
 
+/** Skeleton table matching the field scheduling table on desktop and cards on mobile. */
+export function ProgramScheduleTableSkeleton({ rows = 6 }: { rows?: number }) {
+  return (
+    <div className="space-y-4">
+      {/* Desktop Table Skeleton */}
+      <div className="hidden lg:block rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50/90 border-b border-slate-200/80 text-xs font-bold uppercase tracking-wider text-slate-500">
+              <tr>
+                <th className="py-3.5 pl-4 sm:pl-5 pr-2.5 font-bold">Program Name</th>
+                <th className="py-3.5 px-2.5 font-bold whitespace-nowrap">Date</th>
+                <th className="py-3.5 px-2.5 font-bold whitespace-nowrap">Time</th>
+                <th className="py-3.5 px-2.5 font-bold">Location</th>
+                <th className="py-3.5 px-2.5 font-bold whitespace-nowrap">Status</th>
+                <th className="py-3.5 px-2.5 font-bold whitespace-nowrap">Registered</th>
+                <th className="py-3.5 px-4 text-right font-bold whitespace-nowrap sticky right-0 z-10 bg-slate-50 border-l border-slate-200/80">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {Array.from({ length: rows }).map((_, index) => (
+                <tr key={index} className="hover:bg-slate-50/40">
+                  {/* Program Name with Icon */}
+                  <td className="py-4 pl-4 sm:pl-5 pr-2.5 align-middle">
+                    <div className="flex items-center gap-3 min-w-0 max-w-[200px] xl:max-w-xs">
+                      <Skeleton className="size-10 shrink-0 rounded-xl" />
+                      <div className="min-w-0 space-y-1.5 flex-1">
+                        <Skeleton className={`h-4 rounded ${index % 2 === 0 ? "w-28 sm:w-36" : "w-24 sm:w-28"}`} />
+                        <Skeleton className="h-3 w-16 rounded" />
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Date */}
+                  <td className="py-4 px-2.5 whitespace-nowrap align-middle">
+                    <Skeleton className="h-4 w-28 rounded" />
+                  </td>
+
+                  {/* Time */}
+                  <td className="py-4 px-2.5 whitespace-nowrap align-middle">
+                    <Skeleton className="h-4 w-32 rounded" />
+                  </td>
+
+                  {/* Location */}
+                  <td className="py-4 px-2.5 align-middle max-w-[130px]">
+                    <Skeleton className={`h-4 rounded ${index % 2 === 0 ? "w-28" : "w-24"}`} />
+                  </td>
+
+                  {/* Status */}
+                  <td className="py-4 px-2.5 whitespace-nowrap align-middle">
+                    <Skeleton className="h-6 w-28 rounded-full" />
+                  </td>
+
+                  {/* Registered */}
+                  <td className="py-4 px-2.5 whitespace-nowrap align-middle">
+                    <Skeleton className={`h-4 rounded ${index === 0 ? "w-14" : "w-10"}`} />
+                  </td>
+
+                  {/* Action */}
+                  <td className="py-4 px-4 text-right align-middle whitespace-nowrap sticky right-0 z-10 bg-white border-l border-slate-100">
+                    <Skeleton className="h-8 w-18 rounded-lg ml-auto" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Mobile / Tablet Cards Skeleton */}
+      <div className="lg:hidden space-y-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-2xl border border-slate-200/90 bg-white p-4 flex flex-col gap-3"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Skeleton className="size-10 shrink-0 rounded-xl" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-32 rounded" />
+                  <Skeleton className="h-3 w-20 rounded" />
+                </div>
+              </div>
+              <Skeleton className="h-6 w-24 rounded-full shrink-0" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+              <Skeleton className="h-3.5 w-24 rounded" />
+              <Skeleton className="h-3.5 w-24 rounded" />
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <Skeleton className="h-3.5 w-20 rounded" />
+              <Skeleton className="h-4 w-24 rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function CommunityEmptyState({
   icon,
   title,
