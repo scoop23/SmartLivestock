@@ -57,9 +57,9 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
           review_remarks, reviewed_at, reviewed_by_name, created_at
     Used in:
         Farmer production logging dashboard (/production-dashboard) and municipal yield analytics.
-        A MEAT yield log for an individual animal immediately reconciles its
-        operational status to SLAUGHTERED when the farmer submits the record.
-        New farmer meat-yield entries never create reviewer-based slaughter reports.
+        An individual MEAT yield may include one linked, pending SlaughterRecord.
+        The private ProductionRecord stays RECORDED; only MAO approval of the
+        linked notice reconciles its exact selected animals.
     """
     selected_animals = serializers.PrimaryKeyRelatedField(many=True, queryset=LivestockInventory.objects.all(), required=False, write_only=True)
     submit_slaughter_report = serializers.BooleanField(write_only=True, required=False, default=False)
@@ -256,9 +256,12 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             raise ValidationError(
                 "Every animal in the batch must be MAO approved before production can be logged."
             )
-        # Approved historical members may remain in the herd after death or sale.
-        # At least one currently active animal must still be available for output reporting.
-        if not value.animals.filter(operational_status=LivestockInventory.OperationalStatus.ACTIVE, quantity__gt=0).exists():
+        # A new production event needs active animals, but an owner must still be
+        # able to correct an existing historical log after the herd is depleted.
+        editing_same_batch = bool(self.instance and self.instance.batch_id == value.pk)
+        if not editing_same_batch and not value.animals.filter(
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE, quantity__gt=0
+        ).exists():
             raise ValidationError("This herd has no active livestock with a positive head count.")
         return value
 
@@ -298,8 +301,8 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
             except ValidationError as error:
                 raise ValidationError({"batch": error.detail})
 
-        # Meat output is measured in kilograms; individual inventory reconciliation
-        # runs only after the farmer successfully saves the complete record.
+        # Meat output is a private Farmer log; only a linked, MAO-approved
+        # slaughter notice may reconcile individual inventory.
         source = livestock or batch
         livestock_type_name = getattr(
             getattr(source, "livestock_type", None),
@@ -377,28 +380,21 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
 
         submit_slaughter_report = attrs.get("submit_slaughter_report", False)
         has_existing_slaughter = bool(self.instance and self.instance.slaughter_id)
-        if (
-            (submit_slaughter_report or "selected_animals" in attrs)
-            and not has_existing_slaughter
-            and production_type == ProductionRecord.ProductionType.MEAT
-        ):
-            raise ValidationError({
-                "submit_slaughter_report": (
-                    "Farmer meat-yield records no longer use a separate MAO-reviewed slaughter report. "
-                    "An individual meat-yield record marks its selected animal SLAUGHTERED immediately."
-                )
-            })
-        if production_type == "MEAT" and has_existing_slaughter:
+        if production_type == ProductionRecord.ProductionType.MEAT and (has_existing_slaughter or submit_slaughter_report):
             animals = attrs.get("selected_animals")
-            if "selected_animals" not in self.initial_data:
+            if has_existing_slaughter and "selected_animals" not in self.initial_data:
                 animals = list(self.instance.slaughter.selected_animals.all())
+            if not animals:
+                raise ValidationError({"selected_animals": "Select the exact animal or animals for the official slaughter notice."})
             from .services.slaughter import validate_animals
             record = ProductionRecord(livestock=livestock, batch=batch)
             if self.instance:
                 record.slaughter_id = self.instance.slaughter_id
             validate_animals(record, animals)
             attrs["selected_animals"] = animals
-        elif production_type != "MEAT" and (submit_slaughter_report or attrs.get("selected_animals") or has_existing_slaughter):
+        elif production_type == ProductionRecord.ProductionType.MEAT and "selected_animals" in self.initial_data:
+            raise ValidationError({"submit_slaughter_report": "Set submit_slaughter_report to true when creating an official slaughter notice."})
+        elif production_type != ProductionRecord.ProductionType.MEAT and (submit_slaughter_report or attrs.get("selected_animals") or has_existing_slaughter):
             raise ValidationError({"production_type": "A slaughter entry must remain MEAT."})
         else:
             attrs.pop("selected_animals", None)
@@ -410,10 +406,10 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
         validated_data["created_by"] = user
         source = validated_data.get("livestock") or validated_data.get("batch")
         validated_data["farmer_at_record"] = source.farmer
+        animals = validated_data.pop("selected_animals", [])
+        submit_slaughter_report = validated_data.pop("submit_slaughter_report", False)
         from .services.milk_anomaly import apply_milk_anomaly_assessment
         from .services.valuation import snapshot_for
-        validated_data.pop("selected_animals", None)
-        validated_data.pop("submit_slaughter_report", None)
         record = ProductionRecord(**validated_data)
         record.status = ProductionRecord.ProductionStatus.RECORDED
         record.valuation_snapshot = snapshot_for(record)
@@ -429,9 +425,9 @@ class ProductionRecordSerializer(serializers.ModelSerializer):
                       "milking_session": record.milking_session,
                       "livestock_id": record.livestock_id, "batch_id": record.batch_id},
         )
-        if record.production_type == ProductionRecord.ProductionType.MEAT:
-            from livestock.reconciliation import reconcile_recorded_meat_yield
-            reconcile_recorded_meat_yield(record)
+        if record.production_type == ProductionRecord.ProductionType.MEAT and submit_slaughter_report:
+            from .services.slaughter import sync_slaughter
+            sync_slaughter(record, animals)
         return record
 
     @transaction.atomic
@@ -1011,7 +1007,14 @@ class BreedingRecordSerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
         )
-        read_only_fields = ("created_at", "pregnancy_confirmed_by_name")
+        read_only_fields = (
+            "created_at",
+            "pregnancy_confirmed_by_name",
+            "pregnancy_confirmed_date",
+            "pregnancy_confirmed_by",
+            "confirmation_method",
+            "calving_record",
+        )
 
     def get_days_until_due(self, obj):
         if not obj.expected_due_date:
@@ -1051,6 +1054,15 @@ class BreedingRecordSerializer(serializers.ModelSerializer):
             raise ValidationError("Breeding date cannot be in the future.")
         return value
 
+    def validate_status(self, value):
+        if not self.instance and value != BreedingRecord.BreedingStatus.PENDING_CHECK:
+            raise ValidationError("New breeding records must await a pregnancy check.")
+        if value in (BreedingRecord.BreedingStatus.PREGNANT, BreedingRecord.BreedingStatus.CALVED):
+            raise ValidationError("Use the pregnancy confirmation or calving workflow to update this status.")
+        if self.instance and self.instance.status == BreedingRecord.BreedingStatus.CALVED:
+            raise ValidationError("A completed breeding cycle cannot be reopened or changed here.")
+        return value
+
     def validate(self, attrs):
         dam = attrs.get("dam") or (self.instance.dam if self.instance else None)
         sire_livestock = attrs.get("sire_livestock") or (self.instance.sire_livestock if self.instance else None)
@@ -1077,18 +1089,9 @@ class BreedingRecordSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
-        if validated_data.get("status") == BreedingRecord.BreedingStatus.PREGNANT and not validated_data.get("pregnancy_confirmed_by"):
-            validated_data["pregnancy_confirmed_by"] = user
-            if not validated_data.get("pregnancy_confirmed_date"):
-                validated_data["pregnancy_confirmed_date"] = timezone.localdate()
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        user = self.context["request"].user
-        if validated_data.get("status") == BreedingRecord.BreedingStatus.PREGNANT and not instance.pregnancy_confirmed_by:
-            validated_data["pregnancy_confirmed_by"] = user
-            if not validated_data.get("pregnancy_confirmed_date") and not instance.pregnancy_confirmed_date:
-                validated_data["pregnancy_confirmed_date"] = timezone.localdate()
         return super().update(instance, validated_data)
 
 

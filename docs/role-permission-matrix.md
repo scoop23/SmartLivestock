@@ -17,9 +17,9 @@ requires a new report. These outcomes do not certify a laboratory diagnosis.
 
 | Area | Farmer | SIBAT | MAO | Auction |
 | --- | --- | --- | --- | --- |
-| Production logs | Create/view/edit own farm logs and personal analytics; no review stage | No production verification; separate slaughter notices remain visible by barangay | Read municipal reports; no farmer-log approval; official slaughter review remains | No access |
+| Production logs | Create/view/edit own farm logs and personal analytics; may query own `RECORDED` logs in Ask SmartLivestock; no review stage | No production verification or NLP access to Farmer milk/meat-yield logs; separate slaughter notices remain visible by barangay | No access to Farmer milk/meat-yield logs through NLP or their forecasts; no farmer-log approval; official slaughter review remains separate | No access |
 | Inventory | Create/view own; edit/delete own pending/returned records | View scoped; verify pending or return | View municipal; approve verified or return | No access |
-| Sales | Create/view own; delete own pending sales | View scoped; verify pending or return | View municipal; approve verified or return | Read only |
+| Sales | Create/view own; delete own pending sales | View scoped; no review authority | View municipal; no approval of completed transfer (Auction ownership transfers finalize sales) | Read only |
 | Calving | Create and view own records | View scoped; verify pending or return | View municipal; approve verified or return | No access |
 | Batches | Create, view, and manage own groups | View scoped; verify individual members | View municipal; approve verified members | No access |
 | Census | No access | Submit within scope; revise own returned submissions | View municipal; approve verified or return | No access |
@@ -27,7 +27,7 @@ requires a new report. These outcomes do not certify a laboratory diagnosis.
 
 ## Review state transitions
 
-Inventory, sales, calving, and batch animals follow:
+Inventory, calving, and batch animals follow:
 
 ```text
 PENDING --SIBAT--> VERIFIED --MAO--> APPROVED
@@ -37,6 +37,8 @@ SUBJECT_TO_REVISION --owner edits/resubmits--> PENDING
 ```
 
 Farmer production logs are saved as `RECORDED`; they do not enter either review transition below. Official slaughter records linked to farmer meat reports keep their separate MAO review.
+
+Sales declarations are not finalized through `LiveAnimalSale` review. Completed transfers use Auction ownership-transfer records and the MAO/Admin approval workflow; SIBAT/CBAT cannot review the legacy declaration endpoint.
 
 Census follows:
 

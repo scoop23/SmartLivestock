@@ -164,7 +164,9 @@ def _visible_slaughter_records(user):
         ), user)
     else:
         require_action(user, "slaughter_records", "read_all")
-        records = records | SlaughterRecord.objects.filter(production_output__status="RECORDED")
+        records = records | SlaughterRecord.objects.filter(
+            production_output__status="RECORDED"
+        ).distinct()
     return records.order_by("-record_date", "-id").distinct()
 
 

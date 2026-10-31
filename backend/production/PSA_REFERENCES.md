@@ -1,6 +1,6 @@
 # PSA production reference values
 
-Production submission is optional and performs no external requests. Missing or ambiguous references produce `valuation_snapshot: null`, not zero currency. The normal Farmer -> SIBAT -> MAO workflow is unchanged.
+Production submission is optional and performs no external requests. Missing or ambiguous references produce `valuation_snapshot: null`, not zero currency. Routine Farmer logs save as `RECORDED` without SIBAT/CBAT verification or MAO production approval. An individual meat-yield entry may create a separate pending slaughter notice; only MAO/Admin approval of that notice changes the exact selected animals' inventory. See [the Farmer production and slaughter workflow](../../docs/farmer-production-and-slaughter-workflow.md).
 
 ## Compatibility
 

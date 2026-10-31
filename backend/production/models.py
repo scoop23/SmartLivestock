@@ -99,7 +99,7 @@ class ProductionRecord(models.Model):
     )
 
     # Legacy link for farmer meat-yield rows with a separate slaughter report.
-    # New meat-yield rows reconcile an individual animal directly without MAO review.
+    # Optional official slaughter notice; inventory changes only after its approval.
     slaughter = models.OneToOneField("SlaughterRecord", on_delete=models.PROTECT,
         null=True, blank=True, related_name="production_output")
 

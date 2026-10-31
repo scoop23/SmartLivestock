@@ -62,19 +62,21 @@ class FreezeWorkflowTests(APITestCase):
             self.approve("/livestock/inventory/",animal.pk)
         return LivestockBatch.objects.get(pk=herd["id"])
 
-    def test_production_revision_notifications_and_approval(self):
+    def test_routine_milk_record_is_recorded_and_not_queued_for_review(self):
         pk=self.animal()
-        data=self.submit("/production/records/",{"livestock":pk,"production_type":"MILK","quantity":10,"unit":"LITERS","record_date":"2026-09-01"})
-        self.review("/production/records/",data["id"],"SIBAT","VERIFIED")
-        self.review("/production/records/",data["id"],"MAO","SUBJECT_TO_REVISION")
+        data=self.submit("/production/records/",{"livestock":pk,"production_type":"MILK","quantity":10,"unit":"LITERS","record_date":"2026-09-01","milking_session":"MORNING"})
+        self.assertEqual(data["status"],"RECORDED")
         self.as_role("FARMER")
         r=self.client.patch(f"/production/records/{data['id']}/",{"quantity":12},format="json")
         self.assertEqual(r.status_code,200,r.data)
-        self.assertEqual(r.data["status"],"PENDING")
-        self.approve("/production/records/",data["id"])
+        self.assertEqual(r.data["status"],"RECORDED")
+        self.as_role("SIBAT")
+        self.assertEqual(self.client.get("/production/records/").data,[])
+        self.as_role("MAO")
+        review=self.client.post(f"/production/records/{data['id']}/review/",{"status":"APPROVED"},format="json")
+        self.assertEqual(review.status_code,404)
         self.assertEqual(LivestockInventory.objects.get(pk=pk).operational_status,"ACTIVE")
-        for role in self.actors:
-            self.assertTrue(Notification.objects.filter(user=self.actors[role]).exists(),role)
+        self.assertFalse(Notification.objects.filter(related_entity_type="production_record",related_entity_id=data["id"]).exists())
 
     def test_farmer_cannot_submit_a_completed_sale_record(self):
         pk=self.animal()
@@ -95,8 +97,12 @@ class FreezeWorkflowTests(APITestCase):
     def test_partial_slaughter_one_projection_and_no_mortality(self):
         herd=self.herd(10)
         ids=list(herd.animals.order_by("pk").values_list("pk",flat=True))[:3]
-        data=self.submit("/production/records/",{"batch":herd.pk,"production_type":"MEAT","quantity":50,"unit":"KILOGRAMS","record_date":"2026-09-01","selected_animals":ids})
-        self.approve("/production/records/",data["id"])
+        data=self.submit("/production/records/",{"batch":herd.pk,"production_type":"MEAT","quantity":50,"unit":"KILOGRAMS","record_date":"2026-09-01","selected_animals":ids,"submit_slaughter_report":True})
+        self.assertEqual(data["status"],"RECORDED")
+        self.assertEqual(data["slaughter_details"]["status"],"PENDING")
+        self.as_role("MAO")
+        approval=self.client.post(f"/production/slaughterhouse/records/{data['slaughter_details']['id']}/review/",{"status":"APPROVED","remarks":"Synthetic audit approval"},format="json")
+        self.assertEqual(approval.status_code,200,approval.data)
         self.assertEqual(herd.animals.filter(operational_status="SLAUGHTERED").count(),3)
         self.assertEqual(herd.animals.filter(operational_status="ACTIVE").count(),7)
         self.assertEqual(SlaughterRecord.objects.filter(batch=herd).count(),1)

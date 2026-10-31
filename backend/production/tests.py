@@ -233,7 +233,9 @@ class ProductionRecordAPITests(APITestCase):
             f"/production/sales/{sale.pk}/review/",
             {"status": "VERIFIED"},
         )
-        self.assertEqual(verified.status_code, status.HTTP_200_OK)
+        # Legacy sale declarations are visible to field officers, but the current
+        # role matrix reserves review for MAO/Admin and does not finalize transfers.
+        self.assertEqual(verified.status_code, status.HTTP_403_FORBIDDEN)
 
         self.client.force_authenticate(user=self.mao_user)
         approved = self.client.post(
@@ -280,7 +282,7 @@ class ProductionRecordAPITests(APITestCase):
             created_by=self.farmer_user, status="APPROVED" if approved else "PENDING",
         )
 
-    def test_farmer_swine_meat_yield_reconciles_without_mao_review(self):
+    def test_farmer_swine_meat_yield_is_a_personal_log_without_slaughter_notice(self):
         animal = self.swine_animal()
         self.client.force_authenticate(user=self.farmer_user)
         response = self.client.post("/production/records/", {
@@ -292,7 +294,7 @@ class ProductionRecordAPITests(APITestCase):
         self.assertIsNone(response.data["slaughter_details"])
         self.assertEqual(response.data["status"], "RECORDED")
         animal.refresh_from_db()
-        self.assertEqual(animal.operational_status, "SLAUGHTERED")
+        self.assertEqual(animal.operational_status, "ACTIVE")
         self.client.force_authenticate(user=self.mao_user)
         self.assertEqual(self.client.post(f"/production/records/{response.data['id']}/review/", {"status": "APPROVED"}).status_code, 404)
         self.record.refresh_from_db()
@@ -615,12 +617,12 @@ class ProductionRecordAPITests(APITestCase):
         response = self.client.post("/production/records/", {"livestock": animal.pk, "production_type": "MEAT",
             "unit": "KILOGRAMS", "quantity": "5", "record_date": "2026-01-15"})
         self.assertEqual(response.status_code, 201)
-        animal.operational_status = "SLAUGHTERED"
-        animal.save(update_fields=["operational_status"])
+        animal.refresh_from_db()
+        self.assertEqual(animal.operational_status, "ACTIVE")
         response = self.client.patch(f"/production/records/{response.data['id']}/", {"quantity": "6"})
         self.assertEqual(response.status_code, 200, response.data)
         animal.refresh_from_db()
-        self.assertEqual(animal.operational_status, "SLAUGHTERED")
+        self.assertEqual(animal.operational_status, "ACTIVE")
 
     def test_meat_and_mortality_remain_separate_through_review_and_analytics(self):
         from diseases.models import MortalityRecord
@@ -636,7 +638,7 @@ class ProductionRecordAPITests(APITestCase):
         self.assertIsNone(meat_log.slaughter_id)
         self.assertEqual(SlaughterRecord.objects.count(), 0)
         animal.refresh_from_db()
-        self.assertEqual(animal.operational_status, "SLAUGHTERED")
+        self.assertEqual(animal.operational_status, "ACTIVE")
         self.client.force_authenticate(user=self.mao_user)
         self.assertEqual(MortalityRecord.objects.count(), 0)
         self.assertEqual(SlaughterRecord.objects.count(), 0)
@@ -671,6 +673,7 @@ class ProductionRecordAPITests(APITestCase):
         from .models import SlaughterRecord
 
         animal = self.swine_animal()
+        other_animal = self.swine_animal()
         herd = LivestockBatch.objects.create(
             farmer=self.farmer,
             livestock_type=animal.livestock_type,
@@ -680,6 +683,8 @@ class ProductionRecordAPITests(APITestCase):
         )
         animal.batch = herd
         animal.save(update_fields=["batch"])
+        other_animal.batch = herd
+        other_animal.save(update_fields=["batch"])
         self.client.force_authenticate(user=self.farmer_user)
         response = self.client.post("/production/records/", {
             "batch": herd.pk, "production_type": "MEAT", "unit": "KILOGRAMS",
@@ -690,14 +695,29 @@ class ProductionRecordAPITests(APITestCase):
         self.assertEqual(animal.operational_status, "ACTIVE")
         self.assertEqual(SlaughterRecord.objects.count(), 0)
 
-        rejected = self.client.post("/production/records/", {
+        linked = self.client.post("/production/records/", {
             "batch": herd.pk, "selected_animals": [animal.pk], "submit_slaughter_report": True,
             "production_type": "MEAT", "unit": "KILOGRAMS", "quantity": "100",
             "record_date": "2026-01-15",
         }, format="json")
-        self.assertEqual(rejected.status_code, status.HTTP_400_BAD_REQUEST, rejected.data)
+        self.assertEqual(linked.status_code, status.HTTP_201_CREATED, linked.data)
+        slaughter = SlaughterRecord.objects.get(pk=linked.data["slaughter_details"]["id"])
+        self.assertEqual(list(slaughter.selected_animals.values_list("pk", flat=True)), [animal.pk])
         animal.refresh_from_db()
         self.assertEqual(animal.operational_status, "ACTIVE")
+        other_animal.refresh_from_db()
+        self.assertEqual(other_animal.operational_status, "ACTIVE")
+
+        self.client.force_authenticate(user=self.mao_user)
+        approved = self.client.post(
+            f"/api/production/slaughterhouse/records/{slaughter.pk}/review/",
+            {"status": "APPROVED"}, format="json",
+        )
+        self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.data)
+        animal.refresh_from_db()
+        other_animal.refresh_from_db()
+        self.assertEqual(animal.operational_status, "SLAUGHTERED")
+        self.assertEqual(other_animal.operational_status, "ACTIVE")
 
     def test_farmer_own_production_records_include_legacy_statuses_while_analytics_uses_recorded_only(self):
         from analytics.services.descriptive import descriptive_summary

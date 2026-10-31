@@ -4,9 +4,9 @@
 
 Farmer milk, meat-yield, egg, and wool entries are stored as `ProductionRecord` rows with status `RECORDED`. They remain in the farmer's own history and eligible production analytics without entering the municipal approval queue. The API validates that the source animal or batch belongs to the authenticated farmer and is eligible for production logging.
 
-A meat-yield entry is a farmer-submitted record with no MAO review step. When it references one approved individual animal, saving the yield immediately marks that animal `SLAUGHTERED` and records the status-change timestamp. `DECEASED` remains reserved for mortality reports. Batch or aggregate meat-yield entries do not change individual animal statuses because they do not identify exact animals.
+A meat-yield entry is a farmer-submitted personal log and stays `RECORDED` without a production review stage. Individual entries also submit a linked, pending `SlaughterRecord` with the exact selected animal. The farmer log remains separate from the official slaughter decision. SIBAT/CBAT can read the unverified notice within their barangay scope but cannot approve it; MAO/Admin review it through `/production/slaughterhouse/records/`. Inventory changes to `SLAUGHTERED` only after MAO approval and only for the selected animals. The reconciliation marker makes repeated approval calls idempotent. Batch or aggregate Farmer meat-yield logs without exact animal selection do not alter individual inventory.
 
-New farmer meat-yield entries do not create a separate MAO-reviewed report. Legacy linked reports remain readable and retain their historical review state. Slaughterhouse facility submissions continue to use the separate `/production/slaughterhouse/records/` workflow.
+Returning a linked official notice asks the farmer to correct the same meat-yield entry. Resubmission reuses the same linked `SlaughterRecord` and returns it to `PENDING`. Facility-entered aggregate slaughter submissions remain a separate workflow and never modify individual inventory. `DECEASED` remains reserved for mortality reports.
 
 ## Historical records
 

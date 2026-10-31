@@ -68,6 +68,16 @@ def _notify_production_route(record: ProductionRecord, actor: User, *, is_resubm
         if record.production_type != ProductionRecord.ProductionType.MEAT or not record.slaughter_id:
             return
         notify_role(
+            role_name="SIBAT", notification_type=Notification.NotificationType.PRODUCTION,
+            priority=Notification.Priority.MEDIUM,
+            title="Farmer-reported slaughter notice",
+            message=f"{farmer_name} reported a slaughter notice for {record.slaughter.quantity} animal(s). This is unverified and read-only for field officers.",
+            link="/sibat",
+            barangay_id=barangay_id,
+            include_cbat=True,
+            related_entity_type="slaughter_record", related_entity_id=record.slaughter_id,
+        )
+        notify_role(
             role_name="MAO", notification_type=Notification.NotificationType.PRODUCTION,
             priority=Notification.Priority.MEDIUM,
             title="Farmer-reported slaughter awaiting official review",
@@ -235,7 +245,7 @@ def production_record_detail(request, pk):
                 {"error": "This meat-yield record is the history for an animal marked slaughtered and cannot be deleted."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if record.slaughter_id and record.slaughter.status == SlaughterRecord.StatusType.APPROVED:
+        if record.slaughter_id:
             return Response(
                 {"error": "Production records linked to an official slaughter report cannot be deleted directly."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -800,6 +810,7 @@ def breeding_records_list_create(request):
 
 @api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def breeding_record_detail(request, pk):
     """
     GET    /production/breeding/<pk>/ -> Retrieve breeding event
@@ -809,15 +820,13 @@ def breeding_record_detail(request, pk):
     user = request.user
     role = getattr(getattr(user, "role", None), "role_name", None)
 
+    records = BreedingRecord.objects.select_for_update(of=("self",))
     if role == "FARMER":
-        record = get_object_or_404(
-            BreedingRecord.objects.select_for_update(of=("self",)),
-            Q(dam__farmer__user=user) | Q(created_by=user),
-            pk=pk,
-        )
+        records = records.filter(Q(dam__farmer__user=user) | Q(created_by=user))
     else:
         require_action(user, "calving", "read_all")
-        record = get_object_or_404(BreedingRecord, pk=pk)
+        records = scope_reviewer_queryset(records, user)
+    record = get_object_or_404(records, pk=pk)
 
     if request.method == "GET":
         return Response(BreedingRecordSerializer(record).data, status=200)
@@ -829,6 +838,8 @@ def breeding_record_detail(request, pk):
         return Response(status=204)
 
     # PATCH
+    if role != "FARMER":
+        return Response({"error": "Only the Farmer may edit this breeding entry."}, status=403)
     previous_status = record.status
     previous_due_date = record.expected_due_date
     serializer = BreedingRecordSerializer(
@@ -883,7 +894,7 @@ def breeding_analytics(request):
         try:
             from datetime import date
             date_from = date.fromisoformat(date_from_str)
-        except ValueError:
+        except (TypeError, ValueError):
             pass
     if date_to_str:
         try:
@@ -896,9 +907,15 @@ def breeding_analytics(request):
     in_30_days = today + timedelta(days=30)
 
     total_records = qs.count()
-    active_gestations = qs.filter(status__in=["PREGNANT", "PENDING_CHECK"]).count()
+    active_gestations = qs.filter(status=BreedingRecord.BreedingStatus.PREGNANT).count()
     due_soon = qs.filter(
-        status__in=["PREGNANT", "PENDING_CHECK"],
+        status=BreedingRecord.BreedingStatus.PREGNANT,
+        expected_due_date__gte=today,
+        expected_due_date__lte=in_30_days,
+    ).count()
+    pending_check_count = qs.filter(status=BreedingRecord.BreedingStatus.PENDING_CHECK).count()
+    estimated_due_soon = qs.filter(
+        status=BreedingRecord.BreedingStatus.PENDING_CHECK,
         expected_due_date__gte=today,
         expected_due_date__lte=in_30_days,
     ).count()
@@ -921,6 +938,8 @@ def breeding_analytics(request):
         "total_records": total_records,
         "active_gestations": active_gestations,
         "due_soon": due_soon,
+        "pending_check_count": pending_check_count,
+        "estimated_due_soon": estimated_due_soon,
         "calved_count": calved_count,
         "confirmed_conceptions_count": conception_metrics["confirmed_conceptions"],
         "open_count": conception_metrics["known_unsuccessful_outcomes"],
@@ -939,6 +958,7 @@ def breeding_analytics(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def breeding_record_confirm_pregnancy(request, pk):
     """
     POST /production/breeding/<pk>/confirm-pregnancy/
@@ -946,17 +966,23 @@ def breeding_record_confirm_pregnancy(request, pk):
     Updates status to PREGNANT, records confirmation date, technician/vet, and method.
     """
     user = request.user
-    role = getattr(getattr(user, "role", None), "role_name", None)
-
-    if role == "FARMER":
-        record = get_object_or_404(
-            BreedingRecord.objects.filter(Q(dam__farmer__user=user) | Q(created_by=user)),
-            pk=pk,
-        )
+    actor_role = role_name(user)
+    records = BreedingRecord.objects.select_for_update(of=("self",))
+    if actor_role == "FARMER":
+        records = records.filter(Q(dam__farmer__user=user) | Q(created_by=user))
     else:
-        record = get_object_or_404(
-            scope_reviewer_queryset(BreedingRecord.objects.all(), user),
-            pk=pk,
+        require_action(user, "calving", "read_all")
+        records = scope_reviewer_queryset(records, user)
+    record = get_object_or_404(records, pk=pk)
+
+    # A repeated confirmation is an idempotent success: keep the original
+    # clinical details and do not notify the owner a second time.
+    if record.status == BreedingRecord.BreedingStatus.PREGNANT:
+        return Response(BreedingRecordSerializer(record, context={"request": request}).data, status=200)
+    if record.status != BreedingRecord.BreedingStatus.PENDING_CHECK:
+        return Response(
+            {"error": "Only breeding records awaiting a pregnancy check can be confirmed."},
+            status=409,
         )
 
     confirmation_date_str = request.data.get("confirmation_date")
@@ -968,7 +994,7 @@ def breeding_record_confirm_pregnancy(request, pk):
         try:
             from datetime import date
             conf_date = date.fromisoformat(confirmation_date_str)
-        except ValueError:
+        except (TypeError, ValueError):
             return Response({"error": "Invalid confirmation_date format (YYYY-MM-DD required)."}, status=400)
 
     if conf_date > timezone.localdate():
@@ -977,12 +1003,21 @@ def breeding_record_confirm_pregnancy(request, pk):
     if record.breeding_date and conf_date < record.breeding_date:
         return Response({"error": "Pregnancy confirmation date cannot precede the breeding date."}, status=400)
 
+    if not isinstance(confirmation_method, str) or not confirmation_method.strip() or len(confirmation_method.strip()) > 60:
+        return Response({"error": "confirmation_method must contain 1 to 60 characters."}, status=400)
+    if not isinstance(notes, str) or len(notes) > 500:
+        return Response({"error": "notes must not exceed 500 characters."}, status=400)
+
     record.status = BreedingRecord.BreedingStatus.PREGNANT
     record.pregnancy_confirmed_date = conf_date
     record.pregnancy_confirmed_by = user
-    record.confirmation_method = confirmation_method
-    if notes:
-        record.notes = f"{record.notes}\n[Confirmed {conf_date}]: {notes}".strip()
+    record.confirmation_method = confirmation_method.strip()
+    confirmation_note = f"[Confirmed {conf_date}]: {notes.strip()}" if notes.strip() else ""
+    combined_notes = "\n".join(part for part in (record.notes, confirmation_note) if part)
+    if len(combined_notes) > 500:
+        return Response({"error": "The existing notes and confirmation notes together must not exceed 500 characters."}, status=400)
+    if confirmation_note:
+        record.notes = combined_notes
     record.save()
 
     notify_breeding_owner(
