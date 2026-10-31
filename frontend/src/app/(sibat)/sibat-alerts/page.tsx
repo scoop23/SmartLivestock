@@ -394,14 +394,8 @@ function SibatAlertsContent() {
         </div>
 
         <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <button
-            type="button"
-            onClick={() => setStatus("Needs Review")}
-            className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left transition-all cursor-pointer sm:gap-3 sm:p-4 ${
-              status === "Needs Review"
-                ? "border-rose-400 bg-rose-50/80 ring-2 ring-rose-300 shadow-xs"
-                : "border-rose-200 bg-gradient-to-r from-rose-50 to-white hover:border-rose-300"
-            }`}
+          <div
+            className="flex min-w-0 items-center gap-2 rounded-xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white p-2.5 sm:gap-3 sm:p-4 shadow-2xs"
           >
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-600 sm:size-12">
               <Clock className="size-6" />
@@ -413,15 +407,9 @@ function SibatAlertsContent() {
               </p>
               <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Awaiting initial review</p>
             </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatus("Returned for Correction")}
-            className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left transition-all cursor-pointer sm:gap-3 sm:p-4 ${
-              status === "Returned for Correction"
-                ? "border-amber-400 bg-amber-50/80 ring-2 ring-amber-300 shadow-xs"
-                : "border-amber-200 bg-gradient-to-r from-amber-50 to-white hover:border-amber-300"
-            }`}
+          </div>
+          <div
+            className="flex min-w-0 items-center gap-2 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white p-2.5 sm:gap-3 sm:p-4 shadow-2xs"
           >
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700 sm:size-12">
               <RotateCcw className="size-6" />
@@ -433,15 +421,9 @@ function SibatAlertsContent() {
               </p>
               <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Sent back to farmer</p>
             </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatus("Forwarded to MAO")}
-            className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left transition-all cursor-pointer sm:gap-3 sm:p-4 ${
-              status === "Forwarded to MAO"
-                ? "border-sky-400 bg-sky-50/80 ring-2 ring-sky-300 shadow-xs"
-                : "border-sky-200 bg-gradient-to-r from-sky-50 to-white hover:border-sky-300"
-            }`}
+          </div>
+          <div
+            className="flex min-w-0 items-center gap-2 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-white p-2.5 sm:gap-3 sm:p-4 shadow-2xs"
           >
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-600 sm:size-12">
               <ShieldCheck className="size-6" />
@@ -453,15 +435,9 @@ function SibatAlertsContent() {
               </p>
               <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Sent for further review</p>
             </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatus("MAO Approved")}
-            className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left transition-all cursor-pointer sm:gap-3 sm:p-4 ${
-              status === "MAO Approved"
-                ? "border-emerald-400 bg-emerald-50/80 ring-2 ring-emerald-300 shadow-xs"
-                : "border-emerald-200 bg-gradient-to-r from-emerald-50 to-white hover:border-emerald-300"
-            }`}
+          </div>
+          <div
+            className="flex min-w-0 items-center gap-2 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-2.5 sm:gap-3 sm:p-4 shadow-2xs"
           >
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-600 sm:size-12">
               <CheckCircle2 className="size-6" />
@@ -473,7 +449,7 @@ function SibatAlertsContent() {
               </p>
               <p className="mt-1 text-[10px] text-slate-500 sm:text-xs">Official records</p>
             </div>
-          </button>
+          </div>
         </div>
 
         {/* ── Filter Card ── */}
