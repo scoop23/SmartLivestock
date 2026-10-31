@@ -224,8 +224,9 @@ export function UniversalQrScannerDialog({
     setCameraActive(true);
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraMessage("Webcam is unavailable in this browser.");
+      setCameraMessage("Camera access is unavailable. Upload a QR image or use Manual Lookup.");
       setIsLiveWebcam(false);
+      setCameraActive(false);
       return;
     }
 
@@ -255,10 +256,11 @@ export function UniversalQrScannerDialog({
       setIsLiveWebcam(true);
     } catch (err: unknown) {
       setIsLiveWebcam(false);
+      setCameraActive(false);
       if (err instanceof DOMException && err.name === "NotAllowedError") {
-        setCameraMessage("Camera permission was denied. Click to retry or use simulated camera.");
+        setCameraMessage("Camera permission was denied. Allow access, upload a QR image, or use Manual Lookup.");
       } else {
-        setCameraMessage("Webcam not detected. Displaying interactive livestock viewfinder.");
+        setCameraMessage("Webcam not detected. Upload a QR image or use Manual Lookup.");
       }
     }
   }, []);
@@ -327,10 +329,8 @@ export function UniversalQrScannerDialog({
             registrationStatus: "Approved Farmer",
             biosecurity: "UNKNOWN",
             farmerId: farmer.id,
-            eligible: true,
             details: "Approved Farmer profile. Open Record Transfer to review eligible livestock for this seller.",
-            ownershipCertificateNumber: farmer.rsbsa_number || `FARMER-${farmer.id}`,
-            ownerPhone: farmer.email || farmer.username,
+            ownershipCertificateNumber: farmer.rsbsa_number || undefined,
             linkUrl:
               isAuction
                 ? `/auction-ownership-transfers?farmerId=${encodeURIComponent(String(farmer.id))}`
@@ -428,69 +428,36 @@ export function UniversalQrScannerDialog({
             type: "BATCH",
             title: batch.batch_name || `Batch ${batch.batch_code || id}`,
             specie: batch.livestock_type_name || "Not recorded",
-            breed: batch.housing_pen ? `Pen ${batch.housing_pen}` : "Commercial Herd",
+            breed: undefined,
             sex: "Mixed",
             owner: batch.farmer_name || "Registered farmer",
             barangay: batch.barangay_name || "Not recorded",
             headCount: batch.total_animals ?? 0,
             weightKg:
               batch.average_weight == null ? null : Number(batch.average_weight),
-            operationalStatus: batch.status || "ACTIVE",
-            registrationStatus: batch.review_status || "Registered",
+            operationalStatus: batch.status,
+            registrationStatus: batch.review_status,
             reviewStatus: batch.review_status,
             photoUrl: batch.photo_url,
             biosecurity: "UNKNOWN",
             details:
               batch.review_remarks ||
               "A registry lookup shows the current batch record only.",
-            ownershipCertificateNumber:
-              batch.batch_code || `BATCH-${id}`,
-            ownerPhone: "0917 123 4567",
+            ownershipCertificateNumber: batch.batch_code || undefined,
             dateRegistered: "",
-            eligible: true,
             linkUrl:
               role === "farmer"
                 ? `/livestock-inventory/batches?batchId=${encodeURIComponent(id)}`
                 : isAuction && actionLabel !== "Open Registry Record"
                 ? "/auction-inspections"
+                : role === "sibat"
+                ? `/sibat/batches?batchId=${encodeURIComponent(id)}`
                 : `/data-validation?domain=inventory&highlightId=batch-${id}&tag=${encodeURIComponent(batch.batch_code || id)}`,
           });
           return;
         }
 
-        let animal: RegisteredLivestockLookup;
-        try {
-          animal = await lookupRegisteredLivestock(target.code);
-        } catch (fetchErr: unknown) {
-          // If code is or contains 240, provide the demonstration record from design
-          if (target.code.includes("240")) {
-            animal = {
-              id: 240,
-              tag_number: "240",
-              livestock_type: 1,
-              livestock_type_name: "Cattle",
-              breed: "Brahman",
-              sex: "Male",
-              birth_date: "2024-01-15",
-              age: { years: 2, months: 0, total_months: 24 },
-              age_classification: "ADULT",
-              photo_url: "/images/species-cattle.jpg",
-              registration_status: "Active",
-              ownership_certificate_number: "REG-2026-000123",
-              operational_status: "ACTIVE",
-              eligible: true,
-              ineligibility_reason: "",
-              owner_id: 1,
-              owner_name: "Juan Dela Cruz",
-              origin: "San Juan, Batangas",
-              barangay: "San Juan",
-              owner_phone: "0917 123 4567",
-              date_registered: "2026-01-15",
-            };
-          } else {
-            throw fetchErr;
-          }
-        }
+        const animal: RegisteredLivestockLookup = await lookupRegisteredLivestock(target.code);
 
         if (requestId !== lookupRequestId.current) return;
         stopCamera();
@@ -502,23 +469,22 @@ export function UniversalQrScannerDialog({
           breed: animal.breed || "Not recorded",
           sex: animal.sex || "Not recorded",
           owner: animal.owner_name,
-          barangay: animal.origin || animal.barangay || "San Juan, Batangas",
+          barangay: animal.barangay || animal.origin || "",
           headCount: 1,
           operationalStatus: animal.operational_status,
           registrationStatus: animal.registration_status,
           birthDate: animal.birth_date,
           age: animal.age,
           ageClassification: animal.age_classification,
-          photoUrl: animal.photo_url || "/images/species-cattle.jpg",
+          photoUrl: animal.photo_url,
           livestockId: animal.id,
           eligible: animal.eligible,
           biosecurity: "UNKNOWN",
           details: animal.eligible
             ? "Approved and active in the livestock register. This lookup does not approve a movement or inspection."
             : animal.ineligibility_reason,
-          ownershipCertificateNumber:
-            animal.ownership_certificate_number || "REG-2026-000123",
-          ownerPhone: animal.owner_phone || "0917 123 4567",
+          ownershipCertificateNumber: animal.ownership_certificate_number || undefined,
+          ownerPhone: animal.owner_phone || undefined,
           dateRegistered: animal.date_registered || animal.birth_date || "",
           ineligibilityReason: animal.ineligibility_reason,
           linkUrl:
@@ -526,6 +492,8 @@ export function UniversalQrScannerDialog({
               ? `/livestock-inventory/${animal.id}`
               : isAuction && actionLabel !== "Open Registry Record"
               ? "/auction-inspections"
+              : role === "sibat"
+              ? "/sibat/livestock-registry"
               : `/data-validation?domain=inventory&highlightId=${animal.id}&tag=${encodeURIComponent(animal.tag_number || animal.id)}`,
         });
       } catch (cause: unknown) {
@@ -610,30 +578,26 @@ export function UniversalQrScannerDialog({
   }, [isOpen, activeTab, isLiveWebcam, activeResult, handleLookup, stopCamera]);
 
   const handleManualTriggerScan = async () => {
-    // If live webcam is on, try reading the current frame
-    if (
-      isLiveWebcam &&
-      videoRef.current &&
-      videoRef.current.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
-    ) {
-      try {
-        const reader = new BrowserQRCodeReader();
-        const result = await reader.decodeOnceFromVideoElement(videoRef.current);
-        if (result?.getText()) {
-          stopCamera();
-          setScanInput(result.getText());
-          void handleLookup(result.getText());
-          return;
-        }
-      } catch {
-        // no readable QR in camera frame, fallback to scanning in-frame preview
-      }
+    if (!isLiveWebcam || !videoRef.current || videoRef.current.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      setCameraMessage("Camera is not active. Enable it, upload a QR image, or use Manual Lookup.");
+      return;
     }
 
-    // Default demo scan: scans the visible ear tag 240
-    toast.success("Scanning ear tag #240 in frame...");
-    setScanInput("240");
-    void handleLookup("240");
+    try {
+      const reader = new BrowserQRCodeReader();
+      const result = await reader.decodeOnceFromVideoElement(videoRef.current);
+      const text = result.getText();
+      if (!text) {
+        setCameraMessage("No QR code was detected. Center a pass in the frame and try again.");
+        return;
+      }
+      setCameraMessage("");
+      stopCamera();
+      setScanInput(text);
+      void handleLookup(text);
+    } catch {
+      setCameraMessage("No QR code was detected. Center a pass in the frame and try again.");
+    }
   };
 
   const toggleFlash = async () => {
@@ -780,41 +744,27 @@ export function UniversalQrScannerDialog({
                     }`}
                   />
 
-                  {/* Realistic Camera Simulation View (shown when webcam is offline or simulated) */}
+                  {/* Empty camera state: never show a sample animal or sample tag. */}
                   {!isLiveWebcam && (
-                    <div
-                      onClick={handleManualTriggerScan}
-                      title="Click to scan Tag 240"
-                      className="absolute inset-0 flex items-center justify-center overflow-hidden bg-slate-900 cursor-pointer select-none group"
-                    >
-                      {/* Cattle Ear & Background Photo */}
-                      <img
-                        src="/images/species-cattle.jpg"
-                        alt="Camera livestock preview"
-                        className="absolute inset-0 h-full w-full object-cover filter brightness-[0.72] contrast-105 scale-110 group-hover:scale-115 transition-transform duration-500"
-                      />
-
-                      {/* Subtle Vignette Gradient */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/50" />
-
-                      {/* Realistic Yellow Ear Tag Graphic */}
-                      <div className="relative flex flex-col items-center justify-center rounded-2xl bg-amber-400 border-2 border-amber-300/80 px-6 py-4.5 text-slate-950 shadow-2xl shadow-black/80 ring-2 ring-black/40 transform transition-transform group-hover:scale-105">
-                        {/* Tag Ear Pin / Grommet */}
-                        <div className="absolute -top-3 size-4 rounded-full bg-slate-800 border-2 border-amber-200 shadow-inner" />
-
-                        {/* Ear Tag QR Code */}
-                        <QrCode className="size-13 text-slate-950 stroke-[1.8]" />
-
-                        {/* Big Ear Tag Identifier */}
-                        <span className="mt-1 font-mono text-2xl font-black tracking-wider text-slate-950">
-                          240
-                        </span>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-900 px-6 text-center text-white">
+                      <div className="flex size-14 items-center justify-center rounded-2xl border border-white/15 bg-white/10">
+                        <Camera className="size-7 text-emerald-300" aria-hidden="true" />
                       </div>
+                      <div className="max-w-sm space-y-1">
+                        <p className="text-sm font-bold">{cameraActive ? "Connecting to camera…" : "Camera is not active"}</p>
+                        <p className="text-xs leading-relaxed text-slate-300">
+                          {cameraMessage || "Enable the camera, upload a QR image, or switch to Manual Lookup."}
+                        </p>
+                      </div>
+                      <Button type="button" onClick={() => void startCamera()} disabled={cameraActive} className={`h-9 rounded-lg px-3 text-xs font-semibold ${theme.primaryButton}`}>
+                        {cameraActive ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Video className="mr-1.5 size-3.5" />}
+                        {cameraActive ? "Connecting…" : "Enable camera"}
+                      </Button>
                     </div>
                   )}
 
                   {/* Corner frame overlay */}
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  {isLiveWebcam ? <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <div className="relative h-44 w-56 sm:h-52 sm:w-64">
                       {/* Top-left */}
                       <div className="absolute top-0 left-0 h-8 w-8 rounded-tl-xl border-t-3 border-l-3 border-white shadow-[0_0_8px_rgba(0,0,0,0.5)]" />
@@ -834,16 +784,17 @@ export function UniversalQrScannerDialog({
                         }}
                       />
                     </div>
-                  </div>
+                  </div> : null}
 
                   {/* Positioning instruction badge */}
-                  <div className="pointer-events-none absolute bottom-3 flex justify-center w-full px-4">
+                  {isLiveWebcam && !cameraMessage ? <div className="pointer-events-none absolute bottom-3 flex justify-center w-full px-4">
                     <span className="rounded-full bg-slate-900/80 backdrop-blur-xs px-3.5 py-1.5 text-[11px] font-medium text-white shadow-md">
                       Position the QR code within the frame
                     </span>
-                  </div>
+                  </div> : null}
+                  {isLiveWebcam && cameraMessage ? <div role="status" className="absolute bottom-3 left-1/2 z-10 max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-full bg-slate-900/90 px-3.5 py-1.5 text-center text-[11px] font-medium text-white shadow-md">{cameraMessage}</div> : null}
 
-                  {/* Top Mode Badge (Live vs Simulated) */}
+                  {/* Top Mode Badge */}
                   <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
                     {isLiveWebcam ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 backdrop-blur-xs px-2.5 py-1 text-[10px] font-bold text-white shadow-md">
@@ -853,12 +804,13 @@ export function UniversalQrScannerDialog({
                     ) : (
                       <button
                         type="button"
-                        onClick={startCamera}
-                        className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 hover:bg-slate-900 backdrop-blur-xs px-2.5 py-1 text-[10px] font-semibold text-slate-200 border border-white/20 shadow-md cursor-pointer"
+                        onClick={() => void startCamera()}
+                        disabled={cameraActive}
+                        className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 hover:bg-slate-900 backdrop-blur-xs px-2.5 py-1 text-[10px] font-semibold text-slate-200 border border-white/20 shadow-md cursor-pointer disabled:opacity-60"
                         title="Click to activate live webcam hardware"
                       >
                         <Video className="size-3 text-emerald-400" />
-                        <span>Camera Viewfinder</span>
+                        <span>{cameraActive ? "Connecting…" : "Enable camera"}</span>
                       </button>
                     )}
                   </div>
@@ -898,7 +850,8 @@ export function UniversalQrScannerDialog({
                     <button
                       type="button"
                       onClick={handleManualTriggerScan}
-                      className={`size-13 rounded-full ${theme.scanButton} flex items-center justify-center transition-all cursor-pointer`}
+                      disabled={!isLiveWebcam}
+                      className={`size-13 rounded-full ${theme.scanButton} flex items-center justify-center transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-45`}
                       title="Scan QR"
                     >
                       <div className="size-6 rounded-full border-2 border-white/80 bg-white/20 flex items-center justify-center">
@@ -964,7 +917,7 @@ export function UniversalQrScannerDialog({
                   placeholder={
                     onSelectFarmer
                       ? "e.g. SL-FARMER:123 or 123"
-                      : "e.g. 240, ABC-123, or INV-0001"
+                      : "Enter a tag number, inventory ID, or QR value"
                   }
                   className={`h-11 rounded-xl border border-slate-200 bg-white px-3.5 text-xs sm:text-sm font-medium ${theme.focusRing}`}
                 />
@@ -1053,7 +1006,7 @@ export function UniversalQrScannerDialog({
               >
                 <img
                   src={resolveLivestockPhotoUrl(activeResult.photoUrl, activeResult.specie)}
-                  alt={activeResult.code}
+                  alt={activeResult.photoUrl ? `Livestock photo for ${activeResult.code}` : `${activeResult.specie || "Livestock"} reference image`}
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).src =
@@ -1066,7 +1019,7 @@ export function UniversalQrScannerDialog({
                 <div className="absolute top-2 left-2">
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/60 text-white backdrop-blur-xs border border-white/20">
                     <Camera className="size-3" />
-                    Passport Photo
+                    {activeResult.photoUrl ? "Passport Photo" : "Species Reference"}
                   </span>
                 </div>
 
@@ -1101,7 +1054,7 @@ export function UniversalQrScannerDialog({
                   </div>
                   <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 font-semibold text-[11px] px-2.5 py-0.5 rounded-full border-0">
                     {activeResult.registrationStatus?.replaceAll("_", " ") ||
-                      "Registered"}
+                      "Not recorded"}
                   </Badge>
                 </div>
 
@@ -1111,7 +1064,7 @@ export function UniversalQrScannerDialog({
                       {activeResult.type === "FARMER" ? "Account Type" : "Species"}
                     </span>
                     <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate">
-                      {activeResult.specie || "Cattle"}
+                      {activeResult.specie || "Not recorded"}
                     </span>
                   </div>
                   <div>
@@ -1119,7 +1072,7 @@ export function UniversalQrScannerDialog({
                       {activeResult.type === "FARMER" ? "RSBSA Number" : "Breed"}
                     </span>
                     <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate">
-                      {activeResult.breed || "Brahman"}
+                      {activeResult.breed || "Not recorded"}
                     </span>
                   </div>
                   <div>
@@ -1144,8 +1097,8 @@ export function UniversalQrScannerDialog({
                     </span>
                     <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate">
                       {activeResult.type === "FARMER" || activeResult.type === "BATCH"
-                        ? activeResult.operationalStatus || "Active"
-                        : formatLivestockAge(activeResult.age) || "2 years"}
+                        ? activeResult.operationalStatus || "Not recorded"
+                        : formatLivestockAge(activeResult.age) || "Not recorded"}
                     </span>
                   </div>
                 </div>
@@ -1170,13 +1123,13 @@ export function UniversalQrScannerDialog({
                   <span className="font-semibold text-slate-900">
                     {activeResult.barangay
                       ? `${activeResult.barangay}, Batangas`
-                      : "San Juan, Batangas"}
+                      : "Not recorded"}
                   </span>
                 </div>
                 <div className="flex justify-between items-baseline">
                   <span className="text-slate-500 font-medium">Contact Number</span>
                   <span className="font-semibold text-slate-900">
-                    {activeResult.ownerPhone || "0917 123 4567"}
+                    {activeResult.ownerPhone || "Not recorded"}
                   </span>
                 </div>
               </div>
@@ -1191,10 +1144,14 @@ export function UniversalQrScannerDialog({
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between items-baseline">
                   <span className="text-slate-500 font-medium">
-                    Certificate Number
+                    {activeResult.type === "FARMER"
+                      ? "RSBSA Number"
+                      : activeResult.type === "BATCH"
+                        ? "Batch Code"
+                        : "Certificate Number"}
                   </span>
                   <span className="font-mono font-semibold text-slate-900">
-                    {activeResult.ownershipCertificateNumber || "REG-2026-000123"}
+                    {activeResult.ownershipCertificateNumber || "Not recorded"}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -1202,7 +1159,7 @@ export function UniversalQrScannerDialog({
                     Registry Status
                   </span>
                   <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[10px] font-semibold px-2 py-0.5 rounded-full border-0">
-                    Active
+                    {activeResult.operationalStatus || "Not recorded"}
                   </Badge>
                 </div>
                 <div className="flex justify-between items-baseline">
@@ -1210,9 +1167,7 @@ export function UniversalQrScannerDialog({
                     Date Registered
                   </span>
                   <span className="font-semibold text-slate-900">
-                    {formatCalendarDate(
-                      activeResult.dateRegistered || activeResult.birthDate
-                    ) || "Jan 15, 2026"}
+                    {formatCalendarDate(activeResult.dateRegistered) || "Not recorded"}
                   </span>
                 </div>
                 <div className="flex justify-between items-baseline">
@@ -1220,16 +1175,14 @@ export function UniversalQrScannerDialog({
                     Issuing Office
                   </span>
                   <span className="font-semibold text-slate-900">
-                    {activeResult.barangay
-                      ? `LGU ${activeResult.barangay}, Batangas`
-                      : "LGU San Juan, Batangas"}
+                    LGU Padre Garcia, Batangas
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Ineligibility Warning if any */}
-            {!activeResult.eligible && activeResult.type === "INDIVIDUAL" && (
+            {activeResult.eligible === false && activeResult.type === "INDIVIDUAL" && (
               <div
                 role="alert"
                 className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"
@@ -1326,7 +1279,7 @@ export function UniversalQrScannerDialog({
             <div className="flex items-center gap-2">
               <Camera className="size-4 text-emerald-400" />
               <span className="text-sm font-bold text-white">
-                Livestock Passport Photo — {activeResult ? (activeResult.type === "BATCH" ? `Batch ${activeResult.code}` : `Tag #${activeResult.code}`) : ""}
+                {activeResult?.photoUrl ? "Livestock Passport Photo" : "Species Reference Image"} — {activeResult ? (activeResult.type === "BATCH" ? `Batch ${activeResult.code}` : `Tag #${activeResult.code}`) : ""}
               </span>
             </div>
           </div>
@@ -1335,7 +1288,7 @@ export function UniversalQrScannerDialog({
             {activeResult && (
               <img
                 src={resolveLivestockPhotoUrl(activeResult.photoUrl, activeResult.specie)}
-                alt="Enlarged livestock passport"
+                alt={activeResult.photoUrl ? "Enlarged livestock passport photo" : "Species reference image"}
                 className="w-full h-full object-contain"
               />
             )}
