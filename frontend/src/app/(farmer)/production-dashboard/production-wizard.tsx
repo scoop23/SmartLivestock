@@ -48,6 +48,7 @@ import { type ProductionType,ProductionRecordItem } from "./production-analytics
 export type ProductionPayload = {
   livestock: number;
   selected_animals?: number[];
+  submit_slaughter_report?: boolean;
   production_type: "MILK" | "MEAT" | "EGGS" | "WOOL";
   quantity: number;
   unit: "LITERS" | "PIECES" | "KILOGRAMS";
@@ -230,13 +231,13 @@ function ProductionWizardContent({
           : step === 2
             ? [
                 { element: '[data-tour="production-wizard-date"]', popover: { title: "Set the record date", description: "Choose when this farm production was collected or recorded.", side: "bottom" as const, align: "start" as const } },
-                { element: '[data-tour="production-wizard-fields"]', popover: { title: "Enter production details", description: "Fill in the quantity and activity-specific details. Saving a meat yield for an individual animal also records that animal as slaughtered.", side: "top" as const, align: "center" as const } },
+                { element: '[data-tour="production-wizard-fields"]', popover: { title: "Enter production details", description: "Saving an individual meat-yield entry creates a pending official slaughter notice. Inventory changes only after MAO approval.", side: "top" as const, align: "center" as const } },
                 { element: '[data-tour="production-wizard-notes"]', popover: { title: "Add optional notes", description: "Add context for your own farm history.", side: "top" as const, align: "start" as const } },
               ]
             : [
                 { element: '[data-tour="production-wizard-review"]', popover: { title: "Review the entry", description: "Check the livestock, date, and production values before saving.", side: "top" as const, align: "center" as const } },
                 { element: '[data-tour="production-wizard-certification"]', popover: { title: "Confirm the declaration", description: "Check this confirmation only when the information reflects what you are reporting.", side: "top" as const, align: "center" as const } },
-                { element: '[data-tour="production-wizard-submit"]', popover: { title: "Save farm log", description: "The farmer submits this record directly. No MAO approval is needed for the production log or its individual-animal status update.", side: "top" as const, align: "center" as const } },
+                { element: '[data-tour="production-wizard-submit"]', popover: { title: "Save farm log", description: "The production log is saved as a personal Farmer record. A linked slaughter notice follows its separate MAO review workflow.", side: "top" as const, align: "center" as const } },
               ]),
       ...(step < 3
         ? [{
@@ -376,6 +377,10 @@ function ProductionWizardContent({
       }
     } else if (productionType === "meat") {
       payload.quantity = Number(formState.meatQty) || 0;
+      if (mode === "create" && clickedInventory.entryType === "INDIVIDUAL" && clickedInventory.quantity === 1) {
+        payload.submit_slaughter_report = true;
+        payload.selected_animals = [Number(clickedInventory.id)];
+      }
       if (formState.meatPurpose) {
         payload.notes = `[Purpose: ${formState.meatPurpose}] ${payload.notes}`.trim();
       }
@@ -714,8 +719,8 @@ function ProductionWizardContent({
                 <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5" role="note">
                   <p className="text-xs leading-relaxed text-amber-950">
                     {clickedInventory?.entryType === "INDIVIDUAL" && clickedInventory.quantity === 1
-                      ? "Saving this meat yield immediately marks the selected animal as SLAUGHTERED and removes it from active inventory. This is a farmer-submitted production record; no MAO approval is required."
-                      : "This is a batch or aggregate meat-yield entry. It records the yield, but does not change individual animal statuses because no exact animal is identified."}
+                      ? "This saves your personal meat-yield log and creates a pending official slaughter notice for this animal. The animal stays active until MAO approves the notice."
+                      : "This batch meat-yield entry is a personal log. It does not change individual animal statuses or create an official slaughter notice without exact animal selection."}
                   </p>
                 </div>
               )}
@@ -770,8 +775,8 @@ function ProductionWizardContent({
                   <ReviewRow
                     label="Inventory effect"
                     value={clickedInventory?.entryType === "INDIVIDUAL" && clickedInventory.quantity === 1
-                      ? "Selected animal will be marked SLAUGHTERED"
-                      : "No individual animal status change"}
+                      ? "Pending official review; inventory changes only after MAO approval"
+                      : "No individual inventory status change"}
                   />
                 )}
                 <ReviewRow
@@ -806,7 +811,7 @@ function ProductionWizardContent({
                   className="min-w-0 flex-1 text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed cursor-pointer select-none"
                 >
                   {productionType === "meat" && clickedInventory?.entryType === "INDIVIDUAL" && clickedInventory.quantity === 1
-                    ? "I confirm this meat yield is from the selected animal and understand that saving it marks that animal SLAUGHTERED."
+                    ? "I confirm this meat yield is from the selected animal and understand that the official slaughter notice needs MAO approval before inventory changes."
                     : "I confirm this farm log reflects the information available to me."}
                 </label>
               </div>

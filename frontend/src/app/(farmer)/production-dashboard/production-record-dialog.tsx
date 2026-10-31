@@ -63,8 +63,8 @@ export default function ProductionRecordDialog({
   onDelete?: (record: ProductionRecordItem) => void;
   isDeleting?: boolean;
 }) {
-  const canDelete = !record?.slaughterDetails || record?.slaughterDetails?.status !== "APPROVED";
-  const canEdit = canDelete;
+  const canDelete = !record?.slaughterDetails;
+  const canEdit = record?.slaughterDetails?.status !== "APPROVED";
 
   const meta = typeMeta[record?.productionType ?? "milk"];
   const TypeIcon = meta.icon;
@@ -187,7 +187,7 @@ export default function ProductionRecordDialog({
                         {record.livestockTagNumber ? `· Tag #${record.livestockTagNumber}` : `· ID #${record.livestockId}`}
                       </p>
                       <p className="text-rose-800 mt-0.5 text-xs">
-                        Saving this meat yield marked the animal as slaughtered and moved it to past inventory history.
+                        This older Farmer meat-yield log has no linked official slaughter notice. The log remains personal production history; inventory changes only after MAO approval of a linked notice.
                       </p>
                     </div>
                   </div>

@@ -92,6 +92,8 @@ interface BreedingAnalytics {
   total_records: number;
   active_gestations: number;
   due_soon: number;
+  pending_check_count: number;
+  estimated_due_soon: number;
   calved_count: number;
   open_count: number;
   conception_rate_pct: number | null;
@@ -483,6 +485,8 @@ export default function ProductionAnalyticsPage() {
 
   useEffect(() => {
     if (!eligibleProductionTypes.includes(activeType)) {
+      // The selected chart must remain valid when the chosen livestock has fewer production types.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveType(eligibleProductionTypes[0] || "milk");
     }
   }, [eligibleProductionTypes, activeType]);
@@ -654,7 +658,7 @@ export default function ProductionAnalyticsPage() {
   // Active Gestations list
   const activePregnantList = useMemo(() => {
     return breedingRecords
-      .filter((b) => b.status === "PREGNANT" || b.status === "PENDING_CHECK")
+      .filter((b) => b.status === "PREGNANT")
       .slice(0, 6);
   }, [breedingRecords]);
 
@@ -868,7 +872,7 @@ export default function ProductionAnalyticsPage() {
     // Rule 2: Maternity & Imminent Calving Preparation (Breeding Records)
     const dueSoonDams = breedingRecords.filter(
       (b) =>
-        (b.status === "PREGNANT" || b.status === "PENDING_CHECK") &&
+        b.status === "PREGNANT" &&
         b.days_until_due !== null &&
         b.days_until_due !== undefined &&
         b.days_until_due <= 30
@@ -879,13 +883,13 @@ export default function ProductionAnalyticsPage() {
         rule: "MATERNITY_CALVING_READINESS",
         category: "Breeding & Perinatal Care",
         severity: (nearest.days_until_due ?? 30) <= 10 ? "HIGH" : "MEDIUM",
-        title: `${dueSoonDams.length} Pregnant Dam${dueSoonDams.length === 1 ? "" : "s"} Approaching Delivery (≤ 30 Days)`,
+        title: `${dueSoonDams.length} Confirmed Pregnant Dam${dueSoonDams.length === 1 ? "" : "s"} Approaching Estimated Due Date (≤ 30 Days)`,
         reason: `Dam ${nearest.dam_tag || `#${nearest.dam}`} is scheduled to give birth on ${nearest.expected_due_date ? formatCalendarDate(nearest.expected_due_date) : "upcoming due date"} (${nearest.days_until_due ?? 0} days remaining). Each successful calving adds ~12 L/day to your 6-month milk trajectory.`,
         evidence: {
           "Due ≤ 30d": `${dueSoonDams.length} head(s)`,
           "Nearest Dam": nearest.dam_tag || `Dam #${nearest.dam}`,
           "Days Left": `${nearest.days_until_due ?? 0}d`,
-          "Expected Due": nearest.expected_due_date || "—",
+          "Estimated Due": nearest.expected_due_date || "—",
         },
         action:
           "Prepare a clean, dry maternity pen, transition the dam to a low-calcium pre-calving ration 14–21 days prior to delivery, and stock colostrum supplies for immediate newborn intake.",
@@ -1379,10 +1383,13 @@ export default function ProductionAnalyticsPage() {
 
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200">
-                        {breedingAnalytics?.active_gestations ?? 0} pregnant dams
+                        {breedingAnalytics?.active_gestations ?? 0} confirmed pregnant dams
                       </span>
                       <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
                         {breedingAnalytics?.due_soon ?? 0} due soon
+                      </span>
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200/80">
+                        {breedingAnalytics?.pending_check_count ?? 0} awaiting pregnancy check
                       </span>
                       <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200/80">
                         {breedingAnalytics?.conception_rate_pct != null ? `${breedingAnalytics.conception_rate_pct}% success` : "Gestation registry"}
@@ -1606,7 +1613,7 @@ export default function ProductionAnalyticsPage() {
                 {selectedDomain === "breeding" && (
                   <>
                     <KpiCard
-                      title="Pregnant Animals (Dams)"
+                      title="Confirmed Pregnancies (Dams)"
                       value={
                         <div className="flex items-baseline gap-2 mt-0.5">
                           <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -1616,10 +1623,10 @@ export default function ProductionAnalyticsPage() {
                         </div>
                       }
                       icon={<HeartHandshake className="size-5" />}
-                      badge="PREGNANT / BRED"
+                      badge={`${breedingAnalytics?.pending_check_count ?? 0} AWAITING CHECK`}
                       badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
                       variant="emerald"
-                      description="Confirmed pregnant or awaiting check"
+                      description="Pregnancy confirmations only"
                       wrapText
                     />
 
@@ -1637,7 +1644,7 @@ export default function ProductionAnalyticsPage() {
                       badge="GIVING BIRTH SOON"
                       badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 tracking-wider"
                       variant="amber"
-                      description="Expected to give birth within 30 days"
+                      description="Confirmed pregnancies with an estimated due date within 30 days"
                       wrapText
                     />
 
@@ -2513,7 +2520,9 @@ export default function ProductionAnalyticsPage() {
                       <HeartHandshake className="size-10 text-slate-300 mx-auto" />
                       <p className="font-display font-bold text-sm text-slate-800">No active pregnancies recorded</p>
                       <p className="text-xs text-slate-500 font-medium">
-                        Record mating or artificial insemination logs in the Breeding tab to track countdowns and expected due dates.
+                        {breedingAnalytics?.pending_check_count
+                          ? `${breedingAnalytics.pending_check_count} breeding record(s) are awaiting a pregnancy check; their due dates remain estimates.`
+                          : "Record mating or artificial insemination logs in the Breeding tab to track estimated due dates."}
                       </p>
                     </div>
                   ) : (
@@ -2549,7 +2558,7 @@ export default function ProductionAnalyticsPage() {
 
                             <div className="space-y-1">
                               <div className="flex items-center justify-between text-[11px] text-slate-600 font-medium">
-                                <span>Pregnancy Progress</span>
+                                <span>Confirmed gestation progress</span>
                                 <span className="font-mono font-bold text-emerald-700">{progress}%</span>
                               </div>
                               <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
@@ -2562,7 +2571,7 @@ export default function ProductionAnalyticsPage() {
 
                             <div className="text-[11px] text-slate-600 space-y-0.5 pt-1 border-t border-slate-200/60 font-mono">
                               <p>Bred: {formatCalendarDate(item.breeding_date)} ({item.breeding_type})</p>
-                              <p>Expected Due: {item.expected_due_date ? formatCalendarDate(item.expected_due_date) : "—"}</p>
+                              <p>Estimated Due: {item.expected_due_date ? formatCalendarDate(item.expected_due_date) : "—"}</p>
                               {item.sire_tag_or_code && <p>Sire Code: {item.sire_tag_or_code}</p>}
                             </div>
                           </div>

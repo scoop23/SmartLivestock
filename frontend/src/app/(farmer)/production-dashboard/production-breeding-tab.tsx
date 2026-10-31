@@ -92,6 +92,8 @@ export interface BreedingAnalyticsData {
   total_records: number;
   active_gestations: number;
   due_soon: number;
+  pending_check_count: number;
+  estimated_due_soon: number;
   calved_count: number;
   confirmed_conceptions_count?: number;
   open_count: number;
@@ -362,7 +364,7 @@ export default function ProductionBreedingTab({
     },
   });
 
-  // Update status mutation (e.g. from PENDING_CHECK to PREGNANT or CALVED)
+  // The general status endpoint is used only for a known unsuccessful outcome.
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: BreedingRecordItem["status"] }) => {
       const res = await api.patch(`production/breeding/${id}/`, { status });
@@ -436,17 +438,17 @@ export default function ProductionBreedingTab({
       {/* 1. Farmbrite-Style KPI Telemetry Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard
-          title="Pregnant Animals (Dams)"
+          title="Confirmed Pregnancies"
           value={analytics ? `${analytics.active_gestations} Dams` : "0 Dams"}
           icon={<HeartHandshake className="size-4.5" />}
-          badge={analytics?.due_soon ? `${analytics.due_soon} due in ≤ 30 days` : "Pregnant or awaiting check"}
+          badge={`${analytics?.pending_check_count ?? 0} awaiting check`}
           variant="emerald"
         />
         <KpiCard
           title="Due Soon (≤ 30 Days)"
           value={analytics ? `${analytics.due_soon} Dams` : "0 Dams"}
           icon={<Clock className="size-4.5" />}
-          badge="Giving birth soon"
+          badge="Confirmed pregnancies only"
           variant="amber"
         />
         <KpiCard
@@ -637,7 +639,7 @@ export default function ProductionBreedingTab({
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {paginatedRecords.map((record) => {
-            const isDueSoon = (record.days_until_due ?? 999) <= 30 && (record.days_until_due ?? 999) >= 0;
+            const isDueSoon = record.status === "PREGNANT" && (record.days_until_due ?? 999) <= 30 && (record.days_until_due ?? 999) >= 0;
             const isOverdue = (record.days_until_due ?? 999) < 0 && record.status === "PREGNANT";
             const progress = record.gestation_progress_pct ?? 0;
 
@@ -697,7 +699,7 @@ export default function ProductionBreedingTab({
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-bold text-amber-950 flex items-center gap-1.5">
                         <Clock className="size-3.5 text-amber-700" />
-                        Expected Due Date:
+                        Estimated Due Date:
                       </span>
                       <span className="font-black text-amber-900">
                         {record.expected_due_date || "—"}
@@ -713,13 +715,15 @@ export default function ProductionBreedingTab({
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] font-semibold text-amber-800 pt-0.5">
-                      <span>Gestation: {progress}% elapsed</span>
+                      <span>{record.status === "PREGNANT" ? "Confirmed gestation" : "Estimated timeline"}: {progress}% elapsed</span>
                       <span>
                         {isOverdue ? (
-                          <span className="text-rose-700 font-bold">Delivery Imminent / Past Due</span>
+                          <span className="text-rose-700 font-bold">Past estimated due date</span>
                         ) : record.days_until_due !== null && record.days_until_due !== undefined ? (
                           <span className={isDueSoon ? "text-amber-800 font-bold" : "text-slate-600"}>
-                            {record.days_until_due > 0 ? `Due in ${record.days_until_due} days` : "Due today"}
+                            {record.status === "PENDING_CHECK"
+                              ? record.days_until_due > 0 ? `Estimated in ${record.days_until_due} days` : "Estimated date passed"
+                              : record.days_until_due > 0 ? `Expected in ${record.days_until_due} days` : "Expected today"}
                           </span>
                         ) : (
                           "—"
@@ -738,7 +742,7 @@ export default function ProductionBreedingTab({
                   <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
                     <span className="text-[11px] text-slate-400 font-semibold">Update status:</span>
                     <div className="flex items-center gap-1.5">
-                      {record.status !== "PREGNANT" && (
+                      {record.status === "PENDING_CHECK" && (
                         <button
                           type="button"
                           onClick={() => {
@@ -753,16 +757,7 @@ export default function ProductionBreedingTab({
                           <span>Confirm Pregnant</span>
                         </button>
                       )}
-                      {record.status !== "CALVED" && (
-                        <button
-                          type="button"
-                          onClick={() => updateStatusMutation.mutate({ id: record.id, status: "CALVED" })}
-                          className="px-2 py-1 rounded-lg text-[11px] font-bold bg-sky-50 text-sky-800 hover:bg-sky-100 border border-sky-200 transition cursor-pointer"
-                        >
-                          Mark Calved
-                        </button>
-                      )}
-                      {record.status !== "OPEN" && (
+                      {record.status !== "OPEN" && record.status !== "CALVED" && (
                         <button
                           type="button"
                           onClick={() => updateStatusMutation.mutate({ id: record.id, status: "OPEN" })}

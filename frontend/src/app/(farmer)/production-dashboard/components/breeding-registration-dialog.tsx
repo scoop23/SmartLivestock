@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { localCalendarDateToday } from "@/lib/livestock-age";
-import { Calendar, Dna, HeartHandshake, Sparkles, Tag, UserCheck } from "lucide-react";
+import { Calendar, HeartHandshake, Sparkles, Tag, UserCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { LivestockInventoryItem } from "../../livestock-inventory/page";
 import { LivestockPickerField } from "../select-livestock-dialog";
@@ -34,7 +34,6 @@ export interface BreedingPayload {
   technician_or_inseminator: string;
   gestation_days: number;
   expected_due_date?: string;
-  status: "PENDING_CHECK" | "PREGNANT" | "CALVED" | "OPEN";
   notes: string;
 }
 
@@ -71,7 +70,6 @@ export default function BreedingRegistrationDialog({
   const [selectedSireId, setSelectedSireId] = useState("MANUAL");
   const [sireBreed, setSireBreed] = useState("");
   const [technician, setTechnician] = useState("");
-  const [status, setStatus] = useState<"PENDING_CHECK" | "PREGNANT" | "CALVED" | "OPEN">("PENDING_CHECK");
   const [notes, setNotes] = useState("");
 
   const selectedDam = femaleLivestock.find((item) => String(item.id) === damId);
@@ -106,6 +104,8 @@ export default function BreedingRegistrationDialog({
 
   useEffect(() => {
     if (!open) {
+      // This dialog's draft is local form state and must clear after the parent closes it.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDamId("");
       setBreedingDate(localCalendarDateToday());
       setBreedingType("ARTIFICIAL_INSEMINATION");
@@ -113,7 +113,6 @@ export default function BreedingRegistrationDialog({
       setSelectedSireId("MANUAL");
       setSireBreed("");
       setTechnician("");
-      setStatus("PENDING_CHECK");
       setNotes("");
     }
   }, [open]);
@@ -131,7 +130,6 @@ export default function BreedingRegistrationDialog({
       technician_or_inseminator: technician.trim(),
       gestation_days: gestationDays,
       expected_due_date: calculatedDueDate || undefined,
-      status,
       notes: notes.trim(),
     });
   };
@@ -207,7 +205,7 @@ export default function BreedingRegistrationDialog({
 
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">Breeding Method</Label>
-              <Select value={breedingType} onValueChange={(val: any) => setBreedingType(val)}>
+              <Select value={breedingType} onValueChange={(val) => setBreedingType(val as BreedingPayload["breeding_type"])}>
                 <SelectTrigger className="h-10 rounded-xl text-xs bg-slate-50/70">
                   <SelectValue />
                 </SelectTrigger>
@@ -285,8 +283,8 @@ export default function BreedingRegistrationDialog({
             </div>
           </div>
 
-          {/* Section 4: Technician / Inseminator & Status */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* A breeding entry records exposure; confirmation is a separate action. */}
+          <div className="grid grid-cols-1 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">
                 Technician / AI Officer / Inseminator
@@ -302,20 +300,6 @@ export default function BreedingRegistrationDialog({
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">Current Status</Label>
-              <Select value={status} onValueChange={(val: any) => setStatus(val)}>
-                <SelectTrigger className="h-10 rounded-xl text-xs bg-slate-50/70">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  <SelectItem value="PENDING_CHECK">Inseminated / Awaiting Check</SelectItem>
-                  <SelectItem value="PREGNANT">Confirmed Pregnant / Gestating</SelectItem>
-                  <SelectItem value="CALVED">Calved / Delivered</SelectItem>
-                  <SelectItem value="OPEN">Open / Failed / Re-bred</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           {/* Calculated Expected Due Date Banner */}
@@ -323,7 +307,7 @@ export default function BreedingRegistrationDialog({
             <div className="flex items-center gap-2.5">
               <Sparkles className="size-5 text-amber-700 shrink-0" />
               <div>
-                <p className="text-xs font-bold text-amber-950">Calculated Expected Due Date</p>
+                <p className="text-xs font-bold text-amber-950">Estimated Due Date</p>
                 <p className="text-[11px] text-amber-800">Based on standard biological gestation ({gestationDays} days)</p>
               </div>
             </div>

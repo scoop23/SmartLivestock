@@ -114,7 +114,7 @@ export default function ProductionRecent({
           <div className="divide-y divide-slate-100">
             {filteredRecords.map((record) => {
               const canEdit = record.slaughterDetails?.status !== "APPROVED";
-              const canDelete = record.slaughterDetails?.status !== "APPROVED";
+              const canDelete = !record.slaughterDetails;
               return (
                 <div
                   key={record.id}
