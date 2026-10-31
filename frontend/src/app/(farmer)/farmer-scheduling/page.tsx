@@ -114,6 +114,12 @@ function getProgramFallbackImage(category?: string | null, title?: string | null
   return "/images/species-cattle.jpg";
 }
 
+const PROGRAM_TYPE_TABS = [
+  { id: "all", label: "All Programs" },
+  { id: "walkin", label: "Walk-in Programs" },
+  { id: "appointment", label: "By Appointment" },
+] as const;
+
 function parseBulletPoints(text?: string | null, defaults: string[] = []): string[] {
   if (!text || !text.trim()) return defaults;
   const items = text
@@ -186,6 +192,50 @@ function FarmerSchedulingContent() {
   const [programTypeFilter, setProgramTypeFilter] = useState<"all" | "walkin" | "appointment">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"soonest" | "latest" | "title-asc" | "title-desc">("soonest");
+
+  const [tabIndicatorStyle, setTabIndicatorStyle] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    ready: boolean;
+  }>({
+    left: 0,
+    top: 0,
+    width: 0,
+    height: 0,
+    ready: false,
+  });
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const tabsContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const updateTabIndicator = useCallback(() => {
+    const currentTab = tabRefs.current[programTypeFilter];
+    const container = tabsContainerRef.current;
+    if (currentTab && container) {
+      const containerRect = container.getBoundingClientRect();
+      const tabRect = currentTab.getBoundingClientRect();
+      setTabIndicatorStyle({
+        left: tabRect.left - containerRect.left,
+        top: tabRect.top - containerRect.top,
+        width: tabRect.width,
+        height: tabRect.height,
+        ready: true,
+      });
+    }
+  }, [programTypeFilter]);
+
+  useEffect(() => {
+    updateTabIndicator();
+    const handleResize = () => updateTabIndicator();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [updateTabIndicator]);
+
+  useEffect(() => {
+    const timer = setTimeout(updateTabIndicator, 50);
+    return () => clearTimeout(timer);
+  }, [updateTabIndicator]);
 
   const userDisplayName =
     user?.firstName && user?.lastName
@@ -642,40 +692,54 @@ function FarmerSchedulingContent() {
         {/* Programs Filter Toolbar */}
         <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3 sm:px-4 sm:py-3 shadow-xs md:flex-row md:items-center md:justify-between animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
           {/* Left: Program Type Tabs (All Programs / Walk-in Programs / By Appointment) */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setProgramTypeFilter("all")}
-              className={`h-9 sm:h-10 rounded-full px-4 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                programTypeFilter === "all"
-                  ? "bg-[#0F5A38] text-white shadow-xs"
-                  : "bg-slate-100/80 text-slate-700 hover:bg-slate-200/80"
+          <div ref={tabsContainerRef} className="relative flex flex-wrap items-center gap-2">
+            {/* Sliding Active Pill Indicator */}
+            <span
+              aria-hidden="true"
+              className={`absolute top-0 left-0 rounded-full bg-[#0F5A38] shadow-xs pointer-events-none z-10 transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
+                tabIndicatorStyle.ready ? "opacity-100" : "opacity-0"
               }`}
-            >
-              All Programs
-            </button>
-            <button
-              type="button"
-              onClick={() => setProgramTypeFilter("walkin")}
-              className={`h-9 sm:h-10 rounded-full px-4 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                programTypeFilter === "walkin"
-                  ? "bg-[#0F5A38] text-white shadow-xs"
-                  : "bg-slate-100/80 text-slate-700 hover:bg-slate-200/80"
-              }`}
-            >
-              Walk-in Programs
-            </button>
-            <button
-              type="button"
-              onClick={() => setProgramTypeFilter("appointment")}
-              className={`h-9 sm:h-10 rounded-full px-4 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                programTypeFilter === "appointment"
-                  ? "bg-[#0F5A38] text-white shadow-xs"
-                  : "bg-slate-100/80 text-slate-700 hover:bg-slate-200/80"
-              }`}
-            >
-              By Appointment
-            </button>
+              style={{
+                transform: `translate(${tabIndicatorStyle.left}px, ${tabIndicatorStyle.top}px)`,
+                width: `${tabIndicatorStyle.width}px`,
+                height: `${tabIndicatorStyle.height}px`,
+              }}
+            />
+
+            {PROGRAM_TYPE_TABS.map((tab) => {
+              const isActive = programTypeFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  ref={(el) => {
+                    tabRefs.current[tab.id] = el;
+                  }}
+                  type="button"
+                  onClick={() => setProgramTypeFilter(tab.id)}
+                  className="relative h-9 sm:h-10 rounded-full px-4 text-xs sm:text-sm font-bold transition-transform duration-150 active:scale-95 cursor-pointer select-none"
+                >
+                  {/* Inactive Pill Background */}
+                  <span
+                    className={`absolute inset-0 rounded-full transition-opacity duration-200 ${
+                      isActive
+                        ? tabIndicatorStyle.ready
+                          ? "opacity-0"
+                          : "bg-[#0F5A38] opacity-100"
+                        : "bg-slate-100/80 hover:bg-slate-200/80 opacity-100"
+                    }`}
+                  />
+
+                  {/* Tab Label */}
+                  <span
+                    className={`relative z-20 transition-colors duration-200 ${
+                      isActive ? "text-white font-bold" : "text-slate-700 hover:text-slate-900"
+                    }`}
+                  >
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Right: Search Input & Sort Dropdown */}
@@ -847,7 +911,10 @@ function FarmerSchedulingContent() {
 
                   {/* Right Column: Programs on Selected Date & Booking Form */}
                   <div className="min-w-0 space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div
+                      key={`header-${programTypeFilter}`}
+                      className="flex flex-wrap items-center justify-between gap-2 animate-in fade-in-50 duration-300 fill-mode-both"
+                    >
                       <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500">
                         {calendarDate
                           ? `Programs on ${formatShortDate(calendarDate)}`
@@ -863,7 +930,10 @@ function FarmerSchedulingContent() {
                     </div>
 
                     {displayedPrograms.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
+                      <div
+                        key={`empty-${programTypeFilter}`}
+                        className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center animate-in fade-in-50 zoom-in-95 duration-300 fill-mode-both"
+                      >
                         <CalendarDays className="mx-auto size-8 text-slate-300" />
                         <h4 className="mt-2 text-sm sm:text-base font-bold text-slate-700">
                           {calendarDate
@@ -893,7 +963,10 @@ function FarmerSchedulingContent() {
                     ) : null}
 
                     {/* Program Cards Grid */}
-                    <div className="grid grid-cols-1 gap-3">
+                    <div
+                      key={`grid-${programTypeFilter}`}
+                      className="grid grid-cols-1 gap-3 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both"
+                    >
                       {displayedPrograms.map((schedule) => {
                         const isUnlimited = schedule.capacity === 0;
                         const alreadyBooked = confirmedScheduleIds.has(schedule.id);
