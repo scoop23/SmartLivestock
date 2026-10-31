@@ -475,6 +475,35 @@ function FarmerSchedulingContent() {
     return list[0] ?? null;
   }, [upcoming]);
 
+  const nextProgramSchedule = useMemo(() => {
+    const list = schedules
+      .filter((s) => isUpcoming(s.date) && s.publication_status === "PUBLISHED")
+      .sort((a, b) => a.date.localeCompare(b.date));
+    return list[0] ?? null;
+  }, [schedules]);
+
+  const activeHighlightedProgram = useMemo(() => {
+    if (nextVisit) {
+      return {
+        program: nextVisit.program,
+        date: nextVisit.date,
+        time: nextVisit.time,
+        scheduleId: nextVisit.schedule,
+        isBooking: true,
+      };
+    }
+    if (nextProgramSchedule) {
+      return {
+        program: nextProgramSchedule.program,
+        date: nextProgramSchedule.date,
+        time: nextProgramSchedule.available_times?.[0] || "08:00",
+        scheduleId: nextProgramSchedule.id,
+        isBooking: false,
+      };
+    }
+    return null;
+  }, [nextVisit, nextProgramSchedule]);
+
   const displayedBookings = useMemo(() => {
     const list = bookingFilter === "upcoming" ? upcoming : pastBookings;
     return list.slice().sort((a, b) => b.date.localeCompare(a.date));
@@ -504,78 +533,65 @@ function FarmerSchedulingContent() {
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
-        {/* Sleek Schedule Telemetry Ribbon (Replaces redundant KPI cards while clearly presenting all 3 insights) */}
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:px-5 sm:py-3 shadow-xs md:flex-row md:items-center md:justify-between animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
-          {/* Key Insight 1: Nearest Scheduled Farm Visit */}
-          <div className="flex items-center gap-3 min-w-0">
-            <span
-              className={`flex size-9 sm:size-10 shrink-0 items-center justify-center rounded-xl ${
-                nextVisit ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
-              }`}
-            >
-              {nextVisit ? <Clock3 className="size-4.5 sm:size-5" /> : <CalendarCheck className="size-4.5 sm:size-5" />}
+        {/* Next Program Highlight Ribbon (Matching requested screenshot) */}
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:px-5 sm:py-3.5 shadow-xs md:flex-row md:items-center md:justify-between animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-100/90 text-amber-800 shadow-2xs">
+              <Clock3 className="size-5 stroke-[2]" />
             </span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-500">
-                  {nextVisit ? "Next Farm Visit" : "Field Appointments"}
+                <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-slate-500">
+                  {nextVisit ? "Next Appointment" : "Next Program"}
                 </span>
-                {nextVisit ? (
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-950">
-                    {daysUntil(nextVisit.date) === 0
+                {activeHighlightedProgram ? (
+                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-950">
+                    {daysUntil(activeHighlightedProgram.date) === 0
                       ? "Today"
-                      : daysUntil(nextVisit.date) === 1
+                      : daysUntil(activeHighlightedProgram.date) === 1
                         ? "Tomorrow"
-                        : `In ${daysUntil(nextVisit.date)} days`}
+                        : `In ${daysUntil(activeHighlightedProgram.date)} days`}
                   </span>
                 ) : null}
               </div>
-              <p className="text-xs sm:text-sm font-bold text-slate-900 mt-0.5 whitespace-normal break-words">
-                {nextVisit ? (
+              <p className="text-xs sm:text-sm font-black text-slate-900 mt-0.5 truncate">
+                {activeHighlightedProgram ? (
                   <>
-                    <span>{nextVisit.program}</span>
+                    <span>{activeHighlightedProgram.program}</span>
                     <span className="text-slate-400 font-normal"> · </span>
-                    <span className="text-emerald-800 font-bold">{formatLongDate(nextVisit.date)}</span>
+                    <span className="text-slate-700 font-bold">{formatShortDate(activeHighlightedProgram.date)}</span>
                     <span className="text-slate-400 font-normal"> at </span>
-                    <span className="text-slate-700 font-semibold">{formatTime(nextVisit.time)}</span>
+                    <span className="text-slate-700 font-semibold">{formatTime(activeHighlightedProgram.time)}</span>
                   </>
                 ) : (
-                  <span className="text-slate-600 font-medium">
-                    No active appointments reserved · Pick an open program date below to book
+                  <span className="text-slate-500 font-medium">
+                    No upcoming programs scheduled yet · Check back soon for announcements
                   </span>
                 )}
               </p>
             </div>
           </div>
 
-          {/* Key Insights 2 & 3: Interactive Status Badges */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0 border-t border-slate-100 pt-2.5 md:border-t-0 md:pt-0">
-            <button
-              type="button"
-              onClick={() => {
-                setBookingFilter("upcoming");
-                const el = document.getElementById("my-bookings-section");
-                el?.scrollIntoView({ behavior: "smooth" });
-              }}
-              className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100/70 px-3 py-1.5 text-xs font-bold text-emerald-900 transition-colors cursor-pointer"
-              title="View my upcoming bookings"
-            >
-              <CalendarCheck className="size-4 text-emerald-700" />
-              <span>
-                <strong>{upcoming.length}</strong> Reserved {upcoming.length === 1 ? "Slot" : "Slots"}
-              </span>
-            </button>
-
-            <div
-              className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50/70 px-3 py-1.5 text-xs font-bold text-sky-900"
-              title="Programs open across Padre Garcia"
-            >
-              <CalendarDays className="size-4 text-sky-700" />
-              <span>
-                <strong>{schedules.length}</strong> Open {schedules.length === 1 ? "Program" : "Programs"}
-              </span>
+          {activeHighlightedProgram ? (
+            <div className="shrink-0 pt-2 border-t border-slate-100 md:border-t-0 md:pt-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const target = schedules.find((s) => s.id === activeHighlightedProgram.scheduleId);
+                  if (target) {
+                    setDetailsSchedule(target);
+                    setScheduleId(String(target.id));
+                    setCalendarDate(localDateFromIso(target.date));
+                  }
+                }}
+                className="h-9.5 px-3.5 rounded-xl border-emerald-300 text-emerald-800 hover:bg-emerald-50 hover:border-emerald-400 font-bold text-xs flex items-center gap-2 shadow-2xs cursor-pointer"
+              >
+                <CalendarCheck className="size-4 text-emerald-700" />
+                <span>View Details</span>
+              </Button>
             </div>
-          </div>
+          ) : null}
         </div>
 
         {/* Global Notifications */}
