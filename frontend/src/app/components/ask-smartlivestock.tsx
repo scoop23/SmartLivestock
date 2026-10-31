@@ -12,6 +12,7 @@ import {
   Activity,
   BarChart3,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Clock,
   Cpu,
@@ -24,7 +25,7 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import { useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type ResultRow = Record<string, string | number | null>;
@@ -360,9 +361,11 @@ export function AskSmartLivestock() {
   const [response, setResponse] = useState<AskResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resultExpanded, setResultExpanded] = useState(true);
   const [draftNotice, setDraftNotice] = useState("");
   const [explainWithAI, setExplainWithAI] = useState(false);
   const questionInput = useRef<HTMLInputElement>(null);
+  const resultContentId = useId();
   // A ref changes immediately; React state alone cannot block same-tick clicks.
   const submitting = useRef(false);
 
@@ -371,6 +374,7 @@ export function AskSmartLivestock() {
     if (!trimmed || submitting.current) return;
     submitting.current = true;
     setLoading(true);
+    setResultExpanded(true);
     setError("");
     setDraftNotice("");
     setResponse(null);
@@ -495,9 +499,25 @@ export function AskSmartLivestock() {
       </div>
 
       {loading ? (
-        <div role="status" className="mt-4 flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 text-xs text-emerald-900">
-          <LoaderCircle className="size-4 animate-spin text-emerald-700" aria-hidden="true" />
-          <span className="font-mono font-semibold">Executing rules-first parser & evaluating authorized records…</span>
+        <div role="status" aria-live="polite" className="mt-4 flex items-center gap-3 overflow-hidden rounded-xl border border-emerald-500/20 bg-gradient-to-r from-emerald-50 via-white to-cyan-50 p-3.5 text-xs text-emerald-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <span className="relative flex size-10 shrink-0 items-center justify-center">
+            <span className="absolute inset-0 rounded-full bg-emerald-300/60 animate-ping-subtle motion-reduce:animate-none" aria-hidden="true" />
+            <span className="relative flex size-9 items-center justify-center rounded-full border border-emerald-200 bg-white shadow-xs">
+              <LoaderCircle className="size-5 animate-spin text-emerald-700 motion-reduce:animate-none" aria-hidden="true" />
+            </span>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-x-2 font-mono font-bold">
+              <span>Querying authorized records</span>
+              <span className="inline-flex items-center gap-0.5" aria-hidden="true">
+                <span className="size-1 rounded-full bg-emerald-600 animate-bounce motion-reduce:animate-none" />
+                <span className="size-1 rounded-full bg-emerald-600 animate-bounce motion-reduce:animate-none [animation-delay:120ms]" />
+                <span className="size-1 rounded-full bg-emerald-600 animate-bounce motion-reduce:animate-none [animation-delay:240ms]" />
+              </span>
+            </span>
+            <span className="mt-0.5 block text-[11px] font-medium text-slate-600">Parsing your question and checking records you are authorized to view…</span>
+          </span>
+          <span className="hidden shrink-0 rounded-md border border-emerald-200 bg-white/80 px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-emerald-800 sm:inline-flex">Query active</span>
         </div>
       ) : null}
 
@@ -517,11 +537,46 @@ export function AskSmartLivestock() {
       {/* FUTURISTIC RESULT CONSOLE READOUT                                */}
       {/* ----------------------------------------------------------------- */}
       {response ? (
-        <div className="relative mt-5 overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-white via-slate-50/30 to-emerald-50/15 p-4 sm:p-5 shadow-xs space-y-4" aria-live="polite">
+        <div className="relative mt-5 overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-white via-slate-50/30 to-emerald-50/15 shadow-xs animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
           {/* Subtle Cyber Glowing Background Orbs */}
           <div className="pointer-events-none absolute -right-20 -top-20 size-56 rounded-full bg-emerald-500/10 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-20 size-56 rounded-full bg-cyan-500/10 blur-3xl" />
 
+          <div className="relative z-10 flex flex-col gap-2 border-b border-emerald-500/10 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:p-4">
+            <div className="min-w-0 flex-1">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                <span className="relative flex size-2">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75 motion-reduce:animate-none" />
+                  <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                </span>
+                Query result ready
+              </span>
+              {!resultExpanded ? (
+                <p className="mt-1.5 line-clamp-2 text-xs font-semibold leading-relaxed text-slate-700">{response.answer}</p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-expanded={resultExpanded}
+              aria-controls={resultContentId}
+              onClick={() => setResultExpanded((expanded) => !expanded)}
+              className="h-8 shrink-0 rounded-lg border-emerald-200 bg-white/90 px-2.5 font-mono text-[10px] font-bold text-emerald-900 hover:bg-emerald-50"
+            >
+              {resultExpanded ? "Collapse result" : "Show result"}
+              <ChevronDown className={`ml-1 size-3.5 transition-transform duration-300 ${resultExpanded ? "rotate-180" : ""}`} aria-hidden="true" />
+            </Button>
+          </div>
+
+          <div
+            id={resultContentId}
+            className={`relative z-10 grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none ${
+              resultExpanded ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"
+            }`}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div className="space-y-4 p-4 sm:p-5" aria-live="polite" aria-hidden={!resultExpanded} inert={!resultExpanded}>
           {response.status === "answered" ? (
             <>
               {/* Telemetry Header HUD Bar */}
@@ -713,6 +768,9 @@ export function AskSmartLivestock() {
               ) : null}
             </div>
           )}
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
     </section>
