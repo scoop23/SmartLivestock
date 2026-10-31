@@ -161,7 +161,7 @@ export function ValidationKpis({
       </div>
 
       {/* ── DESKTOP & TABLET KPI STRIP (sm and up) ── */}
-      <div className="hidden sm:grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+      <div className="hidden sm:grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 pt-2 -mt-2 px-1 -mx-1">
         <KpiCard
           title="Awaiting SIBAT"
           value={kpis.pending}

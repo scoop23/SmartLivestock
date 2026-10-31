@@ -75,6 +75,7 @@ type DomainFilterState = {
   searchQuery: string;
   statusFilter: ValidationStatus;
   barangayFilter: string;
+  incidentTypeFilter?: string;
 };
 
 // Herd members must move through review as a unit — never individually.
@@ -176,8 +177,22 @@ function AdminDataValidationContent() {
     census: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
     production: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
     inventory: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
-    incidents: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
+    incidents: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL", incidentTypeFilter: "ALL" },
   });
+  const [isOverviewCollapsed, setIsOverviewCollapsed] = useState(() =>
+    Boolean(requestedDomain || highlightId || highlightTag)
+  );
+
+  const handleTabSelect = (tab: ValidationDomain | "slaughter") => {
+    setIsOverviewCollapsed(true);
+    if (tab === "slaughter") {
+      setActiveValidationView("slaughter");
+    } else {
+      setActiveDomain(tab);
+      setActiveValidationView("records");
+      setSelectedIds([]);
+    }
+  };
 
   // Sync active domain and filters when arriving via direct link or QR scan
   useEffect(() => {
@@ -578,6 +593,8 @@ function AdminDataValidationContent() {
     });
   }, [inventoryRecords, searchQuery, statusFilter, barangayFilter, requestedBatchId]);
 
+  const incidentTypeFilter = domainFilters.incidents.incidentTypeFilter ?? "ALL";
+
   const filteredIncidents = useMemo(() => {
     return incidents.filter((inc) => {
       const matchSearch =
@@ -592,9 +609,12 @@ function AdminDataValidationContent() {
             : (inc.status || "PENDING").toUpperCase() === "VERIFIED")
         : matchesStatusFilter(inc.status, statusFilter);
       const matchBarangay = barangayFilter === "ALL" || inc.barangayName === barangayFilter;
-      return matchSearch && matchStatus && matchBarangay;
+      const matchType =
+        incidentTypeFilter === "ALL" ||
+        inc.type.toLowerCase() === incidentTypeFilter.toLowerCase();
+      return matchSearch && matchStatus && matchBarangay && matchType;
     });
-  }, [incidents, searchQuery, statusFilter, barangayFilter]);
+  }, [incidents, searchQuery, statusFilter, barangayFilter, incidentTypeFilter]);
 
   // ── Pagination State ──
   const [domainPages, setDomainPages] = useState<Record<ValidationDomain, number>>({
@@ -1011,32 +1031,41 @@ function AdminDataValidationContent() {
         }
       />
 
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16 sm:pb-6">
-        {/* KPI Strip */}
-        <ValidationKpis
-          kpis={kpis}
-          pendingBreakdown={domainPendingCounts}
-          verifiedBreakdown={domainVerifiedCounts}
-        />
+      <div
+        className={`w-full px-4 sm:px-6 lg:px-8 transition-all duration-300 ${
+          isOverviewCollapsed ? "py-4 sm:py-5 space-y-4" : "py-6 space-y-6"
+        } pb-16 sm:pb-6`}
+      >
+        {/* Collapsible Overview: KPI Strip & Herds Banner */}
+        <div
+          className={`transition-all duration-300 ease-in-out pt-2 -mt-2 px-1 -mx-1 ${
+            isOverviewCollapsed
+              ? "max-h-0 opacity-0 -mb-2 pointer-events-none overflow-hidden"
+              : "max-h-[1000px] opacity-100 space-y-6 mb-0"
+          }`}
+          aria-hidden={isOverviewCollapsed}
+        >
+          {/* KPI Strip */}
+          <ValidationKpis
+            kpis={kpis}
+            pendingBreakdown={domainPendingCounts}
+            verifiedBreakdown={domainVerifiedCounts}
+          />
 
-        {/* Herds & Livestock Drilldown Callout Banner */}
-        <HerdBatchesBanner />
+          {/* Herds & Livestock Drilldown Callout Banner */}
+          <HerdBatchesBanner />
+        </div>
 
         <DomainTabs
           activeTab={activeValidationView === "records" ? activeDomain : "slaughter"}
           activeDomain={activeDomain}
-          onTabChange={(tab) => {
-            if (tab === "slaughter") {
-              setActiveValidationView("slaughter");
-            } else {
-              setActiveDomain(tab);
-              setActiveValidationView("records");
-              setSelectedIds([]);
-            }
-          }}
+          onTabChange={handleTabSelect}
+          onTabClick={handleTabSelect}
           pendingCounts={domainPendingCounts}
           verifiedCounts={domainVerifiedCounts}
           totalCounts={domainTotalCounts}
+          isOverviewCollapsed={isOverviewCollapsed}
+          onToggleOverview={() => setIsOverviewCollapsed((prev) => !prev)}
         />
 
         {activeValidationView === "slaughter" ? (
@@ -1062,6 +1091,19 @@ function AdminDataValidationContent() {
             updateActiveDomainFilter("statusFilter", s);
             setDomainPages((prev) => ({ ...prev, [activeDomain]: 1 }));
           }}
+          incidentTypeFilter={
+            activeDomain === "incidents"
+              ? domainFilters.incidents.incidentTypeFilter
+              : undefined
+          }
+          onIncidentTypeChange={
+            activeDomain === "incidents"
+              ? (type) => {
+                  updateActiveDomainFilter("incidentTypeFilter", type);
+                  setDomainPages((prev) => ({ ...prev, incidents: 1 }));
+                }
+              : undefined
+          }
           selectedCount={selectedIds.length}
           onBulkAction={openReviewBatch}
           onClearSelection={() => setSelectedIds([])}
@@ -1077,7 +1119,7 @@ function AdminDataValidationContent() {
               pageSize={pageSize}
               onPageChange={(newPage) => {
                 setDomainPages((prev) => ({ ...prev, [activeDomain]: newPage }));
-                window.scrollTo({ top: 380, behavior: "smooth" });
+                window.scrollTo({ top: isOverviewCollapsed ? 120 : 380, behavior: "smooth" });
               }}
               onPageSizeChange={(newSize) => {
                 setPageSize(newSize);

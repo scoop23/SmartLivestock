@@ -35,6 +35,12 @@ export function SlaughterReviewQueue() {
     queryKey: ["slaughterhouse-review-records"],
     queryFn: async () => (await api.get<ReviewRecord[]>("/production/slaughterhouse/records/")).data,
   });
+  const loadError = recordsQuery.error as {
+    response?: { status?: number; data?: { detail?: unknown } };
+  } | null;
+  const loadErrorDetail = typeof loadError?.response?.data?.detail === "string"
+    ? loadError.response.data.detail
+    : null;
   const queue = (recordsQuery.data ?? []).filter(
     (row) => row.status === "PENDING" || row.status === "SUBJECT_TO_REVISION"
   );
@@ -105,7 +111,13 @@ export function SlaughterReviewQueue() {
       {recordsQuery.isError ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-slate-600">
-            Unable to load slaughter review records. <Button variant="link" onClick={() => void recordsQuery.refetch()}>Retry</Button>
+            <p>Unable to load slaughter review records.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {loadError?.response?.status
+                ? `API error ${loadError.response.status}${loadErrorDetail ? `: ${loadErrorDetail}` : "."}`
+                : "The backend could not be reached. Check the connection and try again."}
+            </p>
+            <Button variant="link" onClick={() => void recordsQuery.refetch()}>Retry</Button>
           </CardContent>
         </Card>
       ) : recordsQuery.isLoading ? (
