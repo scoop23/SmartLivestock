@@ -19,7 +19,17 @@ function CensusSubmissionPageContent() {
     ? censuses.find((record) => String(record.id) === revisionId) ?? null
     : null;
 
-  const returnToCensus = () => router.push("/sibat?tab=census");
+  const returnToCensus = () => {
+    const source = searchParams.get("from");
+    const destination = source === "registry"
+      ? "/sibat/livestock-registry?tab=census"
+      : source === "monitoring"
+        ? "/sibat/livestock-monitoring"
+        : source === "census-submissions"
+          ? "/sibat/census-submissions"
+          : "/sibat?tab=census";
+    router.push(destination);
+  };
 
   if (revisionId && isLoading) {
     return <div className="p-10 text-center text-sm font-bold text-slate-500">Loading returned census...</div>;

@@ -119,7 +119,7 @@ function CensusSubmissionReviewContent() {
             router.replace("/sibat/census-submissions", { scroll: false });
           }
         }}
-        onRevise={(item) => router.push(`/sibat/census/submit?revise=${item.id}`)}
+        onRevise={(item) => router.push(`/sibat/census/submit?revise=${item.id}&from=census-submissions`)}
       />
     </div>
     </>

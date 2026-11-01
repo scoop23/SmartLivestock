@@ -744,7 +744,7 @@ function SibatLivestockRegistryContent() {
             ) : (
               <CensusSubmissionsView
                 censusSubmissions={censuses}
-                onOpenSubmitDialog={() => router.push("/sibat/census/submit")}
+                onOpenSubmitDialog={() => router.push("/sibat/census/submit?from=registry")}
                 onSelectCensusForDetail={(c) => setSelectedCensusForDetail(c)}
               />
             )}
@@ -1313,7 +1313,7 @@ function SibatLivestockRegistryContent() {
         submission={selectedCensusForDetail}
         open={Boolean(selectedCensusForDetail)}
         onOpenChange={(open) => !open && setSelectedCensusForDetail(null)}
-        onRevise={(item) => router.push(`/sibat/census/submit?revise=${item.id}`)}
+        onRevise={(item) => router.push(`/sibat/census/submit?revise=${item.id}&from=registry`)}
       />
     </>
   );
