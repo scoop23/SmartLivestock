@@ -856,6 +856,49 @@ body {
   box-shadow: 0 0 25px -4px rgba(245, 158, 11, 0.25);
 }
 
+@keyframes admin-species-pop-in {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 90% 0 round 18px);
+    transform: perspective(1000px) translate3d(0, -14px, -120px) rotateX(-8deg) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round 18px);
+    transform: perspective(1000px) translate3d(0, 0, 0) rotateX(0) scale(1);
+  }
+}
+
+@keyframes admin-species-pop-out {
+  from {
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round 18px);
+    transform: perspective(1000px) translate3d(0, 0, 0) rotateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    clip-path: inset(0 0 90% 0 round 18px);
+    transform: perspective(1000px) translate3d(0, -12px, -100px) rotateX(-6deg) scale(0.92);
+  }
+}
+
+.admin-species-depth-popover[data-state="open"] {
+  transform-origin: top center;
+  animation: admin-species-pop-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+.admin-species-depth-popover[data-state="closed"] {
+  transform-origin: top center;
+  animation: admin-species-pop-out 220ms cubic-bezier(0.4, 0, 1, 1) both !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-species-depth-popover[data-state="open"],
+  .admin-species-depth-popover[data-state="closed"] {
+    animation-duration: 1ms !important;
+  }
+}
+
 /* Bio-node ambient laboratory background matrix */
 .nexus-ambient-bg {
   background-color: #f7f9fc;

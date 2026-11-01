@@ -69,6 +69,8 @@ type AskResponse = {
 };
 
 const EXAMPLES = [
+  "How many approved active livestock heads are recorded across all species?",
+  "Show approved active livestock heads by species.",
   "How many cattle are currently registered?",
   "Which barangays reported the most cattle diseases this quarter?",
   "Compare cattle mortality across barangays this quarter.",
@@ -161,6 +163,13 @@ function ResultVisualization({ response }: { response: AskResponse }) {
   const seriesNames = visualization.series_key
     ? [...new Set(rows.map((row) => String(row[visualization.series_key!] ?? "Other")))]
     : [];
+  const kpiScopeLabel = response.intent === "population_summary"
+    ? response.interpreted?.filters.livestock_type
+      ? `${response.interpreted.filters.livestock_type} only`
+      : "All species"
+    : rows[0].livestock_type
+      ? String(rows[0].livestock_type)
+      : null;
 
   return (
     <div className="space-y-3">
@@ -195,9 +204,9 @@ function ResultVisualization({ response }: { response: AskResponse }) {
               <span className="font-mono text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">
                 {displayValue(rows[0][yKey])}
               </span>
-              {rows[0].livestock_type ? (
+              {kpiScopeLabel ? (
                 <span className="rounded-lg border border-slate-200 bg-slate-100/80 px-2.5 py-1 font-mono text-xs font-bold uppercase tracking-wider text-slate-700">
-                  {String(rows[0].livestock_type)}
+                  {kpiScopeLabel}
                 </span>
               ) : null}
             </div>
@@ -410,7 +419,7 @@ export function AskSmartLivestock() {
           </div>
           <h2 className="mt-1 text-base font-black tracking-tight text-slate-900 sm:text-lg">Ask SmartLivestock</h2>
           <p id="ask-help" className="text-xs font-medium leading-relaxed text-slate-500">
-            Ask about authorized livestock, disease, mortality, and MAO review summaries. Farmer milk and meat-yield logs are private.
+            Ask for livestock totals across all species or by type, plus disease, mortality, and MAO review summaries. Farmer milk and meat-yield logs are private.
           </p>
         </div>
       </div>

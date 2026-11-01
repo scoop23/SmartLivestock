@@ -6,6 +6,7 @@ import { AskSmartLivestock } from '@/app/components/ask-smartlivestock';
 import { PageHeader } from '@/app/components/page-header';
 import { Button } from "@/components/ui/button";
 import { KpiCard,type KpiVariant } from "@/components/ui/kpi-card";
+import { HoverCard,HoverCardContent,HoverCardTrigger } from "@/components/ui/hover-card";
 import { ValidationLoadingScreen,useLoadingScreenTransition } from '@/components/validation-loading-screen';
 import { cowHead } from '@lucide/lab';
 import {
@@ -140,6 +141,13 @@ export default function AdminDashboard() {
   const vaccinationCoveragePct = data.vaccinationTotals.total
     ? Math.round((data.vaccinationTotals.vaccinated / data.vaccinationTotals.total) * 1000) / 10
     : 0;
+  const sortedSpecies = [...data.specieComposition]
+    .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+  const leadingSpecies = sortedSpecies.slice(0, 3);
+  const additionalSpeciesCount = Math.max(data.specieComposition.length - leadingSpecies.length, 0);
+  const speciesBreakdown = leadingSpecies.length
+    ? `${leadingSpecies.map((species) => `${species.name} ${species.value.toLocaleString()}`).join(" · ")}${additionalSpeciesCount ? ` · +${additionalSpeciesCount} more types` : ""}`
+    : "No approved, active livestock recorded";
 
   const statsCards: {
     label: string;
@@ -148,14 +156,16 @@ export default function AdminDashboard() {
     icon: React.ReactNode;
     variant: KpiVariant;
     description: string;
+    wrapText?: boolean;
   }[] = [
       {
         label: 'Total Livestock',
         value: (data.totalLivestock || 0).toLocaleString(),
-        change: 'Live Registry',
+        change: 'All species',
         icon: <Icon iconNode={cowHead} className="size-5" />,
         variant: 'emerald',
-        description: `Approved, active heads across ${data.totalBarangaysCount} barangays`
+        description: `Approved, active heads across ${data.totalBarangaysCount} barangays · ${speciesBreakdown}`,
+        wrapText: true,
       },
       {
         label: 'Vaccination Coverage',
@@ -229,17 +239,66 @@ export default function AdminDashboard() {
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Executive Stats Strip */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3">
-          {statsCards.map((stat) => (
-            <KpiCard
-              key={stat.label}
-              title={stat.label}
-              value={stat.value}
-              icon={stat.icon}
-              badge={stat.change}
-              description={stat.description}
-              variant={stat.variant}
-            />
-          ))}
+          {statsCards.map((stat) => {
+            const card = (
+              <KpiCard
+                key={stat.label}
+                title={stat.label}
+                value={stat.value}
+                icon={stat.icon}
+                badge={stat.change}
+                description={stat.description}
+                variant={stat.variant}
+                wrapText={stat.wrapText}
+              />
+            );
+
+            if (stat.label !== "Total Livestock") return card;
+
+            return (
+              <HoverCard key={stat.label} openDelay={160} closeDelay={180}>
+                <HoverCardTrigger asChild>
+                  <div
+                    tabIndex={0}
+                    role="group"
+                    aria-label="Total livestock across all species. Hover or focus to see the species breakdown."
+                    className="h-full min-w-0 cursor-help rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+                  >
+                    {card}
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent
+                  side="bottom"
+                  align="start"
+                  sideOffset={4}
+                  className="admin-species-depth-popover w-80 max-w-[calc(100vw-2rem)] rounded-2xl border-emerald-200 bg-white p-4 shadow-xl"
+                >
+                  <div className="mb-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-800">
+                      Approved active livestock · all species
+                    </p>
+                    <p className="mt-1 text-lg font-black tracking-tight text-slate-900">
+                      {data.totalLivestock.toLocaleString()} heads
+                    </p>
+                  </div>
+                  {sortedSpecies.length ? (
+                    <div className="max-h-56 space-y-1 overflow-y-auto" role="list" aria-label="Livestock heads by species">
+                      {sortedSpecies.map((species) => (
+                        <div key={species.name} role="listitem" className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-emerald-50/70">
+                          <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: species.color }} />
+                          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">{species.name}</span>
+                          <span className="shrink-0 text-sm font-bold tabular-nums text-slate-900">{species.value.toLocaleString()}</span>
+                          <span className="w-12 shrink-0 text-right text-xs font-medium tabular-nums text-slate-500">{species.percentage ?? "—"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">No approved, active livestock recorded.</p>
+                  )}
+                </HoverCardContent>
+              </HoverCard>
+            );
+          })}
         </div>
 
         {/* ── Visualizations & Charts Matrix ── */}
