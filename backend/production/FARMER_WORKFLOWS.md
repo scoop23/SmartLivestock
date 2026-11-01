@@ -18,14 +18,17 @@ Existing production rows linked to slaughter reports retain their review and inv
 SmartLivestock resolves reproductive status using a single authoritative service (`production.reproductive_service.resolve_reproductive_status`):
 - `NOT_APPLICABLE`: Assigned to all male animals or records outside female breeding stock.
 - `UNKNOWN`: Assigned to eligible females with no recorded breeding attempts, herd exposure, or calving records, or whose past pregnancy confirmation exceeded biological gestation + 45 days without a recorded birth.
-- `EXPOSED`: Assigned when an animal is bred (AI/Natural) awaiting pregnancy check, or is currently penned in the same active batch with an approved sire bull of compatible species. Herd exposure **never** confirms conception.
-- `PREGNANT`: Assigned **only** when pregnancy is explicitly diagnosed and confirmed via transrectal palpation, ultrasound, or verified clinical assay.
-- `COMPLETE`: Assigned when a parturition/calving record completes the cycle. When a subsequent breeding attempt is logged, the animal transitions to a new cycle (`EXPOSED` or `PREGNANT`) rather than remaining stuck on Complete.
+- `PENDING_CHECK`: A farmer-owned breeding or insemination event exists, but pregnancy has not been confirmed. Its due date is an estimate only.
+- `EXPOSED`: Assigned only when an eligible active female shares an active owned herd with an eligible active approved male of the same species. Herd exposure **never** confirms conception.
+- `PREGNANT`: Assigned **only** when the Farmer owner or an authorized barangay-scoped reviewer records a confirmation date, actor, and method.
+- `COMPLETE`: Assigned from a calving record linked to the dam. A subsequent breeding attempt starts a new `PENDING_CHECK` cycle.
 
 ### Conception Rate Analytics Formula
 The system strictly enforces an empirical denominator:
 $$\text{Observed Conception Rate} = \frac{\text{Eligible Breeding Events with Confirmed Conception}}{\text{Eligible Breeding Events with Known Outcomes}} \times 100$$
-Events with `PENDING_CHECK` status are explicitly excluded from the denominator so unexamined pregnancies are never penalized as failures.
+Events with `PENDING_CHECK` status are explicitly excluded from the denominator so unexamined pregnancies are never penalized as failures. Stale `PREGNANT` or `CALVED` labels without their required confirmation or linked calving evidence are presented as pending.
+
+Calving submissions are accepted even without a prior pregnancy confirmation, subject to dam ownership and the existing validation/review process. The calf is registered once, as approved active inventory, when MAO approves the calving record. Submission, correction, resubmission, verification, return, and approval actions are kept in the calving workflow history.
 
 ### Individual Conception Prediction Governance
 Individual machine learning predictions are gated by an empirical data-readiness threshold (minimum 30 verified field outcomes). In the current dataset (0 verified breeding outcomes), predictions are declared `BLOCKED_PENDING_DATA` to prevent synthetic or fabricated AI claims.

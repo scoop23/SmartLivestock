@@ -18,7 +18,10 @@ SLAUGHTERHOUSESTAFF = "SLAUGHTERHOUSESTAFF"
 ROLE_MATRIX = {
     "disease": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, CBAT, MAO, ADMIN}},
     "mortality": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}, "review": {SIBAT, CBAT, MAO, ADMIN}},
-    "production": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {MAO, ADMIN}},
+    # ProductionRecord contains Farmer-owned personal logs. Municipal access is
+    # not part of the farmer-owned production workflow; official slaughter has
+    # its own domain and permissions below.
+    "production": {"create": {FARMER}},
     "inventory": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}},
     # Farmers may declare sale intent; completed market sales are recorded by Auction as ownership transfers.
     "sales": {"create": set(), "read_all": {SIBAT, CBAT, MAO, ADMIN, AUCTION}, "review": {MAO, ADMIN}, "delete_own": {FARMER}},
@@ -60,15 +63,8 @@ REVIEW_TRANSITIONS["ownership_transfers"] = (
     TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
 )
 
-# Live animal sales and routine production are reviewed at municipal level (MAO / Admin).
+# Live animal sales are reviewed at municipal level (MAO / Admin).
 REVIEW_TRANSITIONS["sales"] = (
-    TransitionRule(MAO, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
-    TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
-    TransitionRule(ADMIN, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
-    TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
-)
-
-REVIEW_TRANSITIONS["production"] = (
     TransitionRule(MAO, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     TransitionRule(ADMIN, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
@@ -124,6 +120,17 @@ def require_action(user, domain: str, action: str) -> str:
     if role not in ROLE_MATRIX.get(domain, {}).get(action, set()):
         raise PermissionDenied(
             f"The {role or 'unassigned'} role cannot {action.replace('_', ' ')} {domain} records."
+        )
+    return role
+
+
+def require_farmer_production_access(user) -> str:
+    """Block municipal roles before any Farmer ProductionRecord query."""
+    role = role_name(user)
+    if role != FARMER:
+        raise PermissionDenied(
+            "Farmer production records are private to the owning Farmer. "
+            "Official slaughter records are managed separately."
         )
     return role
 
@@ -198,6 +205,7 @@ def scope_reviewer_queryset(queryset, user, *, assigned_only=False):
         "ProgramSchedule": ("barangay_id",),
         "SlaughterRecord": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
         "ProductionRecord": ("farmer_at_record__barangay_id",),
+        "BreedingRecord": ("dam__farmer__barangay_id",),
         "LiveAnimalSale": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
         "DiseaseCase": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
         "MortalityRecord": ("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),

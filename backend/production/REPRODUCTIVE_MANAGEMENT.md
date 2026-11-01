@@ -19,7 +19,8 @@ SmartLivestock resolves reproductive status using a single authoritative service
 | **Not Applicable** | `NOT_APPLICABLE` | Slate / Muted | Animal is male or unrecorded sex. Outside female reproductive tracking. |
 | **Complete** | `COMPLETE` | Blue | Parturition / calving event completed the cycle. Cow is resting or open post-calving. |
 | **Pregnant — Confirmed** | `PREGNANT` | Emerald | Pregnancy explicitly confirmed by veterinarian / technician via transrectal palpation, ultrasound, or assay. |
-| **Exposed** | `EXPOSED` | Amber | Recorded breeding event (AI/Natural) awaiting pregnancy check, OR currently housed in the same active batch with an approved sire bull of the same species. **Herd exposure alone never confirms pregnancy.** |
+| **Pending check** | `PENDING_CHECK` | Amber | A breeding or insemination record exists, but pregnancy has not been confirmed. The estimated due date is not proof of pregnancy. |
+| **Exposed** | `EXPOSED` | Amber | An eligible active female and an eligible active approved male share the same active herd. **Herd exposure alone never confirms pregnancy.** |
 | **Unknown / Not Recorded** | `UNKNOWN` | Slate | No breeding, herd bull exposure, or calving records logged in SmartLivestock, OR historical pregnancy confirmation overdue past biological gestation + 45 days without a recorded birth. |
 
 ### Cycle-Aware Precedence Rules
@@ -29,15 +30,17 @@ SmartLivestock resolves reproductive status using a single authoritative service
    - Goat: 150 days
    - Sheep: 147 days
    - Swine: 114 days
-2. **Post-Parturition Reset**: A recorded calving event completes cycle $N$. If the cow is bred again after that calving date, cycle $N+1$ begins immediately and status transitions to `EXPOSED` (or `PREGNANT` upon confirmation), preventing the cow from being permanently stuck on `COMPLETE`.
+2. **Post-Parturition Reset**: A recorded calving event completes cycle $N$. If the cow is bred again after that calving date, cycle $N+1$ begins immediately and status transitions to `PENDING_CHECK` (or `PREGNANT` upon authorized confirmation), preventing the cow from being permanently stuck on `COMPLETE`.
 3. **Overdue Pregnancy Protection**: If pregnancy was marked confirmed but elapsed time exceeds gestation + 45 grace days without a calving event, the status drops to `UNKNOWN` (`"Overdue / Re-check Required"`), prompting veterinary follow-up.
 
 ---
 
 ## 3. Herd Bull Exposure vs. Recorded Breeding (Phase 4)
-- **Strict Pen Boundaries**: Exposure is identified **only** when a female and an active male of the same species share the exact same `LivestockBatch` (`batch` FK).
-- **No False Leaps**: Belonging to the same farm, owner, or barangay does **not** infer exposure if animals reside in separate herds or pens.
-- **Exposure Guardrail**: Recorded breeding or herd exposure sets status to `EXPOSED`, never `PREGNANT`.
+- **Strict Pen Boundaries**: Exposure requires an active herd (`LivestockBatch`) owned by the dam's Farmer and current membership of both animals in that herd.
+- **Eligible Animals**: The dam and bull must be active, reviewed individual animals of the same species. The bull must be male and approved.
+- **No False Leaps**: Same-farm, owner, or barangay association does not imply exposure when the animals are in different herds.
+- **Separate Evidence**: Herd exposure is `EXPOSED`; a breeding record without confirmation is `PENDING_CHECK`. Neither status means pregnant.
+- **Inactive Inventory**: Sold, deceased, slaughtered, moved-out, unreviewed, or archived-herd animals do not create current exposure. Historical events remain available in the animal history.
 
 ---
 
@@ -46,8 +49,9 @@ SmartLivestock resolves reproductive status using a single authoritative service
 $$\text{Observed Conception Rate (\%)} = \frac{\text{Eligible Breeding Events with Confirmed Conception Outcomes}}{\text{Eligible Breeding Events with Known Clinical Outcomes}} \times 100$$
 
 Where:
-- **Numerator**: Breeding events with status `PREGNANT` or `CALVED`, or having a recorded `pregnancy_confirmed_date`.
-- **Denominator**: $\text{Confirmed Conceptions} + \text{Known Unsuccessful Outcomes (status OPEN)}$.
+- **Numerator**: Events with a valid pregnancy confirmation or a linked calving event.
+- **Denominator**: Confirmed conceptions plus events explicitly checked and recorded as open (`OPEN`).
+- **Evidence Requirement**: `PREGNANT` requires confirmation date, confirming actor, and method. `CALVED` requires a calving record linked to the same dam. Stale status strings without that evidence are presented as pending.
 - **Explicit Exclusion**: Events with status `PENDING_CHECK` are **excluded** from the denominator so awaiting-check records are never penalized as failures.
 
 ### Test Fixture Verification
@@ -57,7 +61,15 @@ $$\text{Conception Rate} = \frac{24}{24 + 16} \times 100 = \frac{24}{40} \times 
 
 ---
 
-## 5. Conception Prediction & AI Governance (Phase 7)
+## 5. Pregnancy Confirmation, Due Dates, and Calving Review
+- The Farmer owner may confirm pregnancy for their own eligible animal. Scoped SIBAT/CBAT and MAO/Admin reviewers may confirm only where the existing `calving.review` permission and barangay scope allow it.
+- Pregnancy confirmation records its date, actor, method, and an audit note. Repeating a confirmed request is idempotent and preserves the original confirmation.
+- Expected calving dates are estimates derived from the breeding date and species gestation interval. Due-date notices are sent only for evidence-backed confirmed pregnancies and are deduplicated by due window.
+- A calving submission is accepted even without a previous pregnancy confirmation, subject to dam ownership, age, duplicate, and review validation. It links to the dam and an eligible current breeding cycle when present.
+- Calf inventory is created only after MAO approval. Reconciliation is atomic and uses a locked calving row plus an inventory marker so retries create one calf. The calf begins unassigned to a herd.
+- Calving workflow events retain submission, correction, resubmission, verification, return, and approval history.
+
+## 6. Conception Prediction & AI Governance (Phase 7)
 ### Data Readiness Audit Findings
 - Live database audit (`audit_dataset.py`):
   - Female breeding stock: 149 head.
@@ -69,7 +81,7 @@ $$\text{Conception Rate} = \frac{24}{24 + 16} \times 100 = \frac{24}{40} \times 
 
 ---
 
-## 6. Treatment and Health History Integration (Phase 5)
+## 7. Treatment and Health History Integration (Phase 5)
 Treatment history is stored in `LivestockTreatmentRecord` linked directly to individual `LivestockInventory` animals:
 - `treatment_date`, `treatment_type`, `medication_name`, `dosage`, `route_of_administration`, `reason`, `administered_by`, `notes`, `follow_up_date`.
 - Scoped strictly by user ownership: Farmers can log treatments only on their own animals and view only their own records.
@@ -77,10 +89,7 @@ Treatment history is stored in `LivestockTreatmentRecord` linked directly to ind
 
 ---
 
-## 7. Verification Results (Phase 11)
-- **Django System Check**: `python manage.py check` -> 0 issues.
-- **Backend Test Suite**:
-  - `production.test_reproductive_management`: 15 tests passed in 0.28s.
-  - `production.test_breeding_insemination`: 2 tests passed in 0.05s.
-  - Combined suite: **17 tests passed, 0 failures, 0 errors**.
-- **Frontend Type Check**: `npx tsc --noEmit` -> 0 errors.
+## 8. Verification
+Test counts and check results in earlier versions of this document describe the
+earlier implementation and are not current verification evidence. Add new
+results here only after running them against the current code and environment.

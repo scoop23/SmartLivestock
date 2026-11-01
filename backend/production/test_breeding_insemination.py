@@ -2,7 +2,7 @@ from datetime import timedelta
 from django.utils import timezone
 from rest_framework.test import APITestCase
 from livestock.models import Barangay, Farmer, LivestockInventory, LivestockType
-from production.models import BreedingRecord
+from production.models import BreedingRecord, CalvingRecord
 from production.services.breeding_notifications import send_breeding_due_reminders
 from users.models import Notification, Role, User
 
@@ -55,6 +55,13 @@ class BreedingInseminationTests(APITestCase):
 
     def test_breeding_analytics(self):
         today = timezone.localdate()
+        calving = CalvingRecord.objects.create(
+            dam=self.dam,
+            calving_date=today - timedelta(days=7),
+            status=CalvingRecord.StatusType.APPROVED,
+            calf_tag="CALF-ANALYTICS-1",
+            created_by=self.user,
+        )
         BreedingRecord.objects.create(
             dam=self.dam,
             breeding_date=today - timedelta(days=60),
@@ -63,6 +70,9 @@ class BreedingInseminationTests(APITestCase):
             gestation_days=283,
             expected_due_date=today + timedelta(days=20),  # due soon
             status="PREGNANT",
+            pregnancy_confirmed_date=today - timedelta(days=5),
+            pregnancy_confirmed_by=self.user,
+            confirmation_method="Veterinary ultrasound",
             created_by=self.user,
         )
         BreedingRecord.objects.create(
@@ -73,6 +83,7 @@ class BreedingInseminationTests(APITestCase):
             gestation_days=283,
             expected_due_date=today - timedelta(days=7),
             status="CALVED",
+            calving_record=calving,
             created_by=self.user,
         )
         BreedingRecord.objects.create(
@@ -203,6 +214,44 @@ class BreedingInseminationTests(APITestCase):
         self.assertEqual(response.status_code, 409)
         self.assertEqual(BreedingRecord.objects.get(pk=record.pk).status, BreedingRecord.BreedingStatus.OPEN)
 
+    def test_pregnancy_confirmation_rejects_inactive_dam(self):
+        today = timezone.localdate()
+        record = BreedingRecord.objects.create(
+            dam=self.dam,
+            breeding_date=today - timedelta(days=45),
+            breeding_type=BreedingRecord.BreedingType.ARTIFICIAL_INSEMINATION,
+            status=BreedingRecord.BreedingStatus.PENDING_CHECK,
+            created_by=self.user,
+        )
+        self.dam.operational_status = LivestockInventory.OperationalStatus.SOLD
+        self.dam.save(update_fields=["operational_status"])
+
+        response = self.client.post(f"/production/breeding/{record.pk}/confirm-pregnancy/", {})
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(BreedingRecord.objects.get(pk=record.pk).status, BreedingRecord.BreedingStatus.PENDING_CHECK)
+
+    def test_inactive_dam_does_not_receive_due_reminder(self):
+        today = timezone.localdate()
+        record = BreedingRecord.objects.create(
+            dam=self.dam,
+            breeding_date=today - timedelta(days=60),
+            breeding_type=BreedingRecord.BreedingType.ARTIFICIAL_INSEMINATION,
+            expected_due_date=today + timedelta(days=5),
+            status=BreedingRecord.BreedingStatus.PREGNANT,
+            pregnancy_confirmed_date=today - timedelta(days=30),
+            pregnancy_confirmed_by=self.user,
+            confirmation_method="Veterinary ultrasound",
+            created_by=self.user,
+        )
+        self.dam.operational_status = LivestockInventory.OperationalStatus.DECEASED
+        self.dam.save(update_fields=["operational_status"])
+
+        self.assertEqual(send_breeding_due_reminders(today=today), 0)
+        self.assertFalse(Notification.objects.filter(
+            user=self.user, related_entity_id=record.pk, related_entity_type__startswith="breeding_due_"
+        ).exists())
+
     def test_due_reminders_are_pregnant_only_and_idempotent_for_each_window(self):
         today = timezone.localdate()
         due_dates = {
@@ -219,6 +268,9 @@ class BreedingInseminationTests(APITestCase):
                 breeding_type=BreedingRecord.BreedingType.ARTIFICIAL_INSEMINATION,
                 expected_due_date=due_date,
                 status=BreedingRecord.BreedingStatus.PREGNANT,
+                pregnancy_confirmed_date=today - timedelta(days=30),
+                pregnancy_confirmed_by=self.user,
+                confirmation_method="Veterinary ultrasound",
                 created_by=self.user,
             ))
         awaiting_check = BreedingRecord.objects.create(
@@ -237,3 +289,37 @@ class BreedingInseminationTests(APITestCase):
         self.assertFalse(reminders.filter(related_entity_id=awaiting_check.pk).exists())
         for key, record in zip(due_dates, records):
             self.assertTrue(reminders.filter(related_entity_id=record.pk, related_entity_type__startswith=f"breeding_due_{key}_").exists())
+
+    def test_stale_pregnant_status_is_pending_and_never_sends_due_reminder(self):
+        today = timezone.localdate()
+        record = BreedingRecord.objects.create(
+            dam=self.dam,
+            breeding_date=today - timedelta(days=60),
+            breeding_type=BreedingRecord.BreedingType.ARTIFICIAL_INSEMINATION,
+            expected_due_date=today + timedelta(days=5),
+            status=BreedingRecord.BreedingStatus.PREGNANT,
+            created_by=self.user,
+        )
+
+        listed = self.client.get("/production/breeding/")
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.data[0]["status"], BreedingRecord.BreedingStatus.PENDING_CHECK)
+        analytics = self.client.get("/production/breeding/analytics/")
+        self.assertEqual(analytics.status_code, 200)
+        self.assertEqual(analytics.data["active_gestations"], 0)
+        self.assertEqual(analytics.data["pending_check_count"], 1)
+        self.assertEqual(analytics.data["estimated_due_soon"], 1)
+        self.assertEqual(send_breeding_due_reminders(today=today), 0)
+        self.assertFalse(Notification.objects.filter(related_entity_id=record.pk, related_entity_type__startswith="breeding_due_").exists())
+
+    def test_unrelated_role_cannot_query_breeding_analytics(self):
+        auction_role = Role.objects.create(role_name="AUCTION")
+        auction_user = User.objects.create_user(
+            username="breeding_analytics_auction",
+            email="breeding-analytics-auction@example.invalid",
+            role=auction_role,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.client.force_authenticate(user=auction_user)
+        response = self.client.get("/production/breeding/analytics/")
+        self.assertEqual(response.status_code, 403)

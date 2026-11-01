@@ -13,7 +13,12 @@ def notify_breeding_owner(record, *, title, message, priority=Notification.Prior
         record = type(record).objects.select_for_update(of=("self",)).select_related(
             "dam__farmer__user", "dam__livestock_type"
         ).get(pk=record.pk)
-        if reminder_key and record.status != "PREGNANT":
+        if reminder_key and not (
+            record.status == "PREGNANT"
+            and record.pregnancy_confirmed_date
+            and record.pregnancy_confirmed_by_id
+            and (record.confirmation_method or "").strip()
+        ):
             return None
         owner = record.dam.farmer.user
         entity_type = "breeding_record"
@@ -45,14 +50,22 @@ def send_breeding_due_reminders(*, today):
     from datetime import timedelta
 
     from production.models import BreedingRecord
+    from production.reproductive_service import is_eligible_active_dam
 
     sent = 0
-    record_ids = list(BreedingRecord.objects.filter(
+    candidates = BreedingRecord.objects.filter(
         status=BreedingRecord.BreedingStatus.PREGNANT,
+        pregnancy_confirmed_date__isnull=False,
+        pregnancy_confirmed_by__isnull=False,
+    ).exclude(confirmation_method="").filter(
         expected_due_date__isnull=False,
         expected_due_date__lte=today + timedelta(days=30),
         expected_due_date__gte=today - timedelta(days=30),
-    ).values_list("pk", flat=True))
+    ).select_related("dam")
+    record_ids = [
+        record.pk for record in candidates
+        if is_eligible_active_dam(record.dam, record.breeding_date)
+    ]
 
     for record_id in record_ids:
         with transaction.atomic():
@@ -62,12 +75,15 @@ def send_breeding_due_reminders(*, today):
                 .filter(
                     pk=record_id,
                     status=BreedingRecord.BreedingStatus.PREGNANT,
+                    pregnancy_confirmed_date__isnull=False,
+                    pregnancy_confirmed_by__isnull=False,
                     expected_due_date__lte=today + timedelta(days=30),
                     expected_due_date__gte=today - timedelta(days=30),
                 )
+                .exclude(confirmation_method="")
                 .first()
             )
-            if not record:
+            if not record or not is_eligible_active_dam(record.dam, record.breeding_date):
                 continue
             days = (record.expected_due_date - today).days
             if 8 <= days <= 30:

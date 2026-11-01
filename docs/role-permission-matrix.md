@@ -17,10 +17,11 @@ requires a new report. These outcomes do not certify a laboratory diagnosis.
 
 | Area | Farmer | SIBAT | MAO | Auction |
 | --- | --- | --- | --- | --- |
-| Production logs | Create/view/edit own farm logs and personal analytics; no Ask SmartLivestock access or review stage | SIBAT/CBAT have no Ask SmartLivestock access or production verification; separate slaughter notices remain visible by barangay | Ask SmartLivestock is available to MAO only; MAO cannot query private Farmer milk/meat-yield logs or their forecasts; no farmer-log approval; official slaughter review remains separate | No Ask SmartLivestock access |
+| Production logs | Create/view/correct own logs and private analytics; no review stage | No access to Farmer production logs; separate slaughter notices remain visible by barangay | No access to Farmer production logs through APIs, analytics, GIS, reports, exports, or Ask SmartLivestock; official slaughter review remains separate | No access |
 | Inventory | Create/view own; edit/delete own pending/returned records | View scoped; verify pending or return | View municipal; approve verified or return | No access |
 | Sales | Create/view own; delete own pending sales | View scoped; no review authority | View municipal; no approval of completed transfer (Auction ownership transfers finalize sales) | Read only |
 | Calving | Create and view own records | View scoped; verify pending or return | View municipal; approve verified or return | No access |
+| Breeding / insemination | Create and view own eligible animal records and history; pregnancy confirmation is limited to the owner or scoped calving reviewer | View scoped; may confirm pregnancy or return a calving record under the scoped review action | View municipal; may confirm pregnancy within existing review authority and approve/return calving | No access |
 | Batches | Create, view, and manage own groups | View scoped; verify individual members | View municipal; approve verified members | No access |
 | Census | No access | Submit within scope; revise own returned submissions | View municipal; approve verified or return | No access |
 | Ownership certificates | View related history | No certificate creation or approval | View municipal; approve pending or return | Encode certificates; revise own returned submissions |
@@ -36,7 +37,7 @@ PENDING --SIBAT--> VERIFIED --MAO--> APPROVED
 SUBJECT_TO_REVISION --owner edits/resubmits--> PENDING
 ```
 
-Farmer production logs are saved as `RECORDED`; they do not enter either review transition below. Official slaughter records linked to farmer meat reports keep their separate MAO review.
+Farmer production logs are saved as `RECORDED`; they do not enter either review transition below. The owning Farmer is the only role allowed to retrieve the log or its analytics. Official slaughter records linked to farmer meat reports keep their separate MAO review.
 
 Sales declarations are not finalized through `LiveAnimalSale` review. Completed transfers use Auction ownership-transfer records and the MAO/Admin approval workflow; SIBAT/CBAT cannot review the legacy declaration endpoint.
 
@@ -68,6 +69,7 @@ inventory record can be `ACTIVE`, `SOLD`, `DECEASED`, `SLAUGHTERED`, or
 `MOVED_OUT`.
 
 - MAO approval of a calving record creates one approved, active calf inventory record.
+- Calving submissions can be recorded without a prior pregnancy confirmation, but still require the existing validation/review path. Calving submission, correction, resubmission, verification, return, and approval are appended to the calving audit history.
 - MAO approval of an individual sale marks that animal as sold.
 - MAO approval of an individual mortality record marks that animal as deceased.
 - A full-batch sale marks every approved active animal as sold and closes the batch.

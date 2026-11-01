@@ -123,7 +123,7 @@ const statusBadgeClasses: Record<BreedingRecordItem["status"], string> = {
 };
 
 const statusLabels: Record<BreedingRecordItem["status"], string> = {
-  PENDING_CHECK: "Exposed",
+  PENDING_CHECK: "Pending check",
   PREGNANT: "Pregnant — Confirmed",
   CALVED: "Complete",
   OPEN: "Open / Failed",

@@ -145,14 +145,25 @@ class ReproductiveManagementTests(APITestCase):
         status_info = resolve_reproductive_status(self.cow)
         self.assertEqual(status_info["status"], ReproductiveStatus.UNKNOWN)
 
+    def test_inactive_bull_does_not_create_current_exposure(self):
+        self.cow.batch = self.batch_alpha
+        self.cow.save(update_fields=["batch"])
+        self.bull.batch = self.batch_alpha
+        self.bull.operational_status = "SOLD"
+        self.bull.save(update_fields=["batch", "operational_status"])
+
+        exposure = check_active_bull_herd_exposure(self.cow)
+        self.assertFalse(exposure["has_exposure"])
+        self.assertEqual(resolve_reproductive_status(self.cow)["status"], ReproductiveStatus.UNKNOWN)
+
     # -------------------------------------------------------------------------
     # PHASE 3 & 4: Recorded Breeding Events
     # -------------------------------------------------------------------------
 
     def test_recorded_breeding_results_in_exposed_never_auto_pregnant(self):
         """
-        A recorded breeding event without clinical confirmation results in EXPOSED,
-        never PREGNANT.
+        A recorded breeding event without clinical confirmation results in PENDING_CHECK,
+        never PREGNANT, even if a linked sire exists.
         """
         today = timezone.localdate()
         record = BreedingRecord.objects.create(
@@ -166,9 +177,9 @@ class ReproductiveManagementTests(APITestCase):
         )
 
         status_info = resolve_reproductive_status(self.cow)
-        self.assertEqual(status_info["status"], ReproductiveStatus.EXPOSED)
+        self.assertEqual(status_info["status"], ReproductiveStatus.PENDING_CHECK)
         self.assertNotEqual(status_info["status"], ReproductiveStatus.PREGNANT)
-        self.assertIn("exposure does not confirm conception", status_info["explanation"])
+        self.assertIn("Pregnancy check is pending", status_info["explanation"])
 
     def test_pregnancy_confirmation_results_in_pregnant(self):
         """Explicitly confirmed pregnancy yields PREGNANT status."""
@@ -218,10 +229,10 @@ class ReproductiveManagementTests(APITestCase):
         self.assertEqual(status_info["status"], ReproductiveStatus.COMPLETE)
         self.assertEqual(status_info["badge_label"], "Complete")
 
-    def test_subsequent_breeding_after_calving_starts_new_cycle(self):
+    def test_subsequent_breeding_after_calving_starts_pending_check_cycle(self):
         """
-        Cycle awareness: If a cow calved previously and is exposed or bred again,
-        the status transitions to EXPOSED or PREGNANT rather than remaining permanently COMPLETE.
+        Cycle awareness: A later breeding starts a PENDING_CHECK cycle rather than
+        leaving the dam permanently COMPLETE or claiming pregnancy.
         """
         today = timezone.localdate()
         # Past calving (100 days ago)
@@ -243,7 +254,7 @@ class ReproductiveManagementTests(APITestCase):
         )
 
         status_info = resolve_reproductive_status(self.cow)
-        self.assertEqual(status_info["status"], ReproductiveStatus.EXPOSED)
+        self.assertEqual(status_info["status"], ReproductiveStatus.PENDING_CHECK)
         self.assertNotEqual(status_info["status"], ReproductiveStatus.COMPLETE)
 
     def test_historical_overdue_pregnancy_not_persisted_indefinitely(self):
@@ -259,6 +270,8 @@ class ReproductiveManagementTests(APITestCase):
             breeding_type=BreedingRecord.BreedingType.NATURAL,
             status=BreedingRecord.BreedingStatus.PREGNANT,
             pregnancy_confirmed_date=today - timedelta(days=340),
+            pregnancy_confirmed_by=self.user1,
+            confirmation_method="Veterinary ultrasound",
             expected_due_date=today - timedelta(days=400) + timedelta(days=283),
             gestation_days=283,
             created_by=self.user1,
@@ -290,6 +303,9 @@ class ReproductiveManagementTests(APITestCase):
                     breeding_date=today - timedelta(days=50 + i),
                     breeding_type=BreedingRecord.BreedingType.ARTIFICIAL_INSEMINATION,
                     status=BreedingRecord.BreedingStatus.PREGNANT,
+                    pregnancy_confirmed_date=today,
+                    pregnancy_confirmed_by=self.user1,
+                    confirmation_method="Veterinary ultrasound",
                     gestation_days=283,
                     created_by=self.user1,
                 )

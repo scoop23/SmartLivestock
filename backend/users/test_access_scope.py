@@ -1,6 +1,8 @@
 """Access-scope regression tests; fixtures use only Django's test database."""
 from datetime import date, time
+from django.db import connection
 from django.test import override_settings
+from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APITestCase
 from livestock.models import Barangay, Farmer, LivestockType, LivestockInventory, CensusSubmission
 from production.models import ProductionRecord, LiveAnimalSale, CalvingRecord
@@ -145,6 +147,27 @@ class AccessScopeTests(APITestCase):
         self.authenticate(self.sibat)
         self.assertEqual(self.client.get("/api/notifications/").data["notifications"][0]["id"],notification.pk)
 
+    def test_mao_cannot_retrieve_or_mark_farmer_production_notification(self):
+        record = ProductionRecord.objects.create(
+            livestock=self.local_animal, farmer_at_record=self.farmer,
+            production_type="MILK", quantity="4.00", unit="LITERS",
+            record_date=date(2026, 10, 1), created_by=self.owner,
+        )
+        notification = Notification.objects.create(
+            user=self.mao, title="Private log", message="Farmer milk record created.",
+            related_entity_type="production_record", related_entity_id=record.pk,
+        )
+
+        self.authenticate(self.mao)
+        with CaptureQueriesContext(connection) as captured:
+            listed = self.client.get("/api/notifications/")
+            marked = self.client.patch(f"/api/notifications/{notification.pk}/read/")
+
+        self.assertEqual(listed.status_code, 200)
+        self.assertNotIn(notification.pk, [row["id"] for row in listed.data["notifications"]])
+        self.assertEqual(marked.status_code, 404)
+        self.assertFalse(any("production_productionrecord" in query["sql"].lower() for query in captured))
+
     def test_bookings_and_officer_counts_are_scoped(self):
         self.authenticate(self.sibat)
         self.assertEqual([r["id"] for r in self.client.get("/community/bookings/").data],[self.local_booking.pk])
@@ -166,19 +189,32 @@ class AccessScopeTests(APITestCase):
         self.assertEqual(self.client.get("/analytics/dashboard/").data["descriptive"]["population"]["total_heads"],2)
         self.assertEqual(self.client.get("/analytics/census/").data["totals"]["submissions"],1)
 
-    def test_remote_health_and_sales_reviews_follow_same_scope(self):
+    def test_remote_health_and_sales_reviews_follow_scope_and_role_rules(self):
         for model,values,endpoint in (
             (LiveAnimalSale,{"quantity":1,"sale_date":date.today()},"/production/sales/"),
             (DiseaseCase,{"name":"Test","affected_count":1},"/diseases/cases/"),
             (MortalityRecord,{"cause":"Test","death_count":1},"/diseases/mortality/"),
         ):
+            if model is MortalityRecord:
+                # The mortality workflow accepts only approved individual stock.
+                self.remote_animal.status = LivestockInventory.StatusType.APPROVED
+                self.remote_animal.save(update_fields=["status"])
             record=model.objects.create(livestock=self.remote_animal,created_by=self.other,status="PENDING",**values)
             path=f"{endpoint}{record.pk}/review/"
             self.authenticate(self.sibat)
             self.assertEqual(self.client.post(path,{"status":"VERIFIED"}).status_code,404)
             self.authenticate(self.municipal)
-            self.assertEqual(self.client.post(path,{"status":"VERIFIED"}).status_code,200)
-            self.assertIn(self.client.post(path,{"status":"APPROVED"}).status_code,(400,403))
+            if model is LiveAnimalSale:
+                # ALL_BARANGAYS expands visibility, not SIBAT's review authority.
+                self.assertEqual(self.client.post(path,{"status":"VERIFIED"}).status_code,403)
+                self.authenticate(self.mao)
+                response = self.client.post(path,{"status":"SUBJECT_TO_REVISION","remarks":"Use the auction transfer workflow."})
+                self.assertEqual(response.status_code,200,response.data)
+            else:
+                self.assertEqual(self.client.post(path,{"status":"VERIFIED"}).status_code,200)
+                self.authenticate(self.mao)
+                response = self.client.post(path,{"status":"APPROVED"})
+                self.assertEqual(response.status_code,200,response.data)
 
     def test_ordinary_production_logs_are_recorded_without_reviewer_queue_or_notifications(self):
         self.remote_animal.status = "APPROVED"

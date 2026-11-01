@@ -1,5 +1,6 @@
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 # TODO: Write tests for:
@@ -345,8 +346,22 @@ class ProductionRecordAPITests(APITestCase):
             "quantity": "2", "record_date": "2026-01-01",
         }).status_code, 403)
         self.client.force_authenticate(user=self.mao_user)
-        self.assertEqual(self.client.get("/production/records/").status_code, 200)
+        self.assertEqual(self.client.get("/production/records/").status_code, 403)
         self.assertEqual(self.client.post("/production/records/", {}).status_code, 403)
+
+    def test_mao_production_list_detail_and_review_are_denied_before_record_query(self):
+        self.client.force_authenticate(user=self.mao_user)
+        with CaptureQueriesContext(connection) as captured:
+            list_response = self.client.get("/production/records/")
+            detail_response = self.client.get(f"/production/records/{self.record.pk}/")
+            review_response = self.client.post(
+                f"/production/records/{self.record.pk}/review/", {"status": "APPROVED"}
+            )
+
+        self.assertEqual(list_response.status_code, 403)
+        self.assertEqual(detail_response.status_code, 403)
+        self.assertEqual(review_response.status_code, 404)
+        self.assertFalse(any("production_productionrecord" in query["sql"].lower() for query in captured))
 
     def test_zero_and_negative_reported_quantities_are_rejected(self):
         self.client.force_authenticate(user=self.farmer_user)
@@ -379,7 +394,7 @@ class ProductionRecordAPITests(APITestCase):
         self.assertIsNone(self.record.reviewed_by)
         self.assertEqual(self.record.review_remarks, "Correct the reported quantity")
         self.assertEqual(ProductionRecord.objects.count(), 1)
-        summary = descriptive_summary(date(2026, 1, 31))["descriptive"]["production"]
+        summary = descriptive_summary(date(2026, 1, 31), user=self.farmer_user)["descriptive"]["production"]
         self.assertEqual(summary["records"], 1)
         self.assertEqual(summary["by_type"][0]["quantity"], 8.5)
 
@@ -500,12 +515,12 @@ class ProductionRecordAPITests(APITestCase):
         self.load_reference_data()
         response = self.submit_output("Cattle", "MILK", "LITERS", "2")
         record_id = response.data["id"]
-        summary = descriptive_summary(date(2026, 1, 31))["descriptive"]["production"]["valuation"]
+        summary = descriptive_summary(date(2026, 1, 31), user=self.farmer_user)["descriptive"]["production"]["valuation"]
         self.assertEqual(summary["estimated_value"], 94.1)
         self.assertEqual(summary["valued_records"], 1)
         # The old approval state is excluded from routine farmer production analytics.
         ProductionRecord.objects.filter(pk=record_id).update(status=ProductionRecord.ProductionStatus.APPROVED)
-        summary = descriptive_summary(date(2026, 1, 31))["descriptive"]["production"]["valuation"]
+        summary = descriptive_summary(date(2026, 1, 31), user=self.farmer_user)["descriptive"]["production"]["valuation"]
         self.assertIsNone(summary["estimated_value"])
         self.assertEqual(summary["valued_records"], 0)
 
@@ -642,9 +657,9 @@ class ProductionRecordAPITests(APITestCase):
         self.client.force_authenticate(user=self.mao_user)
         self.assertEqual(MortalityRecord.objects.count(), 0)
         self.assertEqual(SlaughterRecord.objects.count(), 0)
-        summary = descriptive_summary(date(2026, 1, 31))["descriptive"]
-        meat_row = next(row for row in summary["production"]["by_type"] if row["type"] == "MEAT")
-        self.assertEqual(meat_row["quantity"], 12.5)
+        summary = descriptive_summary(date(2026, 1, 31), user=self.mao_user)["descriptive"]
+        self.assertFalse(summary["production"]["available"])
+        self.assertEqual(summary["production"]["records"], 0)
         self.assertEqual(summary["slaughter"]["records"], 0)
         record_count = ProductionRecord.objects.count()
         animal = self.swine_animal()
@@ -662,10 +677,10 @@ class ProductionRecordAPITests(APITestCase):
         self.assertEqual(mortality_animal.operational_status, "DECEASED")
         self.assertEqual(ProductionRecord.objects.count(), record_count)
         self.assertEqual(SlaughterRecord.objects.count(), 0)
-        summary = descriptive_summary(date(2026, 1, 31))["descriptive"]
+        summary = descriptive_summary(date(2026, 1, 31), user=self.mao_user)["descriptive"]
         self.assertEqual(summary["slaughter"]["records"], 0)
-        meat_row = next(row for row in summary["production"]["by_type"] if row["type"] == "MEAT")
-        self.assertEqual(meat_row["quantity"], 12.5)
+        self.assertFalse(summary["production"]["available"])
+        self.assertEqual(summary["production"]["records"], 0)
         self.assertEqual(summary["mortality"]["deaths"], 1)
         self.assertIsNone(summary["production"]["valuation"]["estimated_value"])
 
@@ -783,7 +798,7 @@ class ProductionRecordAPITests(APITestCase):
 
         # 3. Production analytics now uses RECORDED logs only, not historical
         # approval-state records or pending rows.
-        summary = descriptive_summary(date(2026, 1, 31))["descriptive"]
+        summary = descriptive_summary(date(2026, 1, 31), user=self.farmer_user)["descriptive"]
         milk_stats = [row for row in summary["production"]["by_type"] if row["type"] == "MILK"]
         self.assertEqual(milk_stats, [])
 
@@ -1055,7 +1070,7 @@ class MilkAnomalyDetectionAndRoutingTests(APITestCase):
         record_id = response.data["id"]
         for reviewer, target in ((self.cbat_user, "VERIFIED"), (self.all_barangay_cbat_user, "VERIFIED"), (self.mao_user, "APPROVED")):
             self.client.force_authenticate(user=reviewer)
-            self.assertNotIn(record_id, [row["id"] for row in self.client.get("/production/records/").data])
+            self.assertEqual(self.client.get("/production/records/").status_code, 403)
             self.assertEqual(self.client.post(f"/production/records/{record_id}/review/", {"status": target}).status_code, 404)
         self.client.force_authenticate(user=self.other_farmer_user)
         self.assertNotIn(record_id, [row["id"] for row in self.client.get("/production/records/").data])

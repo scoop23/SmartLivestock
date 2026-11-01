@@ -5,21 +5,18 @@ New milk, meat-yield, egg, and wool entries in `ProductionRecord` are saved as
 a SIBAT/CBAT verification task or MAO production-approval task. The farmer can
 correct a recorded entry. Older `PENDING`, `VERIFIED`, `APPROVED`, and returned
 records and their workflow events remain unchanged for historical context. The
-legacy review endpoint no longer processes routine production logs. Municipal
-record-list endpoints exclude `RECORDED` entries; authorized aggregate summaries
-may include their totals under the recorded-data policy.
+legacy review endpoint no longer processes routine production logs. The API
+allows only the owning Farmer to list, retrieve, or edit these records; municipal
+and field roles are denied before a `ProductionRecord` query.
 
 Milk anomaly assessment is an advisory comparison against the same animal's
 earlier recorded sessions. An unusual result does not
-block saving, change the queue, or prove inaccurate reporting. The seven-day
-forecast predicts daily totals and is not compared with one milking session.
-Farmer analytics and authorized municipal production summaries include
-`RECORDED` logs only. Historical approval-state, pending, verified, and returned
-legacy review states remain outside those totals. Municipal dashboards label
-these as farmer-recorded production; they are not official slaughter totals.
-The production forecast dataset uses a `RECORDED` log's submission timestamp
-(`created_at`) for historical cutoffs. Historical approval-state rows are
-excluded; a municipality does not receive Farmer production forecasts.
+block saving, change the queue, or prove inaccurate reporting. Farmer analytics
+include only that Farmer's `RECORDED` logs; historical approval-state, pending,
+verified, and returned legacy review states remain outside those totals.
+Municipal analytics, GIS, reports, exports, and production forecast endpoints
+do not query these logs. Official slaughter totals remain a separate municipal
+dataset.
 
 Ask SmartLivestock is available only to MAO-role users. Farmer, SIBAT, CBAT,
 Admin, Auction, and slaughterhouse accounts have no assistant access through the
@@ -74,44 +71,51 @@ notification. Pregnancy confirmation fields are not writable through the general
 create/update serializer. The `CALVED` state is set when a calving record is
 linked to that breeding cycle, not by a manual breeding-status edit.
 
-Breeding analytics count only `PREGNANT` records as active pregnancies and due
-soon. `PENDING_CHECK` counts and its due dates are returned separately as
-awaiting-check estimates. The Farmer interface labels due dates as estimates and
-does not include pending-check entries in pregnancy progress lists or pregnancy
-recommendations. Saving a breeding entry notifies the Farmer of its estimated
-due date; marking pregnancy confirmed sends another notice. The daily
-`send_breeding_due_notifications` command sends one reminder in the 8–30 day
-window, one in the 1–7 day window, on the estimated due date, and once up to 30
+Breeding entries start as `PENDING_CHECK`; this is distinct from `EXPOSED`, which
+is derived only when an eligible active female and eligible active bull share
+the same active herd. Neither state means pregnant. Breeding analytics count
+only evidence-backed `PREGNANT` records as active pregnancies and due soon.
+Pending checks are returned separately, and their due dates are estimates only.
+Saving a breeding entry notifies the Farmer of its estimated due date; marking
+pregnancy confirmed sends another notice. The daily
+`send_breeding_due_notifications` command sends one reminder in the 8â€“30 day
+window, one in the 1â€“7 day window, on the estimated due date, and once up to 30
 days afterward. It only sends reminders for entries marked `PREGNANT`; record
 locking and a due-window key prevent duplicate sends from overlapping scheduler
 runs. Configure the deployment scheduler to run the command daily.
 
-Calving submission and its existing field-verification/MAO workflow are
-unchanged.
+Calving may be submitted even without a previous pregnancy confirmation. The
+submission must still pass dam ownership, identity, age, duplicate, and review
+validation. It links the calving event to the dam and, when applicable, the
+current breeding cycle. Approval creates one active calf inventory record in an
+atomic, retry-safe reconciliation; the calf is initially unassigned to a herd.
+Submission, correction, resubmission, verification, return, and approval are
+recorded as append-only workflow events. A return does not erase the original
+submission history.
 
 ## Verification performed
 
-Local verification on 31 October 2026 (no live deployment or production database
-was accessed):
+Local verification on 1 November 2026. Django tests used the configured test
+database; no live deployment or production database was accessed.
 
 ```powershell
 cd backend
-.\.venv\Scripts\python.exe manage.py test analytics.tests.test_nlp_query analytics.test_predictive analytics.test_diagnostics analytics.tests.test_aggregate_analytics production.test_farmer_logs production.tests production.test_reproductive_management production.test_breeding_insemination --verbosity 0
+.\.venv\Scripts\python.exe manage.py test livestock.test_herd_membership production.test_reproductive_management production.test_breeding_insemination production.tests --verbosity 1
 ```
 
-Result after the final changes: 172 tests passed in 147.185 seconds. Forecast
-fixtures emitted statsmodels convergence warnings, and two tests logged
-simulated notification/persistence errors; the command completed with `OK`.
+Result: 85 tests passed. This covers farmer herd membership changes and the
+reproductive, calving, and production API regressions in those modules.
 
-The extra Farmer production, slaughter, calving, and reproductive API smoke
-checks were run separately:
+The production privacy, analytics/report, Ask SmartLivestock, import, and
+cross-role access regressions were also run:
 
 ```powershell
 cd backend
-.\.venv\Scripts\python.exe manage.py test production.test_breeding_insemination production.test_reproductive_management production.test_farmer_logs livestock.test_freeze_workflows.FreezeWorkflowTests.test_routine_milk_record_is_recorded_and_not_queued_for_review livestock.test_freeze_workflows.FreezeWorkflowTests.test_partial_slaughter_one_projection_and_no_mortality livestock.test_freeze_workflows.FreezeWorkflowTests.test_mortality_and_calving_reconciliation --verbosity 1
+.\.venv\Scripts\python.exe manage.py test analytics.tests.test_aggregate_analytics analytics.tests.test_reports analytics.tests.test_nlp_query analytics.test_diagnostics data_imports.tests.test_data_imports users.test_access_scope --verbosity 1
 ```
 
-Result: 33 tests passed in 41.623 seconds.
+Result: 128 tests passed in 159.370 seconds. Predictive fixtures seeded and
+removed synthetic records in the test database.
 
 ```powershell
 cd backend
@@ -119,21 +123,22 @@ cd backend
 .\.venv\Scripts\python.exe manage.py makemigrations --check --dry-run
 ```
 
-Results: no Django system issues and no model changes requiring migrations.
+Results: no Django system issues and no model changes requiring additional
+migrations.
 
 ```powershell
 cd frontend
-npm run lint -- 'src/app/(admin)/slaughter-record-review/slaughter-review-queue.tsx' 'src/app/(farmer)/production-dashboard/page.tsx' 'src/app/(farmer)/production-dashboard/production-record-dialog.tsx' 'src/app/(farmer)/production-dashboard/production-recent.tsx' 'src/app/(farmer)/production-dashboard/production-wizard.tsx' 'src/app/(farmer)/production-dashboard/components/breeding-registration-dialog.tsx' 'src/app/(farmer)/production-dashboard/production-breeding-tab.tsx' 'src/app/(farmer)/production-dashboard/analytics/page.tsx' 'src/app/components/analytics/forecast-readiness-dashboard.tsx' 'src/app/components/ask-smartlivestock.tsx'
+npx tsc --noEmit --incremental false
 ```
 
-Result: ESLint exited with code 0 on all ten affected frontend files, with 27
-existing unused-variable / dependency warnings across the two large Farmer
-analytics pages.
+Result: TypeScript passed with no errors.
 
-`npx tsc --noEmit --incremental false` was also run. It reports two existing
-TypeScript errors in `src/app/(farmer)/report-observation/components/report-illness-dialog.tsx`
-(lines 692 and 709: missing `isLoadingDiseaseCases`); it reports no errors in
-the files changed for this workflow.
+A targeted ESLint run across changed frontend files reported three
+`react-hooks/set-state-in-effect` errors in the existing URL/highlight
+synchronization effects in `src/app/(admin)/data-validation/page.tsx`, plus ten
+unused-variable warnings in the affected overview and reproductive components.
+The chart component passed lint independently. These lint items are not covered
+by the test results.
 
-`git diff --check` passed. `manage.py check` reported no issues, and
-`makemigrations --check --dry-run` reported no model changes.
+The full backend suite, frontend production build, and browser/deployment
+checks were not run.

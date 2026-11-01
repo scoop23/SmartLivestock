@@ -19,6 +19,7 @@ from .models import (
     SlaughterRecord,
     WeightRecord,
     CalvingRecord,
+    CalvingRecordWorkflowEvent,
     AnimalDisposition,
     BreedingRecord,
     FeedingRecord,
@@ -40,14 +41,17 @@ from .reproductive_service import (
     calculate_conception_analytics,
     evaluate_conception_prediction_readiness,
     get_animal_reproductive_profile,
+    _confirmed_calving_filter,
+    _confirmed_pregnancy_filter,
+    eligible_active_dam_filter,
+    is_eligible_active_dam,
 )
 from livestock.models import LivestockInventory
 from smartlivestock.workflows import (
-    FIELD_REVIEWERS,
     require_action,
+    require_farmer_production_access,
     role_name,
     scope_reviewer_queryset,
-    validate_production_review_transition,
     validate_review_transition,
 )
 from livestock.reconciliation import reconcile_approved_calving
@@ -56,17 +60,21 @@ from livestock.reconciliation import reconcile_approved_calving
 logger = logging.getLogger(__name__)
 
 
+def _farmer_breeding_queryset(user, queryset=None):
+    queryset = queryset if queryset is not None else BreedingRecord.objects.all()
+    return queryset.filter(dam__farmer__user=user)
+
+
 def _notify_production_route(record: ProductionRecord, actor: User, *, is_resubmission: bool = False) -> None:
-    """Send notifications only to the review queue that owns the next action."""
+    """Notify on the separate official slaughter workflow only."""
+    if record.status != ProductionRecord.ProductionStatus.RECORDED or not record.slaughter_id:
+        return
+
     farmer_name = actor.get_full_name() or actor.username
     source_obj = record.livestock or record.batch
     barangay_id = source_obj.farmer.barangay_id if source_obj and source_obj.farmer_id else None
-    action_word = "corrected and resubmitted" if is_resubmission else "logged"
-    prod_display = record.get_production_type_display()
 
-    if record.status == ProductionRecord.ProductionStatus.RECORDED:
-        if record.production_type != ProductionRecord.ProductionType.MEAT or not record.slaughter_id:
-            return
+    if record.production_type == ProductionRecord.ProductionType.MEAT:
         notify_role(
             role_name="SIBAT", notification_type=Notification.NotificationType.PRODUCTION,
             priority=Notification.Priority.MEDIUM,
@@ -87,29 +95,15 @@ def _notify_production_route(record: ProductionRecord, actor: User, *, is_resubm
         )
         return
 
-    notify_role(
-        role_name="MAO",
-        notification_type=Notification.NotificationType.PRODUCTION,
-        priority=Notification.Priority.MEDIUM,
-        title="Milk Production Ready for MAO Approval" if not is_resubmission else "Resubmitted Milk Record Ready for MAO Approval",
-        message=(
-            f"{farmer_name} {action_word} {record.quantity} {record.unit} of {prod_display}."
-        ),
-        link=f"/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
-        related_entity_type="production_record",
-        related_entity_id=record.pk,
-    )
-    if is_resubmission:
-        notify_role(
-            role_name="ADMIN",
-            notification_type=Notification.NotificationType.GENERAL,
-            priority=Notification.Priority.MEDIUM,
-            title="Production Record Resubmitted",
-            message=f"{farmer_name} corrected a {prod_display} production record.",
-            link=f"/data-validation?domain=production&recordType=PRODUCTION&recordId={record.pk}",
-            related_entity_type="production_record",
-            related_entity_id=record.pk,
-        )
+
+def _farmer_production_queryset(user, queryset=None):
+    """Keep historical attribution authoritative; use current links only for legacy null snapshots."""
+    queryset = queryset if queryset is not None else ProductionRecord.objects.all()
+    return queryset.filter(
+        Q(farmer_at_record__user=user)
+        | Q(farmer_at_record__isnull=True, livestock__farmer__user=user)
+        | Q(farmer_at_record__isnull=True, batch__farmer__user=user)
+    ).distinct()
 
 
 @api_view(["GET", "POST"])
@@ -167,20 +161,8 @@ def production_record_list_create(request):
 
     # GET
     user = request.user
-    user_role = role_name(user)
-
-    if user_role == "FARMER":
-        records = ProductionRecord.objects.filter(
-            Q(farmer_at_record__user=user) | Q(created_by=user)
-        ).distinct()
-    else:
-        require_action(user, "production", "read_all")
-        records = scope_reviewer_queryset(ProductionRecord.objects.exclude(status=ProductionRecord.ProductionStatus.RECORDED), request.user)
-        if user_role in FIELD_REVIEWERS:
-            records = records.exclude(
-                status=ProductionRecord.ProductionStatus.PENDING,
-                next_review_queue=ProductionRecord.ReviewQueue.MAO,
-            )
+    require_farmer_production_access(user)
+    records = _farmer_production_queryset(user)
 
     records = records.select_related(
         "farmer_at_record__user",
@@ -211,23 +193,14 @@ def production_record_detail(request, pk):
     DELETE /production/records/<pk>/ -> Delete record (only PENDING allowed)
     """
     user = request.user
-    user_role = role_name(user)
-
-    if user_role == "FARMER":
-        record = get_object_or_404(
+    user_role = require_farmer_production_access(user)
+    record = get_object_or_404(
+        _farmer_production_queryset(
+            user,
             ProductionRecord.objects.select_for_update(of=("self",)),
-            Q(farmer_at_record__user=user) | Q(created_by=user),
-            pk=pk,
-        )
-    else:
-        require_action(user, "production", "read_all")
-        scoped_qs = scope_reviewer_queryset(ProductionRecord.objects.select_for_update(of=("self",)).exclude(status=ProductionRecord.ProductionStatus.RECORDED), request.user)
-        if user_role in FIELD_REVIEWERS:
-            scoped_qs = scoped_qs.exclude(
-                status=ProductionRecord.ProductionStatus.PENDING,
-                next_review_queue=ProductionRecord.ReviewQueue.MAO,
-            )
-        record = get_object_or_404(scoped_qs, pk=pk)
+        ),
+        pk=pk,
+    )
 
     if request.method == "DELETE":
         if user_role != "FARMER":
@@ -290,8 +263,7 @@ def production_record_detail(request, pk):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def review_production_record(request, pk):
-    """Legacy route retained for compatibility; farmer production logs are not reviewable."""
-    get_object_or_404(scope_reviewer_queryset(ProductionRecord.objects.all(), request.user), pk=pk)
+    """Legacy route retained as an inert response without looking up private logs."""
     return Response(
         {"detail": "Farmer production logs do not require field verification or MAO approval. Official slaughter review is separate."},
         status=status.HTTP_404_NOT_FOUND,
@@ -567,7 +539,9 @@ def review_calving_record(request, pk):
     - SIBAT: Field verification of calf on farm (status = VERIFIED)
     - MAO / Admin: Official municipal registration approval (status = APPROVED or SUBJECT_TO_REVISION)
     """
-    calving = get_object_or_404(scope_reviewer_queryset(CalvingRecord.objects.select_for_update(of=("self",)), request.user), pk=pk)
+    user = request.user
+    user_role = require_action(user, "calving", "review")
+    calving = get_object_or_404(scope_reviewer_queryset(CalvingRecord.objects.select_for_update(of=("self",)), user), pk=pk)
     new_status = request.data.get("status")
     remarks = request.data.get("remarks", "")
 
@@ -577,8 +551,7 @@ def review_calving_record(request, pk):
             status=400,
         )
 
-    user = request.user
-    user_role = require_action(user, "calving", "review")
+    previous_status = calving.status
     validate_review_transition(
         domain="calving",
         role=user_role,
@@ -592,6 +565,19 @@ def review_calving_record(request, pk):
     calving.review_remarks = remarks
     calving.reviewed_at = timezone.now()
     calving.save()
+    event_type = {
+        CalvingRecord.StatusType.VERIFIED: CalvingRecordWorkflowEvent.EventType.VERIFIED,
+        CalvingRecord.StatusType.APPROVED: CalvingRecordWorkflowEvent.EventType.APPROVED,
+        CalvingRecord.StatusType.SUBJECT_TO_REVISION: CalvingRecordWorkflowEvent.EventType.RETURNED,
+    }[new_status]
+    CalvingRecordWorkflowEvent.objects.create(
+        calving_record=calving,
+        event_type=event_type,
+        from_status=previous_status,
+        to_status=new_status,
+        actor=user,
+        remarks=remarks,
+    )
     if new_status == "SUBJECT_TO_REVISION":
         notify_review_revision(calving.dam.farmer, request.user,
             title="Revision required: calving #" + str(calving.pk), message=remarks,
@@ -695,6 +681,14 @@ def calving_detail(request, pk):
             calving.reviewed_by = None
             calving.reviewed_at = None
             calving.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+            CalvingRecordWorkflowEvent.objects.create(
+                calving_record=calving,
+                event_type=CalvingRecordWorkflowEvent.EventType.RESUBMITTED,
+                from_status=CalvingRecord.StatusType.SUBJECT_TO_REVISION,
+                to_status=CalvingRecord.StatusType.PENDING,
+                actor=user,
+                remarks="Corrected record resubmitted for field verification.",
+            )
             notify_role(
                 barangay_id=calving.dam.farmer.barangay_id,
                 role_name="SIBAT",
@@ -788,12 +782,10 @@ def breeding_records_list_create(request):
         return Response(serializer.data, status=201)
 
     user = request.user
-    role = getattr(getattr(user, "role", None), "role_name", None)
+    role = role_name(user)
 
     if role == "FARMER":
-        records = BreedingRecord.objects.filter(
-            Q(dam__farmer__user=user) | Q(created_by=user)
-        ).distinct()
+        records = _farmer_breeding_queryset(user)
     else:
         require_action(user, "calving", "read_all")
         records = scope_reviewer_queryset(BreedingRecord.objects.all(), request.user)
@@ -802,6 +794,7 @@ def breeding_records_list_create(request):
         "dam__livestock_type",
         "dam__farmer__user",
         "created_by",
+        "calving_record",
     ).order_by("-breeding_date", "-created_at")
 
     serializer = BreedingRecordSerializer(records, many=True)
@@ -818,11 +811,11 @@ def breeding_record_detail(request, pk):
     DELETE /production/breeding/<pk>/ -> Delete breeding event
     """
     user = request.user
-    role = getattr(getattr(user, "role", None), "role_name", None)
+    role = role_name(user)
 
     records = BreedingRecord.objects.select_for_update(of=("self",))
     if role == "FARMER":
-        records = records.filter(Q(dam__farmer__user=user) | Q(created_by=user))
+        records = _farmer_breeding_queryset(user, records)
     else:
         require_action(user, "calving", "read_all")
         records = scope_reviewer_queryset(records, user)
@@ -874,13 +867,12 @@ def breeding_analytics(request):
     Includes mathematically rigorous conception rate analytics and prediction readiness.
     """
     user = request.user
-    role = getattr(getattr(user, "role", None), "role_name", None)
+    role = role_name(user)
 
     if role == "FARMER":
-        qs = BreedingRecord.objects.filter(
-            Q(dam__farmer__user=user) | Q(created_by=user)
-        )
+        qs = _farmer_breeding_queryset(user)
     else:
+        require_action(user, "calving", "read_all")
         qs = scope_reviewer_queryset(BreedingRecord.objects.all(), user)
 
     # Date / species filters
@@ -907,15 +899,21 @@ def breeding_analytics(request):
     in_30_days = today + timedelta(days=30)
 
     total_records = qs.count()
-    active_gestations = qs.filter(status=BreedingRecord.BreedingStatus.PREGNANT).count()
-    due_soon = qs.filter(
-        status=BreedingRecord.BreedingStatus.PREGNANT,
+    current_cycle_records = qs.filter(eligible_active_dam_filter(today))
+    active_gestations = current_cycle_records.filter(_confirmed_pregnancy_filter()).count()
+    due_soon = current_cycle_records.filter(
+        _confirmed_pregnancy_filter(),
         expected_due_date__gte=today,
         expected_due_date__lte=in_30_days,
     ).count()
-    pending_check_count = qs.filter(status=BreedingRecord.BreedingStatus.PENDING_CHECK).count()
-    estimated_due_soon = qs.filter(
-        status=BreedingRecord.BreedingStatus.PENDING_CHECK,
+    resolved_outcome = (
+        Q(status=BreedingRecord.BreedingStatus.OPEN)
+        | _confirmed_pregnancy_filter()
+        | _confirmed_calving_filter()
+    )
+    pending_qs = current_cycle_records.exclude(resolved_outcome)
+    pending_check_count = pending_qs.count()
+    estimated_due_soon = pending_qs.filter(
         expected_due_date__gte=today,
         expected_due_date__lte=in_30_days,
     ).count()
@@ -932,7 +930,7 @@ def breeding_analytics(request):
     natural_count = qs.filter(breeding_type="NATURAL").count()
     embryo_count = qs.filter(breeding_type="EMBRYO_TRANSFER").count()
 
-    calved_count = qs.filter(status=BreedingRecord.BreedingStatus.CALVED).count()
+    calved_count = qs.filter(_confirmed_calving_filter()).count()
 
     return Response({
         "total_records": total_records,
@@ -967,21 +965,35 @@ def breeding_record_confirm_pregnancy(request, pk):
     """
     user = request.user
     actor_role = role_name(user)
-    records = BreedingRecord.objects.select_for_update(of=("self",))
     if actor_role == "FARMER":
-        records = records.filter(Q(dam__farmer__user=user) | Q(created_by=user))
+        records = _farmer_breeding_queryset(
+            user,
+            BreedingRecord.objects.select_for_update(of=("self",)),
+        )
     else:
-        require_action(user, "calving", "read_all")
-        records = scope_reviewer_queryset(records, user)
+        require_action(user, "calving", "review")
+        records = scope_reviewer_queryset(BreedingRecord.objects.select_for_update(of=("self",)), user)
     record = get_object_or_404(records, pk=pk)
 
     # A repeated confirmation is an idempotent success: keep the original
     # clinical details and do not notify the owner a second time.
-    if record.status == BreedingRecord.BreedingStatus.PREGNANT:
+    has_confirmation = bool(
+        record.pregnancy_confirmed_date
+        and record.pregnancy_confirmed_by_id
+        and (record.confirmation_method or "").strip()
+    )
+    if record.status == BreedingRecord.BreedingStatus.PREGNANT and has_confirmation:
         return Response(BreedingRecordSerializer(record, context={"request": request}).data, status=200)
-    if record.status != BreedingRecord.BreedingStatus.PENDING_CHECK:
+    if record.status not in (BreedingRecord.BreedingStatus.PENDING_CHECK, BreedingRecord.BreedingStatus.PREGNANT):
         return Response(
             {"error": "Only breeding records awaiting a pregnancy check can be confirmed."},
+            status=409,
+        )
+
+    dam = LivestockInventory.objects.select_for_update().get(pk=record.dam_id)
+    if not is_eligible_active_dam(dam, record.breeding_date):
+        return Response(
+            {"error": "Pregnancy can only be confirmed for an active, reviewed individual dam that was eligible on the breeding date."},
             status=409,
         )
 
@@ -1043,7 +1055,7 @@ def animal_reproductive_summary(request, pk):
     bull exposure check, treatments, and prediction data for an individual animal.
     """
     user = request.user
-    role = getattr(getattr(user, "role", None), "role_name", None)
+    role = role_name(user)
 
     if role == "FARMER":
         animal = get_object_or_404(
@@ -1051,6 +1063,7 @@ def animal_reproductive_summary(request, pk):
             pk=pk,
         )
     else:
+        require_action(user, "calving", "read_all")
         animal = get_object_or_404(
             scope_reviewer_queryset(LivestockInventory.objects.all(), user),
             pk=pk,
@@ -1080,9 +1093,7 @@ def treatment_records_list_create(request):
     role = getattr(getattr(user, "role", None), "role_name", None)
 
     if role == "FARMER":
-        qs = LivestockTreatmentRecord.objects.filter(
-            Q(livestock__farmer__user=user) | Q(created_by=user)
-        )
+        qs = LivestockTreatmentRecord.objects.filter(livestock__farmer__user=user)
     else:
         qs = scope_reviewer_queryset(LivestockTreatmentRecord.objects.all(), user)
 
@@ -1108,7 +1119,7 @@ def treatment_record_detail(request, pk):
     if role == "FARMER":
         record = get_object_or_404(
             LivestockTreatmentRecord.objects.filter(
-                Q(livestock__farmer__user=user) | Q(created_by=user)
+                livestock__farmer__user=user
             ),
             pk=pk,
         )
@@ -1163,7 +1174,7 @@ def feeding_records_list_create(request):
 
     if role == "FARMER":
         records = FeedingRecord.objects.filter(
-            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user) | Q(created_by=user)
+            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user)
         ).distinct()
     else:
         records = FeedingRecord.objects.all()
@@ -1192,7 +1203,7 @@ def feeding_record_detail(request, pk):
     if role == "FARMER":
         record = get_object_or_404(
             FeedingRecord.objects.select_for_update(of=("self",)),
-            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user) | Q(created_by=user),
+            Q(livestock__farmer__user=user) | Q(batch__farmer__user=user),
             pk=pk,
         )
     else:

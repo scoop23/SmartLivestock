@@ -570,6 +570,39 @@ class CalvingRecord(models.Model):
 
 
 # Declared commercial disposition intent (For Sale, For Slaughter, Farm Movement)
+class CalvingRecordWorkflowEvent(models.Model):
+    """Append-only audit for calving submissions, corrections, and reviews."""
+
+    class EventType(models.TextChoices):
+        SUBMITTED = "SUBMITTED", "Submitted"
+        CORRECTED = "CORRECTED", "Corrected and resubmitted"
+        RESUBMITTED = "RESUBMITTED", "Resubmitted for review"
+        VERIFIED = "VERIFIED", "Field verified"
+        APPROVED = "APPROVED", "Approved"
+        RETURNED = "RETURNED", "Returned for revision"
+
+    calving_record = models.ForeignKey(
+        "CalvingRecord",
+        on_delete=models.PROTECT,
+        related_name="workflow_events",
+    )
+    event_type = models.CharField(max_length=20, choices=EventType.choices)
+    from_status = models.CharField(max_length=25, blank=True)
+    to_status = models.CharField(max_length=25, blank=True)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="calving_workflow_events",
+    )
+    remarks = models.TextField(blank=True)
+    changes = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        indexes = [models.Index(fields=["calving_record", "created_at"])]
+
+
 class AnimalDisposition(models.Model):
     class IntentType(models.TextChoices):
         FOR_SALE = "FOR_SALE", "Intended for Sale"

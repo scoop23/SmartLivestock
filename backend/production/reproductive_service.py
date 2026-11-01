@@ -10,12 +10,14 @@ Authoritative backend service that resolves:
 """
 
 from datetime import date, timedelta
+from calendar import monthrange
 from typing import Any, Dict, List, Optional
-from django.db.models import Q, QuerySet
+from django.db.models import F, Q, QuerySet
 from django.utils import timezone
 
 from livestock.models import LivestockInventory, LivestockBatch
 from production.models import BreedingRecord, CalvingRecord, LivestockTreatmentRecord, get_species_gestation_days
+from smartlivestock.workflows import FARMER, role_name, scope_reviewer_queryset
 
 
 # ---------------------------------------------------------------------------
@@ -23,7 +25,8 @@ from production.models import BreedingRecord, CalvingRecord, LivestockTreatmentR
 # ---------------------------------------------------------------------------
 
 class ReproductiveStatus:
-    EXPOSED = "EXPOSED"                     # Valid breeding or active bull herd-exposure; pregnancy unconfirmed
+    EXPOSED = "EXPOSED"                     # Active eligible female shares a herd with an eligible bull
+    PENDING_CHECK = "PENDING_CHECK"         # A breeding event exists, pregnancy is not confirmed
     PREGNANT = "PREGNANT"                   # Explicitly confirmed pregnancy; active current cycle
     COMPLETE = "COMPLETE"                   # Calving completed for cycle; post-partum / resting
     UNKNOWN = "UNKNOWN"                     # Insufficient evidence to assign status
@@ -31,6 +34,7 @@ class ReproductiveStatus:
 
     LABELS = {
         EXPOSED: "Exposed",
+        PENDING_CHECK: "Pending check",
         PREGNANT: "Pregnant — Confirmed",
         COMPLETE: "Complete",
         UNKNOWN: "Unknown / Not Recorded",
@@ -39,6 +43,7 @@ class ReproductiveStatus:
 
     BADGE_VARIANTS = {
         EXPOSED: "amber",
+        PENDING_CHECK: "amber",
         PREGNANT: "emerald",
         COMPLETE: "blue",
         UNKNOWN: "slate",
@@ -49,6 +54,81 @@ class ReproductiveStatus:
 # Maximum grace period beyond biological gestation before an unconfirmed or uncalved
 # pregnancy is marked overdue for clinical check rather than remaining indefinitely pregnant.
 MAX_GESTATION_GRACE_DAYS = 45
+
+
+def eligible_active_dam_filter(as_of_date: Optional[date] = None):
+    """Query predicate shared by current pregnancy and pending-check metrics."""
+    as_of_date = as_of_date or timezone.localdate()
+    cutoff_month = as_of_date.month
+    cutoff_year = as_of_date.year - 1
+    cutoff_day = min(as_of_date.day, monthrange(cutoff_year, cutoff_month)[1])
+    one_year_ago = date(cutoff_year, cutoff_month, cutoff_day)
+    return Q(
+        dam__entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+        dam__quantity=1,
+        dam__operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+        dam__status__in=(LivestockInventory.StatusType.VERIFIED, LivestockInventory.StatusType.APPROVED),
+    ) & (Q(dam__sex__iexact="F") | Q(dam__sex__iexact="FEMALE")) & (
+        Q(dam__birth_date__isnull=True) | Q(dam__birth_date__lte=one_year_ago)
+    )
+
+
+def is_eligible_active_dam(animal: LivestockInventory, as_of_date: Optional[date] = None) -> bool:
+    """Return whether current reviewed individual inventory can have an active cycle."""
+    return bool(
+        animal
+        and animal.entry_type == LivestockInventory.EntryType.INDIVIDUAL
+        and animal.quantity == 1
+        and animal.operational_status == LivestockInventory.OperationalStatus.ACTIVE
+        and animal.status in (LivestockInventory.StatusType.VERIFIED, LivestockInventory.StatusType.APPROVED)
+        and (animal.sex or "").strip().upper() in {"F", "FEMALE"}
+        and animal.age_classification_as_of(as_of_date) != "CALF"
+    )
+
+
+def _breeding_records_for_user(user):
+    if not user:
+        return BreedingRecord.objects.none()
+    role = role_name(user)
+    if role == FARMER:
+        return BreedingRecord.objects.filter(dam__farmer__user=user)
+    if role in {"SIBAT", "CBAT", "MAO", "ADMIN"}:
+        return scope_reviewer_queryset(BreedingRecord.objects.all(), user)
+    return BreedingRecord.objects.none()
+
+
+def _confirmed_pregnancy_filter():
+    return Q(
+        status=BreedingRecord.BreedingStatus.PREGNANT,
+        pregnancy_confirmed_date__isnull=False,
+        pregnancy_confirmed_by__isnull=False,
+    ) & ~Q(confirmation_method="")
+
+
+def _confirmed_calving_filter():
+    return Q(
+        status=BreedingRecord.BreedingStatus.CALVED,
+        calving_record__isnull=False,
+        calving_record__dam_id=F("dam_id"),
+    )
+
+
+def effective_breeding_status(record):
+    """Hide stale status values that lack the confirmation or calving evidence they require."""
+    if record.status == BreedingRecord.BreedingStatus.PREGNANT:
+        return (
+            record.status
+            if record.pregnancy_confirmed_date
+            and record.pregnancy_confirmed_by_id
+            and (record.confirmation_method or "").strip()
+            else BreedingRecord.BreedingStatus.PENDING_CHECK
+        )
+    if record.status == BreedingRecord.BreedingStatus.CALVED:
+        calving = getattr(record, "calving_record", None)
+        if calving and calving.dam_id == record.dam_id and calving.calving_date <= timezone.localdate():
+            return record.status
+        return BreedingRecord.BreedingStatus.PENDING_CHECK
+    return record.status
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +198,26 @@ def _resolve_reproductive_status_internal(
             "active_breeding_record_id": None,
         }
 
+    if not is_eligible_active_dam(animal, as_of_date):
+        return {
+            "status": ReproductiveStatus.UNKNOWN,
+            "label": "Not eligible for active reproductive status",
+            "badge_variant": ReproductiveStatus.BADGE_VARIANTS[ReproductiveStatus.UNKNOWN],
+            "explanation": (
+                "Current reproductive status requires active, reviewed individual female livestock. "
+                "Historical events remain available in the animal history."
+            ),
+            "is_female": True,
+            "can_breed": False,
+            "cycle_number": 0,
+            "supporting_event_type": None,
+            "supporting_event_date": None,
+            "days_in_status": None,
+            "expected_calving_date": None,
+            "gestation_window": None,
+            "active_breeding_record_id": None,
+        }
+
     # Species biological gestation
     species_name = getattr(getattr(animal, "livestock_type", None), "name", "Cattle")
     std_gestation_days = get_species_gestation_days(species_name)
@@ -150,7 +250,7 @@ def _resolve_reproductive_status_internal(
     # Check if there is a breeding record that occurred AFTER the latest calving
     current_cycle_breeding: Optional[BreedingRecord] = None
     if latest_calving_date and latest_breeding:
-        if latest_breeding.breeding_date >= latest_calving_date:
+        if latest_breeding.breeding_date > latest_calving_date:
             current_cycle_breeding = latest_breeding
     elif not latest_calving_date and latest_breeding:
         current_cycle_breeding = latest_breeding
@@ -167,10 +267,7 @@ def _resolve_reproductive_status_internal(
         exp_due_date = current_cycle_breeding.expected_due_date or (b_date + timedelta(days=gest_days))
 
         # Pregnancy check: confirmed pregnant
-        is_confirmed = (
-            current_cycle_breeding.status == BreedingRecord.BreedingStatus.PREGNANT
-            or current_cycle_breeding.pregnancy_confirmed_date is not None
-        )
+        is_confirmed = effective_breeding_status(current_cycle_breeding) == BreedingRecord.BreedingStatus.PREGNANT
 
         if is_confirmed:
             # Prevent indefinite pregnancy: Check if gestation has elapsed beyond biological limit
@@ -224,7 +321,7 @@ def _resolve_reproductive_status_internal(
             }
 
         # Breeding recorded as OPEN (confirmed not pregnant / unsuccessful)
-        if current_cycle_breeding.status == BreedingRecord.BreedingStatus.OPEN:
+        if effective_breeding_status(current_cycle_breeding) == BreedingRecord.BreedingStatus.OPEN:
             return {
                 "status": ReproductiveStatus.UNKNOWN,
                 "label": "Open / Non-Pregnant",
@@ -245,7 +342,28 @@ def _resolve_reproductive_status_internal(
             }
 
         # Breeding recorded as CALVED
-        if current_cycle_breeding.status == BreedingRecord.BreedingStatus.CALVED:
+        if effective_breeding_status(current_cycle_breeding) == BreedingRecord.BreedingStatus.CALVED:
+            calving_event = current_cycle_breeding.calving_record
+            if (
+                calving_event is None
+                or calving_event.dam_id != animal.pk
+                or calving_event.calving_date > as_of_date
+            ):
+                return {
+                    "status": ReproductiveStatus.UNKNOWN,
+                    "label": ReproductiveStatus.LABELS[ReproductiveStatus.UNKNOWN],
+                    "badge_variant": ReproductiveStatus.BADGE_VARIANTS[ReproductiveStatus.UNKNOWN],
+                    "explanation": "A completed reproductive status requires a recorded calving event linked to this dam.",
+                    "is_female": True,
+                    "can_breed": True,
+                    "cycle_number": cycle_number,
+                    "supporting_event_type": None,
+                    "supporting_event_date": None,
+                    "days_in_status": None,
+                    "expected_calving_date": None,
+                    "gestation_window": None,
+                    "active_breeding_record_id": current_cycle_breeding.id,
+                }
             return {
                 "status": ReproductiveStatus.COMPLETE,
                 "label": ReproductiveStatus.LABELS[ReproductiveStatus.COMPLETE],
@@ -255,22 +373,21 @@ def _resolve_reproductive_status_internal(
                 "can_breed": True,
                 "cycle_number": cycle_number,
                 "supporting_event_type": "CALVED_CYCLE",
-                "supporting_event_date": str(b_date),
+                "supporting_event_date": str(calving_event.calving_date),
                 "days_in_status": days_elapsed,
                 "expected_calving_date": None,
                 "gestation_window": None,
                 "active_breeding_record_id": current_cycle_breeding.id,
             }
 
-        # Plain breeding or insemination without pregnancy confirmation (PENDING_CHECK)
-        # Exposure is recorded, but PREGNANCY IS NEVER INFERRED!
+        # A recorded breeding event is waiting for an authorized pregnancy check.
         return {
-            "status": ReproductiveStatus.EXPOSED,
-            "label": ReproductiveStatus.LABELS[ReproductiveStatus.EXPOSED],
-            "badge_variant": ReproductiveStatus.BADGE_VARIANTS[ReproductiveStatus.EXPOSED],
+            "status": ReproductiveStatus.PENDING_CHECK,
+            "label": ReproductiveStatus.LABELS[ReproductiveStatus.PENDING_CHECK],
+            "badge_variant": ReproductiveStatus.BADGE_VARIANTS[ReproductiveStatus.PENDING_CHECK],
             "explanation": (
                 f"{current_cycle_breeding.get_breeding_type_display()} recorded on {b_date:%b %d, %Y}. "
-                "Pregnancy check is pending; exposure does not confirm conception."
+                "Pregnancy check is pending. The estimated due date is not proof of pregnancy."
             ),
             "is_female": True,
             "can_breed": False,
@@ -377,21 +494,26 @@ def check_active_bull_herd_exposure(animal: LivestockInventory) -> Dict[str, Any
     - Does NOT infer exposure merely because animals belong to the same farm or barangay.
     - Only evaluates verified current herd membership (`batch` link).
     """
-    if not animal.batch_id:
+    eligible_dam = is_eligible_active_dam(animal)
+    if not eligible_dam or not animal.batch_id:
         return {"has_exposure": False, "exposed": False, "batch_name": None, "bull_tags": [], "bulls": []}
 
     batch = animal.batch
-    if batch.status != LivestockBatch.StatusType.ACTIVE:
+    if batch.status != LivestockBatch.StatusType.ACTIVE or batch.farmer_id != animal.farmer_id:
         return {"has_exposure": False, "exposed": False, "batch_name": batch.batch_name, "bull_tags": [], "bulls": []}
 
     # Find active, approved males in the EXACT SAME batch and compatible species
     bulls = list(LivestockInventory.objects.filter(
+        Q(sex__iexact="M") | Q(sex__iexact="MALE"),
         batch=batch,
-        sex__iexact="MALE",
         livestock_type=animal.livestock_type,
+        entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+        quantity=1,
+        status=LivestockInventory.StatusType.APPROVED,
         operational_status=LivestockInventory.OperationalStatus.ACTIVE,
     ).exclude(id=animal.id))
 
+    bulls = [bull for bull in bulls if bull.age_classification_as_of() != "CALF"]
     bull_tags = [b.tag_number or f"Bull #{b.id}" for b in bulls]
     bull_items = [{"tag_number": b.tag_number or f"Bull #{b.id}"} for b in bulls]
 
@@ -442,29 +564,23 @@ def calculate_conception_analytics(
 
     total_events = qs.count()
 
-    # Confirmed conception outcomes:
-    # Status is PREGNANT, or pregnancy_confirmed_date is set, or status is CALVED, or calving_record is attached
-    confirmed_conceptions_qs = qs.filter(
-        Q(status=BreedingRecord.BreedingStatus.PREGNANT)
-        | Q(pregnancy_confirmed_date__isnull=False)
-        | Q(status=BreedingRecord.BreedingStatus.CALVED)
-        | Q(calving_record__isnull=False)
-    ).distinct()
+    confirmed_outcome = _confirmed_pregnancy_filter() | _confirmed_calving_filter()
+    confirmed_conceptions_qs = qs.filter(confirmed_outcome).distinct()
     confirmed_conceptions = confirmed_conceptions_qs.count()
 
     # Known unsuccessful outcomes:
     # Explicitly recorded as OPEN (checked non-pregnant)
-    known_unsuccessful_qs = qs.filter(status=BreedingRecord.BreedingStatus.OPEN)
+    known_unsuccessful_qs = qs.filter(status=BreedingRecord.BreedingStatus.OPEN).exclude(confirmed_outcome)
     known_unsuccessful = known_unsuccessful_qs.count()
 
     # Total events with KNOWN outcomes (denominator)
-    events_with_known_outcomes = confirmed_conceptions + known_unsuccessful
+    events_with_known_outcomes = qs.filter(
+        confirmed_outcome | Q(status=BreedingRecord.BreedingStatus.OPEN)
+    ).distinct().count()
 
     # Events with UNKNOWN / pending outcomes (excluded from denominator)
-    pending_check_events = qs.filter(
-        status=BreedingRecord.BreedingStatus.PENDING_CHECK,
-        pregnancy_confirmed_date__isnull=True,
-        calving_record__isnull=True,
+    pending_check_events = qs.exclude(
+        confirmed_outcome | Q(status=BreedingRecord.BreedingStatus.OPEN)
     ).count()
 
     # Observed rate computation
@@ -492,14 +608,11 @@ def calculate_conception_analytics(
     for b_type in BreedingRecord.BreedingType.values:
         type_qs = qs.filter(breeding_type=b_type)
         type_total = type_qs.count()
-        type_confirmed = type_qs.filter(
-            Q(status=BreedingRecord.BreedingStatus.PREGNANT)
-            | Q(pregnancy_confirmed_date__isnull=False)
-            | Q(status=BreedingRecord.BreedingStatus.CALVED)
-            | Q(calving_record__isnull=False)
+        type_confirmed = type_qs.filter(confirmed_outcome).distinct().count()
+        type_open = type_qs.filter(status=BreedingRecord.BreedingStatus.OPEN).exclude(confirmed_outcome).count()
+        type_known = type_qs.filter(
+            confirmed_outcome | Q(status=BreedingRecord.BreedingStatus.OPEN)
         ).distinct().count()
-        type_open = type_qs.filter(status=BreedingRecord.BreedingStatus.OPEN).count()
-        type_known = type_confirmed + type_open
         type_rate = round((type_confirmed / type_known) * 100, 1) if type_known > 0 else None
 
         by_type[b_type] = {
@@ -541,12 +654,12 @@ def evaluate_conception_prediction_readiness(scope_user=None) -> Dict[str, Any]:
     Audits whether the dataset is sufficient to train or evaluate an individual
     conception-likelihood prediction model without fabricating data or assumptions.
     """
-    all_breeding = BreedingRecord.objects.all()
+    all_breeding = _breeding_records_for_user(scope_user)
     total_events = all_breeding.count()
     known_outcomes = all_breeding.filter(
-        Q(status__in=[BreedingRecord.BreedingStatus.PREGNANT, BreedingRecord.BreedingStatus.CALVED, BreedingRecord.BreedingStatus.OPEN])
-        | Q(pregnancy_confirmed_date__isnull=False)
-        | Q(calving_record__isnull=False)
+        Q(status=BreedingRecord.BreedingStatus.OPEN)
+        | _confirmed_pregnancy_filter()
+        | _confirmed_calving_filter()
     ).distinct().count()
 
     is_sufficient = known_outcomes >= MINIMUM_OUTCOMES_FOR_PREDICTION
@@ -581,6 +694,7 @@ def evaluate_conception_prediction_readiness(scope_user=None) -> Dict[str, Any]:
 def predict_conception_likelihood(
     animal: LivestockInventory,
     breeding_event: Optional[BreedingRecord] = None,
+    user=None,
 ) -> Dict[str, Any]:
     """
     Evaluate individual conception-likelihood prediction for a female animal.
@@ -589,7 +703,8 @@ def predict_conception_likelihood(
     - Never modifies animal's official reproductive status.
     - Never uses future outcomes as input features (prevents data leakage).
     """
-    readiness = evaluate_conception_prediction_readiness()
+    user = user or getattr(getattr(animal, "farmer", None), "user", None)
+    readiness = evaluate_conception_prediction_readiness(user)
 
     if not readiness["is_data_sufficient"]:
         return {
@@ -610,8 +725,10 @@ def predict_conception_likelihood(
 
     # Baseline empirical rate calculation when data becomes sufficient in future:
     # Uses historical observed conception rate strictly preceding this animal's breeding event
-    baseline_qs = BreedingRecord.objects.filter(
-        status__in=[BreedingRecord.BreedingStatus.PREGNANT, BreedingRecord.BreedingStatus.CALVED, BreedingRecord.BreedingStatus.OPEN]
+    baseline_qs = _breeding_records_for_user(user).filter(
+        Q(status=BreedingRecord.BreedingStatus.OPEN)
+        | _confirmed_pregnancy_filter()
+        | _confirmed_calving_filter()
     )
     if breeding_event:
         # Prevent temporal data leakage: only use events prior to this breeding event
@@ -647,7 +764,12 @@ def get_animal_reproductive_profile(animal: LivestockInventory) -> Dict[str, Any
     bull_exposure = check_active_bull_herd_exposure(animal)
 
     # Breeding events
-    breeding_qs = BreedingRecord.objects.filter(dam=animal).order_by("-breeding_date", "-id")
+    breeding_qs = list(
+        BreedingRecord.objects.filter(dam=animal)
+        .select_related("calving_record", "sire_livestock")
+        .order_by("-breeding_date", "-id")
+    )
+    latest_breeding = breeding_qs[0] if breeding_qs else None
     breeding_history = []
     for b in breeding_qs:
         breeding_history.append({
@@ -660,8 +782,10 @@ def get_animal_reproductive_profile(animal: LivestockInventory) -> Dict[str, Any
             "technician_or_inseminator": b.technician_or_inseminator,
             "gestation_days": b.gestation_days,
             "expected_due_date": str(b.expected_due_date) if b.expected_due_date else None,
-            "status": b.status,
-            "status_label": b.get_status_display(),
+            "status": effective_breeding_status(b),
+            "status_label": dict(BreedingRecord.BreedingStatus.choices).get(
+                effective_breeding_status(b), "Awaiting Check"
+            ),
             "pregnancy_confirmed_date": str(b.pregnancy_confirmed_date) if b.pregnancy_confirmed_date else None,
             "confirmation_method": b.confirmation_method,
             "notes": b.notes,
@@ -748,7 +872,11 @@ def get_animal_reproductive_profile(animal: LivestockInventory) -> Dict[str, Any
     timeline_items.sort(key=lambda x: x["date"], reverse=True)
 
     # Individual conception prediction assessment
-    prediction_info = predict_conception_likelihood(animal)
+    prediction_info = predict_conception_likelihood(
+        animal,
+        breeding_event=latest_breeding,
+        user=getattr(getattr(animal, "farmer", None), "user", None),
+    )
 
     return {
         "animal_id": animal.id,

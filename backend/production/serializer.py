@@ -11,11 +11,13 @@ from .models import (
     SlaughterRecord,
     WeightRecord,
     CalvingRecord,
+    CalvingRecordWorkflowEvent,
     AnimalDisposition,
     BreedingRecord,
     FeedingRecord,
     LivestockTreatmentRecord,
 )
+from .reproductive_service import effective_breeding_status
 from livestock.models import Farmer, LivestockInventory, LivestockBatch
 from rest_framework.exceptions import ValidationError
 
@@ -715,6 +717,28 @@ class WeightRecordSerializer(serializers.ModelSerializer):
             return record
 
 
+class CalvingRecordWorkflowEventSerializer(serializers.ModelSerializer):
+    actor_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CalvingRecordWorkflowEvent
+        fields = (
+            "id",
+            "event_type",
+            "from_status",
+            "to_status",
+            "actor_name",
+            "remarks",
+            "changes",
+            "created_at",
+        )
+        read_only_fields = fields
+
+    def get_actor_name(self, obj):
+        name = obj.actor.get_full_name().strip()
+        return name or obj.actor.username
+
+
 class CalvingRecordSerializer(serializers.ModelSerializer):
     """
     Returns:
@@ -734,6 +758,7 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
     farmer_name = serializers.SerializerMethodField(read_only=True)
     reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
+    workflow_events = CalvingRecordWorkflowEventSerializer(many=True, read_only=True)
 
     def get_livestock_type_name(self, obj):
         if obj.dam and obj.dam.livestock_type:
@@ -798,6 +823,7 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
             "review_remarks",
             "offspring_inventory",
             "inventory_reconciled_at",
+            "workflow_events",
             "created_at",
         )
         read_only_fields = ("status", "reviewed_by", "reviewed_by_name", "reviewed_at", "review_remarks", "offspring_inventory", "inventory_reconciled_at", "created_at")
@@ -837,7 +863,7 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
             qs = CalvingRecord.objects.filter(dam=dam, calving_date=calving_date)
             if calf_tag:
                 qs = qs.filter(calf_tag__iexact=calf_tag)
-            if qs.exclude(status=CalvingRecord.StatusType.SUBJECT_TO_REVISION).exists():
+            if qs.exists():
                 raise ValidationError("A calving record for this dam on this date already exists.")
         return attrs
 
@@ -847,6 +873,16 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
         dam = validated_data["dam"]
 
         with transaction.atomic():
+            dam = LivestockInventory.objects.select_for_update().select_related("farmer__user").get(pk=dam.pk)
+            validated_data["dam"] = dam
+            calving_date = validated_data["calving_date"]
+            duplicate_qs = CalvingRecord.objects.filter(dam=dam, calving_date=calving_date)
+            requested_calf_tag = (validated_data.get("calf_tag") or "").strip()
+            if requested_calf_tag:
+                duplicate_qs = duplicate_qs.filter(calf_tag__iexact=requested_calf_tag)
+            if duplicate_qs.exists():
+                raise ValidationError("A calving record for this dam on this date already exists.")
+
             if not (validated_data.get("calf_tag") or "").strip():
                 # Match the livestock registration convention: FARMER-NAME-001.
                 # Locking the farmer row keeps simultaneous calving submissions
@@ -883,10 +919,16 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
                     next_number += 1
 
             calving = CalvingRecord.objects.create(**validated_data)
+            CalvingRecordWorkflowEvent.objects.create(
+                calving_record=calving,
+                event_type=CalvingRecordWorkflowEvent.EventType.SUBMITTED,
+                to_status=calving.status,
+                actor=user,
+            )
 
             # Automatically link the dam's active breeding event to this birth to complete the cycle
             active_breeding = (
-                BreedingRecord.objects.filter(
+                BreedingRecord.objects.select_for_update().filter(
                     dam=calving.dam,
                     breeding_date__lte=calving.calving_date,
                     status__in=[
@@ -916,10 +958,30 @@ class CalvingRecordSerializer(serializers.ModelSerializer):
             "calving_ease",
             "notes",
         ]
+        changes = {}
         for field in allowed:
             if field in validated_data:
+                previous_value = getattr(instance, field)
+                next_value = validated_data[field]
+                if previous_value != next_value:
+                    changes[field] = {
+                        "before": str(previous_value) if previous_value is not None else None,
+                        "after": str(next_value) if next_value is not None else None,
+                    }
                 setattr(instance, field, validated_data[field])
+        previous_status = instance.status
+        previous_remarks = instance.review_remarks
         instance.save()
+        changes["status"] = {"before": previous_status, "after": instance.status}
+        CalvingRecordWorkflowEvent.objects.create(
+            calving_record=instance,
+            event_type=CalvingRecordWorkflowEvent.EventType.CORRECTED,
+            from_status=previous_status,
+            to_status=instance.status,
+            actor=self.context["request"].user,
+            remarks=previous_remarks,
+            changes=changes,
+        )
 
         return instance
 
@@ -1031,6 +1093,11 @@ class BreedingRecordSerializer(serializers.ModelSerializer):
             return 0
         return min(100, max(0, round((elapsed / obj.gestation_days) * 100)))
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["status"] = effective_breeding_status(instance)
+        return data
+
     def validate_dam(self, value):
         user = self.context["request"].user
         role = getattr(getattr(user, "role", None), "role_name", None)
@@ -1044,9 +1111,13 @@ class BreedingRecordSerializer(serializers.ModelSerializer):
             raise ValidationError("Selected female animal must be verified or approved first.")
         if value.operational_status != LivestockInventory.OperationalStatus.ACTIVE:
             raise ValidationError("Selected female animal must be currently active.")
+        if value.entry_type != LivestockInventory.EntryType.INDIVIDUAL or value.quantity != 1:
+            raise ValidationError("Breeding records require one individual female animal, not an aggregate batch.")
         sex = (value.sex or "").upper()
-        if not (sex.startswith("F") or sex == "FEMALE" or value.entry_type == "BATCH"):
+        if not (sex.startswith("F") or sex == "FEMALE"):
             raise ValidationError("Breeding records can only be registered for female livestock (dam).")
+        if value.age_classification_as_of() == "CALF":
+            raise ValidationError("Breeding records require a dam that is not classified as a calf.")
         return value
 
     def validate_breeding_date(self, value):
@@ -1077,6 +1148,16 @@ class BreedingRecordSerializer(serializers.ModelSerializer):
                 raise ValidationError({"sire_livestock": "Selected sire animal must be male."})
             if dam and sire_livestock.livestock_type_id != dam.livestock_type_id:
                 raise ValidationError({"sire_livestock": "Sire must be of the same species as the dam."})
+            if dam and sire_livestock.farmer_id != dam.farmer_id:
+                raise ValidationError({"sire_livestock": "The linked sire must belong to the same Farmer as the dam."})
+            if (
+                sire_livestock.entry_type != LivestockInventory.EntryType.INDIVIDUAL
+                or sire_livestock.quantity != 1
+                or sire_livestock.status != LivestockInventory.StatusType.APPROVED
+                or sire_livestock.operational_status != LivestockInventory.OperationalStatus.ACTIVE
+                or (breeding_date and sire_livestock.age_classification_as_of(breeding_date) == "CALF")
+            ):
+                raise ValidationError({"sire_livestock": "The linked sire must be an approved, active individual animal."})
 
         if confirmed_date:
             if confirmed_date > timezone.localdate():
@@ -1084,10 +1165,39 @@ class BreedingRecordSerializer(serializers.ModelSerializer):
             if breeding_date and confirmed_date < breeding_date:
                 raise ValidationError({"pregnancy_confirmed_date": "Pregnancy confirmation date cannot precede the breeding date."})
 
+        breeding_type = attrs.get("breeding_type", self.instance.breeding_type if self.instance else None)
+        sire_tag_or_code = attrs.get("sire_tag_or_code", self.instance.sire_tag_or_code if self.instance else "")
+        if dam and breeding_date and breeding_type:
+            if dam.age_classification_as_of(breeding_date) == "CALF":
+                raise ValidationError({"breeding_date": "The dam was classified as a calf on the breeding date."})
+            duplicates = BreedingRecord.objects.filter(
+                dam=dam,
+                breeding_date=breeding_date,
+                breeding_type=breeding_type,
+                sire_livestock=sire_livestock,
+                sire_tag_or_code=sire_tag_or_code,
+            )
+            if self.instance:
+                duplicates = duplicates.exclude(pk=self.instance.pk)
+            if duplicates.exists():
+                raise ValidationError("This breeding or insemination event has already been recorded.")
+
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
         user = self.context["request"].user
+        dam = LivestockInventory.objects.select_for_update().get(pk=validated_data["dam"].pk)
+        validated_data["dam"] = dam
+        duplicate = BreedingRecord.objects.filter(
+            dam=dam,
+            breeding_date=validated_data["breeding_date"],
+            breeding_type=validated_data["breeding_type"],
+            sire_livestock=validated_data.get("sire_livestock"),
+            sire_tag_or_code=validated_data.get("sire_tag_or_code", ""),
+        ).exists()
+        if duplicate:
+            raise ValidationError("This breeding or insemination event has already been recorded.")
         validated_data["created_by"] = user
         return super().create(validated_data)
 
