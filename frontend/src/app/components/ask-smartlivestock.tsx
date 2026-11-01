@@ -66,6 +66,10 @@ type AskResponse = {
     text: string | null;
     message?: string;
   };
+  ai_interpretation?: {
+    status: "used" | "rules_fallback" | "skipped" | "clarification" | "unsupported" | "unavailable";
+    message: string;
+  };
 };
 
 const EXAMPLES = [
@@ -365,6 +369,7 @@ export function AskSmartLivestock() {
   const [resultExpanded, setResultExpanded] = useState(true);
   const [draftNotice, setDraftNotice] = useState("");
   const [explainWithAI, setExplainWithAI] = useState(false);
+  const [interpretWithAI, setInterpretWithAI] = useState(false);
   const questionInput = useRef<HTMLInputElement>(null);
   const resultContentId = useId();
   // A ref changes immediately; React state alone cannot block same-tick clicks.
@@ -385,6 +390,7 @@ export function AskSmartLivestock() {
       const result = await api.post<AskResponse>("analytics/nlp-query/", {
         question: trimmed,
         explain: explainWithAI,
+        interpret_with_ai: interpretWithAI,
       });
       setResponse(result.data);
     } catch (caught) {
@@ -415,7 +421,7 @@ export function AskSmartLivestock() {
               <Cpu className="size-3 text-emerald-600" />
               NEURAL QUERY CO-PILOT
             </span>
-            <span className="font-mono text-xs text-slate-400">{"NLP v2.0 // DETERMINISTIC ORM"}</span>
+            <span className="font-mono text-xs text-slate-400">{"RULES + OPTIONAL GROQ // VALIDATED ORM"}</span>
           </div>
           <h2 className="mt-1 text-base font-black tracking-tight text-slate-900 sm:text-lg">Ask SmartLivestock</h2>
           <p id="ask-help" className="text-xs font-medium leading-relaxed text-slate-500">
@@ -454,8 +460,22 @@ export function AskSmartLivestock() {
         </Button>
       </form>
 
-      {/* AI Explanation Toggle */}
+      {/* Groq Interpretation Toggle: exact question text may leave the application. */}
       <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs leading-relaxed text-slate-600">
+        <input
+          type="checkbox"
+          checked={interpretWithAI}
+          onChange={(event) => setInterpretWithAI(event.target.checked)}
+          disabled={loading}
+          className="mt-0.5 size-4 shrink-0 rounded border-slate-300 accent-[#2D5A27]"
+        />
+        <span>
+          Use Groq to interpret this question. When used, the exact question and available species/barangay labels are sent to Groq. Avoid farmer names or IDs; server approval is also required.
+        </span>
+      </label>
+
+      {/* AI Explanation Toggle */}
+      <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs leading-relaxed text-slate-600">
         <input
           type="checkbox"
           checked={explainWithAI}
@@ -464,7 +484,7 @@ export function AskSmartLivestock() {
           className="mt-0.5 size-4 shrink-0 rounded border-slate-300 accent-[#2D5A27]"
         />
         <span>
-          Request optional neural synthesis explanation. Only aggregate numerical analytics are forwarded; raw questions and farmer names remain private.
+          Request an explanation of the result. Only allowlisted aggregate analytics are forwarded; the question text is not included in this explanation request.
         </span>
       </label>
 
@@ -581,7 +601,7 @@ export function AskSmartLivestock() {
                       <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
                     </span>
-                    AI TELEMETRY DECODED
+                    QUERY INTERPRETED
                   </span>
 
                   <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-slate-700 shadow-2xs">
@@ -591,7 +611,7 @@ export function AskSmartLivestock() {
 
                 <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-500">
                   <ShieldCheck className="size-3.5 text-emerald-600" />
-                  <span>DETERMINISTIC ORM · 0% HALLUCINATION</span>
+                  <span>SERVER-VALIDATED ORM · NO GENERATED SQL</span>
                 </div>
               </div>
 
@@ -659,6 +679,12 @@ export function AskSmartLivestock() {
                 </p>
               </div>
 
+              {response.ai_interpretation ? (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 font-mono text-xs leading-relaxed text-slate-600" role="status">
+                  {response.ai_interpretation.message}
+                </p>
+              ) : null}
+
               {/* Telemetry Visualization */}
               <ResultVisualization response={response} />
 
@@ -720,6 +746,12 @@ export function AskSmartLivestock() {
                 </AlertTitle>
                 <AlertDescription className="mt-1 text-xs sm:text-sm font-medium">{response.answer}</AlertDescription>
               </Alert>
+
+              {response.ai_interpretation ? (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 font-mono text-xs leading-relaxed text-slate-600" role="status">
+                  {response.ai_interpretation.message}
+                </p>
+              ) : null}
 
               {response.suggestions?.length ? (
                 <div className="rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-50/50 to-white p-4 shadow-2xs">
