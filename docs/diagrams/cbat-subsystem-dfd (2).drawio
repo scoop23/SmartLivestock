@@ -1,0 +1,824 @@
+<mxfile host="app.diagrams.net" pages="4">
+  <diagram name="CBAT DFD (Level 1)" id="ZhAvQbtxljWjzcamtWsa">
+    <mxGraphModel dx="4023" dy="1214" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1850" pageHeight="1250" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="l1_title" parent="1" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=20;fontStyle=1;whiteSpace=wrap;" value="SmartLivestock — CBAT Subsystem DFD (Gane &amp; Sarson)" vertex="1">
+          <mxGeometry height="38" width="1650" x="100" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_subtitle" parent="1" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#475569;fontSize=12;fontStyle=0;whiteSpace=wrap;" value="Level 1 · Field review, census, follow-up and community coordination" vertex="1">
+          <mxGeometry height="26" width="1650" x="100" y="58" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_farmer" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;FARMER&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;&quot;&gt;Livestock raiser&lt;/span&gt;" vertex="1">
+          <mxGeometry height="78" width="220" x="40" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_cbat" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;CBAT&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;&quot;&gt;Barangay field technician&lt;/span&gt;" vertex="1">
+          <mxGeometry height="78" width="250" x="760" y="105" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_mao" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;MAO / ADMIN&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;&quot;&gt;Municipal reviewer&lt;/span&gt;" vertex="1">
+          <mxGeometry height="78" width="240" x="1510" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p1" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="1.0" vertex="1">
+          <mxGeometry height="92" width="250" x="760" y="225" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p1_body" parent="l1_p1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Authenticate &amp; resolve reviewer scope" vertex="1">
+          <mxGeometry height="64" width="250" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p2" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="2.0" vertex="1">
+          <mxGeometry height="108" width="330" x="700" y="365" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p2_body" parent="l1_p2" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Load scoped monitoring workspace" vertex="1">
+          <mxGeometry height="80" width="330" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p3" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="3.0" vertex="1">
+          <mxGeometry height="112" width="280" x="330" y="565" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p3_body" parent="l1_p3" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Verify disease / mortality reports" vertex="1">
+          <mxGeometry height="84" width="280" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p4" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="4.0" vertex="1">
+          <mxGeometry height="112" width="280" x="700" y="565" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p4_body" parent="l1_p4" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Record approved-case follow-up" vertex="1">
+          <mxGeometry height="84" width="280" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p5" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="5.0" vertex="1">
+          <mxGeometry height="112" width="290" x="1070" y="565" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p5_body" parent="l1_p5" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Prepare &amp; submit quarterly census" vertex="1">
+          <mxGeometry height="84" width="290" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p6" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="6.0" vertex="1">
+          <mxGeometry height="112" width="280" x="700" y="800" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p6_body" parent="l1_p6" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Coordinate field activities" vertex="1">
+          <mxGeometry height="84" width="280" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p7" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="7.0" vertex="1">
+          <mxGeometry height="108" width="280" x="700" y="1030" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p7_body" parent="l1_p7" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Create &amp; deliver scoped notifications" vertex="1">
+          <mxGeometry height="80" width="280" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d1_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D1&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="1110" y="225" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d1" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="User accounts, roles &amp; barangay scope" vertex="1">
+          <mxGeometry height="46" width="250" x="1146" y="225" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d2_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D2&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="340" y="405" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d2" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="Farmer &amp; livestock inventory" vertex="1">
+          <mxGeometry height="46" width="245" x="376" y="405" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d3_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D3&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="330" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d3" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="Disease / mortality cases &amp; field inspection" vertex="1">
+          <mxGeometry height="46" width="300" x="366" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d4_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D4&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="700" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d4" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="Disease case follow-up events" vertex="1">
+          <mxGeometry height="46" width="280" x="736" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d5_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D5&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="1070" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d5" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="Census submissions &amp; items" vertex="1">
+          <mxGeometry height="46" width="290" x="1106" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d6_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D6&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="1070" y="875" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d6" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="Announcements, schedules &amp; bookings" vertex="1">
+          <mxGeometry height="46" width="310" x="1106" y="875" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d7_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D7&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="1070" y="1035" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d7" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="Notification records" vertex="1">
+          <mxGeometry height="46" width="260" x="1106" y="1035" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_scope_note" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=18;fillColor=#fff8db;strokeColor=#c9a227;fontColor=#3f3b2b;fontSize=11;align=left;verticalAlign=middle;spacing=8;" value="Scope &amp; authority: CBAT uses the shared SIBAT / CBAT field-review workflow and is restricted to its assigned barangay unless explicitly granted all-barangay access. CBAT can submit census data; MAO / Admin retains final census approval. Disease-case follow-up is available after MAO approval." vertex="1">
+          <mxGeometry height="145" width="360" x="1410" y="1055" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e1" edge="1" parent="1" source="l1_cbat" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="l1_p1" value="Credentials">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e2" edge="1" parent="1" source="l1_p1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.35;exitY=0;exitDx=0;exitDy=0;entryX=0.35;entryY=1;entryDx=0;entryDy=0;" target="l1_cbat" value="Authenticated reviewer session">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e3" edge="1" parent="1" source="l1_p1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="l1_d1" value="Read account, role and barangay assignment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e4" edge="1" parent="1" source="l1_d1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.75;entryDx=0;entryDy=0;" target="l1_p1" value="Role + access scope">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e5" edge="1" parent="1" source="l1_p1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="l1_p2" value="Authenticated session + scope">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e6" edge="1" parent="1" source="l1_cbat" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=0.4;entryY=0;entryDx=0;entryDy=0;" target="l1_p2" value="Open monitoring workspace / apply filters">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="650" y="160" />
+              <mxPoint x="650" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e7" edge="1" parent="1" source="l1_p2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0;exitDx=0;exitDy=0;entryX=1;entryY=0.75;entryDx=0;entryDy=0;" target="l1_cbat" value="Assigned-scope farmer, livestock and health queues">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1050" y="340" />
+              <mxPoint x="1050" y="164" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e8" edge="1" parent="1" source="l1_d2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" target="l1_p2" value="Farmer profiles and livestock inventory">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e9" edge="1" parent="1" source="l1_d3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" target="l1_p2" value="Open disease / mortality cases">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="285" y="730" />
+              <mxPoint x="285" y="430" />
+              <mxPoint x="680" y="430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e10" edge="1" parent="1" source="l1_farmer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.45;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;" target="l1_p3" value="Disease / mortality report">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e11" edge="1" parent="1" source="l1_cbat" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" target="l1_p3" value="On-site findings, evidence and verification decision">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="650" y="163" />
+              <mxPoint x="650" y="530" />
+              <mxPoint x="540" y="530" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e12" edge="1" parent="1" source="l1_p2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.05;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" target="l1_p3" value="Selected scoped case">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e13" edge="1" parent="1" source="l1_p3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;" target="l1_d3" value="Inspection details and field-review status">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e14" edge="1" parent="1" source="l1_p3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.05;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" target="l1_mao" value="CBAT-verified case for municipal review">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="640" y="535" />
+              <mxPoint x="1450" y="535" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e15" edge="1" parent="1" source="l1_mao" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.78;exitDx=0;exitDy=0;entryX=1;entryY=0.95;entryDx=0;entryDy=0;" target="l1_p3" value="Approve / return with remarks">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1450" y="700" />
+              <mxPoint x="640" y="700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e16" edge="1" parent="1" source="l1_farmer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.8;entryDx=0;entryDy=0;" target="l1_p4" value="Farmer health progress update">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="285" y="690" />
+              <mxPoint x="670" y="690" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e17" edge="1" parent="1" source="l1_cbat" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="l1_p4" value="Official recovery / closure resolution">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1040" y="160" />
+              <mxPoint x="1040" y="535" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e18" edge="1" parent="1" source="l1_p2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.8;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" target="l1_p4" value="Approved disease case selected for follow-up">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e19" edge="1" parent="1" source="l1_p4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.4;entryY=0;entryDx=0;entryDy=0;" target="l1_d4" value="Append follow-up event">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e20" edge="1" parent="1" source="l1_p4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.8;exitDx=0;exitDy=0;entryX=1;entryY=0.85;entryDx=0;entryDy=0;" target="l1_d3" value="Update clinical status on approved case">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="670" y="655" />
+              <mxPoint x="650" y="655" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e21" edge="1" parent="1" source="l1_cbat" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0.8;entryY=0;entryDx=0;entryDy=0;" target="l1_p5" value="Quarter, year and barangay census counts">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1450" y="132" />
+              <mxPoint x="1450" y="535" />
+              <mxPoint x="1300" y="535" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e22" edge="1" parent="1" source="l1_d2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.8;entryDx=0;entryDy=0;" target="l1_p5" value="Farmer / livestock reference data">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="640" y="480" />
+              <mxPoint x="1045" y="480" />
+              <mxPoint x="1045" y="650" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e23" edge="1" parent="1" source="l1_p2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" target="l1_p5" value="Open census submission">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e24" edge="1" parent="1" source="l1_p5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="l1_d5" value="Save census submission and items">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e25" edge="1" parent="1" source="l1_p5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0;entryY=0.55;entryDx=0;entryDy=0;" target="l1_mao" value="Submitted census for official review">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1390" y="610" />
+              <mxPoint x="1475" y="610" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e26" edge="1" parent="1" source="l1_mao" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.85;entryDx=0;entryDy=0;" target="l1_p5" value="Approve / require revision with remarks">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1490" y="690" />
+              <mxPoint x="1390" y="690" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e27" edge="1" parent="1" source="l1_mao" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.1;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.85;entryDx=0;entryDy=0;" target="l1_d5" value="Record final census decision">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1485" y="770" />
+              <mxPoint x="1390" y="770" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e28" edge="1" parent="1" source="l1_farmer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;" target="l1_p6" value="Program booking / attendance response">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="285" y="700" />
+              <mxPoint x="680" y="700" />
+              <mxPoint x="680" y="880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e29" edge="1" parent="1" source="l1_p2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.95;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="l1_p6" value="Open schedule and booking workspace">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1050" y="500" />
+              <mxPoint x="1050" y="780" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e30" edge="1" parent="1" source="l1_p6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="l1_d6" value="Save schedules, announcements and bookings">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e31" edge="1" parent="1" source="l1_p3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.15;entryDx=0;entryDy=0;" target="l1_p7" value="Health review status event">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="690" />
+              <mxPoint x="680" y="1045" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e32" edge="1" parent="1" source="l1_p4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="l1_p7" value="Follow-up outcome">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1025" y="700" />
+              <mxPoint x="1025" y="980" />
+              <mxPoint x="840" y="980" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e33" edge="1" parent="1" source="l1_p5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.2;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;" target="l1_p7" value="Census submission / decision event">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1050" y="700" />
+              <mxPoint x="1000" y="700" />
+              <mxPoint x="1000" y="1035" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e34" edge="1" parent="1" source="l1_p6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="l1_p7" value="Field schedule / booking event">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e35" edge="1" parent="1" source="l1_p7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="l1_d7" value="Persist notification">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e36" edge="1" parent="1" source="l1_p7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" target="l1_farmer" value="Case, follow-up and activity notices">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="675" y="1165" />
+              <mxPoint x="25" y="1165" />
+              <mxPoint x="25" y="590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e37" edge="1" parent="1" source="l1_p7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=1;entryY=0.75;entryDx=0;entryDy=0;" target="l1_cbat" value="Scoped review and census status notices">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="840" y="1010" />
+              <mxPoint x="1740" y="1010" />
+              <mxPoint x="1740" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e38" edge="1" parent="1" source="l1_p7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="l1_mao" value="Review queue notice">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1010" y="1035" />
+              <mxPoint x="1490" y="1035" />
+              <mxPoint x="1490" y="590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="Context (Level 0)" id="eX73wDYJPqYMaDlQqUWF">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1800" pageHeight="900" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ctx_title" parent="1" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=20;fontStyle=1;whiteSpace=wrap;" value="SmartLivestock — CBAT Subsystem DFD (Gane &amp; Sarson)" vertex="1">
+          <mxGeometry height="38" width="1600" x="100" y="25" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_subtitle" parent="1" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#475569;fontSize=13;fontStyle=0;whiteSpace=wrap;" value="Context Diagram · Level 0" vertex="1">
+          <mxGeometry height="28" width="1600" x="100" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_farmer" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;FARMER&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;&quot;&gt;Livestock raiser&lt;/span&gt;" vertex="1">
+          <mxGeometry height="82" width="220" x="100" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_cbat" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;CBAT&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;&quot;&gt;Barangay field technician&lt;/span&gt;" vertex="1">
+          <mxGeometry height="82" width="260" x="690" y="135" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_mao" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;MAO / ADMIN&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;&quot;&gt;Municipal reviewer&lt;/span&gt;" vertex="1">
+          <mxGeometry height="82" width="240" x="1380" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_p0" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="0.0" vertex="1">
+          <mxGeometry height="190" width="520" x="560" y="325" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_p0_body" parent="ctx_p0" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="CBAT Field Monitoring &amp; Coordination Subsystem" vertex="1">
+          <mxGeometry height="162" width="520" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_note" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=18;fillColor=#fff8db;strokeColor=#c9a227;fontColor=#3f3b2b;fontSize=11;align=left;verticalAlign=middle;spacing=8;" value="This context diagram treats SmartLivestock as one process. Internal processes and data stores are expanded on Level 1. CBAT field access is barangay scoped; final census approval remains with MAO / Admin." vertex="1">
+          <mxGeometry height="95" width="1050" x="315" y="675" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_e1" edge="1" parent="1" source="ctx_cbat" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="ctx_p0" value="Login, field findings, census and activity actions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_e2" edge="1" parent="1" source="ctx_p0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="ctx_cbat" value="Scoped work queues, record status and review results">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_e3" edge="1" parent="1" source="ctx_farmer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;" target="ctx_p0" value="Disease / mortality reports, health updates and activity bookings">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_e4" edge="1" parent="1" source="ctx_p0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;" target="ctx_farmer" value="Case status, follow-up results and field activity notices">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_e5" edge="1" parent="1" source="ctx_p0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;" target="ctx_mao" value="Field-verified health cases and quarterly census submissions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_e6" edge="1" parent="1" source="ctx_mao" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=10;labelBackgroundColor=#ffffff;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;" target="ctx_p0" value="Approval / revision decisions and review remarks">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="CBAT DFD (Level 1)" id="y_YVi_r2RphrmzT1Zkbd">
+    <mxGraphModel dx="3649" dy="922" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1350" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="l1_farmer" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;FARMER&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;&quot;&gt;Livestock raiser&lt;/span&gt;" vertex="1">
+          <mxGeometry height="78" width="220" x="-80" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_cbat" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;CBAT&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;&quot;&gt;Barangay field technician&lt;/span&gt;" vertex="1">
+          <mxGeometry height="78" width="250" x="766" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_mao" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;MAO / ADMIN&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;&quot;&gt;Municipal reviewer&lt;/span&gt;" vertex="1">
+          <mxGeometry height="78" width="240" x="1550" y="336" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p1" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="1.0" vertex="1">
+          <mxGeometry height="92" width="250" x="760" y="225" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p1_body" parent="l1_p1" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Authenticate &amp; resolve reviewer scope" vertex="1">
+          <mxGeometry height="64" width="250" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p2" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="2.0" vertex="1">
+          <mxGeometry height="108" width="330" x="700" y="365" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p2_body" parent="l1_p2" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Load scoped workspace and route actions" vertex="1">
+          <mxGeometry height="80" width="330" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p3" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="3.0" vertex="1">
+          <mxGeometry height="112" width="280" x="310" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p3_body" parent="l1_p3" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Verify disease / mortality reports" vertex="1">
+          <mxGeometry height="84" width="280" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p4" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="4.0" vertex="1">
+          <mxGeometry height="112" width="280" x="700" y="565" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p4_body" parent="l1_p4" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Record approved-case follow-up" vertex="1">
+          <mxGeometry height="84" width="280" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p5" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="5.0" vertex="1">
+          <mxGeometry height="112" width="290" x="1070" y="565" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p5_body" parent="l1_p5" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Prepare &amp; submit quarterly census" vertex="1">
+          <mxGeometry height="84" width="290" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p6" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="6.0" vertex="1">
+          <mxGeometry height="112" width="280" x="700" y="800" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p6_body" parent="l1_p6" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Coordinate field activities" vertex="1">
+          <mxGeometry height="84" width="280" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p7" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="7.0" vertex="1">
+          <mxGeometry height="108" width="280" x="700" y="1030" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p7_body" parent="l1_p7" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Create &amp; deliver scoped notifications" vertex="1">
+          <mxGeometry height="80" width="280" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d1_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D1&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="1250" y="253" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d1" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="User accounts, roles &amp; barangay scope" vertex="1">
+          <mxGeometry height="46" width="250" x="1286" y="253" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d2_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D2&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="220" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d2" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="Farmer &amp; livestock inventory" vertex="1">
+          <mxGeometry height="46" width="245" x="256" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d3_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D3&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="300" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d3" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="Disease / mortality cases &amp; field inspection" vertex="1">
+          <mxGeometry height="46" width="300" x="336" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d4_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D4&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="700" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d4" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="Disease case follow-up events" vertex="1">
+          <mxGeometry height="46" width="280" x="736" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d5_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D5&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="1070" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d5" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="Census submissions &amp; items" vertex="1">
+          <mxGeometry height="46" width="290" x="1106" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d6_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D6&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="1190" y="847" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d6" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="Announcements, schedules &amp; bookings" vertex="1">
+          <mxGeometry height="46" width="310" x="1226" y="847" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d7_tag" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;D7&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="36" x="1130" y="1058" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d7" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" value="Notification records" vertex="1">
+          <mxGeometry height="46" width="260" x="1166" y="1058" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e1" edge="1" parent="1" source="l1_cbat" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.273;entryY=-0.011;entryDx=0;entryDy=0;entryPerimeter=0;" target="l1_p1" value="Credentials">
+          <mxGeometry relative="1" x="0.2648" y="-10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="830" y="108" />
+              <mxPoint x="830" y="210" />
+              <mxPoint x="828.3" y="210" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e2" edge="1" parent="1" source="l1_p1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.35;exitY=0;exitDx=0;exitDy=0;entryX=0.736;entryY=0.996;entryDx=0;entryDy=0;entryPerimeter=0;" target="l1_cbat" value="Reviewer session">
+          <mxGeometry relative="1" x="0.4376" as="geometry">
+            <mxPoint x="15" y="2" as="offset" />
+            <Array as="points">
+              <mxPoint x="950" y="225" />
+            </Array>
+            <mxPoint x="940" y="110" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e3" edge="1" parent="1" source="l1_p1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=-0.009;entryY=0.359;entryDx=0;entryDy=0;entryPerimeter=0;" target="l1_d1_tag" value="Read role and scope">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e4" edge="1" parent="1" source="l1_d1_tag" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.75;entryDx=0;entryDy=0;" target="l1_p1" value="Role and scope data">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e5" edge="1" parent="1" source="l1_p1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="l1_p2" value="Session and scope">
+          <mxGeometry relative="1" x="-0.6176" y="15" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e6" edge="1" parent="1" source="l1_cbat" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=0.4;entryY=0;entryDx=0;entryDy=0;" target="l1_p2" value="Open workspace / submit actions">
+          <mxGeometry relative="1" x="-0.0007" as="geometry">
+            <Array as="points">
+              <mxPoint x="650" y="84.6" />
+              <mxPoint x="650" y="340" />
+              <mxPoint x="832" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e7" edge="1" parent="1" source="l1_p2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.886;exitY=0.002;exitDx=0;exitDy=0;entryX=1;entryY=0.75;entryDx=0;entryDy=0;exitPerimeter=0;" target="l1_cbat" value="Scoped queues and status">
+          <mxGeometry relative="1" x="0.0798" as="geometry">
+            <Array as="points">
+              <mxPoint x="992.4" y="340" />
+              <mxPoint x="1100" y="340" />
+              <mxPoint x="1100" y="164" />
+              <mxPoint x="1080" y="164" />
+              <mxPoint x="1080" y="88.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e8" edge="1" parent="1" source="l1_d2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" target="l1_p2" value="Farmer and livestock data">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e9" edge="1" parent="1" source="l1_d3_tag" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.338;entryDx=0;entryDy=0;entryPerimeter=0;" target="l1_p2_body" value="Health case queue">
+          <mxGeometry relative="1" x="-0.0461" as="geometry">
+            <Array as="points">
+              <mxPoint x="290" y="803" />
+              <mxPoint x="290" y="430" />
+              <mxPoint x="680" y="430" />
+              <mxPoint x="680" y="420" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e10" edge="1" parent="1" source="l1_farmer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=1;exitY=0.45;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;" target="l1_p3" value="Disease / mortality report">
+          <mxGeometry relative="1" x="-0.2435" y="-5" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e12" edge="1" parent="1" source="l1_p2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.05;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" target="l1_p3" value="Case and inspection details">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="716" y="480" />
+              <mxPoint x="540" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e13" edge="1" parent="1" source="l1_p3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;" target="l1_d3" value="Field inspection status">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e14" edge="1" parent="1" source="l1_p3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=-0.005;entryY=0.14;entryDx=0;entryDy=0;entryPerimeter=0;" target="l1_mao" value="Verified case for MAO">
+          <mxGeometry relative="1" x="-0.2102" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="610" y="558" />
+              <mxPoint x="610" y="535.6" />
+              <mxPoint x="1510" y="535.6" />
+              <mxPoint x="1510" y="346.9" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e15" edge="1" parent="1" source="l1_mao" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=-0.001;exitY=0.436;exitDx=0;exitDy=0;exitPerimeter=0;" target="l1_p3_body" value="Approve or return">
+          <mxGeometry relative="1" x="-0.4921" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1210" y="370" />
+              <mxPoint x="1210" y="520" />
+              <mxPoint x="640" y="520" />
+              <mxPoint x="640" y="630" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e16" edge="1" parent="1" source="l1_farmer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" target="l1_p4_body" value="Health progress update">
+          <mxGeometry relative="1" x="-0.8207" y="15" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="135" y="690" />
+              <mxPoint x="660" y="690" />
+              <mxPoint x="660" y="614" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e18" edge="1" parent="1" source="l1_p2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.8;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" target="l1_p4" value="Approved case / follow-up update">
+          <mxGeometry relative="1" x="-0.4529" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="964" y="500" />
+              <mxPoint x="630" y="500" />
+              <mxPoint x="630" y="550" />
+              <mxPoint x="756" y="550" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e19" edge="1" parent="1" source="l1_p4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.4;entryY=0;entryDx=0;entryDy=0;" target="l1_d4" value="Follow-up event">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e20" edge="1" parent="1" source="l1_p4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0;exitY=0.8;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="l1_d3" value="Clinical status update">
+          <mxGeometry relative="1" x="0.1808" y="-20" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="680" y="654.6" />
+              <mxPoint x="680" y="733" />
+              <mxPoint x="670" y="733" />
+              <mxPoint x="670" y="803" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e23" edge="1" parent="1" source="l1_p2_body" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" target="l1_p5" value="Census counts and reference data">
+          <mxGeometry relative="1" x="-0.2702" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1030" y="410" />
+              <mxPoint x="1470" y="410" />
+              <mxPoint x="1470" y="550" />
+              <mxPoint x="1128" y="550" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e24" edge="1" parent="1" source="l1_p5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="l1_d5" value="Save census and decision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e25" edge="1" parent="1" source="l1_p5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0.005;entryY=0.681;entryDx=0;entryDy=0;entryPerimeter=0;" target="l1_mao" value="Census for MAO review">
+          <mxGeometry relative="1" x="-0.5415" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1360" y="610" />
+              <mxPoint x="1520" y="610" />
+              <mxPoint x="1520" y="389.1" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e26" edge="1" parent="1" source="l1_mao" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.85;entryDx=0;entryDy=0;" target="l1_p5" value="Final census decision">
+          <mxGeometry relative="1" x="-0.0891" y="10" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e28" edge="1" parent="1" source="l1_farmer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;" target="l1_p6" value="Booking / attendance">
+          <mxGeometry relative="1" x="0.1842" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="80" y="880" />
+              <mxPoint x="680" y="880" />
+              <mxPoint x="680" y="878.4" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e29" edge="1" parent="1" source="l1_p2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=1;exitY=0.95;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="l1_p6" value="Open activity workspace">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1760" y="500" />
+              <mxPoint x="1760" y="780" />
+              <mxPoint x="840" y="780" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e30" edge="1" parent="1" source="l1_p6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="l1_d6_tag" value="Save activity data">
+          <mxGeometry relative="1" x="0.4395" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e31" edge="1" parent="1" source="l1_p3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.15;entryDx=0;entryDy=0;" target="l1_p7" value="Health review event">
+          <mxGeometry relative="1" x="0.0008" as="geometry">
+            <Array as="points">
+              <mxPoint x="200" y="621" />
+              <mxPoint x="200" y="980" />
+              <mxPoint x="570" y="980" />
+              <mxPoint x="570" y="1045" />
+              <mxPoint x="680" y="1045" />
+              <mxPoint x="680" y="1046.2" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e32" edge="1" parent="1" source="l1_p4_body" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.892;exitY=1.003;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;exitPerimeter=0;" target="l1_p7" value="Follow-up outcome">
+          <mxGeometry relative="1" x="0.2972" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="949.8" y="700" />
+              <mxPoint x="1025" y="700" />
+              <mxPoint x="1025" y="980" />
+              <mxPoint x="770" y="980" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e33" edge="1" parent="1" source="l1_p5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.2;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;" target="l1_p7" value="Census decision">
+          <mxGeometry relative="1" x="0.3191" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1128" y="700" />
+              <mxPoint x="1050" y="700" />
+              <mxPoint x="1050" y="920" />
+              <mxPoint x="1090" y="920" />
+              <mxPoint x="1090" y="1057" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e34" edge="1" parent="1" source="l1_p6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="l1_p7" value="Activity event">
+          <mxGeometry relative="1" x="-0.3559" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e35" edge="1" parent="1" source="l1_p7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="l1_d7_tag" value="Save notification">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e36" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;entryX=0.002;entryY=0.621;entryDx=0;entryDy=0;entryPerimeter=0;" target="l1_farmer" value="Farmer notices">
+          <mxGeometry relative="1" x="-0.016" as="geometry">
+            <Array as="points">
+              <mxPoint x="670" y="1110" />
+              <mxPoint x="670" y="1165" />
+              <mxPoint x="-140" y="1165" />
+              <mxPoint x="-140" y="488.4" />
+            </Array>
+            <mxPoint x="700" y="1110" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e37" edge="1" parent="1" source="l1_p7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=1.004;entryY=0.385;entryDx=0;entryDy=0;entryPerimeter=0;" target="l1_cbat" value="CBAT notices">
+          <mxGeometry relative="1" x="-0.0053" as="geometry">
+            <Array as="points">
+              <mxPoint x="900" y="1030" />
+              <mxPoint x="900" y="1010" />
+              <mxPoint x="1860" y="1010" />
+              <mxPoint x="1860" y="200" />
+              <mxPoint x="1130" y="200" />
+              <mxPoint x="1130" y="60" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e38" edge="1" parent="1" source="l1_p7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=1;exitY=0.1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="l1_mao" value="MAO review notice">
+          <mxGeometry relative="1" x="0.0191" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1550" y="1040.8" />
+              <mxPoint x="1550" y="578" />
+              <mxPoint x="1670" y="578" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="Context (Level 0)" id="49jy8ueCHeALw8zhM8nw">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1800" pageHeight="900" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ctx_title" parent="1" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=20;fontStyle=1;whiteSpace=wrap;" value="SmartLivestock — CBAT Subsystem DFD (Gane &amp; Sarson)" vertex="1">
+          <mxGeometry height="38" width="1600" x="100" y="25" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_subtitle" parent="1" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#475569;fontSize=13;fontStyle=0;whiteSpace=wrap;" value="Context Diagram · Level 0" vertex="1">
+          <mxGeometry height="28" width="1600" x="100" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_farmer" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;FARMER&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;&quot;&gt;Livestock raiser&lt;/span&gt;" vertex="1">
+          <mxGeometry height="82" width="220" x="100" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_cbat" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;CBAT&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;&quot;&gt;Barangay field technician&lt;/span&gt;" vertex="1">
+          <mxGeometry height="82" width="260" x="690" y="135" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_mao" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;MAO / ADMIN&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;&quot;&gt;Municipal reviewer&lt;/span&gt;" vertex="1">
+          <mxGeometry height="82" width="240" x="1380" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_p0" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="0.0" vertex="1">
+          <mxGeometry height="190" width="520" x="560" y="325" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_p0_body" parent="ctx_p0" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="CBAT Field Monitoring &amp; Coordination Subsystem" vertex="1">
+          <mxGeometry height="162" width="520" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_note" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=18;fillColor=#fff8db;strokeColor=#c9a227;fontColor=#3f3b2b;fontSize=11;align=left;verticalAlign=middle;spacing=8;" value="This context diagram treats SmartLivestock as one process. Internal processes and data stores are expanded on Level 1. CBAT field access is barangay scoped; final census approval remains with MAO / Admin." vertex="1">
+          <mxGeometry height="95" width="1050" x="315" y="675" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_e1" edge="1" parent="1" source="ctx_cbat" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="ctx_p0" value="Login and field actions">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-25" y="-8" as="offset" />
+            <Array as="points">
+              <mxPoint x="760" y="250" />
+              <mxPoint x="760" y="292" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ctx_e2" edge="1" parent="1" source="ctx_p0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="ctx_cbat" value="Scoped queues and status">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="25" y="8" as="offset" />
+            <Array as="points">
+              <mxPoint x="880" y="292" />
+              <mxPoint x="880" y="250" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ctx_e3" edge="1" parent="1" source="ctx_farmer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;" target="ctx_p0" value="Reports and health updates">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_e4" edge="1" parent="1" source="ctx_p0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;" target="ctx_farmer" value="Case status and notices">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_e5" edge="1" parent="1" source="ctx_p0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;" target="ctx_mao" value="Verified cases and census">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ctx_e6" edge="1" parent="1" source="ctx_mao" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=9;labelBackgroundColor=#ffffff;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;" target="ctx_p0" value="Approval or revision decision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
