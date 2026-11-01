@@ -896,24 +896,27 @@ function ReportObservationContent() {
                           </p>
                         </div>
 
-                        {chronologyConflicts.get(rep.id)?.map((conflict) => (
-                          <div
-                            key={`${rep.id}-${conflict.counterpartId}`}
-                            role="status"
+                        {chronologyConflicts.get(rep.id)?.length ? (
+                          <details
+                            onClick={(event) => event.stopPropagation()}
                             className="mt-2 rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-950"
                           >
-                            <p className="flex items-center gap-1.5 font-bold">
+                            <summary className="flex cursor-pointer list-none items-center gap-1.5 font-bold">
                               <AlertTriangle className="size-3.5 shrink-0" />
-                              Timeline needs review
-                            </p>
-                            <p className="mt-1">
-                              {rep.reportType === "DISEASE"
-                                ? `This disease report (${rep.id}, ${rep.recordDate}) is dated after verified/approved death ${conflict.counterpartId} (${conflict.eventDate}) for the same animal.`
-                                : `Disease report ${conflict.counterpartId} (${conflict.eventDate}) is dated after this verified/approved death report (${rep.id}, ${rep.recordDate}) for the same animal.`}
-                              {" "}Check the animal and event dates with field staff. This date match does not show that the disease caused the death.
-                            </p>
-                          </div>
-                        ))}
+                              {chronologyConflicts.get(rep.id)?.length} report date{chronologyConflicts.get(rep.id)?.length === 1 ? "" : "s"} need checking
+                            </summary>
+                            <div className="mt-2 space-y-2">
+                              {chronologyConflicts.get(rep.id)?.map((conflict) => (
+                                <p key={`${rep.id}-${conflict.counterpartId}`}>
+                                  {rep.reportType === "DISEASE"
+                                    ? `Disease report ${rep.id} (${rep.recordDate}) is dated after verified or approved death ${conflict.counterpartId} (${conflict.eventDate}) for the same animal.`
+                                    : `Disease report ${conflict.counterpartId} (${conflict.eventDate}) is dated after this verified or approved death report (${rep.id}, ${rep.recordDate}) for the same animal.`}
+                                  {" "}Ask field staff to check the animal and event dates. These dates alone do not show that the disease caused the death.
+                                </p>
+                              ))}
+                            </div>
+                          </details>
+                        ) : null}
 
                         {/* Revision Callout if Subject to Revision */}
                         {rep.status === "SUBJECT_TO_REVISION" && rep.reviewRemarks && (

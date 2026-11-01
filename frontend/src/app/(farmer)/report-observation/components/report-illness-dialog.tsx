@@ -766,7 +766,7 @@ function ReportIllnessDialogContent({
           {/* Step 4: Notes & Photo */}
           <div className="space-y-2">
             <Label className="text-xs font-black uppercase tracking-wider text-slate-700">
-              4. Additional Details & Clinical Notes (Optional)
+              4. Extra Details (Optional)
             </Label>
             <Textarea
               rows={3}
