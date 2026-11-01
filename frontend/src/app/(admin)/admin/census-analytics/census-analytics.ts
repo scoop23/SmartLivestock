@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 
 export interface CensusPeriod {
   year: number;
@@ -50,6 +50,13 @@ export interface CensusAnalytics {
   status_by_barangay: CensusBarangayStatus[];
   coverage: CensusCoverage;
   totals: CensusTotals;
+}
+
+export interface CensusCoverageTrendPoint {
+  period: CensusPeriod;
+  submitted: number;
+  total_barangays: number;
+  submission_pct: number;
 }
 
 export const CENSUS_ANALYTICS_QUERY_KEY = "census_analytics";
@@ -109,5 +116,53 @@ export function useCensusAnalytics(year?: number, quarter?: number) {
     ],
     enabled: Boolean(user),
     queryFn: () => fetchCensusAnalytics(year, quarter),
+  });
+}
+
+function getFourCensusPeriodsEndingAt(year?: number, quarter?: number) {
+  if (!year || !quarter) return [];
+
+  const endIndex = year * 4 + quarter - 1;
+  return Array.from({ length: 4 }, (_, index) => {
+    const periodIndex = endIndex - 3 + index;
+    return {
+      year: Math.floor(periodIndex / 4),
+      quarter: (periodIndex % 4) + 1,
+    };
+  });
+}
+
+export function useCensusCoverageHistory(
+  year?: number,
+  quarter?: number,
+  currentData?: CensusAnalytics
+) {
+  const { user } = useAuth();
+  const periods = getFourCensusPeriodsEndingAt(year, quarter);
+
+  return useQueries({
+    queries: periods.map(({ year: periodYear, quarter: periodQuarter }) => ({
+      queryKey: [
+        CENSUS_ANALYTICS_QUERY_KEY,
+        user?.email,
+        user?.accessScope,
+        user?.assignedBarangayId,
+        periodYear,
+        periodQuarter,
+      ],
+      enabled: Boolean(user),
+      queryFn: () => fetchCensusAnalytics(periodYear, periodQuarter),
+      staleTime: 60_000,
+      initialData:
+        currentData?.period.year === periodYear && currentData.period.quarter === periodQuarter
+          ? currentData
+          : undefined,
+      select: (data: CensusAnalytics): CensusCoverageTrendPoint => ({
+        period: data.period,
+        submitted: data.coverage.submitted,
+        total_barangays: data.coverage.total_barangays,
+        submission_pct: data.coverage.submission_pct,
+      }),
+    })),
   });
 }
