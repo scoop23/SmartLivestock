@@ -98,7 +98,7 @@ export default function FarmerStats({
           }
           description={
             milkGrowth !== null
-              ? `${milkGrowth >= 0 ? "↑ +" : "↓ "}${Math.abs(milkGrowth).toFixed(1)}% MOM · Recorded this month`
+              ? `${milkGrowth >= 0 ? "↑ +" : "↓ "}${Math.abs(milkGrowth).toFixed(1)}% vs last month · Recorded this month`
               : "Milk yield recorded this month"
           }
           wrapText
