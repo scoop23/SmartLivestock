@@ -143,7 +143,7 @@ const sibatLinks: SidebarLink[] = [
   { path: '/sibat', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/sibat/livestock-registry', label: 'Livestock Records', icon: CowHeadIcon },
   { path: '/sibat-monitoring', label: 'Map', icon: Map },
-  { path: '/sibat-alerts', label: 'Health Reports', icon: Bell },
+  { path: '/sibat-alerts', label: 'Health Reports', icon: Stethoscope },
   { path: '/sibat/reports', label: 'Report Generation', icon: FileText },
   { path: '/sibat-scheduling', label: 'Programs', icon: CalendarDays },
   { path: '/sibat-announcement', label: 'Announcements', icon: Megaphone },

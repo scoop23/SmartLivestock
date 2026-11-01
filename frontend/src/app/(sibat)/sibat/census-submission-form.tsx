@@ -295,7 +295,7 @@ export default function CensusSubmissionForm({
           <Card className="border-0 bg-white shadow-sm ring-1 ring-slate-200/80 rounded-2xl overflow-hidden">
             <CardContent className="p-5 sm:p-6 space-y-5">
               <div className="flex items-center gap-3">
-                <span className="flex size-9 items-center justify-center rounded-xl bg-sky-50 text-sky-800">
+                <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
                   <MapPin className="size-4" />
                 </span>
                 <div>
@@ -403,7 +403,7 @@ export default function CensusSubmissionForm({
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
                 <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <Users className="size-4 text-sky-800" />
+                  <Users className="size-4 text-emerald-800" />
                   Farmer Head Count
                   <Badge className="border-0 bg-slate-200 text-slate-700">{items.length} rows</Badge>
                 </h3>
@@ -427,7 +427,7 @@ export default function CensusSubmissionForm({
                   type="button"
                   size="sm"
                   onClick={handleAddItem}
-                  className="bg-sky-800 hover:bg-sky-900 text-white rounded-xl text-xs font-bold gap-1"
+                  className="bg-[#2D5A27] hover:bg-[#24461f] text-white rounded-xl text-xs font-bold gap-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Add Farmer Row
@@ -440,7 +440,7 @@ export default function CensusSubmissionForm({
               {items.map((item, index) => (
                 <Card
                   key={item.id}
-                  className="border-0 bg-white rounded-2xl shadow-sm ring-1 ring-slate-200/80 overflow-hidden transition-all hover:ring-sky-300"
+                  className="border-0 bg-white rounded-2xl shadow-sm ring-1 ring-slate-200/80 overflow-hidden transition-all hover:ring-emerald-300"
                 >
                   <CardContent className="p-3.5 sm:p-4 space-y-3">
                     <div className="flex items-center justify-between gap-2 pb-1">
@@ -578,37 +578,37 @@ export default function CensusSubmissionForm({
               type="button"
               variant="outline"
               onClick={handleAddItem}
-              className="w-full h-11 border-slate-300 rounded-xl text-xs font-extrabold text-sky-900 hover:bg-sky-50 hover:border-sky-300"
+              className="w-full h-11 border-slate-300 rounded-xl text-xs font-extrabold text-emerald-900 hover:bg-emerald-50 hover:border-emerald-300"
             >
               <Plus className="w-4 h-4 mr-1.5" /> Add Another Farmer Entry
             </Button>
           </div>
 
           {/* Section 3: Live Summary Cards */}
-          <div className="rounded-2xl bg-[#173b5e] p-5 text-white shadow-sm sm:p-6 space-y-4">
+          <div className="rounded-2xl bg-[#2D5A27] p-5 text-white shadow-sm sm:p-6 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-black tracking-tight flex items-center gap-2">
                 <Layers className="size-4 text-emerald-300" />
                 Live Census Summary
               </span>
-              <span className="text-[11px] font-semibold text-sky-100/70">Updates as you edit</span>
+              <span className="text-[11px] font-semibold text-emerald-100/80">Updates as you edit</span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-white/10 rounded-xl p-3.5 ring-1 ring-white/10">
-                <p className="text-[10px] uppercase font-bold text-sky-100/70">Total Animals</p>
+                <p className="text-[10px] uppercase font-bold text-emerald-100/80">Total Animals</p>
                 <p className="text-2xl font-black text-white tabular-nums">{totalHeads}</p>
-                <p className="text-[10px] text-sky-100/60">head count total</p>
+                <p className="text-[10px] text-emerald-100/70">head count total</p>
               </div>
 
               <div className="bg-white/10 rounded-xl p-3.5 ring-1 ring-white/10">
-                <p className="text-[10px] uppercase font-bold text-sky-100/70">Total Farmers</p>
+                <p className="text-[10px] uppercase font-bold text-emerald-100/80">Total Farmers</p>
                 <p className="text-2xl font-black text-white tabular-nums">{uniqueFarmers}</p>
-                <p className="text-[10px] text-sky-100/60">surveyed households</p>
+                <p className="text-[10px] text-emerald-100/70">surveyed households</p>
               </div>
 
               <div className="bg-white/10 rounded-xl p-3.5 ring-1 ring-white/10 col-span-2">
-                <p className="text-[10px] uppercase font-bold text-sky-100/70 mb-1.5">
+                <p className="text-[10px] uppercase font-bold text-emerald-100/80 mb-1.5">
                   Species Breakdown
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -644,12 +644,12 @@ export default function CensusSubmissionForm({
               />
             </div>
 
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-sky-50 ring-1 ring-sky-100">
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-emerald-50 ring-1 ring-emerald-100">
               <Checkbox
                 id="certify"
                 checked={isCertified}
                 onCheckedChange={(checked) => setIsCertified(checked === true)}
-                className="mt-0.5 border-sky-700 data-[state=checked]:bg-sky-800 data-[state=checked]:border-sky-800"
+                className="mt-0.5 border-emerald-700 data-[state=checked]:bg-emerald-800 data-[state=checked]:border-emerald-800"
               />
               <label
                 htmlFor="certify"
@@ -679,13 +679,13 @@ export default function CensusSubmissionForm({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || !isCertified}
-            className="rounded-xl font-extrabold text-xs px-6 bg-sky-800 hover:bg-sky-900 text-white gap-2"
+            className="rounded-xl font-extrabold text-xs px-6 bg-[#2D5A27] hover:bg-[#24461f] text-white gap-2"
           >
             {isSubmitting ? (
               <>{isRevision ? "Resubmitting Census..." : "Submitting Census..."}</>
             ) : (
               <>
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-100" />
                 {isRevision ? "Resubmit Corrections to MAO" : "Submit Census to MAO"}
               </>
             )}

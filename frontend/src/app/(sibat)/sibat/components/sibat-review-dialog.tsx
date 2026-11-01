@@ -899,15 +899,15 @@ function SibatReviewDialogContent({
               {/* Remarks Textarea */}
               {!isFarmerProduction && <div>
                 <Label className="text-[11px] sm:text-xs font-bold text-slate-800 flex items-center justify-between mb-1">
-                  <span>Field Verification Remarks <span className="text-rose-600 font-black">*</span></span>
-                  <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  <span>Field Verification Remarks{isPending && <span className="text-rose-600 font-black"> *</span>}</span>
                 </Label>
                 <Textarea
                   placeholder="Enter field observations, ear tag confirmation, health inspection, or validation remarks..."
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                   disabled={!isPending || reviewMutation.isPending}
-                  className="min-h-[75px] sm:min-h-[85px] w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#1b4332] focus-visible:border-[#1b4332] resize-none shadow-2xs"
+                  aria-required={isPending}
+                  className="min-h-[155px] sm:min-h-[180px] w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-[#1b4332] focus-visible:border-[#1b4332] resize-none shadow-2xs"
                 />
                 <p className="text-[10.5px] text-slate-500 mt-1 leading-relaxed">
                   Include physical observations on ear tags, animal health, weights, or discrepancy notes from the in-person field check.

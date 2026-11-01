@@ -151,9 +151,9 @@ export default function CensusSubmissionsView({
           <Button
             size="sm"
             onClick={onOpenSubmitDialog}
-            className="bg-[#1A365D] hover:bg-[#152944] text-white text-xs font-black rounded-xl shadow-md gap-1.5"
+            className="gap-1.5 rounded-xl bg-[#2D5A27] text-xs font-black text-white shadow-md hover:bg-[#24461f]"
           >
-            <Plus className="w-4 h-4 text-amber-300" />
+            <Plus className="w-4 h-4" />
             Submit New Census Batch
           </Button>
         </div>
@@ -255,7 +255,7 @@ export default function CensusSubmissionsView({
 
                         {/* Period */}
                         <TableCell className="text-center py-3.5">
-                          <Badge className="bg-[#1A365D] text-white hover:bg-[#1A365D] font-extrabold text-xs px-2.5 py-0.5">
+                          <Badge className="bg-[#2D5A27] text-white hover:bg-[#24461f] font-extrabold text-xs px-2.5 py-0.5">
                             Q{census.reportQuarter} {census.reportYear}
                           </Badge>
                         </TableCell>
@@ -364,7 +364,7 @@ export default function CensusSubmissionsView({
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <Badge className="bg-[#1A365D] text-white hover:bg-[#1A365D] font-black text-xs px-2.5 py-0.5">
+                          <Badge className="bg-[#2D5A27] text-white hover:bg-[#24461f] font-black text-xs px-2.5 py-0.5">
                             Q{census.reportQuarter} {census.reportYear}
                           </Badge>
                           <span className="text-xs font-black text-slate-900">

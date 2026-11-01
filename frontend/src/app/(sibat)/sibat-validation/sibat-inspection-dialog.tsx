@@ -2252,7 +2252,7 @@ function SibatInspectionDialogContent({
 
     {/* ══ FULLSCREEN PHOTO LIGHTBOX MODAL ══ */}
     <Dialog open={isPhotoLightboxOpen} onOpenChange={setIsPhotoLightboxOpen}>
-      <DialogContent className="max-w-[95vw] sm:max-w-3xl md:max-w-4xl p-0 rounded-3xl bg-slate-950 border border-slate-800 text-white overflow-hidden shadow-2xl">
+      <DialogContent showCloseButton={false} className="max-w-[95vw] sm:max-w-3xl md:max-w-4xl p-0 rounded-3xl bg-slate-950 border border-slate-800 text-white overflow-hidden shadow-2xl">
         <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400">

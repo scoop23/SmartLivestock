@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle,CheckCircle2,Clock,Sparkles } from "lucide-react";
+import { AlertCircle,CheckCircle2,Clock } from "lucide-react";
 import type { UnifiedStatus } from "../sibat-analytics";
 
 interface SibatStatusBadgeProps {
@@ -41,7 +41,21 @@ export default function SibatStatusBadge({
           <Badge
             className={`bg-sky-50 text-sky-800 border-sky-200/80 hover:bg-sky-100 font-bold text-xs rounded-lg px-2 py-0.5 shadow-2xs gap-1.5 ${className}`}
           >
-            <Sparkles className="size-3 text-sky-600" />
+            <svg className="size-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                fill="currentColor"
+                className="text-sky-600"
+                d="M12 1.5 15.2 4l4.1-.2.8 4 3 3-1.4 3.8.7 4.1-3.8 1.5-2.4 3.3-4-.9-3.8 1.1-2.1-3.5-3.8-1.3.5-4.1-1.6-3.7 2.9-3.1.5-4.1 4.1.1L12 1.5Z"
+              />
+              <path
+                d="m7.7 12.1 3 3 5.9-6.1"
+                fill="none"
+                stroke="white"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2.5"
+              />
+            </svg>
             Checked by SIBAT
           </Badge>
           {showSubtitle && (
