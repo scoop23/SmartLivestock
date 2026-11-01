@@ -742,18 +742,13 @@ def manage_inventory_herd(request, pk):
                 )
 
             if new_batch.status != LivestockBatch.StatusType.ACTIVE:
-                if new_batch.animals.filter(
-                    operational_status=LivestockInventory.OperationalStatus.ACTIVE
-                ).exists():
-                    return Response(
-                        {
-                            "error": "Only an empty herd can be reopened for new livestock.",
-                            "batch": ["The selected herd is inactive and still has active heads."],
-                        },
-                        status=status.HTTP_409_CONFLICT,
-                    )
-                new_batch.status = LivestockBatch.StatusType.ACTIVE
-                new_batch.save(update_fields=["status", "updated_at"])
+                return Response(
+                    {
+                        "error": "Only active herds can receive livestock. Create a new herd to assign this animal.",
+                        "batch": ["The selected herd is closed and cannot be reopened."],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             history_action = (
                 LivestockHerdMembershipHistory.ActionType.MOVED

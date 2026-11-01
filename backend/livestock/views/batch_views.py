@@ -508,12 +508,9 @@ def batch_add_animals(request, pk):
         require_action(user, "batches", "edit_own")
         batch = get_object_or_404(scope_reviewer_queryset(LivestockBatch.objects.select_for_update(of=("self",)), request.user), pk=pk)
 
-    reopen_empty_batch = batch.status != LivestockBatch.StatusType.ACTIVE
-    if reopen_empty_batch and batch.animals.filter(
-        operational_status=LivestockInventory.OperationalStatus.ACTIVE
-    ).exists():
+    if batch.status != LivestockBatch.StatusType.ACTIVE:
         return Response(
-            {"error": "Only an empty herd can be reopened for new animals."},
+            {"error": "Only active herds can receive animals. Create a new herd instead."},
             status=status.HTTP_409_CONFLICT,
         )
     # The marker is retained as historical metadata for older reports. It no
@@ -552,9 +549,6 @@ def batch_add_animals(request, pk):
 
     created_animals = []
     with transaction.atomic():
-        if reopen_empty_batch:
-            batch.status = LivestockBatch.StatusType.ACTIVE
-            batch.save(update_fields=["status", "updated_at"])
         for animal in animals_data:
             created = LivestockInventory.objects.create(
                 batch=batch,

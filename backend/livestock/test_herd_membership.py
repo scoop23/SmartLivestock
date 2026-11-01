@@ -445,6 +445,8 @@ class HerdMembershipManagementTests(APITestCase):
             breeding_type=BreedingRecord.BreedingType.NATURAL,
             status=BreedingRecord.BreedingStatus.PREGNANT,
             pregnancy_confirmed_date=date.today(),
+            pregnancy_confirmed_by=self.farmer_user,
+            confirmation_method="Veterinary ultrasound",
             created_by=self.farmer_user,
         )
         self.client.delete(
