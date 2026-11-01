@@ -5,11 +5,14 @@ Tests for SmartLivestock Forecast Readiness & Validation Diagnostics Endpoint an
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.test import TestCase
 from django.core.management import call_command
 from django.utils.timezone import localdate
 from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 
 from production.models import ProductionRecord, SlaughterRecord
 from livestock.models import LivestockInventory, LivestockType, Barangay, Farmer
@@ -118,7 +121,7 @@ class ForecastReadinessDiagnosticsTests(TestCase):
 
     def test_insufficient_data_checklist(self):
         """When database is empty, checklist items accurately report BLOCKED/WARNING."""
-        diag = get_forecast_readiness_diagnostics("production", "MILK", "LITERS", user=self.mao_user)
+        diag = get_forecast_readiness_diagnostics("production", "MILK", "LITERS", user=self.farmer_user)
         self.assertEqual(diag["forecast_status"], "INSUFFICIENT_DATA")
         self.assertFalse(diag["forecast_available"])
         self.assertEqual(diag["validation_status"], "INSUFFICIENT_DATA")
@@ -143,7 +146,7 @@ class ForecastReadinessDiagnosticsTests(TestCase):
             farmer_at_record=self.farmer_profile, created_by=self.farmer_user,
         )
         diagnostic = get_forecast_readiness_diagnostics(
-            "production", "MILK", "LITERS", user=self.mao_user
+            "production", "MILK", "LITERS", user=self.farmer_user
         )
         checklist = {item["id"]: item for item in diagnostic["checklist"]}
         self.assertEqual(checklist["approved_records"]["title"], "Eligible Production Logs")
@@ -178,7 +181,7 @@ class ForecastReadinessDiagnosticsTests(TestCase):
         )
 
         breakdown = get_forecast_readiness_diagnostics(
-            "production", "MILK", "LITERS", user=self.mao_user
+            "production", "MILK", "LITERS", user=self.farmer_user
         )["progress"]["approval_status_breakdown"]
         self.assertEqual(breakdown["total_records"], 1)
         self.assertEqual(
@@ -188,16 +191,7 @@ class ForecastReadinessDiagnosticsTests(TestCase):
         self.assertNotIn("farmer", breakdown)
         self.assertNotIn("name", breakdown)
 
-    def test_approval_status_breakdown_respects_sibat_barangay_scope_and_empty_state(self):
-        breakdown = get_forecast_readiness_diagnostics(
-            "production", "MILK", "LITERS", user=self.sibat_user
-        )["progress"]["approval_status_breakdown"]
-        self.assertEqual(breakdown["total_records"], 0)
-        self.assertEqual(
-            {item["status"]: item["count"] for item in breakdown["statuses"]},
-            {"PENDING": 0, "VERIFIED": 0, "APPROVED": 0, "SUBJECT_TO_REVISION": 0, "RECORDED": 0},
-        )
-
+    def test_field_staff_cannot_query_private_production_readiness(self):
         self.sibat_user.assigned_barangay = self.barangay
         self.sibat_user.save(update_fields=["assigned_barangay"])
         event_date = localdate().replace(day=1) - timedelta(days=1)
@@ -207,11 +201,11 @@ class ForecastReadinessDiagnosticsTests(TestCase):
             record_date=event_date, status=ProductionRecord.ProductionStatus.PENDING,
             farmer_at_record=self.farmer_profile, created_by=self.farmer_user,
         )
-        breakdown = get_forecast_readiness_diagnostics(
-            "production", "MILK", "LITERS", user=self.sibat_user
-        )["progress"]["approval_status_breakdown"]
-        self.assertEqual(breakdown["total_records"], 0)
-        self.assertEqual(next(row["count"] for row in breakdown["statuses"] if row["status"] == "PENDING"), 0)
+        for staff_user in (self.sibat_user, self.mao_user):
+            with CaptureQueriesContext(connection) as captured:
+                with self.assertRaises(PermissionDenied):
+                    get_forecast_readiness_diagnostics("production", "MILK", "LITERS", user=staff_user)
+            self.assertFalse(any("production_productionrecord" in query["sql"].lower() for query in captured))
 
     def test_decoupled_unvalidated_forecast(self):
         """
@@ -221,7 +215,7 @@ class ForecastReadinessDiagnosticsTests(TestCase):
         # Seed 24 months for Milk without backdating approval timestamps
         call_command("seed_productions", months=24, include_milk=True)
         try:
-            diag = get_forecast_readiness_diagnostics("production", "MILK", "LITERS", user=self.mao_user)
+            diag = get_forecast_readiness_diagnostics("production", "MILK", "LITERS", user=self.farmer_user)
             self.assertTrue(diag["forecast_available"])
             self.assertEqual(diag["forecast_status"], "AVAILABLE_UNVALIDATED")
             self.assertEqual(diag["validation_status"], "NOT_YET_VALIDATED")
@@ -244,7 +238,7 @@ class ForecastReadinessDiagnosticsTests(TestCase):
         """
         call_command("seed_productions", months=36, include_milk=True)
         try:
-            diag = get_forecast_readiness_diagnostics("production", "MILK", "LITERS", user=self.mao_user)
+            diag = get_forecast_readiness_diagnostics("production", "MILK", "LITERS", user=self.farmer_user)
             self.assertTrue(diag["forecast_available"])
             self.assertEqual(diag["forecast_status"], "AVAILABLE_UNVALIDATED")
             self.assertEqual(diag["validation_status"], "NOT_YET_VALIDATED")

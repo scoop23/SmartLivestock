@@ -26,7 +26,7 @@ from django.utils.timezone import localdate
 from livestock.models import LivestockOwnershipTransfer
 from production.models import ProductionRecord, SlaughterRecord
 from diseases.models import DiseaseCase, MortalityRecord
-from smartlivestock.workflows import scope_reviewer_queryset
+from smartlivestock.workflows import require_farmer_production_access, scope_reviewer_queryset
 from .data import (
     extract_monthly_series,
     get_forecast_target_definition,
@@ -37,6 +37,15 @@ from .data import (
     READINESS_READY,
     READINESS_QUALITY_READY,
 )
+
+
+def _farmer_production_records(user):
+    require_farmer_production_access(user)
+    return ProductionRecord.objects.filter(
+        Q(farmer_at_record__user=user)
+        | Q(farmer_at_record__isnull=True, livestock__farmer__user=user)
+        | Q(farmer_at_record__isnull=True, batch__farmer__user=user)
+    )
 from .evaluation import evaluate_rolling_origins, MIN_VALID_BACKTEST_WINDOWS
 from .forecasting import generate_future_forecast
 from .auction_weekly import evaluate_weekly_auction, generate_weekly_auction_forecast
@@ -110,7 +119,7 @@ def _approval_status_breakdown(domain: str, target: str, unit: str, user=None) -
     unit = (unit or "").upper()
 
     if domain == "production":
-        queryset = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
+        queryset = _farmer_production_records(user).filter(
             production_type=target,
             unit=unit,
             status=ProductionRecord.ProductionStatus.RECORDED,
@@ -550,6 +559,8 @@ def get_forecast_readiness_diagnostics(
       - Data readiness (does the dataset meet observation standards?)
     """
     domain = (domain or "production").lower()
+    if domain == "production":
+        require_farmer_production_access(user)
     target_clean = (target or "MILK").upper()
     unit_clean = (unit or "LITERS").upper()
 
@@ -591,7 +602,7 @@ def get_forecast_readiness_diagnostics(
     source_diagnostics = None
     if domain == "production" and target_clean == "MILK":
         cutoff_month = localdate().replace(day=1)
-        scoped = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
+        scoped = _farmer_production_records(user).filter(
             production_type=ProductionRecord.ProductionType.MILK,
             unit=ProductionRecord.UnitType.LITERS,
             record_date__lt=cutoff_month,
@@ -640,7 +651,7 @@ def get_forecast_readiness_diagnostics(
             ),
         }
     elif domain == "production" and target_clean == "MEAT":
-        scoped = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
+        scoped = _farmer_production_records(user).filter(
             production_type=ProductionRecord.ProductionType.MEAT,
             unit=ProductionRecord.UnitType.KILOGRAMS,
             record_date__lt=localdate().replace(day=1),

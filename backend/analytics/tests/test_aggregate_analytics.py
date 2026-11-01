@@ -1,7 +1,9 @@
 from datetime import date
 from decimal import Decimal
 
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.renderers import JSONRenderer
 from rest_framework.test import APIRequestFactory, force_authenticate
@@ -113,10 +115,13 @@ class DescriptiveSummaryTests(TestCase):
 
         result = descriptive_summary(self.today)
         data = result["descriptive"]
-        self.assertEqual(data["production"]["records"], 1)
-        self.assertEqual(data["production"]["by_type"][0]["quantity"], 1.25)
-        self.assertEqual(data["production"]["by_barangay"][0]["barangay_id"], self.barangay.id)
-        self.assertEqual(data["production"]["trend"][0]["month"], "2026-09-01")
+        self.assertFalse(data["production"]["available"])
+        self.assertEqual(data["production"]["by_type"], [])
+        farmer_data = descriptive_summary(self.today, user=self.user)["descriptive"]
+        self.assertEqual(farmer_data["production"]["records"], 1)
+        self.assertEqual(farmer_data["production"]["by_type"][0]["quantity"], 1.25)
+        self.assertEqual(farmer_data["production"]["by_barangay"][0]["barangay_id"], self.barangay.id)
+        self.assertEqual(farmer_data["production"]["trend"][0]["month"], "2026-09-01")
         self.assertEqual(data["disease"]["cases"], 1)
         self.assertEqual(data["disease"]["affected_heads"], 4)
         self.assertEqual(data["disease"]["by_barangay"][0]["barangay_id"], self.barangay.id)
@@ -132,7 +137,7 @@ class DescriptiveSummaryTests(TestCase):
         self.assertEqual(sum(point["reported_heads"] for point in result["surveillance_series"]), data["disease"]["affected_heads"])
         self.assertEqual(sum(point["deaths"] for point in result["surveillance_series"]), data["mortality"]["deaths"])
 
-    def test_recorded_production_is_in_municipal_analytics_but_not_mixed_with_slaughter(self):
+    def test_farmer_production_is_private_and_separate_from_official_slaughter(self):
         from production.models import SlaughterRecord
 
         animal = self.animal()
@@ -159,14 +164,18 @@ class DescriptiveSummaryTests(TestCase):
             status="RECORDED", slaughter=slaughter, created_by=self.user,
         )
 
-        data = descriptive_summary(self.today)["descriptive"]
-        by_type = {(row["type"], row["unit"]): row for row in data["production"]["by_type"]}
+        municipal = descriptive_summary(self.today, user=None)["descriptive"]
+        self.assertFalse(municipal["production"]["available"])
+        self.assertEqual(municipal["production"]["records"], 0)
+        self.assertEqual(municipal["production"]["by_type"], [])
+        farmer_data = descriptive_summary(self.today, user=self.user)["descriptive"]
+        by_type = {(row["type"], row["unit"]): row for row in farmer_data["production"]["by_type"]}
         self.assertEqual(by_type[("MILK", "LITERS")]["quantity"], 6.0)
         self.assertEqual(by_type[("MEAT", "KILOGRAMS")]["quantity"], 30.0)
         self.assertEqual(by_type[("MILK", "LITERS")]["records"], 1)
-        self.assertEqual(data["slaughter"]["total_carcass_weight_kg"], 50.0)
+        self.assertEqual(municipal["slaughter"]["total_carcass_weight_kg"], 50.0)
 
-    def test_overview_milk_includes_recorded_logs(self):
+    def test_municipal_overview_omits_farmer_milk_logs(self):
         animal = self.animal()
         ProductionRecord.objects.create(
             livestock=animal, production_type="MILK", unit="LITERS",
@@ -175,7 +184,37 @@ class DescriptiveSummaryTests(TestCase):
         )
         from analytics.services.overview import overview_summary
         summary = overview_summary(user=None, today=self.today)
-        self.assertEqual(summary["population"]["by_barangay"][0]["monthly_milk_l"], 12.5)
+        self.assertIsNone(summary["population"]["by_barangay"][0]["monthly_milk_l"])
+
+    def test_mao_analytics_do_not_query_private_production_rows(self):
+        from analytics.services.gis import get_gis_aggregated_data
+        from analytics.services.overview import overview_summary
+
+        animal = self.animal()
+        ProductionRecord.objects.create(
+            livestock=animal, production_type="MILK", unit="LITERS",
+            quantity=Decimal("12.50"), record_date=self.today,
+            status="RECORDED", created_by=self.user,
+        )
+        mao_role, _ = Role.objects.get_or_create(role_name="MAO")
+        mao = User.objects.create_user(
+            username="analytics-mao", email="analytics-mao@example.test",
+            password="test-pass", role=mao_role,
+        )
+
+        with CaptureQueriesContext(connection) as captured:
+            descriptive = descriptive_summary(self.today, user=mao)
+            overview = overview_summary(user=mao, today=self.today)
+            gis = get_gis_aggregated_data(user=mao)
+
+        sql = [query["sql"].lower() for query in captured]
+        self.assertFalse(any("production_productionrecord" in query for query in sql))
+        self.assertFalse(descriptive["descriptive"]["production"]["available"])
+        self.assertEqual(descriptive["descriptive"]["production"]["records"], 0)
+        self.assertIsNone(overview["population"]["by_barangay"][0]["monthly_milk_l"])
+        allowed_layers = gis["user_scope"]["allowed_layers"]
+        self.assertNotIn("milk", allowed_layers)
+        self.assertNotIn("farmer_meat", allowed_layers)
 
     def test_batch_event_location_units_and_future_vaccination(self):
         batch = LivestockBatch.objects.create(
@@ -189,7 +228,7 @@ class DescriptiveSummaryTests(TestCase):
                 record_date=self.today, status="RECORDED", created_by=self.user,
             )
         DiseaseCase.objects.create(batch=batch, name="FMD", affected_count=1, record_date=self.today, status="APPROVED", created_by=self.user)
-        data = descriptive_summary(self.today)["descriptive"]
+        data = descriptive_summary(self.today, user=self.user)["descriptive"]
         self.assertEqual(data["production"]["records"], 2)
         self.assertEqual({row["unit"]: row["quantity"] for row in data["production"]["by_type"]}, {"LITERS": 2.5, "KILOGRAMS": 3.25})
         self.assertTrue(all(row["barangay_id"] == self.barangay.id for row in data["production"]["by_barangay"]))
@@ -224,7 +263,7 @@ class DescriptiveSummaryTests(TestCase):
                                (date(2026, 1, 15), "3"), (self.today, "4"), (date(2026, 10, 2), "99")]:
             ProductionRecord.objects.create(livestock=animal, production_type="MILK", unit="LITERS",
                                            quantity=Decimal(quantity), record_date=when, status="RECORDED", created_by=self.user)
-        result = descriptive_summary(self.today)
+        result = descriptive_summary(self.today, user=self.user)
         data = result["descriptive"]
         self.assertEqual(data["period"], {"start": "2025-11-01", "end": "2026-10-01"})
         self.assertEqual(data["production"]["records"], 3)
@@ -400,10 +439,10 @@ class AdminConsistencyTests(TestCase):
         SlaughterRecord.objects.create(barangay=self.barangay, livestock_type=self.cattle,
             quantity=1, carcass_weight=Decimal("5.25"), record_date=self.today,
             status="APPROVED", created_by=self.user)
-        dashboard = descriptive_summary(self.today)
-        overview = overview_summary(today=self.today)
+        dashboard = descriptive_summary(self.today, user=self.user)
+        overview = overview_summary(user=None, today=self.today)
         self.assertEqual(dashboard["monthly_dairy_yield_l"], 2.5)
-        self.assertEqual(overview["population"]["by_barangay"][0]["monthly_milk_l"], 2.5)
+        self.assertIsNone(overview["population"]["by_barangay"][0]["monthly_milk_l"])
         self.assertEqual(overview["population"]["total_heads"], 0)
         self.assertEqual(overview["population"]["by_barangay"][0]["monthly_meat_kg"], 5.25)
         self.assertEqual(dashboard["year_to_date_l"], 101.5)

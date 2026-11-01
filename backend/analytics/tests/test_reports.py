@@ -3,7 +3,9 @@ from decimal import Decimal
 from io import BytesIO
 from unittest.mock import patch
 
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -96,7 +98,7 @@ class OfficialReportApiTests(TestCase):
         return self.client.get(reverse("reports-preview"), self.params(report_type, **filters))
 
     def test_each_report_type_uses_approved_database_rows_and_correct_units(self):
-        expected = {"inventory": (1, 1), "production": (2, 2), "disease_mortality": (2, 2),
+        expected = {"inventory": (1, 1), "disease_mortality": (2, 2),
                     "slaughter": (1, 1), "movement": (3, 2), "inspection": (2, 1)}
         for report_type, (row_count, records) in expected.items():
             with self.subTest(report_type=report_type):
@@ -109,16 +111,6 @@ class OfficialReportApiTests(TestCase):
                 self.assertIn("key_findings", response.data["analysis"])
                 self.assertIn("comparison", response.data["analysis"])
                 self.assertIn("coverage_notice", response.data["analysis"])
-        production = self.preview("production").data
-        self.assertEqual(production["summary"]["totals_by_type_and_unit"], {"MILK (LITERS)": 12.5, "EGGS (PIECES)": 8.0})
-        production_kpis = {item["label"]: item["value"] for item in production["analysis"]["executive_summary"]}
-        self.assertEqual(production_kpis["Total production (LITERS)"], 12.5)
-        self.assertEqual(production_kpis["Total production (PIECES)"], 8)
-        self.assertEqual(production_kpis["Contributing farmers"], 1)
-        self.assertNotIn("Total production", production_kpis)
-        self.assertTrue(production["analysis"]["key_findings"])
-        self.assertEqual(production["analysis"]["rankings"][0]["unit"], "LITERS")
-        self.assertEqual(production["analysis"]["coverage_level"], "sparse")
         health = self.preview("disease_mortality").data["summary"]
         self.assertEqual((health["disease_cases"], health["affected_heads"], health["mortality_records"], health["deaths"]), (1, 2, 1, 1))
         disease_report = self.preview("disease_mortality").data
@@ -131,32 +123,20 @@ class OfficialReportApiTests(TestCase):
         self.assertEqual({row["direction"] for row in movement["rows"] if row["record_kind"] == "MOVEMENT"}, {"INTERNAL"})
         self.assertTrue(all(row["clearance_status"] == "APPROVED" for row in movement["rows"]))
 
-    def test_production_report_includes_recorded_logs_but_not_slaughter_projections(self):
-        ProductionRecord.objects.create(
-            livestock=self.animal, production_type="MILK", quantity=Decimal("4.5"),
-            unit="LITERS", record_date=self.today, status="RECORDED", created_by=self.farmer_user,
-        )
-        ProductionRecord.objects.create(
-            livestock=self.animal, production_type="MILK", quantity=Decimal("900"),
-            unit="LITERS", record_date=self.today, status="APPROVED", created_by=self.farmer_user,
-        )
-        slaughter = SlaughterRecord.objects.create(
-            livestock=self.animal, livestock_type=self.cattle, quantity=1,
-            carcass_weight=Decimal("180.5"), record_date=self.today,
-            status="PENDING", created_by=self.farmer_user,
-        )
-        ProductionRecord.objects.create(
-            livestock=self.animal, production_type="MEAT", quantity=Decimal("180.5"),
-            unit="KILOGRAMS", record_date=self.today, status="RECORDED",
-            slaughter=slaughter, created_by=self.farmer_user,
-        )
+    def test_farmer_production_report_is_rejected_before_record_query(self):
+        with CaptureQueriesContext(connection) as queries:
+            response = self.preview("production")
+        self.assertEqual(response.status_code, 400)
+        production_queries = [query["sql"] for query in queries if "production_productionrecord" in query["sql"].lower()]
+        self.assertEqual(production_queries, [])
 
-        report = self.preview("production").data
-        self.assertEqual(report["record_count"], 3)
-        self.assertEqual(report["summary"]["totals_by_type_and_unit"]["MILK (LITERS)"], 17.0)
-        self.assertNotIn("MEAT (KILOGRAMS)", report["summary"]["totals_by_type_and_unit"])
-        recorded = next(row for row in report["rows"] if row["status"] == "RECORDED")
-        self.assertEqual(recorded["source"], "Farmer-reported production")
+        for file_format in ("xlsx", "pdf"):
+            with self.subTest(file_format=file_format):
+                export = self.client.get(
+                    reverse("reports-export"),
+                    self.params("production", file_format=file_format),
+                )
+                self.assertEqual(export.status_code, 400)
 
     def test_filters_and_empty_date_range_are_applied_to_preview(self):
         response = self.preview("movement", species="Goat", direction="INTERNAL", purpose="SLAUGHTER")
@@ -230,7 +210,7 @@ class OfficialReportApiTests(TestCase):
         self.assertEqual(self.preview("inventory").status_code, 401)
 
     def test_excel_and_pdf_exports_are_complete_for_every_report(self):
-        report_types = ("inventory", "production", "disease_mortality", "slaughter", "movement", "inspection")
+        report_types = ("inventory", "disease_mortality", "slaughter", "movement", "inspection")
         for report_type in report_types:
             with self.subTest(report_type=report_type):
                 preview = self.preview(report_type)
@@ -291,18 +271,22 @@ class OfficialReportApiTests(TestCase):
         workbook.close()
 
     def test_export_ignores_preview_page_limits_and_writes_every_matching_row(self):
-        ProductionRecord.objects.bulk_create([
-            ProductionRecord(livestock=self.animal,
-                             production_type="REGRESSION-LAST-ROW" if index == 204 else "MILK",
-                             quantity=Decimal("1"),
-                             unit="LITERS", record_date=self.today, status="RECORDED", created_by=self.farmer_user)
+        LivestockInventory.objects.bulk_create([
+            LivestockInventory(
+                farmer=self.farmer,
+                livestock_type=self.cattle,
+                tag_number=f"REPORT-EXPORT-{index:03d}",
+                quantity=1,
+                status=LivestockInventory.StatusType.APPROVED,
+                operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+                created_by=self.farmer_user,
+            )
             for index in range(205)
         ])
-        preview = self.preview("production")
-        self.assertEqual(len(preview.data["rows"]), 207)
-        self.assertEqual(preview.data["rows"][-1]["production_type"], "REGRESSION-LAST-ROW")
+        preview = self.preview("inventory")
+        self.assertEqual(len(preview.data["rows"]), 206)
 
-        excel = self.client.get(reverse("reports-export"), self.params("production", file_format="xlsx"))
+        excel = self.client.get(reverse("reports-export"), self.params("inventory", file_format="xlsx"))
         self.assertEqual(excel.status_code, 200)
         workbook = load_workbook(BytesIO(excel.content), read_only=True)
         rows = list(workbook.active.iter_rows(values_only=True))
@@ -311,21 +295,17 @@ class OfficialReportApiTests(TestCase):
         self.assertEqual(len(rows) - header_index - 1, len(preview.data["rows"]))
         workbook.close()
 
-        pdf = self.client.get(reverse("reports-export"), self.params("production", file_format="pdf"))
+        pdf = self.client.get(reverse("reports-export"), self.params("inventory", file_format="pdf"))
         self.assertEqual(pdf.status_code, 200)
         self.assertTrue(pdf.content.startswith(b"%PDF"))
 
-    def test_pdf_chart_specs_use_filtered_rows_and_keep_production_units_separate(self):
-        report = self.preview("production", barangay="Poblacion").data
+    def test_pdf_chart_specs_do_not_build_charts_for_private_production_reports(self):
+        report = {"report_type": "production", "rows": [
+            {"record_date": self.today.isoformat(), "production_type": "MILK", "quantity": 12.5, "unit": "LITERS", "barangay": "Poblacion"},
+            {"record_date": self.today.isoformat(), "production_type": "EGGS", "quantity": 8, "unit": "PIECES", "barangay": "Poblacion"},
+        ]}
         charts = _report_chart_specs(report)
-        titles = [chart["title"] for chart in charts]
-        self.assertIn("Production Over Time (LITERS)", titles)
-        self.assertIn("Production Over Time (PIECES)", titles)
-        milk = next(chart for chart in charts if chart["title"] == "Production by Type (LITERS)")
-        eggs = next(chart for chart in charts if chart["title"] == "Production by Type (PIECES)")
-        self.assertEqual(milk["data"], [("MILK", 12.5)])
-        self.assertEqual(eggs["data"], [("EGGS", 8.0)])
-        self.assertFalse(any("Production Distribution" in title for title in titles))
+        self.assertEqual(charts, [])
 
     def test_complementary_chart_specs_use_filtered_rows_and_distinct_measures(self):
         inventory = _report_chart_specs({"report_type": "inventory", "rows": [
@@ -338,16 +318,13 @@ class OfficialReportApiTests(TestCase):
         self.assertEqual(composition["series"], ["Cattle", "Goat"])
         self.assertEqual(composition["data"][0], {"name": "Manggas", "values": {"Cattle": 4.0, "Goat": 2.0}})
 
-        production = _report_chart_specs({"report_type": "production", "rows": [
-            {"record_date": "2026-01-04", "production_type": "MILK", "quantity": 10, "unit": "LITERS", "barangay": "Manggas"},
-            {"record_date": "2026-01-12", "production_type": "HONEY", "quantity": 3, "unit": "LITERS", "barangay": "Poblacion"},
-            {"record_date": "2026-02-02", "production_type": "MILK", "quantity": 12, "unit": "LITERS", "barangay": "Manggas"},
-            {"record_date": "2026-02-05", "production_type": "EGGS", "quantity": 8, "unit": "PIECES", "barangay": "Manggas"},
+        slaughter = _report_chart_specs({"report_type": "slaughter", "rows": [
+            {"record_date": "2026-01-04", "species": "Cattle", "quantity": 1, "carcass_weight_kg": 170, "barangay": "Manggas"},
+            {"record_date": "2026-01-12", "species": "Goat", "quantity": 2, "carcass_weight_kg": 30, "barangay": "Poblacion"},
+            {"record_date": "2026-02-02", "species": "Cattle", "quantity": 1, "carcass_weight_kg": 180, "barangay": "Manggas"},
         ]})
-        type_trend = next(chart for chart in production if chart["type"] == "multi_line")
-        self.assertEqual(type_trend["series"], ["HONEY", "MILK"])
-        self.assertEqual([month for month, _ in type_trend["data"]], ["2026-01", "2026-02"])
-        self.assertFalse(any(chart.get("type") == "multi_line" and "EGGS" in chart.get("series", []) for chart in production))
+        type_trend = next(chart for chart in slaughter if chart["title"] == "Slaughter Trend")
+        self.assertEqual(type_trend["data"], [("2026-01", 3.0), ("2026-02", 1.0)])
         # Render a type/month gap too: the PDF must omit the missing value instead of plotting an invented zero.
         from reportlab.lib import colors as pdf_colors
         from reportlab.pdfgen.canvas import Canvas
@@ -358,8 +335,8 @@ class OfficialReportApiTests(TestCase):
         flowable.drawOn(pdf_canvas, 0, 0)
         pdf_canvas.save()
         self.assertTrue(chart_pdf.getvalue().startswith(b"%PDF"))
-        records = next(chart for chart in production if chart["title"] == "Number of Production Records by Barangay")
-        self.assertEqual(records["data"], [("Manggas", 3), ("Poblacion", 1)])
+        carcass = next(chart for chart in slaughter if chart["title"] == "Carcass Weight by Species")
+        self.assertEqual(carcass["data"], [("Cattle", 350.0), ("Goat", 30.0)])
 
         disease = _report_chart_specs({"report_type": "disease_mortality", "rows": [
             {"record_kind": "DISEASE", "barangay": "Manggas", "affected_or_dead": 9},
@@ -420,21 +397,21 @@ class OfficialReportApiTests(TestCase):
         self.assertIn("No approved records", analysis["coverage_notice"])
         self.assertFalse(analysis["comparison"]["available"])
         self.assertEqual(analysis["key_findings"], [])
-        self.assertFalse(self.preview("production").data["analysis"]["comparison"]["available"])
+        self.assertEqual(self.preview("production").status_code, 400)
 
     def test_previous_period_uses_same_duration_and_supports_comparison(self):
         previous_day = self.today - timedelta(days=1)
-        ProductionRecord.objects.create(
-            livestock=self.animal, production_type="MILK", quantity=Decimal("5"), unit="LITERS",
-            record_date=previous_day, status="RECORDED", created_by=self.farmer_user,
+        SlaughterRecord.objects.create(
+            livestock=self.animal, livestock_type=self.cattle, quantity=1,
+            carcass_weight=Decimal("160"), record_date=previous_day,
+            barangay=self.barangay, status="APPROVED", created_by=self.farmer_user,
         )
-        report = self.preview("production", barangay="Poblacion").data
+        report = self.preview("slaughter", barangay="Poblacion").data
         comparison = report["analysis"]["comparison"]
         self.assertTrue(comparison["available"])
         self.assertEqual(comparison["period"], {"date_from": previous_day.isoformat(), "date_to": previous_day.isoformat()})
-        milk = next(metric for metric in comparison["metrics"] if metric["label"] == "Liters")
-        self.assertEqual((milk["current"], milk["previous"], milk["change_percent"]), (12.5, 5, 150.0))
-        self.assertFalse(any(metric["label"] == "PIECES" for metric in comparison["metrics"]))
+        carcass = next(metric for metric in comparison["metrics"] if "carcass" in metric["label"].lower())
+        self.assertEqual((carcass["current"], carcass["previous"]), (180.5, 160.0))
 
     def test_rankings_are_limited_to_five_and_sorted(self):
         rows = [{"species": "Cattle", "quantity": amount, "barangay": f"Barangay {amount}"}
@@ -456,11 +433,11 @@ class OfficialReportApiTests(TestCase):
         self.assertIn(len(long_months) - 1, visible_ticks)
         # Tick selection only changes printed labels; the chart specification
         # still carries every month and therefore every line-chart point.
-        report = {"report_type": "production", "rows": [
-            {"record_date": f"{month}-15", "production_type": "MILK", "quantity": index + 1, "unit": "LITERS"}
+        report = {"report_type": "slaughter", "rows": [
+            {"record_date": f"{month}-15", "species": "Cattle", "quantity": index + 1, "carcass_weight_kg": 180}
             for index, month in enumerate(long_months)
         ]}
-        trend = next(chart for chart in _report_chart_specs(report) if chart["type"] == "line")
+        trend = next(chart for chart in _report_chart_specs(report) if chart["title"] == "Slaughter Trend")
         self.assertEqual(len(trend["data"]), len(long_months))
 
     def test_movement_direction_labels(self):

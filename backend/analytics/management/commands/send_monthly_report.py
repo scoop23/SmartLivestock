@@ -19,7 +19,7 @@ from analytics.services.reports import build_report
 from users.models import User
 
 logger = logging.getLogger(__name__)
-REPORT_TYPES = ("inventory", "production", "disease_mortality", "slaughter", "movement", "inspection")
+REPORT_TYPES = ("inventory", "disease_mortality", "slaughter", "movement", "inspection")
 
 
 def previous_month_period(today=None):
@@ -129,8 +129,8 @@ class Command(BaseCommand):
             subject = f"SmartLivestock monthly MAO summary — {first:%B %Y}"
             message = (
                 f"Attached is the monthly SmartLivestock summary for {first:%B %Y}. "
-                "It includes farmer-recorded production and approved-record summaries for inventory, disease and mortality, "
-                "slaughter, movement, and inspection. Please use the methodology and source notes in each sheet."
+                "It includes authorized inventory, disease and mortality, official slaughter, movement, and inspection summaries. "
+                "Farmer-owned production logs are excluded. Please use the methodology and source notes in each sheet."
             )
             email = EmailMessage(subject, message, to=recipients)
             email.attach(f"smartlivestock_summary_{first:%Y_%m}.xlsx", content,

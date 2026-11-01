@@ -16,7 +16,7 @@ from movements.models import (
     LivestockInspectionClearance,
 )
 from .population import population_summary
-from smartlivestock.workflows import scope_reviewer_queryset
+from smartlivestock.workflows import FARMER, role_name, scope_reviewer_queryset
 from production.models import ProductionRecord, SlaughterRecord
 
 
@@ -65,13 +65,21 @@ def descriptive_summary(today=None, *, user=None):
         for row in population["by_barangay"]
     ]
 
-    # Farmer production analytics use current self-managed logs only. Historical
-    # approval-state rows remain stored but are not part of these metrics.
-    production = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-        status__in=PRODUCTION_ANALYTICS_STATUSES,
-        slaughter__isnull=True,
-        record_date__range=(start, today),
-    )
+    # Production data is available only to its owning Farmer. Keep an empty
+    # queryset for municipal roles so none of the downstream aggregates issue SQL.
+    production = ProductionRecord.objects.none()
+    if role_name(user) == FARMER:
+        owned_records = (
+            Q(farmer_at_record__user=user)
+            | Q(farmer_at_record__isnull=True, livestock__farmer__user=user)
+            | Q(farmer_at_record__isnull=True, batch__farmer__user=user)
+        )
+        production = ProductionRecord.objects.filter(
+            owned_records,
+            status__in=PRODUCTION_ANALYTICS_STATUSES,
+            slaughter__isnull=True,
+            record_date__range=(start, today),
+        )
     # Keep units separate: liters, kilograms, and pieces cannot be added together.
     production_by_type = [
         {"type": row["production_type"], "unit": row["unit"],
@@ -88,7 +96,7 @@ def descriptive_summary(today=None, *, user=None):
     )
     # Farmer-reported meat is separate from slaughter output. Slaughter-linked
     # ProductionRecords are projections of SlaughterRecord and are excluded.
-    farmer_meat_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
+    farmer_meat_qs = production.filter(
         status__in=PRODUCTION_ANALYTICS_STATUSES,
         production_type=ProductionRecord.ProductionType.MEAT,
         unit=ProductionRecord.UnitType.KILOGRAMS,
@@ -799,6 +807,7 @@ def descriptive_summary(today=None, *, user=None):
         "period": {"start": start.isoformat(), "end": today.isoformat()},
         "population": population,
         "production": {"records": sum(row["records"] for row in production_by_type),
+                       "available": role_name(user) == FARMER,
                        "by_type": production_by_type, "trend": production_trend,
                        "farmer_meat_trend": farmer_meat_trend,
                        "farmer_meat_by_species": farmer_meat_by_species,

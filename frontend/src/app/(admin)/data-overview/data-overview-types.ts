@@ -22,7 +22,7 @@ export interface BarangaySummary {
   goatCount: number;
   otherCount?: number;
   batchCount?: number;
-  monthlyMilkLiters: number;
+  monthlyMilkLiters: number | null;
   monthlyMeatKg: number;
   activeIncidents: number;
   registeredFarmers: number;

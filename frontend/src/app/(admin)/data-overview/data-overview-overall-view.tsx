@@ -111,7 +111,6 @@ export function DataOverviewOverallView({
   const totalCarabao = barangaySummaries.reduce((sum, b) => sum + b.carabaoCount, 0);
   const totalSwine = barangaySummaries.reduce((sum, b) => sum + b.swineCount, 0);
   const totalGoats = barangaySummaries.reduce((sum, b) => sum + b.goatCount, 0);
-  const totalMilk = barangaySummaries.reduce((sum, b) => sum + b.monthlyMilkLiters, 0);
   const totalMeat = barangaySummaries.reduce((sum, b) => sum + b.monthlyMeatKg, 0);
   const totalIncidents = barangaySummaries.reduce((sum, b) => sum + b.activeIncidents, 0);
   const totalFarmers = barangaySummaries.reduce((sum, b) => sum + b.registeredFarmers, 0);
@@ -429,7 +428,7 @@ export function DataOverviewOverallView({
                         className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
                         onClick={() => handleSort("monthlyMilkLiters")}
                       >
-                        Milk (L/mo)
+                        Farmer Milk Logs
                       </TableHead>
                       <TableHead
                         className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
@@ -496,7 +495,7 @@ export function DataOverviewOverallView({
                         </TableCell>
 
                         <TableCell className="px-3 py-2 text-right font-semibold text-xs text-sky-800">
-                          {b.monthlyMilkLiters.toLocaleString()} L
+                          {b.monthlyMilkLiters == null ? "Private to farmer accounts" : `${b.monthlyMilkLiters.toLocaleString()} L`}
                         </TableCell>
 
                         <TableCell className="px-3 py-2 text-right">
@@ -546,7 +545,7 @@ export function DataOverviewOverallView({
                   <span>•</span>
                   <span className="text-emerald-800">Batches: {totalBatchesCount}</span>
                   <span>•</span>
-                  <span className="text-sky-700">Milk: {totalMilk.toLocaleString()} L</span>
+                  <span className="text-sky-700">Farmer milk logs: private</span>
                   <span>•</span>
                   <span className="text-rose-700">Incidents: {totalIncidents}</span>
                   <span>•</span>

@@ -4,7 +4,7 @@ export interface PopulationSpecies { species_id: number; species: string; heads:
 export interface PopulationBarangay {
   barangay_id: number; barangay: string; heads: number; vaccinated: number;
   species: PopulationSpecies[]; registered_farmers: number; active_herds: number;
-  monthly_milk_l?: number; monthly_meat_kg?: number; pending_disease_reports?: number;
+  monthly_milk_l?: number | null; monthly_meat_kg?: number; pending_disease_reports?: number;
 }
 export interface PopulationSummary {
   total_heads: number; by_barangay: PopulationBarangay[]; by_species: PopulationSpecies[];
@@ -30,7 +30,7 @@ export function overviewBarangays(summary?: OverviewSummary) {
       cattleCount: counts.cattle, carabaoCount: counts.carabao, swineCount: counts.swine,
       goatCount: counts.goat + counts.sheep, otherCount: counts.poultry + counts.other,
       batchCount: row.active_herds, registeredFarmers: row.registered_farmers,
-      monthlyMilkLiters: row.monthly_milk_l ?? 0, monthlyMeatKg: row.monthly_meat_kg ?? 0,
+      monthlyMilkLiters: row.monthly_milk_l ?? null, monthlyMeatKg: row.monthly_meat_kg ?? 0,
       activeIncidents: row.pending_disease_reports ?? 0,
     };
   }).sort((a, b) => b.totalLivestock - a.totalLivestock || a.barangay.localeCompare(b.barangay));

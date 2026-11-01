@@ -7,9 +7,7 @@ import { getSpeciesColor } from '@/lib/species-colors';
 import {
 Activity,
 BarChart3,
-Beef,
 CheckCircle2,
-Milk,
 PieChart as PieIcon,
 RotateCw,
 Scale,
@@ -35,39 +33,11 @@ import type { NameType,ValueType } from 'recharts/types/component/DefaultTooltip
 import { useAdminBarangayCurrentFarmers,type BarangayHerdChartData,type useAdminDashboardAnalytics } from './admin-charts';
 
 type MonthlyMetricPoint = { month: string; label: string; value: number };
-type ProductionOption = { key: string; type: string; unit: string };
-
-const PRODUCTION_TYPE_LABELS: Record<string, string> = {
-  MILK: "Milk",
-  WOOL: "Wool",
-  EGGS: "Eggs",
-  MEAT: "Meat",
-};
-const PRODUCTION_TYPE_PRIORITY = ["MILK", "WOOL", "EGGS", "MEAT"];
 
 function completeMonthlyMetric(months: MonthlyMetricPoint[], rows: MonthlyMetricPoint[]) {
   const totalsByMonth = new Map<string, number>();
   for (const row of rows) totalsByMonth.set(row.month, (totalsByMonth.get(row.month) ?? 0) + row.value);
   return months.map((row) => ({ ...row, value: totalsByMonth.get(row.month) ?? 0 }));
-}
-
-function productionOptionsForSpecies(
-  rows: Array<{ species: string; production_type: string; unit: string }>,
-  species: string,
-): ProductionOption[] {
-  return Array.from(new Map(
-    rows
-      .filter((row) => row.species.toLocaleLowerCase() === species.toLocaleLowerCase())
-      .map((row) => {
-        const key = `${row.production_type}:${row.unit}`;
-        return [key, { key, type: row.production_type, unit: row.unit }] as const;
-      }),
-  ).values()).sort((a, b) => {
-    const priorityA = PRODUCTION_TYPE_PRIORITY.indexOf(a.type);
-    const priorityB = PRODUCTION_TYPE_PRIORITY.indexOf(b.type);
-    return (priorityA < 0 ? PRODUCTION_TYPE_PRIORITY.length : priorityA)
-      - (priorityB < 0 ? PRODUCTION_TYPE_PRIORITY.length : priorityB);
-  });
 }
 
 function MonthlyMetricCard({
@@ -123,7 +93,6 @@ function MonthlyMetricCard({
 export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typeof useAdminDashboardAnalytics>) {
   const [productionTimeframe, setProductionTimeframe] = useState<'6M' | '1Y'>('6M');
   const [selectedSpecies, setSelectedSpecies] = useState<string | null>(null);
-  const [selectedProductionKey, setSelectedProductionKey] = useState<string | null>(null);
   const [allBarangaysOpen, setAllBarangaysOpen] = useState(false);
   const [selectedBarangay, setSelectedBarangay] = useState<BarangayHerdChartData | null>(null);
   const [farmersDialogOpen, setFarmersDialogOpen] = useState(false);
@@ -131,11 +100,8 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
   const {
     barangayHerdDistribution,
     specieComposition,
-    monthlyProduction,
     slaughterYieldTrend,
     slaughterYieldBySpecies,
-    farmerMeatYieldTrend,
-    productionBySpeciesTrend,
     animalsSoldTrend,
     animalsSoldBySpecies,
     surveillanceTrends,
@@ -143,59 +109,25 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
     vaccinationTotals,
   } = data;
 
-  const speciesProductionOptions: ProductionOption[] = selectedSpecies
-    ? productionOptionsForSpecies(productionBySpeciesTrend, selectedSpecies)
-    : [];
-  const selectedProductionOption = speciesProductionOptions.find((option) => option.key === selectedProductionKey)
-    ?? speciesProductionOptions[0]
-    ?? null;
-  const selectedSpeciesColor = specieComposition.find((entry) => entry.name.toLocaleLowerCase() === selectedSpecies?.toLocaleLowerCase())?.color;
-  const selectedSpeciesOutputRows = selectedSpecies && selectedProductionOption
-    ? productionBySpeciesTrend.filter((row) =>
-        row.species.toLocaleLowerCase() === selectedSpecies.toLocaleLowerCase()
-        && row.production_type === selectedProductionOption.type
-        && row.unit === selectedProductionOption.unit,
-      ).map((row) => ({ month: row.month, label: row.label, value: row.quantity }))
-    : [];
-  const productionChartMonths = monthlyProduction.map((row) => ({ month: row.month, label: row.label, value: row.milk }));
-  const productionChartData = selectedSpecies
-    ? completeMonthlyMetric(productionChartMonths, selectedSpeciesOutputRows)
-    : productionChartMonths;
-  const productionType = selectedProductionOption?.type ?? (selectedSpecies ? null : "MILK");
-  const productionUnit = selectedProductionOption?.unit ?? (selectedSpecies ? "" : "LITERS");
-  const productionLabel = productionType ? PRODUCTION_TYPE_LABELS[productionType] ?? productionType : "Production";
-  const productionTitle = selectedSpecies
-    ? productionType === "MEAT"
-      ? `Monthly ${selectedSpecies} Farmer Meat Yield`
-      : `Monthly ${selectedSpecies} ${productionLabel} Output`
-    : "Monthly Certified Milk Output";
-  const slicedProduction = productionTimeframe === '6M' ? productionChartData.slice(-6) : productionChartData;
-
   const selectedSlaughterRows = selectedSpecies
     ? slaughterYieldBySpecies.filter((row) => row.species.toLocaleLowerCase() === selectedSpecies.toLocaleLowerCase())
       .map((row) => ({ month: row.month, label: row.label, value: row.carcass_weight_kg }))
     : slaughterYieldTrend.map((row) => ({ month: row.month, label: row.label, value: row.carcass_weight_kg }));
-  const selectedFarmerMeatRows = selectedSpecies
-    ? productionBySpeciesTrend.filter((row) => row.species.toLocaleLowerCase() === selectedSpecies.toLocaleLowerCase() && row.production_type === "MEAT" && row.unit === "KILOGRAMS")
-      .map((row) => ({ month: row.month, label: row.label, value: row.quantity }))
-    : farmerMeatYieldTrend.map((row) => ({ month: row.month, label: row.label, value: row.quantity_kg }));
   const selectedAnimalsSoldRows = selectedSpecies
     ? animalsSoldBySpecies.filter((row) => row.species.toLocaleLowerCase() === selectedSpecies.toLocaleLowerCase())
       .map((row) => ({ month: row.month, label: row.label, value: row.animals }))
     : animalsSoldTrend.map((row) => ({ month: row.month, label: row.label, value: row.animals }));
-  const metricMonthSkeleton = productionChartMonths;
+  const metricMonthSkeleton = slaughterYieldTrend.map((row) => ({
+    month: row.month, label: row.label, value: row.carcass_weight_kg,
+  }));
   const slicedSlaughterYield = (productionTimeframe === '6M'
     ? completeMonthlyMetric(metricMonthSkeleton, selectedSlaughterRows).slice(-6)
     : completeMonthlyMetric(metricMonthSkeleton, selectedSlaughterRows));
-  const slicedFarmerMeatYield = (productionTimeframe === '6M'
-    ? completeMonthlyMetric(metricMonthSkeleton, selectedFarmerMeatRows).slice(-6)
-    : completeMonthlyMetric(metricMonthSkeleton, selectedFarmerMeatRows));
   const slicedAnimalsSold = (productionTimeframe === '6M'
     ? completeMonthlyMetric(metricMonthSkeleton, selectedAnimalsSoldRows).slice(-6)
     : completeMonthlyMetric(metricMonthSkeleton, selectedAnimalsSoldRows));
   const selectedPeriodLabel = productionTimeframe === '6M' ? 'Last 6 months' : 'Last 12 months';
   const totalSlaughterYield = slicedSlaughterYield.reduce((sum, row) => sum + row.value, 0);
-  const totalFarmerMeatYield = slicedFarmerMeatYield.reduce((sum, row) => sum + row.value, 0);
   const totalAnimalsSold = slicedAnimalsSold.reduce((sum, row) => sum + row.value, 0);
   const topBarangays = barangayHerdDistribution.slice(0, 7);
   const farmersQuery = useAdminBarangayCurrentFarmers(selectedBarangay?.barangayId ?? null, farmersDialogOpen);
@@ -214,13 +146,10 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
   const handleSpeciesSelect = (species: string) => {
     if (selectedSpecies?.toLocaleLowerCase() === species.toLocaleLowerCase()) {
       setSelectedSpecies(null);
-      setSelectedProductionKey(null);
       return;
     }
 
-    const options = productionOptionsForSpecies(productionBySpeciesTrend, species);
     setSelectedSpecies(species);
-    setSelectedProductionKey(options[0]?.key ?? null);
   };
 
   return (
@@ -416,11 +345,11 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
                 <PieIcon className="w-3.5 h-3.5 text-[#2D5A27]" />
                 Specie Composition
               </h3>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-[11px] font-bold" onClick={() => { setSelectedSpecies(null); setSelectedProductionKey(null); }}>
+              <Button variant="outline" size="sm" className="h-7 px-2 text-[11px] font-bold" onClick={() => setSelectedSpecies(null)}>
                 {selectedSpecies ? `${selectedSpecies} · Clear` : "Choose a type"}
               </Button>
             </div>
-            <p className="text-xs text-slate-500 font-medium mb-1">Click a slice or type to filter production, slaughter, and sold-animal charts.</p>
+            <p className="text-xs text-slate-500 font-medium mb-1">Click a slice or type to filter official slaughter and sold-animal charts.</p>
 
             <div className="h-[170px] w-full relative">
               <ResponsiveContainer width="100%" height="100%" debounce={150}>
@@ -477,70 +406,17 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
         </div>
       </div>
 
-      {/* ── ROW 2: Monthly Milk Yield vs DA Quota & Biosecurity Surveillance ── */}
+      {/* ── ROW 2: Production privacy and biosecurity surveillance ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        {/* Selected-species production output; product and unit follow available records. */}
-        <div className="lg:col-span-7 bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-            <div>
-              <h3 className="text-[13px] font-black text-slate-900 tracking-tight flex items-center gap-1.5">
-                {productionType === "MILK" ? <Milk className="w-3.5 h-3.5 text-sky-600" /> : <Activity className="w-3.5 h-3.5 text-sky-600" />}
-                {productionTitle}
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                {selectedSpecies
-                  ? selectedProductionOption
-                    ? `Approved ${productionLabel.toLocaleLowerCase()} records in ${productionUnit.toLocaleLowerCase()}. The species filter also applies to related charts below.`
-                    : `No approved production type is recorded for ${selectedSpecies} in this period.`
-                  : "Approved municipal milk records in liters. The 6M/1Y range also filters the charts below."}
-              </p>
-            </div>
-            <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 self-start sm:self-auto">
-              {(['6M', '1Y'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setProductionTimeframe(t)}
-                  className={`px-2 py-0.5 rounded-md text-[11px] font-black transition-all cursor-pointer ${productionTimeframe === t ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-                    }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {selectedSpecies && speciesProductionOptions.length > 1 ? <div className="mb-2 flex flex-wrap items-center gap-1.5" aria-label={`${selectedSpecies} production type filter`}>
-            <span className="text-[11px] font-bold text-slate-600">Output:</span>
-            {speciesProductionOptions.map((option) => <Button
-              key={option.key}
-              type="button"
-              variant={selectedProductionOption?.key === option.key ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedProductionKey(option.key)}
-              className="h-7 px-2 text-[11px]"
-            >{PRODUCTION_TYPE_LABELS[option.type] ?? option.type} · {option.unit.toLocaleLowerCase()}</Button>)}
-          </div> : null}
-
-          <div className="h-[230px] w-full">
-            <ResponsiveContainer width="100%" height="100%" debounce={150}>
-              <BarChart data={slicedProduction} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B', fontWeight: 600 }} axisLine={{ stroke: '#E2E8F0' }} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0F172A', borderRadius: '8px', border: 'none', color: '#fff', fontSize: '11px' }}
-                  formatter={(value: ValueType | undefined) => [`${Number(value ?? 0).toLocaleString()} ${productionUnit.toLocaleLowerCase()}`, productionLabel]}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '6px' }} />
-                <Bar dataKey="value" name={`${productionLabel} (${productionUnit.toLocaleLowerCase()})`} fill={selectedSpeciesColor ?? "#0284C7"} radius={[4, 4, 0, 0]} barSize={22} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          {selectedSpecies && selectedSpeciesOutputRows.length === 0 ? <p className="text-center text-xs text-slate-500">No approved {productionLabel.toLocaleLowerCase()} records are available for {selectedSpecies}.</p> : null}
+        <div className="lg:col-span-5 flex min-h-56 flex-col justify-center rounded-xl border border-slate-200 bg-white p-4 shadow-2xs sm:p-5">
+          <h3 className="text-sm font-black text-slate-900">Farmer production records</h3>
+          <p className="mt-2 max-w-lg text-xs leading-relaxed text-slate-600">
+            Milk and individual farmer meat-yield logs are private to the owning farmer. Municipal analytics, reports, and exports exclude those records. Official slaughter output is shown separately below.
+          </p>
         </div>
 
         {/* Biosecurity & Disease Surveillance Area Chart */}
-        <div className="lg:col-span-5 bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">
+        <div className="lg:col-span-7 bg-white p-3.5 sm:p-4 rounded-xl shadow-2xs border border-slate-200">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="text-[13px] font-black text-slate-900 tracking-tight flex items-center gap-1.5">
@@ -583,8 +459,25 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
         </div>
       </div>
 
-      {/* ── ROW 3: Slaughter yield, farmer meat yield, and approved animal transfers ── */}
-      <div className={`grid grid-cols-1 gap-3.5 ${selectedSpecies && productionType === "MEAT" ? "xl:grid-cols-2" : "xl:grid-cols-3"}`}>
+      {/* ── ROW 3: Slaughter yield and approved animal transfers ── */}
+      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-sm font-black text-slate-900">Official livestock trends</h3>
+        <div className="flex w-fit rounded-lg border border-slate-200 bg-slate-100 p-0.5" aria-label="Trend time range">
+          {([['6M', 'Last 6 months'], ['1Y', 'Last 12 months']] as const).map(([range, label]) => (
+            <button
+              key={range}
+              type="button"
+              aria-pressed={productionTimeframe === range}
+              aria-label={label}
+              onClick={() => setProductionTimeframe(range)}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition-colors ${productionTimeframe === range ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'}`}
+            >
+              {range}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-2">
         <MonthlyMetricCard
           title={selectedSpecies ? `${selectedSpecies} Slaughter Yield` : "Slaughter Meat Yield"}
           description={selectedSpecies ? `Approved carcass weight for ${selectedSpecies}` : "Approved carcass weight from all slaughter records"}
@@ -595,16 +488,6 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
           total={totalSlaughterYield}
           periodLabel={selectedPeriodLabel}
         />
-        {!(selectedSpecies && productionType === "MEAT") ? <MonthlyMetricCard
-          title={selectedSpecies ? `${selectedSpecies} Farmer Meat Yield` : "Farmer Meat Yield"}
-          description={selectedSpecies ? `Approved farmer-reported ${selectedSpecies} meat, excluding slaughter records` : "Approved farmer-reported meat, excluding slaughter records"}
-          unit="kg"
-          color="#D97706"
-          icon={<Beef className="size-4 text-amber-700" />}
-          data={slicedFarmerMeatYield}
-          total={totalFarmerMeatYield}
-          periodLabel={selectedPeriodLabel}
-        /> : null}
         <MonthlyMetricCard
           title={selectedSpecies ? `${selectedSpecies} Animals Sold` : "Animals Sold"}
           description={selectedSpecies ? `Approved ownership transfers for ${selectedSpecies}` : "Approved ownership transfers; one record per animal"}

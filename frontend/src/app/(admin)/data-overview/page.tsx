@@ -34,6 +34,7 @@ import { DataOverviewOverallView } from "./data-overview-overall-view";
 import { DataOverviewTable } from "./data-overview-table";
 import { DataOverviewToolbar } from "./data-overview-toolbar";
 import { ProductionTradeRecords } from "./production-trade-records";
+import type { ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
 
 // Backend TanStack hooks & API client for live database connectivity
 import { useGetBarangays } from "@/app/(sibat)/sibat/sibat-analytics";
@@ -44,7 +45,6 @@ import {
 useAdminCensusSubmissions,
 useAdminIncidentRecords,
 useAdminInventoryRecords,
-useAdminProductionRecords,
 } from "../data-validation/validation-analytics";
 
 type OfficialSlaughterApi = {
@@ -54,6 +54,7 @@ type OfficialSlaughterApi = {
 };
 
 const normalizeStatus = (value: string) => value.trim().toUpperCase().replace(/[\s-]+/g, "_");
+const EMPTY_PRODUCTION_RECORDS: ProductionRecordItem[] = [];
 
 const STATUS_FILTER_ALIASES: Record<string, string[]> = {
   APPROVED: ["CERTIFIED", "MAO_VERIFIED"],
@@ -118,9 +119,8 @@ export default function DataOverviewPage() {
   });
   const summary = summaryQuery.data;
   const inventoryQuery = useAdminInventoryRecords();
-  const productionQuery = useAdminProductionRecords();
   const { data: rawInventory, isLoading: isInvLoading } = inventoryQuery;
-  const { data: rawProduction, isLoading: isProdLoading } = productionQuery;
+  const rawProduction = EMPTY_PRODUCTION_RECORDS;
   const slaughterQuery = useQuery<OfficialSlaughterApi[]>({
     queryKey: ["admin", "official-slaughter-records"],
     queryFn: async ({ signal }) => (await municipalRead<OfficialSlaughterApi[]>("production/slaughterhouse/records/", { signal })).data,
@@ -144,7 +144,6 @@ export default function DataOverviewPage() {
   const dataSources = [
     { label: "Overview totals", query: summaryQuery },
     { label: "Livestock inventory", query: inventoryQuery },
-    { label: "Production records", query: productionQuery },
     { label: "Slaughter records", query: slaughterQuery },
     { label: "Census submissions", query: censusQuery },
     { label: "Disease and mortality records", query: incidentsQuery },
@@ -153,7 +152,7 @@ export default function DataOverviewPage() {
   ];
   const failedSources = dataSources.filter(({ query }) => query.isError).map(({ label }) => label);
 
-  const isDataLoading = summaryQuery.isLoading || isInvLoading || isProdLoading || isSlaughterLoading || isCenLoading || isIncLoading || isBatchLoading;
+  const isDataLoading = summaryQuery.isLoading || isInvLoading || isSlaughterLoading || isCenLoading || isIncLoading || isBatchLoading;
 
   const isInitialLoading =
     summaryQuery.isLoading ||
@@ -1001,7 +1000,7 @@ export default function DataOverviewPage() {
         "Swine Count",
         "Goat & Sheep Count",
         "Poultry & Other Count",
-        "Monthly Milk (L)",
+        "Farmer Milk Logs (Private)",
         "Monthly Meat (kg)",
         "Disease Reports Awaiting Review",
         "Registered Raisers",
@@ -1014,7 +1013,7 @@ export default function DataOverviewPage() {
         b.swineCount,
         b.goatCount,
         b.otherCount ?? 0,
-        b.monthlyMilkLiters,
+        b.monthlyMilkLiters ?? "Private to farmer accounts",
         b.monthlyMeatKg,
         b.activeIncidents,
         b.registeredFarmers,

@@ -11,6 +11,7 @@ from django.db.models import Q
 from rest_framework.exceptions import ValidationError
 from .models import PushSubscription
 from .push_notifications import create_user_push_notification, is_supported_push_endpoint, send_push_for_notification
+from smartlivestock.workflows import role_name
 
 
 def _field_officer_notification_queryset(user, queryset):
@@ -19,18 +20,20 @@ def _field_officer_notification_queryset(user, queryset):
     Notifications are addressed once, when created. A later barangay reassignment
     must not leave old record links visible in the officer's inbox.
     """
-    role_name = getattr(getattr(user, "role", None), "role_name", "")
-    if role_name not in {"SIBAT", "CBAT"}:
+    if role_name(user) != "FARMER":
+        queryset = queryset.exclude(related_entity_type="production_record")
+
+    role = getattr(getattr(user, "role", None), "role_name", "")
+    if role not in {"SIBAT", "CBAT"}:
         return queryset
 
     from diseases.models import DiseaseCase, MortalityRecord
     from livestock.models import CensusSubmission, LivestockBatch, LivestockInventory, LivestockOwnershipTransfer
     from movements.models import LivestockInspection
-    from production.models import CalvingRecord, LiveAnimalSale, ProductionRecord, SlaughterRecord
+    from production.models import CalvingRecord, LiveAnimalSale, SlaughterRecord
     from smartlivestock.workflows import scope_reviewer_queryset
 
     scoped_record_ids = {
-        "production_record": scope_reviewer_queryset(ProductionRecord.objects.all(), user).values("pk"),
         "slaughter_record": scope_reviewer_queryset(
             SlaughterRecord.objects.filter(production_output__status="RECORDED"), user
         ).values("pk"),
@@ -228,7 +231,7 @@ def get_notifications(request):
         queryset = queryset.filter(is_read=False)
 
     notifications = queryset[:limit]
-    serializer = NotificationSerializer(notifications, many=True)
+    serializer = NotificationSerializer(notifications, many=True, context={"request": request})
 
     return Response(
         {
@@ -247,6 +250,8 @@ def mark_notification_read(request, pk):
     Marks a specific notification as read or unread.
     """
     notification = get_object_or_404(Notification, pk=pk, user=request.user)
+    if notification.related_entity_type == "production_record" and role_name(request.user) != "FARMER":
+        return Response({"detail": "Farmer production notifications are private to the owning Farmer."}, status=404)
     unread = False
     if request.data and isinstance(request.data, dict):
         unread = bool(request.data.get("unread", False))
@@ -258,7 +263,7 @@ def mark_notification_read(request, pk):
         notification.is_read = new_is_read
         notification.save(update_fields=["is_read"])
 
-    serializer = NotificationSerializer(notification)
+    serializer = NotificationSerializer(notification, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 

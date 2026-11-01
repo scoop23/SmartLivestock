@@ -302,7 +302,6 @@ class LiveAnimalSaleDataset(BaseDatasetConfig):
 
 DATASET_REGISTRY: Dict[str, BaseDatasetConfig] = {
     LivestockInventoryDataset.code: LivestockInventoryDataset(),
-    ProductionRecordDataset.code: ProductionRecordDataset(),
     DiseaseCaseDataset.code: DiseaseCaseDataset(),
     MortalityRecordDataset.code: MortalityRecordDataset(),
     SlaughterRecordDataset.code: SlaughterRecordDataset(),

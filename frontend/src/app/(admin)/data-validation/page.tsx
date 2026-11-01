@@ -12,7 +12,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 // Domain & Analytics
-import { ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
+import type { ProductionRecordItem } from "@/app/(farmer)/production-dashboard/production-analytics";
 import { CensusSubmissionRecord } from "@/app/(sibat)/sibat/sibat-analytics";
 import {
 ValidationDomain,
@@ -23,7 +23,6 @@ getIncidentTypeBadge,
 useAdminCensusSubmissions,
 useAdminIncidentRecords,
 useAdminInventoryRecords,
-useAdminProductionRecords,
 } from "./validation-analytics";
 
 // Extracted Modular Components
@@ -77,6 +76,8 @@ type DomainFilterState = {
   barangayFilter: string;
   incidentTypeFilter?: string;
 };
+
+const EMPTY_PRODUCTION_RECORDS: ProductionRecordItem[] = [];
 
 // Herd members must move through review as a unit — never individually.
 // This splits review targets so herd animals are blocked from individual
@@ -251,7 +252,7 @@ function AdminDataValidationContent() {
   }>({ open: false, data: null });
 
   const { data: rawCensusData } = useAdminCensusSubmissions();
-  const { data: rawProductionData } = useAdminProductionRecords();
+  const rawProductionData = EMPTY_PRODUCTION_RECORDS;
   const { data: rawInventoryData } = useAdminInventoryRecords();
   const { data: rawIncidentData } = useAdminIncidentRecords();
   const { data: barangayCatalog = [] } = useAdminBarangays();

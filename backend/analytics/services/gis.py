@@ -278,7 +278,7 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "allowed_barangays": set(OFFICIAL_BARANGAYS),
             "adjacent_barangays": [],
             "can_view_all_barangays": True,
-            "allowed_layers": ["cattle", "disease", "milk", "farmer_meat", "slaughter_yield", "mortality", "movement", "meat"],
+            "allowed_layers": ["cattle", "disease", "slaughter_yield", "mortality", "movement", "meat"],
             "allowed_modes": ["2D", "3D"],
             "can_use_simulation": True,
             "can_use_advanced_analytics": True,
@@ -402,6 +402,8 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
       - summary: Municipal totals and top-ranked barangays.
       - movements: Geo-referenced active movement/inspection flows.
     """
+    u_role = role_name(user)
+
     # Reference setup belongs to migrations/management commands. A GIS read must
     # never insert barangays; missing references remain empty map entries below.
     # 2. Fetch all barangays from DB for canonical name-to-PK spatial mapping
@@ -612,8 +614,13 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     # 7. Aggregate Production (Milk in Liters)
     # Farmer-reported layer uses current RECORDED logs only. Historical approval-
     # state rows remain stored but are not presented as current production totals.
-    production_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-        status=ProductionRecord.ProductionStatus.RECORDED,
+    personal_production_qs = ProductionRecord.objects.none()
+    if u_role == FARMER and getattr(user, "farmer_profile", None):
+        personal_production_qs = ProductionRecord.objects.filter(
+            farmer_at_record=user.farmer_profile,
+            status=ProductionRecord.ProductionStatus.RECORDED,
+        )
+    production_qs = personal_production_qs.filter(
         production_type=ProductionRecord.ProductionType.MILK,
     )
     milk_grouped = (
@@ -637,8 +644,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     # SlaughterRecord aggregation below; quantities are never combined into total_meat.
     # - Associated with farmer's registered barangay.
     # - DATA TRUST: Only current recorded farmer reports.
-    farmer_meat_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-        status=ProductionRecord.ProductionStatus.RECORDED,
+    farmer_meat_qs = personal_production_qs.filter(
         production_type=ProductionRecord.ProductionType.MEAT,
         unit=ProductionRecord.UnitType.KILOGRAMS,
     )

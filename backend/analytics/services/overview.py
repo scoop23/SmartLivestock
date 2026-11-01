@@ -5,7 +5,7 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 from diseases.models import DiseaseCase
 from livestock.models import LivestockOwnershipTransfer
-from production.models import ProductionRecord, SlaughterRecord
+from production.models import SlaughterRecord
 from smartlivestock.workflows import scope_reviewer_queryset
 from .population import population_summary
 
@@ -19,19 +19,14 @@ def overview_summary(*, user=None, today=None):
         if fallback: location_paths.append(fallback)
         location = Coalesce(*location_paths) if len(location_paths) > 1 else F(location_paths[0])
         return dict(queryset.annotate(location=location).values("location").annotate(value=value).values_list("location", "value"))
-    milk = grouped(scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
-            status=ProductionRecord.ProductionStatus.RECORDED,
-        production_type=ProductionRecord.ProductionType.MILK,
-        unit=ProductionRecord.UnitType.LITERS,
-        record_date__range=(start, today)), Sum("quantity"),
-        location_paths=["farmer_at_record__barangay_id"])
     meat = grouped(scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(
         status="APPROVED", record_date__range=(start, today)), Sum("carcass_weight"), fallback="barangay_id")
     pending = grouped(scope_reviewer_queryset(DiseaseCase.objects.all(), user).filter(
         status__in=("PENDING", "VERIFIED")), Count("pk"))
     for barangay in population["by_barangay"]:
         pk = barangay["barangay_id"]
-        barangay.update(monthly_milk_l=float(milk.get(pk) or 0),
+        # Farmer production is intentionally absent from municipal summaries.
+        barangay.update(monthly_milk_l=None,
             monthly_meat_kg=float(meat.get(pk) or 0), pending_disease_reports=pending.get(pk, 0))
     # The approved transfer event is the completed-sale source. Inventory SOLD
     # state and the buyer's later inventory entry are not additional events.

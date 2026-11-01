@@ -70,6 +70,7 @@ interface DescriptiveResponse {
       by_species: { species_id: number; species: string; heads: number }[];
     };
     production: {
+      available: boolean;
       records: number;
       valuation: { estimated_value: number | null; valued_records: number; unvalued_records: number; by_month: { month: string; value: number; records: number }[]; by_type: { production_type: string; value: number; records: number }[]; by_species: { species: string | null; value: number; records: number }[]; by_barangay: { barangay_id: number | null; barangay: string | null; value: number; records: number }[]; by_commodity: { valuation_snapshot__commodity: string; value: number; records: number }[] };
       by_type: ProductTotal[];
@@ -635,7 +636,7 @@ export default function DescriptiveAnalytics() {
               Descriptive Analytics & Municipal Inventory
             </h1>
             <p className="text-xs font-medium text-slate-600 sm:text-sm">
-              Municipal overview of approved livestock counts, farmer-recorded production, reviewed health surveillance, official slaughter, and commercial sales.
+              Municipal overview of approved livestock counts, reviewed health surveillance, official slaughter, and commercial sales.
             </p>
           </div>
 
@@ -680,7 +681,7 @@ export default function DescriptiveAnalytics() {
         </div>
 
         <div className="grid grid-cols-2 divide-y divide-sky-100 sm:divide-y-0 sm:divide-x md:grid-cols-3 xl:grid-cols-6 sm:divide-sky-100">
-          {kpiCards.map(({ domain, scopeType, label, value, description, icon: Icon, accentColor }) => (
+          {kpiCards.filter((card) => card.domain !== "Output" || data.production.available).map(({ domain, scopeType, label, value, description, icon: Icon, accentColor }) => (
             <div
               key={label}
               className="group relative flex flex-col justify-between p-3.5 transition-colors hover:bg-sky-50/70 sm:p-4.5"
@@ -909,6 +910,7 @@ export default function DescriptiveAnalytics() {
         </div>
       </section>
 
+      {data.production.available && <>
       <section className="space-y-4 rounded-2xl border border-sky-200/80 bg-white p-4 shadow-[0_14px_38px_rgba(15,57,77,0.07)] sm:p-5" aria-label="Estimated value of recorded production">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -1137,13 +1139,6 @@ export default function DescriptiveAnalytics() {
             metricName="Carcass yield"
           />
           <LivestockTypeBreakdown
-            title="Farmer-Reported Meat Yield by Livestock Type"
-            subtitle="Farmer-reported meat yield, excluding slaughter-linked outputs"
-            rows={data.production.farmer_meat_by_species.map((row) => ({ species: row.species, quantity: row.quantity_kg }))}
-            unit="kg"
-            metricName="Farmer-reported meat"
-          />
-          <LivestockTypeBreakdown
             title="Average Slaughter Yield per Head"
             subtitle="Recorded carcass kilograms divided by slaughtered heads with a recorded weight"
             rows={data.slaughter.yield_by_species
@@ -1154,6 +1149,7 @@ export default function DescriptiveAnalytics() {
           />
         </div>
       </section>
+      </>}
 
       {/* 6. ANIMAL HEALTH SECTION */}
       <section className="space-y-4" aria-label="Animal Health">

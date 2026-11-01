@@ -7,7 +7,7 @@ from users.models import User, Role, UserDocument, Notification
 from livestock.models import Farmer, Barangay
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer  # type: ignore
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.utils.timesince import timesince
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
@@ -681,9 +681,17 @@ class NotificationSerializer(serializers.ModelSerializer):
                 entity = LivestockBatch.objects.select_related("farmer__barangay").get(pk=entity_id)
                 return entity.farmer.barangay.barangay_name
             if entity_type == "production_record":
+                request = self.context.get("request")
+                user = getattr(request, "user", None)
+                if getattr(getattr(user, "role", None), "role_name", "") != "FARMER":
+                    return None
                 from production.models import ProductionRecord
                 entity = ProductionRecord.objects.select_related(
                     "farmer_at_record__barangay", "livestock__farmer__barangay", "batch__farmer__barangay",
+                ).filter(
+                    Q(farmer_at_record__user=user)
+                    | Q(farmer_at_record__isnull=True, livestock__farmer__user=user)
+                    | Q(farmer_at_record__isnull=True, batch__farmer__user=user)
                 ).get(pk=entity_id)
                 farmer = entity.farmer_at_record or (entity.livestock.farmer if entity.livestock_id else entity.batch.farmer if entity.batch_id else None)
                 return farmer.barangay.barangay_name if farmer and farmer.barangay_id else None

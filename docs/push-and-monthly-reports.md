@@ -25,8 +25,10 @@ deployment.
 The management command `python manage.py send_monthly_report` builds a single
 workbook for the previous calendar month. It uses the same authorized report
 service as manual reports and includes approved-record summaries for inventory,
-production, disease and mortality, slaughter, movement, and inspection. By
-default it emails active, approved MAO accounts with an email address. Set
+disease and mortality, official slaughter, movement, and inspection. Farmer
+milk and individual Farmer meat-yield logs are private and excluded from
+municipal reports and exports. By default it emails active, approved MAO
+accounts with an email address. Set
 `AUTOMATED_REPORT_RECIPIENTS` to a comma-separated recipient list when the
 municipality uses a dedicated distribution address.
 

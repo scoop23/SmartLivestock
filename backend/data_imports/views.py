@@ -26,6 +26,8 @@ from .services.templates import generate_template_file
 
 def _can_use_imports(user, dataset_type=None):
     role = getattr(getattr(user, "role", None), "role_name", "")
+    if dataset_type == "production":
+        return False
     if role == "SLAUGHTERHOUSESTAFF":
         return dataset_type in (None, "slaughter")
     if role in {"MAO", "ADMIN"} or user.is_staff or user.is_superuser:
@@ -109,6 +111,7 @@ def list_datasets(request):
     if not _can_use_imports(request.user):
         return Response({"detail": "You do not have permission to use data imports."}, status=403)
     datasets = DATASET_REGISTRY.items()
+    datasets = [(code, config) for code, config in datasets if code != "production"]
     if getattr(getattr(request.user, "role", None), "role_name", "") == "SLAUGHTERHOUSESTAFF":
         datasets = [(code, config) for code, config in datasets if code == "slaughter"]
     for code, config in datasets:
@@ -170,6 +173,8 @@ def validate_import(request):
 
     dataset_type = serializer.validated_data["dataset_type"]
     if not _can_use_imports(request.user, dataset_type):
+        if dataset_type == "production":
+            return Response({"detail": "Farmer-owned production records cannot be imported by municipal roles."}, status=403)
         return Response({"detail": "You may only validate Slaughter Records uploads."}, status=403)
     uploaded_file = serializer.validated_data["file"]
 
@@ -262,6 +267,8 @@ def execute_import(request):
 
     dataset_type = serializer.validated_data["dataset_type"]
     if not _can_use_imports(request.user, dataset_type):
+        if dataset_type == "production":
+            return Response({"detail": "Farmer-owned production records cannot be imported by municipal roles."}, status=403)
         return Response({"detail": "You may only import Slaughter Records."}, status=403)
     uploaded_file = serializer.validated_data["file"]
     skip_duplicates = serializer.validated_data.get("skip_duplicates", True)
@@ -336,6 +343,7 @@ def list_batches(request):
     if not _can_use_imports(request.user):
         return Response({"detail": "You do not have permission to view import batches."}, status=403)
     batches = DataImportBatch.objects.select_related("uploaded_by").order_by("-uploaded_at")
+    batches = batches.exclude(dataset_type="production")
     if getattr(getattr(request.user, "role", None), "role_name", "") == "SLAUGHTERHOUSESTAFF":
         batches = batches.filter(dataset_type="slaughter", uploaded_by=request.user)
     batches = batches[:50]
@@ -353,6 +361,7 @@ def batch_detail(request, pk):
     if not _can_use_imports(request.user):
         return Response({"detail": "You do not have permission to view import batches."}, status=403)
     batches = DataImportBatch.objects.select_related("uploaded_by")
+    batches = batches.exclude(dataset_type="production")
     if getattr(getattr(request.user, "role", None), "role_name", "") == "SLAUGHTERHOUSESTAFF":
         batches = batches.filter(dataset_type="slaughter", uploaded_by=request.user)
     batch = get_object_or_404(batches, pk=pk)
@@ -381,6 +390,7 @@ def download_batch_errors(request, pk):
     if not _can_use_imports(request.user):
         return Response({"detail": "You do not have permission to download import errors."}, status=403)
     batches = DataImportBatch.objects.all()
+    batches = batches.exclude(dataset_type="production")
     if getattr(getattr(request.user, "role", None), "role_name", "") == "SLAUGHTERHOUSESTAFF":
         batches = batches.filter(dataset_type="slaughter", uploaded_by=request.user)
     batch = get_object_or_404(batches, pk=pk)

@@ -57,9 +57,9 @@ class DataImportTests(APITestCase):
         )
 
         # 5. Livestock types
-        cls.cattle = LivestockType.objects.create(name="Cattle")
-        cls.swine = LivestockType.objects.create(name="Swine")
-        cls.carabao = LivestockType.objects.create(name="Carabao")
+        cls.cattle, _ = LivestockType.objects.get_or_create(name="Cattle")
+        cls.swine, _ = LivestockType.objects.get_or_create(name="Swine")
+        cls.carabao, _ = LivestockType.objects.get_or_create(name="Carabao")
 
         # 6. Existing animal for duplicate check
         cls.existing_animal = LivestockInventory.objects.create(
@@ -129,7 +129,7 @@ class DataImportTests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         codes = [d["code"] for d in res.data]
         self.assertIn("livestock_inventory", codes)
-        self.assertIn("production", codes)
+        self.assertNotIn("production", codes)
         self.assertIn("disease", codes)
         self.assertIn("mortality", codes)
         self.assertIn("slaughter", codes)
@@ -380,23 +380,28 @@ class DataImportTests(APITestCase):
         )
 
     def test_production_and_disease_and_mortality_imports(self):
-        """Test importing Production, Disease, and Mortality records."""
+        """Production import is disabled while disease and mortality imports remain available."""
         self.client.force_authenticate(self.mao_user)
 
-        # 1. Production
         prod_csv = (
             "Farmer,Barangay,Commodity,Quantity,Unit,Date,Notes\n"
             "juan_farmer,Manggas,MILK,30.5,LITERS,2026-03-25,Morning milk\n"
         )
         file_prod = SimpleUploadedFile("prod.csv", prod_csv.encode("utf-8"), content_type="text/csv")
+        res_validate_prod = self.client.post(
+            "/api/data-imports/validate/",
+            {"dataset_type": "production", "file": file_prod},
+            format="multipart",
+        )
+        self.assertEqual(res_validate_prod.status_code, status.HTTP_403_FORBIDDEN)
+        file_prod.seek(0)
         res_prod = self.client.post(
             "/api/data-imports/import/",
             {"dataset_type": "production", "file": file_prod},
             format="multipart",
         )
-        self.assertEqual(res_prod.status_code, status.HTTP_200_OK)
-        self.assertEqual(res_prod.data["imported_rows"], 1)
-        self.assertTrue(ProductionRecord.objects.filter(quantity=30.5, status="APPROVED").exists())
+        self.assertEqual(res_prod.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(ProductionRecord.objects.filter(quantity=30.5).exists())
 
         # 2. Disease
         dis_csv = (
@@ -512,7 +517,7 @@ class DataImportTests(APITestCase):
         self.assertEqual(updated_overview["population"]["total_heads"], initial_heads + 2)
 
     def test_batch_processing_performance(self):
-        """Verify bulk batch processing handles 100 generated rows efficiently."""
+        """Legacy bulk production import is blocked before persistence."""
         self.client.force_authenticate(self.mao_user)
         lines = ["Farmer,Barangay,Commodity,Quantity,Unit,Date,Notes"]
         for i in range(1, 101):
@@ -525,6 +530,5 @@ class DataImportTests(APITestCase):
             {"dataset_type": "production", "file": file},
             format="multipart",
         )
-        self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.data["imported_rows"], 100)
-        self.assertLess(res.data["duration_seconds"], 5.0)  # Must complete in < 5 seconds
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(ProductionRecord.objects.exists())

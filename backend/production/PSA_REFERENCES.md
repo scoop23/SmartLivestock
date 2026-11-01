@@ -31,7 +31,7 @@ An explicit database mapping binds a registered livestock type, existing product
 
 Values use Decimal arithmetic, rounded once per report to two decimal places. References cannot be edited in place; add a new revision and deactivate the old record. A report snapshot preserves the price, period, source, geography and input measurement. Notes-only edits preserve the snapshot, including a previous-period price after newer references are loaded. Quantity, date, species or product edits intentionally recalculate it. Read-only API fields prevent clients from setting a valuation.
 
-Municipal analytics aggregate snapshots only for approved, dated reports, identify unvalued reports and sum existing monetary snapshots in SQL. Farmer history displays valuations regardless of review status with the report status intact. These are reference values of recorded production, not realized revenue or total municipal production.
+PSA snapshots remain part of the owning Farmer's private production history. Municipal analytics, reports, and exports do not aggregate or expose these values. A Farmer history can display a reference valuation with the record status intact; this is an estimate of recorded production, not realized revenue.
 
 ## Deployment and updates
 

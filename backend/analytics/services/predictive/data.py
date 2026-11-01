@@ -51,12 +51,12 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from livestock.models import LivestockOwnershipTransfer
 
-from django.db.models import Case, Count, DateTimeField, F, Max, Sum, When
+from django.db.models import Case, Count, DateTimeField, F, Max, Q, Sum, When
 from django.db.models.functions import TruncMonth
 
 from production.models import ProductionRecord, SlaughterRecord
 from diseases.models import DiseaseCase, MortalityRecord
-from smartlivestock.workflows import scope_reviewer_queryset
+from smartlivestock.workflows import require_farmer_production_access, scope_reviewer_queryset
 from analytics.seed_markers import (
     SEED_MARKER_PRODUCTION_V2,
     SEED_MARKER_PRODUCTION_LEGACY,
@@ -227,6 +227,8 @@ def extract_monthly_series(
                     and sufficiency explanation.
     """
     domain = (domain or "production").lower()
+    if domain == "production":
+        require_farmer_production_access(user)
     target_clean = (target or "MILK").upper()
     unit_clean = (unit or "LITERS").upper()
 
@@ -242,7 +244,12 @@ def extract_monthly_series(
         # ---------------------------------------------------------------------
         # DOMAIN: PRODUCTION (Milk, Meat, Eggs, Wool)
         # ---------------------------------------------------------------------
-        base_qs = scope_reviewer_queryset(ProductionRecord.objects.all(), user).filter(
+        owned_records = (
+            Q(farmer_at_record__user=user)
+            | Q(farmer_at_record__isnull=True, livestock__farmer__user=user)
+            | Q(farmer_at_record__isnull=True, batch__farmer__user=user)
+        )
+        base_qs = ProductionRecord.objects.filter(owned_records,
             status=ProductionRecord.ProductionStatus.RECORDED,
             production_type=target_clean,
             unit=unit_clean,
