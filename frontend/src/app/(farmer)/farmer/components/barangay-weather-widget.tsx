@@ -23,6 +23,13 @@ import {
   Thermometer,
   Wind,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // --- Padre Garcia 18 Barangay Centroid Coordinates ---
 export const PADRE_GARCIA_CENTROIDS: Record<string, [number, number]> = {
@@ -522,20 +529,29 @@ export default function BarangayWeatherWidget({
             </span>
             {/* Barangay selector dropdown for instant centroid switching */}
             <div className="relative inline-flex items-center">
-              <select
+              <Select
                 value={selectedBarangay}
-                onChange={(e) => setSelectedBarangay(e.target.value)}
-                className="appearance-none cursor-pointer bg-emerald-50/80 hover:bg-emerald-100/70 border border-emerald-300 text-emerald-900 font-display font-bold text-xs sm:text-sm px-2.5 py-1 pr-6 rounded-lg outline-none focus:ring-2 focus:ring-emerald-600 transition-colors"
-                title="Select barangay centroid"
-                aria-label="Select Barangay Centroid"
+                onValueChange={setSelectedBarangay}
               >
-                {Object.keys(PADRE_GARCIA_CENTROIDS).map((b) => (
-                  <option key={b} value={b}>
-                    Brgy. {b}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="size-3 text-emerald-700 pointer-events-none absolute right-1.5" />
+                <SelectTrigger
+                  title="Select barangay centroid"
+                  aria-label="Select Barangay Centroid"
+                  className="h-9 w-auto max-w-[52vw] gap-2 rounded-lg border-emerald-300 bg-emerald-50/80 px-2.5 py-1 font-display text-xs font-bold text-emerald-900 shadow-none transition-colors hover:bg-emerald-100/70 focus-visible:border-emerald-600 focus-visible:ring-emerald-600 sm:max-w-none sm:text-sm"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-72 border-emerald-200 bg-white text-emerald-950">
+                  {Object.keys(PADRE_GARCIA_CENTROIDS).map((b) => (
+                    <SelectItem
+                      key={b}
+                      value={b}
+                      className="cursor-pointer focus:bg-emerald-50 focus:text-emerald-950"
+                    >
+                      Brgy. {b}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <span className="hidden sm:inline font-mono text-[11px] font-semibold text-slate-400">
               · Padre Garcia Centroid
