@@ -970,7 +970,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
                 <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-1">
                   <h4 className="text-xs font-bold text-slate-900">How do I log dairy milk or meat production?</h4>
                   <p className="text-xs text-slate-600 leading-relaxed font-normal">
-                    Go to <strong>Production Dashboard</strong> and tap <strong>&quot;Log Daily Milk&quot;</strong> or <strong>&quot;Record Meat Yield&quot;</strong>. Entries are queued for SIBAT and MAO review.
+                    Choose <strong>Record an activity</strong>, select milk or meat, then choose an approved animal and enter the amount and date. The entry is saved in your farm history. For an individual animal’s meat yield, the system also sends a slaughter notice to MAO for review.
                   </p>
                 </div>
 

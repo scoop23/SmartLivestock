@@ -393,8 +393,12 @@ function ProductionWizardContent({
     return payload;
   };
 
-  const handleNext = () => setStep((s) => Math.min(s + 1, STEP_LABELS.length - 1));
-  const handleBack = () => setStep((s) => Math.max(s - 1, minimumStep));
+  const handleNext = () => setStep((s) =>
+    Math.min(s === 0 && fixedProductionType ? 2 : s + 1, STEP_LABELS.length - 1),
+  );
+  const handleBack = () => setStep((s) =>
+    Math.max(s === 2 && fixedProductionType ? 0 : s - 1, minimumStep),
+  );
 
   const handleTypePick = (t: ProductionType) => {
     onTypeChange(t);
@@ -416,6 +420,23 @@ function ProductionWizardContent({
           : "Log Wool Production";
 
   const TypeIcon = meta.icon;
+  const progressSteps = profileMode
+    ? [
+        { step: 2, label: "Details", shortLabel: "Details" },
+        { step: 3, label: "Review", shortLabel: "Review" },
+      ]
+    : fixedProductionType
+      ? [
+          { step: 0, label: "Livestock", shortLabel: "Live" },
+          { step: 2, label: "Details", shortLabel: "Details" },
+          { step: 3, label: "Review", shortLabel: "Review" },
+        ]
+      : STEP_LABELS.map((label, index) => ({
+          step: index,
+          label,
+          shortLabel: STEP_SHORT_LABELS[index],
+        }));
+  const visibleStep = progressSteps.findIndex((progressStep) => progressStep.step === step) + 1;
 
   return (
     <Dialog
@@ -456,11 +477,10 @@ function ProductionWizardContent({
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-5 md:p-7">
-          <div data-tour="production-wizard-progress" className={cn("grid gap-1 sm:gap-2.5 mb-4 sm:mb-5", profileMode ? "grid-cols-2" : "grid-cols-4")}>
-            {(profileMode ? ["Details", "Review"] : STEP_LABELS).map((label, visibleIndex) => {
-              const i = profileMode ? visibleIndex + 2 : visibleIndex;
-              const isActive = i === step;
-              const isDone = i < step;
+          <div data-tour="production-wizard-progress" className={cn("grid gap-1 sm:gap-2.5 mb-4 sm:mb-5", profileMode ? "grid-cols-2" : fixedProductionType ? "grid-cols-3" : "grid-cols-4")}>
+            {progressSteps.map(({ step: progressStep, label, shortLabel }, visibleIndex) => {
+              const isActive = progressStep === step;
+              const isDone = progressStep < step;
               return (
                 <div
                   key={label}
@@ -480,7 +500,7 @@ function ProductionWizardContent({
                         !isDone && !isActive && "bg-slate-200 text-slate-500",
                       )}
                     >
-                      {isDone ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" /> : i + 1}
+                      {isDone ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" /> : visibleIndex + 1}
                     </div>
                     <span
                       className={cn(
@@ -488,7 +508,7 @@ function ProductionWizardContent({
                         isActive || isDone ? "text-slate-900" : "text-slate-400",
                       )}
                     >
-                      <span className="sm:hidden">{profileMode ? (visibleIndex === 0 ? "Details" : "Review") : STEP_SHORT_LABELS[i]}</span>
+                      <span className="sm:hidden">{shortLabel}</span>
                       <span className="hidden sm:inline">{label}</span>
                     </span>
                   </div>
@@ -523,7 +543,7 @@ function ProductionWizardContent({
                     : typeTitle}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5 break-words">
-                Step {profileMode ? step - 1 : step + 1} of {profileMode ? 2 : STEP_LABELS.length} · Complete the information below
+                Step {visibleStep} of {progressSteps.length} · Complete the information below
               </p>
             </div>
           </div>
@@ -683,9 +703,9 @@ function ProductionWizardContent({
               </div>
 
               {productionType === "milk" && clickedInventory?.entryType === "INDIVIDUAL" && (
-                <section className="space-y-2.5 rounded-xl border border-sky-200 bg-sky-50/70 p-3.5" aria-label="Milk anomaly assessment readiness">
+                <section className="space-y-2.5 rounded-xl border border-sky-200 bg-sky-50/70 p-3.5" aria-label="Milk history">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-bold text-sky-950">Milk anomaly assessment readiness</p>
+                    <p className="text-xs font-bold text-sky-950">Milk history</p>
                     <span className="text-xs font-bold text-sky-900">
                       {isLoadingProductionRecords ? "Loading…" : `${milkHistoryProgress}/5 days`}
                     </span>
@@ -707,10 +727,10 @@ function ProductionWizardContent({
                     {isLoadingProductionRecords
                       ? "Checking this animal’s recorded milk history."
                       : milkHistoryDays < 5
-                        ? `Add ${5 - milkHistoryDays} more distinct recorded milk ${5 - milkHistoryDays === 1 ? "day" : "days"} before a cow-specific advisory assessment can run.`
+                        ? `Add milk records for ${5 - milkHistoryDays} more ${5 - milkHistoryDays === 1 ? "day" : "days"} to reach the 5-day history minimum.`
                         : milkHistoryGapDays !== null && milkHistoryGapDays > 45
-                          ? `The five-day minimum is met, but the latest recorded milk entry is ${milkHistoryGapDays} days before this entry. History must be within 45 days for automated assessment.`
-                          : "The five-day minimum is met. The system will check history recency and valid values before assessing this entry."}
+                          ? `The latest milk record was ${milkHistoryGapDays} days ago. A recent record may be needed for a history check.`
+                          : "The 5-day history minimum is met."}
                   </p>
                 </section>
               )}
