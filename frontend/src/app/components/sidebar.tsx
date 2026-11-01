@@ -2,6 +2,16 @@
 
 import { Button } from '@/components/ui/button';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
 Dialog,
 DialogContent,
 DialogDescription,
@@ -682,10 +692,17 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [desktopProfilePopoverOpen, setDesktopProfilePopoverOpen] = useState<boolean>(false);
   const [helpDialogOpen, setHelpDialogOpen] = useState<boolean>(false);
+  const [logoutConfirmationOpen, setLogoutConfirmationOpen] = useState<boolean>(false);
   const [scannerOpen, setScannerOpen] = useState<boolean>(false);
   const [mobileSheetContent, setMobileSheetContent] = useState<HTMLDivElement | null>(null);
   const pinnedBeforeFarmerTour = useRef<boolean | null>(null);
   const isPinnedRef = useRef(isPinned);
+
+  const requestLogout = () => setLogoutConfirmationOpen(true);
+  const confirmLogout = () => {
+    setLogoutConfirmationOpen(false);
+    onLogout();
+  };
 
   useEffect(() => {
     isPinnedRef.current = isPinned;
@@ -788,7 +805,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
             onTogglePin={togglePin}
             links={links}
             pathname={pathname}
-            onLogout={onLogout}
+            onLogout={requestLogout}
             onOpenHelp={() => setHelpDialogOpen(true)}
             onOpenScanner={() => setScannerOpen(true)}
             profilePopoverOpen={desktopProfilePopoverOpen}
@@ -807,7 +824,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
             links={links}
             pathname={pathname}
             onNavigate={() => setMobileOpen(false)}
-            onLogout={onLogout}
+            onLogout={requestLogout}
             onOpenHelp={() => {
               setMobileOpen(false);
               setHelpDialogOpen(true);
@@ -823,8 +840,57 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
       </Sheet>
 
       {/* ═════════════════════════════════════════════════════════════════════
-          INTERACTIVE HELP & SUPPORT MODAL DIALOG (Elevated to z-[var(--z-critical)])
+          SIDEBAR CONFIRMATION AND HELP DIALOGS
          ═════════════════════════════════════════════════════════════════════ */}
+      <AlertDialog open={logoutConfirmationOpen} onOpenChange={setLogoutConfirmationOpen}>
+        <AlertDialogContent className="overflow-hidden rounded-3xl border border-emerald-200/80 bg-white p-0 text-slate-900 shadow-[0_20px_70px_rgba(15,23,42,0.18)]">
+          <div className="relative overflow-hidden rounded-[inherit]">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-br from-emerald-100/80 via-cyan-50/75 to-transparent"
+            />
+            <div className="relative space-y-6 p-6 sm:p-7">
+              <AlertDialogHeader className="items-start space-y-4 text-left sm:text-left">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-[0_8px_24px_rgba(16,185,129,0.12)]">
+                    <LogOut className="size-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-800">
+                      Secure session control
+                    </p>
+                    <p className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500">
+                      <span className="size-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.55)]" />
+                      Session active
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <AlertDialogTitle className="text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl">
+                    Are you sure you want to sign out?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-sm leading-relaxed text-slate-600">
+                    Your session on this device will end. You can sign in again at any time.
+                  </AlertDialogDescription>
+                </div>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="gap-2 sm:justify-end">
+                <AlertDialogCancel className="h-11 rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950">
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={confirmLogout}
+                  className="h-11 rounded-xl border border-rose-300/20 bg-gradient-to-r from-rose-600 to-orange-500 px-5 font-semibold text-white shadow-lg shadow-rose-950/40 transition-all hover:from-rose-500 hover:to-orange-400 focus-visible:ring-2 focus-visible:ring-rose-300"
+                >
+                  <LogOut className="mr-2 size-4" />
+                  Sign Out
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </div>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={helpDialogOpen} onOpenChange={setHelpDialogOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-[2rem] p-6 sm:p-8 bg-white border-none shadow-2xl z-[var(--z-critical)]">
           <DialogHeader className="space-y-2">
