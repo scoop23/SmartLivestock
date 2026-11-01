@@ -17,6 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/components/ui/utils";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
+import { getNotificationQueryKey } from "@/lib/notification-query";
 import { useIsMutating,useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -384,12 +385,14 @@ export function HeaderNotifications({
   const pathname = usePathname();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const notificationUserIdentity = user?.email ?? user?.username ?? null;
+  const notificationQueryKey = getNotificationQueryKey(notificationUserIdentity);
   const notificationActionsPending = useIsMutating({ mutationKey: ["notification-actions"] }) > 0;
   const [filter, setFilter] = useState<"all" | "unread" | "action">("all");
   const [isOpen, setIsOpen] = useState(false);
   // Fetch real notifications from Django Backend
   const { data: backendData, isLoading } = useQuery<BackendNotificationsResponse | null>({
-    queryKey: ["notifications"],
+    queryKey: notificationQueryKey,
     queryFn: async ({ signal }) => {
       try {
         const res = await api.get<BackendNotificationsResponse>("/api/notifications/", { signal });
@@ -402,6 +405,7 @@ export function HeaderNotifications({
     refetchOnWindowFocus: !notificationActionsPending,
     refetchOnMount: "always",
     staleTime: 5000,
+    enabled: Boolean(notificationUserIdentity),
   });
 
   // Mark single as read mutation
@@ -414,12 +418,12 @@ export function HeaderNotifications({
       }
     },
     onMutate: async (id: string) => {
-      await queryClient.cancelQueries({ queryKey: ["notifications"] });
-      const previousData = queryClient.getQueryData<BackendNotificationsResponse>(["notifications"]);
+      await queryClient.cancelQueries({ queryKey: notificationQueryKey });
+      const previousData = queryClient.getQueryData<BackendNotificationsResponse>(notificationQueryKey);
 
       if (previousData) {
         const numericId = parseInt(id, 10);
-        queryClient.setQueryData<BackendNotificationsResponse>(["notifications"], {
+        queryClient.setQueryData<BackendNotificationsResponse>(notificationQueryKey, {
           ...previousData,
           unread_count: Math.max(0, previousData.unread_count - (previousData.notifications.some((n) => n.id === numericId && !n.is_read) ? 1 : 0)),
           notifications: previousData.notifications.map((n) =>
@@ -431,11 +435,11 @@ export function HeaderNotifications({
     },
     onError: (_err, _id, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(["notifications"], context.previousData);
+        queryClient.setQueryData(notificationQueryKey, context.previousData);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKey });
     },
   });
 
@@ -446,11 +450,11 @@ export function HeaderNotifications({
       await api.post("/api/notifications/mark-all-read/");
     },
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ["notifications"] });
-      const previousData = queryClient.getQueryData<BackendNotificationsResponse>(["notifications"]);
+      await queryClient.cancelQueries({ queryKey: notificationQueryKey });
+      const previousData = queryClient.getQueryData<BackendNotificationsResponse>(notificationQueryKey);
 
       if (previousData) {
-        queryClient.setQueryData<BackendNotificationsResponse>(["notifications"], {
+        queryClient.setQueryData<BackendNotificationsResponse>(notificationQueryKey, {
           ...previousData,
           unread_count: 0,
           notifications: previousData.notifications.map((n) => ({ ...n, is_read: true })),
@@ -460,11 +464,11 @@ export function HeaderNotifications({
     },
     onError: (_err, _vars, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(["notifications"], context.previousData);
+        queryClient.setQueryData(notificationQueryKey, context.previousData);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKey });
     },
   });
 
@@ -474,11 +478,11 @@ export function HeaderNotifications({
       await api.delete(`/api/notifications/${id}/`);
     },
     onMutate: async (id: number) => {
-      await queryClient.cancelQueries({ queryKey: ["notifications"] });
-      const previousData = queryClient.getQueryData<BackendNotificationsResponse | null>(["notifications"]);
+      await queryClient.cancelQueries({ queryKey: notificationQueryKey });
+      const previousData = queryClient.getQueryData<BackendNotificationsResponse | null>(notificationQueryKey);
       if (previousData) {
         const removed = previousData.notifications.find((notification) => notification.id === id);
-        queryClient.setQueryData<BackendNotificationsResponse>(["notifications"], {
+        queryClient.setQueryData<BackendNotificationsResponse>(notificationQueryKey, {
           ...previousData,
           notifications: previousData.notifications.filter((notification) => notification.id !== id),
           unread_count: Math.max(0, previousData.unread_count - (removed && !removed.is_read ? 1 : 0)),
@@ -488,12 +492,12 @@ export function HeaderNotifications({
     },
     onError: (_error, _id, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(["notifications"], context.previousData);
+        queryClient.setQueryData(notificationQueryKey, context.previousData);
       }
       toast.error("Could not delete the notification. It has been restored.");
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKey });
     },
   });
 
