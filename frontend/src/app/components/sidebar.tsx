@@ -120,7 +120,7 @@ const adminLinks: SidebarLink[] = [
   },
   { path: '/reports', label: 'Reports', icon: FileText },
   { path: '/data-uploads', label: 'Data Upload', icon: Upload },
-  { path: '/news-announcements', label: 'Activities', icon: Newspaper },
+  { path: '/news-announcements', label: 'Announcements', icon: Newspaper },
   { path: '/schedules', label: 'Livestock Programs', icon: CalendarDays },
 ];
 

@@ -292,9 +292,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
             <Button
               type="button"
               onClick={startCreate}
-              className={`h-10 shrink-0 gap-2 rounded-xl px-4 text-xs sm:text-sm font-bold text-white shadow-xs ${
-                isSibat ? "bg-[#1A365D] hover:bg-[#152c4b]" : "bg-[#2D5A27] hover:bg-[#24461f]"
-              }`}
+              className="h-10 shrink-0 gap-2 rounded-xl bg-[#2D5A27] px-4 text-xs font-bold text-white shadow-xs hover:bg-[#24461f] sm:text-sm"
             >
               <Plus className="size-4" />
               <span>New announcement</span>
@@ -453,9 +451,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                   onClick={() => setFilter(value)}
                   className={`h-9 shrink-0 rounded-full px-3.5 text-xs sm:text-sm font-bold transition-all ${
                     filter === value
-                      ? isSibat
-                        ? "bg-[#1A365D] text-white hover:bg-[#152c4b] shadow-xs"
-                        : "bg-[#2D5A27] text-white hover:bg-[#24461f] shadow-xs"
+                      ? "bg-[#2D5A27] text-white hover:bg-[#24461f] shadow-xs"
                       : "border-slate-200 bg-slate-50/80 text-slate-600 hover:bg-slate-100"
                   }`}
                 >
