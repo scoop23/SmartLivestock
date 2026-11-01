@@ -22,7 +22,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "ask-smartlivestock-explanation-v3"
+PROMPT_VERSION = "ask-smartlivestock-explanation-v4"
 GROQ_CHAT_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions"
 MAX_INPUT_BYTES = 12_000
 MAX_OUTPUT_CHARS = 1_200
@@ -92,9 +92,23 @@ def _explanation_payload(result):
         for row in rows[:MAX_RESULT_ROWS]
         if isinstance(row, dict)
     ]
+    coverage_note = str(result.get("coverage_note") or "")[:500]
+    period = result.get("period")
+    if isinstance(period, dict):
+        for field in ("start", "end", "label"):
+            value = period.get(field)
+            if value:
+                coverage_note = coverage_note.replace(str(value), "the selected period")
+    coverage_note = re.sub(
+        r"missing periods? (?:are )?not treated as (?:zero|0)",
+        "missing periods remain unreported",
+        coverage_note,
+        flags=re.IGNORECASE,
+    )
+    coverage_note = " ".join(coverage_note.split())
+
     payload = {
         "intent": intent,
-        "period": result.get("period"),
         "metric": result.get("interpreted", {}).get("metric", intent),
         "group_by": result.get("interpreted", {}).get("group_by"),
         "verified_aggregate_rows": safe_rows,
@@ -108,7 +122,7 @@ def _explanation_payload(result):
             if len(safe_rows) < 2 else
             "Compare only observations of the same metric, unit, and species."
         ),
-        "coverage_note": str(result.get("coverage_note") or "")[:500],
+        "coverage_note": coverage_note,
     }
     if not safe_rows:
         return None
