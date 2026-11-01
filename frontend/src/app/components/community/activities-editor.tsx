@@ -21,6 +21,7 @@ import { useCallback,useEffect,useMemo,useRef,useState,type FormEvent } from "re
 import { ActivityDetailDialog } from "./activity-detail-dialog";
 import { ActivityPhotoCarousel } from "./activity-photo-carousel";
 import { ACTIVITY_CATEGORIES,activityCategory,AUDIENCE_LABEL,CommunityEmptyState,CommunityErrorCard,CommunityRole,CommunitySkeleton,formatShortDate } from "./community-ui";
+import { useAuth } from "@/contexts/auth-context";
 
 const blank = {
   title: "",
@@ -33,6 +34,9 @@ const blank = {
 type Filter = "all" | "published" | "draft" | "pinned";
 
 export function ActivitiesEditor({ role }: { role: CommunityRole }) {
+  const { user } = useAuth();
+  const isCbat = role === "cbat" || user?.role?.toUpperCase() === "CBAT";
+  const isSibat = role === "sibat" && !isCbat;
   const [items, setItems] = useState<Activity[]>([]);
   const [barangays, setBarangays] = useState<BarangayOption[]>([]);
   const [form, setForm] = useState(blank);
@@ -265,8 +269,8 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
       <PageHeader
         title="Announcements"
         subtitle="Share municipal programs, events, and important updates with farmers and SIBAT."
-        icon={<Megaphone className="size-5 text-slate-800" />}
-        variant={role}
+        icon={<Megaphone className={`size-5 ${role === "admin" ? "text-slate-800" : "text-white"}`} />}
+        variant={isCbat ? "cbat" : role}
         maxWidthClass="w-full"
         action={
           <div className="flex items-center gap-2">
@@ -289,7 +293,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
               type="button"
               onClick={startCreate}
               className={`h-10 shrink-0 gap-2 rounded-xl px-4 text-xs sm:text-sm font-bold text-white shadow-xs ${
-                role === "sibat" ? "bg-[#1A365D] hover:bg-[#152c4b]" : "bg-[#2D5A27] hover:bg-[#24461f]"
+                isSibat ? "bg-[#1A365D] hover:bg-[#152c4b]" : "bg-[#2D5A27] hover:bg-[#24461f]"
               }`}
             >
               <Plus className="size-4" />
@@ -407,7 +411,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                 <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
                   <Button type="button" variant="ghost" onClick={close} className="h-10 rounded-xl text-xs sm:text-sm font-bold text-slate-600">Cancel</Button>
                   <Button type="submit" variant="outline" disabled={busy} className="h-10 rounded-xl text-xs sm:text-sm font-bold text-slate-800">{busy ? "Saving…" : editing?.is_published ? "Save changes" : "Save draft"}</Button>
-                  {!editing?.is_published ? <Button type="button" disabled={busy} onClick={(event) => { if (event.currentTarget.form?.reportValidity()) void save(true); }} className={`h-10 gap-2 rounded-xl text-xs sm:text-sm font-bold text-white shadow-xs ${role === "sibat" ? "bg-[#1A365D] hover:bg-[#152c4b]" : "bg-[#2D5A27] hover:bg-[#24461f]"}`}>{busy ? <RefreshCw className="size-4 animate-spin" /> : <Send className="size-4" />} Publish</Button> : null}
+                  {!editing?.is_published ? <Button type="button" disabled={busy} onClick={(event) => { if (event.currentTarget.form?.reportValidity()) void save(true); }} className={`h-10 gap-2 rounded-xl text-xs sm:text-sm font-bold text-white shadow-xs ${isSibat ? "bg-[#1A365D] hover:bg-[#152c4b]" : "bg-[#2D5A27] hover:bg-[#24461f]"}`}>{busy ? <RefreshCw className="size-4 animate-spin" /> : <Send className="size-4" />} Publish</Button> : null}
                 </div>
               </div>
             </form>
@@ -449,7 +453,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                   onClick={() => setFilter(value)}
                   className={`h-9 shrink-0 rounded-full px-3.5 text-xs sm:text-sm font-bold transition-all ${
                     filter === value
-                      ? role === "sibat"
+                      ? isSibat
                         ? "bg-[#1A365D] text-white hover:bg-[#152c4b] shadow-xs"
                         : "bg-[#2D5A27] text-white hover:bg-[#24461f] shadow-xs"
                       : "border-slate-200 bg-slate-50/80 text-slate-600 hover:bg-slate-100"
@@ -537,7 +541,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                         </div>
 
                         <h3 className={`mt-2.5 line-clamp-2 text-base sm:text-lg font-black leading-snug tracking-tight text-slate-900 transition-colors ${
-                          role === "sibat" ? "group-hover:text-[#1A365D]" : "group-hover:text-[#2D5A27]"
+                          isSibat ? "group-hover:text-[#1A365D]" : "group-hover:text-[#2D5A27]"
                         }`}>
                           {item.title}
                         </h3>

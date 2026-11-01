@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 /** Default appointment times used for new schedules unless staff customize them. */
 export const PROGRAM_TIME_SLOTS = ["08:00", "09:30", "11:00", "13:30"] as const;
 
-export type CommunityRole = "admin" | "sibat" | "farmer" | "auction" | "slaughterhouse";
+export type CommunityRole = "admin" | "sibat" | "farmer" | "auction" | "slaughterhouse" | "cbat";
 
 /** Per-role accent so shared community components match each dashboard's palette. */
 export const ROLE_ACCENT: Record<
@@ -15,6 +15,13 @@ export const ROLE_ACCENT: Record<
   { icon: string; text: string; tint: string; badge: string; bar: string }
 > = {
   admin: {
+    icon: "text-[#2D5A27]",
+    text: "text-[#2D5A27]",
+    tint: "bg-[#f0f7ee]",
+    badge: "text-[#2D5A27] bg-[#f0f7ee] border-[#2D5A27]/20",
+    bar: "bg-[#2D5A27]",
+  },
+  cbat: {
     icon: "text-[#2D5A27]",
     text: "text-[#2D5A27]",
     tint: "bg-[#f0f7ee]",

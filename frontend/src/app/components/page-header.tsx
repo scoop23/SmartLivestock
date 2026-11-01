@@ -6,7 +6,7 @@ import { HeaderMenuButton } from "./header-menu-button";
 import { HeaderNotifications } from "./header-notifications";
 import { Breadcrumbs, type BreadcrumbItem } from "./breadcrumbs";
 
-type PageHeaderVariant = "admin" | "farmer" | "sibat" | "auction" | "slaughterhouse";
+type PageHeaderVariant = "admin" | "farmer" | "sibat" | "cbat" | "auction" | "slaughterhouse";
 
 interface PageHeaderProps {
   title: ReactNode;
@@ -33,6 +33,7 @@ const headerClasses: Record<PageHeaderVariant, string> = {
   admin: "bg-white text-gray-900 border-b border-gray-200",
   farmer: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   sibat: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
+  cbat: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   auction: "bg-gradient-to-r from-[#7C3AED] to-[#9F67FF] text-white shadow-lg",
   slaughterhouse: "bg-gradient-to-r from-[#9F1239] to-[#E11D48] text-white shadow-lg",
 };
@@ -41,6 +42,7 @@ const glowClasses: Record<PageHeaderVariant, string> = {
   admin: "bg-slate-400/15",
   farmer: "bg-emerald-300/20",
   sibat: "bg-emerald-300/20",
+  cbat: "bg-emerald-300/20",
   auction: "bg-fuchsia-200/25",
   slaughterhouse: "bg-rose-200/25",
 };
@@ -49,6 +51,7 @@ const chipClasses: Record<PageHeaderVariant, string> = {
   admin: "bg-slate-900/[0.06] text-gray-900",
   farmer: "bg-white/15 text-white border border-white/20",
   sibat: "bg-white/15 text-white border border-white/20",
+  cbat: "bg-white/15 text-white border border-white/20",
   auction: "bg-white/15 text-white border border-white/20",
   slaughterhouse: "bg-white/15 text-white border border-white/20",
 };

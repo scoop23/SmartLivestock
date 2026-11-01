@@ -39,10 +39,10 @@ export function ActivityScheduleCard({
   const canViewSchedule =
     role === "farmer"
       ? ["AVAILABLE", "FULL", "CLOSED", "NOT_OPEN"].includes(schedule.registration_status)
-      : role === "sibat" || role === "admin";
+      : role === "sibat" || role === "cbat" || role === "admin";
   const href = role === "farmer"
     ? `/farmer-scheduling?schedule=${schedule.id}`
-    : role === "sibat"
+    : role === "sibat" || role === "cbat"
       ? "/sibat-scheduling"
       : "/schedules";
 
