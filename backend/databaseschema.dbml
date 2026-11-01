@@ -1,623 +1,1027 @@
-
+// ===========================================================================
 // SmartLivestock Database Schema (DBML)
-// Comprehensive relational model covering Users, Livestock, Production, Diseases, Movements, Inspections, and Analytics
+// Municipal Agriculture Office — Padre Garcia, Batangas
+// Comprehensive relational schema generated directly from Django ORM Models
+// ===========================================================================
 
 // ---------------------------------------------------------------------------
-// 1. Users, Roles & Authentication
+// 1. Users, Roles, Identity Verification & Programs
+// Authentication, role-based access control, RSBSA / ID verification, push notifications, announcements, and municipal extension schedules/bookings.
 // ---------------------------------------------------------------------------
 
-Table roles {
-  role_id integer [pk]
-  role_name varchar [unique, note: 'FARMER, MAO, SIBAT, AUCTION, SLAUGHTERHOUSESTAFF']
+Table roles [note: 'System roles: FARMER, MAO, SIBAT, AUCTION, SLAUGHTERHOUSESTAFF, etc. (Django: users.Role, table: users_role)'] {
+  id bigint [pk, increment]
+  role_name varchar [unique, not null, note: 'Choices: FARMER, MAO, SIBAT, CBAT, AUCTION, SLAUGHTERHOUSESTAFF']
 }
 
-Table users {
-  user_id integer [pk]
-  role_id integer [not null]
+Table users [note: 'Central user accounts with authentication and authorization scope. (Django: users.User, table: users_user)'] {
+  id bigint [pk, increment]
+  password varchar [not null]
+  last_login timestamp
+  is_superuser boolean [not null, default: false, note: 'Designates that this user has all permissions without explicitly assigning them.']
+  username varchar [unique, not null, note: 'Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.']
+  first_name varchar [not null]
+  last_name varchar [not null]
+  is_staff boolean [not null, default: false, note: 'Designates whether the user can log into this admin site.']
+  is_active boolean [not null, default: true, note: 'Designates whether this user should be treated as active. Unselect this instead of deleting accounts.']
+  date_joined timestamp [not null]
+  account_status varchar [not null, default: 'PENDING', note: 'Choices: PENDING, APPROVED, SUBJECT_TO_REVISION, SUSPENDED']
   email varchar [unique, not null]
-  password_hash varchar [not null]
-  account_status varchar [default: 'PENDING', note: 'PENDING, APPROVED, SUBJECT_TO_REVISION, SUSPENDED']
-  phone_number varchar [note: 'E.164 phone number format']
-  created_at timestamp
+  created_at timestamp [not null]
   approved_at timestamp
+  role_id bigint [not null]
+  assigned_barangay_id bigint
+  access_scope varchar [not null, default: 'ASSIGNED_ONLY', note: 'Choices: ASSIGNED_ONLY, ALL_BARANGAYS']
+  phone_number varchar
+  profile_image varchar
 }
 
-Table user_documents {
-  document_id integer [pk]
-  user_id integer [not null, note: 'FK to users.user_id']
-  document_type varchar [not null, note: 'RSBSA, GOVERNMENT_ID, BARANGAY_CERTIFICATE, OTHER']
-  document_file varchar [not null, note: 'Path or file URI of uploaded document']
-  verification_status varchar [default: 'PENDING', note: 'PENDING, APPROVED, SUBJECT_TO_REVISION']
-  approved_by integer [note: 'FK to users.user_id - MAO / Admin verifier']
-  uploaded_at timestamp
+Table user_documents [note: 'Uploaded documents for RSBSA, IDs, and barangay certificates for verification. (Django: users.UserDocument, table: users_userdocument)'] {
+  id bigint [pk, increment]
+  verification_status varchar [not null, default: 'PENDING', note: 'Choices: PENDING, APPROVED, SUBJECT_TO_REVISION']
+  approved_by_id bigint
+  user_id bigint [not null]
+  document_type varchar [not null, default: 'OTHER', note: 'Choices: RSBSA, GOVERNMENT_ID, PHILID, DRIVERS_LICENSE, VOTERS_ID, PASSPORT, UMID, POSTAL_ID, PRC_ID, OTHER_GOV_ID, BARANGAY_CERTIFICATE, OTHER']
+  document_file varchar [not null]
+  uploaded_at timestamp [not null]
   reviewed_at timestamp
-  review_remarks text
+  review_remarks text [not null, default: '', note: 'Reason or remarks if returned for revision']
 }
 
-Table permission {
-  permission_id integer [pk]
-  role_id integer [not null]
+Table identity_verification_attempts [note: 'Automated and manual KYC identity verification attempts. (Django: users.IdentityVerificationAttempt, table: users_identityverificationattempt)'] {
+  id uuid [pk]
+  user_id bigint [not null]
+  document_id bigint
+  state varchar [not null, default: 'NOT_STARTED', note: 'Choices: NOT_STARTED, IN_PROGRESS, REVIEW_REQUIRED, COMPLETED, RETRY_REQUIRED, FAILED_TECHNICAL']
+  provider_session_id uuid [unique]
+  workflow_id varchar [not null]
+  environment varchar [not null, default: 'sandbox']
+  document_result varchar [not null, default: 'NOT_COMPLETED']
+  face_result varchar [not null, default: 'NOT_COMPLETED']
+  liveness_result varchar [not null, default: 'NOT_COMPLETED']
+  consent_at timestamp
+  policy_version varchar [not null]
+  retention_notice text [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  expires_at timestamp
+  last_provider_timestamp bigint [not null, default: 0]
+  manual_review_by_id bigint
+  manual_review_at timestamp
+  manual_review_reason text [not null]
+  manual_result_signature varchar [not null]
+  retention_hold boolean [not null, default: false]
+  provider_deleted_at timestamp
+  retention_due_at timestamp
+}
+
+Table identity_verification_events [note: 'Audit events and state transitions during identity verification. (Django: users.IdentityVerificationEvent, table: users_identityverificationevent)'] {
+  id bigint [pk, increment]
+  attempt_id uuid [not null]
+  provider_event_id uuid [unique]
+  state varchar [not null]
+  actor_id bigint
+  remarks text [not null]
+  created_at timestamp [not null]
+}
+
+Table notifications [note: 'In-app notifications sent to platform users. (Django: users.Notification, table: users_notification)'] {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  notification_type varchar [not null, default: 'general', note: 'Choices: disease, vaccination, sibat, production, weather, general, inspection']
+  priority varchar [not null, default: 'medium', note: 'Choices: high, medium, low']
+  title varchar [not null]
+  message text [not null]
+  is_read boolean [not null, default: false]
+  link varchar
+  related_entity_type varchar [note: 'Entity category for notification lifecycle tracking (e.g. livestock_inventory, inspection)']
+  related_entity_id integer [note: 'Primary key of the related model record']
+  created_at timestamp [not null]
+}
+
+Table push_subscriptions [note: 'Browser Web Push subscriptions for mobile/desktop alerts. (Django: users.PushSubscription, table: users_pushsubscription)'] {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  endpoint varchar [unique, not null]
+  p256dh varchar [not null]
+  auth varchar [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table announcements [note: 'Municipal Agriculture announcements and news bulletin. (Django: users.Announcement, table: users_announcement)'] {
+  id bigint [pk, increment]
+  title varchar [not null]
+  content text [not null]
+  image varchar
+  category varchar [not null, default: 'General', note: 'Choices: General, Vaccination, Animal Health, Livestock Inspection, Disease Prevention, Farmer Training, Seminar, Farmer Meeting, Livestock Registration, Field Visit... (20 total)']
+  audience varchar [not null, default: 'FARMER_AND_SIBAT', note: 'Choices: FARMER_AND_SIBAT, FARMER_ONLY, SIBAT_ONLY, ALL, SIBAT_BARANGAY']
+  target_barangay_id bigint
+  is_published boolean [not null, default: false]
+  is_pinned boolean [not null, default: false]
+  posted_by_id bigint [not null]
+  published_at timestamp
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table announcement_photos [note: 'Photo attachments for published announcements. (Django: users.AnnouncementPhoto, table: users_announcementphoto)'] {
+  id bigint [pk, increment]
+  announcement_id bigint [not null]
+  image varchar [not null]
+  position integer [not null, default: 0]
+  created_at timestamp [not null]
+}
+
+Table program_schedules [note: 'Municipal extension services, seminars, and vaccination drive schedules. (Django: users.ProgramSchedule, table: users_programschedule)'] {
+  id bigint [pk, increment]
+  date date [not null]
+  capacity integer [not null, default: 4]
+  available_times json [not null]
+  program varchar [not null]
+  description text [not null, default: '']
+  objectives text [not null, default: '']
+  category varchar [not null, default: 'OTHER', note: 'Choices: VACCINATION, ANIMAL_HEALTH, CENSUS, SEMINAR, ASSISTANCE, OTHER']
+  cover_image varchar
+  barangay_id bigint
+  farmer_audience varchar [not null, default: '', note: 'Choices: BARANGAY_ONLY, ALL_FARMERS']
+  registration_opens date
+  registration_deadline date
+  eligibility text [not null, default: '']
+  contact_information varchar [not null, default: '']
+  publication_status varchar [not null, default: 'PUBLISHED', note: 'Choices: DRAFT, PUBLISHED, CANCELLED, COMPLETED']
+  location varchar [not null]
+  farmer_notes text [not null, default: '']
+  is_open boolean [not null, default: true]
+  deleted_at timestamp
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
+
+  indexes {
+    (date, program) [unique]
+  }
+}
+
+Table program_schedule_photos [note: 'Photo attachments for program schedules. (Django: users.ProgramSchedulePhoto, table: users_programschedulephoto)'] {
+  id bigint [pk, increment]
+  schedule_id bigint [not null]
+  image varchar [not null]
+  position integer [not null, default: 0]
+  created_at timestamp [not null]
+}
+
+Table program_bookings [note: 'Farmer reservations and attendance bookings for scheduled programs. (Django: users.ProgramBooking, table: users_programbooking)'] {
+  id bigint [pk, increment]
+  schedule_id bigint [not null]
+  farmer_id bigint [not null]
+  time time [not null]
+  status varchar [not null, default: 'CONFIRMED', note: 'Choices: CONFIRMED, CANCELLED, ATTENDED, NO_SHOW']
+  created_at timestamp [not null]
+
+  indexes {
+    (schedule_id, farmer_id) [unique]
+  }
 }
 
 // ---------------------------------------------------------------------------
-// 2. Geography & Profiles
+// 2. Geography, Livestock Registry, Batches & Transfers
+// Spatial barangay centroids, farmer registrations, livestock species, individual & batch herd registry, gate verification, and ownership transfers.
 // ---------------------------------------------------------------------------
 
-Table barangays {
-  barangay_id integer [pk]
+Table barangays [note: 'Municipal barangays in Padre Garcia with geographic coordinates. (Django: livestock.Barangay, table: livestock_barangay)'] {
+  id bigint [pk, increment]
   barangay_name varchar [not null]
   latitude decimal [not null]
   longitude decimal [not null]
   description text
 }
 
-Table farmers {
-  farmer_id integer [pk]
-  user_id integer [unique, not null]
-  barangay_id integer [not null]
+Table farmers [note: 'Registered farmer profiles linked to user accounts and barangays. (Django: livestock.Farmer, table: livestock_farmer)'] {
+  id bigint [pk, increment]
+  user_id bigint [unique, not null]
+  barangay_id bigint [not null]
+  farm_size decimal
+  rsbsa_number varchar [not null, default: '', note: 'Registry System for Basic Sectors in Agriculture (RSBSA) registration number']
   address text [not null]
-  farm_size decimal [note: 'Farm area in hectares']
-  registered_at timestamp
+  registered_at timestamp [not null]
 }
 
-Table cooperative_officers {
-  officer_id integer [pk]
-  user_id integer [unique, not null]
-  barangay_id integer [not null]
-  first_name varchar
-  last_name varchar
-  position varchar
+Table livestock_types [note: 'Livestock species / categories (Cattle, Carabao, Swine, Goat, etc.). (Django: livestock.LivestockType, table: livestock_livestocktype)'] {
+  id bigint [pk, increment]
+  name varchar [unique, not null]
+  description text [not null]
 }
 
-// ---------------------------------------------------------------------------
-// 3. Livestock Inventory & Registry
-// ---------------------------------------------------------------------------
-
-Table livestock_types {
-  livestock_type_id integer [pk]
-  name varchar [unique, not null, note: 'e.g. Cattle, Carabao, Goat, Sheep, Swine, Poultry']
-  description text
-}
-
-Table livestock_batches {
-  batch_id integer [pk]
-  farmer_id integer [not null, note: 'FK to farmers.farmer_id']
-  livestock_type_id integer [not null, note: 'FK to livestock_types.livestock_type_id']
+Table livestock_batches [note: 'Herd/batch groupings for poultry, swine, or large ruminants. (Django: livestock.LivestockBatch, table: livestock_livestockbatch)'] {
+  id bigint [pk, increment]
+  farmer_id bigint [not null]
+  livestock_type_id bigint [not null]
   batch_name varchar [not null]
   batch_code varchar [unique, not null]
-  housing_pen varchar [note: 'Pen or barn designation']
-  feed_type varchar
-  target_weight decimal [note: 'Target harvest / sale weight in kg']
+  housing_pen varchar [not null, default: '']
+  feed_type varchar [not null, default: '']
+  target_weight decimal
   target_harvest_date date
-  status varchar [default: 'ACTIVE', note: 'ACTIVE, HARVESTED, SOLD, ARCHIVED']
-  notes text
-  created_by integer [not null, note: 'FK to users.user_id']
-  created_at timestamp
-  updated_at timestamp
+  photo varchar
+  status varchar [not null, default: 'ACTIVE', note: 'Choices: ACTIVE, HARVESTED, SOLD, ARCHIVED']
+  notes text [not null, default: '']
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
 }
 
-Table livestock_inventory {
-  livestock_id integer [pk]
-  batch_id integer [note: 'Optional herd membership FK. Ownership approval preserves this link and updates farmer only; general inventory validation still expects the batch owner to match.']
-  farmer_id integer [not null, note: 'Current platform Farmer owner']
-  livestock_type_id integer [not null]
-  entry_type varchar [default: 'INDIVIDUAL', note: 'INDIVIDUAL or BATCH; INDIVIDUAL quantity must equal 1, and a herd member must be INDIVIDUAL quantity=1.']
-  quantity integer [default: 1, note: 'Always 1 for individual animal']
-  birth_date date [note: 'Nullable for legacy records with unknown birth date']
-  tag_number varchar [note: 'Ear tag / identification code']
-  ownership_certificate_number varchar [note: 'Number printed on the paper Certificate of Ownership; QR remains an identity lookup']
-  ownership_certificate_recorded_by integer [note: 'Auction user who recorded the paper certificate number; FK to users.user_id']
+Table livestock_batch_photos [note: 'Photographic logs for livestock batch monitoring. (Django: livestock.LivestockBatchPhoto, table: livestock_livestockbatchphoto)'] {
+  id bigint [pk, increment]
+  batch_id bigint [not null]
+  photo varchar [not null]
+  caption varchar [not null, default: '']
+  created_at timestamp [not null]
+}
+
+Table livestock_inventory [note: 'Authoritative individual animal and batch inventory registry. (Django: livestock.LivestockInventory, table: livestock_livestockinventory)'] {
+  id bigint [pk, increment]
+  batch_id bigint [note: 'Optional herd this individual animal belongs to.']
+  is_post_approval_addition boolean [not null, default: false]
+  farmer_id bigint [not null]
+  livestock_type_id bigint [not null]
+  entry_type varchar [not null, default: 'INDIVIDUAL', note: 'Choices: INDIVIDUAL, BATCH']
+  quantity integer [not null, default: 1, note: 'Always 1 for individual animal records.']
+  birth_date date [note: 'Date of birth. Optional for legacy records where the birth date is unknown.']
+  tag_number varchar [not null, default: '']
+  ownership_certificate_number varchar [not null, default: '']
+  ownership_certificate_recorded_by_id bigint
   ownership_certificate_recorded_at timestamp
-  breed varchar
-  sex varchar [note: 'MALE, FEMALE, MIXED']
-  weight decimal [note: 'Current body weight in kg']
-  photo varchar [note: 'Animal photograph / passport portrait URI']
-  avatar_key varchar [note: 'Preset avatar key (e.g. cattle-brahman, swine-native)']
+  breed varchar [not null]
+  sex varchar [not null]
+  weight decimal
+  photo varchar [note: 'Animal photograph or digital passport portrait.']
+  left_side_photo varchar [note: 'Left-side identification photo of the animal.']
+  right_side_photo varchar [note: 'Right-side identification photo of the animal.']
+  avatar_key varchar [not null, default: '', note: 'Selected preset avatar key (e.g., \\'cattle-brahman\\', \\'swine-native\\').']
   last_vaccination_date date
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
-  operational_status varchar [default: 'ACTIVE', note: 'ACTIVE, SOLD, DECEASED, SLAUGHTERED, MOVED_OUT']
-  operational_status_changed_at timestamp [note: 'When the animal last entered a non-active or restored lifecycle state']
-  reviewed_by integer [note: 'FK to users.user_id']
+  status varchar [not null, default: 'PENDING', note: 'Choices: PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  operational_status varchar [not null, default: 'ACTIVE', note: 'Choices: ACTIVE, SOLD, DECEASED, SLAUGHTERED, MOVED_OUT']
+  operational_status_changed_at timestamp
+  reviewed_by_id bigint
   reviewed_at timestamp
   review_remarks text
-  created_by integer [not null, note: 'FK to users.user_id']
-  created_at timestamp
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
+
+  indexes {
+    (ownership_certificate_number) [unique]
+  }
 }
 
-Table livestock_gate_verifications {
-  verification_id integer [pk]
-  livestock_id integer [not null, note: 'Approved active individual animal confirmed at the Auction gate']
-  gate_session_id uuid [not null, note: 'Browser session used to group distinct heads and prevent duplicate scan counts']
+Table livestock_inventory_review_history [note: 'Immutable audit trail of livestock registration approvals and revisions. (Django: livestock.LivestockInventoryReviewHistory, table: livestock_livestockinventoryreviewhistory)'] {
+  id bigint [pk, increment]
+  inventory_id bigint [not null]
+  reviewer_id bigint [not null]
+  reviewer_role varchar [not null]
+  status varchar [not null, note: 'Choices: PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  remarks text [not null, default: '']
+  reviewed_at timestamp [not null]
+  is_backfilled boolean [not null, default: false]
+}
+
+Table livestock_herd_membership_history [note: 'Audit history of herd/batch reassignments. (Django: livestock.LivestockHerdMembershipHistory, table: livestock_livestockherdmembershiphistory)'] {
+  id bigint [pk, increment]
+  livestock_id bigint [not null]
+  previous_batch_id bigint
+  new_batch_id bigint
+  action varchar [not null, note: 'Choices: ADDED, MOVED, REMOVED']
+  acted_by_id bigint [not null]
+  notes text [not null, default: '']
+  created_at timestamp [not null]
+}
+
+Table livestock_gate_verifications [note: 'Auction gate check-in and duplicate ear-tag scan prevention sessions. (Django: livestock.LivestockGateVerification, table: livestock_livestockgateverification)'] {
+  id bigint [pk, increment]
+  livestock_id bigint [not null]
+  gate_session_id uuid [not null]
   certificate_number_checked varchar [not null, default: '']
-  verified_by integer [not null, note: 'Auction user who recorded the physical check; FK to users.user_id']
-  verified_at timestamp
-  indexes { (gate_session_id, livestock_id) [unique] }
+  verified_by_id bigint [not null]
+  verified_at timestamp [not null]
+
+  indexes {
+    (gate_session_id, livestock_id) [unique]
+  }
 }
 
-// Auction staff record the certificate against the seller's inventory row; direct MAO approval marks that row SOLD.
-// A registered buyer may separately submit their acquired animal into their own inventory.
-// A buyer may be a registered Farmer or a documented external party; external buyers do not get platform accounts.
-Table livestock_ownership_transfers {
-  transfer_id integer [pk]
-  livestock_id integer [not null, note: 'Seller-side inventory row retained as SOLD history after approval. At most one PENDING or VERIFIED transfer is allowed per row.']
-  previous_owner_id integer [not null, note: 'Farmer who owned the animal before this transfer']
-  owner_type varchar [not null, default: 'REGISTERED_FARMER', note: 'REGISTERED_FARMER, EXTERNAL_INDIVIDUAL, COMPANY, TRADER, OTHER']
-  new_owner_id integer [note: 'Registered Farmer reference; null for external parties']
-  external_owner_name varchar [not null, default: '', note: 'Required for external owner types; blank for registered Farmer transfers']
-  external_owner_address text [not null, default: '', note: 'Required by the application for external owner transfer documentation']
-  transfer_certificate_number varchar [not null, note: 'A paper certificate may cover multiple animal transfer records']
-  original_certificate_number varchar [not null]
+Table livestock_ownership_transfers [note: 'Transfer certificates of livestock ownership (Farmer-to-Farmer or External). (Django: livestock.LivestockOwnershipTransfer, table: livestock_livestockownershiptransfer)'] {
+  id bigint [pk, increment]
+  livestock_id bigint
+  previous_owner_id bigint
+  external_seller_name varchar [not null, default: '']
+  external_seller_address text [not null, default: '']
+  external_livestock_type varchar [not null, default: '']
+  external_livestock_tag_number varchar [not null, default: '']
+  origin_municipality varchar [not null, default: '']
+  origin_province varchar [not null, default: '']
+  owner_type varchar [not null, default: 'REGISTERED_FARMER', note: 'Choices: REGISTERED_FARMER, EXTERNAL_INDIVIDUAL, COMPANY, TRADER, OTHER']
+  new_owner_id bigint
+  external_owner_name varchar [not null, default: '']
+  external_owner_address text [not null, default: '']
+  transfer_certificate_number varchar [not null]
+  original_certificate_number varchar [not null, default: '']
   transfer_date date [not null]
   municipality varchar [not null]
   province varchar [not null]
-  animal_description text [note: 'Optional certificate description']
-  sex_at_transfer varchar [note: 'Optional historical sex value']
-  age_at_transfer varchar [note: 'Optional historical age value']
-  municipality_brand varchar [note: 'Optional certificate brand detail']
-  owner_brand varchar [note: 'Optional certificate brand detail']
-  purchase_price decimal [note: 'Optional; transfer can be recorded without a price']
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED (legacy), APPROVED, SUBJECT_TO_REVISION']
-  reviewed_by integer [note: 'FK to users.user_id']
+  animal_description text [not null]
+  sex_at_transfer varchar [not null]
+  age_at_transfer varchar [not null]
+  municipality_brand varchar [not null]
+  owner_brand varchar [not null]
+  purchase_price decimal
+  status varchar [not null, default: 'PENDING', note: 'Choices: PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  created_by_id bigint [not null]
+  reviewed_by_id bigint
   reviewed_at timestamp
-  review_remarks text
-  created_by integer [not null, note: 'FK to users.user_id']
-  created_at timestamp
+  review_remarks text [not null]
+  created_at timestamp [not null]
 
+  indexes {
+    (livestock_id) [unique]
+  }
+}
+
+Table census_submissions [note: 'Quarterly municipal livestock census submissions by barangay. (Django: livestock.CensusSubmission, table: livestock_censussubmission)'] {
+  id bigint [pk, increment]
+  barangay_id bigint [not null]
+  report_year integer [not null]
+  report_quarter integer [not null]
+  submitted_by_id bigint [not null]
+  submission_date date [not null]
+  status varchar [not null, default: 'VERIFIED', note: 'Choices: PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  reviewed_by_id bigint
+  reviewed_at timestamp
+  remarks text [not null]
+  review_remarks text [not null]
+  created_at timestamp [not null]
+
+  indexes {
+    (barangay_id, report_year, report_quarter) [unique]
+  }
+}
+
+Table census_submission_items [note: 'Headcount item breakdown per farmer and species for census. (Django: livestock.CensusSubmissionItem, table: livestock_censussubmissionitem)'] {
+  id bigint [pk, increment]
+  census_submission_id bigint [not null]
+  farmer_id bigint [not null]
+  livestock_type_id bigint [not null]
+  number_of_heads integer [not null]
+  remarks text [not null]
 }
 
 // ---------------------------------------------------------------------------
-// 4. Production, Yields & Growth Tracking
+// 3. Production, Breeding, Feeding, Treatments & Sales
+// Dairy and agricultural yield tracking, live auctions, slaughterhouse operations, AI breeding, veterinary clinical treatments, and feed monitoring.
 // ---------------------------------------------------------------------------
 
-Table production_records {
-  production_id integer [pk]
-  livestock_id integer [note: 'Nullable if bulk yield recorded for entire batch - FK to livestock_inventory']
-  batch_id integer [note: 'Nullable - FK to livestock_batches for bulk yield (e.g. egg tray, milk tank)']
-  farmer_at_record_id integer [note: 'Nullable Farmer snapshot reference for historical production attribution; does not follow later ownership changes']
-  production_type varchar [not null, note: 'MILK, MEAT, EGGS, WOOL']
+Table production_records [note: 'Recorded agricultural yields (milk, meat, eggs, wool) with anomaly validation. (Django: production.ProductionRecord, table: production_productionrecord)'] {
+  id bigint [pk, increment]
+  livestock_id bigint
+  batch_id bigint [note: 'Optional link if production is recorded for an entire batch.']
+  farmer_at_record_id bigint
+  production_type varchar [not null, note: 'Choices: MILK, MEAT, EGGS, WOOL']
   quantity decimal [not null]
-  unit varchar [not null, note: 'LITERS, PIECES, KILOGRAMS']
+  unit varchar [not null, note: 'Choices: LITERS, PIECES, KILOGRAMS']
   record_date date [not null]
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
-  slaughter_id integer [unique, note: 'Nullable one-to-one FK to the authoritative slaughter record for MEAT output']
+  milking_session varchar [note: 'Choices: MORNING, AFTERNOON, EVENING']
+  session_conflict boolean [not null, default: false]
+  status varchar [not null, default: 'PENDING', note: 'Choices: RECORDED, PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  slaughter_id bigint [unique]
   valuation_snapshot json
-  notes text
-  reviewed_by integer
+  anomaly_assessment_status varchar [not null, default: 'NOT_APPLICABLE', note: 'Choices: NOT_APPLICABLE, UNAVAILABLE, INSUFFICIENT_HISTORY, CLEAN, ANOMALY_DETECTED']
+  anomaly_detected boolean [not null, default: false]
+  requires_cbat_verification boolean [not null, default: false]
+  next_review_queue varchar [not null, default: 'SIBAT', note: 'Choices: SIBAT, CBAT, MAO, FARMER, NONE']
+  anomaly_reason text [not null, default: '']
+  anomaly_assessment json
+  notes text [not null]
+  reviewed_by_id bigint
   reviewed_at timestamp
-  review_remarks text
-  created_by integer [not null]
-  created_at timestamp
+  approved_at timestamp
+  review_remarks text [not null]
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
+
+  indexes {
+    (livestock_id, record_date, milking_session) [unique]
+    (batch_id, record_date, milking_session) [unique]
+  }
 }
 
-Table weight_records {
-  weight_record_id integer [pk]
-  livestock_id integer [not null, note: 'FK to livestock_inventory.livestock_id']
-  weight decimal [not null, note: 'Recorded scale weight in kilograms']
-  weighing_date date [not null]
-  notes varchar [note: 'Feeding stage or observation']
-  created_by integer [not null, note: 'FK to users.user_id']
-  created_at timestamp
+Table production_record_workflow_events [note: 'Audit trail for production yield flagging and verification. (Django: production.ProductionRecordWorkflowEvent, table: production_productionrecordworkflowevent)'] {
+  id bigint [pk, increment]
+  production_record_id bigint [not null]
+  event_type varchar [not null, note: 'Choices: SUBMITTED, RESUBMITTED, VERIFIED, APPROVED, RETURNED']
+  actor_id bigint [not null]
+  from_status varchar [not null]
+  to_status varchar [not null]
+  remarks text [not null]
+  snapshot json [not null]
+  occurred_at timestamp [not null]
 }
 
-Table calving_records {
-  calving_id integer [pk]
-  dam_id integer [not null, note: 'FK to livestock_inventory.livestock_id (Mother cow / Dam)']
-  offspring_inventory_id integer [unique, note: 'Nullable one-to-one FK to the calf inventory created after MAO approval']
-  calf_tag varchar [note: 'Ear tag assigned to newborn calf']
-  calf_sex varchar [default: 'FEMALE', note: 'MALE, FEMALE']
-  birth_weight decimal [note: 'Birth weight in kilograms']
-  sire_tag varchar [note: 'Father bull tag or breed origin']
-  calving_date date [not null]
-  breed varchar
-  calving_ease varchar [default: 'Normal / Unassisted', note: 'Normal, Slight Assistance, Veterinary Assisted']
-  notes text [note: 'Calf vigor, nursing condition, colostrum intake']
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
-  reviewed_by integer [note: 'FK to users.user_id']
-  reviewed_at timestamp
-  review_remarks text
-  inventory_reconciled_at timestamp [note: 'Set after the approved birth creates its calf inventory exactly once']
-  created_by integer [not null, note: 'FK to users.user_id']
-  created_at timestamp
-}
-
-Table animal_dispositions {
-  disposition_id integer [pk]
-  livestock_id integer [not null, note: 'FK to livestock_inventory.livestock_id']
-  intent varchar [default: 'FOR_SALE', note: 'FOR_SALE, FOR_SLAUGHTER, FOR_MOVEMENT, NONE']
-  target_date date [note: 'Planned transaction or slaughter date']
-  target_destination varchar
-  notes varchar
-  created_by integer [not null, note: 'FK to users.user_id']
-  created_at timestamp
-}
-
-Table slaughter_records {
-  slaughter_id integer [pk]
-  livestock_id integer [note: 'Nullable for batch slaughter - FK to livestock_inventory']
-  batch_id integer [note: 'Nullable - FK to livestock_batches for herd slaughter']
-  barangay_id integer [note: 'Origin barangay']
-  livestock_type_id integer [not null]
+Table slaughter_records [note: 'Authoritative municipal slaughterhouse intake and dressed yield records. (Django: production.SlaughterRecord, table: production_slaughterrecord)'] {
+  id bigint [pk, increment]
+  livestock_id bigint
+  batch_id bigint [note: 'Optional link if slaughter is recorded for a herd.']
+  barangay_id bigint
+  livestock_type_id bigint [not null]
+  inventory_reconciled_at timestamp
   quantity integer [not null]
-  carcass_weight decimal [note: 'Dressed meat yield in kilograms']
+  carcass_weight decimal [note: 'Optional total meat produced in kilograms.']
   record_date date [not null]
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
-  reviewed_by integer
+  status varchar [not null, default: 'PENDING', note: 'Choices: PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  reviewed_by_id bigint
   reviewed_at timestamp
-  review_remarks text
-  created_by integer [not null]
-  created_at timestamp
+  review_remarks text [not null]
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
 }
 
-Table live_animal_sales {
-  sale_id integer [pk]
-  livestock_id integer [note: 'Nullable if sold from batch - FK to livestock_inventory']
-  batch_id integer [note: 'Nullable - FK to livestock_batches if sold as herd']
+Table slaughter_animals [note: 'Individual animal items included within a slaughterhouse record. (Django: production.SlaughterAnimal, table: production_slaughteranimal)'] {
+  id bigint [pk, increment]
+  slaughter_id bigint [not null]
+  animal_id bigint [not null]
+
+  indexes {
+    (slaughter_id, animal_id) [unique]
+  }
+}
+
+Table live_animal_sales [note: 'Live animal transactions and auction sales records. (Django: production.LiveAnimalSale, table: production_liveanimalsale)'] {
+  id bigint [pk, increment]
+  livestock_id bigint
+  batch_id bigint [note: 'Optional link if animals are sold from a herd.']
   quantity integer [not null]
-  sale_method varchar [default: 'MATA-MATA', note: 'MATA-MATA, WEIGHING, OTHER']
-  total_live_weight decimal [note: 'Combined live weight in kg']
+  sale_method varchar [not null, default: 'MATA-MATA', note: 'Choices: MATA-MATA, WEIGHING, OTHER']
+  total_live_weight decimal [note: 'Optional combined weight of all animals sold.']
   price_per_head decimal
   price_per_kg decimal
   total_price decimal
-  destination varchar [note: 'Free-text buyer or destination; does not identify or assign the legal owner']
+  destination varchar [not null, note: 'Buyer or destination municipality.']
   sale_date date [not null]
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
-  purpose varchar [default: 'UNKNOWN', note: 'BREEDING, FATTENING, SLAUGHTER, UNKNOWN']
-  reviewed_by integer
+  status varchar [not null, default: 'PENDING', note: 'Choices: PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  purpose varchar [not null, default: 'UNKNOWN', note: 'Choices: BREEDING, FATTENING, SLAUGHTER, UNKNOWN']
+  reviewed_by_id bigint
   reviewed_at timestamp
-  review_remarks text
-  inventory_reconciled_at timestamp [note: 'Set after approved sale updates the animal or full batch exactly once']
-  created_by integer [not null]
-  created_at timestamp
+  review_remarks text [not null]
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
+  inventory_reconciled_at timestamp
 }
 
-// ---------------------------------------------------------------------------
-// 5. Animal Health, Disease & Mortality
-// ---------------------------------------------------------------------------
+Table weight_records [note: 'Periodic animal scale weighings for growth tracking. (Django: production.WeightRecord, table: production_weightrecord)'] {
+  id bigint [pk, increment]
+  livestock_id bigint [not null]
+  weight decimal [not null, note: 'Recorded weight in kilograms.']
+  weighing_date date [not null]
+  notes varchar [not null]
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
+}
 
-Table disease_cases {
-  disease_case_id integer [pk]
-  livestock_id integer [note: 'Nullable if pen/batch-wide outbreak - FK to livestock_inventory']
-  batch_id integer [note: 'Nullable - FK to livestock_batches for pen-wide outbreak']
-  name varchar [not null, note: 'e.g. Foot-and-Mouth Disease, Hemorrhagic Septicemia']
-  affected_count integer [default: 0]
-  record_date date
-  photo varchar [note: 'Farmer-submitted photo evidence']
-  inspector_photo varchar [note: 'SIBAT on-site inspection photo']
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
-  reviewed_by integer
+Table calving_records [note: 'Birth events, calving ease, and calf inventory linkage. (Django: production.CalvingRecord, table: production_calvingrecord)'] {
+  id bigint [pk, increment]
+  dam_id bigint [not null, note: 'Mother cow / dam.']
+  calf_tag varchar [not null]
+  calf_sex varchar [not null, default: 'FEMALE', note: 'Choices: MALE, FEMALE']
+  birth_weight decimal [note: 'Birth weight in kilograms.']
+  sire_tag varchar [not null, note: 'Father / sire bull tag or breed origin.']
+  calving_date date [not null]
+  breed varchar [not null]
+  calving_ease varchar [not null, default: 'Normal / Unassisted']
+  notes text [not null]
+  status varchar [not null, default: 'PENDING', note: 'Choices: PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  reviewed_by_id bigint
   reviewed_at timestamp
-  review_remarks text
-  created_by integer [not null]
-  created_at timestamp
+  review_remarks text [not null]
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
+  offspring_inventory_id bigint [unique]
+  inventory_reconciled_at timestamp
 }
 
-Table mortality_records {
-  mortality_id integer [pk]
-  livestock_id integer [note: 'Nullable individual animal FK to livestock_inventory.livestock_id']
-  batch_id integer [note: 'Nullable herd FK; exact animal selection is required before reconciliation']
-  death_count integer [not null]
-  cause text [not null]
-  source_disease_case_id integer [note: 'Nullable - linked disease case if applicable']
-  record_date date
-  photo varchar [note: 'Farmer-submitted mortality evidence photo']
-  inspector_photo varchar [note: 'SIBAT on-site inspection photo']
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
-  reviewed_by integer
-  reviewed_at timestamp
-  review_remarks text
-  previous_remarks text [note: 'Preserved remarks from an earlier revision cycle']
-  inventory_reconciled_at timestamp [note: 'Set after approved individual mortality marks the animal deceased exactly once']
-  created_by integer [not null]
-  created_at timestamp
+Table animal_dispositions [note: 'Farmer declarations of intent (sale, slaughter, transfer). (Django: production.AnimalDisposition, table: production_animaldisposition)'] {
+  id bigint [pk, increment]
+  livestock_id bigint [not null]
+  intent varchar [not null, default: 'FOR_SALE', note: 'Choices: FOR_SALE, FOR_SLAUGHTER, FOR_MOVEMENT, NONE']
+  target_date date
+  target_destination varchar [not null]
+  notes varchar [not null]
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
 }
 
-Table alerts {
-  alert_id integer [pk]
-  alert_type varchar [note: 'Disease Outbreak, Mortality Spike, Quarantine']
-  severity varchar [note: 'Low, Medium, High, Critical']
-  barangay_id integer [note: 'Affected barangay']
-  source_disease_case_id integer [note: 'Triggering disease case']
-  alert_message text [not null]
-  status varchar [default: 'Active', note: 'Active, Resolved, Dismissed']
-  created_at timestamp
-  resolved_at timestamp
+Table breeding_records [note: 'Artificial insemination, sire tracking, gestation, and expected due dates. (Django: production.BreedingRecord, table: production_breedingrecord)'] {
+  id bigint [pk, increment]
+  dam_id bigint [not null, note: 'Mother cow / dam.']
+  breeding_date date [not null, note: 'Date of breeding or insemination.']
+  breeding_type varchar [not null, default: 'ARTIFICIAL_INSEMINATION', note: 'Choices: ARTIFICIAL_INSEMINATION, NATURAL, EMBRYO_TRANSFER']
+  sire_livestock_id bigint [note: 'Optional link to sire bull in inventory if bull is registered on-farm/herd.']
+  sire_tag_or_code varchar [not null, note: 'Sire bull tag number, or semen straw batch code.']
+  sire_breed varchar [not null, note: 'Sire breed.']
+  technician_or_inseminator varchar [not null, note: 'Technician, AI officer, or farmer who performed insemination.']
+  pregnancy_confirmed_date date [note: 'Date pregnancy was officially confirmed by palpation, ultrasound, or authorized tech.']
+  pregnancy_confirmed_by_id bigint
+  confirmation_method varchar [not null, default: '', note: 'Method of pregnancy diagnosis (e.g., Rectal Palpation, Ultrasound, Vet Exam).']
+  calving_record_id bigint [note: 'Link to resulting calving event that completed this cycle.']
+  gestation_days integer [not null, default: 283, note: 'Standard biological gestation length in days.']
+  expected_due_date date [note: 'Calculated or estimated expected due date.']
+  status varchar [not null, default: 'PENDING_CHECK', note: 'Choices: PENDING_CHECK, PREGNANT, CALVED, OPEN']
+  notes text [not null]
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
 }
 
-// ---------------------------------------------------------------------------
-// 6. Inspections, Clearances & Meat Movement
-// ---------------------------------------------------------------------------
-
-Table livestock_inspections {
-  inspection_id integer [pk]
-  shipper_id integer [note: 'Nullable - FK to farmers.farmer_id']
-  shipper_name varchar [not null]
-  destination varchar [not null]
-  purpose varchar [default: 'UNKNOWN', note: 'BREEDING, FATTENING, SLAUGHTER, UNKNOWN']
-  inspection_date date [not null]
-  created_by integer [not null]
-  created_at timestamp
+Table livestock_treatment_records [note: 'Veterinary treatments, medication logs, and clinical follow-up dates. (Django: production.LivestockTreatmentRecord, table: production_livestocktreatmentrecord)'] {
+  id bigint [pk, increment]
+  livestock_id bigint [not null, note: 'Animal receiving treatment.']
+  treatment_date date [not null, note: 'Date treatment was administered.']
+  treatment_type varchar [not null, default: 'OTHER', note: 'Choices: VACCINATION, ANTIBIOTIC, DEWORMING, VITAMIN_SUPPLEMENT, REPRODUCTIVE_THERAPY, WOUND_CARE, CASTRATION, OTHER']
+  medication_name varchar [not null, note: 'Medication, vaccine, or active compound administered.']
+  reason text [not null, default: '', note: 'Clinical indication, diagnosis reason, or preventive purpose.']
+  dosage varchar [not null, default: '', note: 'Administered dosage (e.g., \\'10 mL\\', \\'500 mg\\').']
+  route_of_administration varchar [not null, default: '', note: 'Administration route (e.g., Intramuscular (IM), Subcutaneous (SC), Oral, Topical, IV).']
+  administered_by varchar [not null, default: '', note: 'Veterinarian, livestock inspector, or farmer who administered treatment.']
+  related_disease_case_id bigint [note: 'Optional link to diagnosed disease case.']
+  related_breeding_record_id bigint [note: 'Optional link to reproductive cycle / breeding event.']
+  notes text [not null, default: '']
+  follow_up_date date
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
 }
 
-Table livestock_inspection_items {
-  inspection_item_id integer [pk]
-  inspection_id integer [not null]
-  livestock_type_id integer [not null]
-  quantity integer [not null]
-  sex varchar [default: 'MIXED', note: 'MALE, FEMALE, MIXED']
-  classification varchar [note: 'BREEDER, SLAUGHTER, FATTENING, OTHER']
-  remarks text
+Table feeding_records [note: 'Daily feeding logs, feed types, quantities, and cost tracking. (Django: production.FeedingRecord, table: production_feedingrecord)'] {
+  id bigint [pk, increment]
+  livestock_id bigint [note: 'Target animal (for individual feeding).']
+  batch_id bigint [note: 'Target batch (for herd feeding).']
+  feeding_date date [not null, note: 'Date the feed was provided.']
+  feed_type varchar [not null, default: 'FORAGE', note: 'Choices: FORAGE, SILAGE_HAY, CONCENTRATE, BYPRODUCTS, MINERALS']
+  feed_name varchar [not null, note: 'Specific feed brand or pasture description (e.g., Napier Grass, Starter Mash).']
+  quantity_kg decimal [not null, note: 'Weight of feed provided in kilograms.']
+  cost decimal [note: 'Optional total cost in PHP for this feeding.']
+  feeding_time varchar [not null, default: 'MORNING', note: 'Choices: MORNING, AFTERNOON, EVENING, ALL_DAY']
+  notes text [not null]
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
 }
 
-Table livestock_inspection_clearances {
-  clearance_id integer [pk]
-  inspection_id integer [unique, not null]
-  control_number varchar [unique, not null]
-  date_issued date [not null]
-  time_issued time [not null]
-  shipper_address varchar [not null]
-  origin varchar [default: 'Padre Garcia, Batangas']
-  destination varchar [not null]
-  vehicle_plate_number varchar
-  livestock_handler_license_no varchar
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
-  issued_by integer [not null]
-  reviewed_by integer
-  reviewed_at timestamp
-  review_remarks text
-  created_at timestamp
-}
+Table psa_commodity_mappings [note: 'Mapping between livestock production types and official PSA commodities. (Django: production.PSACommodityMapping, table: production_psacommoditymapping)'] {
+  id bigint [pk, increment]
+  livestock_type_id bigint [not null]
+  production_type varchar [not null, note: 'Choices: MILK, MEAT, EGGS, WOOL']
+  unit varchar [not null, note: 'Choices: LITERS, PIECES, KILOGRAMS']
+  commodity_id varchar [not null]
+  active boolean [not null, default: true]
 
-Table meat_movement_records {
-  meat_movement_id integer [pk]
-  slaughter_id integer [not null]
-  origin_barangay_id integer [not null]
-  destination_barangay_id integer [not null]
-  destination_name varchar
-  meat_type varchar [note: 'BEEF, CARABEEF, GOAT, PORK, CHICKEN']
-  weight_kg decimal [not null]
-  price_per_kg decimal
-  total_price decimal
-  movement_date date [not null]
-  status varchar [default: 'PENDING', note: 'PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
-  reviewed_by integer
-  reviewed_at timestamp
-  review_remarks text
-  created_by integer [not null]
-  created_at timestamp
-}
-
-// ---------------------------------------------------------------------------
-// 7. Census & Municipal Reporting
-// ---------------------------------------------------------------------------
-
-Table census_submissions {
-  submission_id integer [pk]
-  barangay_id integer [not null]
-  report_year integer [not null]
-  report_quarter integer [not null, note: '1 to 4']
-  submitted_by integer [not null]
-  submission_date date [not null]
-  status varchar [default: 'PENDING', note: 'PENDING, APPROVED, SUBJECT_TO_REVISION']
-  reviewed_by integer
-  reviewed_at timestamp
-  remarks text
-  review_remarks text
-  created_at timestamp
-}
-
-Table census_submission_items {
-  census_item_id integer [pk]
-  submission_id integer [not null]
-  farmer_id integer [not null]
-  livestock_type_id integer [not null]
-  number_of_heads integer [not null]
-  remarks text
-}
-
-Table announcements {
-  announcement_id integer [pk]
-  title varchar [not null]
-  content text [not null]
-  posted_by integer [not null]
-  created_at timestamp
-}
-
-Table notifications {
-  notification_id integer [pk]
-  user_id integer [not null]
-  alert_id integer [note: 'Nullable - linked alert']
-  announcement_id integer [note: 'Nullable - linked announcement']
-  title varchar [not null]
-  message text [not null]
-  is_read boolean [default: false]
-  created_at timestamp
-}
-
-Table generated_reports {
-  report_id integer [pk]
-  report_type varchar [not null]
-  generated_by integer [not null]
-  generated_at timestamp
-}
-
-// ---------------------------------------------------------------------------
-// 8. Analytics, Insights & Projections
-// ---------------------------------------------------------------------------
-
-Table analytics_predictions {
-  prediction_id integer [pk]
-  barangay_id integer
-  livestock_type_id integer
-  prediction_type varchar [note: 'Milk Yield, Meat Production, Herd Growth, Live Sales Volume, Disease Trend, Mortality Risk, Supply Capacity']
-  target_period varchar [note: 'e.g. 2026-07, Q3-2026']
-  predicted_value decimal
-  confidence_score decimal
-  model_used varchar [note: 'e.g. ARIMA, Linear Regression, Holt-Winters']
-  generated_at timestamp
-}
-
-Table analytics_insights {
-  insight_id integer [pk]
-  barangay_id integer
-  livestock_type_id integer
-  insight_type varchar [note: 'e.g. FMD Outbreak Risk, Calving Spike, Yield Deficit']
-  severity varchar [note: 'Low, Medium, High']
-  source_disease_case_id integer [note: 'Nullable - links to triggering disease case']
-  description text
-  generated_at timestamp
-}
-
-Table analytics_recommendations {
-  recommendation_id integer [pk]
-  barangay_id integer
-  livestock_type_id integer
-  category varchar [note: 'Disease Prevention, Supply Planning, Herd Management']
-  recommendation_text text
-  related_prediction_id integer [note: 'Nullable - triggering prediction']
-  priority varchar [note: 'Low, Medium, High']
-  generated_at timestamp
-}
-
-// Isolated synthetic prototype data. These tables are deliberately separate
-// from livestock_inventory and production_records, so demo yields never enter
-// farmer history, official reports, or municipal production aggregates.
-Table individual_milk_demo_cows {
-  demo_id varchar [pk]
-  tag_number varchar [not null, unique]
-  breed varchar
-  sex varchar
-  birth_date date [note: 'Nullable; age is omitted/imputed when unknown']
-  weight_kg decimal [note: 'Nullable; numeric model imputation is fit on training rows only']
-  calving_date date [note: 'Nullable; days since calving is derived when known']
-  seed_marker varchar [not null]
-  created_at timestamp
-}
-
-Table individual_milk_demo_observations {
-  observation_id integer [pk]
-  demo_id varchar [not null]
-  record_date date [not null]
-  milk_quantity_liters decimal [not null]
-  disease_active boolean [not null, default: false]
-  seed_marker varchar [not null]
   indexes {
-    (demo_id, record_date) [unique]
+    (livestock_type_id, production_type, unit) [unique]
+  }
+}
+
+Table psa_reference_prices [note: 'PSA market benchmark prices for valuation snapshots. (Django: production.PSAReferencePrice, table: production_psareferenceprice)'] {
+  id bigint [pk, increment]
+  commodity_id varchar [not null]
+  commodity varchar [not null]
+  product_basis varchar [not null, note: 'Choices: MILK, EGGS, CARCASS, WOOL, LIVEWEIGHT']
+  unit varchar [not null, note: 'Choices: LITERS, PIECES, KILOGRAMS']
+  price decimal [not null]
+  period_start date [not null]
+  period_end date [not null]
+  reference_period varchar [not null]
+  geographic_level varchar [not null, default: 'NATIONAL']
+  geography varchar [not null, default: 'Philippines']
+  source_url varchar [not null]
+  source_title varchar [not null]
+  source_table varchar [not null]
+  publication_status varchar [not null, default: 'Preliminary']
+  revision integer [not null, default: 1]
+  active boolean [not null, default: true]
+  loaded_at timestamp [not null]
+
+  indexes {
+    (commodity_id, period_start, period_end, revision, geographic_level, geography) [unique]
+  }
+}
+
+Table milk_anomaly_demo_ownerships [note: 'Synthetic demonstration isolation table for milk yield anomaly models. (Django: production.MilkAnomalyDemoOwnership, table: production_milkanomalydemoownership)'] {
+  id bigint [pk, increment]
+  identifier varchar [unique, not null]
+  object_type varchar [not null, note: 'Choices: user, farmer, livestock, production_record, notification']
+  object_id varchar [not null]
+  created_at timestamp [not null]
+
+  indexes {
+    (object_type, object_id) [unique]
   }
 }
 
 // ---------------------------------------------------------------------------
-// Foreign Key Relationships (Refs)
+// 4. Animal Health, Disease Surveillance & Mortality
+// Clinical disease incident reporting, veterinary inspection follow-ups, and confirmed animal mortality logs.
 // ---------------------------------------------------------------------------
 
-Ref: users.role_id > roles.role_id
-Ref: user_documents.user_id > users.user_id
-Ref: user_documents.approved_by > users.user_id
-Ref: permission.role_id > roles.role_id
+Table disease_cases [note: 'Reported animal health issues, symptoms, and outbreak investigations. (Django: diseases.DiseaseCase, table: diseases_diseasecase)'] {
+  id bigint [pk, increment]
+  livestock_id bigint
+  batch_id bigint [note: 'Optional link if disease outbreak affects an entire herd.']
+  name varchar [not null]
+  affected_count integer [not null, default: 0]
+  record_date date
+  status varchar [not null, default: 'PENDING', note: 'Choices: PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  photo varchar [note: 'Farmer-submitted photo evidence of the illness.']
+  inspector_photo varchar [note: 'SIBAT on-site field verification photo.']
+  reviewed_by_id bigint
+  reviewed_at timestamp
+  review_remarks text
+  inspection_details json
+  previous_remarks text [note: 'Preserved review remarks from the previous revision cycle.']
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
+  clinical_status varchar [not null, default: 'NOT_RECORDED', note: 'Choices: NOT_RECORDED, OPEN, RECOVERED, CLOSED']
+}
 
-Ref: farmers.user_id - users.user_id
-Ref: farmers.barangay_id > barangays.barangay_id
-Ref: cooperative_officers.user_id - users.user_id
-Ref: cooperative_officers.barangay_id > barangays.barangay_id
+Table disease_case_follow_ups [note: 'Veterinary clinical progression notes and post-treatment follow-up logs. (Django: diseases.DiseaseCaseFollowUp, table: diseases_diseasecasefollowup)'] {
+  id bigint [pk, increment]
+  case_id bigint [not null]
+  event_type varchar [not null, note: 'Choices: FARMER_UPDATE, RECOVERED, CLOSED']
+  observed_on date [not null]
+  notes text [not null]
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
+}
 
-Ref: livestock_batches.farmer_id > farmers.farmer_id
-Ref: livestock_batches.livestock_type_id > livestock_types.livestock_type_id
-Ref: livestock_batches.created_by > users.user_id
+Table mortality_records [note: 'Deceased animal records, verified causes of death, and inventory reconciliation. (Django: diseases.MortalityRecord, table: diseases_mortalityrecord)'] {
+  id bigint [pk, increment]
+  livestock_id bigint
+  batch_id bigint [note: 'Optional link if mortality is recorded for a herd.']
+  death_count integer [not null]
+  cause text [not null]
+  source_disease_case_id bigint [note: 'Optional disease case that caused these deaths.']
+  record_date date
+  status varchar [not null, default: 'PENDING', note: 'Choices: PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  photo varchar [note: 'Farmer-submitted photo evidence of the mortality.']
+  inspector_photo varchar [note: 'SIBAT on-site field verification photo.']
+  reviewed_by_id bigint
+  reviewed_at timestamp
+  review_remarks text
+  inspection_details json
+  previous_remarks text [note: 'Preserved review remarks from the previous revision cycle.']
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
+  inventory_reconciled_at timestamp
+}
 
-Ref: livestock_inventory.batch_id > livestock_batches.batch_id
-Ref: livestock_inventory.farmer_id > farmers.farmer_id
-Ref: livestock_inventory.livestock_type_id > livestock_types.livestock_type_id
-Ref: livestock_inventory.created_by > users.user_id
-Ref: livestock_inventory.reviewed_by > users.user_id
+// ---------------------------------------------------------------------------
+// 5. Inspections, Clearances & Meat Movement
+// Livestock transit inspection, handler licensing, movement clearances, and post-slaughter meat transport documentation.
+// ---------------------------------------------------------------------------
 
-Ref: livestock_ownership_transfers.livestock_id > livestock_inventory.livestock_id
-Ref: livestock_ownership_transfers.previous_owner_id > farmers.farmer_id
-Ref: livestock_ownership_transfers.new_owner_id > farmers.farmer_id // nullable for external owner types
-Ref: livestock_ownership_transfers.reviewed_by > users.user_id
-Ref: livestock_ownership_transfers.created_by > users.user_id
+Table livestock_inspections [note: 'Origin and transit inspection of livestock shipments. (Django: movements.LivestockInspection, table: movements_livestockinspection)'] {
+  id bigint [pk, increment]
+  shipper_id bigint
+  shipper_name varchar [not null]
+  destination varchar [not null]
+  purpose varchar [not null, default: 'UNKNOWN', note: 'Choices: BREEDING, FATTENING, SLAUGHTER, UNKNOWN, OTHER']
+  inspection_date date [not null]
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
+}
 
-Ref: production_records.livestock_id > livestock_inventory.livestock_id
-Ref: production_records.batch_id > livestock_batches.batch_id
-Ref: production_records.farmer_at_record_id > farmers.farmer_id
-Ref: production_records.slaughter_id - slaughter_records.slaughter_id
-Ref: production_records.created_by > users.user_id
-Ref: production_records.reviewed_by > users.user_id
+Table livestock_inspection_items [note: 'Itemized animals included in a transport inspection. (Django: movements.LivestockInspectionItem, table: movements_livestockinspectionitem)'] {
+  id bigint [pk, increment]
+  inspection_id bigint [not null]
+  livestock_type_id bigint [not null]
+  inventory_id bigint
+  quantity integer [not null]
+  sex varchar [not null, default: 'MIXED', note: 'Choices: MALE, FEMALE, MIXED']
+  classification varchar [not null, note: 'Choices: BREEDER, SLAUGHTER, FATTENING, OTHER']
+  remarks text [not null]
+}
 
-Ref: weight_records.livestock_id > livestock_inventory.livestock_id
-Ref: weight_records.created_by > users.user_id
+Table livestock_inspection_clearances [note: 'Official movement clearance certificate with QR verification. (Django: movements.LivestockInspectionClearance, table: movements_livestockinspectionclearance)'] {
+  id bigint [pk, increment]
+  inspection_id bigint [unique, not null]
+  control_number varchar [unique, not null]
+  date_issued date
+  time_issued time
+  shipper_address varchar [not null]
+  origin varchar [not null, default: '']
+  vehicle_plate_number varchar
+  livestock_handler_license_no varchar
+  issued_by_id bigint
+  status varchar [not null, default: 'PENDING', note: 'Choices: PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  reviewed_by_id bigint
+  reviewed_at timestamp
+  review_remarks text [not null]
+  created_at timestamp [not null]
+}
 
-Ref: calving_records.dam_id > livestock_inventory.livestock_id
-Ref: calving_records.offspring_inventory_id - livestock_inventory.livestock_id
-Ref: calving_records.created_by > users.user_id
-Ref: calving_records.reviewed_by > users.user_id
+Table meat_movement_records [note: 'Dressed meat movement and inter-barangay shipping clearances. (Django: movements.MeatMovementRecord, table: movements_meatmovementrecord)'] {
+  id bigint [pk, increment]
+  slaughter_id bigint [not null]
+  origin_barangay_id bigint [not null]
+  destination_barangay_id bigint [not null]
+  destination_name varchar [not null, note: 'Optional name of the destination buyer or establishment.']
+  meat_type varchar [not null, note: 'Choices: BEEF, CARABEEF, GOAT, PORK, CHICKEN']
+  weight_kg decimal [not null]
+  price_per_kg decimal
+  total_price decimal
+  movement_date date [not null]
+  status varchar [not null, default: 'PENDING', note: 'Choices: PENDING, VERIFIED, APPROVED, SUBJECT_TO_REVISION']
+  reviewed_by_id bigint
+  reviewed_at timestamp
+  review_remarks text [not null]
+  created_by_id bigint [not null]
+  created_at timestamp [not null]
+}
 
-Ref: animal_dispositions.livestock_id > livestock_inventory.livestock_id
-Ref: animal_dispositions.created_by > users.user_id
+// ---------------------------------------------------------------------------
+// 6. Analytics, Forecast Demos & Operations
+// Predictive ML isolated datasets, scheduled monthly PDF delivery records, and batch data imports.
+// ---------------------------------------------------------------------------
 
-Ref: slaughter_records.livestock_id > livestock_inventory.livestock_id
-Ref: slaughter_records.batch_id > livestock_batches.batch_id
-Ref: slaughter_records.barangay_id > barangays.barangay_id
-Ref: slaughter_records.livestock_type_id > livestock_types.livestock_type_id
-Ref: slaughter_records.created_by > users.user_id
-Ref: slaughter_records.reviewed_by > users.user_id
+Table individual_milk_demo_cows [note: 'Isolated synthetic cows for predictive 7-day milk production forecasting. (Django: analytics.IndividualMilkDemoCow, table: analytics_individualmilkdemocow)'] {
+  demo_id varchar [pk]
+  tag_number varchar [unique, not null]
+  breed varchar [not null, default: '']
+  sex varchar [not null, default: 'FEMALE']
+  birth_date date
+  weight_kg decimal
+  calving_date date
+  seed_marker varchar [not null]
+  created_at timestamp [not null]
+}
 
-Ref: live_animal_sales.livestock_id > livestock_inventory.livestock_id
-Ref: live_animal_sales.batch_id > livestock_batches.batch_id
-Ref: live_animal_sales.created_by > users.user_id
-Ref: live_animal_sales.reviewed_by > users.user_id
+Table individual_milk_demo_observations [note: 'Isolated daily milk production series with THI weather context. (Django: analytics.IndividualMilkDemoObservation, table: analytics_individualmilkdemoobservation)'] {
+  id bigint [pk, increment]
+  cow_id varchar [not null]
+  record_date date [not null]
+  milk_quantity_liters decimal [not null]
+  disease_active boolean [not null, default: false]
+  seed_marker varchar [not null]
 
-Ref: disease_cases.livestock_id > livestock_inventory.livestock_id
-Ref: disease_cases.batch_id > livestock_batches.batch_id
-Ref: disease_cases.created_by > users.user_id
-Ref: disease_cases.reviewed_by > users.user_id
+  indexes {
+    (cow_id, record_date) [unique]
+  }
+}
 
-Ref: mortality_records.livestock_id > livestock_inventory.livestock_id
-Ref: mortality_records.batch_id > livestock_batches.batch_id
-Ref: mortality_records.source_disease_case_id > disease_cases.disease_case_id
-Ref: mortality_records.created_by > users.user_id
-Ref: mortality_records.reviewed_by > users.user_id
+Table monthly_report_deliveries [note: 'Municipal monthly summary report generation and delivery logs. (Django: analytics.MonthlyReportDelivery, table: analytics_monthlyreportdelivery)'] {
+  id bigint [pk, increment]
+  period_start date [unique, not null]
+  period_end date [not null]
+  status varchar [not null, default: 'GENERATING', note: 'Choices: GENERATING, SENT, FAILED']
+  recipients json [not null]
+  started_at timestamp [not null]
+  sent_at timestamp
+  error_summary varchar [not null, default: '']
+}
 
-Ref: alerts.barangay_id > barangays.barangay_id
-Ref: alerts.source_disease_case_id > disease_cases.disease_case_id
+Table surveillance_demo_ownerships [note: 'Synthetic demonstration isolation table for disease surveillance analytics. (Django: analytics.SurveillanceDemoOwnership, table: analytics_surveillancedemoownership)'] {
+  id bigint [pk, increment]
+  identifier varchar [unique, not null]
+  object_type varchar [not null]
+  object_id varchar [not null]
+  created_at timestamp [not null]
 
-Ref: livestock_inspections.shipper_id > farmers.farmer_id
-Ref: livestock_inspections.created_by > users.user_id
+  indexes {
+    (object_type, object_id) [unique]
+  }
+}
 
-Ref: livestock_inspection_items.inspection_id > livestock_inspections.inspection_id
-Ref: livestock_inspection_items.livestock_type_id > livestock_types.livestock_type_id
+Table nlp_example_review_events [note: 'NLP query feedback and review annotation audit logs. (Django: analytics.NLPExampleReviewEvent, table: analytics_nlpexamplereviewevent)'] {
+  id bigint [pk, increment]
+  corpus_version varchar [not null]
+  example_id varchar [not null]
+  decision varchar [not null, note: 'Choices: accepted, rejected']
+  utterance_override varchar [not null, default: '']
+  intent_override varchar [not null, default: '']
+  notes text [not null, default: '']
+  reviewer_id bigint [not null]
+  reviewed_at timestamp [not null]
+}
 
-Ref: livestock_inspection_clearances.inspection_id - livestock_inspections.inspection_id
-Ref: livestock_inspection_clearances.issued_by > users.user_id
-Ref: livestock_inspection_clearances.reviewed_by > users.user_id
+Table data_import_batches [note: 'Bulk tabular dataset upload and import batches. (Django: data_imports.DataImportBatch, table: data_imports_dataimportbatch)'] {
+  id bigint [pk, increment]
+  dataset_type varchar [not null, note: 'Choices: livestock_inventory, production, disease, mortality, slaughter, auction; Target municipal dataset domain for this batch import.']
+  file_name varchar [not null, note: 'Original uploaded filename (CSV or XLSX).']
+  uploaded_by_id bigint [not null, note: 'MAO or Admin user who performed the upload.']
+  uploaded_at timestamp [not null, note: 'Timestamp when the file was uploaded.']
+  status varchar [not null, default: 'PENDING', note: 'Choices: PENDING, VALIDATED, COMPLETED, PARTIAL, FAILED']
+  target_status varchar [not null, default: 'APPROVED', note: 'Choices: APPROVED, PENDING; Workflow status assigned to imported records.']
+  total_rows integer [not null, default: 0, note: 'Total rows found in the uploaded spreadsheet (excluding header).']
+  valid_rows integer [not null, default: 0, note: 'Number of rows that passed validation.']
+  imported_rows integer [not null, default: 0, note: 'Number of rows successfully inserted into production tables.']
+  skipped_rows integer [not null, default: 0, note: 'Number of duplicate or ignored rows skipped during import.']
+  error_rows integer [not null, default: 0, note: 'Number of rows rejected due to schema or validation errors.']
+  error_log json [not null, note: 'Structured log of row errors for downloadable audit reports.']
+  completed_at timestamp [note: 'Timestamp when the batch transaction completed.']
+  duration_seconds decimal [note: 'Total processing duration in seconds.']
+  notes text [not null, default: '', note: 'Optional remarks or notes about the import batch.']
+}
 
-Ref: meat_movement_records.slaughter_id > slaughter_records.slaughter_id
-Ref: meat_movement_records.origin_barangay_id > barangays.barangay_id
-Ref: meat_movement_records.destination_barangay_id > barangays.barangay_id
-Ref: meat_movement_records.created_by > users.user_id
-Ref: meat_movement_records.reviewed_by > users.user_id
+// ===========================================================================
+// Foreign Key Relationships (Refs)
+// ===========================================================================
 
-Ref: census_submissions.barangay_id > barangays.barangay_id
-Ref: census_submissions.submitted_by > users.user_id
-Ref: census_submissions.reviewed_by > users.user_id
+// Refs for 1. Users, Roles, Identity Verification & Programs
+Ref: users.role_id > roles.id
+Ref: users.assigned_barangay_id > barangays.id
+Ref: user_documents.approved_by_id > users.id
+Ref: user_documents.user_id > users.id
+Ref: identity_verification_attempts.user_id > users.id
+Ref: identity_verification_attempts.document_id > user_documents.id
+Ref: identity_verification_attempts.manual_review_by_id > users.id
+Ref: identity_verification_events.attempt_id > identity_verification_attempts.id
+Ref: identity_verification_events.actor_id > users.id
+Ref: notifications.user_id > users.id
+Ref: push_subscriptions.user_id > users.id
+Ref: announcements.target_barangay_id > barangays.id
+Ref: announcements.posted_by_id > users.id
+Ref: announcement_photos.announcement_id > announcements.id
+Ref: program_schedules.barangay_id > barangays.id
+Ref: program_schedules.created_by_id > users.id
+Ref: program_schedule_photos.schedule_id > program_schedules.id
+Ref: program_bookings.schedule_id > program_schedules.id
+Ref: program_bookings.farmer_id > users.id
+// Refs for 2. Geography, Livestock Registry, Batches & Transfers
+Ref: farmers.user_id - users.id
+Ref: farmers.barangay_id > barangays.id
+Ref: livestock_batches.farmer_id > farmers.id
+Ref: livestock_batches.livestock_type_id > livestock_types.id
+Ref: livestock_batches.created_by_id > users.id
+Ref: livestock_batch_photos.batch_id > livestock_batches.id
+Ref: livestock_inventory.batch_id > livestock_batches.id
+Ref: livestock_inventory.farmer_id > farmers.id
+Ref: livestock_inventory.livestock_type_id > livestock_types.id
+Ref: livestock_inventory.ownership_certificate_recorded_by_id > users.id
+Ref: livestock_inventory.reviewed_by_id > users.id
+Ref: livestock_inventory.created_by_id > users.id
+Ref: livestock_inventory_review_history.inventory_id > livestock_inventory.id
+Ref: livestock_inventory_review_history.reviewer_id > users.id
+Ref: livestock_herd_membership_history.livestock_id > livestock_inventory.id
+Ref: livestock_herd_membership_history.previous_batch_id > livestock_batches.id
+Ref: livestock_herd_membership_history.new_batch_id > livestock_batches.id
+Ref: livestock_herd_membership_history.acted_by_id > users.id
+Ref: livestock_gate_verifications.livestock_id > livestock_inventory.id
+Ref: livestock_gate_verifications.verified_by_id > users.id
+Ref: livestock_ownership_transfers.livestock_id > livestock_inventory.id
+Ref: livestock_ownership_transfers.previous_owner_id > farmers.id
+Ref: livestock_ownership_transfers.new_owner_id > farmers.id
+Ref: livestock_ownership_transfers.created_by_id > users.id
+Ref: livestock_ownership_transfers.reviewed_by_id > users.id
+Ref: census_submissions.barangay_id > barangays.id
+Ref: census_submissions.submitted_by_id > users.id
+Ref: census_submissions.reviewed_by_id > users.id
+Ref: census_submission_items.census_submission_id > census_submissions.id
+Ref: census_submission_items.farmer_id > farmers.id
+Ref: census_submission_items.livestock_type_id > livestock_types.id
+// Refs for 3. Production, Breeding, Feeding, Treatments & Sales
+Ref: production_records.livestock_id > livestock_inventory.id
+Ref: production_records.batch_id > livestock_batches.id
+Ref: production_records.farmer_at_record_id > farmers.id
+Ref: production_records.slaughter_id - slaughter_records.id
+Ref: production_records.reviewed_by_id > users.id
+Ref: production_records.created_by_id > users.id
+Ref: production_record_workflow_events.production_record_id > production_records.id
+Ref: production_record_workflow_events.actor_id > users.id
+Ref: slaughter_records.livestock_id > livestock_inventory.id
+Ref: slaughter_records.batch_id > livestock_batches.id
+Ref: slaughter_records.barangay_id > barangays.id
+Ref: slaughter_records.livestock_type_id > livestock_types.id
+Ref: slaughter_records.reviewed_by_id > users.id
+Ref: slaughter_records.created_by_id > users.id
+Ref: slaughter_animals.slaughter_id > slaughter_records.id
+Ref: slaughter_animals.animal_id > livestock_inventory.id
+Ref: live_animal_sales.livestock_id > livestock_inventory.id
+Ref: live_animal_sales.batch_id > livestock_batches.id
+Ref: live_animal_sales.reviewed_by_id > users.id
+Ref: live_animal_sales.created_by_id > users.id
+Ref: weight_records.livestock_id > livestock_inventory.id
+Ref: weight_records.created_by_id > users.id
+Ref: calving_records.dam_id > livestock_inventory.id
+Ref: calving_records.reviewed_by_id > users.id
+Ref: calving_records.created_by_id > users.id
+Ref: calving_records.offspring_inventory_id - livestock_inventory.id
+Ref: animal_dispositions.livestock_id > livestock_inventory.id
+Ref: animal_dispositions.created_by_id > users.id
+Ref: breeding_records.dam_id > livestock_inventory.id
+Ref: breeding_records.sire_livestock_id > livestock_inventory.id
+Ref: breeding_records.pregnancy_confirmed_by_id > users.id
+Ref: breeding_records.calving_record_id > calving_records.id
+Ref: breeding_records.created_by_id > users.id
+Ref: livestock_treatment_records.livestock_id > livestock_inventory.id
+Ref: livestock_treatment_records.related_disease_case_id > disease_cases.id
+Ref: livestock_treatment_records.related_breeding_record_id > breeding_records.id
+Ref: livestock_treatment_records.created_by_id > users.id
+Ref: feeding_records.livestock_id > livestock_inventory.id
+Ref: feeding_records.batch_id > livestock_batches.id
+Ref: feeding_records.created_by_id > users.id
+Ref: psa_commodity_mappings.livestock_type_id > livestock_types.id
+// Refs for 4. Animal Health, Disease Surveillance & Mortality
+Ref: disease_cases.livestock_id > livestock_inventory.id
+Ref: disease_cases.batch_id > livestock_batches.id
+Ref: disease_cases.reviewed_by_id > users.id
+Ref: disease_cases.created_by_id > users.id
+Ref: disease_case_follow_ups.case_id > disease_cases.id
+Ref: disease_case_follow_ups.created_by_id > users.id
+Ref: mortality_records.livestock_id > livestock_inventory.id
+Ref: mortality_records.batch_id > livestock_batches.id
+Ref: mortality_records.source_disease_case_id > disease_cases.id
+Ref: mortality_records.reviewed_by_id > users.id
+Ref: mortality_records.created_by_id > users.id
+// Refs for 5. Inspections, Clearances & Meat Movement
+Ref: livestock_inspections.shipper_id > farmers.id
+Ref: livestock_inspections.created_by_id > users.id
+Ref: livestock_inspection_items.inspection_id > livestock_inspections.id
+Ref: livestock_inspection_items.livestock_type_id > livestock_types.id
+Ref: livestock_inspection_items.inventory_id > livestock_inventory.id
+Ref: livestock_inspection_clearances.inspection_id - livestock_inspections.id
+Ref: livestock_inspection_clearances.issued_by_id > users.id
+Ref: livestock_inspection_clearances.reviewed_by_id > users.id
+Ref: meat_movement_records.slaughter_id > slaughter_records.id
+Ref: meat_movement_records.origin_barangay_id > barangays.id
+Ref: meat_movement_records.destination_barangay_id > barangays.id
+Ref: meat_movement_records.reviewed_by_id > users.id
+Ref: meat_movement_records.created_by_id > users.id
+// Refs for 6. Analytics, Forecast Demos & Operations
+Ref: individual_milk_demo_observations.cow_id > individual_milk_demo_cows.demo_id
+Ref: nlp_example_review_events.reviewer_id > users.id
+Ref: data_import_batches.uploaded_by_id > users.id
 
-Ref: census_submission_items.submission_id > census_submissions.submission_id
-Ref: census_submission_items.farmer_id > farmers.farmer_id
-Ref: census_submission_items.livestock_type_id > livestock_types.livestock_type_id
+// ===========================================================================
+// Visual Table Groups (for dbdiagram.io)
+// ===========================================================================
 
-Ref: announcements.posted_by > users.user_id
-Ref: notifications.user_id > users.user_id
-Ref: notifications.alert_id > alerts.alert_id
-Ref: notifications.announcement_id > announcements.announcement_id
-Ref: generated_reports.generated_by > users.user_id
+TableGroup Users_Identity_And_Programs {
+  roles
+  users
+  user_documents
+  identity_verification_attempts
+  identity_verification_events
+  notifications
+  push_subscriptions
+  announcements
+  announcement_photos
+  program_schedules
+  program_schedule_photos
+  program_bookings
+}
 
-Ref: analytics_predictions.barangay_id > barangays.barangay_id
-Ref: analytics_predictions.livestock_type_id > livestock_types.livestock_type_id
+TableGroup Geography_And_Livestock_Registry {
+  barangays
+  farmers
+  livestock_types
+  livestock_batches
+  livestock_batch_photos
+  livestock_inventory
+  livestock_inventory_review_history
+  livestock_herd_membership_history
+  livestock_gate_verifications
+  livestock_ownership_transfers
+  census_submissions
+  census_submission_items
+}
 
-Ref: analytics_insights.barangay_id > barangays.barangay_id
-Ref: analytics_insights.livestock_type_id > livestock_types.livestock_type_id
-Ref: analytics_insights.source_disease_case_id > disease_cases.disease_case_id
+TableGroup Production_Breeding_And_Trade {
+  production_records
+  production_record_workflow_events
+  slaughter_records
+  slaughter_animals
+  live_animal_sales
+  weight_records
+  calving_records
+  animal_dispositions
+  breeding_records
+  livestock_treatment_records
+  feeding_records
+  psa_commodity_mappings
+  psa_reference_prices
+  milk_anomaly_demo_ownerships
+}
 
-Ref: analytics_recommendations.barangay_id > barangays.barangay_id
-Ref: analytics_recommendations.livestock_type_id > livestock_types.livestock_type_id
-Ref: analytics_recommendations.related_prediction_id > analytics_predictions.prediction_id
+TableGroup Animal_Health_And_Surveillance {
+  disease_cases
+  disease_case_follow_ups
+  mortality_records
+}
 
-Ref: individual_milk_demo_observations.demo_id > individual_milk_demo_cows.demo_id
+TableGroup Inspections_And_Movements {
+  livestock_inspections
+  livestock_inspection_items
+  livestock_inspection_clearances
+  meat_movement_records
+}
+
+TableGroup Analytics_And_Operations {
+  individual_milk_demo_cows
+  individual_milk_demo_observations
+  monthly_report_deliveries
+  surveillance_demo_ownerships
+  nlp_example_review_events
+  data_import_batches
+}
