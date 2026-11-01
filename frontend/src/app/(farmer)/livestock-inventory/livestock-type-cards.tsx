@@ -42,6 +42,7 @@ interface TypeSummary {
   batches: number;
   individuals: number;
   approved: number;
+  verified: number;
   pending: number;
 }
 
@@ -141,6 +142,7 @@ const buildTypeSummaries = (
       batches: 0,
       individuals: 0,
       approved: 0,
+      verified: 0,
       pending: 0,
     });
     entry.heads += item.quantity;
@@ -148,6 +150,7 @@ const buildTypeSummaries = (
     if (item.entryType === "BATCH") entry.batches += 1;
     else entry.individuals += 1;
     if (item.status === "APPROVED") entry.approved += item.quantity;
+    else if (item.status === "VERIFIED") entry.verified += item.quantity;
     else if (item.status === "PENDING") entry.pending += item.quantity;
     return acc;
   }, {});
@@ -163,6 +166,7 @@ const buildTypeSummaries = (
       batches: 0,
       individuals: 0,
       approved: 0,
+      verified: 0,
       pending: 0,
     });
     entry.batches += 1;
@@ -267,8 +271,11 @@ export default function LivestockTypeCards({
           {typeSummaries.map((type) => {
             const config = getSpeciesConfig(type.name);
             const Icon = config.icon;
-            const approvedRate =
-              type.heads > 0 ? Math.round((type.approved / type.heads) * 100) : 0;
+            const reviewedHeads = type.approved + type.verified;
+            const reviewedRate =
+              type.heads > 0 ? Math.round((reviewedHeads / type.heads) * 100) : 0;
+            const groupLabel = `${type.batches} herd ${type.batches === 1 ? "group" : "groups"}`;
+            const animalRecordLabel = `${type.individuals} animal ${type.individuals === 1 ? "record" : "records"}`;
 
             return (
               <Card
@@ -306,7 +313,7 @@ export default function LivestockTypeCards({
                           {type.name}
                         </CardTitle>
                         <CardDescription className="text-[11px] font-medium text-white/85 whitespace-normal break-words">
-                          {type.approved} verified • {type.batches + type.individuals} entries
+                          {type.approved} approved • {type.verified} SIBAT verified
                         </CardDescription>
                       </div>
                     </div>
@@ -323,7 +330,7 @@ export default function LivestockTypeCards({
                           {type.name}
                         </CardTitle>
                         <CardDescription className="text-xs font-semibold text-stone-600 whitespace-normal break-words mt-0.5">
-                          {type.approved} verified • {type.batches + type.individuals} entries
+                          {type.approved} approved • {type.verified} SIBAT verified
                         </CardDescription>
                       </div>
                     </div>
@@ -338,16 +345,16 @@ export default function LivestockTypeCards({
 
                 {/* Card Body Details */}
                 <div className="p-4 space-y-3.5 flex-1 flex flex-col justify-between">
-                  {/* Progress Bar of Approved Ratio */}
+                  {/* Count SIBAT-verified and MAO-approved heads as reviewed, like the dashboard. */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[11px] font-semibold text-stone-600">
-                      <span>Review Status</span>
-                      <span className="font-bold text-emerald-950">{approvedRate}%</span>
+                      <span>Reviewed (approved or SIBAT verified)</span>
+                      <span className="font-bold text-emerald-950">{reviewedRate}%</span>
                     </div>
                     <div className="w-full bg-black/5 h-1.5 rounded-full overflow-hidden">
                       <div
                         className="bg-emerald-600 h-full rounded-full transition-all duration-300"
-                        style={{ width: `${approvedRate}%` }}
+                        style={{ width: `${reviewedRate}%` }}
                       />
                     </div>
                   </div>
@@ -356,18 +363,18 @@ export default function LivestockTypeCards({
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2 rounded-xl bg-white/80 border border-emerald-900/10 shadow-2xs flex flex-col">
                       <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">
-                        Batches
+                        Herd Groups
                       </span>
                       <span className="font-extrabold text-emerald-950 leading-tight">
-                        {type.batches} groups
+                        {groupLabel}
                       </span>
                     </div>
                     <div className="p-2 rounded-xl bg-white/80 border border-emerald-900/10 shadow-2xs flex flex-col">
                       <span className="text-[9px] font-bold uppercase tracking-wider text-stone-500">
-                        Individual Tags
+                        Animal Records
                       </span>
                       <span className="font-extrabold text-emerald-950 leading-tight">
-                        {type.individuals} tagged
+                        {animalRecordLabel}
                       </span>
                     </div>
                   </div>
@@ -395,13 +402,13 @@ export default function LivestockTypeCards({
                     Total Heads
                   </TableHead>
                   <TableHead className="font-black text-xs uppercase tracking-wider text-emerald-950 py-3.5 text-center">
-                    Batches
+                    Herd Groups
                   </TableHead>
                   <TableHead className="font-black text-xs uppercase tracking-wider text-emerald-950 py-3.5 text-center">
-                    Individuals
+                    Animal Records
                   </TableHead>
                   <TableHead className="font-black text-xs uppercase tracking-wider text-emerald-950 py-3.5 text-center">
-                    Approved Heads
+                    Reviewed Heads (approved or SIBAT verified)
                   </TableHead>
                   <TableHead className="font-black text-xs uppercase tracking-wider text-emerald-950 py-3.5 text-right pr-5">
                     Action
@@ -439,7 +446,7 @@ export default function LivestockTypeCards({
                           <div>
                             <p className="font-black text-sm text-emerald-950">{type.name}</p>
                             <p className="text-[11px] font-semibold text-stone-500">
-                              {type.batches + type.individuals} total records
+                              {animalRecordLabel} • {groupLabel}
                             </p>
                           </div>
                         </div>
@@ -471,7 +478,7 @@ export default function LivestockTypeCards({
                       {/* Approved Heads */}
                       <TableCell className="text-center py-3.5">
                         <span className="inline-flex items-center text-xs font-extrabold text-emerald-800 bg-emerald-100/70 px-2.5 py-1 rounded-lg font-mono">
-                          {type.approved} heads
+                          {reviewedHeads} heads
                         </span>
                       </TableCell>
 

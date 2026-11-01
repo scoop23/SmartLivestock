@@ -1328,7 +1328,7 @@ export default function LivestockRecordList({
       {/* ═══ Content Area: Loading / Empty / Grid / Table ═══ */}
       {isLoading ? (
         /* Premium Skeleton Loading States */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
           {[1, 2, 3, 4, 5, 6].map((sk) => (
             <Card
               key={sk}
@@ -1398,7 +1398,7 @@ export default function LivestockRecordList({
         </Card>
       ) : viewMode === "grid" ? (
         /* ═══ 4. Data Display Cards: Split Hero Cards Grid Layout ═══ */
-        <div className="grid min-w-0 grid-cols-1 gap-3.5 md:grid-cols-2">
+        <div className="grid min-w-0 grid-cols-1 gap-3.5 xl:grid-cols-2">
           {paginatedItems.map((item) => (
             <LivestockSplitCard
               key={item.id}

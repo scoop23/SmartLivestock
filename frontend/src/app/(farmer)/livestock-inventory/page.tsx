@@ -586,7 +586,7 @@ function LivestockInventoryContent() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-base font-black tracking-tight text-slate-900">
-                    Cattle and herd KPIs
+                    Cattle and herd summary
                   </h3>
                   <p className="mt-0.5 text-xs font-normal text-slate-500">
                     Cattle head count, sex breakdown, active herds, and vaccination records.
