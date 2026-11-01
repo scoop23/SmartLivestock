@@ -730,6 +730,9 @@ def _candidate_preserves_explicit_filters(question, candidate, *, today, baranga
     if parameters["species"] != expected_species:
         return False
 
+    _, barangay_error = _resolve_barangay(normalized, barangays)
+    if barangay_error:
+        return False
     mentioned_barangays = [
         row for row in barangays
         if row.get("name") and _contains(normalized, row["name"])
