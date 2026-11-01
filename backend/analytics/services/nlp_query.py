@@ -1023,6 +1023,13 @@ def execute_question(question, *, user, today=None):
     if parsed["status"] != "parsed":
         response = {"status": parsed["status"], "question": question, "answer": parsed["message"], "results": []}
         if parsed.get("reason") == "unrecognized_intent":
+            asked_question = " ".join(question.split())
+            response["answer"] = (
+                f'You asked: “{asked_question}”. I could not match it to an approved analytics question, '
+                "so no analysis was run and I cannot provide a reliable data-based insight yet. Ask about "
+                "current approved livestock totals, disease or mortality summaries, or the MAO review queue, "
+                "or choose one of the suggested questions below."
+            )
             try:
                 from .nlp_intent_model import suggest_questions
                 response["suggestions"] = suggest_questions(
