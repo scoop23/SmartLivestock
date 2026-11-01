@@ -409,7 +409,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                 <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
                   <Button type="button" variant="ghost" onClick={close} className="h-10 rounded-xl text-xs sm:text-sm font-bold text-slate-600">Cancel</Button>
                   <Button type="submit" variant="outline" disabled={busy} className="h-10 rounded-xl text-xs sm:text-sm font-bold text-slate-800">{busy ? "Saving…" : editing?.is_published ? "Save changes" : "Save draft"}</Button>
-                  {!editing?.is_published ? <Button type="button" disabled={busy} onClick={(event) => { if (event.currentTarget.form?.reportValidity()) void save(true); }} className={`h-10 gap-2 rounded-xl text-xs sm:text-sm font-bold text-white shadow-xs ${isSibat ? "bg-[#1A365D] hover:bg-[#152c4b]" : "bg-[#2D5A27] hover:bg-[#24461f]"}`}>{busy ? <RefreshCw className="size-4 animate-spin" /> : <Send className="size-4" />} Publish</Button> : null}
+                  {!editing?.is_published ? <Button type="button" disabled={busy} onClick={(event) => { if (event.currentTarget.form?.reportValidity()) void save(true); }} className="h-10 gap-2 rounded-xl bg-[#2D5A27] text-xs font-bold text-white shadow-xs hover:bg-[#24461f] sm:text-sm">{busy ? <RefreshCw className="size-4 animate-spin" /> : <Send className="size-4" />} Publish</Button> : null}
                 </div>
               </div>
             </form>

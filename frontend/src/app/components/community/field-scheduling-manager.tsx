@@ -18,13 +18,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { apiError,getBarangays,getBookings,getSchedules,type BarangayOption,type ProgramBooking,type ProgramFarmerAudience,type ProgramPublicationStatus,type ProgramSchedule } from "@/lib/community-api";
-import { ArrowLeft,CalendarDays,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,ClipboardList,Clock3,Eye,FileText,GraduationCap,HeartPulse,Image as ImageIcon,Info,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Settings,Sparkles,Trash2,UnlockKeyhole,Users,Zap } from "lucide-react";
+import { ArrowLeft,CalendarDays,CheckCircle2,ChevronDown,ChevronLeft,ChevronRight,ChevronUp,ClipboardList,Clock3,Eye,FileText,GraduationCap,HeartPulse,Image as ImageIcon,Info,LockKeyhole,MapPin,Pencil,Plus,RefreshCw,Search,Settings,Sparkles,Trash2,UnlockKeyhole,Users,X,Zap } from "lucide-react";
 import Image from "next/image";
 import { useCallback,useEffect,useMemo,useRef,useState,type FormEvent } from "react";
 import { CommunityEmptyState,CommunitySkeleton,formatLongDate,formatTime,PROGRAM_TIME_SLOTS,ProgramScheduleTableSkeleton,todayIso,type CommunityRole } from "./community-ui";
 
 type ManagerRole = Extract<CommunityRole, "admin" | "sibat">;
-type ScheduleAction = "close" | "reopen" | "delete" | "publish" | "unpublish" | "cancel" | "complete";
+type ScheduleAction = "close" | "reopen" | "delete" | "publish" | "unpublish" | "cancel" | "complete" | "restore";
 type PendingAction = { schedule: ProgramSchedule; action: ScheduleAction };
 type ScheduleForm = { date: string; program: string; description: string; objectives: string; category: ProgramSchedule["category"]; location: string; farmer_notes: string; capacity: string; available_times: string[]; registration_opens: string; registration_deadline: string; eligibility: string; contact_information: string; barangay: string; farmer_audience: ProgramFarmerAudience; publication_status: ProgramPublicationStatus };
 type SchedulePayload = Omit<ScheduleForm, "capacity" | "barangay" | "registration_opens" | "registration_deadline"> & { capacity: number; barangay: number | null; registration_opens: string | null; registration_deadline: string | null };
@@ -70,6 +70,17 @@ function formatProgramTableDate(iso: string): string {
   if (!y || !m || !d) return iso;
   return new Date(y, m - 1, d).toLocaleDateString("en-US", {
     weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatBookingDate(value: string): string {
+  if (!value) return "—";
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -193,7 +204,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   const [startTime, setStartTime] = useState<string>(PROGRAM_TIME_SLOTS[0]);
   const [endTime, setEndTime] = useState<string>(PROGRAM_TIME_SLOTS[PROGRAM_TIME_SLOTS.length - 1]);
   const [selected, setSelected] = useState<ProgramSchedule | null>(null);
-  const [showBookingsRoster, setShowBookingsRoster] = useState(false);
+  const [showBookingsRoster, setShowBookingsRoster] = useState(true);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState("");
@@ -523,8 +534,18 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
       if (action === "delete") await api.delete(`/community/schedules/${schedule.id}/`);
       else if (action === "close" || action === "reopen") await api.patch(`/community/schedules/${schedule.id}/`, { is_open: action === "reopen" });
       else {
-        const publication_status = action === "publish" ? "PUBLISHED" : action === "unpublish" ? "DRAFT" : action === "cancel" ? "CANCELLED" : "COMPLETED";
-        await api.patch(`/community/schedules/${schedule.id}/`, { publication_status, is_open: action === "publish" });
+        const shouldPublish = action === "publish" || action === "restore";
+        const publication_status = shouldPublish ? "PUBLISHED" : action === "unpublish" ? "DRAFT" : action === "cancel" ? "CANCELLED" : "COMPLETED";
+        const is_open = action === "restore" ? schedule.date >= todayIso() : action === "publish";
+        await api.patch(`/community/schedules/${schedule.id}/`, { publication_status, is_open });
+        if (selected?.id === schedule.id && action === "restore") {
+          const registration_status = schedule.date < todayIso()
+            ? "COMPLETED"
+            : schedule.capacity > 0 && schedule.booking_count >= schedule.capacity
+              ? "FULL"
+              : "AVAILABLE";
+          setSelected({ ...schedule, publication_status: "PUBLISHED", is_open, registration_status });
+        }
       }
       if (selected?.id === schedule.id && action === "delete") setSelected(null);
       setPendingAction(null);
@@ -537,6 +558,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
   }
 
   const selectedBookings = selected ? (bookingsBySchedule.get(selected.id) ?? []).slice().sort((a, b) => a.time.localeCompare(b.time)) : [];
+  const selectedIsCancelled = Boolean(selected && (selected.publication_status === "CANCELLED" || selected.registration_status === "CANCELLED"));
   const selectedHasBookingHistory = pendingAction ? (bookingsBySchedule.get(pendingAction.schedule.id)?.length ?? 0) > 0 : false;
   const selectedIsPast = pendingAction ? pendingAction.schedule.date < todayIso() : false;
 
@@ -1333,132 +1355,115 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         onOpenChange={(open) => {
           if (!open) {
             setSelected(null);
-            setShowBookingsRoster(false);
+            setShowBookingsRoster(true);
           }
         }}
       >
-        <DialogContent className="max-h-[92dvh] w-[calc(100vw-2rem)] sm:max-w-3xl md:max-w-4xl lg:max-w-5xl overflow-y-auto rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-7 shadow-2xl space-y-5">
+        <DialogContent className="max-h-[88dvh] w-[calc(100vw-2rem)] overflow-y-auto rounded-[1.75rem] border border-slate-200 bg-white p-3.5 shadow-2xl sm:w-[92vw] sm:max-w-[52rem] sm:p-4 lg:p-5 [&>button]:right-4 [&>button]:top-4">
           {selected ? (
-            <div className="space-y-5">
-              {/* Header: Blue Icon + Title + Badges */}
-              <div className="flex items-start gap-4">
-                <div className="flex size-14 sm:size-16 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
-                  <CalendarDays className="size-7 sm:size-8 stroke-[1.8]" />
+            <div className="space-y-3.5 sm:space-y-4">
+              {/* Program header */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:pr-2">
+                <div className="flex min-w-0 items-center gap-3">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-800 text-white shadow-sm sm:size-14">
+                  <CalendarDays className="size-6 stroke-[1.8] sm:size-7" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-emerald-50 text-emerald-800 border border-emerald-200/60">
-                      {selected.category.replaceAll("_", " ")}
-                    </span>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/60">
-                      {selected.publication_status === "PUBLISHED"
-                        ? "Published"
-                        : selected.publication_status.charAt(0) + selected.publication_status.slice(1).toLowerCase()}
-                    </span>
-                  </div>
+                  <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900 ring-1 ring-inset ring-emerald-100">
+                    {selected.category.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())}
+                  </span>
                   <DialogHeader className="p-0 text-left">
-                    <DialogTitle className="break-words text-2xl sm:text-3xl font-black tracking-tight text-slate-950 mt-1">
+                    <DialogTitle className="mt-1 break-words text-xl font-black tracking-tight text-slate-950 sm:text-2xl lg:text-3xl">
                       {selected.program}
                     </DialogTitle>
-                    <DialogDescription className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
+                    <DialogDescription className="mt-1 text-xs font-medium text-slate-600 sm:text-sm">
                       Activity scheduled for {formatProgramTableDate(selected.date)}
                     </DialogDescription>
                   </DialogHeader>
                 </div>
+                </div>
+                <div className="flex shrink-0 items-center self-end sm:self-center">
+                  {selectedIsCancelled ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3.5 py-1.5 text-sm font-bold text-rose-700 ring-1 ring-inset ring-rose-100">
+                      <X className="size-4" /> Cancelled
+                    </span>
+                  ) : renderProgramStatusBadge(selected)}
+                </div>
               </div>
 
-              {/* 3-Column Info Box: Time window | Location | Registered */}
-              <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-5 grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-0 sm:divide-x sm:divide-slate-200/80 shadow-xs overflow-hidden">
+              {/* Time, location, and registration summary */}
+              <div className="grid grid-cols-1 gap-3 overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3.5 shadow-xs sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-emerald-200/70 sm:p-4">
                 {/* Time window */}
-                <div className="flex items-center gap-3 min-w-0 sm:pr-4 sm:first:pl-0">
-                  <div className="size-10 sm:size-11 shrink-0 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-                    <Clock3 className="size-5 sm:size-6 stroke-[1.8]" />
+                <div className="flex min-w-0 items-center gap-3 sm:pr-4 sm:first:pl-0">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 sm:size-11">
+                    <Clock3 className="size-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Time window</p>
-                    <p className="text-sm sm:text-base font-extrabold text-slate-900 mt-0.5 truncate" title={formatProgramTimeWindow(selected.available_times)}>
+                    <p className="text-xs font-bold text-slate-600 sm:text-sm">Time Window</p>
+                    <p className="mt-0.5 truncate text-sm font-extrabold text-slate-950 sm:text-base" title={formatProgramTimeWindow(selected.available_times)}>
                       {formatProgramTimeWindow(selected.available_times)}
                     </p>
                   </div>
                 </div>
 
                 {/* Location */}
-                <div className="flex items-center gap-3 min-w-0 sm:px-4">
-                  <div className="size-10 sm:size-11 shrink-0 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-                    <MapPin className="size-5 sm:size-6 stroke-[1.8]" />
+                <div className="flex min-w-0 items-center gap-3 border-t border-emerald-100 pt-3 sm:border-t-0 sm:px-4 sm:pt-0">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 sm:size-11">
+                    <MapPin className="size-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Location</p>
-                    <p className="text-sm sm:text-base font-extrabold text-slate-900 mt-0.5 break-words line-clamp-2" title={selected.location || "Location not set"}>
+                    <p className="text-xs font-bold text-slate-600 sm:text-sm">Location</p>
+                    <p className="mt-0.5 line-clamp-2 break-words text-sm font-extrabold text-slate-950 sm:text-base" title={selected.location || "Location not set"}>
                       {selected.location || "Location not set"}
                     </p>
                   </div>
                 </div>
 
                 {/* Registered */}
-                <div className="flex items-center gap-3 min-w-0 sm:pl-4">
-                  <div className="size-10 sm:size-11 shrink-0 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-                    <Users className="size-5 sm:size-6 stroke-[1.8]" />
+                <div className="flex min-w-0 items-center gap-3 border-t border-emerald-100 pt-3 sm:border-t-0 sm:pl-4 sm:pt-0">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 sm:size-11">
+                    <Users className="size-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Registered</p>
-                    <p className="text-sm sm:text-base font-extrabold text-slate-900 mt-0.5 truncate">
+                    <p className="text-xs font-bold text-slate-600 sm:text-sm">Registration</p>
+                    <p className="mt-0.5 truncate text-sm font-extrabold text-slate-950 sm:text-base">
                       {selected.capacity === 0
                         ? "No Limit"
                         : `${selected.booking_count} / ${selected.capacity}`}
                     </p>
-                    <p className="text-[11px] font-medium text-slate-400">
+                    <p className="text-xs font-medium text-slate-500 sm:text-sm">
                       {selected.capacity === 0 ? "Walk-in · no booking required" : "slots filled"}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Instructions & Description */}
-              <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 space-y-2 shadow-xs">
-                <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900">
-                  <FileText className="size-5 text-blue-600" />
-                  Instructions &amp; Description
+              {/* Instructions and farmer notes share one section, as in the program detail design. */}
+              <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs sm:p-4">
+                <h3 className="flex items-center gap-2.5 text-base font-extrabold text-slate-950">
+                  <FileText className="size-5 text-emerald-800" />
+                  Instructions &amp; Notes
                 </h3>
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                  {selected.description || "No activity description provided."}
+                <p className="whitespace-pre-wrap pl-8 text-sm leading-relaxed text-slate-700">
+                  {selected.description || "No activity instructions have been added."}
                 </p>
-              </div>
-
-              {/* Relevant Notes for Farmers (amber styling) */}
-              <div className="rounded-2xl border border-amber-200/80 bg-[#fffbeb]/60 p-4 sm:p-5 space-y-2.5 shadow-xs">
-                <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900">
-                  <ClipboardList className="size-5 text-amber-600" />
-                  Relevant Notes for Farmers
-                </h3>
                 {selected.farmer_notes ? (
-                  <ul className="space-y-1.5 text-sm text-slate-700">
-                    {selected.farmer_notes
-                      .split("\n")
-                      .map((l) => l.trim())
-                      .filter((l) => l.length > 0)
-                      .map((line, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <span className="text-slate-400 select-none">•</span>
-                          <span>{line.replace(/^[-*•]\s*/, "")}</span>
-                        </li>
-                      ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-slate-500">No additional notes for farmers.</p>
-                )}
+                  <p className="whitespace-pre-wrap border-t border-slate-100 pt-3 pl-8 text-xs leading-relaxed text-slate-600 sm:text-sm">
+                    {selected.farmer_notes}
+                  </p>
+                ) : null}
               </div>
 
-              {/* Registered Farmers (Only shown if capacity is not No Limit) */}
-              {selected.capacity > 0 && (
-                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 space-y-3.5 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900">
-                    <Users className="size-5 text-emerald-600" />
-                    Registered Farmers ({selectedBookings.length})
+              {/* Registered Farmers */}
+              {(selected.capacity > 0 || selectedBookings.length > 0) && (
+                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs sm:p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-2.5 text-base font-extrabold text-slate-950">
+                    <Users className="size-5 text-emerald-800" />
+                    Registered Farmers
                   </h3>
-                  <span className="text-xs sm:text-sm font-semibold text-slate-500">
-                    Capacity: {selected.capacity === 0 ? "No limit" : `${selected.capacity} slots`}
+                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 sm:text-sm">
+                    Capacity: {selected.capacity === 0 ? "No limit" : `${selected.capacity} ${selected.capacity === 1 ? "slot" : "slots"}`}
                   </span>
                 </div>
 
@@ -1500,28 +1505,35 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                     ) : (
                       <>
                         {/* Desktop Table View */}
-                        <div className="hidden sm:block overflow-hidden rounded-xl border border-slate-200">
-                          <table className="w-full text-left text-xs sm:text-sm">
-                            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                        <div className="hidden max-h-[min(40dvh,24rem)] overflow-auto overscroll-contain rounded-xl border border-slate-200 sm:block">
+                          <table className="w-full min-w-[620px] text-left text-sm">
+                            <thead className="sticky top-0 z-10 border-b border-emerald-100 bg-emerald-50 text-sm font-bold text-emerald-950">
                               <tr>
-                                <th className="px-3.5 py-2.5">Farmer Name</th>
-                                <th className="px-3.5 py-2.5">Barangay</th>
-                                <th className="px-3.5 py-2.5">Time Slot</th>
-                                <th className="px-3.5 py-2.5 text-center">Status</th>
+                                <th className="w-16 px-4 py-3 text-center">#</th>
+                                <th className="px-4 py-3">Farmer</th>
+                                <th className="px-4 py-3">Booking Date</th>
+                                <th className="px-4 py-3 text-center">Status</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white">
-                              {selectedBookings.map((booking) => (
+                              {selectedBookings.map((booking, index) => (
                                 <tr
                                   key={booking.id}
                                   id={"program-booking-" + booking.id + "-desktop"}
                                   className={highlightedBookingId === booking.id ? "bg-emerald-100 ring-2 ring-inset ring-emerald-400" : "hover:bg-slate-50/60"}
                                 >
-                                  <td className="px-3.5 py-2.5 font-bold text-slate-900">{booking.farmer_name}</td>
-                                  <td className="px-3.5 py-2.5 text-slate-600">{booking.farmer_barangay || "—"}</td>
-                                  <td className="px-3.5 py-2.5 font-semibold text-slate-700">{formatTime(booking.time)}</td>
+                                  <td className="px-4 py-3 text-center font-medium text-slate-700">{index + 1}</td>
+                                  <td className="px-4 py-3 font-semibold text-slate-950">
+                                    <div>{booking.farmer_name}</div>
+                                    {booking.farmer_barangay ? <div className="mt-0.5 text-xs font-medium text-slate-500">{booking.farmer_barangay}</div> : null}
+                                  </td>
+                                  <td className="px-4 py-3 font-medium text-slate-700">
+                                    <div>{formatBookingDate(booking.created_at)}</div>
+                                    <div className="mt-0.5 text-xs text-slate-500">{formatTime(booking.time)}</div>
+                                  </td>
                                   <td className="px-3.5 py-2.5 text-center align-middle">
-                                    <Badge variant="outline" className={`text-xs font-bold ${booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : booking.status === "NO_SHOW" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                                    <Badge variant="outline" className={`gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>
+                                      {booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? <CheckCircle2 className="size-3.5" /> : <X className="size-3.5" />}
                                       {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
                                     </Badge>
                                   </td>
@@ -1532,7 +1544,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                         </div>
 
                         {/* Mobile Stacked Cards View */}
-                        <div className="sm:hidden space-y-2">
+                        <div className="max-h-[min(40dvh,24rem)] space-y-2 overflow-y-auto overscroll-contain pr-1 sm:hidden">
                           {selectedBookings.map((booking) => (
                             <div
                               key={booking.id}
@@ -1546,10 +1558,12 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
                                   <p className="text-xs sm:text-sm font-bold text-slate-900">{booking.farmer_name}</p>
                                   <p className="text-xs text-slate-500">{booking.farmer_barangay || "Barangay not provided"}</p>
                                 </div>
-                                <Badge variant="outline" className={`text-xs font-bold ${booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : booking.status === "NO_SHOW" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                                <Badge variant="outline" className={`gap-1 rounded-full text-xs font-bold ${booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>
+                                  {booking.status === "CONFIRMED" || booking.status === "ATTENDED" ? <CheckCircle2 className="size-3" /> : <X className="size-3" />}
                                   {booking.status === "NO_SHOW" ? "No-show" : booking.status.charAt(0) + booking.status.slice(1).toLowerCase()}
                                 </Badge>
                               </div>
+                              <div className="text-xs font-medium text-slate-600">Booked {formatBookingDate(booking.created_at)}</div>
                               <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold">
                                 <Clock3 className="size-3 text-slate-400" />
                                 {formatTime(booking.time)}
@@ -1566,67 +1580,77 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
 
             {/* Bottom Notice / Controls */}
               {selected.can_manage ? (
-                <section className="rounded-2xl border border-blue-200/80 bg-blue-50/40 p-4 sm:p-5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="flex items-center gap-2 text-sm sm:text-base font-extrabold text-slate-900">
-                      <Settings className="size-4.5 text-blue-700" />
+                <section className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 sm:p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="flex items-center gap-2.5 text-base font-extrabold text-slate-950">
+                      <Settings className="size-5 text-emerald-800" />
                       Activity Controls
                     </h3>
-                    <Badge variant="outline" className={selected.is_open ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-100 text-slate-700"}>
-                      {selected.is_open
-                        ? selected.capacity === 0 ? "Open" : "Registration is Open"
-                        : selected.capacity === 0 ? "Closed" : "Registration is Closed"}
-                    </Badge>
+                    <div className="flex items-center gap-2 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2.5 text-xs font-medium text-sky-900 sm:text-sm">
+                      <Info className="size-4 shrink-0 text-sky-700" />
+                      <span>{selectedIsCancelled
+                        ? "This activity is cancelled. You can restore it if needed."
+                        : selected.is_open
+                          ? "This activity is open for farmer registration."
+                          : "Registration is closed for this activity."}</span>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || selected.date < todayIso()}
-                      title={selected.date < todayIso() ? "Registration controls are unavailable for a past activity." : undefined}
-                      onClick={() => setPendingAction({ schedule: selected, action: selected.is_open ? "close" : "reopen" })}
-                      className="h-9 font-bold text-xs rounded-xl"
-                    >
-                      {selected.is_open ? <><LockKeyhole className="mr-1.5 size-3.5" /> Close Registration</> : <><UnlockKeyhole className="mr-1.5 size-3.5" /> Reopen Registration</>}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => startEdit(selected)}
-                      className="h-9 font-bold text-blue-700 text-xs rounded-xl"
-                    >
-                      <Pencil className="mr-1.5 size-3.5" /> Edit Activity
-                    </Button>
-                    {selected.publication_status === "PUBLISHED" && selected.date <= todayIso() ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    {selectedIsCancelled ? (
+                      <Button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setPendingAction({ schedule: selected, action: "restore" })}
+                        className="h-10 rounded-xl bg-emerald-800 px-5 text-sm font-bold text-white hover:bg-emerald-900"
+                      >
+                        <RefreshCw className="mr-2 size-4" /> Restore Activity
+                      </Button>
+                    ) : (
                       <Button
                         type="button"
                         variant="outline"
-                        size="sm"
+                        disabled={busy || selected.date < todayIso()}
+                        title={selected.date < todayIso() ? "Registration controls are unavailable for a past activity." : undefined}
+                        onClick={() => setPendingAction({ schedule: selected, action: selected.is_open ? "close" : "reopen" })}
+                        className={`h-10 rounded-xl px-4 text-xs font-bold sm:text-sm ${selected.is_open ? "border-slate-300 bg-white text-slate-800" : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"}`}
+                      >
+                        {selected.is_open ? <><LockKeyhole className="mr-2 size-4" /> Close Registration</> : <><UnlockKeyhole className="mr-2 size-4" /> Reopen Registration</>}
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => startEdit(selected)}
+                      className="h-10 rounded-xl border-slate-300 bg-white px-4 text-xs font-bold text-slate-800 hover:bg-slate-100 sm:text-sm"
+                    >
+                      <Pencil className="mr-2 size-4" /> Edit Activity
+                    </Button>
+                    {!selectedIsCancelled && selected.publication_status === "PUBLISHED" && selected.date <= todayIso() ? (
+                      <Button
+                        type="button"
+                        variant="outline"
                         disabled={busy}
                         onClick={() => setPendingAction({ schedule: selected, action: "complete" })}
-                        className="h-9 font-bold text-blue-700 text-xs rounded-xl"
+                        className="h-10 rounded-xl border-slate-300 bg-white px-4 text-xs font-bold text-slate-800 hover:bg-slate-100 sm:text-sm"
                       >
-                        <CalendarDays className="mr-1.5 size-3.5" /> End Activity
+                        <CalendarDays className="mr-2 size-4" /> End Activity
                       </Button>
                     ) : null}
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
                       disabled={busy}
                       onClick={() => setPendingAction({ schedule: selected, action: "delete" })}
-                      className="h-9 border-rose-300 font-bold text-rose-700 hover:bg-rose-50 text-xs rounded-xl ml-auto"
+                      className="ml-auto h-10 rounded-xl border-rose-300 bg-rose-50 px-5 text-sm font-bold text-rose-700 hover:bg-rose-100"
                     >
-                      <Trash2 className="mr-1.5 size-3.5" /> Delete
+                      <Trash2 className="mr-2 size-4" /> Delete
                     </Button>
                   </div>
                 </section>
               ) : (
-                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 sm:p-4 flex items-center gap-2.5 text-xs sm:text-sm text-slate-600">
-                  <Info className="size-4.5 text-blue-600 shrink-0" />
+                <div className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600">
+                  <Info className="size-5 shrink-0 text-emerald-700" />
                   <span>View-only program · Created by another CBAT officer.</span>
                 </div>
               )}
@@ -1707,12 +1731,13 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base font-bold text-slate-900">
-              {pendingAction?.action === "delete" ? "Delete program?" : pendingAction?.action === "close" ? "Close program registrations?" : pendingAction?.action === "reopen" ? "Reopen program registrations?" : pendingAction?.action === "publish" ? "Publish program?" : pendingAction?.action === "unpublish" ? "Unpublish program?" : pendingAction?.action === "cancel" ? "Cancel program?" : "Mark program completed?"}
+              {pendingAction?.action === "delete" ? "Delete program?" : pendingAction?.action === "close" ? "Close program registrations?" : pendingAction?.action === "reopen" ? "Reopen program registrations?" : pendingAction?.action === "restore" ? "Restore activity?" : pendingAction?.action === "publish" ? "Publish program?" : pendingAction?.action === "unpublish" ? "Unpublish program?" : pendingAction?.action === "cancel" ? "Cancel program?" : "Mark program completed?"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-slate-600">
               {pendingAction?.action === "delete"
                 ? selectedHasBookingHistory && selectedIsPast ? "This completed schedule will be removed from Field Scheduling. Existing booking records will be preserved for history." : selectedHasBookingHistory ? "This program has bookings, so it cannot be deleted before its scheduled date. You can close it to prevent new bookings." : "This will permanently remove the program. It has no booking records."
-                : pendingAction?.action === "close" ? "Farmers will no longer be able to book this program. All existing registrations will be preserved."
+                : pendingAction?.action === "restore" ? "This cancelled activity will be published again. Farmers can register if the activity is still upcoming and has open slots."
+                  : pendingAction?.action === "close" ? "Farmers will no longer be able to book this program. All existing registrations will be preserved."
                   : pendingAction?.action === "reopen" ? "Farmers will be able to book open slots for this program again."
                     : pendingAction?.action === "publish" ? "Farmers in the selected coverage area can see and book this program immediately."
                       : pendingAction?.action === "unpublish" ? "The program will be hidden from farmers. Existing bookings will stay in its history."
@@ -1727,7 +1752,7 @@ export function FieldSchedulingManager({ role }: { role: ManagerRole }) {
               onClick={(event) => { event.preventDefault(); void performAction(); }}
               className={`h-9 text-xs ${pendingAction?.action === "delete" ? "bg-rose-700 text-white hover:bg-rose-800" : ""}`}
             >
-              {busy ? "Working…" : pendingAction?.action === "delete" ? selectedIsPast ? "Delete completed program" : "Delete program" : pendingAction?.action === "close" ? "Close registration" : pendingAction?.action === "reopen" ? "Reopen registration" : pendingAction?.action === "publish" ? "Publish now" : pendingAction?.action === "unpublish" ? "Unpublish" : pendingAction?.action === "cancel" ? "Cancel program" : "Mark completed"}
+              {busy ? "Working…" : pendingAction?.action === "delete" ? selectedIsPast ? "Delete completed program" : "Delete program" : pendingAction?.action === "close" ? "Close registration" : pendingAction?.action === "reopen" ? "Reopen registration" : pendingAction?.action === "restore" ? "Restore activity" : pendingAction?.action === "publish" ? "Publish now" : pendingAction?.action === "unpublish" ? "Unpublish" : pendingAction?.action === "cancel" ? "Cancel program" : "Mark completed"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
