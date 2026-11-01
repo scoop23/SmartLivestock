@@ -63,7 +63,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className={cn("flex bg-slate-50 text-slate-900 antialiased", isMapPage ? "h-screen h-[100dvh] max-h-screen max-h-[100dvh] overflow-hidden" : "min-h-screen")}>
+    <div className={cn("flex bg-[#f5f8f5] text-slate-900 antialiased", isMapPage ? "h-screen h-[100dvh] max-h-screen max-h-[100dvh] overflow-hidden" : "min-h-screen")}>
       <Sidebar
         role="lgu"
         onLogout={logout}

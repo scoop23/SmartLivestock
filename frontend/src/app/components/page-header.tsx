@@ -30,7 +30,7 @@ interface PageHeaderProps {
 }
 
 const headerClasses: Record<PageHeaderVariant, string> = {
-  admin: "bg-white text-gray-900 border-b border-gray-200",
+  admin: "bg-gradient-to-r from-white via-white to-emerald-50/80 text-slate-900 border-b border-emerald-100/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
   farmer: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   sibat: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   cbat: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
@@ -39,7 +39,7 @@ const headerClasses: Record<PageHeaderVariant, string> = {
 };
 
 const glowClasses: Record<PageHeaderVariant, string> = {
-  admin: "bg-slate-400/15",
+  admin: "bg-emerald-300/20",
   farmer: "bg-emerald-300/20",
   sibat: "bg-emerald-300/20",
   cbat: "bg-emerald-300/20",
@@ -48,7 +48,7 @@ const glowClasses: Record<PageHeaderVariant, string> = {
 };
 
 const chipClasses: Record<PageHeaderVariant, string> = {
-  admin: "bg-slate-900/[0.06] text-gray-900",
+  admin: "bg-emerald-50 text-[#1E4D2B] border border-emerald-100",
   farmer: "bg-white/15 text-white border border-white/20",
   sibat: "bg-white/15 text-white border border-white/20",
   cbat: "bg-white/15 text-white border border-white/20",
@@ -78,6 +78,9 @@ export function PageHeader({
   const role = user?.role?.toUpperCase();
   const isFieldReviewer = role === "SIBAT" || role === "CBAT";
   const showSibatNodeBar = Boolean(user && (variant === "sibat" || isFieldReviewer));
+  const headerContentSpacing = variant === "admin"
+    ? "px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-5"
+    : "px-4 py-3 sm:py-5 md:px-6 md:py-7";
 
   const sibatNodeBar = showSibatNodeBar && user ? (
     <div className="border-b border-emerald-900/10 bg-emerald-50/80 backdrop-blur-xs px-4 py-2 sm:px-6 text-xs sm:text-sm leading-relaxed text-emerald-950 shrink-0 flex items-center justify-between gap-3">
@@ -117,7 +120,7 @@ export function PageHeader({
             aria-hidden
             className={`pointer-events-none absolute right-32 -bottom-28 h-48 w-48 rounded-full blur-3xl transform-gpu [contain:paint] ${glowClasses[variant]}`}
           />
-          <div className={`relative ${maxWidthClass} mx-auto px-4 py-3 sm:py-5 md:px-6 md:py-7`}>
+          <div className={`relative ${maxWidthClass} mx-auto ${headerContentSpacing}`}>
             {/* Mobile Layout (sm:hidden) */}
             <div className="sm:hidden flex flex-col gap-1.5">
               <div className="flex items-center justify-between gap-2">
@@ -130,7 +133,7 @@ export function PageHeader({
                       {icon}
                     </div>
                   ) : null}
-                  <h1 className="min-w-0 truncate text-base font-extrabold tracking-tight leading-snug">
+                  <h1 className={`min-w-0 ${variant === "admin" ? "break-words" : "truncate"} text-base font-extrabold tracking-tight leading-snug`}>
                     {title}
                   </h1>
                 </div>
@@ -195,7 +198,7 @@ export function PageHeader({
           aria-hidden
           className={`pointer-events-none absolute right-32 -bottom-28 h-48 w-48 rounded-full blur-3xl transform-gpu [contain:paint] ${glowClasses[variant]}`}
         />
-        <div className={`relative ${maxWidthClass} mx-auto px-4 py-3 sm:py-5 md:px-6 md:py-7`}>
+        <div className={`relative ${maxWidthClass} mx-auto ${headerContentSpacing}`}>
           {/* Mobile Layout (sm:hidden) */}
           <div className="sm:hidden flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
@@ -208,7 +211,7 @@ export function PageHeader({
                     {icon}
                   </div>
                 ) : null}
-                <h1 className="min-w-0 truncate text-base font-extrabold tracking-tight leading-snug">
+                <h1 className={`min-w-0 ${variant === "admin" ? "break-words" : "truncate"} text-base font-extrabold tracking-tight leading-snug`}>
                   {title}
                 </h1>
               </div>
@@ -217,7 +220,7 @@ export function PageHeader({
               </div>
             </div>
             {subtitle && (
-              <p className={`text-xs font-medium opacity-90 leading-relaxed pl-0.5 ${wrapSubtitleOnMobile || variant === "farmer" || variant === "sibat" ? "whitespace-normal break-words" : "truncate"}`}>
+                <p className={`text-xs font-medium opacity-90 leading-relaxed pl-0.5 ${wrapSubtitleOnMobile || variant === "admin" || variant === "farmer" || variant === "sibat" ? "whitespace-normal break-words" : "truncate"}`}>
                 {subtitle}
               </p>
             )}
