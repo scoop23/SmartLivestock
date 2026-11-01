@@ -713,9 +713,165 @@ def _period_meta(parameters):
     return {"start": period["start"], "end": period["end"], "label": period["label"]}
 
 
+_GROQ_INTERPRETABLE_INTENTS = frozenset({
+    "population_summary", "disease_by_barangay", "mortality_comparison",
+})
+
+
+def _candidate_preserves_explicit_filters(question, candidate, *, today, barangays, species_names):
+    """Reject a canonical query that drops or invents filters from the question."""
+    normalized = normalize_question(question)
+    parameters = candidate["parameters"]
+
+    species, species_error = _resolve_species(normalized, species_names)
+    if species_error or len(species) > 1 or _unknown_species_reference(normalized, species_names):
+        return False
+    expected_species = species[0] if species else None
+    if parameters["species"] != expected_species:
+        return False
+
+    mentioned_barangays = [
+        row for row in barangays
+        if row.get("name") and _contains(normalized, row["name"])
+    ]
+    if len(mentioned_barangays) > 1:
+        return False
+    expected_barangay = mentioned_barangays[0] if mentioned_barangays else None
+    if parameters["barangay_id"] != (expected_barangay.get("id") if expected_barangay else None):
+        return False
+
+    expected_period, period_error = _parse_period(normalized, today, candidate["intent"])
+    if period_error or parameters["period"] != expected_period:
+        return False
+
+    barangay_group_phrases = (
+        "by barangay", "per barangay", "each barangay", "for each barangay", "in each barangay",
+        "across barangays", "across all barangays", "which barangays", "barangay comparison",
+        "barangays reported", "sa bawat barangay", "bawat barangay", "bawat na barangay",
+        "ayon sa barangay", "saang barangay",
+    )
+    species_group_phrases = (
+        "by livestock type", "per livestock type", "by species", "per species", "each livestock species",
+        "across livestock types", "across species", "according to species", "according to livestock type",
+        "by type", "ayon sa uri",
+    )
+    asks_by_barangay = any(_contains(normalized, phrase) for phrase in barangay_group_phrases)
+    asks_by_species = any(_contains(normalized, phrase) for phrase in species_group_phrases)
+    if asks_by_barangay and asks_by_species:
+        return False
+
+    if candidate["intent"] == "population_summary":
+        expected_group = "barangay" if asks_by_barangay else "species" if asks_by_species else None
+        if parameters["group_by"] != expected_group:
+            return False
+    elif not expected_barangay and not asks_by_barangay:
+        # These comparison handlers always group by barangay. Do not let Groq
+        # turn a requested municipality-wide total into a barangay comparison.
+        return False
+
+    return True
+
+
+def _interpret_with_groq(question, rule_result, *, today, barangays, species_names):
+    """Use Groq only for supported queries or a wholly unrecognized question.
+
+    Model output is reparsed by the deterministic parser. If rules already
+    understood the question, any difference makes the rules win.
+    """
+    rules_understood = rule_result.get("status") == "parsed"
+    if rules_understood and rule_result.get("intent") not in _GROQ_INTERPRETABLE_INTENTS:
+        return rule_result, {
+            "status": "skipped",
+            "message": "This question uses a private or unsupported query type, so its text was not sent to Groq.",
+        }
+    if not rules_understood and rule_result.get("reason") != "unrecognized_intent":
+        return rule_result, {
+            "status": "skipped",
+            "message": "The rules detected a specific ambiguity or restriction, so Groq was not used to override it.",
+        }
+
+    from .nlp_interpretation import interpret_with_groq
+
+    outcome = interpret_with_groq(
+        question,
+        species_names=species_names,
+        barangays=barangays,
+    )
+    if outcome["status"] == "unavailable":
+        if rules_understood:
+            return rule_result, {
+                "status": "rules_fallback",
+                "message": f"{outcome['message']} The validated rules-based result was used.",
+            }
+        return rule_result, {
+            "status": "unavailable",
+            "message": f"{outcome['message']} The rules could not match this question either.",
+        }
+    if outcome["status"] in {"clarification", "unsupported"}:
+        if rules_understood:
+            return rule_result, {
+                "status": "rules_fallback",
+                "message": f"{outcome['message']} The validated rules-based result was used.",
+            }
+        rule_result["status"] = outcome["status"]
+        rule_result["message"] = outcome["message"]
+        return rule_result, {
+            "status": outcome["status"],
+            "message": outcome["message"],
+        }
+
+    from .nlp_pipeline import interpret_question
+
+    candidate = interpret_question(
+        outcome["canonical_question"],
+        today=today,
+        barangays=barangays,
+        species_names=species_names,
+    )
+    candidate_is_valid = (
+        candidate.get("status") == "parsed"
+        and candidate.get("intent") == outcome["intent"]
+        and candidate.get("intent") in _GROQ_INTERPRETABLE_INTENTS
+        and _candidate_preserves_explicit_filters(
+            question,
+            candidate,
+            today=today,
+            barangays=barangays,
+            species_names=species_names,
+        )
+    )
+    if not candidate_is_valid:
+        if rules_understood:
+            return rule_result, {
+                "status": "rules_fallback",
+                "message": "Groq's interpretation did not pass the existing query rules; the rules-based result was used.",
+            }
+        message = (
+            "I could not verify Groq's interpretation against the supported query rules. "
+            "Please clarify the metric, species, barangay, or period you mean."
+        )
+        rule_result["status"] = "clarification"
+        rule_result["message"] = message
+        return rule_result, {"status": "clarification", "message": message}
+
+    if rules_understood and (
+        candidate["intent"] != rule_result["intent"]
+        or candidate["parameters"] != rule_result["parameters"]
+    ):
+        return rule_result, {
+            "status": "rules_fallback",
+            "message": "Groq interpreted a different intent or filter than the rules; the rules-based result was used.",
+        }
+
+    return candidate, {
+        "status": "used",
+        "message": "Groq proposed this query; SmartLivestock validated it with its existing rules before retrieving data.",
+    }
+
+
 def _result_response(*, question, parsed, answer, results, visualization, coverage_note):
     parameters = parsed["parameters"]
-    return {
+    response = {
         "status": "answered",
         "question": question,
         "intent": parsed["intent"],
@@ -736,6 +892,9 @@ def _result_response(*, question, parsed, answer, results, visualization, covera
         "results": results,
         "coverage_note": coverage_note,
     }
+    if parsed.get("ai_interpretation"):
+        response["ai_interpretation"] = parsed["ai_interpretation"]
+    return response
 
 
 def _empty_answer(metric, period):
@@ -997,7 +1156,7 @@ def _farmer_livestock_count(question, parameters):
     )
 
 
-def execute_question(question, *, user, today=None):
+def execute_question(question, *, user, today=None, interpret_with_ai=False):
     """Parse one question, then execute only fixed, permission-scoped analytics."""
     # Defense in depth: the service is also safe when called without its view.
     caller_role = role_name(user)
@@ -1007,7 +1166,13 @@ def execute_question(question, *, user, today=None):
     if _asks_for_production(normalized_question) and not _asks_for_mao_queue(normalized_question):
         # Enforce privacy before the parser can select a production handler and
         # before any ProductionRecord queryset, aggregate, or explanation exists.
-        return {"status": "restricted", "question": question, "answer": _MUNICIPAL_PRODUCTION_NOTICE, "results": []}
+        response = {"status": "restricted", "question": question, "answer": _MUNICIPAL_PRODUCTION_NOTICE, "results": []}
+        if interpret_with_ai:
+            response["ai_interpretation"] = {
+                "status": "skipped",
+                "message": "Farmer production questions are private and were not sent to Groq.",
+            }
+        return response
     today = today or timezone.localdate()
     visible_barangays = list(
         scope_reviewer_queryset(Barangay.objects.all(), user)
@@ -1017,19 +1182,32 @@ def execute_question(question, *, user, today=None):
     parser_barangays = [{"id": row["id"], "name": row["barangay_name"]} for row in visible_barangays]
     species_names = list(LivestockType.objects.order_by("name").values_list("name", flat=True))
     # Import here to keep the parser independently testable and avoid a cycle.
-    # Rules remain authoritative; ML can only suggest editable draft questions.
+    # Groq may propose canonical wording after opt-in; these rules still decide
+    # whether that wording maps to a safe, supported query.
     from .nlp_pipeline import interpret_question
     parsed = interpret_question(question, today=today, barangays=parser_barangays, species_names=species_names)
+    if interpret_with_ai:
+        parsed, ai_interpretation = _interpret_with_groq(
+            question,
+            parsed,
+            today=today,
+            barangays=parser_barangays,
+            species_names=species_names,
+        )
+        parsed["ai_interpretation"] = ai_interpretation
     if parsed["status"] != "parsed":
         response = {"status": parsed["status"], "question": question, "answer": parsed["message"], "results": []}
+        if parsed.get("ai_interpretation"):
+            response["ai_interpretation"] = parsed["ai_interpretation"]
         if parsed.get("reason") == "unrecognized_intent":
-            asked_question = " ".join(question.split())
-            response["answer"] = (
-                f'You asked: “{asked_question}”. I could not match it to an approved analytics question, '
-                "so no analysis was run and I cannot provide a reliable data-based insight yet. Ask about "
-                "current approved livestock totals, disease or mortality summaries, or the MAO review queue, "
-                "or choose one of the suggested questions below."
-            )
+            if parsed.get("ai_interpretation", {}).get("status") not in {"clarification", "unsupported"}:
+                asked_question = " ".join(question.split())
+                response["answer"] = (
+                    f'You asked: “{asked_question}”. I could not match it to an approved analytics question, '
+                    "so no analysis was run and I cannot provide a reliable data-based insight yet. Ask about "
+                    "current approved livestock totals, disease or mortality summaries, or the MAO review queue, "
+                    "or choose one of the suggested questions below."
+                )
             try:
                 from .nlp_intent_model import suggest_questions
                 response["suggestions"] = suggest_questions(
@@ -1047,7 +1225,10 @@ def execute_question(question, *, user, today=None):
     if intent == "farmer_livestock_count":
         if role_name(user) not in ("MAO", "ADMIN"):
             raise PermissionDenied("Only MAO and Admin users can query livestock counts for individual farmers.")
-        return _farmer_livestock_count(question, parameters)
+        response = _farmer_livestock_count(question, parameters)
+        if parsed.get("ai_interpretation"):
+            response["ai_interpretation"] = parsed["ai_interpretation"]
+        return response
     if intent == "pending_reviews":
         if role_name(user) not in ("MAO", "ADMIN"):
             raise PermissionDenied("Your role cannot access MAO review-queue counts.")

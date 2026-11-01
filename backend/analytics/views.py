@@ -144,6 +144,7 @@ class AskSmartLivestockSerializer(serializers.Serializer):
     """Keep the natural-language input small and predictable before parsing."""
     question = serializers.CharField(max_length=500, allow_blank=False, trim_whitespace=True)
     explain = serializers.BooleanField(required=False, default=False)
+    interpret_with_ai = serializers.BooleanField(required=False, default=False)
 
 
 @api_view(["POST"])
@@ -154,7 +155,11 @@ def nlp_query(request):
     serializer.is_valid(raise_exception=True)
     # Retrieve the factual answer first. Passing request.user lets the service
     # enforce the MAO role and its data-access rules before running a handler.
-    result = execute_question(serializer.validated_data["question"], user=request.user)
+    result = execute_question(
+        serializer.validated_data["question"],
+        user=request.user,
+        interpret_with_ai=serializer.validated_data["interpret_with_ai"],
+    )
     # The UI's explain flag requests optional prose; the explanation service
     # still checks both deployment gates before sending any aggregates to Groq.
     if serializer.validated_data["explain"]:
