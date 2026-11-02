@@ -35,6 +35,7 @@ import {
   ChevronDown,
   ClipboardCheck,
   Clock,
+  Database,
   FileBarChart,
   FileSpreadsheet,
   FileText,
@@ -59,6 +60,7 @@ import {
   Sparkles,
   Stethoscope,
   TrendingUp,
+  UploadCloud,
   User as UserIcon,
   Users,
 } from 'lucide-react';
@@ -69,30 +71,6 @@ import { MOBILE_NAV_EVENT } from './mobile-nav-open';
 
 const CowHeadIcon = ({ className }: { className?: string }) => (
   <Icon iconNode={cowHead} className={className} />
-);
-
-const DiseaseIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="5" />
-    <path d="M12 2v3m0 14v3M2 12h3m14 0h3" />
-    <path d="m4.93 4.93 2.12 2.12m9.9 9.9 2.12 2.12M4.93 19.07l2.12-2.12m9.9-9.9 2.12-2.12" />
-    <circle cx="12" cy="2" r="0.8" />
-    <circle cx="12" cy="22" r="0.8" />
-    <circle cx="2" cy="12" r="0.8" />
-    <circle cx="22" cy="12" r="0.8" />
-    <circle cx="4.93" cy="4.93" r="0.8" />
-    <circle cx="19.07" cy="19.07" r="0.8" />
-    <circle cx="4.93" cy="19.07" r="0.8" />
-    <circle cx="19.07" cy="4.93" r="0.8" />
-  </svg>
-);
-
-const MortalityIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 21V9a7 7 0 0 1 14 0v12Z" />
-    <path d="M12 8v7m-2.5-4.5h5" />
-    <path d="M3 21h18" />
-  </svg>
 );
 
 interface SidebarProps {
@@ -129,22 +107,19 @@ const adminLinks: SidebarLink[] = [
     icon: Users,
   },
   {
-    path: '/data-overview',
+    path: '/livestock-records',
     label: 'Livestock Records',
     icon: CowHeadIcon,
-    subLinks: [
-      { path: '/data-overview?tab=inventory', label: 'Individual Records', icon: CowHeadIcon },
-      { path: '/data-validation/batches', label: 'Herd Records', icon: Users },
-    ],
   },
   {
-    path: '/data-overview?tab=disease',
-    label: 'Health Reports',
+    path: '/disease-mortality',
+    label: 'Disease & Mortality',
     icon: ShieldPlus,
-    subLinks: [
-      { path: '/data-overview?tab=disease', label: 'Disease Reports', icon: DiseaseIcon },
-      { path: '/data-overview?tab=mortality', label: 'Mortality Reports', icon: MortalityIcon },
-    ],
+  },
+  {
+    path: '/data-overview',
+    label: 'System Data',
+    icon: Database,
   },
   {
     path: '/ownership-transfers',
@@ -178,6 +153,11 @@ const adminLinks: SidebarLink[] = [
     path: '/reports',
     label: 'Report Generation',
     icon: FileBarChart,
+  },
+  {
+    path: '/data-uploads',
+    label: 'Data Upload',
+    icon: UploadCloud,
   },
   {
     path: '/news-announcements',
@@ -249,7 +229,7 @@ function getRoleBadge(role: SidebarProps['role']): { label: string; bg: string; 
     case 'slaughterhouse':
       return { label: 'Slaughterhouse Staff', bg: 'bg-rose-400/20', text: 'text-rose-200' };
     default:
-      return { label: 'MAO ADMIN', bg: 'bg-emerald-950/80 border border-emerald-500/30', text: 'text-emerald-200' };
+      return { label: 'MAO Admin', bg: 'bg-white/20', text: 'text-white' };
   }
 }
 
@@ -331,7 +311,7 @@ function SidebarNav({
   };
 
   return (
-    <div className="flex flex-col h-full select-none bg-[#0B331B] border-r border-[#0D3D20] text-white">
+    <div className="flex flex-col h-full select-none bg-[#1E4D2B] border-r border-[#163b21] text-white">
       {/* Top Header Logo */}
       <div
         className={cn(
@@ -344,8 +324,8 @@ function SidebarNav({
         )}
       >
         <div className={cn("flex items-center min-w-0", collapsed ? "justify-center" : "gap-3")}>
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-[#0B331B] shadow-md shadow-black/20 ring-2 ring-white/20 transition-transform duration-200 hover:scale-105">
-            <Icon iconNode={cowHead} className="size-5.5 text-[#0B331B]" />
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-[#1E4D2B] shadow-md shadow-black/20 ring-2 ring-white/20 transition-transform duration-200 hover:scale-105">
+            <Icon iconNode={cowHead} className="size-5.5 text-[#1E4D2B]" />
           </div>
 
           <div
@@ -412,24 +392,24 @@ function SidebarNav({
               <div key={link.path} className="space-y-1">
                 <div
                   className={cn(
-                    "group relative flex items-center justify-between px-3.5 py-2.5 rounded-2xl font-medium transition-all duration-200 cursor-pointer select-none",
+                    "group relative flex items-center justify-between px-3.5 py-2.5 rounded-2xl font-semibold transition-all duration-200 cursor-pointer select-none",
                     role === "sibat" || role === "farmer" ? "min-h-14 py-3 text-base" : "py-2.5 text-sm",
                     isActive && !isDropdownOpen
-                      ? "bg-[#7eedb6] text-[#062E16] font-bold shadow-md shadow-emerald-950/20 scale-[1.01]"
-                      : "text-white/90 hover:bg-white/10 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
+                      ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs scale-[1.01]"
+                      : "text-emerald-100/75 hover:bg-white/10 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
                   )}
                   onClick={(e) => toggleDropdown(link.path, e)}
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1 truncate">
-                    <Icon className={cn("size-5 shrink-0 transition-transform duration-200 group-hover:scale-110", isActive && !isDropdownOpen ? "text-[#062E16]" : "text-white")} />
-                    <span className="truncate whitespace-nowrap text-sm font-medium">{link.label}</span>
+                    <Icon className={cn("size-5 shrink-0 transition-transform duration-200 group-hover:scale-110", isActive && !isDropdownOpen ? "text-emerald-300 scale-105" : "text-emerald-200/70 group-hover:text-white")} />
+                    <span className="truncate whitespace-nowrap text-sm font-semibold">{link.label}</span>
                   </div>
 
-                  <span className="p-1 rounded-lg text-white/70 group-hover:text-white transition-colors">
+                  <span className="p-1 rounded-lg text-emerald-200/70 hover:text-white transition-colors">
                     <ChevronDown
                       className={cn(
                         "size-4 transition-transform duration-200",
-                        isDropdownOpen ? "rotate-180 text-white" : "text-white/70"
+                        isDropdownOpen ? "rotate-180 text-emerald-300" : "text-emerald-200/50"
                       )}
                     />
                   </span>
@@ -445,7 +425,7 @@ function SidebarNav({
                   )}
                 >
                   <div className="overflow-hidden">
-                    <div className="relative ml-5 pl-3.5 my-1 border-l-2 border-emerald-500/40 space-y-1">
+                    <div className="relative ml-5 pl-3.5 my-1 border-l-2 border-emerald-400/25 space-y-1">
                       {link.subLinks?.map((sub) => {
                         const SubIcon = sub.icon;
                         const sBase = sub.path.split('?')[0];
@@ -459,18 +439,18 @@ function SidebarNav({
                             onClick={() => onNavigate?.()}
                             tabIndex={isDropdownOpen ? 0 : -1}
                             className={cn(
-                              "flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200",
+                              "flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200",
                               role === "sibat" || role === "farmer" ? "py-2.5 text-sm" : "py-2 text-xs",
                               isSubActive
-                                ? "bg-[#7eedb6] text-[#062E16] font-bold shadow-xs scale-[1.01]"
-                                : "text-white/85 hover:bg-white/10 hover:text-white hover:translate-x-1"
+                                ? "bg-emerald-500/25 text-white font-bold border border-emerald-400/30 shadow-xs scale-[1.01]"
+                                : "text-emerald-100/70 hover:bg-white/10 hover:text-white hover:translate-x-1"
                             )}
                           >
                             {SubIcon && (
                               <SubIcon
                                 className={cn(
                                   "size-4 shrink-0 transition-transform duration-200 group-hover:scale-110",
-                                  isSubActive ? "text-[#062E16]" : "text-white/80 group-hover:text-white"
+                                  isSubActive ? "text-emerald-300" : "text-emerald-200/70 group-hover:text-white"
                                 )}
                               />
                             )}
@@ -498,33 +478,37 @@ function SidebarNav({
               title={collapsed ? link.label : undefined}
               onClick={() => onNavigate?.()}
               className={cn(
-                "group relative flex items-center rounded-2xl font-medium transition-all duration-200 select-none",
+                "group relative flex items-center rounded-2xl font-semibold transition-all duration-200 select-none",
                 collapsed ? "justify-center gap-0 px-0 py-3" : "gap-3 px-3.5 py-2.5",
                 role === "sibat" || role === "farmer" ? "min-h-14 py-3 text-base" : "py-2.5 text-sm",
                 isActive
-                  ? "bg-[#7eedb6] text-[#062E16] font-bold shadow-md shadow-emerald-950/20 scale-[1.01]"
-                  : "text-white/90 hover:bg-white/10 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
+                  ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs scale-[1.01]"
+                  : "text-emerald-100/75 hover:bg-white/10 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
               )}
             >
               <Icon
                 className={cn(
                   "size-5 shrink-0 transition-transform duration-200 group-hover:scale-110",
-                  isActive ? "text-[#062E16]" : "text-white"
+                  isActive ? "text-emerald-300 scale-105" : "text-emerald-200/70 group-hover:text-white"
                 )}
               />
               <span
                 className={cn(
-                  "truncate whitespace-nowrap text-sm font-medium transition-all duration-200",
+                  "truncate whitespace-nowrap text-sm font-semibold transition-all duration-200",
                   collapsed ? "opacity-0 w-0 max-w-0 pointer-events-none" : "opacity-100 max-w-[200px]"
                 )}
               >
                 {link.label}
               </span>
 
+              {isActive && !collapsed && (
+                <span className="ml-auto size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" />
+              )}
+
               {link.hasNotificationDot && !collapsed && (
                 <span className="ml-auto relative flex size-2.5 shrink-0">
                   <span className="absolute inline-flex size-full animate-ping rounded-full bg-rose-400 opacity-75 motion-reduce:animate-none" />
-                  <span className="relative inline-flex size-2.5 rounded-full bg-rose-500 ring-2 ring-[#0B331B]" />
+                  <span className="relative inline-flex size-2.5 rounded-full bg-rose-500 ring-2 ring-[#1E4D2B]" />
                 </span>
               )}
             </Link>
@@ -878,7 +862,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
             }
           }}
           className={cn(
-            "fixed inset-y-0 left-0 flex flex-col bg-[#0B331B] text-white border-r border-[#0D3D20] overflow-hidden transform-gpu transition-[width,box-shadow] duration-200 ease-in-out",
+            "fixed inset-y-0 left-0 flex flex-col bg-[#2D5A27] text-white border-r border-white/10 overflow-hidden transform-gpu transition-[width,box-shadow] duration-200 ease-in-out",
             isPinned
               ? "z-[var(--z-sidebar)] shadow-xl"
               : isHovered || desktopProfilePopoverOpen
@@ -905,7 +889,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
 
       {/* Mobile — slide-over sheet drawer (Elevated to z-[var(--z-sidebar)] to sit cleanly above mobile map views) */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent ref={setMobileSheetContent} side="left" className="w-[min(20rem,88vw)] p-0 border-0 bg-[#0B331B] z-[var(--z-dialog)] [&>button]:top-4 [&>button]:right-4 [&>button]:inline-flex [&>button]:size-11 [&>button]:items-center [&>button]:justify-center [&>button]:p-0 [&>button]:text-white">
+        <SheetContent ref={setMobileSheetContent} side="left" className="w-[min(20rem,88vw)] p-0 border-0 bg-[#2D5A27] z-[var(--z-dialog)] [&>button]:top-4 [&>button]:right-4 [&>button]:inline-flex [&>button]:size-11 [&>button]:items-center [&>button]:justify-center [&>button]:p-0 [&>button]:text-white">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarNav
             collapsed={false}
@@ -968,7 +952,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={confirmLogout}
-                  className="h-11 rounded-xl border border-rose-300/20 bg-gradient-to-r from-rose-600 to-orange-500 px-5 font-semibold text-white shadow-lg shadow-rose-950/40 transition-all hover:from-rose-500 hover:to-orange-400 focus-visible:ring-2 focus-visible:ring-rose-300"
+                  className="h-11 rounded-xl border border-emerald-400/30 bg-gradient-to-r from-[#1E4D2B] via-emerald-800 to-emerald-600 px-5 font-semibold text-white shadow-lg shadow-emerald-950/25 transition-all hover:from-[#163b21] hover:to-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-400 cursor-pointer"
                 >
                   <LogOut className="mr-2 size-4" />
                   Sign Out
