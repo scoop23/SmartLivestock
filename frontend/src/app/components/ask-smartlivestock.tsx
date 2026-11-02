@@ -24,9 +24,11 @@ import {
   Sparkles,
   Terminal,
   TrendingUp,
+  X,
   Zap,
 } from "lucide-react";
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type ResultRow = Record<string, string | number | null>;
@@ -364,49 +366,119 @@ export interface AskSmartLivestockProps {
   collapsible?: boolean;
   defaultOpen?: boolean;
   className?: string;
+  floating?: boolean;
 }
 
 export function AskSmartLivestock({
   collapsible = true,
   defaultOpen = false,
   className = "",
+  floating = false,
 }: AskSmartLivestockProps = {}) {
   const { user } = useAuth();
   const examples = EXAMPLES;
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState<AskResponse | null>(null);
+  const [resultPopupOpen, setResultPopupOpen] = useState(true);
+  const [isClosingResult, setIsClosingResult] = useState(false);
+  const [isClosingAssistant, setIsClosingAssistant] = useState(false);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const closeAssistantTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleCloseResult = useCallback(() => {
+    if (isClosingResult || !resultPopupOpen) return;
+    setIsClosingResult(true);
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    closeTimeoutRef.current = setTimeout(() => {
+      setResultPopupOpen(false);
+      setIsClosingResult(false);
+    }, 250);
+  }, [isClosingResult, resultPopupOpen]);
+
+  const handleOpenResult = useCallback(() => {
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    setIsClosingResult(false);
+    setResultPopupOpen(true);
+  }, []);
+
+  const handleCloseAssistant = useCallback(() => {
+    if (isClosingAssistant || !isOpen) return;
+    setIsClosingAssistant(true);
+    if (closeAssistantTimeoutRef.current) clearTimeout(closeAssistantTimeoutRef.current);
+    closeAssistantTimeoutRef.current = setTimeout(() => {
+      setIsOpen(false);
+      setIsClosingAssistant(false);
+      setResultPopupOpen(false);
+      setIsClosingResult(false);
+    }, 200);
+  }, [isClosingAssistant, isOpen]);
+
+  const handleOpenAssistant = useCallback(() => {
+    if (closeAssistantTimeoutRef.current) clearTimeout(closeAssistantTimeoutRef.current);
+    setIsClosingAssistant(false);
+    setIsOpen(true);
+    setTimeout(() => questionInput.current?.focus(), 100);
+  }, []);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resultExpanded, setResultExpanded] = useState(true);
   const [draftNotice, setDraftNotice] = useState("");
   const [explainWithAI, setExplainWithAI] = useState(false);
   const [interpretWithAI, setInterpretWithAI] = useState(false);
   const questionInput = useRef<HTMLInputElement>(null);
-  const resultContentId = useId();
   const panelContentId = useId();
   // A ref changes immediately; React state alone cannot block same-tick clicks.
   const submitting = useRef(false);
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
-  if (user?.role?.toUpperCase() !== "MAO") return null;
+  useEffect(() => {
+    const handleCustomOpen = () => {
+      handleOpenAssistant();
+    };
+    window.addEventListener("smartlivestock:open", handleCustomOpen);
+    return () => {
+      window.removeEventListener("smartlivestock:open", handleCustomOpen);
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+      if (closeAssistantTimeoutRef.current) clearTimeout(closeAssistantTimeoutRef.current);
+    };
+  }, [handleOpenAssistant]);
 
-  const handleToggle = () => {
-    setIsOpen((prev) => {
-      const next = !prev;
-      if (next) {
-        setTimeout(() => questionInput.current?.focus(), 100);
+  useEffect(() => {
+    if (!floating || !isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (resultPopupOpen && response && !isClosingResult) {
+          handleCloseResult();
+        } else if (!isClosingAssistant) {
+          handleCloseAssistant();
+        }
       }
-      return next;
-    });
-  };
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [floating, isOpen, resultPopupOpen, response, isClosingResult, handleCloseResult, isClosingAssistant, handleCloseAssistant]);
+
+  const handleToggle = useCallback(() => {
+    if (isOpen && !isClosingAssistant) {
+      handleCloseAssistant();
+    } else {
+      handleOpenAssistant();
+    }
+  }, [isOpen, isClosingAssistant, handleCloseAssistant, handleOpenAssistant]);
+
+  const role = user?.role?.toUpperCase();
+  if (role !== "MAO" && role !== "ADMIN") return null;
 
   const ask = async (value: string) => {
     const trimmed = value.trim();
     if (!trimmed || submitting.current) return;
     submitting.current = true;
-    setIsOpen(true);
+    handleOpenAssistant();
     setLoading(true);
-    setResultExpanded(true);
     setError("");
     setDraftNotice("");
     setResponse(null);
@@ -417,6 +489,7 @@ export function AskSmartLivestock({
         interpret_with_ai: interpretWithAI,
       });
       setResponse(result.data);
+      handleOpenResult();
     } catch (caught) {
       const axiosError = caught as AxiosError<{ detail?: string; question?: string[] }>;
       setError(axiosError.response?.data?.detail ?? axiosError.response?.data?.question?.[0] ?? "Could not query analytics. Check your connection and try again.");
@@ -431,106 +504,39 @@ export function AskSmartLivestock({
     void ask(question);
   };
 
-  return (
-    <section
-      className={`relative min-w-0 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs transition-all duration-200 ${
-        collapsible && !isOpen ? "p-3.5 sm:p-4" : "p-4 sm:p-6"
-      } ${className}`}
-      aria-label="Ask SmartLivestock analytics assistant"
-      aria-busy={loading}
-    >
-      {/* Background Subtle Cyber Glow */}
-      <div className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full bg-emerald-500/5 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 -left-24 size-64 rounded-full bg-cyan-500/5 blur-3xl" />
-
-      {/* Header Bar */}
-      <div
-        className={`relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${
-          collapsible && !isOpen ? "" : "mb-4"
-        }`}
-      >
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-              <Cpu className="size-3 text-emerald-600" />
-              NEURAL QUERY CO-PILOT
-            </span>
-            <span className="font-mono text-xs text-slate-400">{"RULES + OPTIONAL GROQ // VALIDATED ORM"}</span>
-          </div>
-          <h2 className="mt-1 text-base font-black tracking-tight text-slate-900 sm:text-lg">Ask SmartLivestock</h2>
-          <p id="ask-help" className="text-xs font-medium leading-relaxed text-slate-500">
-            Ask for livestock totals across all species or by type, plus disease, mortality, and MAO review summaries. Farmer milk and meat-yield logs are private.
-          </p>
-        </div>
-
-        {collapsible && (
-          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
-            {response && !isOpen && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 font-mono text-[10px] font-bold text-emerald-800">
-                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Result ready
-              </span>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleToggle}
-              aria-expanded={isOpen}
-              aria-controls={panelContentId}
-              className={`h-9 shrink-0 gap-1.5 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer ${
-                isOpen
-                  ? "border-slate-200 bg-white text-slate-700 shadow-2xs hover:bg-slate-50"
-                  : "border-emerald-300/90 bg-emerald-50/80 text-emerald-900 shadow-2xs hover:bg-emerald-100 hover:border-emerald-400"
-              }`}
-            >
-              {isOpen ? (
-                <>
-                  <span>Hide Assistant</span>
-                  <ChevronUp className="size-3.5 text-slate-500" />
-                </>
-              ) : (
-                <>
-                  <Sparkles className="size-3.5 text-emerald-600" />
-                  <span>Open Assistant</span>
-                  <ChevronDown className="size-3.5 text-emerald-700" />
-                </>
-              )}
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {(!collapsible || isOpen) && (
-        <div id={panelContentId} className="animate-in fade-in slide-in-from-top-1 duration-200">
-          {/* Query Input Terminal Form */}
-      <form onSubmit={handleSubmit} className="relative flex flex-col gap-2 sm:flex-row">
-        <div className="min-w-0 flex-1">
+  const renderQueryControls = () => (
+    <div className="space-y-3">
+      {/* Sentence-Wide Query Input Form */}
+      <form onSubmit={handleSubmit} className="relative flex flex-col gap-2.5">
+        <div className="relative w-full">
           <Label htmlFor="analytics-question" className="sr-only">Your analytics question</Label>
-          <div className="relative">
-            <Terminal className="pointer-events-none absolute left-3.5 top-3.5 size-4 text-slate-400" />
-            <Input
-              ref={questionInput}
-              id="analytics-question"
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-              maxLength={500}
-              aria-label="Ask a livestock analytics question"
-              aria-describedby="ask-help"
-              placeholder="Query livestock counts, disease, mortality, or MAO review workload…"
-              className="h-11 rounded-xl pl-10 pr-4 font-mono text-xs sm:text-sm focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30"
-              disabled={loading}
-            />
-          </div>
+          <Terminal className="pointer-events-none absolute left-3.5 top-3.5 size-4 text-slate-400" />
+          <Input
+            ref={questionInput}
+            id="analytics-question"
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            maxLength={500}
+            aria-label="Ask a livestock analytics question"
+            aria-describedby="ask-help"
+            placeholder="Query livestock counts, disease, mortality, or MAO review workload…"
+            className="h-12 w-full rounded-xl pl-10 pr-4 font-mono text-xs sm:text-sm focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30"
+            disabled={loading}
+          />
         </div>
-        <Button
-          type="submit"
-          disabled={loading || !question.trim()}
-          className="h-11 shrink-0 rounded-xl bg-gradient-to-r from-[#2D5A27] to-[#1f3f1b] px-5 text-xs font-bold text-white shadow-xs hover:from-[#244a20] hover:to-[#183115] sm:text-sm"
-        >
-          {loading ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4 text-emerald-300" />}
-          {loading ? "Decoding Telemetry…" : "Query Intelligence"}
-        </Button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="font-mono text-[11px] text-slate-400">
+            Press <kbd className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">Enter ↵</kbd> to query
+          </span>
+          <Button
+            type="submit"
+            disabled={loading || !question.trim()}
+            className="h-10 shrink-0 rounded-xl bg-gradient-to-r from-[#2D5A27] to-[#1f3f1b] px-5 text-xs font-bold text-white shadow-xs hover:from-[#244a20] hover:to-[#183115] sm:text-sm cursor-pointer ml-auto"
+          >
+            {loading ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4 text-emerald-300" />}
+            {loading ? "Decoding Telemetry…" : "Query Intelligence"}
+          </Button>
+        </div>
       </form>
 
       {/* Groq Interpretation Toggle: exact question text may leave the application. */}
@@ -619,51 +625,18 @@ export function AskSmartLivestock({
           </AlertDescription>
         </Alert>
       ) : null}
+    </div>
+  );
 
-      {/* ----------------------------------------------------------------- */}
-      {/* FUTURISTIC RESULT CONSOLE READOUT                                */}
-      {/* ----------------------------------------------------------------- */}
-      {response ? (
-        <div className="relative mt-5 overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-white via-slate-50/30 to-emerald-50/15 shadow-xs animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
-          {/* Subtle Cyber Glowing Background Orbs */}
-          <div className="pointer-events-none absolute -right-20 -top-20 size-56 rounded-full bg-emerald-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 -left-20 size-56 rounded-full bg-cyan-500/10 blur-3xl" />
+  const renderResultConsole = () => {
+    if (!response) return null;
+    return (
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-white via-slate-50/30 to-emerald-50/15 p-4 sm:p-5 shadow-xs animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
+        {/* Subtle Cyber Glowing Background Orbs */}
+        <div className="pointer-events-none absolute -right-20 -top-20 size-56 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-20 size-56 rounded-full bg-cyan-500/10 blur-3xl" />
 
-          <div className="relative z-10 flex flex-col gap-2 border-b border-emerald-500/10 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:p-4">
-            <div className="min-w-0 flex-1">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                <span className="relative flex size-2">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75 motion-reduce:animate-none" />
-                  <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
-                </span>
-                Query result ready
-              </span>
-              {!resultExpanded ? (
-                <p className="mt-1.5 line-clamp-2 text-xs font-semibold leading-relaxed text-slate-700">{response.answer}</p>
-              ) : null}
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              aria-expanded={resultExpanded}
-              aria-controls={resultContentId}
-              onClick={() => setResultExpanded((expanded) => !expanded)}
-              className="h-8 shrink-0 rounded-lg border-emerald-200 bg-white/90 px-2.5 font-mono text-[10px] font-bold text-emerald-900 hover:bg-emerald-50"
-            >
-              {resultExpanded ? "Collapse result" : "Show result"}
-              <ChevronDown className={`ml-1 size-3.5 transition-transform duration-300 ${resultExpanded ? "rotate-180" : ""}`} aria-hidden="true" />
-            </Button>
-          </div>
-
-          <div
-            id={resultContentId}
-            className={`relative z-10 grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none ${
-              resultExpanded ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"
-            }`}
-          >
-            <div className="min-h-0 overflow-hidden">
-              <div className="space-y-4 p-4 sm:p-5" aria-live="polite" aria-hidden={!resultExpanded} inert={!resultExpanded}>
+        <div className="relative z-10 space-y-4" aria-live="polite">
           {response.status === "answered" ? (
             <>
               {/* Telemetry Header HUD Bar */}
@@ -705,12 +678,6 @@ export function AskSmartLivestock({
                 {response.interpreted?.filters.livestock_type ? (
                   <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-mono text-[11px] font-semibold text-emerald-800">
                     SPECIES: {response.interpreted.filters.livestock_type}
-                  </span>
-                ) : null}
-
-                {response.interpreted?.filters.production_type ? (
-                  <span className="rounded-md border border-cyan-200 bg-cyan-50 px-2.5 py-1 font-mono text-[11px] font-semibold text-cyan-800">
-                    COMMODITY: {response.interpreted.filters.production_type}
                   </span>
                 ) : null}
 
@@ -808,7 +775,7 @@ export function AskSmartLivestock({
               <Alert variant={response.status === "clarification" ? "default" : "destructive"} className="rounded-xl">
                 <AlertTitle className="font-mono text-xs font-bold uppercase tracking-wider">
                   {response.status === "restricted"
-                    ? "PRIVATE FARMER PRODUCTION DATA"
+                    ? "PRIVATE RECORDS"
                     : response.status === "unsupported"
                     ? "UNSUPPORTED QUERY SCHEMA"
                     : response.status === "not_found"
@@ -867,11 +834,284 @@ export function AskSmartLivestock({
               ) : null}
             </div>
           )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderContent = () => (
+    <div className="space-y-5">
+      {renderQueryControls()}
+      {response ? renderResultConsole() : null}
+    </div>
+  );
+
+  if (floating) {
+    if (!isMounted) return null;
+
+    const floatingContent = (
+      <>
+        {/* Backdrop for click-outside */}
+        {(isOpen || isClosingAssistant) && (
+          <div
+            className={`fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-[1px] transition-all ${
+              isClosingAssistant
+                ? "animate-out fade-out-0 duration-200 fill-mode-forwards pointer-events-none"
+                : "animate-in fade-in duration-200"
+            }`}
+            onClick={handleCloseAssistant}
+            aria-hidden="true"
+          />
+        )}
+
+        {/* Floating Dual-Pane Container anchored to bottom-right */}
+        {(isOpen || isClosingAssistant) && (
+          <div className="fixed bottom-20 sm:bottom-22 right-3 sm:right-6 z-50 flex flex-row-reverse items-end gap-3 pointer-events-none [&>*]:pointer-events-auto max-w-[calc(100vw-1.5rem)]">
+            {/* 1. Right Pane: AskSmartLivestock Query Console (Pinned directly above the FAB) */}
+            <div
+              id={panelContentId}
+              role="dialog"
+              aria-modal="false"
+              aria-label="Ask SmartLivestock analytics assistant"
+              className={`w-[calc(100vw-1.5rem)] sm:w-[540px] md:w-[600px] lg:w-[640px] max-h-[calc(100dvh-6.5rem)] flex flex-col rounded-3xl border border-emerald-300/80 bg-white shadow-2xl shadow-slate-950/30 overflow-hidden shrink-0 transition-all ${
+                isClosingAssistant
+                  ? "animate-out fade-out-0 zoom-out-95 slide-out-to-bottom-4 duration-200 ease-in fill-mode-forwards pointer-events-none"
+                  : "animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-200"
+              }`}
+            >
+              {/* Ambient subtle glow accents */}
+              <div className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full bg-emerald-500/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-24 -left-24 size-64 rounded-full bg-cyan-500/10 blur-3xl" />
+
+              {/* Header */}
+              <div className="relative border-b border-emerald-100 bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white px-4 sm:px-5 py-3 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="size-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <Sparkles className="size-4.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
+                        Ask SmartLivestock
+                      </h3>
+                      <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-50/80 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-emerald-800">
+                        MAO Intelligence
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 font-medium truncate">
+                      Natural language queries for livestock inventory, surveillance & approvals
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleCloseAssistant}
+                  className="size-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer shrink-0"
+                  aria-label="Close Ask SmartLivestock assistant"
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+
+              {/* Scrollable Query Area */}
+              <div className="overflow-y-auto p-4 sm:p-5 space-y-4 max-h-[calc(100dvh-12rem)] min-h-0 flex-1">
+                {renderQueryControls()}
+
+                {/* Status indicator linking to the left result slide pane on desktop */}
+                {response && (
+                  <div className="hidden lg:flex items-center justify-between p-3 rounded-xl bg-emerald-50/80 border border-emerald-200/90 text-xs text-emerald-900 font-medium animate-in fade-in">
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Result slide pane active on left
+                    </span>
+                    {!resultPopupOpen && !isClosingResult && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleOpenResult}
+                        className="h-7 text-[11px] font-bold border-emerald-300 bg-white hover:bg-emerald-100 cursor-pointer"
+                      >
+                        Slide Out Result ←
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {/* On mobile screens (< lg), display the result inside this popup */}
+                {response && (
+                  <div className="lg:hidden pt-2">
+                    {renderResultConsole()}
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* 2. Left Slide Pane: Result Pane (Appears on the left side of AskSmartLivestock with slide pane animation) */}
+            {response && (resultPopupOpen || isClosingResult) && (
+              <div
+                id={`${panelContentId}-result`}
+                role="dialog"
+                aria-modal="false"
+                aria-label="SmartLivestock query result slide pane"
+                className={`hidden lg:flex w-[520px] xl:w-[600px] max-w-[calc(100vw-44rem)] max-h-[calc(100dvh-6.5rem)] flex-col rounded-3xl border border-emerald-300/80 bg-white shadow-2xl shadow-slate-950/30 overflow-hidden shrink-0 transition-all ${
+                  (isClosingResult || isClosingAssistant)
+                    ? "animate-out fade-out-0 slide-out-to-right-8 duration-200 ease-in fill-mode-forwards pointer-events-none"
+                    : "animate-in fade-in slide-in-from-right-8 duration-300 ease-out fill-mode-both"
+                }`}
+              >
+                {/* Ambient subtle glow accents */}
+                <div className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full bg-emerald-500/10 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-24 -left-24 size-64 rounded-full bg-cyan-500/10 blur-3xl" />
+
+                {/* Header */}
+                <div className="relative border-b border-emerald-100 bg-gradient-to-r from-emerald-50/90 via-teal-50/50 to-white px-4 sm:px-5 py-3 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="size-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 text-white flex items-center justify-center shadow-xs shrink-0">
+                      <Sparkles className="size-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
+                          Query Result
+                        </h3>
+                        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-50/80 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-emerald-800">
+                          Telemetry HUD
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-medium truncate">
+                        {response.question}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleCloseResult}
+                    className="size-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer shrink-0"
+                    aria-label="Close result slide pane"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+
+                {/* Scrollable Results Area */}
+                <div className="overflow-y-auto p-4 sm:p-5 space-y-4 max-h-[calc(100dvh-12rem)] min-h-0 flex-1">
+                  {renderResultConsole()}
+                </div>
+              </div>
+            )}
           </div>
+        )}
+
+        {/* Floating Action Button (FAB) in the bottom right as usual */}
+        <button
+          type="button"
+          onClick={handleToggle}
+          aria-expanded={isOpen && !isClosingAssistant}
+          aria-controls={panelContentId}
+          aria-label={isOpen && !isClosingAssistant ? "Close Ask SmartLivestock assistant" : "Open Ask SmartLivestock assistant"}
+          className={`fixed bottom-5 sm:bottom-6 right-4 sm:right-6 z-50 group flex items-center gap-2.5 rounded-full px-4 sm:px-4.5 py-3 text-white shadow-xl shadow-emerald-950/25 hover:shadow-2xl hover:shadow-emerald-700/35 hover:scale-[1.03] active:scale-95 transition-all duration-200 border-2 cursor-pointer ${
+            isOpen && !isClosingAssistant
+              ? "bg-slate-900 border-slate-700 hover:bg-slate-800"
+              : "bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-700 border-emerald-300/40 ring-4 ring-emerald-500/15"
+          }`}
+        >
+          <span className="relative flex size-5.5 items-center justify-center shrink-0">
+            {isOpen && !isClosingAssistant ? (
+              <X className="size-5 text-white" />
+            ) : (
+              <>
+                <Sparkles className="size-5 text-emerald-100 group-hover:rotate-12 transition-transform duration-300" />
+                <span className="absolute -top-1 -right-1 size-2 rounded-full bg-teal-300 animate-ping" />
+                <span className="absolute -top-1 -right-1 size-2 rounded-full bg-teal-300" />
+              </>
+            )}
+          </span>
+
+          <span className="font-extrabold text-xs sm:text-sm tracking-tight pr-0.5 whitespace-nowrap">
+            {isOpen && !isClosingAssistant ? "Close Assistant" : "Ask SmartLivestock"}
+          </span>
+
+        </button>
+      </>
+    );
+
+    return createPortal(floatingContent, document.body);
+  }
+
+  return (
+    <section
+      className={`relative min-w-0 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs transition-all duration-200 ${
+        collapsible && !isOpen ? "p-3.5 sm:p-4" : "p-4 sm:p-6"
+      } ${className}`}
+      aria-label="Ask SmartLivestock analytics assistant"
+      aria-busy={loading}
+    >
+      {/* Background Subtle Cyber Glow */}
+      <div className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full bg-emerald-500/5 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -left-24 size-64 rounded-full bg-cyan-500/5 blur-3xl" />
+
+      {/* Header Bar */}
+      <div
+        className={`relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${
+          collapsible && !isOpen ? "" : "mb-4"
+        }`}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+              <Cpu className="size-3 text-emerald-600" />
+              QUICK DATA QUESTIONS
+            </span>
+            <span className="font-mono text-xs text-slate-400">{"APPROVED RECORDS"}</span>
+          </div>
+          <h2 className="mt-1 text-base font-black tracking-tight text-slate-900 sm:text-lg">Ask SmartLivestock</h2>
+          <p id="ask-help" className="text-xs font-medium leading-relaxed text-slate-500">
+            Ask about livestock totals, disease and death reports, or MAO reviews. Answers use records you are allowed to view.
+          </p>
         </div>
-      ) : null}
+
+        {collapsible && (
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleToggle}
+              aria-expanded={isOpen}
+              aria-controls={panelContentId}
+              className={`h-9 shrink-0 gap-1.5 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer ${
+                isOpen
+                  ? "border-slate-200 bg-white text-slate-700 shadow-2xs hover:bg-slate-50"
+                  : "border-emerald-300/90 bg-emerald-50/80 text-emerald-900 shadow-2xs hover:bg-emerald-100 hover:border-emerald-400"
+              }`}
+            >
+              {isOpen ? (
+                <>
+                  <span>Hide Assistant</span>
+                  <ChevronUp className="size-3.5 text-slate-500" />
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-3.5 text-emerald-600" />
+                  <span>Open Assistant</span>
+                  <ChevronDown className="size-3.5 text-emerald-700" />
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {(!collapsible || isOpen) && (
+        <div id={panelContentId} className="animate-in fade-in slide-in-from-top-1 duration-200">
+          {renderContent()}
         </div>
       )}
     </section>

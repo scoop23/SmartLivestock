@@ -24,7 +24,7 @@ SlaughterRecord
 
 // Modular Components
 import { fetchInspections } from "@/app/(auction)/auction-inspections/auction-analytics";
-import { ValidationLoadingScreen,useLoadingScreenTransition } from "@/components/validation-loading-screen";
+import { ValidationLoadingScreen, useSeamlessLoadingState } from "@/components/validation-loading-screen";
 import api from "@/lib/axios";
 import { Activity,Boxes,Database,FileSpreadsheet,Layers } from "lucide-react";
 import { DataOverviewCards } from "./data-overview-cards";
@@ -161,7 +161,10 @@ export default function DataOverviewPage() {
     (isSlaughterLoading && !rawSlaughter) ||
     (isCenLoading && !rawCensus) ||
     (isIncLoading && !rawIncidents);
-  const keepLoadingScreenMounted = useLoadingScreenTransition(isInitialLoading);
+  const { keepLoadingScreenMounted, showContent } = useSeamlessLoadingState(isInitialLoading, {
+    exitDurationMs: 500,
+    contentDelayMs: 200,
+  });
 
   // Combine backend records with seed datasets
   const livestockList: LivestockRecord[] = useMemo(() => {
@@ -1118,59 +1121,6 @@ export default function DataOverviewPage() {
     toast.success(`Exported ${filteredData.length} records in ${activeTab} to CSV`);
   };
 
-  if (isInitialLoading || keepLoadingScreenMounted) {
-    return (
-      <>
-        <PageHeader
-          title="Municipal System Data Overview"
-          subtitle="Consolidated livestock master registry, market trades & biosecurity intelligence — Padre Garcia MAO"
-          variant="admin"
-          maxWidthClass="w-full"
-          icon={<Database className="size-5 text-slate-800" />}
-        />
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-          <ValidationLoadingScreen
-            isLoading={isInitialLoading}
-            title="Synchronizing Municipal System Data Overview"
-            subtitle="Aggregating live animal registries, herds, biosecurity alerts, and barangay census..."
-            badgeLabel="Live Ledger Sync"
-            authorityText="Padre Garcia Municipal Agriculture Office • Batangas"
-            items={[
-              {
-                id: "inventory",
-                label: "Livestock Inventory",
-                sublabel: "Individual tags & raiser profiles",
-                icon: <Layers className="size-4 shrink-0 text-emerald-700" />,
-                loaded: rawInventory !== undefined,
-              },
-              {
-                id: "batches",
-                label: "Herds",
-                sublabel: "Housing pens & feeding programs",
-                icon: <Boxes className="size-4 shrink-0 text-[#2D5A27]" />,
-                loaded: rawBatches !== undefined,
-              },
-              {
-                id: "census",
-                label: "Barangay Census",
-                sublabel: "Quarterly household surveys",
-                icon: <FileSpreadsheet className="size-4 shrink-0 text-indigo-700" />,
-                loaded: rawCensus !== undefined,
-              },
-              {
-                id: "incidents",
-                label: "Health & Market Events",
-                sublabel: "Disease surveillance & auction records",
-                icon: <Activity className="size-4 shrink-0 text-rose-700" />,
-                loaded: rawIncidents !== undefined,
-              },
-            ]}
-          />
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
       <PageHeader
@@ -1181,7 +1131,52 @@ export default function DataOverviewPage() {
         icon={<Database className="size-5 text-slate-800" />}
       />
 
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="relative min-h-[calc(100vh-10rem)]">
+        {(isInitialLoading || keepLoadingScreenMounted) && (
+          <div className={`w-full px-4 sm:px-6 lg:px-8 py-6 ${showContent ? "absolute inset-0 z-30 pointer-events-none" : ""}`}>
+            <ValidationLoadingScreen
+              isLoading={isInitialLoading}
+              title="Synchronizing Municipal System Data Overview"
+              subtitle="Aggregating live animal registries, herds, biosecurity alerts, and barangay census..."
+              badgeLabel="Live Ledger Sync"
+              authorityText="Padre Garcia Municipal Agriculture Office • Batangas"
+              items={[
+                {
+                  id: "inventory",
+                  label: "Livestock Inventory",
+                  sublabel: "Individual tags & raiser profiles",
+                  icon: <Layers className="size-4 shrink-0 text-emerald-700" />,
+                  loaded: rawInventory !== undefined,
+                },
+                {
+                  id: "batches",
+                  label: "Herds",
+                  sublabel: "Housing pens & feeding programs",
+                  icon: <Boxes className="size-4 shrink-0 text-[#2D5A27]" />,
+                  loaded: rawBatches !== undefined,
+                },
+                {
+                  id: "census",
+                  label: "Barangay Census",
+                  sublabel: "Quarterly household surveys",
+                  icon: <FileSpreadsheet className="size-4 shrink-0 text-indigo-700" />,
+                  loaded: rawCensus !== undefined,
+                },
+                {
+                  id: "incidents",
+                  label: "Health & Market Events",
+                  sublabel: "Disease surveillance & auction records",
+                  icon: <Activity className="size-4 shrink-0 text-rose-700" />,
+                  loaded: rawIncidents !== undefined,
+                },
+              ]}
+            />
+          </div>
+        )}
+
+        {showContent && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
+            <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {failedSources.length > 0 && (
           <div className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between" role="status">
             <div>
@@ -1282,6 +1277,9 @@ export default function DataOverviewPage() {
             items={filteredData}
             onSelectRecord={handleSelectRecord}
           />
+        )}
+            </div>
+          </div>
         )}
       </div>
 

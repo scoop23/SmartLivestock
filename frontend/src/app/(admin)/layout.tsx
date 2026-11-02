@@ -20,6 +20,17 @@ export default function AdminLayout({
   const isAuthorized = role === "MAO" || role === "ADMIN";
 
   const isMapPage = pathname === "/gis-map" || pathname.startsWith("/gis-map");
+  const isAnalyticsPage =
+    pathname === "/analysis" ||
+    pathname.startsWith("/analysis/") ||
+    pathname === "/analytics" ||
+    pathname.startsWith("/analytics/") ||
+    pathname === "/admin/analytics" ||
+    pathname.startsWith("/admin/analytics/") ||
+    pathname === "/admin/census-analytics" ||
+    pathname.startsWith("/admin/census-analytics/");
+
+  const shouldAnimatePage = !isAnalyticsPage && !isMapPage;
 
   useEffect(() => {
     if (isLoading) return;
@@ -69,7 +80,18 @@ export default function AdminLayout({
         onLogout={logout}
       />
 
-      <main className={cn("flex-1 min-w-0", isMapPage ? "h-full max-h-full overflow-hidden" : "overflow-y-auto nexus-ambient-bg")}>{children}</main>
+      <main className={cn("flex-1 min-w-0", isMapPage ? "h-full max-h-full overflow-hidden" : "overflow-y-auto nexus-ambient-bg")}>
+        {shouldAnimatePage ? (
+          <div
+            key={pathname}
+            className="w-full min-w-0 flex flex-col min-h-full animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none"
+          >
+            {children}
+          </div>
+        ) : (
+          children
+        )}
+      </main>
 
       <Toaster />
     </div>

@@ -7,7 +7,7 @@ import { PageHeader } from '@/app/components/page-header';
 import { Button } from "@/components/ui/button";
 import { KpiCard,type KpiVariant } from "@/components/ui/kpi-card";
 import { HoverCard,HoverCardContent,HoverCardTrigger } from "@/components/ui/hover-card";
-import { ValidationLoadingScreen,useLoadingScreenTransition } from '@/components/validation-loading-screen';
+import { ValidationLoadingScreen, useSeamlessLoadingState } from '@/components/validation-loading-screen';
 import { cowHead } from '@lucide/lab';
 import {
   AlertTriangle,
@@ -49,7 +49,10 @@ export default function AdminDashboard() {
     refetchAll,
     dashboardSummaryQuery,
   } = analytics;
-  const keepLoadingScreenMounted = useLoadingScreenTransition(isLoading);
+  const { keepLoadingScreenMounted, showContent } = useSeamlessLoadingState(isLoading, {
+    exitDurationMs: 500,
+    contentDelayMs: 200,
+  });
   const [clockString, setClockString] = useState<string>("");
 
   useEffect(() => {
@@ -70,52 +73,6 @@ export default function AdminDashboard() {
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  if (isLoading || keepLoadingScreenMounted) {
-    return (
-      <>
-        <PageHeader
-          title="LGU/MAO Municipal Dashboard"
-          subtitle="Padre Garcia Municipal Agriculture Office — Livestock Surveillance, Yields & Commercial Trading"
-          variant="admin"
-          maxWidthClass="w-full"
-          icon={<LayoutDashboard className="size-5 text-slate-800" />}
-        />
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-          <ValidationLoadingScreen
-            isLoading={isLoading}
-            title="Synchronizing Municipal Analytics Dashboard"
-            subtitle="Aggregating municipal livestock registries, 17-barangay census surveys, and biosecurity surveillance telemetry..."
-            badgeLabel="Executive Stream Sync"
-            authorityText="Municipal Agriculture Office • Padre Garcia, Batangas"
-            items={[
-              {
-                id: "inventory",
-                label: "Livestock Inventory",
-                sublabel: "Individual tags & herd registrations",
-                icon: <Icon iconNode={cowHead} className="size-4 shrink-0 text-emerald-700" />,
-                loaded: !dashboardSummaryQuery.isLoading && dashboardSummaryQuery.data !== undefined,
-              },
-              {
-                id: "census",
-                label: "Barangay Census Records",
-                sublabel: "17-Barangay household surveys",
-                icon: <FileSpreadsheet className="size-4 shrink-0 text-sky-700" />,
-                loaded: !dashboardSummaryQuery.isLoading && dashboardSummaryQuery.data !== undefined,
-              },
-              {
-                id: "barangays",
-                label: "Geographic Master Directory",
-                sublabel: "17 Municipal territorial sectors",
-                icon: <Map className="size-4 shrink-0 text-purple-700" />,
-                loaded: !dashboardSummaryQuery.isLoading && dashboardSummaryQuery.data !== undefined,
-              },
-            ]}
-          />
-        </div>
-      </>
-    );
-  }
 
   if (isError) {
     return (
@@ -203,42 +160,72 @@ export default function AdminDashboard() {
         icon={<LayoutDashboard className="size-5 text-slate-800" />}
       />
 
-      {/* Upper Micro-Telemetry Banner with Live Realtime Clock (No Transmit Telemetry Button) */}
-      <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-2 sm:px-6 md:px-8">
-        <div className="w-full flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
-          <div className="flex items-center gap-2 font-semibold text-slate-600">
-            <Building className="size-3.5 text-emerald-600" />
-            <span>
-              MUNICIPAL JURISDICTION:{" "}
-              <strong className="font-mono text-slate-900 uppercase">
-                PADRE GARCIA, BATANGAS
-              </strong>
-            </span>
+      <div className="relative min-h-[calc(100vh-10rem)]">
+        {(isLoading || keepLoadingScreenMounted) && (
+          <div className={`w-full px-4 sm:px-6 lg:px-8 py-6 ${showContent ? "absolute inset-0 z-30 pointer-events-none" : ""}`}>
+            <ValidationLoadingScreen
+              isLoading={isLoading}
+              title="Synchronizing Municipal Analytics Dashboard"
+              subtitle="Aggregating municipal livestock registries, 17-barangay census surveys, and biosecurity surveillance telemetry..."
+              badgeLabel="Executive Stream Sync"
+              authorityText="Municipal Agriculture Office • Padre Garcia, Batangas"
+              items={[
+                {
+                  id: "inventory",
+                  label: "Livestock Inventory",
+                  sublabel: "Individual tags & herd registrations",
+                  icon: <Icon iconNode={cowHead} className="size-4 shrink-0 text-emerald-700" />,
+                  loaded: !dashboardSummaryQuery.isLoading && dashboardSummaryQuery.data !== undefined,
+                },
+                {
+                  id: "census",
+                  label: "Barangay Census Records",
+                  sublabel: "17-Barangay household surveys",
+                  icon: <FileSpreadsheet className="size-4 shrink-0 text-sky-700" />,
+                  loaded: !dashboardSummaryQuery.isLoading && dashboardSummaryQuery.data !== undefined,
+                },
+                {
+                  id: "barangays",
+                  label: "Geographic Master Directory",
+                  sublabel: "17 Municipal territorial sectors",
+                  icon: <Map className="size-4 shrink-0 text-purple-700" />,
+                  loaded: !dashboardSummaryQuery.isLoading && dashboardSummaryQuery.data !== undefined,
+                },
+              ]}
+            />
           </div>
+        )}
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
-              <Clock className="size-3.5 text-slate-400" />
-              <span className="tabular-nums font-bold">
-                {clockString || "Loading Manila time…"}
-              </span>
+        {showContent && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
+            {/* Upper Micro-Telemetry Banner with Live Realtime Clock (No Transmit Telemetry Button) */}
+            <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-2 sm:px-6 md:px-8">
+              <div className="w-full flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
+                <div className="flex items-center gap-2 font-semibold text-slate-600">
+                  <Building className="size-3.5 text-emerald-600" />
+                  <span>
+                    MUNICIPAL JURISDICTION:{" "}
+                    <strong className="font-mono text-slate-900 uppercase">
+                      PADRE GARCIA, BATANGAS
+                    </strong>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
+                    <Clock className="size-3.5 text-slate-400" />
+                    <span className="tabular-nums font-bold">
+                      {clockString || "Loading Manila time…"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {user?.role?.toUpperCase() === "MAO" && (
-        <div className="border-b border-slate-200/80 bg-white/95 backdrop-blur-xs">
-          <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
-            <AskSmartLivestock />
-          </div>
-        </div>
-      )}
-
-      {/* Main Content Area */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Executive Stats Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3">
+            {/* Main Content Area */}
+            <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+              {/* Executive Stats Strip */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
           {statsCards.map((stat) => {
             const card = (
               <KpiCard
@@ -302,11 +289,15 @@ export default function AdminDashboard() {
         </div>
 
         {/* ── Visualizations & Charts Matrix ── */}
-        <AdminOperationsView />
-        <AdminChartsView {...analytics} />
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
+          <AdminOperationsView />
+        </div>
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150 fill-mode-both">
+          <AdminChartsView {...analytics} />
+        </div>
 
         {/* ── Generate Reports ── */}
-        <div className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 sm:p-6 shadow-holo-card">
+        <div className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 sm:p-6 shadow-holo-card animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both">
           <div className="flex items-center gap-2 mb-1">
             <FileText className="w-4 h-4 text-[#2D5A27]" />
             <h3 className="font-black text-slate-900 text-sm sm:text-base tracking-tight">Generate Official Reports</h3>
@@ -356,7 +347,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Navigation Footer */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-250 fill-mode-both">
           {[
             { path: '/data-overview', icon: Database, label: 'Data Overview' },
             { path: '/admin/census-analytics', icon: ClipboardList, label: 'Census Analytics' },
@@ -381,6 +372,13 @@ export default function AdminDashboard() {
           ))}
         </div>
       </div>
+          </div>
+        )}
+      </div>
+
+      {user?.role?.toUpperCase() === "MAO" && (
+        <AskSmartLivestock floating />
+      )}
     </>
   );
 }

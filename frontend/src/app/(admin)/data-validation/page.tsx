@@ -29,7 +29,7 @@ useAdminInventoryRecords,
 import { useAdminBarangays } from "@/app/(admin)/admin/admin-charts";
 import { SlaughterReviewQueue } from "@/app/(admin)/slaughter-record-review/slaughter-review-queue";
 import { DataTableSection } from "@/components/ui/data-table-section";
-import { ValidationLoadingScreen } from "@/components/validation-loading-screen";
+import { ValidationLoadingScreen, useSeamlessLoadingState } from "@/components/validation-loading-screen";
 import {
 ActiveDomainTable,
 BulkActionDock,
@@ -105,16 +105,19 @@ function splitHerdInventoryIds(
 }
 
 function AdminValidationLoadingScreen({
+  isLoading = true,
   censusLoaded = false,
   inventoryLoaded = false,
   incidentLoaded = false,
 }: {
+  isLoading?: boolean;
   censusLoaded?: boolean;
   inventoryLoaded?: boolean;
   incidentLoaded?: boolean;
 }) {
   return (
     <ValidationLoadingScreen
+      isLoading={isLoading}
       title="Synchronizing Municipal Validation Records"
       subtitle="Retrieving barangay census submissions, livestock inventory, and field health declarations..."
       items={[
@@ -272,6 +275,10 @@ function AdminDataValidationContent() {
   const isInitialLoading = requestedRecordType
     ? notificationDataset === undefined
     : rawCensusData === undefined || rawInventoryData === undefined || rawIncidentData === undefined;
+  const { keepLoadingScreenMounted, showContent } = useSeamlessLoadingState(isInitialLoading, {
+    exitDurationMs: 500,
+    contentDelayMs: 200,
+  });
 
   // Local state overlays for optimistic updates
   const [localCensusOverrides, setLocalCensusOverrides] = useState<
@@ -993,25 +1000,6 @@ function AdminDataValidationContent() {
     }
   };
 
-  if (isInitialLoading) {
-    return (
-      <>
-        <PageHeader
-          title="Municipal Data Validation Center"
-          subtitle="Official Municipal Agriculture Office (MAO) verification, review, and certification command center"
-          variant="admin"
-          maxWidthClass="w-full"
-          icon={<ShieldCheck className="size-5 text-slate-800" />}
-        />
-        <AdminValidationLoadingScreen
-          censusLoaded={rawCensusData !== undefined}
-          inventoryLoaded={rawInventoryData !== undefined}
-          incidentLoaded={rawIncidentData !== undefined}
-        />
-      </>
-    );
-  }
-
   return (
     <>
       <PageHeader
@@ -1032,11 +1020,25 @@ function AdminDataValidationContent() {
         }
       />
 
-      <div
-        className={`w-full px-4 sm:px-6 lg:px-8 transition-all duration-300 ${
-          isOverviewCollapsed ? "py-4 sm:py-5 space-y-4" : "py-6 space-y-6"
-        } pb-16 sm:pb-6`}
-      >
+      <div className="relative min-h-[calc(100vh-10rem)]">
+        {(isInitialLoading || keepLoadingScreenMounted) && (
+          <div className={`w-full px-4 sm:px-6 lg:px-8 py-6 ${showContent ? "absolute inset-0 z-30 pointer-events-none" : ""}`}>
+            <AdminValidationLoadingScreen
+              isLoading={isInitialLoading}
+              censusLoaded={rawCensusData !== undefined}
+              inventoryLoaded={rawInventoryData !== undefined}
+              incidentLoaded={rawIncidentData !== undefined}
+            />
+          </div>
+        )}
+
+        {showContent && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
+            <div
+              className={`w-full px-4 sm:px-6 lg:px-8 transition-all duration-300 ${
+                isOverviewCollapsed ? "py-4 sm:py-5 space-y-4" : "py-6 space-y-6"
+              } pb-16 sm:pb-6`}
+            >
         {/* Collapsible Overview: KPI Strip & Herds Banner */}
         <div
           className={`transition-all duration-300 ease-in-out pt-2 -mt-2 px-1 -mx-1 ${
@@ -1146,6 +1148,9 @@ function AdminDataValidationContent() {
           />
         </DataTableSection>
           </>
+        )}
+      </div>
+          </div>
         )}
       </div>
 
