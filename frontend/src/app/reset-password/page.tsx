@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import api from '@/lib/axios';
 import { ArrowLeft,CheckCircle2,KeyRound,Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect,useState,type FormEvent } from 'react';
+import { useState,type FormEvent } from 'react';
 
 type ApiError = { response?: { data?: { detail?: string; new_password?: string[] } } };
 
@@ -15,6 +15,7 @@ export default function ResetPasswordPage() {
   const params = new URLSearchParams(useBrowserSearch());
   const uid = params.get('uid') ?? '';
   const token = params.get('token') ?? '';
+  const isInvitation = params.get('mode') === 'invite';
   const linkReady = useClientReady();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -41,7 +42,7 @@ export default function ResetPasswordPage() {
       setComplete(true);
     } catch (requestError) {
       const data = (requestError as ApiError).response?.data;
-      setError(data?.new_password?.join(' ') || data?.detail || 'Could not reset the password. Request a new link and try again.');
+      setError(data?.new_password?.join(' ') || (isInvitation && data?.detail ? 'This invitation link is invalid or expired. Ask MAO/Admin to resend it.' : data?.detail) || 'Could not reset the password. Request a new link and try again.');
     } finally {
       setLoading(false);
     }
@@ -57,10 +58,10 @@ export default function ResetPasswordPage() {
         {complete ? (
           <div className="space-y-4 text-center">
             <CheckCircle2 className="mx-auto size-12 text-emerald-700" />
-            <h1 className="text-2xl font-black tracking-tight text-slate-900">Password updated</h1>
-            <p className="text-sm leading-6 text-slate-600">Your new password is ready. Sign in with it to access SmartLivestock.</p>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900">{isInvitation ? 'Account setup complete' : 'Password updated'}</h1>
+            <p className="text-sm leading-6 text-slate-600">{isInvitation ? 'Your password is saved. Your account will be ready after MAO approves it.' : 'Your new password is ready. Sign in with it to access SmartLivestock.'}</p>
             <Button asChild className="w-full bg-emerald-800 text-white hover:bg-emerald-900">
-              <Link href="/login">Go to sign in</Link>
+              <Link href="/login">{isInvitation ? 'Return to sign in' : 'Go to sign in'}</Link>
             </Button>
           </div>
         ) : !linkReady ? (
@@ -68,8 +69,8 @@ export default function ResetPasswordPage() {
         ) : !uid || !token ? (
           <div className="space-y-4 text-center">
             <KeyRound className="mx-auto size-10 text-amber-600" />
-            <h1 className="text-2xl font-black tracking-tight text-slate-900">Reset link unavailable</h1>
-            <p className="text-sm leading-6 text-slate-600">This link is incomplete. Request a new password reset link from the sign-in page.</p>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900">{isInvitation ? 'Invitation link unavailable' : 'Reset link unavailable'}</h1>
+            <p className="text-sm leading-6 text-slate-600">{isInvitation ? 'This staff invitation link is incomplete. Ask MAO/Admin to send a new setup link.' : 'This link is incomplete. Request a new password reset link from the sign-in page.'}</p>
             <Button asChild className="w-full bg-emerald-800 text-white hover:bg-emerald-900">
               <Link href="/login">Return to sign in</Link>
             </Button>
@@ -78,8 +79,8 @@ export default function ResetPasswordPage() {
           <>
             <div className="mb-6 space-y-2">
               <div className="flex size-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-900"><KeyRound className="size-5" /></div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-900">Choose a new password</h1>
-              <p className="text-sm leading-6 text-slate-600">Use a password you have not used for this account before.</p>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900">{isInvitation ? 'Set your SmartLivestock password' : 'Choose a new password'}</h1>
+              <p className="text-sm leading-6 text-slate-600">{isInvitation ? 'Create a password for your invited staff account. MAO approval is still required before you can sign in.' : 'Use a password you have not used for this account before.'}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -93,7 +94,7 @@ export default function ResetPasswordPage() {
               </div>
               {error ? <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</p> : null}
               <Button type="submit" disabled={loading} className="w-full bg-emerald-800 text-white hover:bg-emerald-900">
-                {loading ? <><Loader2 className="mr-2 size-4 animate-spin" /> Updating password…</> : 'Update password'}
+                {loading ? <><Loader2 className="mr-2 size-4 animate-spin" /> Updating password…</> : isInvitation ? 'Set password' : 'Update password'}
               </Button>
             </form>
           </>

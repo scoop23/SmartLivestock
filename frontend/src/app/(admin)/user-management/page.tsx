@@ -10,9 +10,11 @@ useDeletePendingUser,
 useUpdateSibatAssignment,
 useUpdateUserStatus,
 useUsersDirectory,
+useResendStaffInvitation,
 useVerifyUserDocument,
 userBarangayLabel,
 } from "./user-management";
+import { StaffInvitationDialog } from "./staff-invitation-dialog";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,6 +60,7 @@ Sparkles,
 Trash2,
 UserCheck,
 UserMinus,
+UserPlus,
 Users,
 } from "lucide-react";
 import { useAdminBarangays } from "../admin/admin-charts";
@@ -65,6 +68,16 @@ import { DocumentPreviewDialog } from "./document-preview-dialog";
 import { IdentityEvidencePanel } from "@/components/identity-evidence";
 
 export type { ApiUser,UserAccountStatus,UserDocumentItem };
+
+const isStaffRole = (role: string) => ["CBAT", "AUCTION", "SLAUGHTERHOUSESTAFF"].includes(role);
+const isFieldReviewer = (role: string) => role === "SIBAT" || role === "CBAT";
+const roleLabels: Record<string, string> = {
+  CBAT: "CBAT reviewer",
+  SIBAT: "SIBAT reviewer",
+  AUCTION: "Auction staff",
+  SLAUGHTERHOUSESTAFF: "Slaughterhouse staff",
+};
+const roleLabel = (role: string) => roleLabels[role] || role.replaceAll("_", " ");
 
 export default function UserManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,7 +87,8 @@ export default function UserManagementPage() {
   const [revisionDoc, setRevisionDoc] = useState<UserDocumentItem | null>(null);
   const [revisionReason, setRevisionReason] = useState("");
   const [userToDelete, setUserToDelete] = useState<ApiUser | null>(null);
-  const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "farmer" | "sibat">("all");
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<"all" | "pending" | "farmer" | "field" | "operations">("all");
   const [barangayFilter, setBarangayFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [assignment, setAssignment] = useState("unassigned");
@@ -96,8 +110,10 @@ export default function UserManagementPage() {
   const filteredDirectory = useUsersDirectory({ enabled: hasFilters }, filters);
   const query = hasFilters ? filteredDirectory : directory;
   const { data: filteredUsers = [], isLoading, isFetching, isError, refetch } = query;
-  const matchingUsers = activeFilter === "sibat"
-    ? filteredUsers.filter((user) => user.role === "SIBAT" || user.role === "CBAT")
+  const matchingUsers = activeFilter === "field"
+    ? filteredUsers.filter((user) => isFieldReviewer(user.role))
+    : activeFilter === "operations"
+    ? filteredUsers.filter((user) => ["AUCTION", "SLAUGHTERHOUSESTAFF"].includes(user.role))
     : filteredUsers;
   const users = directory.data || [];
   const barangaysQuery = useAdminBarangays();
@@ -105,7 +121,10 @@ export default function UserManagementPage() {
   const assignmentMutation = useUpdateSibatAssignment();
   const verifyDocMutation = useVerifyUserDocument();
   const deleteUserMutation = useDeletePendingUser();
+  const resendInvitationMutation = useResendStaffInvitation();
   const pendingCount = users.filter((u) => u.account_status === "PENDING").length;
+  const approvedCount = users.filter((u) => u.account_status === "APPROVED").length;
+  const staffCount = users.filter((u) => isStaffRole(u.role)).length;
 
   const handleStatusUpdate = (id: number, newStatus: UserAccountStatus) => {
     updateStatusMutation.mutate({ userId: id, status: newStatus }, {
@@ -251,105 +270,169 @@ export default function UserManagementPage() {
   return (
     <>
       <PageHeader
-        title="Personnel & Farmer Directory"
-        subtitle="Manage registered farmers and field reviewers, and approve pending accounts"
+        title="User Management"
+        subtitle="Manage registrations, staff access, and account approvals"
         variant="admin"
         maxWidthClass="w-full"
         icon={<Users className="size-5 text-slate-800" />}
       />
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16 sm:pb-6">
-        {/* Controls Area */}
-        <div className="flex flex-col md:flex-row gap-2.5 items-center justify-between bg-white p-3 rounded-xl shadow-2xs border border-slate-200/80">
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-            <Input
-              type="text"
-              placeholder="Search name, email, or barangay..."
-              className="w-full pl-9 pr-3 py-1.5 h-8 bg-slate-50/80 border-slate-200/80 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#2D5A27] transition-all text-xs font-medium"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <Tabs
-              value={activeFilter}
-              onValueChange={(v) => setActiveFilter(v as typeof activeFilter)}
-              className="w-full md:w-auto"
-            >
-              <TabsList className="bg-slate-100/80 p-0.5 rounded-lg h-auto border border-slate-200/60 flex flex-wrap">
-                <TabsTrigger
-                  value="all"
-                  className="px-3.5 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-2xs text-slate-400"
-                >
-                  All ({directory.isError ? "Unavailable" : users.length})
-                </TabsTrigger>
-                <TabsTrigger
-                  value="pending"
-                  className="px-3.5 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all data-[state=active]:bg-white data-[state=active]:text-amber-700 data-[state=active]:shadow-2xs text-slate-400 flex items-center gap-1"
-                >
-                  Pending
-                  {pendingCount > 0 && (
-                    <span className="px-1.5 py-0.2 bg-amber-500 text-white rounded-full text-[9px] font-black">
-                      {pendingCount}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="farmer"
-                  className="px-3.5 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-2xs text-slate-400"
-                >
-                  Farmers
-                </TabsTrigger>
-                <TabsTrigger
-                  value="sibat"
-                  className="px-3.5 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-2xs text-slate-400"
-                >
-                  Field Reviewers
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => refetch()}
-              disabled={isFetching}
-              title="Refresh Directory"
-              className="h-10 w-10 rounded-xl border-slate-200 text-slate-600 hover:text-emerald-700 hover:bg-slate-50 shrink-0 cursor-pointer active:scale-95 transition-all shadow-xs"
-            >
-              <RefreshCw size={17} className={isFetching ? "animate-spin" : ""} />
-            </Button>
-          </div>
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {[
+            { label: "Total accounts", value: users.length, tone: "text-slate-900", note: "In the directory" },
+            { label: "Awaiting review", value: pendingCount, tone: "text-amber-700", note: "Need MAO action" },
+            { label: "Active accounts", value: approvedCount, tone: "text-emerald-800", note: "Approved access" },
+            { label: "Staff accounts", value: staffCount, tone: "text-blue-800", note: "CBAT, auction, slaughterhouse" },
+          ].map((item) => (
+            <div key={item.label} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-5">
+              <p className="text-xs font-semibold text-slate-500">{item.label}</p>
+              <div className="mt-1 flex items-end justify-between gap-2">
+                <span className={`text-2xl font-black tracking-tight ${item.tone}`}>{directory.isLoading ? "—" : item.value}</span>
+                <span className="hidden text-[11px] text-slate-400 sm:block">{item.note}</span>
+              </div>
+            </div>
+          ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={barangayFilter} onValueChange={setBarangayFilter} disabled={barangaysQuery.isError}>
-            <SelectTrigger className="w-full sm:w-56" aria-label="Filter by barangay"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Barangays</SelectItem>
-              <SelectItem value="unassigned">Unassigned Farmer / Field Reviewer</SelectItem>
-              {(barangaysQuery.data || []).map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.barangay_name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={activeFilter === "pending" ? "PENDING" : statusFilter} onValueChange={setStatusFilter} disabled={activeFilter === "pending"}>
-            <SelectTrigger className="w-full sm:w-48" aria-label="Filter by account status"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Account Statuses</SelectItem>
-              <SelectItem value="PENDING">Pending</SelectItem>
-              <SelectItem value="APPROVED">Approved</SelectItem>
-              <SelectItem value="SUBJECT_TO_REVISION">Subject to Revision</SelectItem>
-              <SelectItem value="SUSPENDED">Suspended</SelectItem>
-            </SelectContent>
-          </Select>
-          <span className="text-xs text-slate-500">{matchingUsers.length} matching users</span>
-          {barangaysQuery.isError && <p role="alert" className="text-xs text-rose-700">Barangays could not be loaded. <button className="underline" onClick={() => barangaysQuery.refetch()}>Retry</button></p>}
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <Input
+                type="search"
+                placeholder="Search name, email, or barangay"
+                aria-label="Search users"
+                className="h-11 w-full rounded-xl border-slate-200 bg-slate-50 pl-10 text-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => setInviteDialogOpen(true)} className="min-h-11 flex-1 gap-2 rounded-xl bg-emerald-800 px-4 text-sm font-bold text-white hover:bg-emerald-900 sm:flex-none">
+                <UserPlus className="size-4" /> Invite staff
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                title="Refresh directory"
+                aria-label="Refresh directory"
+                className="size-11 shrink-0 rounded-xl border-slate-200 text-slate-600"
+              >
+                <RefreshCw size={17} className={isFetching ? "animate-spin" : ""} />
+              </Button>
+            </div>
+          </div>
+
+          <Tabs value={activeFilter} onValueChange={(v) => setActiveFilter(v as typeof activeFilter)} className="w-full min-w-0">
+            <div className="overflow-x-auto">
+              <TabsList className="inline-flex h-10 w-max min-w-full flex-nowrap justify-start gap-1 rounded-xl bg-slate-100 p-1">
+                <TabsTrigger value="all" className="shrink-0 whitespace-nowrap rounded-lg px-3 text-xs">All ({directory.isError ? "—" : users.length})</TabsTrigger>
+                <TabsTrigger value="pending" className="shrink-0 whitespace-nowrap rounded-lg px-3 text-xs">Pending ({pendingCount})</TabsTrigger>
+                <TabsTrigger value="farmer" className="shrink-0 whitespace-nowrap rounded-lg px-3 text-xs">Farmers</TabsTrigger>
+                <TabsTrigger value="field" className="shrink-0 whitespace-nowrap rounded-lg px-3 text-xs">Field team</TabsTrigger>
+                <TabsTrigger value="operations" className="shrink-0 whitespace-nowrap rounded-lg px-3 text-xs">Operations staff</TabsTrigger>
+              </TabsList>
+            </div>
+          </Tabs>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,14rem)_minmax(0,14rem)_1fr] sm:items-center">
+            <Select value={barangayFilter} onValueChange={setBarangayFilter} disabled={barangaysQuery.isError}>
+              <SelectTrigger className="h-11 w-full rounded-xl" aria-label="Filter by barangay"><SelectValue placeholder="All barangays" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All barangays</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {(barangaysQuery.data || []).map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.barangay_name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={activeFilter === "pending" ? "PENDING" : statusFilter} onValueChange={setStatusFilter} disabled={activeFilter === "pending"}>
+              <SelectTrigger className="h-11 w-full rounded-xl" aria-label="Filter by account status"><SelectValue placeholder="All account statuses" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All account statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="SUBJECT_TO_REVISION">Subject to revision</SelectItem>
+                <SelectItem value="SUSPENDED">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex items-center justify-between gap-2 text-xs text-slate-500 sm:justify-end">
+              {barangaysQuery.isError && <p role="alert" className="text-rose-700">Barangays unavailable. <button className="underline" onClick={() => barangaysQuery.refetch()}>Retry</button></p>}
+              <span>{matchingUsers.length} matching accounts</span>
+            </div>
+          </div>
         </div>
         {isError && <p role="alert" className="text-sm text-rose-700">Could not load the directory. Check your access or try refreshing.</p>}
 
+        <section className="space-y-3 lg:hidden" aria-label="User accounts">
+          {isLoading ? (
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">
+              <Loader2 className="mx-auto mb-2 size-6 animate-spin text-emerald-800" /> Loading accounts…
+            </div>
+          ) : matchingUsers.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center">
+              <Users className="mx-auto mb-2 size-7 text-slate-300" />
+              <p className="font-semibold text-slate-800">No matching accounts</p>
+              <p className="mt-1 text-sm text-slate-500">Try another search or filter.</p>
+            </div>
+          ) : matchingUsers.map((user) => {
+            const isPending = user.account_status === "PENDING";
+            const isAwaitingReview = isPending || user.account_status === "SUBJECT_TO_REVISION";
+            const isStaff = isStaffRole(user.role);
+            const isResending = resendInvitationMutation.isPending && resendInvitationMutation.variables === user.id;
+            return (
+              <article key={user.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-emerald-50 text-emerald-900">
+                    <span aria-hidden="true" className="text-sm font-black">{user.full_name.trim().charAt(0).toUpperCase() || <Users className="size-5" />}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="truncate font-bold text-slate-900">{user.full_name}</h2>
+                      {getStatusBadge(user.account_status)}
+                    </div>
+                    <p className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{roleLabel(user.role)}</p>
+                    <p className="mt-2 break-all text-sm text-slate-600">{user.email}</p>
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+                      <MapPin className="size-3.5 shrink-0 text-emerald-800" /> {userBarangayLabel(user)}
+                    </div>
+                  </div>
+                </div>
+                {isStaff && user.password_setup_pending && (
+                  <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium leading-5 text-amber-900">
+                    Password setup is not complete. MAO approval stays locked until the invite link is used.
+                  </p>
+                )}
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  {isPending && isStaff && user.password_setup_pending && (
+                    <Button variant="outline" disabled={isResending} onClick={() => resendInvitationMutation.mutate(user.id)} className="min-h-11 flex-1 gap-2 rounded-xl">
+                      {isResending ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
+                      Resend setup link
+                    </Button>
+                  )}
+                  {isPending && isStaff && (
+                    <Button disabled={user.password_setup_pending || updateStatusMutation.isPending} onClick={() => handleStatusUpdate(user.id, "APPROVED")} className="min-h-11 flex-1 rounded-xl bg-emerald-800 text-white hover:bg-emerald-900">
+                      {user.password_setup_pending ? "Awaiting password setup" : "Approve account"}
+                    </Button>
+                  )}
+                  {user.account_status === "APPROVED" && (
+                    <Button variant="outline" onClick={() => handleStatusUpdate(user.id, "SUSPENDED")} className="min-h-11 flex-1 rounded-xl">Suspend account</Button>
+                  )}
+                  {user.account_status === "SUSPENDED" && (
+                    <Button onClick={() => handleStatusUpdate(user.id, "APPROVED")} className="min-h-11 flex-1 rounded-xl bg-emerald-800 text-white hover:bg-emerald-900">Reactivate account</Button>
+                  )}
+                  <Button variant="outline" onClick={() => openProfile(user)} className="min-h-11 flex-1 rounded-xl">
+                    {isAwaitingReview && !isStaff ? "Review registration" : "View details"}
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+
         {/* List Table */}
-        <div className="bg-white rounded-xl shadow-2xs border border-slate-200/80 overflow-hidden">
+        <div className="hidden overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm lg:block">
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50/70 hover:bg-slate-50/70 border-b border-slate-200/70">
@@ -404,13 +487,15 @@ export default function UserManagementPage() {
                   const hasUnapprovedDocs = (user.documents || []).some(
                     (d) => d.verification_status !== "APPROVED"
                   );
+                  const isStaff = isStaffRole(user.role);
                   const isApproved = user.account_status === "APPROVED";
                   const isSuspended = user.account_status === "SUSPENDED";
                   const isActionLoading =
                     (updateStatusMutation.isPending &&
                       updateStatusMutation.variables?.userId === user.id) ||
                     (deleteUserMutation.isPending &&
-                      deleteUserMutation.variables === user.id);
+                      deleteUserMutation.variables === user.id) ||
+                    (resendInvitationMutation.isPending && resendInvitationMutation.variables === user.id);
 
                   return (
                     <TableRow
@@ -444,7 +529,7 @@ export default function UserManagementPage() {
                             <p className="font-bold text-xs text-slate-800">{user.full_name}</p>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[9px] font-black text-slate-400 uppercase">
-                                {user.role || "User"}
+                                {roleLabel(user.role || "User")}
                               </span>
                               <span className="text-[9px] text-slate-400">â€¢ {user.email}</span>
                             </div>
@@ -476,10 +561,25 @@ export default function UserManagementPage() {
                             <Loader2 className="animate-spin text-slate-400 size-4" />
                           ) : isPending ? (
                             <>
+                              {user.account_status === "PENDING" && isStaff && user.password_setup_pending && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    resendInvitationMutation.mutate(user.id);
+                                  }}
+                                  title="Resend the password setup invitation"
+                                  className="h-7 gap-1 rounded-md bg-blue-50 px-2 text-[10px] font-bold text-blue-800 hover:bg-blue-100"
+                                >
+                                  <Mail size={12} />
+                                  <span>Resend link</span>
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                disabled={isUnderRevision || hasUnapprovedDocs}
+                                disabled={isUnderRevision || hasUnapprovedDocs || (isStaff && user.password_setup_pending)}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleStatusUpdate(user.id, "APPROVED");
@@ -489,15 +589,17 @@ export default function UserManagementPage() {
                                     ? "Cannot approve while account or documents are marked Subject to Revision"
                                     : hasUnapprovedDocs
                                     ? "Review and approve all registration documents in Profile first"
+                                    : isStaff && user.password_setup_pending
+                                    ? "The staff member must set a password from the invitation first"
                                     : "Approve Registration"
                                 }
                                 className="h-7 px-2.5 text-[10px] font-black text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-md gap-1 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
                               >
                                 <Check size={12} />
-                                <span>Approve</span>
+                                <span>{isStaff && user.password_setup_pending ? "Setup pending" : "Approve"}</span>
                               </Button>
 
-                              <Button
+                              {!isStaff && <Button
                                 variant="ghost"
                                 size="sm"
                                 disabled={isUnderRevision}
@@ -514,7 +616,7 @@ export default function UserManagementPage() {
                               >
                                 <RotateCcw size={12} />
                                 <span>{isUnderRevision ? "In Revision" : "Revision"}</span>
-                              </Button>
+                              </Button>}
 
                               <Button
                                 variant="ghost"
@@ -583,6 +685,15 @@ export default function UserManagementPage() {
         </div>
       </div>
 
+      <StaffInvitationDialog
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+        barangays={barangaysQuery.data || []}
+        barangaysLoading={barangaysQuery.isLoading}
+        barangaysError={barangaysQuery.isError}
+        onRetryBarangays={() => barangaysQuery.refetch()}
+      />
+
       {/* User account and registration document review */}
       <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
         {selectedUser && (
@@ -641,7 +752,7 @@ export default function UserManagementPage() {
                   </DialogTitle>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-emerald-100/80">
                     <span className="rounded-md border border-white/15 bg-white/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-white">
-                      {selectedUser.role || "USER"}
+                      {roleLabel(selectedUser.role || "USER")}
                     </span>
                     <span className="font-mono text-emerald-200/80">@{selectedUser.username}</span>
                     <span aria-hidden="true" className="text-emerald-400/50">•</span>
@@ -847,16 +958,41 @@ export default function UserManagementPage() {
                     <div className="min-w-0">
                       <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-800">
                         <FileText className="size-4 text-[#2D5A27] shrink-0" />
-                        <span>Registration Documents</span>
+                        <span>{isStaffRole(selectedUser.role) ? "Staff access review" : "Registration Documents"}</span>
                       </CardTitle>
-                      <CardDescription className="mt-0.5 text-[11px]">Preview and verify each uploaded registration file</CardDescription>
+                      <CardDescription className="mt-0.5 text-[11px]">
+                        {isStaffRole(selectedUser.role) ? "Confirm password setup and appointment before granting access" : "Preview and verify each uploaded registration file"}
+                      </CardDescription>
                     </div>
-                    <Badge variant="secondary" className="shrink-0 rounded-lg font-mono text-[11px] font-bold">
-                      {(selectedUser.documents || []).length} {selectedUser.documents?.length === 1 ? "file" : "files"}
-                    </Badge>
+                    {isStaffRole(selectedUser.role) ? (
+                      <Badge variant="secondary" className="shrink-0 rounded-lg text-[11px] font-bold">
+                        {selectedUser.password_setup_pending ? "Password setup pending" : "Password set"}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="shrink-0 rounded-lg font-mono text-[11px] font-bold">
+                        {(selectedUser.documents || []).length} {selectedUser.documents?.length === 1 ? "file" : "files"}
+                      </Badge>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 p-3.5 sm:p-4">
+                  {isStaffRole(selectedUser.role) ? (
+                    <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+                      <div className="flex items-start gap-3">
+                        <ShieldCheck className="mt-0.5 size-5 shrink-0 text-blue-800" />
+                        <div className="space-y-1.5">
+                          <p className="text-sm font-bold text-blue-950">{roleLabel(selectedUser.role)}</p>
+                          <p className="text-sm leading-5 text-blue-900">
+                            {selectedUser.password_setup_pending
+                              ? "This staff member must use the invitation email to set a password before MAO can approve access."
+                              : "Password setup is complete. MAO must verify the staff appointment and approve this account before access is granted."}
+                          </p>
+                          <p className="text-xs font-medium text-blue-800">Auction accounts are limited to auction intake and movement workflows. MAO retains review and final approval.</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
                   {selectedUser.role === "FARMER" ? (
                     <IdentityEvidencePanel
                       userId={selectedUser.id}
@@ -984,6 +1120,8 @@ export default function UserManagementPage() {
                   <p className="text-[11px] leading-relaxed text-slate-500">
                     Documents are manually verified by MAO officers. Each file keeps its own review status.
                   </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               </div>
@@ -1001,6 +1139,50 @@ export default function UserManagementPage() {
                   );
                   const isAccountUnderRevision =
                     selectedUser.account_status === "SUBJECT_TO_REVISION" || hasDocRevision;
+
+                  if (isStaffRole(selectedUser.role)) {
+                    const canResend = selectedUser.account_status === "PENDING" && selectedUser.password_setup_pending;
+                    return (
+                      <div className="space-y-3">
+                        <p className={`rounded-xl border px-3 py-2.5 text-sm leading-5 ${selectedUser.password_setup_pending ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+                          {selectedUser.password_setup_pending
+                            ? "Password setup is still pending. Resend the email if needed; approval is locked until the staff member sets a password."
+                            : "Password setup is complete. Confirm the staff appointment, then approve to grant access."}
+                        </p>
+                        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={deleteUserMutation.isPending || updateStatusMutation.isPending}
+                            onClick={() => setUserToDelete(selectedUser)}
+                            className="min-h-11 w-full rounded-xl border-rose-200 text-rose-700 sm:w-auto"
+                          >
+                            <Trash2 className="mr-2 size-4" /> Delete pending account
+                          </Button>
+                          {canResend && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={resendInvitationMutation.isPending}
+                              onClick={() => resendInvitationMutation.mutate(selectedUser.id)}
+                              className="min-h-11 w-full gap-2 rounded-xl sm:w-auto"
+                            >
+                              {resendInvitationMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
+                              Resend setup link
+                            </Button>
+                          )}
+                          <Button
+                            disabled={selectedUser.password_setup_pending || updateStatusMutation.isPending || deleteUserMutation.isPending}
+                            onClick={() => handleStatusUpdate(selectedUser.id, "APPROVED")}
+                            className="min-h-11 w-full gap-2 rounded-xl bg-emerald-800 font-bold text-white hover:bg-emerald-900 sm:w-auto"
+                          >
+                            <Check className="size-4" />
+                            {selectedUser.password_setup_pending ? "Awaiting password setup" : "Approve staff account"}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div className="space-y-2.5">

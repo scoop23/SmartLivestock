@@ -50,6 +50,16 @@ export interface ApiUser {
   rsbsa_number?: string;
   cattle_count: number;
   profile_image?: string | null;
+  password_setup_pending: boolean;
+}
+
+export interface StaffInvitationPayload {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number?: string;
+  role: "CBAT" | "AUCTION" | "SLAUGHTERHOUSESTAFF";
+  assigned_barangay_id?: number;
 }
 
 
@@ -97,6 +107,42 @@ export function useUsersDirectory(options?: { enabled?: boolean }, filters?: Dir
     queryFn: () => fetchUsersDirectory(filters),
     staleTime: 30 * 1000,
     ...options,
+  });
+}
+
+export function useCreateStaffInvitation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: StaffInvitationPayload) => {
+      const { data } = await api.post<ApiUser>("/api/users/staff-invitations/", payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_MANAGEMENT_QUERY_KEYS.all });
+      toast.success("Staff invitation sent. The account is pending MAO approval.");
+    },
+    onError: (error: unknown) => {
+      const data = (error as { response?: { data?: Record<string, unknown> } }).response?.data;
+      toast.error(data ? Object.values(data).flat().join(" ") : "Could not send the staff invitation.");
+    },
+  });
+}
+
+export function useResendStaffInvitation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: number) => {
+      const { data } = await api.post<ApiUser>(`/api/users/${userId}/resend-invitation/`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_MANAGEMENT_QUERY_KEYS.all });
+      toast.success("Password setup invitation sent again.");
+    },
+    onError: (error: unknown) => {
+      const data = (error as { response?: { data?: Record<string, unknown> } }).response?.data;
+      toast.error(data ? Object.values(data).flat().join(" ") : "Could not resend the invitation.");
+    },
   });
 }
 
