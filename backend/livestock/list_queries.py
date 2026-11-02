@@ -52,7 +52,8 @@ def filter_livestock_list(queryset, params, *, batch=False):
                 queryset = queryset.filter(**{parameter: value})
     else:
         value = params.get("review_status")
-        if value and value.upper() != "ALL":
+        reviewer_role = params.get("reviewer_role")
+        if (value and value.upper() != "ALL") or reviewer_role:
             # Status filters find herds containing animals at that stage; the
             # herd itself is not a reviewable record. EXISTS avoids joining the
             # roster into the aggregate query and accidentally multiplying counts.
@@ -60,8 +61,13 @@ def filter_livestock_list(queryset, params, *, batch=False):
             matching_animals = LivestockInventory.objects.filter(
                 batch_id=OuterRef("pk"),
                 entry_type=LivestockInventory.EntryType.INDIVIDUAL,
-                status=value,
             )
+            if value and value.upper() != "ALL":
+                matching_animals = matching_animals.filter(status=value)
+            if reviewer_role:
+                matching_animals = matching_animals.filter(
+                    reviewed_by__role__role_name=reviewer_role.upper()
+                )
             queryset = queryset.alias(has_status_match=Exists(matching_animals)).filter(has_status_match=True)
     search = params.get("search", "").strip()
     if search:

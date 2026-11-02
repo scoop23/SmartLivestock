@@ -222,6 +222,15 @@ class LivestockInventorySerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     farmer = serializers.PrimaryKeyRelatedField(read_only=True)
     farmer_name = serializers.SerializerMethodField(read_only=True)
+    farmer_rsbsa_number = serializers.CharField(
+        source="farmer.rsbsa_number", read_only=True, default=""
+    )
+    farmer_address = serializers.CharField(
+        source="farmer.address", read_only=True, default=""
+    )
+    farmer_phone = serializers.CharField(
+        source="farmer.user.phone_number", read_only=True, default=""
+    )
     barangay_name = serializers.CharField(
         source="farmer.barangay.barangay_name", read_only=True
     )
@@ -236,6 +245,12 @@ class LivestockInventorySerializer(serializers.Serializer):
     )
     batch_name = serializers.CharField(
         source="batch.batch_name", read_only=True, allow_null=True
+    )
+    batch_housing_pen = serializers.CharField(
+        source="batch.housing_pen", read_only=True, default="", allow_null=True
+    )
+    batch_feed_type = serializers.CharField(
+        source="batch.feed_type", read_only=True, default="", allow_null=True
     )
     batch_target_weight = serializers.DecimalField(
         source="batch.target_weight",

@@ -86,6 +86,7 @@ export interface ValidationInventoryItem {
   status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   reviewRemarks: string | null;
   reviewedBy?: string | null;
+  reviewedByRole?: string | null;
   reviewedAt?: string | null;
   createdAt: string;
   batchId?: number | null;
@@ -255,6 +256,7 @@ export async function fetchAdminInventoryRecords(): Promise<ValidationInventoryI
           status: (item.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
           reviewRemarks: item.review_remarks || null,
           reviewedBy: item.reviewed_by_name || null,
+          reviewedByRole: item.reviewed_by_role || null,
           reviewedAt: item.reviewed_at || null,
           createdAt: item.created_at || new Date().toISOString(),
           batchId: item.batch || null,
