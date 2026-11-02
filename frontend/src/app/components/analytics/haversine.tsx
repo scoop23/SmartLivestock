@@ -583,9 +583,11 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
             </span>
           </div>
           {gisData && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+            <span aria-live="polite" className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border ${activeScenario === 'live' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-900 border-amber-300'}`}>
               <Database className="size-3 text-emerald-600" />
-              Live data connected ({totalCattleCount.toLocaleString()} animals)
+              {activeScenario === 'live'
+                ? `Current data · ${totalCattleCount.toLocaleString()} animals`
+                : 'Example mode · live records unchanged'}
             </span>
           )}
           <span className="hidden md:inline text-[11px] text-slate-400 font-mono">
@@ -646,16 +648,20 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
               onClick={() => {
                 setActiveScenario('manggas-scenario');
                 setSelectedOutbreakSite('Bawi');
+                setSelectedBarangayForDetail('Manggas');
+                setHasSuspectedCaseInManggas(true);
+                setDayIndex(0);
                 setIsPlaying(false);
               }}
+              aria-pressed={activeScenario === 'manggas-scenario'}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeScenario === 'manggas-scenario'
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  ? 'bg-amber-600 text-white shadow-xs border border-amber-700'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Sparkles className="size-3.5 text-amber-600" />
-              Manggas Example
+              <Sparkles className={`size-3.5 ${activeScenario === 'manggas-scenario' ? 'text-amber-100' : 'text-amber-600'}`} />
+              Load Manggas Example
             </button>
           </div>
         </div>
@@ -851,6 +857,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
                     key={`buffer-${siteName}-${monitoringRadiusKm}`}
                     center={centroid}
                     radius={monitoringRadiusKm * 1000}
+                    interactive={false}
                     pathOptions={{
                       color: isEpicenter ? '#ea580c' : '#f97316',
                       fillColor: '#f97316',
@@ -868,6 +875,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
                   key={`buffer-single-${selectedOutbreakSite}-${monitoringRadiusKm}`}
                   center={BARANGAY_CENTROIDS[selectedOutbreakSite]}
                   radius={monitoringRadiusKm * 1000}
+                  interactive={false}
                   pathOptions={{
                     color: '#ea580c',
                     fillColor: '#f97316',
@@ -1108,6 +1116,10 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
             {/* Case D: Manggas Case Study HUD */}
             {activeScenario === 'manggas-scenario' && (
               <div className="pointer-events-auto bg-amber-50/95 backdrop-blur-md border border-amber-200 rounded-xl p-2.5 sm:p-3 shadow-xl text-xs flex flex-wrap items-center justify-between gap-2.5 text-amber-950">
+                <div>
+                  <p className="font-bold">Sample scenario loaded</p>
+                  <p className="mt-0.5 text-[11px]">Bawi has the example report alert. Manggas {hasSuspectedCaseInManggas ? 'shows' : 'can show'} one unreviewed report.</p>
+                </div>
                 <div className="flex items-center gap-2">
                   <Sparkles className="size-4 text-amber-600 shrink-0" />
                   <label htmlFor="suspected-manggas-toggle" className="font-medium cursor-pointer select-none">
