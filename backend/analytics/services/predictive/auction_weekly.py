@@ -170,7 +170,7 @@ def build_weekly_auction_series(target="ALL", unit="HEADS", user=None) -> Tuple[
     metadata = {
         "domain": "auction", "target": (target or "ALL").upper(), "unit": unit,
         "frequency": "WEEKLY", "week_boundary": "Monday-Sunday; only complete weeks included",
-        "scope": "Approved LivestockOwnershipTransfer events recorded in SmartLivestock; not total market coverage",
+        "scope": "Approved livestock transfers recorded in SmartLivestock; other market activity may not be included",
         "total_records": sum(int(value["record_count"]) for value in grouped.values()),
         "synthetic_records": synthetic_count,
         "is_seeded": synthetic_count > 0,
@@ -187,23 +187,20 @@ def build_weekly_auction_series(target="ALL", unit="HEADS", user=None) -> Tuple[
         "weekday_activity": weekday_profile,
         "weekday_pattern_estimable": False,
         "weekday_pattern_note": (
-            "Thursday and Friday are useful market-context days, but the database has no market-session or "
-            "daily reporting-coverage history. These are counts of captured approved transfers only; "
-            "they cannot establish per-day rates or a reliable weekday effect."
+        "Thursday and Friday may be busy market days, but SmartLivestock does not record every market session. "
+        "These counts cover approved transfers entered in the system, so they cannot show the true number of sales by weekday."
             if has_weekday_observations else
-            "No approved ownership transfers are recorded in this dataset, so weekday activity cannot be assessed."
+            "No approved livestock transfers are recorded, so weekday activity cannot be compared."
         ),
         "coverage_status": "UNKNOWN",
         "coverage_note": (
-            "Missing weeks are unknown, not zero. A contiguous sequence only describes captured approved records; "
-            "the system does not record whether market reporting was complete."
+            "Weeks without records are unknown, not zero. The system does not track whether all market activity was recorded."
         ),
         "approval_cutoff_reconstructable": bool(
             not observed.empty and observed["available_at"].notna().all()
         ),
         "approval_timeline_note": (
-            "Transfer review timestamps reflect the current stored approval state and are not an immutable approval history. "
-            "Historical edits or re-approvals cannot always be reconstructed."
+            "Only the current review dates are available. If a record was edited or approved again later, its earlier review history may not be available."
         ),
         "forecast_available": False,
     }
@@ -257,15 +254,15 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
 
     if obs_count < MIN_HISTORY_WEEKS or missing_count or not meta["value_measurement_complete"]:
         if obs_count < MIN_HISTORY_WEEKS:
-            message = f"Only {obs_count} complete weekly observations are available; at least {MIN_HISTORY_WEEKS} are needed for an initial weekly projection."
+            message = f"Records cover {obs_count} complete weeks. At least {MIN_HISTORY_WEEKS} are needed for an initial weekly estimate."
         elif missing_count:
-            message = f"{missing_count} week(s) have no complete approved transfer total. They are unknown, not zero."
+            message = f"{missing_count} week(s) have no complete approved transfer total. Missing weeks are not counted as zero activity."
         else:
-            message = f"{meta['unmeasured_value_records']} approved transfer(s) lack a recorded purchase price, so weekly value totals are incomplete."
+            message = f"{meta['unmeasured_value_records']} approved transfer(s) have no purchase price, so weekly sales totals are incomplete."
         status = "insufficient_data"
         forecast_available = False
     else:
-        message = "Forecasts describe approved ownership transfers recorded by SmartLivestock. Reporting completeness is unknown."
+        message = "These estimates cover approved livestock transfers recorded in SmartLivestock. Other market activity may not be included."
         status = "unvalidated"
         forecast_available = True
 
@@ -293,21 +290,21 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
             if len(known) < min_train:
                 if missing_availability and len(known) + missing_availability >= min_train:
                     reason = (
-                        f"Only {len(known)} prior weekly totals have reconstructable approval timestamps; "
-                        f"{missing_availability} older week(s) have missing timestamps, and {min_train} "
-                        "eligible training weeks are required."
+                        f"Only {len(known)} earlier weeks have usable approval dates; "
+                        f"{missing_availability} older week(s) are missing dates, and {min_train} "
+                        "weeks are needed to make this check."
                     )
                     reason_code = "MISSING_AVAILABILITY_TIMESTAMPS"
                 else:
-                    reason = f"Only {len(known)} prior weekly totals were approved and available by cutoff; {min_train} are required."
+                    reason = f"Only {len(known)} earlier weeks of totals were approved by this date; {min_train} are needed."
                     reason_code = "NOT_ENOUGH_APPROVED_HISTORY"
             else:
                 expected_train_weeks = pd.date_range(known["week"].min(), cutoff - pd.Timedelta(weeks=1), freq="7D")
             if reason is None and known["week"].tolist() != list(expected_train_weeks):
-                reason = "The cutoff training history contains unknown weeks or records approved after the cutoff."
+                reason = "Some earlier weeks have no records, or their records were approved after this date."
                 reason_code = "GAPS_IN_APPROVED_HISTORY"
             if reason is None and (len(test) != horizon or test["week"].tolist() != list(expected_test_weeks) or not np.isfinite(test["quantity"]).all()):
-                reason = "The complete requested test horizon does not have observed weekly outcomes."
+                reason = "There are not enough later weekly records to compare with an estimate."
                 reason_code = "INCOMPLETE_TEST_WINDOW"
             predictions = {}
             if reason is None:
@@ -319,7 +316,7 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
                     except Exception:
                         continue
                 if len(predictions) != len(candidate_names):
-                    reason = "At least one candidate lacked a valid forecast, so the models could not be compared on identical weeks."
+                    reason = "At least one method could not make an estimate, so the methods could not be compared for the same weeks."
                     reason_code = "MODEL_FAILURE"
             if reason:
                 backtest_rows.append({
@@ -339,7 +336,7 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
                 results_by_model[name]["windows"] += 1
             backtest_rows.append({
                 "forecast_week": cutoff.date().isoformat(), "cutoff_date": cutoff.date().isoformat(),
-                "status": "EVALUATED", "reason": "Full weekly test horizon observed; training used only cutoff-available records.",
+                "status": "EVALUATED", "reason": "Later weekly results were available and compared with estimates based only on records available at the time.",
                 "reason_code": "EVALUATED", "available_training_weeks": len(known), "test_weeks_required": horizon,
                 "test_periods": [week.date().isoformat() for week in test["week"]],
                 "actual_values": [round(float(value), 1) for value in actual],
@@ -369,7 +366,7 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
     if forecast_available and not all_weeks_contiguous:
         forecast_available = False
         status = "insufficient_data"
-        message = "Weekly totals are not contiguous and fully measured; missing weeks are not treated as zero."
+        message = "Some weeks are missing or have incomplete amounts. Missing weeks are not counted as zero activity."
     if forecast_available and not valid_windows:
         status = "unvalidated"
 
@@ -380,17 +377,17 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
     winner = best_baseline
     comparison = "INSUFFICIENT_DATA"
     source = "NONE"
-    rationale = "No complete cutoff window is available for empirical model selection."
+    rationale = "There are not enough complete past checks to compare prediction methods."
     if valid_windows and best_baseline:
         winner = best_baseline
         comparison = "BASELINE_BEST"
         source = "NAIVE_BASELINE"
-        rationale = f"{best_baseline['name']} is the lowest-error evaluated simple baseline on {valid_windows} shared weekly window(s)."
+        rationale = f"The simple weekly forecast had the smallest average difference across {valid_windows} completed checks."
         if best_advanced and best_advanced["mae"] < best_baseline["mae"]:
             winner = best_advanced
             comparison = "MODEL_BEATS_BASELINE"
             source = "MACHINE_LEARNING"
-            rationale = f"Linear Trend beat {best_baseline['name']} on {valid_windows} shared weekly window(s); evidence remains limited to these cutoffs."
+            rationale = f"The trend method matched past records better than the simple weekly forecast across {valid_windows} checks."
         if winner:
             winner["is_selected"] = True
 

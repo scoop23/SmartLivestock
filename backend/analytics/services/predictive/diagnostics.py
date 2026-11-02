@@ -230,23 +230,23 @@ def _build_readiness_checklist(
     production_source = domain == "production"
     checklist.append({
         "id": "approved_records",
-        "title": "Eligible Production Logs" if production_source else "Eligible Approved Records",
+        "title": "Production Records Used" if production_source else "Approved Records Used",
         "category": "DATA_COLLECTION",
         "status": "PASSED" if total_records > 0 else "BLOCKED",
         "actual_value": f"{total_records} eligible record(s)" if production_source else f"{total_records} approved record(s)",
         "expected_requirement": (
-            "Only RECORDED farmer logs qualify"
-            if production_source else "Only APPROVED status records qualify"
+            "Only farmer-submitted production records are used"
+            if production_source else "Only approved records are used"
         ),
         "explanation": (
-            "Routine production logs are farmer-managed. Historical approval-state, pending, verified, and returned rows are excluded."
+            "Farmers submit production records directly. Older records marked pending, checked, or returned are left out."
             if production_source else
-            "Drafts, pending reviews, and returned submissions are excluded to ensure official accuracy."
+            "Drafts, records awaiting review, and returned records are left out so estimates use approved information."
         ),
         "action_needed": (
             "Record production logs through the farmer production workflow."
             if production_source and total_records == 0 else
-            "Complete the source workflow's required review and approval for pending records."
+            "Finish reviewing and approving these records before they can be used."
             if not production_source and total_records == 0 else None
         ),
         "resolution_type": "DATA_COLLECTION",
@@ -264,12 +264,12 @@ def _build_readiness_checklist(
 
     checklist.append({
         "id": "valid_event_dates",
-        "title": "Valid Event Dates",
+        "title": "Valid record dates",
         "category": "DATA_COLLECTION",
         "status": "PASSED" if data_through_date is not None else ("WARNING" if total_records > 0 else "BLOCKED"),
         "actual_value": date_actual_val,
-        "expected_requirement": "Valid historical calendar dates prior to current month",
-        "explanation": "Records must possess verified event dates. Records from the incomplete current month are excluded from historical training.",
+        "expected_requirement": "Records dated before the current month",
+        "explanation": "Records need a valid date. The current, incomplete month is not included in past-record checks.",
         "action_needed": "Verify record event dates if submissions fail validation." if not data_through_date else None,
         "resolution_type": "DATA_COLLECTION",
     })
@@ -278,12 +278,12 @@ def _build_readiness_checklist(
     has_sufficient_span = usable_observations >= min_required
     checklist.append({
         "id": "time_span",
-        "title": "Historical Time Span",
+        "title": "Enough months of records",
         "category": "DATA_COLLECTION",
         "status": "PASSED" if has_sufficient_span else ("WARNING" if usable_observations >= 12 else "BLOCKED"),
-        "actual_value": f"{usable_observations} calendar month(s) spanned",
+        "actual_value": f"Records cover {usable_observations} month(s)",
         "expected_requirement": f"At least {min_required} months required ({target_def.get('minimum_rule', 'Standard threshold')})",
-        "explanation": target_def.get("minimum_rule", f"Minimum of {min_required} months required for chronological forecasting."),
+        "explanation": target_def.get("minimum_rule", f"At least {min_required} months of records are needed to make an estimate."),
         "action_needed": f"Continue collecting monthly records as new calendar months elapse ({max(0, min_required - usable_observations)} more months needed)." if not has_sufficient_span else None,
         "resolution_type": "DATA_COLLECTION",
     })
@@ -291,13 +291,13 @@ def _build_readiness_checklist(
     # 5. Required Monthly Observations
     checklist.append({
         "id": "monthly_observations",
-        "title": "Completed Monthly Observations",
+        "title": "Months with records",
         "category": "DATA_COLLECTION",
         "status": "PASSED" if usable_observations >= min_required else "BLOCKED",
-        "actual_value": f"{usable_observations} of {min_required} required observations",
-        "expected_requirement": f"{min_required} complete monthly aggregates",
-        "explanation": "Each observation is a calendar month of approved municipal records. Partial or missing months are not assumed to be zero.",
-        "action_needed": f"Need {max(0, min_required - usable_observations)} more complete monthly observations." if usable_observations < min_required else None,
+        "actual_value": f"{usable_observations} of {min_required} months needed",
+        "expected_requirement": f"Records for {min_required} complete months",
+        "explanation": "Each month is counted from approved records. Missing months are not treated as zero activity.",
+        "action_needed": f"Add complete records for {max(0, min_required - usable_observations)} more month(s)." if usable_observations < min_required else None,
         "resolution_type": "DATA_COLLECTION",
     })
 
@@ -305,12 +305,12 @@ def _build_readiness_checklist(
     is_continuous = missing_month_count == 0 and usable_observations > 0
     checklist.append({
         "id": "timeline_continuity",
-        "title": "Monthly Timeline Continuity",
+        "title": "No missing months",
         "category": "DATA_QUALITY",
         "status": "PASSED" if is_continuous else ("WARNING" if missing_month_count > 0 else "BLOCKED"),
-        "actual_value": "Continuous series" if is_continuous else f"{missing_month_count} calendar month(s) without records",
-        "expected_requirement": "Contiguous monthly series without unrecorded gaps",
-        "explanation": "SmartLivestock does not invent zero values for unrecorded months. Gaps indicate unrecorded periods rather than confirmed zero activity.",
+        "actual_value": "Records found for every month" if is_continuous else f"{missing_month_count} month(s) without records",
+        "expected_requirement": "Records for each month in the period",
+        "explanation": "A month without records may mean no activity or no report. It is not counted as zero activity.",
         "action_needed": "Ensure routine monthly submissions so future months remain continuous." if missing_month_count > 0 else None,
         "resolution_type": "DATA_COLLECTION",
     })
@@ -319,12 +319,12 @@ def _build_readiness_checklist(
     has_unmeasured = unmeasured > 0
     checklist.append({
         "id": "measurement_completeness",
-        "title": "Measurement Completeness",
+        "title": "Required values recorded",
         "category": "DATA_QUALITY",
         "status": "WARNING" if has_unmeasured else "PASSED",
-        "actual_value": f"{unmeasured} record(s) missing target measurement" if has_unmeasured else "All records measured",
-        "expected_requirement": "Complete target measurements (e.g. carcass weight for slaughter)",
-        "explanation": "Event records without the target metric (e.g. slaughter without carcass weight) cannot be included in biomass totals.",
+        "actual_value": f"{unmeasured} record(s) missing a required value" if has_unmeasured else "All required values are recorded",
+        "expected_requirement": "Record the required amounts, such as slaughter weight",
+        "explanation": "Records missing a required amount cannot be included in totals that use that amount.",
         "action_needed": "Ensure inspectors enter measured weights on all future records." if has_unmeasured else None,
         "resolution_type": "DATA_COLLECTION",
     })
@@ -333,16 +333,16 @@ def _build_readiness_checklist(
     production_source = domain == "production"
     checklist.append({
         "id": "timestamp_reliability",
-        "title": "Historical Availability Timestamp Integrity",
+        "title": "Record dates for past checks",
         "category": "VALIDATION_INTEGRITY",
         "status": "PASSED" if approval_reconstructable else "WARNING",
-        "actual_value": "Availability timestamps present" if approval_reconstructable else "Some records lack availability timestamps",
+        "actual_value": "Dates are available" if approval_reconstructable else "Some records are missing dates",
         "expected_requirement": (
-            "Eligible production logs retain their submission timestamps"
-            if production_source else "Approved records retain system creation and review timestamps"
+            "Production records include their submission dates"
+            if production_source else "Approved records include their creation and review dates"
         ),
-        "explanation": "Chronological backtesting requires knowing when a record became available, so later entries cannot leak into earlier forecast cutoffs.",
-        "action_needed": "New records receive system timestamps; historical timestamps cannot be safely backfilled." if not approval_reconstructable else None,
+        "explanation": "Past checks use only records that were available at the time. Dates help keep later records out of earlier checks.",
+        "action_needed": "New records get dates automatically. Missing past dates cannot be safely added later." if not approval_reconstructable else None,
         "resolution_type": "DATA_COLLECTION",
     })
 
@@ -350,20 +350,20 @@ def _build_readiness_checklist(
     has_cutoffs = valid_cutoffs >= minimum_valid_windows
     checklist.append({
         "id": "qualifying_cutoffs",
-        "title": "Qualifying Historical Forecast Cutoffs",
+        "title": "Past forecasts checked",
         "category": "VALIDATION_INTEGRITY",
         "status": "PASSED" if has_cutoffs else ("WARNING" if total_cutoffs > 0 else "BLOCKED"),
-        "actual_value": f"{valid_cutoffs} of {total_cutoffs} cutoff(s) qualified",
-        "expected_requirement": f"At least {minimum_valid_windows} cutoffs meeting training history & availability",
+        "actual_value": f"{valid_cutoffs} of {total_cutoffs} past checks completed",
+        "expected_requirement": f"Complete at least {minimum_valid_windows} past checks",
         "explanation": (
-            "A historical cutoff qualifies only if sufficient production data had become available before that cutoff date."
+            "A past check can be completed only if enough production records were available by that date."
             if production_source else
-            "A historical cutoff qualifies only if sufficient training data had already been approved prior to that cutoff date."
+            "A past check can be completed only if enough records had been approved by that date."
         ),
         "action_needed": (
-            "As timestamped production logs are recorded, future cutoffs can qualify automatically."
+            "As dated production records are added, more past checks may become possible."
             if production_source else
-            "As real municipal records continue to be approved on time, future cutoffs will qualify automatically."
+            "As municipal records are approved and dated, more past checks may become possible."
         ) if not has_cutoffs else None,
         "resolution_type": "DATA_COLLECTION",
     })
@@ -371,38 +371,38 @@ def _build_readiness_checklist(
     # 10. Model Training Execution
     checklist.append({
         "id": "model_training",
-        "title": "Model Training & Convergence",
+        "title": "Prediction methods ready",
         "category": "MODEL_EXECUTION",
         "status": "PASSED" if usable_observations >= 12 else "BLOCKED",
-        "actual_value": "Candidate models trainable" if usable_observations >= 12 else "History below minimum training threshold",
-        "expected_requirement": "Sufficient history for feature lags and parameter estimation",
-        "explanation": "Evaluates candidate models (Naive Baseline, Seasonal Naive, Linear Regression, Random Forest, ARIMA, Holt-Winters).",
-        "action_needed": "Accumulate additional monthly observations to enable model fitting." if usable_observations < 12 else None,
+        "actual_value": "Methods can be compared" if usable_observations >= 12 else "More records are needed",
+        "expected_requirement": "Enough past records to compare prediction methods",
+        "explanation": "Several prediction methods are compared using past records.",
+        "action_needed": "Add more monthly records before comparing methods." if usable_observations < 12 else None,
         "resolution_type": "DATA_COLLECTION",
     })
 
     # 11. Baseline Comparison
     checklist.append({
         "id": "baseline_comparison",
-        "title": "Baseline Performance Comparison",
+        "title": "Compare with a simple forecast",
         "category": "MODEL_EXECUTION",
         "status": "PASSED" if validation_status == "VALIDATED" else "WARNING",
-        "actual_value": "Completed against Naive Baseline" if validation_status == "VALIDATED" else "Not yet validated on historical cutoffs",
-        "expected_requirement": "Machine learning model must outperform simple persistence baseline",
-        "explanation": "Advanced models are only selected if they achieve a lower rolling-origin MAE than the simple persistence baseline.",
-        "action_needed": "Awaiting qualifying historical cutoffs to complete baseline verification." if validation_status != "VALIDATED" else None,
+        "actual_value": "Comparison completed" if validation_status == "VALIDATED" else "More past checks are needed",
+        "expected_requirement": "Check whether a more advanced method beats a simple forecast",
+        "explanation": "The method with the smallest average difference from recorded values is selected.",
+        "action_needed": "More completed past checks are needed for this comparison." if validation_status != "VALIDATED" else None,
         "resolution_type": "DATA_COLLECTION",
     })
 
     # 12. Forecast Generation Availability
     checklist.append({
         "id": "forecast_generation",
-        "title": "Forward Projection Availability",
+        "title": "Estimate availability",
         "category": "FORECAST_DELIVERY",
         "status": "PASSED" if forecast_available else "BLOCKED",
-        "actual_value": "Forward projection available" if forecast_available else "Forecast withheld",
-        "expected_requirement": "Usable historical data to generate forward horizon estimates",
-        "explanation": "Generates out-of-sample forward projections into upcoming calendar months.",
+        "actual_value": "Estimate available" if forecast_available else "More records are needed",
+        "expected_requirement": "Enough past records to estimate upcoming months",
+        "explanation": "Uses past records to estimate upcoming months.",
         "action_needed": "Satisfy data requirements above to generate projections." if not forecast_available else None,
         "resolution_type": "DATA_COLLECTION",
     })
@@ -451,38 +451,38 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
         "weekday_pattern_note": evaluation.get("weekday_pattern_note"),
         "coverage_status": "UNKNOWN",
         "coverage_note": data.get("coverage_note"),
-        "duplicate_detection_note": "Each transfer row represents one animal event; aggregations count distinct transfer IDs and distinct livestock IDs. A later approved resale is a separate event.",
+        "duplicate_detection_note": "Each approved transfer is counted once. If the same animal is transferred again later, that is a separate sale.",
     }
     missing_weeks = data.get("missing_weeks", [])
-    message = evaluation.get("message", "Weekly transfer diagnostics are unavailable.")
+    message = evaluation.get("message", "Past checks are not available for livestock transfers.")
     if missing_review_count:
-        message += f" {missing_review_count} approved transfer(s) have no review timestamp and cannot be placed at historical cutoffs."
+        message += f" {missing_review_count} approved transfer(s) have no review date, so we cannot tell whether they were approved by the date being checked."
     if synthetic_count:
-        message += " The current dataset includes synthetic demonstration rows; they are excluded from claims about real market patterns."
+        message += " The current records include demo entries. They are left out when describing real market patterns."
     checklist = [
         {"id": "approved_transfers", "title": "Approved ownership transfers", "category": "DATA_COLLECTION",
          "status": "PASSED" if approved_qs.exists() else "BLOCKED", "actual_value": f"{approved_qs.count()} approved transfer event(s)",
-         "expected_requirement": "Only approved LivestockOwnershipTransfer rows count as completed sales",
-         "explanation": "Approval marks the seller's animal SOLD. Inventory status, buyer inventory registration, listings, and movements are not counted as additional sales.",
+         "expected_requirement": "Only approved livestock transfers count as completed sales",
+         "explanation": "An approved transfer counts as one sale. Listings, inventory changes, and animal movements are not counted as extra sales.",
          "action_needed": None if approved_qs.exists() else "Record completed ownership transfers through the existing transfer workflow.", "resolution_type": "DATA_COLLECTION"},
-        {"id": "weekly_history", "title": "Contiguous complete weeks", "category": "DATA_QUALITY",
+        {"id": "weekly_history", "title": "Complete weeks of records", "category": "DATA_QUALITY",
          "status": "PASSED" if evaluation.get("forecast_available") else "WARNING",
          "actual_value": f"{progress_count} observed week(s); {len(missing_weeks)} week(s) without complete totals",
-         "expected_requirement": f"At least {required_count} contiguous complete weeks",
-         "explanation": "A week without an approved transfer is unknown because no reporting-completeness log exists; it is not converted to zero.",
+         "expected_requirement": f"At least {required_count} complete weeks in a row",
+         "explanation": "When no transfer is recorded, we cannot tell whether there were no sales or no records.",
          "action_needed": evaluation.get("message") if not evaluation.get("forecast_available") else None, "resolution_type": "DATA_QUALITY"},
         {"id": "weekday_pattern", "title": "Thursday and Friday activity pattern", "category": "DATA_QUALITY",
-         "status": "WARNING", "actual_value": "Recorded approved transfer counts only",
-         "expected_requirement": "Market-day reporting coverage by weekday",
+         "status": "WARNING", "actual_value": "Only approved transfers recorded in SmartLivestock",
+         "expected_requirement": "A record of market activity for each day",
          "explanation": evaluation.get("weekday_pattern_note", "No weekday coverage is recorded."),
-         "action_needed": "A market-session or daily reporting-coverage source is needed before interpreting the observed counts as weekday effects.",
+         "action_needed": "A daily record of market activity is needed to compare sales by weekday.",
          "resolution_type": "DATA_COLLECTION"},
-        {"id": "historical_cutoffs", "title": "Historical cutoff reconstruction", "category": "VALIDATION_INTEGRITY",
+        {"id": "historical_cutoffs", "title": "Past forecast checks", "category": "VALIDATION_INTEGRITY",
          "status": "PASSED" if valid_cutoffs >= 3 else "WARNING",
-         "actual_value": f"{valid_cutoffs} valid of {attempted_cutoffs} attempted cutoff(s)",
-         "expected_requirement": "Full test horizons and cutoff-eligible approved history",
-         "explanation": data.get("approval_timeline_note", "Historical availability is based on stored timestamps."),
-         "action_needed": "Current review timestamps cannot reconstruct every prior edit or approval state." if valid_cutoffs < 3 else None,
+         "actual_value": f"{valid_cutoffs} of {attempted_cutoffs} past checks completed",
+         "expected_requirement": "Enough approved records must be available for each past check",
+         "explanation": data.get("approval_timeline_note", "Saved dates show when approved records became available."),
+         "action_needed": "Some review dates are missing, so fewer past periods can be checked." if valid_cutoffs < 3 else None,
          "resolution_type": "VALIDATION_INTEGRITY"},
     ]
     forecast_points = forecast_result.get("forecast", [])
@@ -493,22 +493,22 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
         "metric_id": f"auction_{target_clean.lower()}_{unit.lower()}",
         "domain": "auction", "target": target_clean, "unit": evaluation.get("target", {}).get("unit", unit),
         "label": "Completed transfer events" if unit == "TRANSACTIONS" else "Animals transferred" if unit == "HEADS" else "Recorded transfer value",
-        "source": "Approved LivestockOwnershipTransfer records", "frequency": "WEEKLY",
-        "reporting_type": "TRANSFER_EVENT_BASED", "expected_reporting": "SmartLivestock has no market reporting-coverage log; absent transfer records do not prove no sale occurred.",
-        "minimum_rule": f"At least {required_count} contiguous complete recorded weeks; missing weeks are never treated as zero.",
+        "source": "Approved livestock transfers", "frequency": "WEEKLY",
+        "reporting_type": "TRANSFER_EVENT_BASED", "expected_reporting": "SmartLivestock does not record all market activity. A week without transfers may mean no sale or missing records.",
+        "minimum_rule": f"At least {required_count} complete weeks of records in a row. Missing weeks are not counted as zero.",
         "forecast_status": forecast_status, "forecast_available": evaluation.get("forecast_available", False),
         "validation_status": validation_status,
         "validation_details": (
-            f"{valid_cutoffs} full weekly rolling-origin horizon(s) were evaluated. "
-            "Three or more are required here before describing validation as established."
+            f"{valid_cutoffs} weekly past check(s) were completed. "
+            "At least three are needed before we can say the estimates have been checked enough."
         ),
         "readiness_status": evaluation.get("readiness_status", "NOT_READY"),
         "readiness_details": evaluation.get("readiness_details", message),
         "blocker_summary": message,
         "next_step": (
-            "Maintain complete approved weekly transfer reporting and retain review timestamps; collect market-session coverage before interpreting weekday activity."
+            "Keep weekly transfer records complete and dated. Record daily market activity to compare sales by weekday."
             if evaluation.get("forecast_available") else
-            "Continue recording ownership transfers through the approval workflow and add reporting-coverage data before treating missing weeks or weekday counts as complete activity."
+            "Continue recording and approving transfers. Without daily market records, we cannot tell whether weeks without transfers had no sales."
         ),
         "progress": {
             "usable_observations": progress_count, "required_observations": required_count,
@@ -519,7 +519,7 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
             "unmeasured_records": data.get("unmeasured_value_records", 0),
             "approval_reconstructable": data.get("approval_cutoff_reconstructable", False),
             "valid_cutoffs_count": valid_cutoffs, "total_cutoffs_count": attempted_cutoffs,
-            "milestone_label": f"{progress_count}/{required_count} complete weekly observations",
+            "milestone_label": f"{progress_count} of {required_count} weeks recorded",
             "data_through_date": data.get("last_complete_week"),
             "auction_diagnostics": source_diagnostics,
         },
@@ -661,7 +661,7 @@ def get_forecast_readiness_diagnostics(
         )
         usable = eligible.filter(slaughter__isnull=True)
         source_diagnostics = {
-            "source_record_type": "Farmer-reported ProductionRecord events",
+            "source_record_type": "Farmer-submitted production records",
             "eligible_source_records": eligible.count(),
             "eligible_records_used": usable.count(),
             "recorded_source_records": eligible.filter(status=ProductionRecord.ProductionStatus.RECORDED).count(),
@@ -673,7 +673,7 @@ def get_forecast_readiness_diagnostics(
             ).count(),
             "synthetic_records": usable.filter(notes__contains="AI_SEED").count(),
             "period_coverage_note": "Meat entries are event-based. Months without entries are unknown, not confirmed zero production.",
-            "availability_note": "RECORDED logs become available at submission. Historical approval-state and other legacy review statuses are excluded.",
+            "availability_note": "Farmer-submitted production records are counted from their submission date. Older records with review labels are left out.",
         }
     elif domain == "slaughter":
         scoped = scope_reviewer_queryset(SlaughterRecord.objects.all(), user).filter(
@@ -681,7 +681,7 @@ def get_forecast_readiness_diagnostics(
         )
         approved = scoped.filter(status=SlaughterRecord.StatusType.APPROVED)
         source_diagnostics = {
-            "source_record_type": "SlaughterRecord events",
+            "source_record_type": "Slaughter records",
             "approved_slaughter_events": approved.count(),
             "approved_heads_recorded": approved.aggregate(total=Sum("quantity"))["total"] or 0,
             "events_with_carcass_weight": approved.filter(carcass_weight__isnull=False).count(),
@@ -691,7 +691,7 @@ def get_forecast_readiness_diagnostics(
             "missing_review_timestamp_records": approved.filter(reviewed_at__isnull=True).count(),
             "synthetic_records": approved.filter(review_remarks__contains="AI_SEED").count(),
             "period_coverage_note": "Slaughter entries are event-based; no event in a period is not proof of zero activity.",
-            "availability_note": "The current reviewed_at value can identify the current review, but no immutable slaughter approval history exists.",
+            "availability_note": "The current review date is available, but older changes to a record may not be shown.",
         }
 
     # Step 2: Determine Data Readiness State
@@ -705,7 +705,7 @@ def get_forecast_readiness_diagnostics(
     total_attempted_cutoffs = 0
     model_metrics: Dict[str, Any] = {}
     validation_status = "INSUFFICIENT_DATA"
-    validation_details = "Insufficient historical observations to establish backtesting cutoffs."
+    validation_details = "There are not enough past records to check earlier estimates."
     winning_model_name: Optional[str] = None
     baseline_mae: Optional[float] = None
     selected_mae: Optional[float] = None
@@ -726,8 +726,8 @@ def get_forecast_readiness_diagnostics(
         if valid_cutoffs_count >= required_validation_windows and model_metrics:
             validation_status = "VALIDATED"
             validation_details = (
-                f"Successfully validated across {valid_cutoffs_count} historical forecast cutoff window(s). "
-                f"Evaluation horizon: {rolling.get('horizon', horizon_months)} month(s)."
+                f"The estimate was checked against {valid_cutoffs_count} past period(s). "
+                f"Each check covered {rolling.get('horizon', horizon_months)} month(s)."
             )
             # Find best model
             valid_models = [
@@ -744,7 +744,7 @@ def get_forecast_readiness_diagnostics(
         else:
             validation_status = "NOT_YET_VALIDATED"
             if total_attempted_cutoffs == 0:
-                validation_details = "Dataset length is insufficient to simulate an out-of-sample holdout window."
+                validation_details = "There are not enough past periods to compare an estimate with recorded results."
             else:
                 primary_reason = ""
                 if backtest_diagnostics:
@@ -752,17 +752,15 @@ def get_forecast_readiness_diagnostics(
                     if reasons:
                         primary_reason = f" {reasons[0]}"
 
-                source_word = "submission" if domain == "production" else "approval"
-                fallback_explanation = (
-                    f"Records for simulated past cutoffs had {source_word} timestamps at or after the cutoff date."
-                )
+                source_word = "submitted" if domain == "production" else "approved"
+                fallback_explanation = f"Some records were {source_word} only after the date being checked, so they could not be used in that past check."
                 validation_details = (
-                    f"{valid_cutoffs_count} of {total_attempted_cutoffs} historical cutoffs qualified."
+                    f"{valid_cutoffs_count} of {total_attempted_cutoffs} past checks could be completed."
                     f"{primary_reason or f' {fallback_explanation}'}"
                 )
     elif usable_observations >= 12:
         validation_status = "NOT_YET_VALIDATED"
-        validation_details = "Series contains data, but could not reconstruct historical cutoff availability."
+        validation_details = "Records are available, but there are not enough dates to check earlier estimates."
 
     # Step 4: Separate Forecast Availability from Validation
     # A forecast is available if we have at least 12 complete monthly observations
@@ -775,40 +773,40 @@ def get_forecast_readiness_diagnostics(
     if usable_observations < 12:
         forecast_available = False
         forecast_status = "INSUFFICIENT_DATA"
-        forecast_blocker = f"Dataset contains {usable_observations} monthly observations (minimum 12 required)."
+        forecast_blocker = f"There are records for {usable_observations} months. At least 12 months are needed."
         forecast_next_step = f"Continue recording monthly data for {max(0, 12 - usable_observations)} more month(s)."
     elif missing_month_count > 0:
         forecast_available = False
         forecast_status = "UNAVAILABLE"
         source_word = "eligible" if domain == "production" else "approved"
-        forecast_blocker = f"There are {missing_month_count} calendar month(s) without {source_word} records."
-        forecast_next_step = "Ensure complete monthly reporting so historical months are contiguous."
+        forecast_blocker = f"There are {missing_month_count} month(s) without {source_word} records."
+        forecast_next_step = "Keep monthly records complete so no months are missing."
     elif unmeasured_records > 0:
         forecast_available = False
         forecast_status = "UNAVAILABLE"
-        forecast_blocker = f"{unmeasured_records} approved record(s) lack required measurement data."
-        forecast_next_step = "Inspect records to ensure required metrics (e.g. carcass weight) are recorded."
+        forecast_blocker = f"{unmeasured_records} approved record(s) are missing a required amount."
+        forecast_next_step = "Check that required amounts, such as slaughter weight, are recorded."
     elif usable_observations < min_required:
         # Reached generic 12 months, but below target-specific minimum (e.g. 18 or 24)
         forecast_available = True
         forecast_status = "AVAILABLE_UNVALIDATED" if validation_status != "VALIDATED" else "READY"
-        forecast_blocker = f"Observed {usable_observations} months ({min_required} required for full seasonal evaluation)."
-        forecast_next_step = f"Forecast is available as an initial projection; full seasonal evaluation requires {min_required} months."
+        forecast_blocker = f"Records are available for {usable_observations} months. {min_required} months are needed for a full check of year-to-year patterns."
+        forecast_next_step = f"An estimate is available. Collect records for {min_required} months to check year-to-year patterns."
     elif validation_status == "VALIDATED":
         forecast_available = True
         forecast_status = "READY"
-        forecast_blocker = "No blockers. Forecast is generated and empirically validated against baseline."
-        forecast_next_step = "Maintain regular monthly data collection to preserve evaluation windows."
+        forecast_blocker = "The estimate is available and has been checked against past records."
+        forecast_next_step = "Keep adding monthly records so future checks can continue."
     else:
         # Has sufficient observations (>= min_required) but validation_status is NOT_YET_VALIDATED
         forecast_available = True
         forecast_status = "AVAILABLE_UNVALIDATED"
         if domain == "production":
-            forecast_blocker = "Some production log submission or historical approval timestamps cannot establish past data availability."
-            forecast_next_step = "The current projection can use eligible logs; more timestamped records will strengthen future historical validation."
+            forecast_blocker = "Some production records are missing dates needed for earlier past-record checks."
+            forecast_next_step = "The current estimate can use eligible records. Keep dates on new records so future checks can improve."
         else:
-            forecast_blocker = "Historical backtesting cutoffs had late approval timestamps relative to historical simulation dates."
-            forecast_next_step = "Forecast is available from current data. Future cutoffs will validate automatically as real-time approvals accumulate."
+            forecast_blocker = "Some records were approved after the dates used for past checks."
+            forecast_next_step = "The estimate is available. New approved records can be included in later checks."
 
     # Step 5: Generate Forecast & Chart Data if available
     forecast_points: List[Dict[str, Any]] = []
@@ -835,8 +833,8 @@ def get_forecast_readiness_diagnostics(
             # If generation encountered an issue, retain availability as false with clear note
             forecast_available = False
             forecast_status = "ERROR"
-            forecast_blocker = "An error occurred during forward projection calculation."
-            forecast_next_step = "Review input series values or retry evaluation."
+            forecast_blocker = "The estimate could not be created."
+            forecast_next_step = "Review the recorded values or try again."
 
     # If chart_timeline was not generated by forecast, use historical trend points
     if not chart_timeline and meta.get("historical_trend"):
@@ -869,12 +867,12 @@ def get_forecast_readiness_diagnostics(
     # Step 7: Progress Metrics
     observations_progress_pct = min(100, int(round((usable_observations / max(1, min_required)) * 100)))
     milestone_label = (
-        f"Milestone 1/3: Need {max(0, min_required - usable_observations)} more monthly observations ({usable_observations}/{min_required})"
+        f"Need {max(0, min_required - usable_observations)} more months of records ({usable_observations}/{min_required})"
         if usable_observations < min_required
         else (
-            "Milestone 2/3: Minimum history met; awaiting chronological backtest cutoffs"
+            "Enough past records; waiting for more past checks"
             if validation_status != "VALIDATED"
-            else f"Milestone 3/3: Validated across {valid_cutoffs_count} cutoff window(s)"
+            else f"Checked against {valid_cutoffs_count} past period(s)"
         )
     )
 

@@ -100,7 +100,7 @@ def evaluate_rolling_origins(
             return {"horizon": horizon, "windows": 0, "requested_windows": 0,
                     "diagnostics": [{"forecast_month": None, "cutoff_date": None,
                                      "status": "INCOMPLETE_TEST_WINDOW",
-                                     "reason": f"A full {horizon}-month test horizon plus {min_train} training months is not available."}],
+                                     "reason": f"There are not enough past months of records to estimate {horizon} month(s) and compare the result."}],
                     "models": {}, "final_window": None}
     else:
         horizon = min(horizon, observation_count - min_train)
@@ -165,9 +165,9 @@ def evaluate_rolling_origins(
                 else "NOT_ENOUGH_APPROVED_HISTORY"
             )
             diagnostic["reason"] = (
-                f"Fewer than 8 {history_label} training months were available by this cutoff. "
-                f"{missing_availability_count} prior month(s) have no reconstructable availability timestamp, "
-                f"and {available_at_or_after_cutoff_count} became available at or after the cutoff."
+                f"Fewer than 8 months of {history_label} records were available by this date. "
+                f"{missing_availability_count} earlier month(s) have no usable record date, "
+                f"and records from {available_at_or_after_cutoff_count} month(s) were added on or after this date."
             )
             continue
         months = history["month"].dt.to_period("M")
@@ -176,13 +176,13 @@ def evaluate_rolling_origins(
             # A cutoff with unreviewed months cannot support monthly lags.
             diagnostic["status"] = "GAPS_IN_APPROVED_HISTORY"
             diagnostic["reason_code"] = "GAPS_IN_APPROVED_HISTORY"
-            diagnostic["reason"] = f"The {history_label} training history had missing calendar months at this cutoff."
+            diagnostic["reason"] = f"Some months have no {history_label} records before the date being checked."
             continue
         window = df.iloc[origin:origin + horizon].copy()
         if len(window) != horizon:
             diagnostic["status"] = "INCOMPLETE_TEST_WINDOW"
             diagnostic["reason_code"] = "INCOMPLETE_TEST_WINDOW"
-            diagnostic["reason"] = "The complete forecast horizon is not yet observed."
+            diagnostic["reason"] = "There are not enough later records to compare with an estimate."
             continue
         actual = window["quantity"].astype(float).to_numpy()
         window_results = {}
@@ -205,7 +205,7 @@ def evaluate_rolling_origins(
         if window_results:
             diagnostic["status"] = "EVALUATED"
             diagnostic["reason_code"] = "EVALUATED"
-            diagnostic["reason"] = "Training history was available and the full forecast window is observed."
+            diagnostic["reason"] = "Past records were available and later results could be compared with the estimate."
             diagnostic["test_periods"] = window["month"].dt.strftime("%Y-%m").tolist()
             diagnostic["actual_values"] = [round(float(value), 1) for value in actual]
             diagnostic["predictions_by_model"] = window_results
@@ -218,7 +218,7 @@ def evaluate_rolling_origins(
         else:
             diagnostic["status"] = "MODEL_FAILURE"
             diagnostic["reason_code"] = "MODEL_FAILURE"
-            diagnostic["reason"] = "No candidate model produced a valid forecast for this cutoff."
+            diagnostic["reason"] = "None of the prediction methods could make an estimate for this period."
 
     model_metrics = {}
     for name, values in collected.items():
@@ -289,7 +289,7 @@ def evaluate_all_models(
             "status": "insufficient_data",
             "forecast_available": False,
             "readiness_status": meta.get("readiness_status", "NOT_READY"),
-            "readiness_details": meta.get("readiness_details", "Insufficient historical observations."),
+            "readiness_details": meta.get("readiness_details", "More past records are needed for an estimate."),
             "domain": domain,
             "scope": meta.get("scope", f"Municipal {domain}"),
             "target": {
@@ -301,7 +301,7 @@ def evaluate_all_models(
             "available_observations": meta.get("available_observations", 0),
             "required_observations": meta.get("required_observations", 12),
             "quality_observations_threshold": meta.get("quality_observations_threshold", 24),
-            "message": meta.get("message", "Insufficient historical observations."),
+            "message": meta.get("message", "More past records are needed for an estimate."),
             "historical_trend": meta.get("historical_trend", []),
             "approval_timeline": meta.get("approval_timeline", []),
             "approval_timeline_note": meta.get("approval_timeline_note"),
@@ -315,14 +315,14 @@ def evaluate_all_models(
             },
             "data": meta,
             "selection": {
-                "criterion": "Lowest rolling-origin forecast MAE against the best baseline",
+                "criterion": "Smallest average difference across past checks",
                 "selected_model": None,
                 "baseline_model": "Naive Baseline",
                 "baseline_mae": None,
                 "selected_model_mae": None,
                 "baseline_comparison": "INSUFFICIENT_DATA",
                 "forecast_source": "NONE",
-                "rationale": "Insufficient historical observations to train and benchmark models.",
+                "rationale": "There are not enough past records to compare prediction methods.",
             },
             "models": [],
         }
@@ -466,9 +466,9 @@ def evaluate_all_models(
     baseline_comparison = "INSUFFICIENT_DATA"
     forecast_source = "NONE"
     selection_criterion = (
-        f"Lowest MAE across {rolling.get('windows', 0)} rolling-origin window(s), each forecasting up to {rolling.get('horizon', 0)} month(s), while requiring the winner to beat the best baseline"
+        f"Smallest average difference across {rolling.get('windows', 0)} past check(s), each estimating up to {rolling.get('horizon', 0)} month(s), while requiring the selected method to beat a simple forecast"
         if has_validated_backtest
-        else "Unvalidated baseline projection fit on full history (0 qualifying backtest cutoffs)"
+        else "Estimate based on all available records; not enough past checks could be completed"
     )
 
     if has_validated_backtest:
@@ -482,9 +482,9 @@ def evaluate_all_models(
                 baseline_comparison = "BASELINE_BEST"
                 forecast_source = "NAIVE_BASELINE"
                 rationale = (
-                    f"{best_baseline['name']} achieved lower or equal rolling validation MAE ({naive_mae} {unit}) "
-                    f"compared to advanced models (best was {best_ml['name']} at {best_ml_mae} {unit}). "
-                    "Operational forecast uses the stronger simple baseline rather than a weaker complex model."
+                    f"The simple forecast had a smaller or equal average difference ({naive_mae} {unit}) "
+                    f"than the other methods (the closest difference was {best_ml_mae} {unit}), "
+                    "so it is used for this estimate."
                 )
             else:
                 selected_model_name = best_ml["name"]
@@ -493,24 +493,24 @@ def evaluate_all_models(
                 forecast_source = "MACHINE_LEARNING"
                 improvement_pct = round(((naive_mae - best_ml_mae) / naive_mae) * 100, 1) if naive_mae and naive_mae > 0 else 0.0
                 rationale = (
-                    f"Selected '{selected_model_name}' because it beats {best_baseline['name']} (MAE {selected_model_mae} vs {naive_mae} {unit}, "
-                    f"{improvement_pct}% error reduction) across rolling-origin windows."
+                    f"The selected method had a smaller average difference than the simple forecast "
+                    f"({selected_model_mae} vs {naive_mae} {unit}, {improvement_pct}% less error across past checks)."
                 )
         elif best_baseline:
             selected_model_name = best_baseline["name"]
             selected_model_mae = naive_mae
             baseline_comparison = "BASELINE_BEST"
             forecast_source = "NAIVE_BASELINE"
-            rationale = "Only a simple baseline evaluated successfully among candidate models."
+            rationale = "Only the simple forecast could be checked successfully."
         elif ml_models:
             best_ml = min(ml_models, key=lambda m: m["mae"])
             selected_model_name = best_ml["name"]
             selected_model_mae = best_ml["mae"]
             baseline_comparison = "MODEL_BEATS_BASELINE"
             forecast_source = "MACHINE_LEARNING"
-            rationale = f"Selected '{selected_model_name}' with rolling-origin MAE {selected_model_mae} {unit}."
+            rationale = f"The selected method had an average difference of {selected_model_mae} {unit} on past checks."
         else:
-            rationale = "No candidate model evaluated successfully across rolling-origin windows."
+            rationale = "No prediction method could be checked successfully across past periods."
     else:
         # Decoupled state: data meets threshold, but 0 qualifying cutoffs could be reconstructed
         selected_model_name = "Naive Baseline"
@@ -518,9 +518,8 @@ def evaluate_all_models(
         baseline_comparison = "UNVALIDATED"
         forecast_source = "UNVALIDATED_PROJECTION"
         rationale = (
-            f"Forecast generated from complete observed series ({len(df)} months), but historical backtesting "
-            "could not reconstruct past availability timestamps (0 qualifying cutoffs). "
-            "Forward projections use persistence baseline as an experimental reference."
+            f"An estimate is available from {len(df)} months of records, but some earlier record dates are unavailable, "
+            "so it could not be compared with past results. A simple forecast is used."
         )
 
     for m in models_results:

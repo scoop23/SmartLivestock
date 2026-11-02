@@ -271,6 +271,71 @@ function formatIsoDate(isoString?: string | null) {
   }
 }
 
+const FRIENDLY_METHOD_NAMES: Record<string, string> = {
+  "Naive Baseline": "Simple forecast",
+  "Seasonal Naive": "Seasonal pattern",
+  "Linear Regression": "Trend-based method",
+  "Random Forest": "Pattern-based method",
+  ARIMA: "Trend and pattern method",
+  "Holt-Winters": "Seasonal trend method",
+  "Moving Average (3 periods)": "Recent average",
+  "Moving Average (4 weeks)": "Recent average",
+  "Seasonal Naive (52 weeks)": "Seasonal pattern",
+  "Linear Trend": "Trend method",
+};
+
+function readableMethodName(name?: string | null) {
+  if (!name) return "Not selected";
+  return FRIENDLY_METHOD_NAMES[name] || name;
+}
+
+function readableMetricLabel(key: string) {
+  const labels: Record<string, string> = {
+    eligible_source_records: "Eligible source records",
+    eligible_records_used: "Records used for estimates",
+    recorded_source_records: "Farmer records submitted",
+    linked_to_slaughter_excluded: "Records linked to slaughter, left out",
+    pending_or_verified_records: "Records awaiting final approval",
+    returned_records: "Records returned for changes",
+    missing_approval_timestamp_records: "Records without an approval date",
+    approved_slaughter_events: "Approved slaughter events",
+    approved_heads_recorded: "Animals recorded",
+    events_with_carcass_weight: "Events with carcass weight",
+    events_missing_carcass_weight: "Events without carcass weight",
+    missing_review_timestamp_records: "Records without a review date",
+    approved_transfers: "Approved transfers",
+    pending_transfers: "Transfers awaiting review",
+    verified_transfers: "Transfers checked",
+    returned_transfers: "Transfers returned for changes",
+    approved_without_review_timestamp: "Approved transfers without a review date",
+  };
+  if (labels[key]) return labels[key];
+  const label = key.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return label.replace("Unmeasured Records", "Records without a measurement");
+}
+
+function readableDomain(domain: string) {
+  const labels: Record<string, string> = {
+    disease: "Disease",
+    mortality: "Mortality",
+    slaughter: "Slaughter",
+    auction: "Livestock sales",
+    production: "Production",
+  };
+  return labels[domain.toLowerCase()] || domain.replaceAll("_", " ");
+}
+
+function readableUnit(unit: string) {
+  const labels: Record<string, string> = {
+    HEADS: "animals",
+    CASES: "cases",
+    LITERS: "liters",
+    KILOGRAMS: "kg",
+    TRANSACTIONS: "transfers",
+  };
+  return labels[unit.toUpperCase()] || unit;
+}
+
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case "READY":
@@ -279,14 +344,14 @@ function StatusBadge({ status }: { status: string }) {
       return (
         <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold gap-1 px-2.5 py-0.5 text-xs">
           <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />
-          <span>{status === "READY" ? "Ready & Validated" : status === "VALIDATED" ? "Validated" : "Passed"}</span>
+          <span>{status === "READY" || status === "VALIDATED" ? "Checked against past records" : "Okay"}</span>
         </Badge>
       );
     case "AVAILABLE_UNVALIDATED":
       return (
         <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-semibold gap-1 px-2.5 py-0.5 text-xs">
           <Sparkles className="size-3.5 text-amber-600 shrink-0" />
-          <span>Unvalidated (Experimental)</span>
+          <span>Estimate available, not fully checked</span>
         </Badge>
       );
     case "NEEDS_ATTENTION":
@@ -294,14 +359,14 @@ function StatusBadge({ status }: { status: string }) {
       return (
         <Badge className="bg-amber-100 text-amber-800 border-amber-300 font-semibold gap-1 px-2.5 py-0.5 text-xs">
           <AlertTriangle className="size-3.5 text-amber-600 shrink-0" />
-          <span>{status === "NEEDS_ATTENTION" ? "Needs Attention" : "Review Warning"}</span>
+          <span>{status === "NEEDS_ATTENTION" ? "Needs attention" : "Review this item"}</span>
         </Badge>
       );
     case "NOT_YET_VALIDATED":
       return (
         <Badge className="bg-sky-100 text-sky-800 border-sky-300 font-semibold gap-1 px-2.5 py-0.5 text-xs">
           <Clock className="size-3.5 text-sky-600 shrink-0" />
-          <span>Pending Validation</span>
+          <span>Waiting for more past checks</span>
         </Badge>
       );
     case "INSUFFICIENT_DATA":
@@ -309,14 +374,14 @@ function StatusBadge({ status }: { status: string }) {
       return (
         <Badge className="bg-slate-100 text-slate-800 border-slate-300 font-semibold gap-1 px-2.5 py-0.5 text-xs">
           <Database className="size-3.5 text-slate-500 shrink-0" />
-          <span>{status === "INSUFFICIENT_DATA" ? "Insufficient Data" : "Prerequisite Blocked"}</span>
+          <span>{status === "INSUFFICIENT_DATA" ? "More records needed" : "Needs attention"}</span>
         </Badge>
       );
     case "ERROR":
       return (
         <Badge className="bg-rose-100 text-rose-800 border-rose-300 font-semibold gap-1 px-2.5 py-0.5 text-xs">
           <ShieldAlert className="size-3.5 text-rose-600 shrink-0" />
-          <span>Service Error</span>
+          <span>Could not load information</span>
         </Badge>
       );
     default:
@@ -337,18 +402,19 @@ const APPROVAL_COLORS: Record<string, string> = {
 };
 
 const CUTOFF_LABELS: Record<string, string> = {
-  EVALUATED: "Evaluated",
-  NOT_ENOUGH_APPROVED_HISTORY: "Insufficient Approved History",
-  GAPS_IN_APPROVED_HISTORY: "Gaps in Approved History",
-  INCOMPLETE_TEST_WINDOW: "Incomplete Test Window",
-  MISSING_AVAILABILITY_TIMESTAMPS: "Missing Availability Timestamps",
-  MODEL_FAILURE: "Model Failure",
+  EVALUATED: "Check completed",
+  NOT_ENOUGH_APPROVED_HISTORY: "Not enough approved records",
+  GAPS_IN_APPROVED_HISTORY: "Missing periods in approved records",
+  INCOMPLETE_TEST_WINDOW: "Not enough later records to compare",
+  MISSING_AVAILABILITY_TIMESTAMPS: "Record approval date missing",
+  MODEL_FAILURE: "Could not complete the check",
+  SKIPPED: "Not checked",
 };
 
 const PRODUCTION_CUTOFF_LABELS: Record<string, string> = {
   ...CUTOFF_LABELS,
-  NOT_ENOUGH_APPROVED_HISTORY: "Insufficient Eligible History",
-  GAPS_IN_APPROVED_HISTORY: "Gaps in Eligible History",
+  NOT_ENOUGH_APPROVED_HISTORY: "Not enough eligible records",
+  GAPS_IN_APPROVED_HISTORY: "Missing periods in eligible records",
 };
 
 // ---------------------------------------------------------------------------
@@ -362,7 +428,7 @@ interface ForecastReadinessDashboardProps {
 export function ForecastReadinessDashboard({
   onSelectTargetForDeepAnalysis,
 }: ForecastReadinessDashboardProps) {
-  const [selectedTargetId, setSelectedTargetId] = useState<string>("milk");
+  const [selectedTargetId, setSelectedTargetId] = useState<string>("disease_reports");
   const [horizonMonths, setHorizonMonths] = useState<number>(6);
   const [activeTab, setActiveTab] = useState<"overview" | "checklist" | "timeline" | "data_quality">("overview");
   const [checklistFilter, setChecklistFilter] = useState<string>("ALL");
@@ -379,10 +445,12 @@ export function ForecastReadinessDashboard({
     staleTime: 5 * 60 * 1000,
   });
 
-  const summaryCards = data?.summary_cards || [];
-  const activeTargetId = data?.diagnostics?.[selectedTargetId]
+  const summaryCards = (data?.summary_cards || []).filter(
+    (card) => card.domain.toLowerCase() !== "production",
+  );
+  const activeTargetId = summaryCards.some((card) => card.id === selectedTargetId)
     ? selectedTargetId
-    : summaryCards[0]?.id || selectedTargetId;
+    : summaryCards[0]?.id || "";
   const selectedDiagnostic = data?.diagnostics?.[activeTargetId];
   const isProductionTarget = selectedDiagnostic?.domain === "production";
   const observationLabel = selectedDiagnostic?.frequency === "WEEKLY" ? "week(s)" : "month(s)";
@@ -396,24 +464,24 @@ export function ForecastReadinessDashboard({
   const attemptedCount = selectedDiagnostic?.backtesting.total_attempted_cutoffs || 0;
   const requiredWindows = selectedDiagnostic?.backtesting.minimum_required_windows || 0;
   const readinessLabel = selectedDiagnostic?.forecast_status === "READY"
-    ? "Forecast Available and Evaluated"
+    ? "Estimate checked against past records"
     : selectedDiagnostic?.forecast_available
-      ? "Forecast Available, Validation Limited"
+      ? "Estimate available, but past checks are limited"
       : selectedDiagnostic?.forecast_status === "NEEDS_ATTENTION" || selectedDiagnostic?.forecast_status === "ERROR"
-        ? "Forecast Needs Attention"
-        : "Forecast Not Yet Available";
+        ? "Forecast needs attention"
+        : "More records needed for an estimate";
 
   const nextAction = !isProductionTarget && returnedCount > 0
     ? "Review returned records, correct them, and resubmit where appropriate."
     : !isProductionTarget && pendingCount + verifiedCount > 0
       ? selectedDiagnostic?.forecast_available
-        ? "Review pending submissions when appropriate; they are not included in approved forecasting history."
-        : "Review pending submissions and continue collecting approved history. Later approvals cannot change what was known at past cutoffs."
+      ? "Review pending submissions when appropriate; only approved records are used here."
+        : "Review pending submissions and continue collecting approved records. Later approvals cannot change what was available for earlier checks."
       : evaluatedCount < requiredWindows
         ? isProductionTarget
-          ? "Continue recording complete production logs and inspect skipped cutoff reasons."
-          : "Continue collecting complete, approved periods and inspect skipped cutoff reasons."
-        : selectedDiagnostic?.next_step || "Refresh diagnostics after relevant data changes.";
+          ? "Keep recording complete production logs and review why some past checks could not be completed."
+          : "Continue collecting complete, approved records and review why some past checks could not be completed."
+        : selectedDiagnostic?.next_step || "Update the checks after records change.";
 
   // Filter checklist items
   const filteredChecklist = useMemo(() => {
@@ -433,6 +501,17 @@ export function ForecastReadinessDashboard({
     };
   }, [selectedDiagnostic]);
 
+  if (!isPending && !isError && summaryCards.length === 0) {
+    return (
+      <Card className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+        <h3 className="text-base font-bold text-slate-900">No forecast topics available</h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Production forecasts are not shown here. No disease, mortality, slaughter, or auction targets are available for this account.
+        </p>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* ------------------------------------------------------------------ */}
@@ -446,21 +525,20 @@ export function ForecastReadinessDashboard({
                 <Compass className="size-5" />
               </span>
               <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white">
-                Municipal Forecast Readiness & Validation Engine
+                Forecasts and past-record checks
               </h2>
             </div>
 
 
             <p className="text-xs md:text-sm text-emerald-100/80 max-w-3xl leading-relaxed">
-              Provides transparent, evidence-based verification for Padre Garcia agricultural forecasts.
-              Inspect observation coverage, backtesting progress, and operational blockers before relying on forward projections.
+              See how much past data is available, whether estimates could be checked against earlier results, and what is needed before using them.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-xs text-slate-300">
               <Sliders className="size-3.5 text-emerald-400" />
-              <span>Horizon:</span>
+              <span>How far ahead:</span>
               <select
                 aria-label="Forecast Horizon Months"
                 value={horizonMonths}
@@ -482,7 +560,7 @@ export function ForecastReadinessDashboard({
               className="bg-emerald-800/40 hover:bg-emerald-700/60 text-white border-emerald-600/50 text-xs font-semibold gap-1.5 transition cursor-pointer"
             >
               <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin text-emerald-300" : ""}`} />
-              <span>{isFetching ? "Re-evaluating..." : "Re-evaluate Readiness"}</span>
+                <span>{isFetching ? "Updating checks..." : "Update checks"}</span>
             </Button>
           </div>
         </div>
@@ -491,7 +569,7 @@ export function ForecastReadinessDashboard({
         <div className="mt-4 pt-4 border-t border-emerald-800/50 flex flex-wrap items-center justify-between text-xs text-emerald-200/70 gap-2">
           <div className="flex items-center gap-2">
             <span className="inline-block size-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Real-time municipal review timestamps evaluated strictly chronologically (leakage-safe).</span>
+            <span>Past checks use only records available at the time, so later information does not affect earlier results.</span>
           </div>
           {data?.last_checked_at && (
             <span>Last checked: {formatIsoDate(data.last_checked_at)}</span>
@@ -509,10 +587,10 @@ export function ForecastReadinessDashboard({
           <div>
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Layers className="size-4 text-emerald-700" />
-              Core Municipal Forecast Targets
+              Forecast topics
             </h3>
             <p className="text-xs text-slate-500">
-              Select any target to view detailed requirements checklist, backtesting windows, and forward projections.
+              Choose a topic to see its forecast, data needs, and how estimates matched past records.
             </p>
           </div>
         </div>
@@ -533,12 +611,12 @@ export function ForecastReadinessDashboard({
             <div className="flex items-start gap-3">
               <AlertTriangle className="size-5 text-rose-600 shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-bold text-sm">Failed to load forecast readiness diagnostics</h4>
+                <h4 className="font-bold text-sm">Could not load forecast information</h4>
                 <p className="text-xs text-rose-700 mt-1">
                   {error instanceof Error ? error.message : "The analytics service encountered a database connectivity error."}
                 </p>
                 <Button size="sm" variant="outline" onClick={() => refetch()} className="mt-3 text-xs bg-white">
-                  Retry Evaluation
+                  Try again
                 </Button>
               </div>
             </div>
@@ -567,7 +645,7 @@ export function ForecastReadinessDashboard({
                           {card.label}
                         </h4>
                         <span className="text-2xs font-semibold text-slate-500 uppercase tracking-wider">
-                          {card.domain} · {card.unit}
+                          {readableDomain(card.domain)} · {readableUnit(card.unit)}
                         </span>
                       </div>
                       <StatusBadge status={card.forecast_status} />
@@ -580,9 +658,9 @@ export function ForecastReadinessDashboard({
                     {/* Progress Bar & Observations */}
                     <div className="mt-3 pt-3 border-t border-slate-100">
                       <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-medium text-slate-700">Historical Coverage</span>
+                        <span className="font-medium text-slate-700">Past records available</span>
                         <span className="font-bold text-slate-900">
-                          {card.usable_observations} / {card.required_observations} {card.observation_label || (card.frequency === "WEEKLY" ? "wk" : "mo")}
+                          {card.usable_observations} / {card.required_observations} {card.observation_label || (card.frequency === "WEEKLY" ? "weeks" : "months")}
                         </span>
                       </div>
                       <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
@@ -607,7 +685,7 @@ export function ForecastReadinessDashboard({
                     <div className="mt-2.5 flex items-center justify-between text-xs bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">
                       <span className="text-slate-600 flex items-center gap-1">
                         <History className="size-3 text-slate-500" />
-                        Valid Cutoffs:
+                        Past checks completed:
                       </span>
                       <span className={`font-bold ${card.valid_cutoffs_count > 0 ? "text-emerald-700" : "text-slate-600"}`}>
                         {card.valid_cutoffs_count} of {card.total_cutoffs_count}
@@ -626,7 +704,7 @@ export function ForecastReadinessDashboard({
                   {/* Card Bottom CTA */}
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-2xs text-slate-500">
-                      Model: <span className="font-semibold text-slate-700">{card.model_name || "None"}</span>
+                      Method: <span className="font-semibold text-slate-700">{readableMethodName(card.model_name)}</span>
                     </span>
                     <span className={`text-xs font-semibold flex items-center gap-1 ${isSelected ? "text-emerald-700" : "text-slate-600"}`}>
                       {isSelected ? "Inspecting" : "Inspect"}
@@ -640,14 +718,14 @@ export function ForecastReadinessDashboard({
         )}
       </div>
 
-      {selectedDiagnostic && <section aria-label="Source record status and forecast readiness" className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,1fr)]">
+      {selectedDiagnostic && <section aria-label="Record status and forecast details" className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,1fr)]">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h4 className="text-sm font-bold text-slate-900">{isProductionTarget ? "Production analytics eligibility" : "Record approval status"}</h4>
-              <p className="mt-1 text-xs text-slate-600">{isProductionTarget ? "Only current RECORDED farmer logs qualify; historical approval-state rows are excluded." : "Counts are source records in this target’s authorized scope, not forecast periods or quantities."}</p>
+              <h4 className="text-sm font-bold text-slate-900">{isProductionTarget ? "Production records used" : "Record approval status"}</h4>
+              <p className="mt-1 text-xs text-slate-600">{isProductionTarget ? "Only current farmer-submitted production records are used. Older records with review labels are left out." : "These counts show records available for this topic. They are separate from the periods used for estimates."}</p>
             </div>
-            {approvalBreakdown?.available && <Badge variant="outline">{approvalBreakdown.source_model}</Badge>}
+            {approvalBreakdown?.available && <Badge variant="outline">Record counts</Badge>}
           </div>
           {approvalBreakdown?.available ? (
             <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
@@ -690,13 +768,13 @@ export function ForecastReadinessDashboard({
           {approvalBreakdown?.scope_note && <p className="mt-2 text-[11px] text-slate-500">{approvalBreakdown.scope_note}</p>}
           {isProductionTarget && (pendingCount + verifiedCount + returnedCount > 0) && (
             <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950">
-              Legacy pending, verified, or returned statuses are shown for historical context and are excluded from forecasting. Routine farmer production records do not wait for review.
+              Older records with review labels are shown for context only and are not used in estimates. Current farmer production records do not need review.
             </div>
           )}
           {!isProductionTarget && (pendingCount + verifiedCount + returnedCount > 0) && (
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
               {returnedCount > 0 && <p>There {returnedCount === 1 ? "is" : "are"} {returnedCount} record(s) returned for revision. Review the remarks, correct, and resubmit where appropriate.</p>}
-              {(pendingCount + verifiedCount > 0) && <p className={returnedCount ? "mt-1" : ""}>{pendingCount + verifiedCount} record(s) are pending final approval and are excluded from approved forecasting history. Their later approval will not retroactively make them available at past backtest cutoffs.</p>}
+              {(pendingCount + verifiedCount > 0) && <p className={returnedCount ? "mt-1" : ""}>{pendingCount + verifiedCount} record(s) still need final approval, so they are not used for forecasts. If approved later, they will not be included in earlier past-record checks.</p>}
             </div>
           )}
         </div>
@@ -711,7 +789,7 @@ export function ForecastReadinessDashboard({
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Next action</p>
             <p className="mt-1 text-xs text-slate-800">{nextAction}</p>
           </div>
-          <p className="mt-2 text-[11px] text-slate-500">Backtesting cutoffs: {evaluatedCount} evaluated of {attemptedCount} attempted · minimum {requiredWindows}. Validation criteria: {selectedDiagnostic.forecast_status === "READY" ? "satisfied" : "not yet satisfied"}. Approval counts are separate from cutoff counts.</p>
+            <p className="mt-2 text-[11px] text-slate-500">Past forecast checks: {evaluatedCount} completed of {attemptedCount} attempted (at least {requiredWindows} needed). Approval counts are separate from these checks.</p>
         </div>
       </section>}
 
@@ -731,13 +809,13 @@ export function ForecastReadinessDashboard({
                   <StatusBadge status={selectedDiagnostic.forecast_status} />
                   {selectedDiagnostic.forecast_available && (
                     <Badge variant="outline" className="text-xs bg-slate-100 font-medium">
-                      Horizon: {selectedDiagnostic.frequency === "WEEKLY" ? selectedDiagnostic.forecast.horizon_weeks : selectedDiagnostic.forecast.horizon_months} {selectedDiagnostic.frequency === "WEEKLY" ? "Weeks" : "Months"}
+                      Covers: {selectedDiagnostic.frequency === "WEEKLY" ? selectedDiagnostic.forecast.horizon_weeks : selectedDiagnostic.forecast.horizon_months} {selectedDiagnostic.frequency === "WEEKLY" ? "weeks" : "months"}
                     </Badge>
                   )}
                 </div>
                 <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
-                  Source: <span className="font-medium text-slate-800">{selectedDiagnostic.source}</span> · Minimum Requirement:{" "}
-                  <span className="font-medium text-slate-800">{selectedDiagnostic.minimum_rule}</span>
+                  Records from: <span className="font-medium text-slate-800">{selectedDiagnostic.source}</span> · What is needed:{" "}
+                  <span className="font-medium text-slate-800">at least {selectedDiagnostic.progress.required_observations} {selectedDiagnostic.frequency === "WEEKLY" ? "weeks" : "months"} of past records</span>
                 </p>
               </div>
 
@@ -757,7 +835,7 @@ export function ForecastReadinessDashboard({
                     className="text-xs font-medium text-emerald-800 border-emerald-300 hover:bg-emerald-50 cursor-pointer"
                   >
                     <Compass className="size-3.5 mr-1 text-emerald-700" />
-                    Benchmark All 6 Models
+                    Compare 6 methods
                   </Button>
                 )}
               </div>
@@ -769,11 +847,11 @@ export function ForecastReadinessDashboard({
                 <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <p className="font-bold text-amber-950">
-                    Unvalidated Forecast (Experimental Projection)
+                    Estimate available, not fully checked
                   </p>
                   <p className="text-amber-800 leading-relaxed">
-                    This forward projection was fitted on all {selectedDiagnostic.progress.usable_observations} observed {selectedDiagnostic.frequency === "WEEKLY" ? "weekly" : "monthly"} periods.
-                    Historical validation is limited: {selectedDiagnostic.backtesting.valid_cutoffs_count} of {selectedDiagnostic.backtesting.total_attempted_cutoffs} attempted cutoffs produced an evaluation. Use this projection as decision support, not a proven accuracy claim.
+                    This estimate uses all {selectedDiagnostic.progress.usable_observations} recorded {selectedDiagnostic.frequency === "WEEKLY" ? "weeks" : "months"}.
+                    Only {selectedDiagnostic.backtesting.valid_cutoffs_count} of {selectedDiagnostic.backtesting.total_attempted_cutoffs} past checks could be completed. Use this estimate as a guide; its accuracy is not yet established.
                   </p>
                 </div>
               </div>
@@ -785,12 +863,12 @@ export function ForecastReadinessDashboard({
                 <Award className="size-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <p className="font-bold text-emerald-950">
-                    Empirically Validated Against Historical Baseline
+                    Checked against past records
                   </p>
                   <p className="text-emerald-800 leading-relaxed">
-                    {selectedDiagnostic.validation_details} Selected model (
-                    <span className="font-semibold">{selectedDiagnostic.backtesting.winning_model || "Naive Baseline"}</span>
-                    ) outperformed naive benchmarks on holdout tests.
+                    {selectedDiagnostic.validation_details} Selected method (
+                    <span className="font-semibold">{readableMethodName(selectedDiagnostic.backtesting.winning_model || "Naive Baseline")}</span>
+                    ) matched past results better than a simple forecast.
                   </p>
                 </div>
               </div>
@@ -802,18 +880,17 @@ export function ForecastReadinessDashboard({
                 <Database className="size-4 text-slate-600 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <p className="font-bold text-slate-900">
-                    Forecast Withheld: Insufficient Historical Observations
+                    More past records are needed
                   </p>
                   <p className="text-slate-700 leading-relaxed">
-                    The municipal dataset currently contains {selectedDiagnostic.progress.usable_observations} observed {observationLabel}.
-                    A minimum of {selectedDiagnostic.progress.required_observations} contiguous {observationLabel} is required to establish temporal lags without fabricating data.
+                    There are {selectedDiagnostic.progress.usable_observations} recorded {observationLabel}. At least {selectedDiagnostic.progress.required_observations} in a row are needed before an estimate can be made. Missing records are not filled in with invented values.
                   </p>
                 </div>
               </div>
             )}
 
             <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-800">Detailed source diagnostics</summary>
+              <summary className="cursor-pointer text-sm font-semibold text-slate-800">More about the source records</summary>
             {selectedDiagnostic.progress.milk_diagnostics && (
               <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50/70 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -848,7 +925,7 @@ export function ForecastReadinessDashboard({
                   <p className="mt-1">{selectedDiagnostic.progress.milk_diagnostics.session_completeness_note}</p>
                   <p className="mt-1">{selectedDiagnostic.progress.milk_diagnostics.monthly_completeness_note}</p>
                   <p className="mt-2">
-                    Forecast generation: <b>{selectedDiagnostic.forecast_available ? "available" : "withheld"}</b>. Historical backtest: <b>{selectedDiagnostic.backtesting.valid_cutoffs_count} valid of {selectedDiagnostic.backtesting.total_attempted_cutoffs} attempted cutoffs</b>. Open “Cutoff Timeline” to see why each window was skipped.
+                    Forecast: <b>{selectedDiagnostic.forecast_available ? "available" : "not available"}</b>. Past checks: <b>{selectedDiagnostic.backtesting.valid_cutoffs_count} completed of {selectedDiagnostic.backtesting.total_attempted_cutoffs}</b>. Open “Past Checks” to see why some periods could not be checked.
                   </p>
                 </div>
               </div>
@@ -858,14 +935,14 @@ export function ForecastReadinessDashboard({
               <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h4 className="text-sm font-bold text-slate-900">Auction activity recorded in SmartLivestock</h4>
-                  <Badge variant="outline" className="border-amber-300 bg-white text-amber-900">Coverage unknown</Badge>
+                  <Badge variant="outline" className="border-amber-300 bg-white text-amber-900">Records may be incomplete</Badge>
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   {[
                     ["Approved transfers", selectedDiagnostic.progress.auction_diagnostics.approved_transfers],
                     ["Pending review", selectedDiagnostic.progress.auction_diagnostics.pending_transfers],
                     ["Returned for revision", selectedDiagnostic.progress.auction_diagnostics.returned_transfers],
-                    ["Synthetic rows", selectedDiagnostic.progress.auction_diagnostics.synthetic_transfers],
+                    ["Demo transfers", selectedDiagnostic.progress.auction_diagnostics.synthetic_transfers],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-amber-100 bg-white px-3 py-2">
                       <p className="text-[11px] text-slate-600">{label}</p>
@@ -892,7 +969,7 @@ export function ForecastReadinessDashboard({
 
             {selectedDiagnostic.progress.source_diagnostics && (
               <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <h4 className="text-sm font-bold text-slate-900">Source record and measurement diagnostics</h4>
+                <h4 className="text-sm font-bold text-slate-900">Source records and recorded amounts</h4>
                 <p className="mt-1 text-xs text-slate-600">{selectedDiagnostic.progress.source_diagnostics.source_record_type}</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   {Object.entries(selectedDiagnostic.progress.source_diagnostics)
@@ -915,21 +992,21 @@ export function ForecastReadinessDashboard({
           <div className="p-6">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
               <TabsList className="bg-slate-100 p-1 rounded-xl mb-6 flex flex-wrap">
-                <TabsTrigger value="overview" className="text-xs font-semibold px-4 py-2 rounded-lg">
+              <TabsTrigger value="overview" className="text-xs font-semibold px-4 py-2 rounded-lg">
                   <LineChartIcon className="size-3.5 mr-1.5" />
-                  Projection & Trends
+                  Forecast & trends
                 </TabsTrigger>
                 <TabsTrigger value="checklist" className="text-xs font-semibold px-4 py-2 rounded-lg">
                   <FileCheck2 className="size-3.5 mr-1.5" />
-                  Readiness Checklist ({checklistCounts.passed}/{checklistCounts.total})
+                  Data Checklist ({checklistCounts.passed}/{checklistCounts.total})
                 </TabsTrigger>
                 <TabsTrigger value="timeline" className="text-xs font-semibold px-4 py-2 rounded-lg">
                   <History className="size-3.5 mr-1.5" />
-                  Cutoff Timeline ({selectedDiagnostic.backtesting.valid_cutoffs_count} Valid)
+                  Past Checks ({selectedDiagnostic.backtesting.valid_cutoffs_count} completed)
                 </TabsTrigger>
                 <TabsTrigger value="data_quality" className="text-xs font-semibold px-4 py-2 rounded-lg">
                   <Database className="size-3.5 mr-1.5" />
-                  Data Integrity & Coverage
+                  Record Coverage
                 </TabsTrigger>
               </TabsList>
 
@@ -938,7 +1015,7 @@ export function ForecastReadinessDashboard({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
                     <span className="text-2xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Usable History
+                      Past records available
                     </span>
                     <p className="text-2xl font-bold text-slate-900 mt-1">
                       {selectedDiagnostic.progress.usable_observations}{" "}
@@ -951,21 +1028,21 @@ export function ForecastReadinessDashboard({
 
                   <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
                     <span className="text-2xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Operational Model
+                      Method used
                     </span>
                     <p className="text-2xl font-bold text-slate-900 mt-1">
-                      {selectedDiagnostic.forecast.model_name || "None"}
+                      {readableMethodName(selectedDiagnostic.forecast.model_name)}
                     </p>
                     <p className="text-xs text-slate-600 mt-1">
                       {selectedDiagnostic.backtesting.selected_mae !== null && selectedDiagnostic.backtesting.selected_mae !== undefined
-                        ? `Validation MAE: ${selectedDiagnostic.backtesting.selected_mae} ${selectedDiagnostic.unit}`
-                        : "Experimental baseline fit"}
+                        ? `Typical difference: ${selectedDiagnostic.backtesting.selected_mae} ${selectedDiagnostic.unit}`
+                        : "No past comparison yet"}
                     </p>
                   </div>
 
                   <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50">
                     <span className="text-2xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Next Step / Action
+                      What to do next
                     </span>
                     <p className="text-xs font-medium text-slate-900 mt-1 leading-snug">
                       {selectedDiagnostic.next_step}
@@ -978,10 +1055,10 @@ export function ForecastReadinessDashboard({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                     <div>
                       <h4 className="font-bold text-sm text-slate-900">
-                        Historical Observations vs Forward Horizon Projection
+                        Past records and future estimate
                       </h4>
                       <p className="text-xs text-slate-500">
-                        Solid line represents {isProductionTarget ? "eligible farmer-recorded values" : "approved recorded values"}; dashed line shows {selectedDiagnostic.frequency === "WEEKLY" ? selectedDiagnostic.forecast.horizon_weeks : selectedDiagnostic.forecast.horizon_months}-{selectedDiagnostic.frequency === "WEEKLY" ? "week" : "month"} forward forecast.
+                        The solid line shows {isProductionTarget ? "eligible farmer-recorded values" : "approved recorded values"}; the dashed line shows the estimate for the next {selectedDiagnostic.frequency === "WEEKLY" ? selectedDiagnostic.forecast.horizon_weeks : selectedDiagnostic.forecast.horizon_months} {selectedDiagnostic.frequency === "WEEKLY" ? "weeks" : "months"}.
                       </p>
                     </div>
                   </div>
@@ -1035,7 +1112,7 @@ export function ForecastReadinessDashboard({
                           <Line
                             type="monotone"
                             dataKey="forecast"
-                            name={`Forward Projection (${selectedDiagnostic.forecast.model_name || "Baseline"})`}
+                            name="Estimate"
                             stroke="#d97706"
                             strokeWidth={2.5}
                             strokeDasharray="5 5"
@@ -1049,7 +1126,7 @@ export function ForecastReadinessDashboard({
                         <Database className="size-10 text-slate-300 mb-2" />
                         <p className="text-sm font-semibold text-slate-700">No chart data available</p>
                         <p className="text-xs text-slate-500 max-w-sm mt-1">
-                          Historical observations have not yet reached the minimum threshold to render a chart series.
+                          Not enough past records are available to draw this chart yet.
                         </p>
                       </div>
                     )}
@@ -1165,23 +1242,23 @@ export function ForecastReadinessDashboard({
               <TabsContent value="timeline" className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-3">
                   {[
-                    ["Evaluated", selectedDiagnostic.backtesting.valid_cutoffs_count],
-                    ["Attempted", selectedDiagnostic.backtesting.total_attempted_cutoffs],
-                    ["Minimum for validation", selectedDiagnostic.backtesting.minimum_required_windows],
+                    ["Completed", selectedDiagnostic.backtesting.valid_cutoffs_count],
+                    ["Tried", selectedDiagnostic.backtesting.total_attempted_cutoffs],
+                    ["Needed for a full check", selectedDiagnostic.backtesting.minimum_required_windows],
                   ].map(([label, count]) => <div key={String(label)} className="rounded-xl border border-slate-200 bg-white p-3">
                     <p className="text-xs text-slate-600">{label}</p><p className="text-lg font-bold text-slate-900">{count}</p>
                   </div>)}
                 </div>
-                <p className="text-xs text-slate-600">Validation criteria: <strong>{selectedDiagnostic.forecast_status === "READY" ? "satisfied" : "not yet satisfied"}</strong>. These are historical forecast windows; they are not the count of records awaiting approval.</p>
+                <p className="text-xs text-slate-600">These are checks of earlier forecast periods, not records awaiting approval.</p>
                 <details className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <summary className="cursor-pointer text-sm font-bold text-slate-900">How backtesting works</summary>
+                  <summary className="cursor-pointer text-sm font-bold text-slate-900">How past checks work</summary>
                   <div className="flex items-start gap-2.5">
                     <Info className="size-4 text-emerald-700 shrink-0 mt-0.5" />
-                    <p className="text-xs leading-relaxed text-slate-700">Backtesting asks how a model would have performed in the past: it uses only information available by a simulated cutoff, predicts a later period, then compares that prediction with the actual result. A cutoff is the model&apos;s knowledge date, not the production date. Example only (not live results): cutoff June 30, 2026 → predict July 2026 → train on eligible information available before the cutoff → compare with July&apos;s actual value.</p>
+                    <p className="text-xs leading-relaxed text-slate-700">Each check recreates an earlier estimate using only records available at that time. It then compares the estimate with the result recorded later. For example: use records available through June 30, 2026 to estimate July, then compare that estimate with July&apos;s recorded result. This is an example, not a live result.</p>
                   </div>
                 </details>
 
-                <h4 className="text-sm font-bold text-slate-900">Historical cutoff results</h4>
+                <h4 className="text-sm font-bold text-slate-900">Results by past period</h4>
                 {selectedDiagnostic.backtesting.cutoffs?.length > 0 ? (
                   <div className="space-y-3">
                     {selectedDiagnostic.backtesting.cutoffs.map((cutoff, cIdx) => {
@@ -1199,10 +1276,10 @@ export function ForecastReadinessDashboard({
                           <summary className="list-none cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-sm text-slate-900">
-                                Predicting: {cutoff.forecast_week || cutoff.forecast_month || "period unavailable"}
+                              Estimate for: {cutoff.forecast_week || cutoff.forecast_month || "period unavailable"}
                               </span>
                               <span className="text-2xs text-slate-500 font-medium">
-                                · Cutoff {formatReadableDate(cutoff.cutoff_date) || cutoff.cutoff_date}
+                                · Records available through {formatReadableDate(cutoff.cutoff_date) || cutoff.cutoff_date}
                               </span>
                             </div>
                             <Badge
@@ -1212,13 +1289,13 @@ export function ForecastReadinessDashboard({
                                   : "bg-slate-200 text-slate-700 border-slate-300"
                               }`}
                             >
-                              {(isProductionTarget ? PRODUCTION_CUTOFF_LABELS[code] : CUTOFF_LABELS[code]) || cutoff.status}
+                              {(isProductionTarget ? PRODUCTION_CUTOFF_LABELS[code] : CUTOFF_LABELS[code]) || "Not checked"}
                             </Badge>
                           </summary>
 
                           <div className="mt-2 text-xs text-slate-600 flex flex-wrap items-center gap-4">
                             <span>
-                              Eligible training history:{" "}
+                              Past records used:{" "}
                               <strong className="text-slate-900">{selectedDiagnostic.frequency === "WEEKLY" ? cutoff.available_training_weeks : cutoff.available_training_months} {selectedDiagnostic.frequency === "WEEKLY" ? "week(s)" : "month(s)"}</strong>
                             </span>
                             {cutoff.earliest_training_month && cutoff.latest_training_month && (
@@ -1231,11 +1308,10 @@ export function ForecastReadinessDashboard({
                           <p className="text-xs text-slate-600 mt-2 bg-white/70 p-2 rounded-lg border border-slate-100">
                             <strong>{isEvaluated ? "Result" : "Why it was skipped"}:</strong> {cutoff.reason}
                           </p>
-                          <p className="mt-2 text-[11px] text-slate-500">Backend status: {cutoff.status}{cutoff.reason_code ? ` · reason code: ${cutoff.reason_code}` : ""}</p>
                           {cutoff.actual_values && cutoff.test_periods && (
                             <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white">
                               <table className="w-full min-w-[420px] text-left text-xs">
-                                <thead className="bg-slate-50 text-slate-600"><tr><th className="p-2">Period</th><th className="p-2">Actual</th>{Object.keys(cutoff.predictions_by_model || {}).map((model) => <th key={model} className="p-2">{model}</th>)}</tr></thead>
+                                <thead className="bg-slate-50 text-slate-600"><tr><th className="p-2">Period</th><th className="p-2">Recorded amount</th>{Object.keys(cutoff.predictions_by_model || {}).map((model) => <th key={model} className="p-2">{readableMethodName(model)}</th>)}</tr></thead>
                                 <tbody>{cutoff.test_periods.map((period, index) => <tr key={period} className="border-t"><td className="p-2">{period}</td><td className="p-2">{cutoff.actual_values?.[index] ?? "—"}</td>{Object.entries(cutoff.predictions_by_model || {}).map(([model, values]) => <td key={model} className="p-2">{values[index] ?? "—"}</td>)}</tr>)}</tbody>
                               </table>
                             </div>
@@ -1247,8 +1323,8 @@ export function ForecastReadinessDashboard({
                 ) : (
                   <div className="text-center p-8 bg-slate-50 rounded-xl border border-slate-200 text-slate-500">
                     <History className="size-8 text-slate-400 mx-auto mb-2" />
-                    <p className="font-semibold text-slate-700 text-sm">No historical cutoffs evaluated</p>
-                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">No cutoff results were returned. Forecast availability and validation are separate: a forward projection may be generated without historical evaluation evidence.</p>
+                    <p className="font-semibold text-slate-700 text-sm">No past checks are available</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">An estimate can be available even when there are not enough past results to check how well it matches recorded values.</p>
                   </div>
                 )}
               </TabsContent>
@@ -1260,20 +1336,20 @@ export function ForecastReadinessDashboard({
                   <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
                     <h5 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                       <Scale className="size-4 text-emerald-700" />
-                      Target Reporting Semantics
+                      What these numbers mean
                     </h5>
                     <p className="text-xs text-slate-600 leading-relaxed">
                       {selectedDiagnostic.expected_reporting}
                     </p>
                     <div className="pt-2 border-t border-slate-100 text-xs text-slate-500 space-y-1">
                       <p>
-                        • <strong>Domain:</strong> {selectedDiagnostic.domain.toUpperCase()}
+                        • <strong>Topic:</strong> {selectedDiagnostic.domain.toUpperCase()}
                       </p>
                       <p>
-                        • <strong>Target Metric:</strong> {selectedDiagnostic.target} ({selectedDiagnostic.unit})
+                        • <strong>Measure:</strong> {selectedDiagnostic.label} ({selectedDiagnostic.unit})
                       </p>
                       <p>
-                        • <strong>Aggregation Level:</strong> Municipal Monthly Total
+                        • <strong>Reported as:</strong> Municipal total per month
                       </p>
                     </div>
                   </div>
@@ -1282,7 +1358,7 @@ export function ForecastReadinessDashboard({
                   <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
                     <h5 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                       <CheckCircle2 className="size-4 text-emerald-700" />
-                      Quality & Timestamp Integrity
+                      Record completeness and dates
                     </h5>
                     <div className="space-y-2 text-xs">
                       <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50">
@@ -1294,17 +1370,17 @@ export function ForecastReadinessDashboard({
                         </span>
                       </div>
                       <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50">
-                        <span className="text-slate-600">Unmeasured Target Records:</span>
+                        <span className="text-slate-600">Records missing a measurement:</span>
                         <span className="font-bold text-slate-900">
                           {selectedDiagnostic.progress.unmeasured_records}
                         </span>
                       </div>
                       <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50">
-                        <span className="text-slate-600">{isProductionTarget ? "Availability Timestamps Reconstructable:" : "Approval Timestamps Reconstructable:"}</span>
+                        <span className="text-slate-600">{isProductionTarget ? "Record dates available:" : "Approval dates available:"}</span>
                         <span className={`font-bold ${selectedDiagnostic.progress.approval_reconstructable ? "text-emerald-700" : "text-amber-700"}`}>
                           {selectedDiagnostic.progress.approval_reconstructable
-                            ? (isProductionTarget ? "Yes (submission / review timestamps)" : "Yes (review timestamps)")
-                            : (isProductionTarget ? "Some timestamps unavailable" : "Pending accumulating reviews")}
+                            ? (isProductionTarget ? "Yes (recorded dates)" : "Yes (review dates)")
+                            : (isProductionTarget ? "Some dates are missing" : "More reviews are needed")}
                         </span>
                       </div>
                     </div>

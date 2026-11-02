@@ -99,50 +99,50 @@ FORECAST_TARGETS = {
         "unit": "LITERS",
         "event_date_field": "ProductionRecord.record_date",
         "eligible_status": "RECORDED",
-        "source": "Farmer-recorded ProductionRecord (MILK; liters)",
-        "expected_reporting": "Daily entries are possible, but no daily reporting-completeness ledger exists.",
+        "source": "Farmer-submitted milk records (liters)",
+        "expected_reporting": "Records can be submitted daily, but the system cannot tell whether every day has been reported.",
         "minimum_monthly_observations": 24,
-        "minimum_rule": "Two annual cycles before evaluating annual seasonality and a holdout forecast.",
+        "minimum_rule": "At least 24 months of records are needed to check yearly patterns.",
     },
     ("production", "MEAT", "KILOGRAMS"): {
         "label": "Farmer-reported meat yield",
         "unit": "KILOGRAMS",
         "event_date_field": "ProductionRecord.record_date",
         "eligible_status": "RECORDED",
-        "source": "Farmer-recorded ProductionRecord (MEAT; slaughter is null; kilograms)",
-        "expected_reporting": "Event-based; no reporting-completeness ledger exists.",
+        "source": "Farmer-reported meat production (kilograms; excludes records linked to slaughter)",
+        "expected_reporting": "Records are made when an event occurs; a month without entries may mean no report was made.",
         "minimum_monthly_observations": 18,
-        "minimum_rule": "12 training months plus a 6-month out-of-sample window for this monthly event series.",
+        "minimum_rule": "At least 18 months of records: 12 to make an estimate and 6 later months to check it.",
     },
     ("slaughter", "ALL", "KILOGRAMS"): {
         "label": "Slaughterhouse meat yield",
         "unit": "KILOGRAMS",
         "event_date_field": "SlaughterRecord.record_date",
         "eligible_status": "APPROVED",
-        "source": "SlaughterRecord.carcass_weight (kilograms)",
-        "expected_reporting": "Event-based; missing carcass weights are not treated as zero.",
+        "source": "Slaughterhouse carcass weights (kilograms)",
+        "expected_reporting": "Records are made when slaughter occurs. Missing carcass weights are not counted as zero.",
         "minimum_monthly_observations": 18,
-        "minimum_rule": "12 training months plus a 6-month out-of-sample window for this monthly event series.",
+        "minimum_rule": "At least 18 months of records: 12 to make an estimate and 6 later months to check it.",
     },
     ("auction", "ALL", "HEADS"): {
         "label": "Livestock sold",
         "unit": "HEADS",
         "event_date_field": "LivestockOwnershipTransfer.transfer_date",
         "eligible_status": "APPROVED",
-        "source": "LivestockOwnershipTransfer (one animal per approved transfer)",
-        "expected_reporting": "Transfer-event based; a missing month does not prove zero sales or no transfers.",
+        "source": "Approved livestock transfers (one animal per transfer)",
+        "expected_reporting": "Transfers are recorded as they happen; a month with no entries does not confirm there were no sales.",
         "minimum_monthly_observations": 18,
-        "minimum_rule": "12 training months plus a 6-month out-of-sample window for this monthly event series.",
+        "minimum_rule": "At least 18 months of records: 12 to make estimates and 6 later months to check them.",
     },
     ("auction", "ALL", "TRANSACTIONS"): {
         "label": "Completed livestock transfer events",
         "unit": "TRANSACTIONS",
         "event_date_field": "LivestockOwnershipTransfer.transfer_date",
         "eligible_status": "APPROVED",
-        "source": "LivestockOwnershipTransfer approved events",
-        "expected_reporting": "Weekly transfer-event based; missing weeks are unknown because no reporting coverage log exists.",
+        "source": "Approved livestock transfers",
+        "expected_reporting": "Transfers are recorded as they happen. Weeks without entries are unknown because reporting coverage is not tracked.",
         "minimum_monthly_observations": 12,
-        "minimum_rule": "The weekly transfer service requires 12 contiguous complete weeks of approved transfer events; missing weeks are never zero-filled.",
+        "minimum_rule": "At least 12 complete weeks of approved transfer records in a row. Missing weeks are not counted as zero.",
     },
 }
 
@@ -161,9 +161,9 @@ def get_forecast_target_definition(domain: str, target: str, unit: str) -> Dict[
         "event_date_field": "source-model event date",
         "eligible_status": "APPROVED",
         "source": f"Approved {domain} records",
-        "expected_reporting": "Reporting completeness is not recorded; absent months are unknown.",
+        "expected_reporting": "We do not track whether every month has a report, so a month without records is unknown.",
         "minimum_monthly_observations": MIN_OBSERVATIONS_REQUIRED,
-        "minimum_rule": "Existing generic minimum for monthly forecasts.",
+        "minimum_rule": "At least 12 months of past records are needed for an estimate.",
     }
 
 
@@ -182,23 +182,23 @@ def get_readiness_status(
     if observation_count < min_observations_required:
         return (
             READINESS_NOT_READY,
-            f"Found {observation_count} monthly observation(s). At least {min_observations_required} are required for this target.",
+            f"There are {observation_count} months of records. At least {min_observations_required} are needed for this topic.",
         )
     elif missing_month_count > 0:
         return (
             READINESS_READY,
-            f"Found {observation_count} observed months and {missing_month_count} months with no eligible records. "
-            "Missing months are not assumed to be zero; annual seasonality confidence is limited.",
+            f"There are records in {observation_count} months and none in {missing_month_count} other months. "
+            "Months without records are not counted as zero activity, so year-to-year patterns are harder to judge.",
         )
     elif observation_count < QUALITY_OBSERVATIONS_THRESHOLD:
         return (
             READINESS_READY,
-            f"Found {observation_count} monthly observations. Adequate for chronological split and initial model evaluation.",
+            f"There are {observation_count} months of records. This is enough for an initial check against later results.",
         )
     else:
         return (
             READINESS_QUALITY_READY,
-            f"Found {observation_count} monthly observations (>= 2 full annual cycles). Supports seasonal decomposition and robust evaluation.",
+            f"There are {observation_count} months of records, covering at least two full years. This helps compare year-to-year patterns.",
         )
 
 
@@ -546,11 +546,11 @@ def extract_monthly_series(
     # For example, disease and mortality are municipal-level aggregates (overall totals),
     # NOT spatial GIS barangay risk predictions.
     domain_scopes = {
-        "production": "Municipal-level production output",
-        "disease": "Municipal-level disease forecast",
-        "mortality": "Municipality-wide mortality totals",
-        "slaughter": "Municipal slaughterhouse (abattoir) throughput",
-        "auction": "Approved municipal live-animal ownership transfers",
+        "production": "Production totals for the municipality",
+        "disease": "Disease reports across the municipality",
+        "mortality": "Reported animal deaths across the municipality",
+        "slaughter": "Slaughterhouse totals",
+        "auction": "Approved livestock transfers across the municipality",
     }
     domain_scope = domain_scopes.get(domain, f"Municipal {domain} aggregate")
 
@@ -565,11 +565,11 @@ def extract_monthly_series(
     coverage_warning_parts = []
     if current_month_has_records:
         coverage_warning_parts.append(
-            f"Records from the incomplete current month ({current_month_start:%Y-%m}) were excluded from model history."
+            f"Records from the current, unfinished month ({current_month_start:%Y-%m}) were left out."
         )
     if missing_months:
         coverage_warning_parts.append(
-            f"There are {len(missing_months)} calendar month(s) with no eligible records. They were left missing, not treated as zero."
+            f"There are {len(missing_months)} months without approved records. They were not counted as zero."
         )
     coverage_warning = " ".join(coverage_warning_parts) or None
 
@@ -599,12 +599,11 @@ def extract_monthly_series(
         "historical_trend": historical_trend_points,
         "approval_timeline": availability_timeline,
         "approval_timeline_note": (
-            "Production months become available after the latest recorded log was submitted. Historical approval-state rows are excluded. "
-            "Official slaughter, disease, mortality, and transfer sources use their review timestamps. This is not "
-            "a reconstruction of historical edits beyond stored timestamps."
+            "Farmer production records are counted from when they were submitted. Older records with review labels are left out. "
+            "Other records are counted from their saved submission and approval dates. Those dates may not show every past edit."
             if domain == "production" else
-            "Dates summarize currently approved records by event month. Each month is treated as available only "
-            "after its latest submission and approval timestamps. This is not a reconstruction of historical edits."
+            "Only approved records are used. Saved submission and approval dates help determine what was available at each past check, "
+            "but older edits may not be recorded."
         ),
         "target_definition": target_definition,
         "data_through_date": (
@@ -624,10 +623,8 @@ def extract_monthly_series(
         metadata["forecast_available"] = False
         metadata["readiness_status"] = READINESS_NOT_READY
         metadata["message"] = (
-            f"Insufficient historical data for {domain.title()} ({target_clean}): Found {len(records)} "
-            f"monthly observation(s). At least {min_observations_required} monthly observations are required "
-            f"to train, chronologically evaluate, and benchmark predictive forecasting models reliably "
-            f"without fabricating synthetic scores."
+            f"There are records in {len(records)} months for {domain.title()} ({target_clean}). "
+            f"At least {min_observations_required} months are needed before an estimate can be made and checked."
         )
         return None, metadata
 
@@ -637,16 +634,16 @@ def extract_monthly_series(
         metadata["readiness_status"] = READINESS_NOT_READY
         if domain == "slaughter":
             metadata["readiness_details"] = (
-                f"{unmeasured_target_records} approved slaughter event(s) have no carcass weight. "
-                "The monthly meat-yield totals may be partial, so the forecast is withheld."
+                f"{unmeasured_target_records} approved slaughter record(s) have no carcass weight. "
+                "Monthly meat totals may be incomplete, so no estimate is shown."
             )
         elif domain == "auction" and unit_clean == "PHP":
             metadata["readiness_details"] = (
-                f"{unmeasured_target_records} approved ownership transfer(s) have no recorded purchase price. "
-                "Monthly transfer values may be partial, so the forecast is withheld."
+                f"{unmeasured_target_records} approved ownership transfer(s) have no purchase price. "
+                "Monthly sales totals may be incomplete, so no estimate is shown."
             )
         else:
-            metadata["readiness_details"] = "Some approved events are missing a required measurement, so the forecast is withheld."
+            metadata["readiness_details"] = "Some approved records are missing a required value, so no estimate is shown."
         metadata["message"] = metadata["readiness_details"]
         return None, metadata
 
@@ -659,22 +656,21 @@ def extract_monthly_series(
         metadata["forecast_available"] = False
         metadata["readiness_status"] = READINESS_NOT_READY
         metadata["readiness_details"] = (
-            f"There are {len(missing_months)} months without eligible records. "
-            "The system has no coverage log to distinguish zero activity from unreported data, "
-            "so a monthly forecast is withheld."
+            f"There are {len(missing_months)} months without approved records. "
+            "The system cannot tell whether there was no activity or no report, so it does not count those months as zero or make an estimate."
         )
         metadata["message"] = metadata["readiness_details"]
         return None, metadata
 
     if not metadata["approval_cutoff_reconstructable"]:
         metadata["approval_history_note"] = (
-            "One or more production periods lack reconstructable submission or historical approval timestamps. "
-            "They remain usable in the present-time projection but are excluded from historical training cutoffs. "
-            "Forecast generation and historical validation are reported separately."
+            "Some production records are missing dates needed to know when they became available. "
+            "They can be used for today's estimate but not for earlier past-record checks. "
+            "Estimate availability and past-check results are shown separately."
             if domain == "production" else
-            "One or more current approved periods lack reconstructable submission or approval timestamps. "
-            "They remain usable in the present-time projection but are excluded from historical training cutoffs. "
-            "Forecast generation and historical validation are reported separately."
+            "Some approved records are missing dates needed to know when they became available. "
+            "They can be used for today's estimate but not for earlier past-record checks. "
+            "Estimate availability and past-check results are shown separately."
         )
 
     rows = [

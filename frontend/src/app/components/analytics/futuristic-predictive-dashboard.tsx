@@ -24,14 +24,12 @@ import {
   Compass,
   Cpu,
   Database,
-  Droplets,
   Eye,
   FileCheck2,
   FileSpreadsheet,
   HelpCircle,
   History,
   Info,
-  Layers,
   LineChart as LineChartIcon,
   Percent,
   RefreshCw,
@@ -236,23 +234,69 @@ function formatReadableDate(value?: string | null) {
 
 function formatTargetUnit(unit: string) {
   const u = unit.toUpperCase();
-  if (u === "LITERS") return "Liters (L)";
-  if (u === "KILOGRAMS") return "Kilograms (kg)";
-  if (u === "HEADS") return "Heads (Animals)";
-  if (u === "CASES") return "Clinical Cases";
+  if (u === "LITERS") return "liters";
+  if (u === "KILOGRAMS") return "kg";
+  if (u === "HEADS") return "animals";
+  if (u === "CASES") return "cases";
   return unit;
+}
+
+const FRIENDLY_METHOD_NAMES: Record<string, string> = {
+  "Naive Baseline": "Simple forecast",
+  "Seasonal Naive": "Seasonal pattern",
+  "Linear Regression": "Trend-based method",
+  "Random Forest": "Pattern-based method",
+  ARIMA: "Trend and pattern method",
+  "Holt-Winters": "Seasonal trend method",
+  "Moving Average (3 periods)": "Recent average",
+  "Moving Average (4 weeks)": "Recent average",
+  "Seasonal Naive (52 weeks)": "Seasonal pattern",
+  "Linear Trend": "Trend method",
+};
+
+function readableMethodName(name?: string | null) {
+  if (!name) return "Simple forecast";
+  return FRIENDLY_METHOD_NAMES[name] || name;
+}
+
+function readableDomain(domain: string) {
+  const labels: Record<string, string> = {
+    disease: "Disease",
+    mortality: "Mortality",
+    slaughter: "Slaughter",
+    auction: "Livestock sales",
+    production: "Production",
+  };
+  return labels[domain.toLowerCase()] || domain.replaceAll("_", " ");
+}
+
+function readableReportingType(type: string) {
+  const labels: Record<string, string> = {
+    MONTHLY_TOTAL: "Monthly total",
+    EVENT_BASED: "Recorded events",
+    TRANSFER_EVENT_BASED: "Livestock transfers",
+  };
+  return labels[type] || type.replaceAll("_", " ").toLowerCase();
+}
+
+function readableCheckStatus(status: string) {
+  const labels: Record<string, string> = {
+    EVALUATED: "Completed",
+    SKIPPED: "Not checked",
+    NOT_ENOUGH_APPROVED_HISTORY: "Not enough approved records",
+    GAPS_IN_APPROVED_HISTORY: "Missing past records",
+    INCOMPLETE_TEST_WINDOW: "Not enough later records to compare",
+    MODEL_FAILURE: "Could not complete the check",
+  };
+  return labels[status] || "Not checked";
 }
 
 function getTargetIcon(id: string) {
   switch (id) {
-    case "milk":
-      return Droplets;
     case "livestock_sales":
       return ShoppingBag;
     case "slaughter_meat":
       return Scale;
-    case "farmer_meat":
-      return Layers;
     default:
       return Activity;
   }
@@ -281,7 +325,7 @@ function MissionControlTooltip({ active, payload, label, unit }: any) {
                   style={{ backgroundColor: item.color || (isForecast ? "#059669" : "#64748b") }}
                 />
                 <span className="text-slate-600 font-medium">
-                  {isForecast ? "Projected Model Forecast" : isActual ? "Observed Historical Record" : item.name}
+              {isForecast ? "Estimate" : isActual ? "Recorded amount" : item.name}
                 </span>
               </div>
               <span className="font-mono font-bold text-slate-900">
@@ -300,7 +344,7 @@ function MissionControlTooltip({ active, payload, label, unit }: any) {
 // ---------------------------------------------------------------------------
 
 export function FuturisticPredictiveDashboard() {
-  const [selectedTargetId, setSelectedTargetId] = useState<string>("milk");
+  const [selectedTargetId, setSelectedTargetId] = useState<string>("disease_reports");
   const [horizonMonths, setHorizonMonths] = useState<number>(6);
   const [viewMode, setViewMode] = useState<"overview" | "backtest" | "models" | "checklist">("overview");
   const [showTableView, setShowTableView] = useState<boolean>(false);
@@ -319,7 +363,9 @@ export function FuturisticPredictiveDashboard() {
     staleTime: 60_000,
   });
 
-  const summaryCards = data?.summary_cards || [];
+  const summaryCards = (data?.summary_cards || []).filter(
+    (card) => card.domain.toLowerCase() !== "production",
+  );
   const currentCard = summaryCards.find((c) => c.id === selectedTargetId) || summaryCards[0];
   const activeTargetId = currentCard?.id || selectedTargetId;
   const targetDetail: TargetDiagnosticDetail | undefined = data?.diagnostics?.[activeTargetId];
@@ -347,7 +393,7 @@ export function FuturisticPredictiveDashboard() {
   }, [chartTimeline]);
 
   // Model Error metrics
-  const winningModel = backtestInfo?.winning_model || targetDetail?.forecast?.model_name || "Baseline";
+  const winningModel = backtestInfo?.winning_model || targetDetail?.forecast?.model_name || "Naive Baseline";
   const selectedMae = backtestInfo?.selected_mae ?? null;
   const baselineMae = backtestInfo?.baseline_mae ?? null;
   const isBeatingBaseline =
@@ -375,10 +421,10 @@ export function FuturisticPredictiveDashboard() {
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                Unable to Load Predictive Readiness Diagnostics
+                Could not load forecast information
               </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-xl">
-                {error instanceof Error ? error.message : "The predictive diagnostics service encountered an error while evaluating historical records."}
+                {error instanceof Error ? error.message : "Could not load forecast information. Please try again."}
               </p>
             </div>
           </div>
@@ -391,6 +437,17 @@ export function FuturisticPredictiveDashboard() {
             Try Again
           </Button>
         </div>
+      </Card>
+    );
+  }
+
+  if (!isPending && summaryCards.length === 0) {
+    return (
+      <Card className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+        <h3 className="text-base font-bold text-slate-900">No forecast topics available</h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Production forecasts are not shown here. No disease, mortality, slaughter, or livestock-sale records are available for this account.
+        </p>
       </Card>
     );
   }
@@ -410,7 +467,7 @@ export function FuturisticPredictiveDashboard() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-emerald-800">
                 <Zap className="size-3.5 text-emerald-600 animate-pulse" />
-                Municipal Intelligence Engine
+                Padre Garcia Livestock Trends
               </span>
               <span className="text-slate-300">•</span>
               <span className="text-xs text-slate-600 font-medium">Padre Garcia Batangas</span>
@@ -425,20 +482,17 @@ export function FuturisticPredictiveDashboard() {
               )}
             </div>
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-              Predictive Intelligence
-              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-mono font-bold">
-                v2.4 Core
-              </Badge>
+              Forecasts & Trends
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-              Explore future livestock activity using historical records and evaluated forecasting models. Simple by default, detailed on demand.
+              See estimates based on past records. Check how they matched earlier records before using them to guide decisions.
             </p>
           </div>
 
           {/* Horizon Selector and Refresh Button */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <div className="flex items-center gap-1 rounded-xl bg-slate-100 border border-slate-200 p-1 shadow-2xs">
-              <span className="px-2 text-[11px] font-mono text-slate-500 uppercase tracking-wider">Horizon:</span>
+              <span className="px-2 text-[11px] font-mono text-slate-500 uppercase tracking-wider">Show next:</span>
               {[1, 3, 6, 12].map((m) => (
                 <button
                   key={m}
@@ -452,7 +506,7 @@ export function FuturisticPredictiveDashboard() {
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/70"
                   }`}
                 >
-                  {m}M
+                  {m} {m === 1 ? "month" : "months"}
                 </button>
               ))}
             </div>
@@ -476,12 +530,12 @@ export function FuturisticPredictiveDashboard() {
       {/* ----------------------------------------------------------------- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {isPending
-          ? Array.from({ length: 4 }).map((_, i) => (
+          ? Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-24 rounded-2xl bg-white border border-slate-200" />
             ))
           : summaryCards.map((card) => {
               const Icon = getTargetIcon(card.id);
-              const isSelected = card.id === selectedTargetId;
+              const isSelected = card.id === activeTargetId;
               const isCardValidated = card.validation_status === "VALIDATED";
               const isCardAvailable = card.forecast_available;
 
@@ -511,22 +565,22 @@ export function FuturisticPredictiveDashboard() {
 
                     {isCardValidated ? (
                       <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-mono font-bold">
-                        Validated
+                        Checked with past records
                       </Badge>
                     ) : isCardAvailable ? (
                       <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-mono font-bold">
-                        Unvalidated
+                        Not checked yet
                       </Badge>
                     ) : (
                       <Badge className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-mono">
-                        No Forecast
+                        No estimate yet
                       </Badge>
                     )}
                   </div>
 
                   <div className="mt-3">
                     <div className="text-xs font-mono uppercase text-slate-400 tracking-wider">
-                      {card.domain} • {card.reporting_type.replace(/_/g, " ")}
+                      {readableDomain(card.domain)} • {readableReportingType(card.reporting_type)}
                     </div>
                     <div className={`text-sm font-bold transition-colors mt-0.5 ${
                       isSelected ? "text-emerald-950 font-bold" : "text-slate-800 group-hover:text-slate-900"
@@ -536,7 +590,7 @@ export function FuturisticPredictiveDashboard() {
                     <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
                       <span>{formatTargetUnit(card.unit)}</span>
                       <span className="font-mono text-emerald-700 font-semibold">
-                        {card.usable_observations} {card.frequency === "WEEKLY" ? "wks" : "mos"}
+                        {card.usable_observations} {card.frequency === "WEEKLY" ? "weeks" : "months"} of records
                       </span>
                     </div>
                   </div>
@@ -560,15 +614,15 @@ export function FuturisticPredictiveDashboard() {
                 <TargetIcon className="size-4 text-emerald-700" />
               </div>
               <CardTitle className="text-base sm:text-lg font-bold text-slate-900">
-                {currentCard?.label} — {horizonMonths}-Month Projection Timeline
+                {currentCard?.label} - estimate for the next {horizonMonths} months
               </CardTitle>
             </div>
             <CardDescription className="text-xs text-slate-500 flex flex-wrap items-center gap-2">
-              <span>Model: <strong className="font-mono text-emerald-800">{winningModel}</strong></span>
+              <span>Method: <strong className="font-mono text-emerald-800">{readableMethodName(winningModel)}</strong></span>
               <span>•</span>
               <span>Unit: <strong className="text-slate-700">{formatTargetUnit(currentCard?.unit || "")}</strong></span>
               <span>•</span>
-              <span>Frequency: <strong className="text-slate-700">{currentCard?.frequency || "MONTHLY"}</strong></span>
+              <span>Updated: <strong className="text-slate-700">{currentCard?.frequency === "WEEKLY" ? "Weekly" : "Monthly"}</strong></span>
             </CardDescription>
           </div>
 
@@ -602,7 +656,7 @@ export function FuturisticPredictiveDashboard() {
               <AlertTriangle className="size-8 text-amber-500 mb-2" />
               <h3 className="text-base font-bold text-slate-900">Forecast Unavailable for {currentCard?.label}</h3>
               <p className="text-xs text-slate-600 max-w-md mt-1">
-                {targetDetail?.blocker_summary || "The dataset does not yet meet minimum observation continuity requirements."}
+                {targetDetail?.blocker_summary || "There are not enough regular past records to make this estimate yet."}
               </p>
               <p className="text-xs text-emerald-700 mt-2 font-mono font-medium">
                 {targetDetail?.next_step}
@@ -616,11 +670,11 @@ export function FuturisticPredictiveDashboard() {
                   <TableHeader className="bg-slate-50">
                     <TableRow className="border-slate-200 hover:bg-transparent">
                       <TableHead className="font-mono text-xs text-slate-600">Period</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-600">Classification</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-600 text-right">Actual Observed</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-600 text-right">Model Projection</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-600 text-right">Lower Bound</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-600 text-right">Upper Bound</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-600">Record type</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-600 text-right">Recorded value</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-600 text-right">Estimate</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-600 text-right">Low estimate</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-600 text-right">High estimate</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -736,7 +790,7 @@ export function FuturisticPredictiveDashboard() {
                       strokeDasharray="4 4"
                       strokeWidth={1.5}
                       label={{
-                        value: "Historical Cutoff",
+                        value: "Estimate starts here",
                         fill: "#b45309",
                         fontSize: 10,
                         position: "top",
@@ -806,7 +860,7 @@ export function FuturisticPredictiveDashboard() {
               <>
                 <div className="text-2xl font-mono font-extrabold text-slate-900 tracking-tight flex items-baseline gap-1.5">
                   <span>{nextForecast.predicted.toLocaleString("en-PH", { maximumFractionDigits: 1 })}</span>
-                  <span className="text-xs font-sans text-emerald-700 font-bold">{currentCard?.unit}</span>
+                  <span className="text-xs font-sans text-emerald-700 font-bold">{formatTargetUnit(currentCard?.unit || "")}</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
                   <span>Target: {nextForecast.month_label}</span>
@@ -821,13 +875,13 @@ export function FuturisticPredictiveDashboard() {
                       ) : (
                         <ArrowDown className="size-3 mr-0.5" />
                       )}
-                      {Math.abs(metadata.projected_change_pct)}% vs baseline
+                      {Math.abs(metadata.projected_change_pct)}% vs recent records
                     </span>
                   )}
                 </div>
               </>
             ) : (
-              <div className="text-sm font-mono text-slate-400 py-1">Awaiting Data</div>
+              <div className="text-sm font-mono text-slate-400 py-1">Waiting for records</div>
             )}
           </div>
         </Card>
@@ -836,7 +890,7 @@ export function FuturisticPredictiveDashboard() {
         <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-teal-300 transition-all relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">
-              Model Error (MAE)
+              Typical difference from recorded values
             </span>
             <div className="size-8 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-800">
               <Percent className="size-4" />
@@ -847,14 +901,14 @@ export function FuturisticPredictiveDashboard() {
               <>
                 <div className="text-2xl font-mono font-extrabold text-slate-900 tracking-tight flex items-baseline gap-1.5">
                   <span>± {selectedMae.toLocaleString("en-PH", { maximumFractionDigits: 1 })}</span>
-                  <span className="text-xs font-sans text-teal-800 font-bold">{currentCard?.unit}</span>
+                  <span className="text-xs font-sans text-teal-800 font-bold">{formatTargetUnit(currentCard?.unit || "")}</span>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500 leading-tight">
-                  Mean Absolute Error across valid evaluation holdouts.
+                  Average difference between estimates and past recorded values.
                 </p>
               </>
             ) : (
-              <div className="text-sm font-mono text-slate-400 py-1">Unvalidated</div>
+              <div className="text-sm font-mono text-slate-400 py-1">No past check yet</div>
             )}
           </div>
         </Card>
@@ -863,7 +917,7 @@ export function FuturisticPredictiveDashboard() {
         <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-green-300 transition-all relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">
-              Baseline Comparison
+              Compare with a simple forecast
             </span>
             <div className="size-8 rounded-lg bg-green-50 border border-green-200 flex items-center justify-center text-green-800">
               <Scale className="size-4" />
@@ -876,23 +930,23 @@ export function FuturisticPredictiveDashboard() {
                   {isBeatingBaseline ? (
                     <span className="text-emerald-700 flex items-center gap-1 font-bold">
                       <CheckCircle2 className="size-4 shrink-0" />
-                      Beats Baseline
+                      More accurate
                     </span>
                   ) : (
                     <span className="text-amber-700 flex items-center gap-1 font-bold">
                       <Info className="size-4 shrink-0" />
-                      Baseline Best
+                      Simple forecast did better
                     </span>
                   )}
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500 leading-tight">
                   {isBeatingBaseline
-                    ? `${winningModel} reduced error by ${baselineImprovementPct}% over naive.`
-                    : `Naive baseline achieved lower error (${baselineMae.toFixed(1)} vs ${selectedMae.toFixed(1)}).`}
+                    ? `${readableMethodName(winningModel)} had ${baselineImprovementPct}% less error than the simple forecast.`
+                    : `The simple forecast had less error (${baselineMae.toFixed(1)} vs ${selectedMae.toFixed(1)}).`}
                 </p>
               </>
             ) : (
-              <div className="text-sm font-mono text-slate-400 py-1">No Comparison Available</div>
+              <div className="text-sm font-mono text-slate-400 py-1">No comparison available yet</div>
             )}
           </div>
         </Card>
@@ -901,7 +955,7 @@ export function FuturisticPredictiveDashboard() {
         <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-emerald-300 transition-all relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">
-              Validation Coverage
+              Past checks completed
             </span>
             <div className="size-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-800">
               <FileCheck2 className="size-4" />
@@ -911,13 +965,13 @@ export function FuturisticPredictiveDashboard() {
             <div className="text-2xl font-mono font-extrabold text-slate-900 tracking-tight flex items-baseline gap-1">
               <span>{backtestInfo?.valid_cutoffs_count ?? targetDetail?.progress?.valid_cutoffs_count ?? currentCard?.valid_cutoffs_count ?? 0}</span>
               <span className="text-xs text-slate-500 font-sans">
-                / {backtestInfo?.total_attempted_cutoffs ?? targetDetail?.progress?.total_cutoffs_count ?? currentCard?.total_cutoffs_count ?? 0} cutoffs
+                / {backtestInfo?.total_attempted_cutoffs ?? targetDetail?.progress?.total_cutoffs_count ?? currentCard?.total_cutoffs_count ?? 0} checks
               </span>
             </div>
             <p className="mt-1 text-[11px] text-slate-500 leading-tight">
               {isValidated
-                ? "Meets minimum backtesting window requirement."
-                : "Insufficient qualified chronological cutoffs."}
+                ? "Enough past periods were checked to rate this forecast."
+                : "Not enough past periods could be checked yet."}
             </p>
           </div>
         </Card>
@@ -931,34 +985,34 @@ export function FuturisticPredictiveDashboard() {
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500">
-                Evaluation Evidence Status:
+                How well it has been checked:
               </span>
               {isValidated ? (
                 <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold font-mono">
-                  Validated Forecast
+                  Checked against past records
                 </Badge>
               ) : isAvailableUnvalidated ? (
                 <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold font-mono">
-                  Exploratory (Unvalidated)
+                  Estimate available, not fully checked
                 </Badge>
               ) : (
                 <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-xs font-bold font-mono">
-                  Insufficient History
+                  Not enough past records
                 </Badge>
               )}
             </div>
 
             <p className="text-xs sm:text-sm text-slate-700 max-w-3xl leading-relaxed">
-              {targetDetail?.validation_details || currentCard?.blocker_summary || "Evaluating dataset continuity..."}
+              {targetDetail?.validation_details || currentCard?.blocker_summary || "Checking whether past records are complete..."}
             </p>
           </div>
 
           {/* Observations Progress Gauge */}
           <div className="min-w-[220px] rounded-xl bg-white border border-slate-200 p-3 shrink-0 shadow-2xs">
             <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="text-slate-500 font-mono">Data Continuity:</span>
+              <span className="text-slate-500 font-mono">Past records:</span>
               <span className="font-mono font-bold text-emerald-800">
-                {currentCard?.usable_observations} / {currentCard?.required_observations} {currentCard?.frequency === "WEEKLY" ? "wks" : "mos"}
+              {currentCard?.usable_observations} / {currentCard?.required_observations} {currentCard?.frequency === "WEEKLY" ? "weeks" : "months"}
               </span>
             </div>
             <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -1007,7 +1061,7 @@ export function FuturisticPredictiveDashboard() {
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
-              Model Benchmarks
+              Compare Methods
             </Button>
             <Button
               variant={viewMode === "backtest" ? "default" : "outline"}
@@ -1019,7 +1073,7 @@ export function FuturisticPredictiveDashboard() {
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
-              Historical Performance
+              Past Forecast Checks
             </Button>
             <Button
               variant={viewMode === "checklist" ? "default" : "outline"}
@@ -1031,12 +1085,12 @@ export function FuturisticPredictiveDashboard() {
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
-              Data Quality Checklist
+              Data Checklist
             </Button>
           </div>
 
           <span className="text-xs text-slate-500 font-mono">
-            {viewMode === "overview" ? "Executive Summary & Guidance" : "Detailed Analytical Mode"}
+            {viewMode === "overview" ? "Summary and guidance" : "More details"}
           </span>
         </div>
 
@@ -1051,43 +1105,43 @@ export function FuturisticPredictiveDashboard() {
                     <TargetIcon className="size-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">Target & Domain Profile</h3>
-                    <p className="text-[11px] text-slate-500">Official Municipal Commodity Source</p>
+                    <h3 className="text-sm font-bold text-slate-900">What is being estimated?</h3>
+                    <p className="text-[11px] text-slate-500">Source and reporting details</p>
                   </div>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Commodity Target:</span>
+                    <span className="text-slate-500">Measure:</span>
                     <span className="font-mono font-bold text-slate-800">{currentCard?.label}</span>
                   </div>
                   <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Measurement Unit:</span>
+                    <span className="text-slate-500">Unit:</span>
                     <span className="font-mono text-slate-800">{formatTargetUnit(currentCard?.unit || "")}</span>
                   </div>
                   <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Reporting Frequency:</span>
+                    <span className="text-slate-500">Reported:</span>
                     <Badge variant="outline" className="text-[10px] font-mono border-slate-200">
-                      {currentCard?.frequency || "MONTHLY"}
+                      {currentCard?.frequency === "WEEKLY" ? "Weekly" : "Monthly"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                    <span className="text-slate-500">Data Source:</span>
+                    <span className="text-slate-500">Records from:</span>
                     <span className="text-slate-700 font-medium truncate max-w-[180px]" title={targetDetail?.source}>
                       {targetDetail?.source || "Official SmartLivestock Logs"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-1.5">
-                    <span className="text-slate-500">Minimum Continuity Rule:</span>
+                    <span className="text-slate-500">Minimum past records needed:</span>
                     <span className="text-slate-700 font-medium text-right text-[11px] max-w-[180px]">
-                      {targetDetail?.minimum_rule || "At least 12 contiguous recorded periods"}
+                  {targetDetail?.minimum_rule || "At least 12 recorded periods in a row"}
                     </span>
                   </div>
                 </div>
               </div>
             </Card>
 
-            {/* Model & Holdout Validation Briefing */}
+            {/* How the estimate was checked */}
             <Card className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -1095,41 +1149,39 @@ export function FuturisticPredictiveDashboard() {
                     <Scale className="size-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">Holdout Validation Logic</h3>
-                    <p className="text-[11px] text-slate-500">Empirical Baseline Comparison</p>
+                    <h3 className="text-sm font-bold text-slate-900">How well did it match past records?</h3>
+                    <p className="text-[11px] text-slate-500">Compared with a simple forecast</p>
                   </div>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   <p className="text-slate-600 leading-relaxed text-xs">
                     {isValidated
-                      ? `Model "${winningModel}" was evaluated across ${backtestInfo?.valid_cutoffs_count ?? 0} valid rolling-origin cutoffs and outperformed naive persistence.`
+                      ? `The ${readableMethodName(winningModel)} method was checked against ${backtestInfo?.valid_cutoffs_count ?? 0} past periods and did better than the simple forecast.`
                       : isAvailableUnvalidated
-                      ? "A forward projection is available from current data. However, chronological backtesting was not fully established across past cutoff dates."
-                      : targetDetail?.domain === "production"
-                        ? "Insufficient contiguous eligible farmer production logs exist to establish empirical validation or projection."
-                        : "Insufficient contiguous approved records exist to establish empirical validation or projection."}
+                      ? "An estimate is available, but there are not enough past periods to check how well it matches recorded results."
+                      : "There are not enough approved past records to make and check an estimate."}
                   </p>
 
                   <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3 mt-2 space-y-1.5">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">Selected Model:</span>
-                      <strong className="font-mono text-emerald-800">{winningModel}</strong>
+                      <span className="text-slate-500">Selected method:</span>
+                      <strong className="font-mono text-emerald-800">{readableMethodName(winningModel)}</strong>
                     </div>
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">Mean Absolute Error:</span>
+                      <span className="text-slate-500">Typical difference from records:</span>
                       <strong className="font-mono text-slate-800">
-                        {selectedMae != null ? `± ${selectedMae.toFixed(1)} ${currentCard?.unit}` : "Uncalculated"}
+                        {selectedMae != null ? `± ${selectedMae.toFixed(1)} ${formatTargetUnit(currentCard?.unit || "")}` : "Not available yet"}
                       </strong>
                     </div>
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">Baseline Relative Score:</span>
+                      <span className="text-slate-500">Compared with simple forecast:</span>
                       <span className="font-mono font-bold text-emerald-700">
                         {baselineImprovementPct != null
-                          ? `${baselineImprovementPct}% improvement over naive`
+                          ? `${baselineImprovementPct}% less error`
                           : baselineMae != null
-                          ? `Naive baseline MAE: ${baselineMae.toFixed(1)}`
-                          : "Awaiting valid holdout window"}
+                          ? `Simple forecast difference: ${baselineMae.toFixed(1)}`
+                          : "Waiting for enough past records to compare"}
                       </span>
                     </div>
                   </div>
@@ -1139,7 +1191,7 @@ export function FuturisticPredictiveDashboard() {
                       onClick={() => setViewMode("models")}
                       className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
                     >
-                      <span>Inspect Candidate Model Comparison Bench</span>
+                      <span>Compare prediction methods</span>
                       <ArrowRight className="size-3" />
                     </button>
                   </div>
@@ -1155,19 +1207,19 @@ export function FuturisticPredictiveDashboard() {
                     <Info className="size-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">Municipal Guidance & Next Steps</h3>
-                    <p className="text-[11px] text-slate-500">Padre Garcia MAO Decision Guidance</p>
+                    <h3 className="text-sm font-bold text-slate-900">Guidance and next steps</h3>
+                    <p className="text-[11px] text-slate-500">For Padre Garcia Agriculture Office staff</p>
                   </div>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-slate-700 leading-relaxed text-xs">
-                    <span className="font-bold text-slate-900 block mb-1">Current Operational Status:</span>
+                    <span className="font-bold text-slate-900 block mb-1">Current status:</span>
                     {targetDetail?.blocker_summary || currentCard?.blocker_summary || "Analyzing data continuity..."}
                   </div>
 
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-slate-700 leading-relaxed text-xs">
-                    <span className="font-bold text-emerald-950 block mb-1">Recommended Next Action:</span>
+                    <span className="font-bold text-emerald-950 block mb-1">What to do next:</span>
                     {targetDetail?.next_step || currentCard?.next_step || "Continue recording monthly data."}
                   </div>
 
@@ -1176,7 +1228,7 @@ export function FuturisticPredictiveDashboard() {
                       onClick={() => setViewMode("checklist")}
                       className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
                     >
-                      <span>Review 12-point Data Quality Checklist</span>
+                      <span>Review the data checklist</span>
                       <ArrowRight className="size-3" />
                     </button>
                   </div>
@@ -1193,10 +1245,10 @@ export function FuturisticPredictiveDashboard() {
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Cpu className="size-4 text-emerald-700" />
-                  Candidate Model Comparison Bench
+                  Compare prediction methods
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Models evaluated chronologically over holdout windows for {currentCard?.label}. The model with the lowest Mean Absolute Error (MAE) is selected for projections.
+                  Each method was checked against later records for {currentCard?.label}. The method with the smallest average difference is used for estimates.
                 </p>
               </div>
 
@@ -1204,12 +1256,12 @@ export function FuturisticPredictiveDashboard() {
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow className="border-slate-200">
-                      <TableHead className="font-mono text-xs text-slate-700">Model Name</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700">Method</TableHead>
                       <TableHead className="font-mono text-xs text-slate-700">Status</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700 text-right">MAE ({currentCard?.unit})</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700 text-right">RMSE</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700 text-right">R² Score</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700 text-right">Selection</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700 text-right">Average difference ({formatTargetUnit(currentCard?.unit || "")})</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700 text-right">Large misses</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700 text-right">Pattern match</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700 text-right">Use</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1220,11 +1272,11 @@ export function FuturisticPredictiveDashboard() {
                           <TableRow key={name} className="border-slate-100 hover:bg-slate-50/70">
                             <TableCell className="font-bold text-xs text-slate-900 flex items-center gap-2">
                               {isWinner && <Award className="size-3.5 text-emerald-600 shrink-0" />}
-                              <span>{name}</span>
+                              <span>{readableMethodName(name)}</span>
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" className="text-[10px] font-mono border-slate-200 text-slate-600">
-                                Evaluated
+                                Checked
                               </Badge>
                             </TableCell>
                             <TableCell className="font-mono text-xs text-right font-bold text-emerald-800">
@@ -1242,7 +1294,7 @@ export function FuturisticPredictiveDashboard() {
                                   Selected
                                 </Badge>
                               ) : (
-                                <span className="text-[11px] text-slate-500 font-mono">Candidate</span>
+                                <span className="text-[11px] text-slate-500 font-mono">Other method</span>
                               )}
                             </TableCell>
                           </TableRow>
@@ -1251,7 +1303,7 @@ export function FuturisticPredictiveDashboard() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-6 text-xs text-slate-500 font-mono">
-                          No comparative model metrics available for this target.
+                          No method comparisons are available for this measure yet.
                         </TableCell>
                       </TableRow>
                     )}
@@ -1262,16 +1314,16 @@ export function FuturisticPredictiveDashboard() {
               {/* Explanatory Technical Tooltips */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-[11px] text-slate-600">
                 <div className="rounded-lg bg-slate-50 border border-slate-200 p-2.5">
-                  <span className="font-mono font-bold text-slate-900">MAE (Mean Absolute Error):</span>
-                  <p className="mt-0.5">Average magnitude of errors in raw {currentCard?.unit}. Lower is better.</p>
+                  <span className="font-mono font-bold text-slate-900">Average difference:</span>
+                  <p className="mt-0.5">How far estimates were from recorded values on average. Lower is better.</p>
                 </div>
                 <div className="rounded-lg bg-slate-50 border border-slate-200 p-2.5">
-                  <span className="font-mono font-bold text-slate-900">RMSE (Root Mean Squared Error):</span>
-                  <p className="mt-0.5">Penalizes large outlier forecast errors more heavily than small ones.</p>
+                  <span className="font-mono font-bold text-slate-900">Large misses:</span>
+                  <p className="mt-0.5">Gives extra weight to estimates that were far from recorded values. Lower is better.</p>
                 </div>
                 <div className="rounded-lg bg-slate-50 border border-slate-200 p-2.5">
-                  <span className="font-mono font-bold text-slate-900">R² (Coefficient of Determination):</span>
-                  <p className="mt-0.5">Proportion of variance explained by the model (1.0 = perfect prediction).</p>
+                  <span className="font-mono font-bold text-slate-900">Pattern match:</span>
+                  <p className="mt-0.5">Shows how closely estimates followed changes in the records. Closer to 1 is better.</p>
                 </div>
               </div>
             </div>
@@ -1285,10 +1337,10 @@ export function FuturisticPredictiveDashboard() {
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <History className="size-4 text-emerald-700" />
-                  Historical Forecast Cutoffs & Backtest Log
+                  Past Forecast Checks
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Simulated past forecast origins. Each cutoff strictly respects information availability at that historical point in time.
+                  These checks recreate earlier forecasts using only records that were available at the time.
                 </p>
               </div>
 
@@ -1296,11 +1348,11 @@ export function FuturisticPredictiveDashboard() {
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow className="border-slate-200">
-                      <TableHead className="font-mono text-xs text-slate-700">Cutoff Date</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700">Target Period</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700">Training Samples</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700">Cutoff Status</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700">Audit Rationale</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700">Records available up to</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700">Period estimated</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700">Past periods used</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700">Check result</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700">Details</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1319,11 +1371,11 @@ export function FuturisticPredictiveDashboard() {
                           <TableCell>
                             {entry.status === "EVALUATED" ? (
                               <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-mono font-bold">
-                                Evaluated
+                                Check completed
                               </Badge>
                             ) : (
                               <Badge variant="outline" className="text-amber-800 bg-amber-50 border-amber-300 text-[10px] font-mono">
-                                {entry.status}
+                        {readableCheckStatus(entry.status)}
                               </Badge>
                             )}
                           </TableCell>
@@ -1335,7 +1387,7 @@ export function FuturisticPredictiveDashboard() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-6 text-xs text-slate-500 font-mono">
-                          No historical backtest cutoff records available.
+                          No past forecast checks are available yet.
                         </TableCell>
                       </TableRow>
                     )}
@@ -1353,10 +1405,10 @@ export function FuturisticPredictiveDashboard() {
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <FileCheck2 className="size-4 text-emerald-700" />
-                  Data Readiness & Quality Diagnostic Checklist
+                  Data Checklist
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Evaluated criteria across data collection, data quality, and model execution for {currentCard?.label}.
+                  Checks for missing records and other issues that can affect estimates for {currentCard?.label}.
                 </p>
               </div>
 
@@ -1378,7 +1430,13 @@ export function FuturisticPredictiveDashboard() {
                           )}
                           <span className="font-bold text-xs text-slate-900">{item.title}</span>
                           <Badge variant="outline" className="text-[10px] font-mono border-slate-200 text-slate-500">
-                            {item.category.replace(/_/g, " ")}
+                            {({
+                              DATA_COLLECTION: "Record keeping",
+                              DATA_QUALITY: "Record completeness",
+                              VALIDATION_INTEGRITY: "Past forecast checks",
+                              MODEL_EXECUTION: "Estimate setup",
+                              FORECAST_DELIVERY: "Forecast availability",
+                            } as Record<string, string>)[item.category] || item.category.replace(/_/g, " ")}
                           </Badge>
                         </div>
                         <p className="text-xs text-slate-600 pl-6 leading-relaxed">
@@ -1391,14 +1449,14 @@ export function FuturisticPredictiveDashboard() {
                           {item.actual_value}
                         </span>
                         <div className="text-[10px] text-slate-500 font-mono">
-                          Req: {item.expected_requirement}
+                          Needed: {item.expected_requirement}
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
                   <div className="text-center py-6 text-xs text-slate-500 font-mono">
-                    Checklist items are computed when the dataset is loaded.
+                    Checklist items appear after the forecast information loads.
                   </div>
                 )}
               </div>

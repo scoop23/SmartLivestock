@@ -13,8 +13,8 @@ export default function PredictiveAnalyticsLandingPage() {
   return (
     <>
       <PageHeader
-        title="Predictive Intelligence"
-        subtitle="Explore future livestock activity using historical records and evaluated forecasting models for Padre Garcia"
+        title="Forecasts & Trends"
+        subtitle="See possible changes in disease, mortality, slaughter, and livestock sales based on past records in Padre Garcia"
         variant="admin"
         maxWidthClass="w-full"
         icon={<TrendingUp className="size-5 text-cyan-800" />}
@@ -26,11 +26,11 @@ export default function PredictiveAnalyticsLandingPage() {
         {/* Predictive Perspective View Switcher */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
           <div className="px-2 py-0.5">
-            <span className="text-xs font-bold text-slate-900">Analysis Perspectives</span>
+            <span className="text-xs font-bold text-slate-900">Choose a view</span>
             <p className="text-[11px] text-slate-500">
               {activeTab === 'evaluated'
-                ? 'Empirical holdout validation, baseline comparisons, and commodity projections'
-                : 'Interactive domain explorer for disease surveillance, mortality, weather sensitivity, and livestock milk'}
+                ? 'See forecasts and how they compare with past records'
+                : 'Explore recorded trends in disease, mortality, slaughter, and livestock sales'}
             </p>
           </div>
 
@@ -44,7 +44,7 @@ export default function PredictiveAnalyticsLandingPage() {
               }`}
             >
               <Cpu className="size-3.5" />
-              <span>Evaluated Models & Readiness</span>
+              <span>Forecasts & Data Checks</span>
             </button>
             <button
               onClick={() => setActiveTab('explorer')}
@@ -55,7 +55,7 @@ export default function PredictiveAnalyticsLandingPage() {
               }`}
             >
               <Workflow className="size-3.5" />
-              <span>Multi-Domain Explorer</span>
+              <span>Explore Trends</span>
             </button>
           </div>
         </div>
