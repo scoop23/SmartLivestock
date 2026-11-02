@@ -63,7 +63,7 @@ const PadreGarciaForecaster = dynamic(
     ssr: false,
     loading: () => (
       <div className="w-full h-96 flex items-center justify-center bg-slate-900 rounded-2xl text-slate-400">
-        Loading Spatial Forecaster...
+        Loading disease report map...
       </div>
     ),
   }
@@ -233,7 +233,7 @@ export function RoleAwareGISContainer({
   const fetchGISTelemetry = async (isRefresh = false) => {
     const result = await telemetry.refetch();
     if (result.isError) toast.error('Could not connect to GIS aggregation service');
-    else if (isRefresh) toast.success('GIS telemetry refreshed');
+    else if (isRefresh) toast.success('Map data refreshed');
   };
 
   // Keep the first-load screen mounted briefly after the request ends so its opacity can fade out.
@@ -253,7 +253,7 @@ export function RoleAwareGISContainer({
         .map((a) => `Brgy. ${a.name} (${a.active_cases} report${a.active_cases > 1 ? 's' : ''})`)
         .join(', ');
       toast.warning(
-        `⚠️ Biosecurity Perimeter Alert: Approved disease case(s) detected in neighboring ${neighborList}. Pulsing red markers on the map indicate adjacent outbreak zones.`,
+        `Animal health alert: Recent approved disease reports near ${neighborList} need follow-up. Red markers show reports to check; they do not confirm disease.`,
         {
           id: 'adjacent-disease-biosecurity-toast',
           duration: 9000,
@@ -526,10 +526,10 @@ export function RoleAwareGISContainer({
                       <span className="text-base animate-pulse shrink-0 mt-0.5">⚠️</span>
                       <div className="text-xs min-w-0">
                         <span className="font-black text-rose-100 block">
-                          Bordering Disease Alert ({gisData.adjacent_disease_alerts.length} Neighbor{gisData.adjacent_disease_alerts.length > 1 ? 's' : ''})
+                          Recent Reports Nearby ({gisData.adjacent_disease_alerts.length} Barang{gisData.adjacent_disease_alerts.length > 1 ? 'ays' : 'ay'})
                         </span>
                         <span className="text-[11px] text-rose-200/90 leading-tight block mt-0.5">
-                          Active confirmed disease cases reported in bordering: <strong className="text-white">{gisData.adjacent_disease_alerts.map((a) => a.name).join(', ')}</strong>.
+                          Recent approved disease reports needing follow-up near your barangay: <strong className="text-white">{gisData.adjacent_disease_alerts.map((a) => a.name).join(', ')}</strong>. The map does not confirm disease.
                         </span>
                       </div>
                     </div>
@@ -688,11 +688,11 @@ export function RoleAwareGISContainer({
         <button
           type="button"
           onClick={() => setMobileDrawerOpen(true)}
-          aria-label="Open GIS telemetry drawer"
+          aria-label="Open map details"
           className="lg:hidden absolute top-[calc(3.75rem+env(safe-area-inset-top,0px))] left-[calc(0.75rem+env(safe-area-inset-left,0px))] z-[800] bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/90 shadow-lg text-emerald-900 hover:bg-emerald-50 hover:border-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer pointer-events-auto min-h-[38px]"
         >
           <Info className="size-4 text-emerald-800 shrink-0" />
-          <span className="font-black tracking-tight">Telemetry</span>
+            <span className="font-black tracking-tight">Map Details</span>
           {selectedMovement ? (
             <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-900 max-w-[80px] truncate">
               Permit #{selectedMovement.id}
@@ -760,21 +760,21 @@ export function RoleAwareGISContainer({
         {isLoading && (
           <div className="absolute top-4 right-1/2 translate-x-1/2 z-[1100] bg-emerald-950/90 text-white backdrop-blur-md px-3 py-1.5 rounded-full border border-emerald-500/30 text-xs flex items-center gap-2 shadow-xl animate-in fade-in">
             <Loader2 className="size-3.5 animate-spin text-emerald-400" />
-            <span className="font-semibold tracking-wide">Syncing Telemetry...</span>
+            <span className="font-semibold tracking-wide">Updating map data...</span>
           </div>
         )}
 
-        {/* 9. Haversine Epidemic Risk Forecaster Dialog */}
+        {/* 9. Disease Report Map Dialog */}
         {!isCbat && !isFarmer && (
           <Dialog open={showForecasterDialog} onOpenChange={setShowForecasterDialog}>
             <DialogContent className="max-w-5xl sm:max-w-6xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 bg-slate-50 border-slate-200 shadow-2xl">
               <DialogHeader className="mb-2">
                 <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
                   <Radio className="size-5 text-indigo-600 animate-pulse" />
-                  Haversine Epidemic Risk Forecaster & Spatial Triage
+                  Disease Report Map
                 </DialogTitle>
                 <DialogDescription className="text-xs text-slate-600">
-                  Interactive Great-Circle Geodesic Distance simulation for Padre Garcia, Batangas. Simulates 3.5 km buffer zones and single confirmed case outbreak declarations.
+                  Shows recent approved disease reports and marks barangays whose centers are within 3.5 km for extra monitoring. The map does not confirm disease.
                 </DialogDescription>
               </DialogHeader>
               <PadreGarciaForecaster initialGisData={gisData} />

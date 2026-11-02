@@ -170,44 +170,44 @@ export function GISTimeline({
         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase px-2 py-0.5 flex items-center gap-1 shadow-2xs">
             <Zap className="size-3 fill-white" />
-            Epidemic Player
+            Disease Spread Example
           </Badge>
           {isDemoScenario ? (
             <>
               <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[9px] font-bold">
-                Hypothetical FMD Demo
+                Sample FMD Scenario
               </Badge>
               <span role="status" className="text-[9px] font-semibold text-amber-900">
-                No eligible approved, field-assessed suspected FMD reports; Manggas and Bawi demo seeds are synthetic.
+                No approved reports meet the map&apos;s rules right now. Manggas and Bawi use sample data.
               </span>
             </>
           ) : hasBaselineSeeds ? (
             <>
               <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300 text-[9px] font-bold">
-                Approved FMD report seeds: {baselineSeedCount}
+                Approved FMD reports used as examples: {baselineSeedCount}
               </Badge>
               <span role="status" className="text-[9px] font-semibold text-slate-700">
-                Seeds are field-assessed suspected FMD reports; later months are model projections, not confirmed diagnoses.
+                These reports were marked as suspected by field staff. Later months are examples, not confirmed cases.
               </span>
             </>
           ) : (
             <>
               <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-300 text-[9px] font-bold">
-                No eligible FMD seed reports
+                No approved FMD reports for this example
               </Badge>
               <span role="status" className="text-[9px] font-semibold text-slate-700">
-                No synthetic outbreak seeds are added; the projection stays at zero until an approved, field-assessed suspected FMD report is available.
+                No sample reports are added. The example stays at zero until an approved FMD report has been checked by field staff and marked suspected.
               </span>
             </>
           )}
           {unmappedFmdCases > 0 && (
             <span role="alert" className="text-[9px] font-semibold text-rose-800">
-              {unmappedFmdCases} approved FMD report(s) could not be mapped to an official barangay and were excluded.
+              {unmappedFmdCases} approved FMD report(s) have no barangay match, so they are not shown on this map.
             </span>
           )}
           {unsupportedActiveDiseaseCases > 0 && trajectory[0] && !isDemoScenario && (
             <span className="text-[9px] font-semibold text-slate-700">
-              {unsupportedActiveDiseaseCases} recent approved non-FMD/symptom report(s) are not simulated as FMD.
+              {unsupportedActiveDiseaseCases} recent approved report(s) about other diseases or symptoms are not included in this FMD example.
             </span>
           )}
           <span className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1">
@@ -242,7 +242,7 @@ export function GISTimeline({
           <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 mb-1 px-1">
             <span className="flex items-center gap-1 text-emerald-800">
               <Activity className="size-3" />
-              Total Municipal Transmission Pressure
+              Possible Spread in This Example
             </span>
             <span className="text-slate-400">
               {trajectory[0]?.month.label} – {trajectory[trajectory.length - 1]?.month.label}
@@ -265,7 +265,7 @@ export function GISTimeline({
                         <div className="bg-slate-900 text-white text-[10px] px-2 py-1 rounded shadow-md border border-slate-700">
                           <p className="font-bold">{payload[0].payload.month}</p>
                           <p className="text-amber-400 font-mono">
-                            Pressure: {Number(payload[0].value).toFixed(2)}
+                            Possible spread estimate: {Number(payload[0].value).toFixed(2)}
                           </p>
                         </div>
                       );
@@ -413,15 +413,15 @@ export function GISTimeline({
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
             <span className="flex items-center gap-1 text-emerald-900">
               <Sliders className="size-3 text-emerald-700" />
-              Epidemic Model Parameters
+              Example Settings
             </span>
-            <span className="text-[10px] text-slate-400 italic">Spatial decay & wind weighting</span>
+            <span className="text-[10px] text-slate-400 italic">How distance and wind affect this example</span>
           </div>
 
           {/* L_contact Slider */}
           <div className="space-y-1">
             <div className="flex justify-between text-[10px] font-bold text-slate-600">
-              <span>Contact Transmission Distance (L_contact):</span>
+              <span>Distance for nearby contact:</span>
               <span className="font-mono text-emerald-800">{parameters.L_contact.toFixed(1)} km</span>
             </div>
             <input
@@ -440,7 +440,7 @@ export function GISTimeline({
           {/* L_wind Slider */}
           <div className="space-y-1">
             <div className="flex justify-between text-[10px] font-bold text-slate-600">
-              <span>Aerosol Wind Drift Distance (L_wind):</span>
+              <span>Distance carried by wind:</span>
               <span className="font-mono text-sky-800">{parameters.L_wind.toFixed(1)} km</span>
             </div>
             <input
@@ -459,7 +459,7 @@ export function GISTimeline({
           {/* Infection Threshold Slider */}
           <div className="space-y-1">
             <div className="flex justify-between text-[10px] font-bold text-slate-600">
-              <span>Epidemic Pressure Threshold (Spread Trigger):</span>
+              <span>Spread level needed to continue:</span>
               <span className="font-mono text-amber-800">
                 {(parameters.threshold * 100).toFixed(0)}%
               </span>

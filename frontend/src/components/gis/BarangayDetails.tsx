@@ -429,7 +429,7 @@ export function BarangayDetails({
                   <p className="font-bold flex items-center gap-1 text-amber-950 mb-0.5">
                     <span>⚠️ Bordering Disease Activity</span>
                   </p>
-                  Your barangay currently has <strong>0 confirmed cases</strong>. Neighboring barangays have confirmed disease reports. Maintain standard biosecurity measures.
+                  No recent approved report requiring follow-up is mapped for your barangay. Nearby barangays have report alerts; this does not confirm disease spread. Maintain standard biosecurity measures.
                 </div>
                 <div className="space-y-1">
                   {adjacentAlerts.map((alert) => (

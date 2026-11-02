@@ -59,33 +59,33 @@ export function GISLegend({
       if (diseaseSubMode === 'simulation') {
         if (simulationColorMode === 'pressure') {
           return [
-            { color: '#991b1b', label: '70%+ transmission pressure' },
-            { color: '#ea580c', label: '40-69% transmission pressure' },
-            { color: '#f59e0b', label: '20-39% transmission pressure' },
-            { color: '#10b981', label: 'Below 20% transmission pressure' },
-            { color: '#94a3b8', label: 'Not modeled (no active livestock)' },
+            { color: '#991b1b', label: '70%+ possible spread in this example' },
+            { color: '#ea580c', label: '40-69% possible spread in this example' },
+            { color: '#f59e0b', label: '20-39% possible spread in this example' },
+            { color: '#10b981', label: 'Below 20% possible spread in this example' },
+            { color: '#94a3b8', label: 'Not shown (no active livestock)' },
           ];
         }
         return [
-          { color: '#991b1b', label: '6+ modeled cases' },
-          { color: '#ea580c', label: '3-5 modeled cases' },
-          { color: '#f59e0b', label: '1-2 modeled cases' },
-          { color: '#10b981', label: '0 modeled cases' },
-          { color: '#94a3b8', label: 'Not modeled (no active livestock)' },
+          { color: '#991b1b', label: '6+ cases in this example' },
+          { color: '#ea580c', label: '3-5 cases in this example' },
+          { color: '#f59e0b', label: '1-2 cases in this example' },
+          { color: '#10b981', label: 'No cases in this example' },
+          { color: '#94a3b8', label: 'Not shown (no active livestock)' },
         ];
       }
       if (diseaseSubMode === 'trend') {
         return [
-          { color: '#9333ea', label: 'Recent Approved Reports (90 days)' },
-          { color: '#0284c7', label: 'Reported Activity (Past Records)' },
-          { color: '#10b981', label: 'No Reported Disease Activity' },
+          { color: '#9333ea', label: 'Approved reports (last 90 days)' },
+          { color: '#0284c7', label: 'Earlier disease reports' },
+          { color: '#10b981', label: 'No disease reports shown' },
         ];
       }
       if (diseaseSubMode === 'surveillance') {
         return [
-          { color: '#ef4444', label: 'Red — Confirmed Outbreak (≥ 1 Case)' },
-          { color: '#f97316', label: 'Orange — Within Monitoring Radius (≤ 3.5 km)' },
-          { color: '#10b981', label: 'Green — Outside Monitoring Radius (Safe)' },
+          { color: '#ef4444', label: 'Red — Recent approved report needs follow-up' },
+          { color: '#f97316', label: 'Orange — Barangay centers within 3.5 km; extra monitoring' },
+          { color: '#10b981', label: 'Green — No recent report shown on this map' },
         ];
       }
       return [
@@ -176,10 +176,10 @@ export function GISLegend({
     disease: {
       title:
         diseaseSubMode === 'simulation'
-          ? simulationColorMode === 'pressure' ? 'Simulated Transmission Pressure' : 'Simulated FMD Case Count'
+          ? simulationColorMode === 'pressure' ? 'Possible Spread in This Example' : 'Cases in This Example'
           : diseaseSubMode === 'trend'
-          ? 'Disease Surveillance Trend'
-          : 'Reported Disease Heat Map',
+          ? 'Disease Report Trend'
+          : 'Disease Reports Map',
       icon: '🩺',
     },
     milk: { title: 'Recorded Milk (Farmer-reported)', icon: '🥛' },

@@ -438,7 +438,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             "affected_heads": 0,
             "disease_risk": "low",
             "disease_zone": "safe",
-            "disease_zone_label": "Outside Monitoring Radius",
+            "disease_zone_label": "No recent report shown",
             "nearest_outbreak": None,
             "nearest_outbreak_dist_km": None,
             "is_in_monitoring_radius": False,
@@ -508,7 +508,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             barangays_data[c_name]["batches_count"] = row["cnt"]
 
     # 6. Separate historical totals from approved reports in the last 90 days.
-    # DATA TRUST POLICY: Only MAO-approved verified disease cases are mapped to prevent unvetted submissions from distorting municipal surveillance
+    # Approval is a workflow state, not a clinical diagnosis. These are report alerts for follow-up.
     today = timezone.localdate()
     recent_reports = Q(
         record_date__gte=today - timedelta(days=90), record_date__lte=today,
@@ -551,7 +551,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
         b_entry = barangays_data[c_name]
         b_entry["disease_cases"] += cases
         b_entry["affected_heads"] += affected
-        # Compatibility key: recent approved reports, not unresolved clinical cases.
+        # Compatibility key: recent approved reports still open or without a recorded resolution.
         b_entry["active_cases"] += recent_cases
         b_entry["fmd_active_cases"] += recent_fmd_cases
         recent_affected_by_barangay[c_name] = (
@@ -561,32 +561,30 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             b_entry["recent_diseases"].append(d_name)
 
     # -------------------------------------------------------------------------
-    # Spatial Risk Classification (Haversine Distance & Monitoring Radius):
-    # Rule 1: Even ONE (>= 1) confirmed/approved disease case triggers RED ("high" / Outbreak Site).
-    #         Cattle count alone is NOT the basis for Red — 1 confirmed case flags the barangay immediately.
-    # Rule 2: Neighboring/nearby barangays within the monitoring radius (3.5 km default) turn ORANGE ("medium").
-    #         They are potentially exposed due to proximity, but do not have confirmed infected animals yet.
-    # Rule 3: Distant barangays outside the monitoring radius remain GREEN ("low" / Safe).
-    # Rule 4: Suspected but unvalidated reports do NOT trigger a Red outbreak. Only approved cases trigger Red.
+    # Precautionary report-alert mapping (Haversine distance & monitoring radius):
+    # Rule 1: One recent approved report that is open/unresolved or lacks a clinical resolution triggers Red.
+    #         Red means the report needs follow-up; it does not confirm an outbreak.
+    # Rule 2: Nearby barangays within 3.5 km are Orange for precautionary monitoring only.
+    # Rule 3: Green means no qualifying report alert in this layer, not verified absence of disease.
     # -------------------------------------------------------------------------
     MONITORING_RADIUS_KM = 3.5
-    confirmed_outbreak_barangays = [
+    report_alert_barangays = [
         name for name, b in barangays_data.items()
         if b.get("active_cases", 0) >= 1 or b.get("fmd_active_cases", 0) >= 1
     ]
 
     for name, b_entry in barangays_data.items():
-        if name in confirmed_outbreak_barangays:
+        if name in report_alert_barangays:
             b_entry["disease_risk"] = "high"
             b_entry["disease_zone"] = "outbreak"
-            b_entry["disease_zone_label"] = "Confirmed Outbreak Site"
+            b_entry["disease_zone_label"] = "Recent Approved Disease Report - Needs Follow-up"
             b_entry["nearest_outbreak"] = name
             b_entry["nearest_outbreak_dist_km"] = 0.0
             b_entry["is_in_monitoring_radius"] = False
         else:
             min_dist = float("inf")
             nearest_outbreak = None
-            for outbreak_name in confirmed_outbreak_barangays:
+            for outbreak_name in report_alert_barangays:
                 pos1 = BARANGAY_CENTROIDS.get(name)
                 pos2 = BARANGAY_CENTROIDS.get(outbreak_name)
                 if pos1 and pos2:
@@ -598,14 +596,14 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             if nearest_outbreak and min_dist <= MONITORING_RADIUS_KM:
                 b_entry["disease_risk"] = "medium"
                 b_entry["disease_zone"] = "monitoring_radius"
-                b_entry["disease_zone_label"] = f"Within Monitoring Radius ({round(min_dist, 2)} km from {nearest_outbreak})"
+                b_entry["disease_zone_label"] = f"Within {round(min_dist, 2)} km of a recent report in {nearest_outbreak} - extra monitoring"
                 b_entry["nearest_outbreak"] = nearest_outbreak
                 b_entry["nearest_outbreak_dist_km"] = round(min_dist, 2)
                 b_entry["is_in_monitoring_radius"] = True
             else:
                 b_entry["disease_risk"] = "low"
                 b_entry["disease_zone"] = "safe"
-                b_entry["disease_zone_label"] = "Outside Monitoring Radius"
+                b_entry["disease_zone_label"] = "No recent report shown nearby"
                 b_entry["is_in_monitoring_radius"] = False
                 if nearest_outbreak:
                     b_entry["nearest_outbreak"] = nearest_outbreak
@@ -1061,10 +1059,9 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
                         priority=Notification.Priority.HIGH,
                         title=title,
                         message=(
-                            f"Brgy. {alert['name']} has {alert['active_cases']} confirmed disease case(s){symptoms_str}. "
-                            f"Your barangay is within the precautionary monitoring radius (Orange Zone). "
-                            f"Your barangay currently has NO confirmed cases. "
-                            f"Please observe strict biosecurity, disinfect barn perimeters, and report any symptoms immediately."
+                            f"Brgy. {alert['name']} has {alert['active_cases']} recent approved disease report(s) that need follow-up{symptoms_str}. "
+                            f"The centers of your barangay and the report barangay are within 3.5 km. Please watch for symptoms and report them to field staff. "
+                            f"This map alert does not confirm that animals have the disease."
                         ),
                         link="/gis-user-map?layer=disease",
                     )

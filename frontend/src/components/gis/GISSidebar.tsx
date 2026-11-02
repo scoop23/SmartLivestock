@@ -262,7 +262,7 @@ export function GISSidebar({
           } flex flex-col overflow-hidden shadow-2xl z-[var(--z-dialog)] transition-[height] duration-300 data-[state=open]:duration-300 [&>button]:hidden ${mobileDragHeight === null ? '' : '!transition-none'}`}
         >
           <SheetTitle className="sr-only">
-            {selectedBarangay ? `Barangay ${selectedBarangay.name} Telemetry` : 'Municipal Telemetry Overview'}
+            {selectedBarangay ? `Barangay ${selectedBarangay.name} Map Details` : 'Municipal Map Details'}
           </SheetTitle>
           <SheetDescription className="sr-only">
             Livestock, farmer-reported production, and health activity for Padre Garcia
@@ -286,7 +286,7 @@ export function GISSidebar({
               <span aria-hidden="true" className="h-1.5 w-12 rounded-full bg-slate-300 transition-colors group-hover:bg-blue-500" />
               <span className="mt-2 flex w-full items-center justify-between gap-2">
                 <span className="truncate text-xs font-semibold text-slate-700">
-                  {selectedMovement ? `Permit #${selectedMovement.id}` : selectedBarangay ? `${selectedBarangay.name} telemetry` : 'GIS telemetry'}
+                  {selectedMovement ? `Permit #${selectedMovement.id}` : selectedBarangay ? `${selectedBarangay.name} details` : 'Map details'}
                 </span>
                 <span className="shrink-0 text-[10px] text-slate-500">
                   {mobileSnapState === 'collapsed' ? 'Swipe up to expand' : mobileSnapState === 'expanded' ? 'Swipe down to close' : 'Drag to resize'}
@@ -307,7 +307,7 @@ export function GISSidebar({
 
   return (
     <aside
-      aria-label="GIS Telemetry Sidebar"
+      aria-label="Map details panel"
       style={{ width: desktopWidth, minWidth: 320, maxWidth: 'min(45rem, calc(100vw - 2rem))' }}
       className={`${styles.panel} hidden lg:flex absolute right-4 top-4 bottom-4 max-h-[calc(100dvh-2rem)] z-[1000] rounded-2xl backdrop-blur-xl shadow-2xl border flex-col overflow-hidden pointer-events-auto transition-all duration-300 animate-in fade-in slide-in-from-right duration-200 ${
         selectedMovement

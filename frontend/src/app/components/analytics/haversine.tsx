@@ -2,29 +2,26 @@
 
 /**
  * ============================================================================
- * Haversine Epidemic Risk Classifier & Spatial Forecaster (`haversine.tsx`)
+ * Spatial Report-Alert Monitor & Scenario Sandbox (`haversine.tsx`)
  * Municipality of Padre Garcia, Batangas — Municipal Agriculture Office (MAO)
  * ============================================================================
  *
  * SPATIAL RISK CLASSIFICATION RULES:
  * ----------------------------------------------------------------------------
- * 1. Host Barangay with >= 1 Confirmed Case -> RED (Confirmed Outbreak Site)
- *    Municipal rule: A single confirmed case flags the host barangay immediately
- *    as an outbreak site to enable rapid veterinary intervention. High cattle
- *    case counts are NOT required before declaring Red status.
+ * 1. Host Barangay with >= 1 recent approved report requiring follow-up -> RED (Report Alert)
+ *    This is a precautionary map flag for field verification, not a clinical diagnosis
+ *    or a declaration that an outbreak is confirmed.
  *
  * 2. Nearby Barangays within Haversine Monitoring Radius -> ORANGE (Precautionary Zone)
- *    e.g., Barangay Manggas when neighboring Bawi has 1 confirmed case.
- *    Manggas has 0 confirmed cases, but its geodesic distance (2.37 km) is
- *    within the 3.5 km monitoring radius. It is potentially exposed, but
- *    has no confirmed infection.
+ *    e.g., Barangay Manggas when a recent approved report alert is mapped in Bawi.
+ *    Manggas has no local report alert, but is within the 3.5 km precautionary
+ *    monitoring radius. Proximity does not prove exposure or infection.
  *
- * 3. Far Barangays outside Monitoring Radius -> GREEN (Safe / Low Risk)
- *    Barangays located beyond the monitoring buffer (> 3.5 km) with 0 confirmed
- *    cases remain Green.
+ * 3. Barangays outside the report-alert radius -> GREEN (No mapped alert)
+ *    This does not establish that disease is absent.
  *
  * 4. Suspected but Unvalidated Reports:
- *    Unvalidated field submissions do NOT trigger automatic Red outbreak status.
+ *    Unapproved field submissions do NOT trigger the approved-report alert layer.
  *    They display an Amber/Yellow badge ("Pending Verification") without
  *    placing the entire barangay or municipality under quarantine.
  */
@@ -40,7 +37,6 @@ import 'leaflet/dist/leaflet.css';
 import {
   Activity,
   AlertCircle,
-  CheckCircle2,
   Clock,
   Database,
   FastForward,
@@ -69,17 +65,36 @@ const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), 
 const GeoJSON = dynamic(() => import('react-leaflet').then(m => m.GeoJSON), { ssr: false });
 const Circle = dynamic(() => import('react-leaflet').then(m => m.Circle), { ssr: false });
 
-// Helper component to auto-resize and fit Leaflet canvas when opened in modal dialogs or resized
+// Helper component to auto-resize and fit Leaflet canvas when opened in tabs, modals, or resized
 function MapAutoFitAndResize() {
   const map = useMap();
+
   useEffect(() => {
-    const t1 = setTimeout(() => map.invalidateSize(), 150);
-    const t2 = setTimeout(() => map.invalidateSize(), 450);
+    // Immediate and staged invalidations to catch tab mounts and CSS transitions
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 60);
+    const t2 = setTimeout(() => map.invalidateSize(), 200);
+    const t3 = setTimeout(() => map.invalidateSize(), 500);
+
+    const container = map.getContainer();
+    if (!container) return;
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      ro.observe(container);
+    }
+
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
+      if (ro) ro.disconnect();
     };
   }, [map]);
+
   return null;
 }
 
@@ -190,7 +205,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
   const geoJsonRef = useRef<LeafletGeoJSON | null>(null);
 
   // Fetch live GIS telemetry from PostgreSQL if not passed as prop
-  const { data: fetchedGisData, isLoading: isLoadingGis } = useQuery<GISTelemetryResponse>({
+  const { data: fetchedGisData } = useQuery<GISTelemetryResponse>({
     queryKey: ['gis-telemetry'],
     queryFn: async ({ signal }) => (await api.get<GISTelemetryResponse>('/api/analytics/gis/', { signal })).data,
     enabled: !initialGisData,
@@ -219,7 +234,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
         ? b.cattle
         : 0;
       cattleMap[b.name] = heads;
-      // Live active confirmed cases
+      // Recent approved reports requiring follow-up; this source does not prove clinical confirmation.
       const active = (b.fmd_active_cases ?? 0) > 0 ? b.fmd_active_cases! : (b.active_cases ?? 0);
       if (active > 0) {
         confirmedCasesMap[b.name] = active;
@@ -329,7 +344,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
     return map;
   }, [activeScenario, realBarangayData.suspectedCasesMap, hasSuspectedCaseInManggas]);
 
-  // Active confirmed outbreak sites in the current state
+  // Barangays with recent approved report alerts in the current state
   const confirmedSites = useMemo(() => {
     return BARANGAY_NAMES.filter(name => (confirmedCasesMap[name] ?? 0) >= 1);
   }, [confirmedCasesMap]);
@@ -344,21 +359,21 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
       const cattle = realBarangayData.cattleMap[name] ?? CATTLE_HEADS[name] ?? 0;
 
       if (confirmed >= 1) {
-        // RULE 1: >= 1 Confirmed Case -> RED (Confirmed Outbreak Site)
+        // RULE 1: >= 1 recent approved report requiring follow-up -> RED precautionary report alert.
         profiles[name] = {
           name,
           confirmedCases: confirmed,
           suspectedCases: suspected,
           cattle,
           category: 'confirmed_outbreak',
-          categoryLabel: 'Confirmed Outbreak Site',
+          categoryLabel: 'Recent approved report; follow-up needed',
           distanceToOutbreakKm: 0,
           nearestOutbreakSource: name,
           color: RISK_COLORS.confirmed_outbreak.hex,
           fillOpacity: 0.78,
         };
       } else {
-        // Calculate geodesic distance to the closest confirmed outbreak site
+        // Calculate distance to the closest report-alert location.
         let minDistance = Infinity;
         let closestSite: string | null = null;
 
@@ -374,7 +389,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
         }
 
         if (minDistance <= monitoringRadiusKm && closestSite !== null) {
-          // RULE 2: 0 Confirmed Cases but <= Monitoring Radius -> ORANGE (Precautionary Surveillance)
+          // RULE 2: No local report alert but within radius -> ORANGE (precautionary monitoring).
           profiles[name] = {
             name,
             confirmedCases: 0,
@@ -388,14 +403,14 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
             fillOpacity: 0.58,
           };
         } else {
-          // RULE 3: > Monitoring Radius (or no confirmed outbreaks) -> GREEN (Safe / Low Risk)
+          // RULE 3: Outside the radius -> GREEN (no mapped report alert; not proof of no disease).
           profiles[name] = {
             name,
             confirmedCases: 0,
             suspectedCases: suspected,
             cattle,
             category: 'safe',
-            categoryLabel: 'Outside Monitoring Radius (Safe)',
+            categoryLabel: 'Outside Report-Alert Monitoring Radius',
             distanceToOutbreakKm: Number.isFinite(minDistance) ? minDistance : null,
             nearestOutbreakSource: closestSite,
             color: RISK_COLORS.safe.hex,
@@ -438,6 +453,27 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
     };
   }, [isPlaying, playbackSpeed, activeScenario]);
 
+  // Direct GeoJSON vector feature styling function (synchronous on mount & updates)
+  const getFeatureStyle = useCallback((feature?: Feature) => {
+    const name: string = feature?.properties?.name;
+    const profile = riskProfiles[name];
+    if (!profile) {
+      return {
+        fillColor: '#10b981',
+        fillOpacity: 0.32,
+        color: '#047857',
+        weight: 1.5,
+      };
+    }
+    return {
+      fillColor: profile.color,
+      fillOpacity: profile.fillOpacity,
+      color: profile.category === 'confirmed_outbreak' ? '#b91c1c' : profile.category === 'monitoring_radius' ? '#c2410c' : '#047857',
+      weight: profile.name === selectedBarangayForDetail ? 3.5 : profile.category === 'confirmed_outbreak' ? 2.5 : 1.5,
+      dashArray: profile.category === 'monitoring_radius' ? '4, 4' : undefined,
+    };
+  }, [riskProfiles, selectedBarangayForDetail]);
+
   // Update Leaflet vector layer styles whenever riskProfiles update
   useEffect(() => {
     const layer = geoJsonRef.current;
@@ -462,16 +498,16 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
 
       const suspectedBadge = profile.suspectedCases > 0
         ? `<div style="margin-top:4px;padding:2px 6px;border-radius:4px;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;font-size:10px;font-weight:700">
-             ⚠️ ${profile.suspectedCases} Suspected Report${profile.suspectedCases > 1 ? 's' : ''} (Pending Field Verification)
+             ⚠️ ${profile.suspectedCases} report${profile.suspectedCases > 1 ? 's are' : ' is'} waiting for review
            </div>`
         : '';
 
       const statusDescription = profile.category === 'confirmed_outbreak'
-        ? `<div style="color:#dc2626;font-weight:bold">🚨 Confirmed Outbreak Site (&ge; 1 case)</div>`
+        ? `<div style="color:#dc2626;font-weight:bold">🚨 Recent approved disease report; needs follow-up</div>`
         : profile.category === 'monitoring_radius'
-        ? `<div style="color:#d97706;font-weight:bold">🟠 Precautionary Monitoring Zone (${profile.distanceToOutbreakKm?.toFixed(2)} km from ${profile.nearestOutbreakSource})</div>
-           <div style="font-size:10.5px;color:#4b5563">Potentially exposed; 0 confirmed infected animals in this barangay.</div>`
-        : `<div style="color:#16a34a;font-weight:bold">✅ Outside Monitoring Radius (Low Risk)</div>`;
+        ? `<div style="color:#d97706;font-weight:bold">🟠 Near a report (${profile.distanceToOutbreakKm?.toFixed(2)} km from ${profile.nearestOutbreakSource})</div>
+           <div style="font-size:10.5px;color:#4b5563">Extra monitoring suggested; distance does not mean animals are infected.</div>`
+        : `<div style="color:#16a34a;font-weight:bold">✅ No recent report shown</div>`;
 
       sublayer.bindPopup(`
         <div style="font-family:sans-serif;min-width:200px;padding:4px">
@@ -483,13 +519,13 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
             ${suspectedBadge}
             <div style="margin-top:6px;font-size:11px;color:#334155">
               <div>🐄 <b>Cattle Herd:</b> ${profile.cattle} heads</div>
-              <div>🦠 <b>Confirmed Cases:</b> ${profile.confirmedCases}</div>
+              <div>🦠 <b>Reports needing follow-up:</b> ${profile.confirmedCases}</div>
             </div>
             <hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0"/>
             <div style="font-size:10px;color:#64748b">
               ${profile.nearestOutbreakSource
-                ? `Haversine distance to ${profile.nearestOutbreakSource}: <b>${profile.distanceToOutbreakKm?.toFixed(2)} km</b>`
-                : 'No active confirmed outbreaks in municipality'}
+                ? `Approx. distance between barangay centers (Brgy. ${name} and ${profile.nearestOutbreakSource}): <b>${profile.distanceToOutbreakKm?.toFixed(2)} km</b>`
+                : 'No recent report is shown on this map; this does not mean there is no disease'}
             </div>
           </div>
         </div>
@@ -524,44 +560,41 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
 
   // Phase description for the timeline spread simulation
   const timelinePhaseLabel = useMemo(() => {
-    if (dayIndex === 0) return 'Phase 1: Index Case Detected';
-    if (dayIndex <= 3) return 'Phase 1: Local Incubation Period';
-    if (dayIndex <= 8) return 'Phase 2: Local Transmission in Haversine Buffer';
-    if (dayIndex <= 14) return 'Phase 3: Secondary Cluster Expansion';
-    if (dayIndex <= 21) return 'Phase 4: Municipal Quarantine Checkpoints Active';
-    return 'Phase 5: Epidemic Diffusion Stabilized';
+    if (dayIndex === 0) return 'Example starts';
+    if (dayIndex <= 3) return 'Days 1-3: Starting area';
+    if (dayIndex <= 8) return 'Days 4-8: Nearby areas';
+    if (dayIndex <= 14) return 'Days 9-14: Wider area';
+    if (dayIndex <= 21) return 'Days 15-21: Example checks';
+    return 'Days 22-30: Example ends';
   }, [dayIndex]);
 
   if (!isMounted) return null;
 
   return (
-    <div className="space-y-4 font-sans text-slate-800">
-      {/* 1. Header Bar with Scenario Selector & Controls */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
-        <div>
+    <div className="space-y-3 font-sans text-slate-800">
+      {/* 1. Sleek Compact Subheader & Mode Selector Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-0.5 pb-0.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex items-center gap-2">
             <span className="flex size-2 rounded-full bg-rose-600 animate-pulse" />
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-rose-900">
-              Haversine Geospatial Biosurveillance
+            <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+              <Activity className="size-4 text-rose-600" />
+              Disease Report Map
             </span>
-            {gisData && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                <Database className="size-3 text-emerald-600" />
-                PostgreSQL Connected ({totalCattleCount.toLocaleString()} Heads)
-              </span>
-            )}
           </div>
-          <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2 mt-0.5">
-            <Activity className="size-5 text-rose-600" />
-            Epidemic Risk Forecaster &amp; Haversine Spatial Triage
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Spherical geodesic distance &middot; Precautionary biosecurity buffer &middot; Single-case outbreak declaration
-          </p>
+          {gisData && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+              <Database className="size-3 text-emerald-600" />
+              Live data connected ({totalCattleCount.toLocaleString()} animals)
+            </span>
+          )}
+          <span className="hidden md:inline text-[11px] text-slate-400 font-mono">
+            Report locations &middot; extra monitoring within {monitoringRadiusKm.toFixed(1)} km
+          </span>
         </div>
 
         {/* Mode Selector */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1">
           <div className="flex flex-wrap rounded-xl bg-slate-100 p-1 border border-slate-200 gap-0.5">
             <button
               type="button"
@@ -576,7 +609,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
               }`}
             >
               <Database className="size-3.5" />
-              Live Telemetry
+              Current Data
             </button>
             <button
               type="button"
@@ -591,7 +624,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
               }`}
             >
               <MousePointerClick className="size-3.5" />
-              Click-to-Test
+              Try a Map Example
             </button>
             <button
               type="button"
@@ -606,7 +639,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
               }`}
             >
               <FastForward className="size-3.5" />
-              Timeline Spread
+              30-Day Example
             </button>
             <button
               type="button"
@@ -622,315 +655,144 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
               }`}
             >
               <Sparkles className="size-3.5 text-amber-600" />
-              Manggas Case Study
+              Manggas Example
             </button>
           </div>
         </div>
       </div>
 
-      {/* 2. Scenario-Specific Context Banner & Controls */}
-      {activeScenario === 'live' && (
-        <div className={`rounded-2xl border p-3.5 sm:p-4 text-xs flex flex-wrap items-center justify-between gap-3 ${
-          realBarangayData.hasRealConfirmedOutbreaks
-            ? 'bg-rose-50/80 border-rose-200 text-rose-950'
-            : 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
-        }`}>
-          <div className="flex items-center gap-2.5">
-            {realBarangayData.hasRealConfirmedOutbreaks ? (
-              <ShieldAlert className="size-5 text-rose-600 shrink-0" />
-            ) : (
-              <ShieldCheck className="size-5 text-emerald-600 shrink-0" />
-            )}
-            <div>
-              <span className="font-bold">
-                {realBarangayData.hasRealConfirmedOutbreaks
-                  ? `Active Outbreak Declared: ${confirmedSites.length} barangay(s) in Red status (${confirmedSites.join(', ')}).`
-                  : 'Live Database Status: Zero Active Outbreaks Recorded across Padre Garcia.'}
-              </span>
-              <p className="text-[11px] opacity-85 mt-0.5">
-                {realBarangayData.hasRealConfirmedOutbreaks
-                  ? 'Neighboring barangays within Haversine 3.5 km buffer are in Orange Precautionary Zone.'
-                  : 'All 18 barangays are in Safe (Green) status. Real cattle inventory totals are aggregated from PostgreSQL.'}
-              </p>
-            </div>
+      {/* 2. Executive Spatial KPIs (Outside Map Canvas) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
+        {/* KPI 1: Recent Report Alerts (Red) */}
+        <div className="bg-white border border-rose-200/90 rounded-2xl p-3.5 shadow-2xs hover:border-rose-400 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-rose-600 shrink-0" />
+              Recent Reports Needing Follow-up
+            </span>
+            <span className="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-900">
+              Red
+            </span>
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveScenario('custom-click');
-                setSelectedOutbreakSite('Bawi');
-              }}
-              className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-800 font-bold hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
-            >
-              🎯 Click-to-Test Sandbox &rarr;
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveScenario('simulation');
-                setDayIndex(0);
-              }}
-              className="px-3 py-1.5 rounded-lg bg-slate-900 text-white font-bold hover:bg-slate-800 transition-colors cursor-pointer shadow-2xs"
-            >
-              ▶ Run 30-Day Timeline Spread &rarr;
-            </button>
+          <div className="text-2xl font-black text-rose-700 mt-1">
+            {outbreakCount} <span className="text-xs font-normal text-rose-900">barangay{outbreakCount !== 1 ? 's' : ''}</span>
           </div>
-        </div>
-      )}
-
-      {activeScenario === 'custom-click' && (
-        <div className="bg-indigo-50/70 border border-indigo-200 rounded-2xl p-3.5 sm:p-4 text-xs space-y-2 text-indigo-950">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <MousePointerClick className="size-4 text-indigo-600 shrink-0" />
-              <span className="font-bold">
-                Interactive Click-to-Test Active: Click any barangay polygon on the map to place an outbreak epicenter.
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-indigo-800">Or select from list:</span>
-              <select
-                value={selectedOutbreakSite}
-                onChange={(e) => {
-                  setSelectedOutbreakSite(e.target.value);
-                  setSelectedBarangayForDetail(e.target.value);
-                }}
-                className="bg-white border border-indigo-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 shadow-2xs focus:ring-2 focus:ring-indigo-500/20"
-              >
-                {BARANGAY_NAMES.map(name => (
-                  <option key={name} value={name}>
-                    Brgy. {name} ({realBarangayData.cattleMap[name] ?? CATTLE_HEADS[name]} cattle)
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <p className="text-[11px] text-indigo-800/80">
-            Current simulated epicenter: <strong className="text-indigo-950">Brgy. {selectedOutbreakSite}</strong>. Notice how the {monitoringRadiusKm} km Haversine buffer instantly shifts and recalculates geodesic distances across all other 17 barangays.
+          <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+            One recent approved report can trigger this map alert. It does not confirm disease.
           </p>
         </div>
-      )}
 
-      {activeScenario === 'simulation' && (
-        <div className="bg-gradient-to-r from-amber-50/90 via-white to-slate-50 border border-amber-200 rounded-2xl p-4 shadow-2xs space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Radio className="size-4 text-amber-600 shrink-0 animate-pulse" />
-              <div className="text-xs">
-                <span className="font-bold text-slate-900">30-Day Haversine Epidemic Spread Simulation</span>
-                <span className="text-[11px] text-amber-800 ml-2 font-mono font-bold">
-                  &middot; {timelinePhaseLabel}
-                </span>
-              </div>
-            </div>
-
-            {/* Seed Epicenter Selector */}
-            <div className="flex items-center gap-2 text-xs">
-              <span className="font-semibold text-slate-700">Outbreak Origin:</span>
-              <select
-                value={selectedOutbreakSite}
-                onChange={(e) => {
-                  setSelectedOutbreakSite(e.target.value);
-                  setDayIndex(0);
-                  setIsPlaying(false);
-                }}
-                className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 shadow-2xs"
-              >
-                {BARANGAY_NAMES.map(name => (
-                  <option key={name} value={name}>Brgy. {name}</option>
-                ))}
-              </select>
-            </div>
+        {/* KPI 2: Monitoring Radius (Orange) */}
+        <div className="bg-white border border-amber-200/90 rounded-2xl p-3.5 shadow-2xs hover:border-amber-400 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-amber-500 shrink-0" />
+              Nearby Report Areas
+            </span>
+            <span className="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">
+              Orange
+            </span>
           </div>
-
-          {/* Interactive Timeline Scrubber (0 to 30 Days) */}
-          <div className="space-y-1.5 pt-1">
-            <div className="flex items-center justify-between text-xs font-mono font-bold text-slate-700">
-              <span className="flex items-center gap-1 text-amber-700">
-                <Clock className="size-3.5" />
-                Simulation Day: <span className="text-sm font-black text-slate-900">Day {dayIndex}</span> of 30
-              </span>
-              <span className="text-[11px] text-slate-500">
-                Active Outbreak Sites: <b className="text-rose-600">{outbreakCount}</b> &middot; Precautionary Buffer: <b className="text-amber-600">{monitoringCount}</b>
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min="0"
-                max="30"
-                step="1"
-                value={dayIndex}
-                onChange={(e) => {
-                  setDayIndex(parseInt(e.target.value, 10));
-                  setIsPlaying(false);
-                }}
-                className="w-full accent-amber-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
-              />
-            </div>
-
-            {/* Timeline Tick Labels */}
-            <div className="flex justify-between text-[10px] font-mono text-slate-600 px-0.5 select-none">
-              <span>Day 0 (Index)</span>
-              <span>Day 5 (Buffer)</span>
-              <span>Day 10 (Secondary)</span>
-              <span>Day 15 (Cluster)</span>
-              <span>Day 22 (Quarantine)</span>
-              <span>Day 30 (Stabilized)</span>
-            </div>
+          <div className="text-2xl font-black text-amber-700 mt-1">
+            {monitoringCount} <span className="text-xs font-normal text-amber-900">barangays</span>
           </div>
-
-          {/* Playback Controls & Speed Toggle */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/70 text-xs">
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setIsPlaying(p => !p)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  isPlaying ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs'
-                }`}
-              >
-                {isPlaying ? <><Pause className="size-3.5" /> Pause</> : <><Play className="size-3.5" /> Play Spread</>}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPlaying(false);
-                  setDayIndex(prev => Math.max(0, prev - 1));
-                }}
-                className="p-1.5 text-slate-600 hover:bg-slate-200 rounded-lg cursor-pointer"
-                title="Step backward 1 day"
-              >
-                <SkipBack className="size-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPlaying(false);
-                  setDayIndex(prev => Math.min(30, prev + 1));
-                }}
-                className="p-1.5 text-slate-600 hover:bg-slate-200 rounded-lg cursor-pointer"
-                title="Step forward 1 day"
-              >
-                <SkipForward className="size-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPlaying(false);
-                  setDayIndex(0);
-                }}
-                className="flex items-center gap-1 px-2 py-1 text-slate-600 hover:bg-slate-200 rounded-lg cursor-pointer text-xs"
-                title="Reset simulation to Day 0"
-              >
-                <RotateCcw className="size-3.5" /> Reset
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-500">Speed:</span>
-              <button
-                type="button"
-                onClick={() => setPlaybackSpeed(600)}
-                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                  playbackSpeed === 600 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                1x
-              </button>
-              <button
-                type="button"
-                onClick={() => setPlaybackSpeed(300)}
-                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                  playbackSpeed === 300 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                2x
-              </button>
-            </div>
-          </div>
+          <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+            Within {monitoringRadiusKm} km of a report location
+          </p>
         </div>
-      )}
 
-      {/* Global Interactive Radius & Scenario Controls Bar */}
-      <div className="bg-gradient-to-r from-slate-50 via-white to-amber-50/40 border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-          {/* Haversine Monitoring Radius Slider */}
-          <div className="flex items-center gap-3">
-            <span className="font-bold text-slate-700 flex items-center gap-1 shrink-0">
-              <Sliders className="size-3.5 text-amber-600" />
-              Haversine Biosecurity Radius:
+        {/* KPI 3: Outside Radius (Green) */}
+        <div className="bg-white border border-emerald-200/90 rounded-2xl p-3.5 shadow-2xs hover:border-emerald-400 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
+              No Nearby Report Shown
             </span>
-            <input
-              type="range"
-              min="1.5"
-              max="5.5"
-              step="0.5"
-              value={monitoringRadiusKm}
-              onChange={(e) => setMonitoringRadiusKm(parseFloat(e.target.value))}
-              className="w-28 sm:w-36 accent-amber-600 cursor-pointer"
-            />
-            <span className="font-mono font-black text-amber-700 bg-amber-100/70 border border-amber-300/60 px-2 py-0.5 rounded-md text-xs shrink-0">
-              {monitoringRadiusKm.toFixed(1)} km
+            <span className="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900">
+              Green
             </span>
           </div>
+          <div className="text-2xl font-black text-emerald-700 mt-1">
+            {safeCount} <span className="text-xs font-normal text-emerald-900">barangays</span>
+          </div>
+          <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+            This does not mean disease is absent
+          </p>
+        </div>
 
-          {/* Manggas Suspected Observation Toggle (Case Study Mode) */}
-          {activeScenario === 'manggas-scenario' && (
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="suspected-manggas-toggle"
-                checked={hasSuspectedCaseInManggas}
-                onChange={(e) => setHasSuspectedCaseInManggas(e.target.checked)}
-                className="size-4 rounded accent-amber-600 cursor-pointer"
-              />
-              <label htmlFor="suspected-manggas-toggle" className="font-medium text-slate-700 cursor-pointer select-none">
-                Include 1 <strong>Suspected (Unvalidated)</strong> Observation in Brgy. Manggas
-              </label>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300/60 font-semibold">
-                Rule: Unvalidated &ne; Confirmed Outbreak
-              </span>
-            </div>
-          )}
+        {/* KPI 4: Buffer Perimeter (Haversine) */}
+        <div className="bg-white border border-indigo-200/90 rounded-2xl p-3.5 shadow-2xs hover:border-indigo-400 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-indigo-800 flex items-center gap-1.5">
+              <Radio className="size-3 text-indigo-600 shrink-0" />
+              Extra Monitoring Distance
+            </span>
+            <span className="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-900">
+              Straight-line estimate
+            </span>
+          </div>
+          <div className="text-2xl font-black text-indigo-700 mt-1">
+            {monitoringRadiusKm.toFixed(1)} <span className="text-xs font-normal text-indigo-900">km</span>
+          </div>
+          <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+            Estimated distance between barangay centers
+          </p>
         </div>
       </div>
 
-      {/* 3. Full-Width Interactive Map Canvas with Overlayed Telemetry HUD (4 KPIs) */}
-      <div className="w-full bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden flex flex-col h-[500px] sm:h-[580px] lg:h-[640px]">
-        <div className="bg-slate-900 px-4 py-2.5 flex items-center justify-between text-white text-xs">
+      {/* 3. Full-Width Interactive Map Canvas with Overlayed In-Map Controls HUD */}
+      <div className="w-full bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden flex flex-col">
+        <div className="bg-slate-900 px-4 py-2.5 flex flex-wrap items-center justify-between text-white text-xs gap-3 shrink-0">
           <div className="flex items-center gap-2">
             <span className="size-2 rounded-full bg-rose-500 animate-ping" />
             <span className="font-bold tracking-tight">
-              Padre Garcia GIS &middot; Haversine Spatial Risk Canvas
+              Padre Garcia &middot; Disease Report Map
             </span>
           </div>
-          <span className="font-mono text-[11px] text-slate-400">
-            {activeScenario === 'simulation'
-              ? `Day ${dayIndex}/30 · Origin: Brgy. ${selectedOutbreakSite} · Buffer: ${monitoringRadiusKm} km`
-              : activeScenario === 'live'
-              ? `Live Status · ${confirmedSites.length} Outbreak Site(s) · Buffer: ${monitoringRadiusKm} km`
-              : `Epicenter: Brgy. ${selectedOutbreakSite} · Buffer: ${monitoringRadiusKm} km`}
-          </span>
+
+          <div className="flex items-center gap-3">
+            {/* Extra monitoring distance slider */}
+            <div className="flex items-center gap-2 bg-slate-800/90 border border-slate-700/80 px-2.5 py-1 rounded-lg">
+              <Sliders className="size-3 text-amber-400 shrink-0" />
+              <span className="text-[11px] font-semibold text-slate-300">Nearby area:</span>
+              <input
+                type="range"
+                min="1.5"
+                max="5.5"
+                step="0.5"
+                value={monitoringRadiusKm}
+                onChange={(e) => setMonitoringRadiusKm(parseFloat(e.target.value))}
+                className="w-20 sm:w-28 accent-amber-500 cursor-pointer h-1.5 bg-slate-700 rounded-lg"
+              />
+              <span className="font-mono font-black text-amber-300 text-[11px] min-w-[42px] text-right">
+                {monitoringRadiusKm.toFixed(1)} km
+              </span>
+            </div>
+
+            <span className="hidden sm:inline font-mono text-[11px] text-slate-400">
+              {activeScenario === 'simulation'
+                ? `Day ${dayIndex}/30 · Starting point: Brgy. ${selectedOutbreakSite}`
+                : activeScenario === 'live'
+                ? `${confirmedSites.length} Report Areas`
+                : `Starting point: Brgy. ${selectedOutbreakSite}`}
+            </span>
+          </div>
         </div>
 
-        <style>{`
-          .risk-tooltip {
-            background: rgba(15, 23, 42, 0.92);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 6px;
-            color: #fff;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 4px 8px;
-          }
-          .risk-tooltip::before { display: none; }
-        `}</style>
+        <div className="relative w-full h-[520px] sm:h-[600px] lg:h-[640px] bg-slate-100">
+          <style>{`
+            .risk-tooltip {
+              background: rgba(15, 23, 42, 0.92);
+              border: 1px solid rgba(255, 255, 255, 0.2);
+              border-radius: 6px;
+              color: #fff;
+              font-size: 11px;
+              font-weight: 700;
+              padding: 4px 8px;
+            }
+            .risk-tooltip::before { display: none; }
+          `}</style>
 
-        <div className="flex-1 relative h-full w-full">
           <MapContainer
             center={[13.8741, 121.238]}
             zoom={13}
@@ -949,6 +811,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
               ref={geoJsonRef}
               key={`haversine-geojson-${activeScenario}-${activeScenario === 'custom-click' ? selectedOutbreakSite : ''}`}
               data={padreGarciaGeojson as unknown as FeatureCollection}
+              style={getFeatureStyle}
               onEachFeature={(feature, leafletLayer) => {
                 const bName: string = feature.properties?.name;
                 leafletLayer.bindTooltip(bName, {
@@ -1017,115 +880,282 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
             )}
           </MapContainer>
 
-          {/* 4 KPIs Floating Directly On Map Canvas (Telemetry HUD) */}
+          {/* In-Map Interactive Controls HUD (Overlayed directly on canvas) */}
           <div className="absolute top-2 sm:top-3 left-12 sm:left-14 right-2 sm:right-3 z-[900] pointer-events-none">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5">
-              {/* KPI 1: Confirmed Outbreak (Red) */}
-              <div className="pointer-events-auto bg-white/95 backdrop-blur-md border border-rose-200/90 rounded-xl p-2.5 sm:p-3 shadow-md hover:border-rose-400 transition-all">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] sm:text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-rose-600 shrink-0" />
-                    Confirmed Outbreak
-                  </span>
-                  <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-900">
-                    Red
-                  </span>
-                </div>
-                <div className="text-xl sm:text-2xl font-black text-rose-700 mt-1">
-                  {outbreakCount} <span className="text-[11px] font-normal text-rose-900">barangay{outbreakCount !== 1 ? 's' : ''}</span>
-                </div>
-                <p className="text-[9.5px] text-slate-500 mt-0.5 hidden sm:block truncate">
-                  &ge; 1 confirmed case triggers Red site flag
-                </p>
-              </div>
+            {/* Case A: 30-Day Spread Simulation HUD */}
+            {activeScenario === 'simulation' && (
+              <div className="pointer-events-auto bg-white/95 backdrop-blur-md border border-amber-300/90 rounded-xl p-2.5 sm:p-3 shadow-xl space-y-2 text-slate-800">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Radio className="size-3.5 text-amber-600 animate-pulse shrink-0" />
+                    <span className="text-xs font-bold text-slate-900">30-Day Spread Simulation</span>
+                    <span className="text-[10px] sm:text-[11px] font-mono font-bold text-amber-800 bg-amber-100/80 border border-amber-300/70 px-2 py-0.5 rounded-md">
+                      {timelinePhaseLabel}
+                    </span>
+                  </div>
 
-              {/* KPI 2: Monitoring Radius (Orange) */}
-              <div className="pointer-events-auto bg-white/95 backdrop-blur-md border border-amber-200/90 rounded-xl p-2.5 sm:p-3 shadow-md hover:border-amber-400 transition-all">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] sm:text-xs font-bold text-amber-800 flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-amber-500 shrink-0" />
-                    Monitoring Radius
-                  </span>
-                  <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">
-                    Orange
-                  </span>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="font-semibold text-slate-600 text-[11px]">Starting point:</span>
+                    <select
+                      value={selectedOutbreakSite}
+                      onChange={(e) => {
+                        setSelectedOutbreakSite(e.target.value);
+                        setDayIndex(0);
+                        setIsPlaying(false);
+                      }}
+                      className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 shadow-2xs cursor-pointer focus:ring-2 focus:ring-amber-500/20"
+                    >
+                      {BARANGAY_NAMES.map(name => (
+                        <option key={name} value={name}>Brgy. {name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div className="text-xl sm:text-2xl font-black text-amber-700 mt-1">
-                  {monitoringCount} <span className="text-[11px] font-normal text-amber-900">barangays</span>
-                </div>
-                <p className="text-[9.5px] text-slate-500 mt-0.5 hidden sm:block truncate">
-                  &le; {monitoringRadiusKm} km from confirmed site
-                </p>
-              </div>
 
-              {/* KPI 3: Outside Radius (Green) */}
-              <div className="pointer-events-auto bg-white/95 backdrop-blur-md border border-emerald-200/90 rounded-xl p-2.5 sm:p-3 shadow-md hover:border-emerald-400 transition-all">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] sm:text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
-                    Outside Radius
-                  </span>
-                  <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900">
-                    Green
-                  </span>
-                </div>
-                <div className="text-xl sm:text-2xl font-black text-emerald-700 mt-1">
-                  {safeCount} <span className="text-[11px] font-normal text-emerald-900">barangays</span>
-                </div>
-                <p className="text-[9.5px] text-slate-500 mt-0.5 hidden sm:block truncate">
-                  &gt; {monitoringRadiusKm} km from confirmed site (safe)
-                </p>
-              </div>
+                {/* Timeline Scrubber */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-mono font-bold">
+                    <span className="flex items-center gap-1 text-amber-800">
+                      <Clock className="size-3.5" />
+                      Day <span className="text-sm font-black text-slate-900">{dayIndex}</span> of 30
+                    </span>
+                    <span className="text-[11px] text-slate-500 hidden sm:inline">
+                      Report locations: <b className="text-rose-600">{outbreakCount}</b> &middot; Nearby: <b className="text-amber-600">{monitoringCount}</b> &middot; No report shown: <b className="text-emerald-600">{safeCount}</b>
+                    </span>
+                  </div>
 
-              {/* KPI 4: Buffer Perimeter (Haversine) */}
-              <div className="pointer-events-auto bg-white/95 backdrop-blur-md border border-indigo-200/90 rounded-xl p-2.5 sm:p-3 shadow-md hover:border-indigo-400 transition-all">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] sm:text-xs font-bold text-indigo-800 flex items-center gap-1.5">
-                    <Radio className="size-3 text-indigo-600 shrink-0" />
-                    Buffer Perimeter
-                  </span>
-                  <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-900">
-                    Haversine
-                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="30"
+                    step="1"
+                    value={dayIndex}
+                    onChange={(e) => {
+                      setDayIndex(parseInt(e.target.value, 10));
+                      setIsPlaying(false);
+                    }}
+                    className="w-full accent-amber-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
+                  />
+
+                  <div className="flex justify-between text-[9px] font-mono text-slate-500 px-0.5 select-none">
+                    <span>Start</span>
+                    <span>Day 5</span>
+                    <span>Day 10</span>
+                    <span>Day 15</span>
+                    <span>Day 22</span>
+                    <span>Day 30</span>
+                  </div>
                 </div>
-                <div className="text-xl sm:text-2xl font-black text-indigo-700 mt-1">
-                  {monitoringRadiusKm.toFixed(1)} <span className="text-[11px] font-normal text-indigo-900">km</span>
+
+                {/* Playback Controls & Speed Toggle */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/80 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsPlaying(p => !p)}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        isPlaying ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs'
+                      }`}
+                    >
+                      {isPlaying ? <><Pause className="size-3.5" /> Pause</> : <><Play className="size-3.5" /> Play Spread</>}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPlaying(false);
+                        setDayIndex(prev => Math.max(0, prev - 1));
+                      }}
+                      className="p-1 text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-lg cursor-pointer"
+                      title="Step backward 1 day"
+                    >
+                      <SkipBack className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPlaying(false);
+                        setDayIndex(prev => Math.min(30, prev + 1));
+                      }}
+                      className="p-1 text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-lg cursor-pointer"
+                      title="Step forward 1 day"
+                    >
+                      <SkipForward className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPlaying(false);
+                        setDayIndex(0);
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-lg cursor-pointer text-xs"
+                      title="Reset simulation to Day 0"
+                    >
+                      <RotateCcw className="size-3" /> Reset
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-500 font-semibold">Speed:</span>
+                    <button
+                      type="button"
+                      onClick={() => setPlaybackSpeed(600)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        playbackSpeed === 600 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      1x
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlaybackSpeed(300)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        playbackSpeed === 300 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      2x
+                    </button>
+                  </div>
                 </div>
-                <p className="text-[9.5px] text-slate-500 mt-0.5 hidden sm:block truncate">
-                  Geodesic spherical buffer (R = 6,371 km)
+              </div>
+            )}
+
+            {/* Case B: Custom Click Sandbox HUD */}
+            {activeScenario === 'custom-click' && (
+              <div className="pointer-events-auto bg-white/95 backdrop-blur-md border border-indigo-200/90 rounded-xl p-2.5 sm:p-3 shadow-xl space-y-1.5 text-indigo-950">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <MousePointerClick className="size-4 text-indigo-600 shrink-0" />
+                    <span className="font-bold">
+                      Click a barangay on the map to set the example starting point
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-600 text-[11px]">Or select:</span>
+                    <select
+                      value={selectedOutbreakSite}
+                      onChange={(e) => {
+                        setSelectedOutbreakSite(e.target.value);
+                        setSelectedBarangayForDetail(e.target.value);
+                      }}
+                      className="bg-white border border-indigo-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 shadow-2xs focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                    >
+                      {BARANGAY_NAMES.map(name => (
+                        <option key={name} value={name}>
+                          Brgy. {name} ({realBarangayData.cattleMap[name] ?? CATTLE_HEADS[name]} heads)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[11px] text-indigo-800/80">
+                  Example starting point: <strong className="text-indigo-950">Brgy. {selectedOutbreakSite}</strong> &middot; The map measures distance to nearby barangays.
                 </p>
               </div>
-            </div>
+            )}
+
+            {/* Case C: Live Telemetry HUD */}
+            {activeScenario === 'live' && (
+              <div className={`pointer-events-auto backdrop-blur-md border rounded-xl p-2.5 sm:p-3 shadow-xl text-xs flex flex-wrap items-center justify-between gap-2.5 ${
+                realBarangayData.hasRealConfirmedOutbreaks
+                  ? 'bg-rose-50/95 border-rose-200 text-rose-950'
+                  : 'bg-emerald-50/95 border-emerald-200 text-emerald-950'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {realBarangayData.hasRealConfirmedOutbreaks ? (
+                    <ShieldAlert className="size-4 text-rose-600 shrink-0" />
+                  ) : (
+                    <ShieldCheck className="size-4 text-emerald-600 shrink-0" />
+                  )}
+                  <div>
+                    <span className="font-bold">
+                      {realBarangayData.hasRealConfirmedOutbreaks
+                        ? `${confirmedSites.length} barangay(s) have recent approved reports needing follow-up`
+                        : 'No recent approved reports needing follow-up are shown on this map'}
+                    </span>
+                    <span className="text-[11px] opacity-80 ml-2 hidden md:inline">
+                      {realBarangayData.hasRealConfirmedOutbreaks
+                        ? `(${confirmedSites.slice(0, 4).join(', ')}${confirmedSites.length > 4 ? ` +${confirmedSites.length - 4} more` : ''}) · nearby areas are marked Orange`
+                        : 'The map only shows reports entered in the system; no marker does not mean no disease.'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveScenario('custom-click');
+                      setSelectedOutbreakSite('Bawi');
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-800 font-bold hover:bg-slate-50 transition-colors cursor-pointer text-xs shadow-2xs"
+                  >
+                    🎯 Click-to-Test &rarr;
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveScenario('simulation');
+                      setDayIndex(0);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-bold hover:bg-slate-800 transition-colors cursor-pointer text-xs shadow-2xs"
+                  >
+                    ▶ 30-Day Spread &rarr;
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Case D: Manggas Case Study HUD */}
+            {activeScenario === 'manggas-scenario' && (
+              <div className="pointer-events-auto bg-amber-50/95 backdrop-blur-md border border-amber-200 rounded-xl p-2.5 sm:p-3 shadow-xl text-xs flex flex-wrap items-center justify-between gap-2.5 text-amber-950">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="size-4 text-amber-600 shrink-0" />
+                  <label htmlFor="suspected-manggas-toggle" className="font-medium cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      id="suspected-manggas-toggle"
+                      checked={hasSuspectedCaseInManggas}
+                      onChange={(e) => setHasSuspectedCaseInManggas(e.target.checked)}
+                      className="size-3.5 rounded accent-amber-600 cursor-pointer mr-2 align-middle"
+                    />
+                    Include 1 <strong>unreviewed report</strong> in Brgy. Manggas
+                  </label>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300/60 font-bold">
+                  Reports waiting for review are shown separately. Approval does not confirm disease.
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Floating Dynamic Map Legend (bottom-left) */}
           <div className="absolute bottom-3 left-3 z-[900] bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-2.5 shadow-md text-xs space-y-1.5 max-w-[220px]">
             <span className="font-black text-[10px] uppercase text-slate-500 tracking-wider block">
-              Spatial Risk Legend
+              Map Colors
             </span>
             <div className="flex items-center gap-2">
               <span className="size-3 rounded bg-red-500 shrink-0" />
               <span className="text-[11px] font-semibold text-slate-800">
-                Red &mdash; Confirmed Outbreak (&ge;1)
+                Red &mdash; Recent approved report needs follow-up
               </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="size-3 rounded bg-amber-500 shrink-0" />
               <span className="text-[11px] font-semibold text-slate-800">
-                Orange &mdash; Within Radius (&le;{monitoringRadiusKm}km)
+                Orange &mdash; Within {monitoringRadiusKm} km of a report
               </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="size-3 rounded bg-emerald-500 shrink-0" />
               <span className="text-[11px] font-semibold text-slate-800">
-                Green &mdash; Outside Radius (Safe)
+                Green &mdash; No recent report shown
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 4. Inspection & Proximity Registry (Placed UNDER the Full-Width Map) */}
+        {/* 4. Report Locations and Nearby Barangays */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Selected Barangay Spotlight Card */}
         <div className="lg:col-span-5 flex flex-col gap-3">
@@ -1157,7 +1187,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
                   <span className="text-base font-black text-white">{selectedProfile.cattle} heads</span>
                 </div>
                 <div className="bg-slate-800/80 p-2.5 rounded-xl">
-                  <span className="text-slate-400 text-[10px] block">Geodesic Distance</span>
+                  <span className="text-slate-400 text-[10px] block">Distance from report</span>
                   <span className="text-base font-black text-amber-300">
                     {selectedProfile.distanceToOutbreakKm !== null
                       ? `${selectedProfile.distanceToOutbreakKm.toFixed(2)} km`
@@ -1170,22 +1200,22 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
               <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60 text-xs space-y-1 mt-3">
                 <span className="font-bold text-amber-400 flex items-center gap-1 text-[11px]">
                   <HelpCircle className="size-3" />
-                  Why is Brgy. {selectedProfile.name} {selectedProfile.category === 'confirmed_outbreak' ? 'Red' : selectedProfile.category === 'monitoring_radius' ? 'Orange' : 'Green'}?
+                  Why is Brgy. {selectedProfile.name} shown in {selectedProfile.category === 'confirmed_outbreak' ? 'Red' : selectedProfile.category === 'monitoring_radius' ? 'Orange' : 'Green'}?
                 </span>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
                   {selectedProfile.category === 'confirmed_outbreak' && (
-                    <>This barangay has <strong>{selectedProfile.confirmedCases} confirmed case{selectedProfile.confirmedCases > 1 ? 's' : ''}</strong>. Per municipal surveillance protocol, any confirmed case flags the host barangay as <strong>Red (Outbreak Site)</strong> immediately.</>
+                    <>The map found <strong>{selectedProfile.confirmedCases} recent approved disease report{selectedProfile.confirmedCases > 1 ? 's' : ''} needing follow-up</strong>. This does not confirm that animals have the disease.</>
                   )}
                   {selectedProfile.category === 'monitoring_radius' && (
                     <>
-                      Proximity exposure from confirmed outbreak in Brgy. {selectedProfile.nearestOutbreakSource} ({selectedProfile.distanceToOutbreakKm?.toFixed(2)} km &le; {monitoringRadiusKm} km radius). <strong>Herds are potentially exposed, but there are zero confirmed infected animals in this barangay</strong> &mdash; classified as <strong>Orange (Precautionary Surveillance)</strong>.
+                      Brgy. {selectedProfile.name} is {selectedProfile.distanceToOutbreakKm?.toFixed(2)} km from a recent report in {selectedProfile.nearestOutbreakSource}. Orange means field staff should keep an extra watch; being nearby does not mean animals are infected.
                     </>
                   )}
                   {selectedProfile.category === 'safe' && (
                     <>
                       {selectedProfile.nearestOutbreakSource
-                        ? `Outside the ${monitoringRadiusKm} km surveillance perimeter (${selectedProfile.distanceToOutbreakKm?.toFixed(2)} km from Brgy. ${selectedProfile.nearestOutbreakSource}) with 0 confirmed cases — classified as Green (Safe / Low Risk).`
-                        : 'No confirmed outbreaks currently reported in Padre Garcia — classified as Green (Safe).'}
+                        ? `${selectedProfile.distanceToOutbreakKm?.toFixed(2)} km from Brgy. ${selectedProfile.nearestOutbreakSource}; no recent report is shown for this barangay. Green does not mean disease is absent.`
+                        : 'No recent report is shown for this barangay. Green does not mean disease is absent.'}
                     </>
                   )}
                 </p>
@@ -1193,7 +1223,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
 
               {selectedProfile.suspectedCases > 0 && (
                 <div className="p-2 rounded-xl bg-amber-950/50 border border-amber-600/40 text-[11px] text-amber-200 mt-2">
-                  ⚠️ <strong>{selectedProfile.suspectedCases} Suspected observation(s)</strong> on file. Remains in monitoring status and does NOT flag the barangay Red until verified by SIBAT/MAO.
+                  ⚠️ <strong>{selectedProfile.suspectedCases} report(s) are still waiting for review.</strong> They do not trigger the Red map alert until approved by field staff or MAO.
                 </div>
               )}
             </div>
@@ -1205,7 +1235,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
                 onClick={() => setSelectedOutbreakSite(selectedProfile.name)}
                 className="w-full py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs mt-3"
               >
-                <Radio className="size-3.5" /> Set Brgy. {selectedProfile.name} as Outbreak Epicenter
+                <Radio className="size-3.5" /> Use Brgy. {selectedProfile.name} as the example starting point
               </button>
             )}
           </div>
@@ -1216,10 +1246,10 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
           <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <span className="font-black text-slate-800 uppercase tracking-tight text-xs">
-                Barangay Proximity Registry ({BARANGAY_NAMES.length})
+                Nearby Barangays ({BARANGAY_NAMES.length})
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-mono font-semibold">
-                {confirmedSites.length > 0 ? `Near Outbreaks` : `From ${selectedOutbreakSite}`}
+                {confirmedSites.length > 0 ? `Near recent reports` : `From ${selectedOutbreakSite}`}
               </span>
             </div>
             <span className="text-[11px] text-slate-500">
@@ -1251,7 +1281,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
                       </span>
                       {row.name === selectedOutbreakSite && (
                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 font-bold border border-rose-200">
-                          Epicenter
+                          Starting point
                         </span>
                       )}
                       {row.name === 'Manggas' && (
@@ -1261,15 +1291,15 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
                       )}
                       {row.suspectedCases > 0 && (
                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 font-bold border border-amber-300">
-                          Suspect
+                          Waiting for review
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 text-[11px] text-slate-500">
                       <span>
                         {row.distanceToOutbreakKm !== null
-                          ? `${row.distanceToOutbreakKm.toFixed(2)} km away`
-                          : 'Outbreak site'}
+                          ? `${row.distanceToOutbreakKm.toFixed(2)} km from report`
+                          : 'Report location'}
                       </span>
                       <span>&middot;</span>
                       <span>{row.cattle} cattle heads</span>
@@ -1299,7 +1329,7 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
         <div className="flex items-center gap-2">
           <Info className="size-4 text-amber-700 shrink-0" />
           <h4 className="font-bold text-amber-950 text-sm">
-            SmartLivestock Biosurveillance &amp; Haversine Spatial Risk Methodology
+            About this map
           </h4>
         </div>
 
@@ -1307,40 +1337,40 @@ export default function PadreGarciaForecaster({ initialGisData }: PadreGarciaFor
           <div className="bg-white p-3 rounded-xl border border-amber-200/80 space-y-1">
             <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
               <span className="size-2 rounded-full bg-amber-500" />
-              Why is Manggas classified as Orange when it has zero infected cattle?
+              Why is Manggas Orange when no disease is confirmed there?
             </span>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Barangay Manggas is geographically close to the confirmed outbreak site in neighboring Barangay A (Bawi) ({HAVERSINE_DISTANCES['Bawi']?.['Manggas']?.toFixed(2)} km &le; {monitoringRadiusKm} km buffer). Livestock herds are potentially exposed due to proximity and airborne transmission risk, but <strong>this does not mean Manggas is infected</strong>. It is placed under an Orange precautionary monitoring perimeter so biosecurity can be tightened early.
+              In this example, Manggas is {HAVERSINE_DISTANCES['Bawi']?.['Manggas']?.toFixed(2)} km from the report location in Bawi. Orange asks field staff to keep an extra watch; it does not mean animals there are infected.
             </p>
           </div>
 
           <div className="bg-white p-3 rounded-xl border border-amber-200/80 space-y-1">
             <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
               <span className="size-2 rounded-full bg-rose-600" />
-              Why does a barangay turn Red immediately with just 1 confirmed case?
+              Why does one approved report turn a barangay Red?
             </span>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Outbreak response protocol does not wait for dozens of cattle to show symptoms before flagging high risk. Even a <strong>single confirmed case</strong> immediately triggers Red (Outbreak Site) status to activate municipal quarantine checkpoints, perimeter disinfection, and containment before widespread secondary spread occurs.
+              One approved report from the last 90 days can turn the barangay Red if it is still open or has no outcome recorded. This tells field staff to follow up; approval alone does <strong>not</strong> confirm disease or start a quarantine.
             </p>
           </div>
 
           <div className="bg-white p-3 rounded-xl border border-amber-200/80 space-y-1">
             <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
               <AlertCircle className="size-3 text-amber-600" />
-              What happens with a Suspected (Unvalidated) Field Report?
+              What happens to a report that is still waiting for review?
             </span>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Reports that are <em>suspected but not yet clinically validated</em> do not trigger a confirmed outbreak. The system flags the observation with an Amber caution badge for priority SIBAT/CBAT ground inspection, but <strong>never turns the entire barangay Red</strong> prematurely, preventing unnecessary market panics and false quarantines.
+              Reports still waiting for review are kept separate from this map. An approved report can still need follow-up; approval does <strong>not</strong> mean the disease has been confirmed.
             </p>
           </div>
 
           <div className="bg-white p-3 rounded-xl border border-amber-200/80 space-y-1">
             <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
               <Navigation className="size-3 text-indigo-600" />
-              How does the Haversine Great-Circle Algorithm work?
+              How does the map measure distance?
             </span>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              The Haversine formula computes the exact geodesic distance across the spherical Earth surface between GPS centroids of each barangay. Whenever the calculated distance from a confirmed outbreak falls within the biosecurity buffer (&le; {monitoringRadiusKm} km), the barangay automatically transitions into the Orange Precautionary Zone.
+              It estimates the distance between barangay centers while accounting for the Earth&apos;s curve. Barangays whose centers are within {monitoringRadiusKm} km of a report barangay are marked Orange for extra monitoring. This does not mean animals are infected.
             </p>
           </div>
         </div>

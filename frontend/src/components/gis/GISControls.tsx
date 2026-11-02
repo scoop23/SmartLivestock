@@ -234,7 +234,7 @@ export function GISControls({
               </Badge>
             </div>
             <span className="text-[9.5px] text-slate-500 font-semibold block -mt-0.5 whitespace-nowrap">
-              {userScope?.title || 'Padre Garcia • GIS Telemetry'}
+              {userScope?.title || 'Padre Garcia • Map Data'}
             </span>
           </div>
         </div>
@@ -322,8 +322,8 @@ export function GISControls({
             variant="ghost"
             size="icon"
             onClick={onToggleSidebar}
-            title={sidebarOpen ? 'Hide Telemetry Sidebar' : 'Show Telemetry Sidebar'}
-            aria-label={sidebarOpen ? 'Hide telemetry sidebar' : 'Show telemetry sidebar'}
+            title={sidebarOpen ? 'Hide Map Details' : 'Show Map Details'}
+            aria-label={sidebarOpen ? 'Hide map details' : 'Show map details'}
             className="size-8 sm:size-7 rounded-lg text-slate-600 hover:text-emerald-800 hover:bg-emerald-50 cursor-pointer"
           >
             {sidebarOpen ? (
@@ -562,10 +562,7 @@ export function GISControls({
                 className="flex items-center justify-between w-full text-[11px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-900 cursor-pointer py-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-600 rounded"
               >
                 <span className="flex items-center gap-1.5">
-                  <span>Disease Surveillance Mode</span>
-                  <span className="text-[10px] lowercase font-normal text-slate-400">
-                    ({diseaseSubMode})
-                  </span>
+                  <span>Disease Map Options</span>
                 </span>
                 {diseaseSectionOpen ? (
                   <ChevronUp className="size-3 text-slate-400" />
@@ -586,10 +583,10 @@ export function GISControls({
                             ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs'
                             : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                         }`}
-                        title="Reported Cases: Real confirmed cases from database without geographic buffer zones"
+                        title="Approved reports are not proof that disease is confirmed"
                       >
                         <Activity className="size-3" />
-                        <span>Reported Cases</span>
+                        <span>Disease Reports</span>
                       </button>
 
                       {canUseSurveillance && (
@@ -601,10 +598,10 @@ export function GISControls({
                               ? 'bg-rose-700 text-white border-rose-800 shadow-2xs ring-2 ring-rose-400/50'
                               : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-rose-50 hover:text-rose-800'
                           }`}
-                          title="Spatial Biosurveillance: Red (Outbreak), Orange (Haversine 3.5km Buffer), Green (Safe)"
+                          title="Map colors: Red (recent approved report), Orange (within 3.5 km), Green (no recent report shown)"
                         >
                           <ShieldAlert className="size-3" />
-                          <span>Surveillance</span>
+                          <span>Report Alerts</span>
                         </button>
                       )}
 
@@ -617,10 +614,10 @@ export function GISControls({
                               ? 'bg-amber-600 text-white border-amber-700 shadow-2xs ring-2 ring-amber-400/50'
                               : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-800'
                           }`}
-                          title="Epidemic Simulation: Dynamic month-by-month transmission trajectory"
+                          title="Example: See how disease could spread over time"
                         >
                           <Zap className="size-3" />
-                          <span>Simulation</span>
+                          <span>Example</span>
                         </button>
                       )}
 
@@ -633,10 +630,10 @@ export function GISControls({
                               ? 'bg-purple-700 text-white border-purple-800 shadow-2xs ring-2 ring-purple-400/50'
                               : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-purple-50 hover:text-purple-800'
                           }`}
-                          title="Surveillance Trend: Last 90 days approved activity"
+                          title="Report trend: Approved disease reports from the last 90 days"
                         >
                           <TrendingUp className="size-3" />
-                          <span>Trend</span>
+                          <span>Report Trend</span>
                         </button>
                       )}
                     </div>
@@ -646,18 +643,18 @@ export function GISControls({
                     <div className="bg-rose-50/90 px-2.5 py-1.5 rounded-lg border border-rose-200 text-[10.5px] text-rose-950 leading-tight space-y-0.5">
                       <span className="font-bold flex items-center gap-1 text-rose-900">
                         <span className="size-2 rounded-full bg-rose-600" />
-                        Haversine Epidemiological Risk Classification:
+                        How to read these map colors:
                       </span>
                       <p className="text-[10px] text-slate-600">
-                        <strong>Red</strong> = Confirmed Outbreak (&ge; 1 case), <strong>Orange</strong> = Within Haversine 3.5 km radius, <strong>Green</strong> = Safe outside radius.
+                        <strong>Red</strong> = A recent approved report needs follow-up. <strong>Orange</strong> = Barangay centers are within 3.5 km. <strong>Green</strong> = No recent report is shown here. Map colors do not prove whether disease is present or absent.
                       </p>
                     </div>
                   )}
 
-                  {/* Adjacent Outbreak Pulse Dots & Color Toggles (ONLY IN SURVEILLANCE MODE) */}
+                  {/* Adjacent Report-Alert Pulse Dots & Color Toggles (ONLY IN SURVEILLANCE MODE) */}
                   {diseaseSubMode === 'surveillance' && onToggleAdjacentDiseaseAlerts && (
                     <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-1.5">
-                      {/* Master Outbreak Toggle: Toggles both Color and Dots together */}
+                      {/* Master Report-Alert Toggle: Toggles both Color and Dots together */}
                       <button
                         type="button"
                         onClick={onToggleAdjacentDiseaseAlerts}
@@ -672,15 +669,15 @@ export function GISControls({
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className="text-base shrink-0">🚨</span>
                           <div className="min-w-0">
-                            <span className="font-extrabold truncate block">Adjacent Outbreak Dots</span>
+                            <span className="font-extrabold truncate block">Nearby Disease Reports</span>
                             <span className={`text-[9.5px] block truncate ${showAdjacentDiseaseAlerts ? 'text-rose-700 font-semibold' : 'text-slate-400'}`}>
                               {showAdjacentOutbreakColor && showAdjacentOutbreakDots
-                                ? 'Dots & color active'
+                                ? 'Markers and map colors are on'
                                 : showAdjacentOutbreakColor
-                                ? 'Color active (dots hidden)'
+                                ? 'Map colors are on; markers are off'
                                 : showAdjacentOutbreakDots
-                                ? 'Pulsing dots active (color hidden)'
-                                : 'Click to show outbreak warnings'}
+                                ? 'Markers are on; map colors are off'
+                                : 'Click to show nearby disease reports'}
                             </span>
                           </div>
                         </div>
@@ -692,9 +689,9 @@ export function GISControls({
                             : 'bg-slate-200 text-slate-700'
                         }`}>
                           {showAdjacentOutbreakColor && showAdjacentOutbreakDots
-                            ? 'ALL ON'
+                            ? 'ON'
                             : showAdjacentDiseaseAlerts
-                            ? 'PARTIAL'
+                            ? 'PARTLY ON'
                             : 'OFF'}
                         </span>
                       </button>
@@ -709,11 +706,11 @@ export function GISControls({
                               ? 'bg-rose-100/70 text-rose-900 border-rose-300 shadow-2xs'
                               : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-100'
                           }`}
-                          title="Toggle red warning polygon fill color on adjacent barangays"
+                          title="Show or hide map colors for nearby reports"
                         >
                           <span className="flex items-center gap-1 truncate">
                             <span>🎨</span>
-                            <span>Color</span>
+                            <span>Map Color</span>
                           </span>
                           <span className={`font-mono text-[9px] px-1 py-0.2 rounded font-black ${
                             showAdjacentOutbreakColor ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-600'
@@ -730,11 +727,11 @@ export function GISControls({
                               ? 'bg-rose-100/70 text-rose-900 border-rose-300 shadow-2xs'
                               : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-100'
                           }`}
-                          title="Toggle pulsing sonar radar dots on adjacent barangays"
+                          title="Show or hide markers for nearby reports"
                         >
                           <span className="flex items-center gap-1 truncate">
                             <span>🔴</span>
-                            <span>Dots</span>
+                            <span>Markers</span>
                           </span>
                           <span className={`font-mono text-[9px] px-1 py-0.2 rounded font-black ${
                             showAdjacentOutbreakDots ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-600'
@@ -751,17 +748,17 @@ export function GISControls({
                       type="button"
                       onClick={onOpenForecaster}
                       className="min-h-[34px] sm:min-h-[28px] w-full px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-indigo-200 bg-indigo-50/90 text-indigo-800 hover:bg-indigo-100 shadow-2xs"
-                      title="Open interactive Haversine Spatial Risk Forecaster modal"
+                      title="Open the disease report map"
                     >
                       <Radio className="size-3.5 text-indigo-600 animate-pulse" />
-                      <span>Haversine Spatial Risk Forecaster</span>
+                      <span>Disease Report Map</span>
                     </button>
                   )}
 
                   {diseaseSubMode === 'simulation' && (
                     <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 p-1.5 border border-slate-200">
-                      <span className="pl-1 text-[10px] font-black uppercase tracking-wide text-slate-500">Color by</span>
-                      <div className="flex rounded-md bg-slate-200/70 p-0.5" role="group" aria-label="Simulation map color mode">
+                      <span className="pl-1 text-[10px] font-black uppercase tracking-wide text-slate-500">Show by</span>
+                      <div className="flex rounded-md bg-slate-200/70 p-0.5" role="group" aria-label="Example map display option">
                         {(['cases', 'pressure'] as const).map((mode) => (
                           <button
                             key={mode}
@@ -774,7 +771,7 @@ export function GISControls({
                                 : 'text-slate-600 hover:text-slate-900'
                             }`}
                           >
-                            {mode}
+                            {mode === 'cases' ? 'Cases' : 'Possible spread'}
                           </button>
                         ))}
                       </div>
@@ -783,12 +780,12 @@ export function GISControls({
 
                   {diseaseSubMode === 'trend' && (
                     <div className="bg-purple-50/80 px-2.5 py-1.5 rounded-lg border border-purple-200 text-[10.5px] text-purple-900 leading-tight">
-                      Surveillance Trend shows approved reports from the last 90 days, not unresolved clinical cases. For statistical forecasts, see{' '}
+                      This view shows approved disease reports from the last 90 days. Approval does not confirm disease. For forecasts, see{' '}
                       <a
                         href="/analysis/predictive"
                         className="font-bold underline underline-offset-2 hover:text-purple-950"
                       >
-                        Predictive Analytics &rarr;
+                        Future estimates &rarr;
                       </a>
                     </div>
                   )}

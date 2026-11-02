@@ -546,7 +546,7 @@ export function GISMap({
     if (diseaseSubMode === 'trend') {
       const data = barangaysByName[bName];
       // Surveillance Trend classification:
-      // - Active confirmed cases -> Purple (Elevated Activity)
+      // - Recent approved reports requiring follow-up -> Purple (Elevated Activity)
       // - Historical reported cases -> Blue (Reported Activity)
       // - Zero records -> Green (No Reported Activity)
       if (data?.active_cases > 0) return '#9333ea';
@@ -555,16 +555,16 @@ export function GISMap({
     }
     if (diseaseSubMode === 'surveillance') {
       const data = barangaysByName[bName];
-      const isConfirmed = (data?.active_cases ?? 0) > 0 || ((data?.fmd_active_cases ?? 0) > 0) || risk === 'high';
-      const isMonitoring = !isConfirmed && (risk === 'medium' || Boolean(data?.is_in_monitoring_radius));
-      if (isConfirmed) return '#ef4444'; // Red: Confirmed outbreak site (>= 1 case)
+      const hasReportAlert = (data?.active_cases ?? 0) > 0 || ((data?.fmd_active_cases ?? 0) > 0) || risk === 'high';
+      const isMonitoring = !hasReportAlert && (risk === 'medium' || Boolean(data?.is_in_monitoring_radius));
+      if (hasReportAlert) return '#ef4444'; // Red: recent report needs follow-up
       if (isMonitoring) return '#f97316'; // Orange: Within monitoring radius (precautionary)
-      return '#10b981'; // Green: Safe / outside monitoring radius
+      return '#10b981'; // Green: no qualifying report alert in this layer
     }
     // Default 'reported' mode: only color barangays that actually have active reported cases, NO false radius colors
     const data = barangaysByName[bName];
     if ((data?.active_cases ?? 0) > 0) {
-      return '#ef4444'; // Red: Active confirmed disease case
+      return '#ef4444'; // Red: recent approved disease report
     }
     return '#f8fafc'; // Clean uncolored baseline
   };
@@ -660,15 +660,15 @@ export function GISMap({
     const isFarmer2D = isFarmerRole && viewMode === '2D';
 
     // 1. When on Disease Layer in 'surveillance' mode: Display full municipal Haversine risk triage
-    // (Red = Outbreak, Orange = Within Monitoring Radius, Green = Safe / Clear) across all 18 barangays
+    // (Red = recent approved report alert, Orange = precautionary radius, Green = no qualifying report alert)
     if (activeLayer === 'disease' && diseaseSubMode === 'surveillance') {
       const isOutbreakColorActive = showAdjacentOutbreakColor && showAdjacentDiseaseAlerts;
       const risk = data.disease_risk;
-      const isConfirmed = (data.active_cases > 0) || ((data.fmd_active_cases ?? 0) > 0) || risk === 'high';
-      const isMonitoring = !isConfirmed && (risk === 'medium' || Boolean(data.is_in_monitoring_radius));
+      const hasReportAlert = (data.active_cases > 0) || ((data.fmd_active_cases ?? 0) > 0) || risk === 'high';
+      const isMonitoring = !hasReportAlert && (risk === 'medium' || Boolean(data.is_in_monitoring_radius));
 
       // If user toggles OFF the outbreak warning colors in surveillance mode:
-      if (!isOutbreakColorActive && (isConfirmed || isMonitoring)) {
+      if (!isOutbreakColorActive && (hasReportAlert || isMonitoring)) {
         return {
           fillColor: '#f8fafc',
           fillOpacity: 0.35,
@@ -678,17 +678,17 @@ export function GISMap({
         };
       }
 
-      const fillColor = isConfirmed
-        ? '#ef4444' // Red: Confirmed outbreak site (>= 1 case)
+      const fillColor = hasReportAlert
+        ? '#ef4444' // Red: precautionary recent-report alert
         : isMonitoring
         ? '#f97316' // Orange: Precautionary monitoring radius (0 cases)
-        : '#10b981'; // Green: Safe / outside monitoring radius
+        : '#10b981'; // Green: no qualifying report alert in this layer
 
       const borderColor = isSelected
         ? '#ffffff'
         : isInScope
         ? (isFarmerRole ? '#ffffff' : '#38bdf8') // Highlight own registered/assigned barangay
-        : isConfirmed
+        : hasReportAlert
         ? '#dc2626'
         : isMonitoring
         ? '#ea580c'
@@ -696,9 +696,9 @@ export function GISMap({
 
       return {
         fillColor,
-        fillOpacity: isInScope ? 0.72 : isConfirmed ? 0.60 : isMonitoring ? 0.45 : 0.30,
+        fillOpacity: isInScope ? 0.72 : hasReportAlert ? 0.60 : isMonitoring ? 0.45 : 0.30,
         color: borderColor,
-        weight: isSelected ? 3.5 : isInScope ? 3.0 : isConfirmed ? 2.2 : isMonitoring ? 1.8 : 1.2,
+        weight: isSelected ? 3.5 : isInScope ? 3.0 : hasReportAlert ? 2.2 : isMonitoring ? 1.8 : 1.2,
         dashArray: isMonitoring && !isInScope ? '4, 4' : undefined,
         className: isInScope ? (isFarmerRole ? 'farmer-own-barangay' : 'assigned-barangay') : '',
       };
@@ -760,12 +760,12 @@ export function GISMap({
         const dist = data?.nearest_outbreak_dist_km;
         const nearest = data?.nearest_outbreak;
         if (data?.disease_risk === 'high' || zone === 'outbreak') {
-          return `<strong>Brgy. ${name}</strong><br/><span style="color: #ef4444; font-weight: bold;">🚨 Confirmed Outbreak Site</span><br/><span style="font-size: 9.5px; opacity: 0.9">${data?.active_cases || 1} active confirmed case(s)</span>`;
+          return `<strong>Brgy. ${name}</strong><br/><span style="color: #ef4444; font-weight: bold;">🚨 Recent Approved Disease Report</span><br/><span style="font-size: 9.5px; opacity: 0.9">${data?.active_cases ?? 0} report(s) need follow-up; this does not confirm disease</span>`;
         } else if (data?.disease_risk === 'medium' || zone === 'monitoring_radius') {
           const distText = dist != null ? ` (${dist} km from Brgy. ${nearest})` : nearest ? ` (Near Brgy. ${nearest})` : '';
-          return `<strong>Brgy. ${name}</strong><br/><span style="color: #f97316; font-weight: bold;">⚠️ Within Monitoring Radius${distText}</span><br/><span style="font-size: 9.5px; opacity: 0.9">Spatial buffer zone (Haversine 3.5km)</span>`;
+          return `<strong>Brgy. ${name}</strong><br/><span style="color: #f97316; font-weight: bold;">⚠️ Near a report${distText}</span><br/><span style="font-size: 9.5px; opacity: 0.9">Distance is measured between barangay centers; being nearby does not mean animals are infected</span>`;
         } else {
-          return `<strong>Brgy. ${name}</strong><br/><span style="color: #10b981; font-weight: bold;">✅ Outside Monitoring Radius</span><br/><span style="font-size: 9.5px; opacity: 0.9">Safe / Outside 3.5km monitoring radius</span>`;
+          return `<strong>Brgy. ${name}</strong><br/><span style="color: #10b981; font-weight: bold;">✅ No Recent Report Shown</span><br/><span style="font-size: 9.5px; opacity: 0.9">This map may not include every report; no marker does not mean no disease</span>`;
         }
       }
       if (showAdjacentOutbreakColorRef.current && data?.is_adjacent) {
@@ -793,30 +793,30 @@ export function GISMap({
     if (layer === 'disease') {
       if (subMode === 'simulation' && simState) {
         if (!simState.hasLivestock && simState.cases === 0) {
-          tooltipMetric = 'Not modeled: no approved active cloven-hoofed livestock';
+          tooltipMetric = 'No animal records available for this example';
         } else {
           const caseLabel = simState.cases === 1 ? 'case' : 'cases';
-          tooltipMetric = `${simState.cases} ${caseLabel} \u2022 modeled pressure: ${(simState.transmissionPressure * 100).toFixed(0)}% (${simState.risk.toUpperCase()})`;
+          tooltipMetric = `${simState.cases} example ${caseLabel} • possible spread estimate: ${(simState.transmissionPressure * 100).toFixed(0)}%`;
         }
       } else if (subMode === 'trend') {
         const trendStatus =
           data.active_cases > 0
-            ? 'ELEVATED ACTIVITY'
+            ? 'MORE RECENT REPORTS'
             : data.disease_cases > 0
-            ? 'REPORTED ACTIVITY'
-            : 'NO REPORTED ACTIVITY';
-        tooltipMetric = `Surveillance: ${trendStatus} (${data.active_cases} recent reports (90 days), ${data.disease_cases} historical total)`;
+            ? 'EARLIER REPORTS'
+            : 'NO REPORTS SHOWN';
+        tooltipMetric = `${trendStatus} (${data.active_cases} recent reports, ${data.disease_cases} earlier reports)`;
       } else {
         const riskLabel =
           data.disease_risk === 'high'
-            ? '🚨 CONFIRMED OUTBREAK (≥ 1 Case)'
+            ? '🚨 RECENT APPROVED REPORT ALERT'
             : data.disease_risk === 'medium'
-            ? '⚠️ MONITORING RADIUS (Precautionary)'
-            : '✅ SAFE / UNAFFECTED';
+            ? '⚠️ NEAR A REPORT LOCATION'
+            : '✅ NO RECENT REPORT SHOWN';
         const distInfo = data.disease_risk === 'medium' && data.nearest_outbreak
           ? ` • ${data.nearest_outbreak_dist_km ?? ''} km from ${data.nearest_outbreak}`
           : '';
-        tooltipMetric = `${data.active_cases} confirmed • ${riskLabel}${distInfo}`;
+        tooltipMetric = `${data.active_cases} recent report(s) • ${riskLabel}${distInfo}`;
       }
     } else if (layer === 'milk') {
       tooltipMetric = `${data.milk.toLocaleString()} L milk`;
@@ -981,13 +981,13 @@ export function GISMap({
 
       if (isSurveillance) {
         const risk = b.disease_risk;
-        const isConfirmed = (b.active_cases > 0) || ((b.fmd_active_cases ?? 0) > 0) || risk === 'high';
-        const isMonitoring = !isConfirmed && (risk === 'medium' || Boolean(b.is_in_monitoring_radius));
-        statText = isConfirmed
+        const hasReportAlert = (b.active_cases > 0) || ((b.fmd_active_cases ?? 0) > 0) || risk === 'high';
+        const isMonitoring = !hasReportAlert && (risk === 'medium' || Boolean(b.is_in_monitoring_radius));
+        statText = hasReportAlert
           ? `🚨${b.active_cases > 0 ? b.active_cases : '1+'}`
           : isMonitoring
           ? '⚠️3.5km'
-          : '✅Safe';
+          : '✅No report';
       } else if (!isInScope) {
         statText = '—';
       } else if (activeLayer === 'disease') {
@@ -1024,12 +1024,12 @@ export function GISMap({
       const isSubtleOut = isGeographicallyRestricted && !isInScope && !isSurveillance;
 
       const risk = b.disease_risk;
-      const isConfirmed = (b.active_cases > 0) || ((b.fmd_active_cases ?? 0) > 0) || risk === 'high';
-      const isMonitoring = !isConfirmed && (risk === 'medium' || Boolean(b.is_in_monitoring_radius));
+      const hasReportAlert = (b.active_cases > 0) || ((b.fmd_active_cases ?? 0) > 0) || risk === 'high';
+      const isMonitoring = !hasReportAlert && (risk === 'medium' || Boolean(b.is_in_monitoring_radius));
 
       const pillClass = isHighlightedScope
         ? 'permanent-centroid-pill highlight-own-farm'
-        : isSurveillance && isConfirmed
+        : isSurveillance && hasReportAlert
         ? 'permanent-centroid-pill outbreak-site'
         : isSurveillance && isMonitoring
         ? 'permanent-centroid-pill monitoring-buffer'
@@ -1482,24 +1482,27 @@ export function GISMap({
                     <div className="p-2.5 space-y-2 text-xs min-w-[210px] max-w-[270px]">
                       <div className="flex items-center gap-1.5 text-rose-600 font-black border-b border-rose-100 pb-1.5">
                         <span className="text-base animate-pulse">⚠️</span>
-                        <span className="uppercase tracking-wider text-[10.5px]">Adjacent Biosecurity Alert</span>
+                        <span className="uppercase tracking-wider text-[10.5px]">Disease Report Nearby</span>
                       </div>
 
                       <div>
                         <div className="flex items-center justify-between">
                           <span className="font-extrabold text-slate-900 text-sm">Brgy. {dot.alert.name}</span>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 uppercase font-mono">
-                            {dot.alert.disease_risk || 'Alert'} Risk
+                            Report needs follow-up
                           </span>
                         </div>
                         <span className="text-[10.5px] text-amber-800 font-semibold block mt-0.5">
                           Bordering your registered barangay
                         </span>
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          The marker shows the barangay, not an exact farm location.
+                        </span>
                       </div>
 
                       <div className="space-y-1 text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100">
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Approved Reports:</span>
+                          <span className="text-slate-500">Recent approved reports:</span>
                           <span className="font-mono font-black text-rose-600">{dot.alert.active_cases} recent</span>
                         </div>
                         {dot.alert.affected_heads > 0 && (
@@ -1524,10 +1527,10 @@ export function GISMap({
 
                       <div className="bg-amber-50 border border-amber-200/80 rounded-lg p-2 text-[10px] text-amber-900 space-y-1">
                         <div className="font-bold flex items-center gap-1">
-                          🛡️ Biosecurity Action:
+                          🛡️ What to do:
                         </div>
                         <p className="leading-tight">
-                          Inspect your herd daily for symptoms and immediately report any lethargy or lesions to your local livestock officer.
+                          Check animals for symptoms and report any concerns to your local livestock officer.
                         </p>
                       </div>
                     </div>

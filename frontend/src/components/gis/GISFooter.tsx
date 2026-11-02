@@ -150,8 +150,8 @@ export function GISFooter({ userScope }: GISFooterProps) {
         <p className="flex items-center gap-1 text-amber-300">
           <ShieldAlert className="size-3 shrink-0" />
           <span>
-            <strong>Disclaimer:</strong> Decision-support epidemic spread model for contingency planning.
-            Not a clinical FMD laboratory diagnosis.
+            <strong>Example only:</strong> This map shows one possible disease spread pattern for planning.
+            It does not confirm FMD.
           </span>
         </p>
         <div className="grid grid-cols-2 gap-1 pt-1 text-white/60">

@@ -12,28 +12,36 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import api from "@/lib/axios";
 import {
   Activity,
+  AlertCircle,
   AlertTriangle,
   ArrowDown,
   ArrowRight,
   Calendar,
+  Check,
   CheckCircle2,
   Clock,
+  Compass,
   FileSpreadsheet,
+  HeartPulse,
   Inbox,
   Info,
   LineChart as LineChartIcon,
-  Map as MapIcon,
+  Link2,
   MapPin,
+  Plus,
   RefreshCw,
   Search,
-  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
   Stethoscope,
   Table as TableIcon,
+  Target,
   TrendingUp,
   User,
   X,
   Zap,
 } from "lucide-react";
+import Image from "next/image";
 import {
   Area,
   Bar,
@@ -57,12 +65,21 @@ const PadreGarciaForecaster = dynamic(
     loading: () => (
       <div className="h-96 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col items-center justify-center p-6 text-center text-slate-500">
         <Activity className="size-8 text-rose-600 animate-spin mb-2" />
-        <p className="font-bold text-sm">Loading Haversine Spatial Risk Canvas...</p>
-        <p className="text-xs text-slate-400 mt-1">Calculating geodesic coordinates and proximity buffers...</p>
+        <p className="font-bold text-sm">Loading the disease report map...</p>
+        <p className="text-xs text-slate-400 mt-1">Finding report locations and nearby barangays...</p>
       </div>
     ),
   }
 );
+
+function CattleSilhouetteSvg({ className = "w-24 h-16 text-emerald-800" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 65" fill="currentColor" className={className} aria-hidden="true">
+      {/* Anatomically accurate bovine profile silhouette */}
+      <path d="M95,24 C94,21 91,19 88,18 C87,16 85,14 83,14 C82,14 81,15 80,17 C77,17 75,19 73,21 C69,22 65,23 61,23 C57,23 53,22 49,23 C44,24 39,24 34,24 C29,24 25,26 22,29 C20,31 18,34 17,37 C16,39 15,42 15,44 C14,45 13,46 12,48 C11,50 12,52 13,53 C14,54 15,53 16,51 C17,48 18,46 19,45 L21,60 L24,60 L25,48 L30,48 L31,60 L34,60 L35,46 C39,47 44,47 49,47 C54,47 59,46 63,44 L65,60 L68,60 L69,47 L74,47 L75,60 L78,60 L79,41 C83,39 87,36 90,32 C93,29 95,27 95,24 Z" />
+    </svg>
+  );
+}
 
 type PeriodTotals = {
   reports: number;
@@ -258,33 +275,26 @@ const metric = (value: number | null) =>
 const formatDate = (value: string) =>
   new Date(`${value}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 
-const alertStyle: Record<string, string> = {
-  NORMAL: "border-emerald-200 bg-emerald-50/80 text-emerald-950",
-  WATCH: "border-amber-200 bg-amber-50/80 text-amber-950",
-  ELEVATED: "border-rose-200 bg-rose-50/80 text-rose-950",
-  INSUFFICIENT_DATA: "border-slate-200 bg-slate-50/80 text-slate-800",
-};
-
 const alertMeta: Record<string, { badge: string; meaning: string; nextStep: string }> = {
   NORMAL: {
-    badge: "Normal Activity",
-    meaning: "Reported cases are stable or lower than the previous week.",
-    nextStep: "Continue routine animal health monitoring and census records collection.",
+    badge: "Stable or Lower",
+    meaning: "Recorded disease reports or deaths are stable or lower than the previous complete week.",
+    nextStep: "Continue routine animal health checks and keep barangay records up to date.",
   },
   WATCH: {
-    badge: "Watch Level",
-    meaning: "New or increased disease/mortality reports were recorded this week.",
-    nextStep: "Notify assigned SIBAT/CBAT technicians to verify clinical recovery or isolation.",
+    badge: "More Reports",
+    meaning: "Disease reports or recorded deaths increased this week; verify the records.",
+    nextStep: "Ask assigned field staff to check how animals are recovering and whether guidance is being followed.",
   },
   ELEVATED: {
-    badge: "Elevated Alert",
-    meaning: "Substantial increase: Approved reports doubled compared to the preceding week.",
-    nextStep: "Immediate Field Priority: Dispatch livestock inspectors to verify cases and inspect farm biosecurity.",
+    badge: "Large Increase",
+    meaning: "There were at least twice as many records, and at least two more, than in the previous full week. This is a signal to check the reports, not proof of an outbreak.",
+    nextStep: "Ask livestock inspectors to check these reports and visit the farms.",
   },
   INSUFFICIENT_DATA: {
-    badge: "No Recent Records",
-    meaning: "Zero approved disease or mortality reports in both comparison weeks.",
-    nextStep: "Check with local encoders to confirm whether field submissions are pending approval.",
+    badge: "Not Enough Records",
+    meaning: "No approved disease reports or recorded deaths were counted in either week. Check whether reports are still being reviewed.",
+    nextStep: "Ask local staff whether reports are waiting for review.",
   },
 };
 
@@ -322,41 +332,174 @@ function MissionControlTooltip({ active, payload, label, unit }: any) {
 
 function AlertPanel({
   title,
+  subtitle,
   alert,
   period,
+  variant = "rose",
+  metricsSummary,
 }: {
   title: string;
+  subtitle?: string;
   alert: SurveillanceResponse["disease"]["alert"];
   period: { start: string; end: string };
+  variant?: "rose" | "emerald";
+  metricsSummary?: { current: number; previous: number; unit: string };
 }) {
   const meta = alertMeta[alert.level] || alertMeta.NORMAL;
   const isElevated = alert.level === "ELEVATED";
-  const isWatch = alert.level === "WATCH";
+  const isRose = variant === "rose";
+
+  // Derive theme tokens to eliminate color clashes (clean uniform card borders, no border-top or border-left bars)
+  const theme = isRose
+    ? isElevated
+      ? {
+          cardBg: "bg-gradient-to-br from-rose-50 via-white to-rose-50 border-rose-200/90",
+          iconBg: "bg-rose-100 text-rose-700 border-rose-200/80",
+          iconPulse: true,
+          badgeBg: "bg-rose-600 text-white shadow-xs",
+          badgeDot: "bg-white",
+          calloutBg: "border-rose-200/90 bg-rose-50 text-rose-950",
+          calloutHeader: "text-rose-950",
+          calloutTag: "bg-rose-200 text-rose-800",
+          tagText: "CHECK SOON",
+          ruleTag: "Large weekly increase",
+        }
+      : {
+          cardBg: "bg-gradient-to-br from-amber-50 via-white to-amber-50 border-amber-200/90",
+          iconBg: "bg-amber-100 text-amber-700 border-amber-200/80",
+          iconPulse: false,
+          badgeBg: "bg-amber-500 text-white shadow-xs",
+          badgeDot: "bg-white",
+          calloutBg: "border-amber-200/90 bg-amber-50 text-amber-950",
+          calloutHeader: "text-amber-950",
+          calloutTag: "bg-amber-200 text-amber-800",
+          tagText: "CHECK RECORDS",
+          ruleTag: "More records this week",
+        }
+    : alert.level === "INSUFFICIENT_DATA"
+    ? {
+        cardBg: "bg-gradient-to-br from-emerald-50 via-white to-teal-50 border-emerald-200/80",
+        iconBg: "bg-emerald-100/80 text-emerald-700 border-emerald-200/80",
+        iconPulse: false,
+        badgeBg: "bg-emerald-100 text-emerald-800 border border-emerald-300/80",
+        badgeDot: "bg-emerald-600",
+        calloutBg: "border-emerald-200/90 bg-emerald-50 text-emerald-950",
+        calloutHeader: "text-emerald-950",
+        calloutTag: "bg-emerald-200 text-emerald-800",
+        tagText: "ROUTINE REVIEW",
+        ruleTag: "No records to compare",
+      }
+    : {
+        cardBg: "bg-gradient-to-br from-teal-50 via-white to-slate-50 border-teal-200/80",
+        iconBg: "bg-teal-100 text-teal-700 border-teal-200/80",
+        iconPulse: false,
+        badgeBg: "bg-teal-600 text-white shadow-xs",
+        badgeDot: "bg-white",
+        calloutBg: "border-teal-200/90 bg-teal-50 text-teal-950",
+        calloutHeader: "text-teal-950",
+        calloutTag: "bg-teal-200 text-teal-800",
+        tagText: "STABLE",
+        ruleTag: "No increase this week",
+      };
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 shadow-2xs transition-all duration-200 ${alertStyle[alert.level]}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-sm sm:text-base font-bold">
-          <AlertTriangle
-            className={`size-4.5 shrink-0 ${
-              isElevated ? "text-rose-600 animate-bounce" : isWatch ? "text-amber-600" : "text-emerald-600"
-            }`}
-          />
-          {title}
-        </h3>
-        <Badge variant="outline" className="border-current/30 bg-white/80 text-current font-mono font-bold text-xs">
-          {meta.badge}
-        </Badge>
+    <div
+      className={`relative overflow-hidden rounded-2xl border p-4 sm:p-4.5 shadow-2xs transition-all duration-200 ${theme.cardBg}`}
+    >
+      {/* Top Header Row */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div
+            className={`relative size-10 rounded-xl border flex items-center justify-center shrink-0 shadow-2xs ${theme.iconBg}`}
+          >
+            {isRose ? (
+              <AlertTriangle className={`size-5 ${theme.iconPulse ? "animate-pulse" : ""}`} />
+            ) : alert.level === "INSUFFICIENT_DATA" ? (
+              <ShieldCheck className="size-5" />
+            ) : (
+              <Activity className="size-5" />
+            )}
+            {theme.iconPulse && (
+              <span className="absolute -top-1 -right-1 flex size-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                <span className="relative inline-flex rounded-full size-2.5 bg-rose-600" />
+              </span>
+            )}
+          </div>
+          <div>
+            <div className="text-[10px] font-mono font-bold tracking-wider text-slate-500 uppercase">
+              {subtitle || (isRose ? "Disease Reports" : "Recorded Deaths")}
+            </div>
+            <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight mt-0.5">
+              {title}
+            </h3>
+          </div>
+        </div>
+
+        {/* Status Badge */}
+        <span
+          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold tracking-tight shrink-0 ${theme.badgeBg}`}
+        >
+          <span className={`size-1.5 rounded-full ${theme.badgeDot} ${theme.iconPulse ? "animate-pulse" : ""}`} />
+          <span>{meta.badge}</span>
+        </span>
       </div>
-      <p className="mt-2.5 text-xs sm:text-sm leading-relaxed opacity-95 font-medium">{alert.explanation}</p>
-      <div className="mt-3 rounded-xl bg-white/85 border border-current/20 p-3 text-xs sm:text-sm space-y-1 shadow-2xs">
-        <p className="font-bold text-current uppercase tracking-wider text-[11px] font-mono">Recommended MAO Action:</p>
-        <p className="opacity-90 leading-relaxed text-xs sm:text-sm">{meta.nextStep}</p>
+
+      {/* Telemetry Explanation & Stat Strip */}
+      <div className="mt-2.5 text-xs sm:text-sm leading-relaxed text-slate-700 font-medium">
+        {alert.explanation}
       </div>
-      <div className="mt-3 border-t border-current/15 pt-2 flex items-center justify-between text-[11px] font-mono font-semibold opacity-75">
-        <span>OFFICIAL COMPARISON PERIOD</span>
-        <span>
-          {formatDate(period.start)} – {formatDate(period.end)}
+
+      {/* Metrics Mini-strip */}
+      {metricsSummary && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] font-mono">
+          <span className="inline-flex items-center gap-1.5 bg-white border border-slate-200/90 px-2.5 py-1 rounded-lg shadow-2xs text-slate-600">
+            <span className="text-slate-400">Current Week:</span>
+            <strong className="text-slate-900 font-black">{metricsSummary.current} {metricsSummary.unit}</strong>
+          </span>
+          <span className="inline-flex items-center gap-1.5 bg-white border border-slate-200/90 px-2.5 py-1 rounded-lg shadow-2xs text-slate-600">
+            <span className="text-slate-400">Prior Week:</span>
+            <strong className="text-slate-900 font-black">{metricsSummary.previous} {metricsSummary.unit}</strong>
+          </span>
+          {metricsSummary.current > metricsSummary.previous && (
+            <span className="inline-flex items-center gap-1 text-rose-700 font-bold bg-rose-50 border border-rose-200/70 px-2 py-0.5 rounded-md">
+              <TrendingUp className="size-3" />
+              <span>+{metricsSummary.current - metricsSummary.previous} net change</span>
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Harmonized Recommended Action Protocol (Clean uniform card, no border-left) */}
+      <div className={`mt-3 rounded-xl border p-3 sm:p-3.5 space-y-1.5 ${theme.calloutBg}`}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider">
+            {isRose ? (
+              <AlertCircle className="size-3.5 text-rose-600 shrink-0" />
+            ) : (
+              <CheckCircle2 className="size-3.5 text-emerald-700 shrink-0" />
+            )}
+            <span className={theme.calloutHeader}>Recommended Action</span>
+          </div>
+          <span className={`text-[9.5px] font-mono font-black px-1.5 py-0.5 rounded ${theme.calloutTag}`}>
+            {theme.tagText}
+          </span>
+        </div>
+        <p className="text-xs sm:text-[12.5px] leading-relaxed font-semibold">
+          {meta.nextStep}
+        </p>
+      </div>
+
+      {/* Footer Metadata */}
+      <div className="mt-3 border-t border-slate-200/70 pt-2 flex flex-wrap items-center justify-between gap-2 text-xs font-medium text-slate-500">
+        <div className="flex items-center gap-1.5">
+          <Calendar className="size-3.5 text-slate-400 shrink-0" />
+          <span>
+            {formatDate(period.start)} – {formatDate(period.end)}
+          </span>
+        </div>
+        <span className="text-[10px] font-mono font-semibold text-slate-400 uppercase tracking-wider">
+          {theme.ruleTag}
         </span>
       </div>
     </div>
@@ -381,10 +524,10 @@ function RecordedLabel({ value }: { value: string }) {
 function getRelationshipMeta(relationship: string) {
   if (relationship === "explicit_source_disease_case" || relationship === "same_livestock") {
     return {
-      label: "Direct Animal Link",
+      label: "Same Animal",
       tag: "Same Animal",
-      description: "The exact same tagged/identified animal was reported sick and later recorded deceased within 30 days.",
-      actionText: "Direct Fatal Complication: Verify treatment history and close out medical incident log.",
+      description: "The same identified animal was reported sick and later recorded dead within 30 days. Timing alone does not prove the disease caused the death.",
+      actionText: "Check the animal's treatment and health records.",
       badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200",
       dotClass: "bg-emerald-500",
       cardBorder: "border-emerald-200/80 hover:border-emerald-300",
@@ -392,20 +535,20 @@ function getRelationshipMeta(relationship: string) {
   }
   if (relationship === "same_herd") {
     return {
-      label: "Same Herd Outbreak",
+      label: "Disease Report and Death in Same Herd",
       tag: "Same Herd",
-      description: "A death occurred in the same herd batch within 30 days of a reported disease on this farm.",
-      actionText: "Farm-Level Contagion Risk: Inspect the herd pen, advise isolation, and monitor remaining heads.",
+      description: "A death was recorded in the same herd within 30 days of a disease report. The timing alone does not prove the two are connected.",
+      actionText: "Review both records and ask field staff whether other animals need attention.",
       badgeClass: "bg-indigo-50 text-indigo-800 border-indigo-200",
       dotClass: "bg-indigo-500",
       cardBorder: "border-indigo-200/80 hover:border-indigo-300",
     };
   }
   return {
-    label: "Barangay Co-occurrence",
+    label: "Disease Report and Death in Same Barangay",
     tag: "Same Barangay",
-    description: "An animal died in this barangay within 30 days of a reported disease on a neighboring farm.",
-    actionText: "Community Exposure Signal: Check neighboring holdings for shared grazing, water runoff, or roaming contact.",
+    description: "An animal died in this barangay within 30 days of a disease report on a nearby farm. This timing alone does not prove a connection.",
+    actionText: "Review both records and ask field staff to check the nearby farms.",
     badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
     dotClass: "bg-slate-400",
     cardBorder: "border-slate-200/80 hover:border-slate-300",
@@ -590,7 +733,7 @@ const clinicalStatusLabel: Record<string, string> = {
 export default function SurveillanceAnalytics() {
   const { user } = useAuth();
   const [selectedFocus, setSelectedFocus] = useState<"all" | "disease" | "mortality" | "associations">("all");
-  const [centerpieceTab, setCenterpieceTab] = useState<"timeline" | "telemetry" | "diagnostics">("timeline");
+  const [centerpieceTab, setCenterpieceTab] = useState<"timeline" | "telemetry" | "diagnostics" | "sandbox">("timeline");
   const [showTableView, setShowTableView] = useState(false);
 
   const [associationPage, setAssociationPage] = useState(1);
@@ -713,13 +856,13 @@ export default function SurveillanceAnalytics() {
     return (
       <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50/80 p-8 text-center space-y-3">
         <AlertTriangle className="mx-auto size-10 text-rose-600" />
-        <h3 className="text-lg font-bold text-rose-900">Surveillance Telemetry Could Not Be Loaded</h3>
+        <h3 className="text-lg font-bold text-rose-900">Could Not Load Disease and Death Reports</h3>
         <p className="text-xs sm:text-sm text-rose-800 max-w-md mx-auto">
-          Unable to establish communication with the biosurveillance telemetry endpoints. Check network status and permissions.
+          Check your internet connection or ask an administrator to check your access.
         </p>
         <Button className="mt-2 cursor-pointer font-bold" variant="outline" onClick={() => void query.refetch()}>
           <RefreshCw className="mr-2 size-4" />
-          Retry Connection
+          Try Again
         </Button>
       </div>
     );
@@ -776,363 +919,334 @@ export default function SurveillanceAnalytics() {
   const barangayPieData = data.barangays_last_30_days.filter((row) => row.disease_reports > 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-3.5">
       {/* ----------------------------------------------------------------- */}
-      {/* A. COMMAND BANNER (Futuristic Clinical Rose & Teal Header)        */}
+      {/* A. COMMAND BANNER (Lush Mint & Emerald Surveillance Header)        */}
       {/* ----------------------------------------------------------------- */}
-      <div className="relative overflow-hidden rounded-2xl border border-rose-200/90 bg-gradient-to-r from-rose-50/80 via-white to-teal-50/40 p-5 shadow-2xs">
-        {/* Subtle decorative radial blurs */}
-        <div className="pointer-events-none absolute -right-16 -top-16 size-72 rounded-full bg-rose-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -left-16 -bottom-16 size-72 rounded-full bg-teal-500/10 blur-3xl" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-rose-800">
-                <Activity className="size-3.5 text-rose-600 animate-pulse" />
-                Municipal Biosurveillance Engine
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="text-xs text-slate-600 font-medium">Padre Garcia Batangas</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-xs font-mono text-slate-500 flex items-center gap-1">
-                <Clock className="size-3 text-slate-400" />
-                Audit Week: {formatDate(week.start)} – {formatDate(week.end)}
-              </span>
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-100 via-teal-50 to-emerald-50 p-3.5 sm:p-4 shadow-2xs">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="size-10 sm:size-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0 mt-0.5">
+              <Plus className="size-5.5 stroke-[3]" />
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-              Surveillance &amp; Clinical Alerts
-              <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-[11px] font-mono font-bold">
-                v2.4 Core
-              </Badge>
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-              Approved disease reports, mortality trends, early-warning trigger levels, and linked herd event tracking across Padre Garcia.
-            </p>
-          </div>
-
-          {/* Header Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs cursor-pointer"
-            >
-              <Link href={user?.role?.toUpperCase() === "SIBAT" || user?.role?.toUpperCase() === "CBAT" ? "/sibat-monitoring" : "/gis-map"}>
-                <MapIcon className="size-3.5 mr-1.5 text-teal-600" />
-                Role-Scoped GIS Map
-              </Link>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void query.refetch()}
-              disabled={isFetching}
-              className="border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs cursor-pointer"
-            >
-              <RefreshCw className={`size-3.5 mr-1.5 ${isFetching ? "animate-spin text-rose-600" : "text-slate-500"}`} />
-              Refresh
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* ----------------------------------------------------------------- */}
-      {/* B. INTERACTIVE FOCUS SELECTOR (4 Segmented Cards)                  */}
-      {/* ----------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          {
-            id: "all" as const,
-            label: "All Surveillance Events",
-            domain: "Telemetry",
-            reporting: "Combined Registry",
-            icon: Activity,
-            metric: `${number(data.disease.last_30_days.reports + data.mortality.last_30_days.reports)} reports`,
-            badge: `${number(data.barangays_last_30_days.length)} barangays`,
-          },
-          {
-            id: "disease" as const,
-            label: "Active Disease Cases",
-            domain: "Clinical Health",
-            reporting: "Morbidity Logs",
-            icon: Stethoscope,
-            metric: `${number(data.disease.last_30_days.reports)} cases`,
-            badge: `${data.disease.alert.level}`,
-          },
-          {
-            id: "mortality" as const,
-            label: "Approved Mortalities",
-            domain: "Fatality Tracking",
-            reporting: "Verified Deaths",
-            icon: AlertTriangle,
-            metric: `${number(data.mortality.last_30_days.deaths ?? 0)} deaths`,
-            badge: `${data.mortality.rate_percent ?? 0}% rate`,
-          },
-          {
-            id: "associations" as const,
-            label: "Preceding Linked Pairs",
-            domain: "Contagion Signal",
-            reporting: `${data.associations.window_days}d Association Window`,
-            icon: ShieldAlert,
-            metric: `${number(data.associations.events.length)} linked pairs`,
-            badge: `${number(directCount)} direct`,
-          },
-        ].map((card) => {
-          const isSelected = selectedFocus === card.id;
-          const Icon = card.icon;
-
-          return (
-            <button
-              key={card.id}
-              onClick={() => {
-                setSelectedFocus(card.id);
-                if (card.id === "associations") {
-                  setCenterpieceTab("timeline");
-                }
-              }}
-              className={`group relative flex flex-col justify-between rounded-2xl p-4 text-left transition-all duration-200 border cursor-pointer ${
-                isSelected
-                  ? "border-2 border-rose-600 bg-rose-50/70 shadow-sm"
-                  : "border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60 shadow-2xs"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div
-                  className={`flex size-9 items-center justify-center rounded-xl transition-colors ${
-                    isSelected
-                      ? "bg-rose-600 text-white shadow-2xs"
-                      : "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
-                  }`}
-                >
-                  <Icon className="size-4.5" />
-                </div>
-
-                <Badge
-                  variant="outline"
-                  className={`text-[10px] font-mono font-bold ${
-                    isSelected
-                      ? "border-rose-400 bg-white text-rose-800"
-                      : "border-slate-200 bg-slate-50 text-slate-600"
-                  }`}
-                >
-                  {card.badge}
-                </Badge>
-              </div>
-
-              <div className="mt-3">
-                <div className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-400">
-                  <span>{card.domain}</span>
-                  <span>•</span>
-                  <span className="truncate">{card.reporting}</span>
-                </div>
-                <h3 className="text-sm font-bold text-slate-900 group-hover:text-rose-900 transition-colors">
-                  {card.label}
-                </h3>
-              </div>
-
-              <div className="mt-2.5 flex items-baseline justify-between border-t border-slate-100 pt-2 text-xs">
-                <span className="font-mono text-base font-extrabold text-slate-900">{card.metric}</span>
-                <span
-                  className={`text-[11px] font-semibold transition-transform duration-200 ${
-                    isSelected
-                      ? "text-rose-700 translate-x-0.5"
-                      : "text-slate-400 group-hover:text-slate-600"
-                  }`}
-                >
-                  Inspect →
+            <div className="space-y-0.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                  <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  Padre Garcia Animal Health
                 </span>
               </div>
+              <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900">
+                Disease Reports &amp; Deaths
+              </h1>
+              <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+                Approved disease reports, death trends, weekly changes, and related animal records across Padre Garcia.
+              </p>
+            </div>
+          </div>
 
-              {isSelected && (
-                <div className="absolute -bottom-px left-4 right-4 h-0.5 bg-rose-600 rounded-full" />
-              )}
-            </button>
-          );
-        })}
+          {/* Header Action Buttons & Date Badge */}
+          <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-start md:items-end gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 bg-white border border-slate-200/80 rounded-full px-3 py-1 shadow-2xs">
+              <Calendar className="size-3 text-slate-400" />
+              <span>
+                {formatDate(week.start)} – {formatDate(week.end)}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-8 border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs rounded-full px-3.5 cursor-pointer"
+              >
+                <Link href={user?.role?.toUpperCase() === "SIBAT" || user?.role?.toUpperCase() === "CBAT" ? "/sibat-monitoring" : "/gis-map"}>
+                  <MapPin className="size-3.5 mr-1.5 text-emerald-600" />
+                  Role-Scoped GIS Map
+                </Link>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void query.refetch()}
+                disabled={isFetching}
+                className="h-8 border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs rounded-full px-3 cursor-pointer"
+              >
+                <RefreshCw className={`size-3.5 mr-1.5 ${isFetching ? "animate-spin text-emerald-600" : "text-slate-500"}`} />
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ----------------------------------------------------------------- */}
-      {/* C. 4 EXECUTIVE METRIC HUD (Continuous Scoreboard Ribbon)          */}
+      {/* B. 4 COLORFUL PASTEL KPI CARDS                                     */}
       {/* ----------------------------------------------------------------- */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-            30-Day Surveillance Telemetry • Municipal Health Metrics
-          </span>
-          <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
-            Non-interactive Summary
-          </span>
-        </div>
-
-        <div className="rounded-2xl border border-slate-700/80 bg-slate-800/85 text-slate-100 divide-y sm:divide-y-0 sm:divide-x divide-slate-700/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 select-none cursor-default overflow-hidden shadow-xs backdrop-blur-xs">
-          {/* Disease Reports (30d) */}
-          <div className="p-3.5 sm:p-4 bg-slate-800/60">
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <span className="size-1.5 rounded-full bg-rose-400 shrink-0 shadow-xs" />
-              <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
-                Disease Reports (30d)
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        {/* Card 1: Disease Report Activity (Rose) */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedFocus("disease");
+            setCenterpieceTab("sandbox");
+          }}
+          className={`group relative flex flex-col justify-between rounded-2xl p-3.5 sm:p-4 text-left transition-all duration-200 border border-rose-200/80 bg-gradient-to-br from-rose-50 via-rose-50 to-white shadow-2xs hover:shadow-xs cursor-pointer overflow-hidden ${
+            selectedFocus === "disease" && centerpieceTab === "sandbox" ? "ring-2 ring-rose-400" : ""
+          }`}
+        >
+          <AlertTriangle className="absolute -right-3 -bottom-3 size-24 text-rose-500/[0.07] pointer-events-none" />
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="size-8.5 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-sm shrink-0">
+                  <HeartPulse className="size-4.5" />
+                </div>
+                <span className="text-xl sm:text-2xl font-black font-mono text-slate-900">
+                  {number(data.disease.latest_complete_week.reports ?? 0)}
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">
+                {formatDate(week.end)}
               </span>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-mono font-black text-white tracking-tight">
+            <div className="mt-2">
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 group-hover:text-rose-900 transition-colors">
+                Disease Report Activity
+              </h3>
+              <p className="text-[11px] text-rose-700 font-semibold mt-0.5">
+                Latest complete week
+              </p>
+            </div>
+          </div>
+          <div className="mt-2.5 pt-1.5 border-t border-rose-100 flex items-center justify-between">
+            <span className="text-xs font-bold text-rose-600 group-hover:text-rose-800 transition-colors flex items-center gap-1">
+              View Details →
+            </span>
+          </div>
+        </button>
+
+        {/* Card 2: Active Disease Cases (Sky) */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedFocus("disease");
+            setCenterpieceTab("telemetry");
+          }}
+          className={`group relative flex flex-col justify-between rounded-2xl p-3.5 sm:p-4 text-left transition-all duration-200 border border-sky-200/80 bg-gradient-to-br from-sky-50 via-sky-50 to-white shadow-2xs hover:shadow-xs cursor-pointer overflow-hidden ${
+            selectedFocus === "disease" && centerpieceTab === "telemetry" ? "ring-2 ring-sky-400" : ""
+          }`}
+        >
+          <div className="absolute -right-2 -bottom-2 pointer-events-none opacity-10">
+            <CattleSilhouetteSvg className="w-24 h-16 text-sky-700" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="size-8.5 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center font-bold text-sm shrink-0">
+                <Stethoscope className="size-4.5" />
+              </div>
+              <span className="text-xl sm:text-2xl font-black font-mono text-slate-900">
                 {number(data.disease.last_30_days.reports)}
               </span>
-              <span className="text-xs font-semibold text-rose-400">
-                {number(data.disease.last_30_days.affected_heads ?? 0)} heads
-              </span>
             </div>
-            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Distinct linked animals</span>
-              <span className="font-mono font-bold text-slate-200">
-                {number(data.disease.last_30_days.distinct_identified_livestock)}
-              </span>
+            <div className="mt-2">
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 group-hover:text-sky-900 transition-colors">
+                Active Disease Cases
+              </h3>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                Across all barangays
+              </p>
             </div>
           </div>
+          <div className="mt-2.5 pt-1.5 border-t border-sky-100 flex items-center justify-between">
+            <span className="text-xs font-bold text-sky-600 group-hover:text-sky-800 transition-colors flex items-center gap-1">
+              View Cases →
+            </span>
+          </div>
+        </button>
 
-          {/* Reported Deaths (30d) */}
-          <div className="p-3.5 sm:p-4 bg-slate-800/60">
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <span className="size-1.5 rounded-full bg-amber-400 shrink-0 shadow-xs" />
-              <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
-                Reported Deaths (30d)
+        {/* Card 3: Fatality Reports (Amber) */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedFocus("mortality");
+            setCenterpieceTab("diagnostics");
+          }}
+          className={`group relative flex flex-col justify-between rounded-2xl p-3.5 sm:p-4 text-left transition-all duration-200 border border-amber-200/80 bg-gradient-to-br from-amber-50 via-amber-50 to-white shadow-2xs hover:shadow-xs cursor-pointer overflow-hidden ${
+            selectedFocus === "mortality" ? "ring-2 ring-amber-400" : ""
+          }`}
+        >
+          <Plus className="absolute -right-3 -bottom-3 size-24 text-amber-500/[0.08] pointer-events-none" />
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="size-8.5 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-sm shrink-0">
+                  <AlertTriangle className="size-4.5" />
+                </div>
+                <span className="text-xl sm:text-2xl font-black font-mono text-slate-900">
+                  {number(data.mortality.latest_complete_week.reports ?? 0)}
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full font-mono">
+                {data.mortality.rate_percent === null ? "0% rate" : `${data.mortality.rate_percent}% rate`}
               </span>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-mono font-black text-white tracking-tight">
-                {number(data.mortality.last_30_days.deaths ?? 0)}
-              </span>
-              <span className="text-xs font-semibold text-amber-400">
-                {number(data.mortality.last_30_days.reports)} reports
-              </span>
-            </div>
-            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Distinct identified animals</span>
-              <span className="font-mono font-bold text-slate-200">
-                {number(data.mortality.identified_animals_last_30_days)}
-              </span>
+            <div className="mt-2">
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 group-hover:text-amber-900 transition-colors">
+                Fatality Reports
+              </h3>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                {data.mortality.last_30_days.deaths ?? 0} deaths (30d) · Stable
+              </p>
             </div>
           </div>
+          <div className="mt-2.5 pt-1.5 border-t border-amber-100 flex items-center justify-between">
+            <span className="text-xs font-bold text-amber-600 group-hover:text-amber-800 transition-colors flex items-center gap-1">
+              View Records →
+            </span>
+          </div>
+        </button>
 
-          {/* Early-Warning Alert Status */}
-          <div className="p-3.5 sm:p-4 bg-slate-800/60">
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <span className={`size-1.5 rounded-full shrink-0 shadow-xs ${
-                data.disease.alert.level === "ELEVATED"
-                  ? "bg-rose-400"
-                  : data.disease.alert.level === "WATCH"
-                  ? "bg-amber-400"
-                  : "bg-emerald-400"
-              }`} />
-              <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
-                Disease Alert Status
+        {/* Card 4: Linked Pairs (Purple) */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedFocus("associations");
+            setCenterpieceTab("timeline");
+          }}
+          className={`group relative flex flex-col justify-between rounded-2xl p-3.5 sm:p-4 text-left transition-all duration-200 border border-purple-200/80 bg-gradient-to-br from-purple-50 via-purple-50 to-white shadow-2xs hover:shadow-xs cursor-pointer overflow-hidden ${
+            selectedFocus === "associations" ? "ring-2 ring-purple-400" : ""
+          }`}
+        >
+          <Link2 className="absolute -right-3 -bottom-3 size-24 text-purple-500/[0.07] pointer-events-none" />
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="size-8.5 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-sm shrink-0">
+                <Link2 className="size-4.5" />
+              </div>
+              <span className="text-xl sm:text-2xl font-black font-mono text-slate-900">
+                {number(data.associations.events.length)}
               </span>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-                {alertMeta[data.disease.alert.level]?.badge ?? data.disease.alert.level}
-              </span>
-            </div>
-            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Complete week heads</span>
-              <span className="font-mono font-bold text-slate-200">
-                {number(data.disease.latest_complete_week.affected_heads ?? 0)} heads
-              </span>
-            </div>
-          </div>
-
-          {/* Estimated Mortality Rate */}
-          <div className="p-3.5 sm:p-4 bg-slate-800/60">
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <span className="size-1.5 rounded-full bg-indigo-400 shrink-0 shadow-xs" />
-              <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
-                Estimated Mortality Rate
-              </span>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-mono font-black text-white tracking-tight">
-                {data.mortality.rate_percent === null ? "Unavailable" : `${data.mortality.rate_percent}%`}
-              </span>
-              <span className="text-xs font-semibold text-slate-400">30d rate</span>
-            </div>
-            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Population denominator</span>
-              <span className="font-mono font-bold text-slate-200">
-                {number(data.mortality.population_denominator)} heads
-              </span>
+            <div className="mt-2">
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 group-hover:text-purple-900 transition-colors">
+                Linked Pairs
+              </h3>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                With associated records
+              </p>
             </div>
           </div>
-        </div>
+          <div className="mt-2.5 pt-1.5 border-t border-purple-100 flex items-center justify-between">
+            <span className="text-xs font-bold text-purple-600 group-hover:text-purple-800 transition-colors flex items-center gap-1">
+              View Details →
+            </span>
+          </div>
+        </button>
       </div>
 
       {/* ----------------------------------------------------------------- */}
-      {/* D. DUAL EARLY-WARNING ALERT PANELS                                */}
+      {/* C. DUAL EARLY-WARNING ALERT PANELS                                */}
       {/* ----------------------------------------------------------------- */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <AlertPanel title="Disease Outbreak Alert Level" alert={data.disease.alert} period={week} />
-        <AlertPanel title="Mortality Surveillance Alert Level" alert={data.mortality.alert} period={week} />
+      <div className="grid gap-3 sm:gap-3.5 lg:grid-cols-2">
+        <AlertPanel
+          title="Disease Report Change This Week"
+          subtitle="Weekly report changes"
+          alert={data.disease.alert}
+          period={week}
+          variant="rose"
+          metricsSummary={{
+            current: data.disease.latest_complete_week.reports,
+            previous: data.disease.preceding_complete_week.reports,
+            unit: "reports",
+          }}
+        />
+        <AlertPanel
+          title="Death Reports This Week"
+          subtitle="Weekly death report changes"
+          alert={data.mortality.alert}
+          period={week}
+          variant="emerald"
+          metricsSummary={{
+            current: data.mortality.latest_complete_week.reports,
+            previous: data.mortality.preceding_complete_week.reports,
+            unit: "reports",
+          }}
+        />
       </div>
 
       {/* ----------------------------------------------------------------- */}
       {/* E. MISSION CONTROL CENTERPIECE CARD                               */}
       {/* ----------------------------------------------------------------- */}
-      <Card className="rounded-2xl border border-slate-200/80 bg-white/95 backdrop-blur-sm shadow-2xs overflow-hidden">
-        <CardHeader className="border-b border-slate-100 p-4 sm:p-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-xs font-mono font-bold">
-                  Mission Control • {selectedFocus.toUpperCase()}
-                </Badge>
-                <span className="text-xs text-slate-400 font-mono">Real-Time Biosecurity HUD</span>
+      <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden gap-0">
+        <CardHeader className="border-b border-slate-100 px-4 py-2.5 sm:px-4.5 sm:py-3 [.border-b]:pb-2.5 sm:[.border-b]:pb-3">
+          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="size-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 shadow-2xs">
+                <Target className="size-4.5 text-purple-600" />
               </div>
-              <CardTitle className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
-                {centerpieceTab === "timeline" && "Contagion Investigation & Herd Association Flow"}
-                {centerpieceTab === "telemetry" && "Daily & Weekly Surveillance Telemetry"}
-                {centerpieceTab === "diagnostics" && "Diagnostic Classifications & Cause Analysis"}
-              </CardTitle>
+              <div>
+                <h2 className="text-sm sm:text-base font-black text-slate-900 tracking-tight leading-none">
+                  Report Summary
+                </h2>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5 leading-none">
+                  Weekly report updates
+                </p>
+              </div>
             </div>
 
             {/* View Switcher Cluster */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/60">
+              <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200/60">
                 <button
                   type="button"
                   onClick={() => setCenterpieceTab("timeline")}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     centerpieceTab === "timeline"
-                      ? "bg-white text-rose-700 shadow-2xs font-extrabold"
+                      ? "bg-slate-900 text-white shadow-xs font-extrabold"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  <Activity className="size-3.5" />
-                  Investigation Flow
+                  <AlertTriangle className="size-3.5 text-amber-400" />
+                  Report Follow-up
                 </button>
                 <button
                   type="button"
                   onClick={() => setCenterpieceTab("telemetry")}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     centerpieceTab === "telemetry"
-                      ? "bg-white text-rose-700 shadow-2xs font-extrabold"
+                      ? "bg-slate-900 text-white shadow-xs font-extrabold"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   <LineChartIcon className="size-3.5" />
-                  Telemetry Trends
+                  Report Trends
                 </button>
                 <button
                   type="button"
                   onClick={() => setCenterpieceTab("diagnostics")}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     centerpieceTab === "diagnostics"
-                      ? "bg-white text-rose-700 shadow-2xs font-extrabold"
+                      ? "bg-slate-900 text-white shadow-xs font-extrabold"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   <FileSpreadsheet className="size-3.5" />
-                  Diagnostic Causes
+                  Report Types and Causes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCenterpieceTab("sandbox")}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    centerpieceTab === "sandbox"
+                      ? "bg-slate-900 text-white shadow-xs font-extrabold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <MapPin className="size-3.5 text-rose-400" />
+                  Map Example
                 </button>
               </div>
 
@@ -1160,53 +1274,102 @@ export default function SurveillanceAnalytics() {
           </div>
         </CardHeader>
 
-        <CardContent className="p-4 sm:p-6 space-y-6">
+        <CardContent className={centerpieceTab === "sandbox" ? "p-3 sm:p-3.5 space-y-2.5" : "p-3 sm:p-3.5 space-y-3 sm:space-y-3.5"}>
           {/* TAB 1: INVESTIGATION FLOW & TIMELINE */}
           {centerpieceTab === "timeline" && (
-            <div className="space-y-6">
-              {/* MAO Field Investigation Guide */}
-              <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50/90 via-amber-50/60 to-white p-4 text-xs sm:text-sm leading-relaxed text-amber-950 space-y-2.5 shadow-2xs">
-                <div className="flex items-center gap-2 font-bold text-amber-900 text-xs sm:text-sm">
-                  <Info className="size-4.5 text-amber-700 shrink-0" />
-                  <span>MAO Field Guide: Investigating {data.associations.window_days}-Day Linked Cases</span>
+            <div className="space-y-3 sm:space-y-3.5">
+              {/* Stepper & MAO Field Guide Top Row */}
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-3 sm:p-3.5 rounded-xl border border-slate-200/80 bg-white shadow-2xs">
+                {/* Left: 4-Step Investigation Stepper */}
+                <div className="space-y-1.5 shrink-0">
+                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight">
+                    Disease Reports and Related Deaths
+                  </h3>
+                  <div className="flex items-center gap-2 sm:gap-3.5 text-xs overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="flex size-5.5 items-center justify-center rounded-full bg-slate-900 text-white font-bold text-[11px] shadow-xs">
+                        1
+                      </span>
+                      <span className="font-bold text-slate-900 text-xs">Investigate</span>
+                    </div>
+                    <ArrowRight className="size-3 text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="flex size-5.5 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
+                        2
+                      </span>
+                      <span className="font-medium text-slate-600 text-xs">Check Animal Records</span>
+                    </div>
+                    <ArrowRight className="size-3 text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="flex size-5.5 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
+                        3
+                      </span>
+                      <span className="font-medium text-slate-600 text-xs">Check Movement</span>
+                    </div>
+                    <ArrowRight className="size-3 text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="flex size-5.5 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
+                        4
+                      </span>
+                      <span className="font-medium text-slate-600 text-xs">Take Action</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-0.5 text-xs text-amber-950 min-w-0">
-                  <div className="rounded-xl bg-white/90 border border-emerald-200 p-3 space-y-1 shadow-2xs">
-                    <div className="flex items-center gap-1.5 font-bold text-emerald-800 text-xs">
-                      <span className="size-2 rounded-full bg-emerald-500" />
-                      1. Same Animal Link
+
+                {/* Right: MAO Field Guide with High-Definition Cattle Portrait (Longer Layout) */}
+                <div className="flex-1 min-w-0 flex items-center justify-between gap-3 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/90 shadow-2xs">
+                  <div className="space-y-1.5 text-xs flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-extrabold text-emerald-950 flex items-center gap-1.5 text-xs sm:text-[13px] leading-tight">
+                        <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                        <span>Reviewing reports and deaths within 30 days</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const el = document.getElementById("mao-operational-guide");
+                          el?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-0.5 shrink-0 ml-1.5 cursor-pointer whitespace-nowrap"
+                      >
+                        View Guide →
+                      </button>
                     </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      The <strong>exact animal</strong> died after being sick. Check medical logs to see if treatment failed or complication occurred.
-                    </p>
+                    <ul className="space-y-0.5 text-[11px] text-slate-700">
+                      <li className="flex items-center gap-1.5">
+                        <Check className="size-3 text-emerald-600 shrink-0" />
+                        <span>Check animal movement and herd connections.</span>
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <Check className="size-3 text-emerald-600 shrink-0" />
+                        <span>Review recent treatments and biosecurity measures.</span>
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <Check className="size-3 text-emerald-600 shrink-0" />
+                        <span>Coordinate with local MAO for field verification.</span>
+                      </li>
+                    </ul>
                   </div>
-                  <div className="rounded-xl bg-white/90 border border-indigo-200 p-3 space-y-1 shadow-2xs">
-                    <div className="flex items-center gap-1.5 font-bold text-indigo-800 text-xs">
-                      <span className="size-2 rounded-full bg-indigo-500" />
-                      2. Same Herd Contagion
-                    </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      A death on the <strong>same farm</strong>. Indicates possible pen contagion. Inspect farm biosecurity and isolate exposed heads.
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-white/90 border border-slate-200 p-3 space-y-1 shadow-2xs">
-                    <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
-                      <span className="size-2 rounded-full bg-slate-400" />
-                      3. Barangay Co-occurrence
-                    </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      A death on a <strong>neighboring farm</strong>. Early warning for localized transmission across the barangay.
-                    </p>
+                  <div className="relative size-18 sm:size-20 shrink-0 rounded-xl overflow-hidden border border-emerald-300/80 shadow-2xs">
+                    <Image
+                      src="/images/cattle-portrait.jpg"
+                      alt="Cattle Inspection Portrait"
+                      width={160}
+                      height={160}
+                      className="object-cover w-full h-full"
+                      quality={95}
+                      priority
+                    />
                   </div>
                 </div>
               </div>
 
               {/* Main Split: Left Column Timeline & Right Column Barangay/Herd */}
-              <div className="grid gap-6 xl:grid-cols-12 items-start min-w-0">
+              <div className="grid gap-3.5 xl:grid-cols-12 items-start min-w-0">
                 {/* Left 7 Columns: Association Events */}
-                <div className="min-w-0 xl:col-span-7 space-y-4">
+                <div className="min-w-0 xl:col-span-7 space-y-3">
                   {/* Filter Tabs & Quick Search */}
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between min-w-0">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between min-w-0">
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 sm:flex-wrap no-scrollbar">
                       <button
                         type="button"
@@ -1214,7 +1377,7 @@ export default function SurveillanceAnalytics() {
                           setAssociationFilter("ALL");
                           setAssociationPage(1);
                         }}
-                        className={`shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                           associationFilter === "ALL"
                             ? "bg-slate-900 text-white shadow-2xs"
                             : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -1228,7 +1391,7 @@ export default function SurveillanceAnalytics() {
                           setAssociationFilter("direct");
                           setAssociationPage(1);
                         }}
-                        className={`shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                           associationFilter === "direct"
                             ? "bg-emerald-700 text-white shadow-2xs"
                             : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60"
@@ -1243,7 +1406,7 @@ export default function SurveillanceAnalytics() {
                           setAssociationFilter("same_herd");
                           setAssociationPage(1);
                         }}
-                        className={`shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                           associationFilter === "same_herd"
                             ? "bg-indigo-700 text-white shadow-2xs"
                             : "bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border border-indigo-200/60"
@@ -1258,7 +1421,7 @@ export default function SurveillanceAnalytics() {
                           setAssociationFilter("same_barangay");
                           setAssociationPage(1);
                         }}
-                        className={`shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                           associationFilter === "same_barangay"
                             ? "bg-slate-700 text-white shadow-2xs"
                             : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -1269,8 +1432,8 @@ export default function SurveillanceAnalytics() {
                       </button>
                     </div>
 
-                    <div className="relative w-full sm:w-56 shrink-0">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                    <div className="relative w-full sm:w-52 shrink-0">
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
                       <Input
                         type="text"
                         placeholder="Search barangay, farmer..."
@@ -1279,7 +1442,7 @@ export default function SurveillanceAnalytics() {
                           setAssociationSearch(e.target.value);
                           setAssociationPage(1);
                         }}
-                        className="h-8.5 pl-8 pr-7 text-xs bg-white border-slate-200 focus-visible:ring-rose-500/20"
+                        className="h-8 pl-7.5 pr-7 text-xs bg-white border-slate-200 focus-visible:ring-rose-500/20"
                       />
                       {associationSearch && (
                         <button
@@ -1299,12 +1462,30 @@ export default function SurveillanceAnalytics() {
 
                   {/* Results List */}
                   {data.associations.events.length === 0 ? (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-8 text-center space-y-2">
-                      <CheckCircle2 className="mx-auto size-8 text-emerald-600" />
-                      <h4 className="text-base font-bold text-slate-900">No preceding disease-mortality pairs found</h4>
-                      <p className="text-xs text-slate-500 max-w-md mx-auto">
-                        No approved disease reports preceded any mortality records within {data.associations.window_days} days.
-                      </p>
+                    <div className="rounded-xl border border-sky-100 bg-gradient-to-b from-sky-50/40 via-white to-emerald-50/20 p-4 sm:p-5 text-center relative overflow-hidden flex flex-col justify-between shadow-2xs">
+                      <div className="pt-2 space-y-1.5 max-w-sm mx-auto">
+                        <div className="size-9 rounded-full bg-white border border-teal-200/70 shadow-2xs flex items-center justify-center text-teal-600 mx-auto">
+                          <Search className="size-4 text-teal-600" />
+                        </div>
+                        <h4 className="text-sm font-extrabold text-slate-900">
+                          No preceding disease-mortality pairs found
+                        </h4>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          No approved disease reports preceding any mortality records within {data.associations.window_days} days.
+                        </p>
+                      </div>
+
+                      <div className="pt-3 -mx-5 -mb-5 overflow-hidden">
+                        <Image
+                          src="/images/pasture-cows-illustration.png"
+                          alt="Cattle grazing in pasture"
+                          width={1376}
+                          height={360}
+                          className="w-full h-auto object-cover object-bottom"
+                          quality={95}
+                          priority
+                        />
+                      </div>
                     </div>
                   ) : filteredAssociations.length === 0 ? (
                     <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-8 text-center space-y-3">
@@ -1379,28 +1560,28 @@ export default function SurveillanceAnalytics() {
                 </div>
 
                 {/* Right 5 Columns: Barangay Risk & Linked Herds */}
-                <div className="min-w-0 xl:col-span-5 space-y-4">
+                <div className="min-w-0 xl:col-span-5 space-y-3">
                   {/* Barangay Distribution Card */}
-                  <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs">
-                    <CardHeader className="p-4 pb-2">
+                  <Card className="rounded-xl border border-slate-200/80 bg-white shadow-2xs gap-0">
+                    <CardHeader className="p-3 pb-2 [.border-b]:pb-2">
                       <div className="flex items-center justify-between gap-2">
-                        <CardTitle className="text-sm font-bold text-slate-900">Records by Barangay (30d)</CardTitle>
+                        <CardTitle className="text-xs sm:text-sm font-bold text-slate-900">Records by Barangay (30d)</CardTitle>
                         <Badge variant="outline" className="text-[10px] font-mono font-bold">
                           {barangayPieData.length} active areas
                         </Badge>
                       </div>
                     </CardHeader>
-                    <CardContent className="p-4 pt-1">
+                    <CardContent className="p-3 pt-0">
                       {barangayPieData.length && barangayDiseaseTotal > 0 ? (
-                        <div className="flex flex-col sm:flex-row xl:flex-col 2xl:flex-row items-center gap-4">
+                        <div className="flex flex-col sm:flex-row xl:flex-col 2xl:flex-row items-center gap-3">
                           <div
-                            className="relative h-40 w-40 shrink-0 min-w-0 mx-auto"
+                            className="relative h-36 w-36 shrink-0 min-w-0 mx-auto"
                             role="img"
                             aria-label={`Pie chart showing ${number(barangayDiseaseTotal)} disease reports by barangay`}
                           >
                             <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center">
-                              <span className="text-xl font-mono font-black text-slate-900">{number(barangayDiseaseTotal)}</span>
-                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">cases</span>
+                              <span className="text-lg font-mono font-black text-slate-900">{number(barangayDiseaseTotal)}</span>
+                              <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-slate-500">cases</span>
                             </div>
                             <ResponsiveContainer width="100%" height="100%">
                               <PieChart accessibilityLayer>
@@ -1408,8 +1589,8 @@ export default function SurveillanceAnalytics() {
                                   data={barangayPieData}
                                   dataKey="disease_reports"
                                   nameKey="barangay"
-                                  innerRadius={44}
-                                  outerRadius={65}
+                                  innerRadius={40}
+                                  outerRadius={58}
                                   paddingAngle={2}
                                   stroke="white"
                                   strokeWidth={2}
@@ -1423,14 +1604,14 @@ export default function SurveillanceAnalytics() {
                                 </Pie>
                                 <Tooltip
                                   formatter={(value) => [`${number(Number(value))} reports`, "Disease reports"]}
-                                  contentStyle={{ borderRadius: "12px", border: "1px solid #fda4af", fontSize: "12px" }}
+                                  contentStyle={{ borderRadius: "10px", border: "1px solid #fda4af", fontSize: "11px", padding: "6px 10px" }}
                                 />
                               </PieChart>
                             </ResponsiveContainer>
                           </div>
-                          <ul className="w-full space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                          <ul className="w-full space-y-1 max-h-48 overflow-y-auto pr-1">
                             {barangayPieData.map((row, index) => (
-                              <li key={row.barangay_id} className="flex items-start gap-2 text-xs">
+                              <li key={row.barangay_id} className="flex items-start gap-1.5 text-xs">
                                 <span
                                   aria-hidden="true"
                                   className="mt-1 size-2 shrink-0 rounded-sm"
@@ -1438,7 +1619,7 @@ export default function SurveillanceAnalytics() {
                                 />
                                 <div className="min-w-0 flex-1">
                                   <strong className="text-slate-900 truncate block text-xs">{row.barangay}</strong>
-                                  <span className="block text-[11px] text-slate-500 font-mono">
+                                  <span className="block text-[10.5px] text-slate-500 font-mono">
                                     {number(row.disease_reports)} rep · {number(row.affected_heads)} heads · {number(row.deaths)} deaths
                                   </span>
                                 </div>
@@ -1447,38 +1628,38 @@ export default function SurveillanceAnalytics() {
                           </ul>
                         </div>
                       ) : (
-                        <p className="py-6 text-center text-xs text-slate-500">No approved disease reports recorded in this period.</p>
+                        <p className="py-4 text-center text-xs text-slate-500">No approved disease reports recorded in this period.</p>
                       )}
                     </CardContent>
                   </Card>
 
                   {/* Linked Herd Batches Card */}
-                  <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs">
-                    <CardHeader className="p-4 pb-2">
+                  <Card className="rounded-xl border border-slate-200/80 bg-white shadow-2xs gap-0">
+                    <CardHeader className="p-3 pb-2 [.border-b]:pb-2">
                       <div className="flex items-center justify-between gap-2">
-                        <CardTitle className="text-sm font-bold text-slate-900">Linked Herd Batches (30d)</CardTitle>
+                        <CardTitle className="text-xs sm:text-sm font-bold text-slate-900">Linked Herd Batches (30d)</CardTitle>
                         <Badge variant="outline" className="text-[10px] font-mono font-bold">
                           {data.herds_last_30_days.length} batches
                         </Badge>
                       </div>
                     </CardHeader>
-                    <CardContent className="p-4 pt-1">
+                    <CardContent className="p-3 pt-0">
                       {data.herds_last_30_days.length ? (
-                        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                           {data.herds_last_30_days.map((herd) => (
                             <div
                               key={herd.batch_id}
-                              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 text-xs"
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/70 p-2 text-xs"
                             >
-                              <span className="font-mono font-bold text-slate-800">{herd.batch_code}</span>
-                              <span className="font-mono font-semibold text-slate-600">
-                                {number(herd.disease_reports)} report{herd.disease_reports === 1 ? "" : "s"} · {number(herd.deaths)} death{herd.deaths === 1 ? "" : "s"}
+                              <span className="font-mono font-bold text-slate-800 text-xs">{herd.batch_code}</span>
+                              <span className="font-mono font-semibold text-slate-600 text-[11px]">
+                                {number(herd.disease_reports)} rep · {number(herd.deaths)} death{herd.deaths === 1 ? "" : "s"}
                               </span>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="py-6 text-center text-xs text-slate-500">No approved event records linked to a herd batch.</p>
+                        <p className="py-4 text-center text-xs text-slate-500">No approved event records linked to a herd batch.</p>
                       )}
                     </CardContent>
                   </Card>
@@ -1527,7 +1708,7 @@ export default function SurveillanceAnalytics() {
                   <div className="rounded-xl border border-slate-200 overflow-hidden">
                     <div className="bg-slate-50 p-3 border-b border-slate-200 flex items-center justify-between">
                       <span className="text-xs font-bold font-mono text-slate-800 uppercase">
-                        Weekly Historical Telemetry (12 Complete Weeks)
+                        Weekly Report Counts (12 Complete Weeks)
                       </span>
                       <span className="text-xs text-slate-500 font-mono">12 weeks</span>
                     </div>
@@ -1566,10 +1747,10 @@ export default function SurveillanceAnalytics() {
                       <div>
                         <h4 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
                           <Activity className="size-4 text-rose-600" />
-                          Daily Disease &amp; Mortality Telemetry (Last 14 Days)
+                          Daily Disease and Death Reports (Last 14 Days)
                         </h4>
                         <p className="text-xs text-slate-500">
-                          Approved daily case heads and recorded mortality counts across Padre Garcia
+                          Approved disease reports and recorded deaths each day across Padre Garcia
                         </p>
                       </div>
                       <div className="flex items-center gap-3 text-xs font-mono">
@@ -1610,7 +1791,7 @@ export default function SurveillanceAnalytics() {
                       <div>
                         <h4 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
                           <TrendingUp className="size-4 text-teal-600" />
-                          Weekly Historical Telemetry (12 Complete Weeks)
+                        Weekly Report Counts (12 Complete Weeks)
                         </h4>
                         <p className="text-xs text-slate-500">
                           Weekly aggregate comparison of approved cases and fatal occurrences
@@ -1646,7 +1827,7 @@ export default function SurveillanceAnalytics() {
             </div>
           )}
 
-          {/* TAB 3: DIAGNOSTIC CLASSIFICATIONS & CAUSES */}
+          {/* TAB 3: REPORT TYPES & CAUSES */}
           {centerpieceTab === "diagnostics" && (() => {
             const diseaseRows = data.disease.by_recorded_classification_30_days;
             const mortalityRows = data.mortality.by_recorded_cause_30_days;
@@ -1669,10 +1850,10 @@ export default function SurveillanceAnalytics() {
                         </div>
                         <div>
                           <CardTitle className="text-sm sm:text-base font-bold text-slate-900">
-                            Disease Reports: Recorded Classifications
+                            Disease Reports by Type
                           </CardTitle>
                           <CardDescription className="text-xs text-slate-500 mt-0.5">
-                            Official labels written on approved reports by agricultural technologists.
+                            Report types recorded by agricultural staff on approved reports.
                           </CardDescription>
                         </div>
                       </div>
@@ -1691,7 +1872,7 @@ export default function SurveillanceAnalytics() {
                           <TableHeader className="bg-slate-50/80">
                             <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
                               <TableHead className="py-2.5 px-3.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                                Classification / Condition
+                                Report Type / Condition
                               </TableHead>
                               <TableHead className="py-2.5 px-3 text-center text-xs font-bold uppercase tracking-wider text-slate-600 w-28">
                                 Reports
@@ -1751,12 +1932,12 @@ export default function SurveillanceAnalytics() {
                       </div>
                     )}
 
-                    {/* Clinical Follow-up Tracking Footer */}
+                    {/* Follow-up status summary */}
                     <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                           <Activity className="size-3.5 text-slate-600" />
-                          Clinical Follow-up Tracking
+                          Follow-up Status
                         </span>
                         <span className="text-[11px] text-slate-500 font-medium">30-day active statuses</span>
                       </div>
@@ -1878,57 +2059,80 @@ export default function SurveillanceAnalytics() {
               </div>
             );
           })()}
+
+          {/* TAB 4: REPORT-BASED SPATIAL SCENARIO SANDBOX */}
+          {centerpieceTab === "sandbox" && (
+            <PadreGarciaForecaster />
+          )}
         </CardContent>
       </Card>
 
       {/* ----------------------------------------------------------------- */}
       {/* F. OFFICIAL MAO OPERATIONAL GUIDELINES                            */}
       {/* ----------------------------------------------------------------- */}
-      <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
-        <CardHeader className="bg-slate-50/70 border-b border-slate-100 p-4 sm:p-5">
-          <div className="flex items-center gap-2">
-            <Info className="size-4.5 text-rose-800" />
-            <CardTitle className="text-sm sm:text-base font-bold text-slate-900">
-              Official MAO Guide: How to Interpret &amp; Act on Surveillance Telemetry
-            </CardTitle>
+      <Card id="mao-operational-guide" className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden gap-0">
+        <CardHeader className="bg-slate-50/70 border-b border-slate-100 px-4 py-2.5 sm:px-4.5 sm:py-3 [.border-b]:pb-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <div className="size-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <Sparkles className="size-4 text-amber-600" />
+              </div>
+              <div>
+                <CardTitle className="text-xs sm:text-sm font-extrabold text-slate-900 leading-none">
+                  Official MAO Guide
+                </CardTitle>
+                <CardDescription className="text-[11px] text-slate-500 mt-0.5 leading-none">
+                  How to read these reports
+                </CardDescription>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] font-bold text-slate-700 hover:text-slate-900 border-slate-200 bg-white rounded-full px-3 self-start sm:self-auto cursor-pointer"
+              onClick={() => alert("Full Field Biosecurity Manual available at Municipal Agriculture Office (MAO) Padre Garcia.")}
+            >
+              Open Full Guide →
+            </Button>
           </div>
         </CardHeader>
-        <CardContent className="p-4 sm:p-5">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-slate-200/80 p-3.5 bg-slate-50/50 space-y-1">
+        <CardContent className="p-3 sm:p-3.5">
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-slate-200/80 p-2.5 bg-slate-50/50 space-y-0.5">
               <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
-                <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />
                 Only Approved Records Count
               </span>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                All numbers derive strictly from approved reports. Pending field drafts do not trigger municipal alerts.
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                All numbers reflect officially approved reports. Pending field data do not trigger municipal alerts.
               </p>
             </div>
-            <div className="rounded-xl border border-slate-200/80 p-3.5 bg-slate-50/50 space-y-1">
+            <div className="rounded-xl border border-slate-200/80 p-2.5 bg-slate-50/50 space-y-0.5">
               <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
-                <AlertTriangle className="size-4 text-amber-600 shrink-0" />
+                <AlertTriangle className="size-3.5 text-amber-600 shrink-0" />
                 Zero Means No Submitted Records
               </span>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Zero records indicates absence of approved submissions, not verified absence of illness. Field vigilance continues.
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Zero records indicate absence of approved submissions, not verified absence of cases.
               </p>
             </div>
-            <div className="rounded-xl border border-slate-200/80 p-3.5 bg-slate-50/50 space-y-1">
+            <div className="rounded-xl border border-slate-200/80 p-2.5 bg-slate-50/50 space-y-0.5">
               <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
-                <MapPin className="size-4 text-rose-600 shrink-0" />
-                Barangay Risk Mapping
+                <MapPin className="size-3.5 text-rose-600 shrink-0" />
+                Where reports were recorded
               </span>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Spatial grouping guides targeted veterinary response, vaccination cordons, and transport restrictions.
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                The map helps staff decide which barangays to check first.
               </p>
             </div>
-            <div className="rounded-xl border border-slate-200/80 p-3.5 bg-slate-50/50 space-y-1">
+            <div className="rounded-xl border border-slate-200/80 p-2.5 bg-slate-50/50 space-y-0.5">
               <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
-                <TrendingUp className="size-4 text-indigo-600 shrink-0" />
-                Herd Viability Context
+                <TrendingUp className="size-3.5 text-indigo-600 shrink-0" />
+                Herd Visibility Context
               </span>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Estimated rate is calculated against current approved active inventory to identify abnormal municipal mortality spikes.
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Use linked records to understand current herd activity and movement.
               </p>
             </div>
           </div>
@@ -1938,88 +2142,88 @@ export default function SurveillanceAnalytics() {
       {/* ----------------------------------------------------------------- */}
       {/* G. TECHNICAL AUDIT: MACHINE LEARNING FORECAST & ALERT VALIDATION  */}
       {/* ----------------------------------------------------------------- */}
-      <details className="group rounded-2xl border border-slate-200 bg-slate-50/70 transition-colors shadow-2xs">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs sm:text-sm font-bold text-slate-700 outline-none hover:bg-slate-100/80 rounded-2xl select-none">
+      <details className="group rounded-2xl border border-slate-200/80 bg-white transition-colors shadow-2xs overflow-hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-slate-700 outline-none hover:bg-slate-50/80 select-none">
           <span className="flex items-center gap-2">
-            <Zap className="size-4 text-rose-600" />
-            <span>Machine Learning Forecast &amp; Alert Validation Notes</span>
-            <Badge variant="outline" className="border-slate-300 bg-white text-[10px] font-mono font-bold">
-              Technical Audit
+            <Zap className="size-4 text-rose-600 shrink-0" />
+            <span className="font-extrabold text-slate-900">How Alerts and Forecasts Are Checked</span>
+            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-[10px] font-mono font-bold text-slate-600">
+              Technical details
             </Badge>
           </span>
-          <span className="text-xs font-semibold text-slate-500 group-open:hidden">+ Show validation engine</span>
-          <span className="hidden text-xs font-semibold text-slate-500 group-open:inline">− Hide validation engine</span>
+          <span className="text-xs font-semibold text-slate-500 group-open:hidden">+ Show details</span>
+          <span className="hidden text-xs font-semibold text-slate-500 group-open:inline">− Hide details</span>
         </summary>
-        <div className="border-t border-slate-200 p-4 sm:p-5 bg-white rounded-b-2xl space-y-3 text-xs leading-relaxed text-slate-700">
+        <div className="border-t border-slate-200 p-3.5 sm:p-4 bg-white rounded-b-2xl space-y-2.5 text-xs leading-relaxed text-slate-700">
           <p>
             <strong>Note for MAO Officers:</strong> Surveillance indicators display real, observed municipal records. Monthly production forecasts use the established municipal time-series models independently.
           </p>
-          <div className="space-y-1.5 border-t border-slate-100 pt-3 text-xs text-slate-600 font-mono">
+          <div className="space-y-1 border-t border-slate-100 pt-2 text-xs text-slate-600 font-mono">
             <p>
-              <strong>Alert backtest:</strong> {data.historical_backtest.status.replaceAll("_", " ")} · {number(data.historical_backtest.usable_evaluation_periods)} usable periods. {data.historical_backtest.reason}
+              <strong>Past alert check:</strong> {data.historical_backtest.status.replaceAll("_", " ")} · {number(data.historical_backtest.usable_evaluation_periods)} periods checked. {data.historical_backtest.reason}
             </p>
             <p>
-              <strong>Monthly baseline:</strong> {data.monthly_forecast_comparison.baseline}
+              <strong>Current monthly forecast method:</strong> {data.monthly_forecast_comparison.baseline}
             </p>
             <p>
-              <strong>Enhanced candidate:</strong> experimental only; it never changes production forecasts or model selection.
+              <strong>Test forecast method:</strong> for comparison only; it does not replace the current forecast.
             </p>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-1">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setRunForecastExperiment(true)}
               disabled={experimentQuery.isFetching}
-              className="text-xs font-bold cursor-pointer"
+              className="h-7 text-xs font-bold cursor-pointer"
             >
               {experimentQuery.isFetching
-                ? "Evaluating historical cutoffs..."
+                ? "Checking past records..."
                 : experimentQuery.data
-                ? "Refresh experimental comparison"
-                : "Run experimental comparison"}
+                ? "Refresh comparison"
+                : "Compare forecast methods"}
             </Button>
           </div>
 
           {experimentQuery.isError && (
             <p role="alert" className="text-rose-700 text-xs font-semibold">
-              The experimental comparison could not be completed. Check access or server logs and retry.
+              The comparison could not be completed. Check your access or try again later.
             </p>
           )}
 
           {experimentQuery.isPending && runForecastExperiment && (
             <p role="status" className="text-xs text-slate-500">
-              Building cutoff-specific one-month forecasts from approved real records. This can take a moment.
+              Comparing one-month forecasts using approved records. This can take a moment.
             </p>
           )}
 
           {experimentQuery.data && (
-            <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 sm:p-4 text-xs font-mono">
+            <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs font-mono">
               <p>
                 <strong>Result:</strong> {experimentQuery.data.status.replaceAll("_", " ")}. {experimentQuery.data.reason}
               </p>
               <p className="text-slate-600">
-                {experimentQuery.data.evaluation_method} The enhanced candidate is never adopted automatically.
+                {experimentQuery.data.evaluation_method} The test method will not replace the current forecast automatically.
               </p>
-              <div className="grid gap-3 lg:grid-cols-3 pt-2">
+              <div className="grid gap-2.5 lg:grid-cols-3 pt-1">
                 {Object.values(experimentQuery.data.targets).map((target) => (
-                  <div key={target.target} className="rounded-xl border border-slate-200 bg-white p-3 space-y-1">
+                  <div key={target.target} className="rounded-xl border border-slate-200 bg-white p-2.5 space-y-1">
                     <p className="font-bold text-slate-900">
-                      {target.target.replaceAll("_", " ")} ({target.unit}; {target.horizon_months}-month horizon)
+                      {target.target.replaceAll("_", " ")} ({target.unit}; {target.horizon_months} months ahead)
                     </p>
                     <p className="text-slate-600">
-                      Training: {target.training_status.replaceAll("_", " ")} ({target.training_sample_count}/
+                      Records used: {target.training_status.replaceAll("_", " ")} ({target.training_sample_count}/
                       {target.minimum_training_samples} samples)
                     </p>
-                    <p className="text-slate-600">Candidate: {target.candidate_status.replaceAll("_", " ")}</p>
+                    <p className="text-slate-600">Test method: {target.candidate_status.replaceAll("_", " ")}</p>
                     <p className="text-slate-800 font-semibold">
-                      Candidate forecast:{" "}
+                      Test forecast:{" "}
                       {target.candidate_forecast == null ? "Unavailable" : `${metric(target.candidate_forecast)} ${target.unit}`}
                     </p>
                     <p className="text-slate-600">
-                      Baseline MAE: {metric(target.baseline.mae)} | Candidate MAE: {metric(target.enhanced.mae)}
+                      Average error (lower is better): current {metric(target.baseline.mae)} | test {metric(target.enhanced.mae)}
                     </p>
                   </div>
                 ))}
@@ -2030,38 +2234,27 @@ export default function SurveillanceAnalytics() {
       </details>
 
       {/* ----------------------------------------------------------------- */}
-      {/* H. SPATIAL BIOSURVEILLANCE & HAVERSINE RISK FORECASTER            */}
+      {/* H. SPATIAL BIOSURVEILLANCE WORKSPACE CALLOUT                      */}
       {/* ----------------------------------------------------------------- */}
-      <section aria-label="Haversine Spatial Biosurveillance" className="pt-2">
-        <PadreGarciaForecaster />
-      </section>
-
-      {/* ----------------------------------------------------------------- */}
-      {/* I. SPATIAL BIOSURVEILLANCE WORKSPACE CALLOUT                     */}
-      {/* ----------------------------------------------------------------- */}
-      <div className="rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50/70 via-white to-teal-50/60 p-5 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="space-y-1">
+      <div className="rounded-2xl border border-rose-200/80 bg-gradient-to-r from-rose-50/70 via-white to-rose-50/30 px-4 py-3 sm:px-4.5 sm:py-3.5 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="space-y-0.5">
           <div className="flex items-center gap-2">
-            <span className="flex size-2 rounded-full bg-rose-600 animate-pulse" />
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-rose-900">
-              Full-Screen Municipal GIS
+            <Compass className="size-4 text-rose-600" />
+            <span className="text-[11px] font-mono font-extrabold uppercase tracking-wider text-rose-700">
+              FULL-SCREEN MUNICIPAL GIS
             </span>
           </div>
-          <h3 className="text-base font-bold text-slate-900">
-            Inspect Barangay Outbreak Clusters &amp; Movement Routes
-          </h3>
-          <p className="text-xs sm:text-sm text-slate-600">
+          <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
             Open the dedicated 2D/3D GIS workspace to inspect cattle inventories, farmer registries, transport clearances, and livestock densities across all 18 barangays.
           </p>
         </div>
         <Button
           asChild
-          className="bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs sm:text-sm shadow-xs shrink-0 cursor-pointer"
+          className="h-8.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-full px-4.5 shadow-xs shrink-0 cursor-pointer"
         >
           <Link href={user?.role?.toUpperCase() === "SIBAT" || user?.role?.toUpperCase() === "CBAT" ? "/sibat-monitoring" : "/gis-map"}>
-            <MapIcon className="size-4 mr-2" />
-            Launch Municipal GIS Map
-            <ArrowRight className="size-4 ml-2" />
+            <MapPin className="size-3.5 mr-1.5" />
+            Launch Municipal GIS Map →
           </Link>
         </Button>
       </div>
