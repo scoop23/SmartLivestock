@@ -30,6 +30,33 @@ names produce clarification rather than a guessed match. Only MAO-role users
 can use the assistant; Admin, SIBAT, CBAT, Farmer, Auction, and slaughterhouse
 roles are denied, regardless of SIBAT barangay scope.
 
+### Questions the municipal assistant can answer
+
+Examples below are requests to approved, stored records; no result proves that
+every real-world event was submitted. Activity questions without a period use
+the visible last-12-calendar-months default. Population and queue questions are
+current snapshots.
+
+| Topic | English example | Filipino example | Scope and limits |
+| --- | --- | --- | --- |
+| Current livestock inventory | How many approved active livestock heads are recorded? | Ilan ang aprubadong aktibong alagang hayop? | Current approved, active individual inventory; can group by registered type or barangay. |
+| Disease reports | How many disease reports were recorded in Manggas? | Ilan ang may sakit sa Manggas? | Approved reports; report count and reported affected heads are different measures. Affected-head totals can overlap across reports. |
+| Recorded deaths | How many deaths were recorded in Manggas? | Ilan ang namamatay sa Manggas? | Approved mortality reports; recorded death count is not a mortality rate. |
+| MAO review queue | Which disease reports are waiting for MAO approval? | Aling mga ulat ng sakit ang naghihintay ng pag-apruba sa MAO? | Current queue counts by submission type; no historical or barangay-filtered queue query. |
+| One farmer's inventory | How many cattle does Farmer Juan Dela Cruz have? | Ilan ang baka ni Farmer Juan Dela Cruz? | Requires an exact approved Farmer name and one registered livestock type; MAO only. |
+
+Use “by barangay” / “sa bawat barangay” to compare places. Name one barangay
+to filter to that place. For disease and mortality, use “this month,” “last
+month,” a calendar quarter or year, or an explicit YYYY-MM-DD date range. The
+parser asks for clarification when an entity or period is ambiguous or outside
+these rules.
+
+This assistant does not provide Farmer production logs, animal sales totals,
+veterinary diagnosis or treatment, forecasts, or mortality rates. Ask for those
+through their existing reports or workflows instead. Groq can optionally help
+interpret wording and explain a verified aggregate; it does not query records
+or calculate the official totals.
+
 ## Review workflow decision
 
 The evaluation and dataset-review page is available at both
