@@ -89,7 +89,6 @@ const adminLinks: SidebarLink[] = [
     label: 'Dashboard',
     icon: LayoutDashboard,
     subLinks: [
-      { path: '/admin', label: 'Executive Dashboard' },
       { path: '/admin/census-analytics', label: 'Census Analytics' },
     ],
   },
@@ -121,7 +120,6 @@ const adminLinks: SidebarLink[] = [
   { path: '/reports', label: 'Reports', icon: FileText },
   { path: '/data-uploads', label: 'Data Upload', icon: Upload },
   { path: '/news-announcements', label: 'Announcements', icon: Newspaper },
-  { path: '/schedules', label: 'Livestock Programs', icon: CalendarDays },
 ];
 
 const farmerLinks: SidebarLink[] = [
@@ -364,6 +362,8 @@ function SidebarNav({
                   <button
                     type="button"
                     aria-label={`Toggle ${link.label} sub-items`}
+                    aria-expanded={isDropdownOpen}
+                    aria-controls={`sublinks-${link.path.replace(/\//g, '-')}`}
                     onClick={(e) => toggleDropdown(link.path, e)}
                     className="p-1 rounded-lg hover:bg-white/10 text-emerald-200/70 hover:text-white transition-colors cursor-pointer"
                   >
@@ -376,36 +376,53 @@ function SidebarNav({
                   </button>
                 </div>
 
-                {isDropdownOpen && (
-                  <div className="ml-5 pl-2.5 my-1 border-l border-emerald-400/25 space-y-1 transition-all">
-                    {link.subLinks?.map((sub) => {
-                      const isSubActive = pathname === sub.path;
-                      const subLabel =
-                        isCbatUser && sub.path === "/sibat/batches" ? "Herd" : sub.label;
-                      return (
-                        <Link
-                          key={sub.path}
-                          href={sub.path}
-                          onClick={() => onNavigate?.()}
-                          className={cn(
-                            "flex min-h-12 items-center justify-between px-3 rounded-lg font-semibold transition-all duration-150",
-                            role === "sibat" || role === "farmer" ? "py-2.5 text-sm" : "py-1.5 text-xs",
-                            isSubActive
-                              ? "bg-emerald-500/25 text-white font-bold border border-emerald-400/30"
-                              : "text-emerald-100/70 hover:bg-white/10 hover:text-white"
-                          )}
-                        >
-                          <span className="truncate">{subLabel}</span>
-                          {sub.badge && (
-                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300">
-                              {sub.badge}
-                            </span>
-                          )}
-                        </Link>
-                      );
-                    })}
+                <div
+                  id={`sublinks-${link.path.replace(/\//g, '-')}`}
+                  className={cn(
+                    "grid transition-all duration-200 ease-in-out motion-reduce:transition-none",
+                    isDropdownOpen
+                      ? "grid-rows-[1fr] opacity-100"
+                      : "grid-rows-[0fr] opacity-0 pointer-events-none"
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <div className="ml-5 pl-2.5 my-1 border-l border-emerald-400/25 space-y-1">
+                      {link.subLinks?.map((sub, subIdx) => {
+                        const isSubActive = pathname === sub.path;
+                        const subLabel =
+                          isCbatUser && sub.path === "/sibat/batches" ? "Herd" : sub.label;
+                        return (
+                          <Link
+                            key={sub.path}
+                            href={sub.path}
+                            onClick={() => onNavigate?.()}
+                            tabIndex={isDropdownOpen ? 0 : -1}
+                            className={cn(
+                              "flex min-h-12 items-center justify-between px-3 rounded-lg font-semibold transition-all duration-200 motion-reduce:transition-none",
+                              role === "sibat" || role === "farmer" ? "py-2.5 text-sm" : "py-1.5 text-xs",
+                              isSubActive
+                                ? "bg-emerald-500/25 text-white font-bold border border-emerald-400/30"
+                                : "text-emerald-100/70 hover:bg-white/10 hover:text-white hover:translate-x-1",
+                              isDropdownOpen
+                                ? "translate-y-0 opacity-100"
+                                : "-translate-y-1.5 opacity-0"
+                            )}
+                            style={{
+                              transitionDelay: isDropdownOpen ? `${subIdx * 35}ms` : "0ms",
+                            }}
+                          >
+                            <span className="truncate">{subLabel}</span>
+                            {sub.badge && (
+                              <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300">
+                                {sub.badge}
+                              </span>
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             );
           }

@@ -75,7 +75,7 @@ export default function AdminDashboard() {
     return (
       <>
         <PageHeader
-          title="LGU/MAO Municipal Executive Dashboard"
+          title="LGU/MAO Municipal Dashboard"
           subtitle="Padre Garcia Municipal Agriculture Office — Livestock Surveillance, Yields & Commercial Trading"
           variant="admin"
           maxWidthClass="w-full"
@@ -84,7 +84,7 @@ export default function AdminDashboard() {
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           <ValidationLoadingScreen
             isLoading={isLoading}
-            title="Synchronizing Executive Analytics Dashboard"
+            title="Synchronizing Municipal Analytics Dashboard"
             subtitle="Aggregating municipal livestock registries, 17-barangay census surveys, and biosecurity surveillance telemetry..."
             badgeLabel="Executive Stream Sync"
             authorityText="Municipal Agriculture Office • Padre Garcia, Batangas"
@@ -196,7 +196,7 @@ export default function AdminDashboard() {
   return (
     <>
       <PageHeader
-        title="LGU/MAO Municipal Executive Dashboard"
+        title="LGU/MAO Municipal Dashboard"
         subtitle="Padre Garcia Municipal Agriculture Office — Livestock Surveillance, Yields & Commercial Trading"
         variant="admin"
         maxWidthClass="w-full"
