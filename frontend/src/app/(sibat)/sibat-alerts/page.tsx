@@ -1,6 +1,7 @@
 "use client";
 
 import { PageHeader } from "@/app/components/page-header";
+import { SurveillanceCoveragePanel } from "@/app/components/analytics/surveillance-coverage-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent } from "@/components/ui/card";
@@ -367,6 +368,8 @@ function SibatAlertsContent() {
             <strong className="font-black text-sky-900">{assignedScopeLabel}</strong>.
           </span>
         </div>
+
+        <SurveillanceCoveragePanel />
 
         {/* ── Spatial Surveillance & Haversine Triage Shortcut ── */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 sm:px-4 text-xs text-indigo-950 shadow-2xs">

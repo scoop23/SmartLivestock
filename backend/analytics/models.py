@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 
 class IndividualMilkDemoCow(models.Model):
@@ -82,6 +83,41 @@ class SurveillanceDemoOwnership(models.Model):
 
     def __str__(self):
         return f"Surveillance demo {self.identifier} ({self.object_type}:{self.object_id})"
+
+
+class SurveillanceCoverageReport(models.Model):
+    """Append-only field confirmation of one barangay's monthly reporting coverage."""
+
+    class Domain(models.TextChoices):
+        DISEASE = "DISEASE", "Disease reports"
+        MORTALITY = "MORTALITY", "Mortality reports"
+
+    class Status(models.TextChoices):
+        NO_REPORTS_RECEIVED = "NO_REPORTS_RECEIVED", "No reports received"
+        REPORTS_COMPLETE = "REPORTS_COMPLETE", "All reports entered"
+
+    barangay = models.ForeignKey(
+        "livestock.Barangay",
+        on_delete=models.PROTECT,
+        related_name="surveillance_coverage_reports",
+    )
+    domain = models.CharField(max_length=12, choices=Domain.choices)
+    report_month = models.DateField(help_text="First day of the fully completed reporting month.")
+    status = models.CharField(max_length=24, choices=Status.choices)
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="confirmed_surveillance_coverage_reports",
+    )
+    confirmed_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-report_month", "barangay__barangay_name", "domain", "-confirmed_at", "-pk"]
+        indexes = [models.Index(fields=["domain", "report_month", "barangay"])]
+
+    def __str__(self):
+        return f"{self.get_domain_display()} {self.report_month:%Y-%m} - {self.barangay}"
 
 
 class NLPExampleReviewEvent(models.Model):

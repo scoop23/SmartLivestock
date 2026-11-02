@@ -1,4 +1,5 @@
 import hashlib
+from datetime import date, datetime
 from django.db.models import Count, F, Q, Sum
 from django.db.utils import DatabaseError
 import logging
@@ -21,6 +22,12 @@ from .services.reports import build_report
 from .services.report_exports import excel_report, pdf_report
 from .services.review_workload import review_workload_summary
 from .services.surveillance import surveillance_summary
+from .services.surveillance_coverage import (
+    domain_model as surveillance_coverage_domain_model,
+    month_snapshot as surveillance_month_snapshot,
+    previous_month_start as previous_surveillance_month_start,
+)
+from .models import SurveillanceCoverageReport
 from .services.predictive.surveillance_experiment import evaluate_surveillance_forecast_experiment
 from .services.nlp_query import execute_question
 from .permissions import IsMAOOnly, IsNLPDeveloper
@@ -113,6 +120,75 @@ def disease_mortality_surveillance(request):
 def surveillance_forecast_experiment(request):
     """Run the on-demand, scoped experimental forecast comparison."""
     return Response(evaluate_surveillance_forecast_experiment(user=request.user))
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def surveillance_coverage(request):
+    """Read or append a scoped monthly disease/mortality coverage confirmation."""
+    payload = request.data if request.method == "POST" else request.query_params
+    domain = str(payload.get("domain", "")).upper()
+    try:
+        surveillance_coverage_domain_model(domain)
+    except ValueError as exc:
+        raise ValidationError({"domain": str(exc)})
+
+    raw_month = str(payload.get("report_month", ""))
+    try:
+        report_month = datetime.strptime(raw_month, "%Y-%m").date().replace(day=1) if len(raw_month) == 7 else date.fromisoformat(raw_month)
+        if report_month.day != 1:
+            raise ValueError
+    except (TypeError, ValueError):
+        if request.method == "GET" and not raw_month:
+            report_month = previous_surveillance_month_start(timezone.localdate())
+        else:
+            raise ValidationError({"report_month": "Use a month such as 2026-10."})
+
+    current_month_start = date(timezone.localdate().year, timezone.localdate().month, 1)
+    if report_month >= current_month_start:
+        raise ValidationError({"report_month": "Coverage can only be confirmed for a fully completed month."})
+    if request.method == "GET":
+        return Response(surveillance_month_snapshot(domain, request.user, report_month))
+
+    try:
+        barangay_id = int(payload.get("barangay_id"))
+    except (TypeError, ValueError):
+        raise ValidationError({"barangay_id": "Choose an authorized barangay."})
+    coverage_status = str(payload.get("status", "")).upper()
+    valid_statuses = {
+        SurveillanceCoverageReport.Status.NO_REPORTS_RECEIVED,
+        SurveillanceCoverageReport.Status.REPORTS_COMPLETE,
+    }
+    if coverage_status not in valid_statuses:
+        raise ValidationError({"status": "Choose NO_REPORTS_RECEIVED or REPORTS_COMPLETE."})
+
+    barangay = get_object_or_404(
+        scope_reviewer_queryset(Barangay.objects.all(), request.user), pk=barangay_id
+    )
+    snapshot = surveillance_month_snapshot(domain, request.user, report_month)
+    selected = next((row for row in snapshot["barangays"] if row["barangay_id"] == barangay.pk), None)
+    if selected is None:
+        raise ValidationError({"barangay_id": "This barangay is outside your authorized coverage."})
+    if coverage_status == SurveillanceCoverageReport.Status.NO_REPORTS_RECEIVED and not selected["can_confirm_no_reports"]:
+        raise ValidationError({"status": "Reports exist for this barangay and month. Confirm that all reports are entered."})
+    if coverage_status == SurveillanceCoverageReport.Status.REPORTS_COMPLETE and not selected["can_confirm_reports_complete"]:
+        raise ValidationError({"status": "No reports exist for this barangay and month. Confirm that no reports were received."})
+
+    confirmation = SurveillanceCoverageReport.objects.create(
+        barangay=barangay,
+        domain=domain,
+        report_month=report_month,
+        status=coverage_status,
+        confirmed_by=request.user,
+    )
+    return Response({
+        "detail": "Monthly reporting coverage confirmed.",
+        "domain": domain,
+        "report_month": report_month.strftime("%Y-%m"),
+        "barangay_id": barangay.pk,
+        "status": confirmation.status,
+        "confirmed_at": confirmation.confirmed_at,
+    }, status=status.HTTP_201_CREATED)
 
 
 @api_view(["GET"])

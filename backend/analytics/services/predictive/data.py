@@ -57,6 +57,7 @@ from django.db.models.functions import TruncMonth
 from production.models import ProductionRecord, SlaughterRecord
 from diseases.models import DiseaseCase, MortalityRecord
 from smartlivestock.workflows import require_farmer_production_access, scope_reviewer_queryset
+from analytics.services.surveillance_coverage import build_confirmed_monthly_series
 from analytics.seed_markers import (
     SEED_MARKER_PRODUCTION_V2,
     SEED_MARKER_PRODUCTION_LEGACY,
@@ -476,24 +477,35 @@ def extract_monthly_series(
         if pd.Timestamp(r["month"]).date() < current_month_start
     ]
 
-    # Count absent calendar months so model results can disclose incomplete
-    # coverage. An absent row could mean no activity or no submitted records.
-    missing_months = []
-    if records:
-        observed_months = {pd.Timestamp(r["month"]).to_period("M") for r in records}
-        first_month = min(observed_months)
-        # Also disclose trailing months without eligible records through the last
-        # fully completed calendar month; otherwise stale data can look current.
-        last_month = (pd.Timestamp(current_month_start) - pd.offsets.MonthBegin(1)).to_period("M")
-        missing_months = [
-            str(month)
-            for month in pd.period_range(first_month, last_month, freq="M")
-            if month not in observed_months
-        ]
+    reporting_coverage = None
+    if domain in {"disease", "mortality"}:
+        coverage_result = build_confirmed_monthly_series(
+            domain, user, records, current_month_start
+        )
+        records = coverage_result["records"]
+        missing_months = coverage_result["missing_months"]
+        reporting_coverage = coverage_result["coverage"]
+    else:
+        # An absent row remains unknown for domains that do not have a reporting
+        # coverage ledger. Do not fill their missing months with invented zeros.
+        missing_months = []
+        if records:
+            observed_months = {pd.Timestamp(r["month"]).to_period("M") for r in records}
+            first_month = min(observed_months)
+            last_month = (pd.Timestamp(current_month_start) - pd.offsets.MonthBegin(1)).to_period("M")
+            missing_months = [
+                str(month)
+                for month in pd.period_range(first_month, last_month, freq="M")
+                if month not in observed_months
+            ]
 
     # A monthly observation becomes usable only when every included row has an
     # availability timestamp. Farmer production uses submission time.
     for row in records:
+        if domain in {"disease", "mortality"}:
+            # The coverage service supplies event availability for reported rows
+            # and confirmation time for explicitly quiet months.
+            continue
         if domain == "production":
             row["available_at"] = (
                 timezone.localtime(row["latest_eligible_at"]).date()
@@ -527,6 +539,8 @@ def extract_monthly_series(
             "latest_approved_on": date_only(row.get("latest_approval")),
             "latest_eligible_on": date_only(row.get("latest_eligible_at")) if domain == "production" else None,
             "available_to_model_on": date_only(row.get("available_at")),
+            "covered_report_count": row.get("coverage_record_count"),
+            "coverage_confirmed_on": date_only(row.get("coverage_confirmed_at")),
         }
         for row in records
     ]
@@ -569,7 +583,11 @@ def extract_monthly_series(
         )
     if missing_months:
         coverage_warning_parts.append(
-            f"There are {len(missing_months)} months without approved records. They were not counted as zero."
+            (
+                f"There are {len(missing_months)} months without confirmed complete reporting coverage; they were not counted as zero."
+                if domain in {"disease", "mortality"}
+                else f"There are {len(missing_months)} months without approved records. They were not counted as zero."
+            )
         )
     coverage_warning = " ".join(coverage_warning_parts) or None
 
@@ -611,6 +629,7 @@ def extract_monthly_series(
             if base_qs is not None else None
         ),
         "approval_cutoff_reconstructable": all(r.get("available_at") is not None for r in records),
+        "reporting_coverage": reporting_coverage,
         "unmeasured_target_records": unmeasured_target_records,
         "excluded_milk_session_conflict_records": excluded_milk_session_conflicts,
     }
@@ -618,14 +637,42 @@ def extract_monthly_series(
     # Data sufficiency verification: NEVER force a model on sparse target-specific data.
     # If the user does not have 12 months yet, we return status="insufficient_data"
     # along with the historical points so the frontend can display honest ground truth without guessing.
+    if reporting_coverage and reporting_coverage.get("status") == "not_started":
+        metadata["status"] = "coverage_unconfirmed"
+        metadata["forecast_available"] = False
+        metadata["readiness_status"] = READINESS_NOT_READY
+        metadata["readiness_details"] = (
+            "No monthly reporting coverage has been confirmed for the authorized barangay scope. "
+            "Confirm complete past months before the system uses disease or mortality data for forecasting."
+        )
+        metadata["message"] = metadata["readiness_details"]
+        return None, metadata
+
+    if domain in {"disease", "mortality"} and missing_months:
+        metadata["status"] = "incomplete_coverage"
+        metadata["forecast_available"] = False
+        metadata["readiness_status"] = READINESS_NOT_READY
+        metadata["readiness_details"] = (
+            f"The latest {len(missing_months)} completed month(s) do not have valid reporting coverage across every authorized barangay. "
+            "Confirm the missing month(s), then retry the forecast."
+        )
+        metadata["message"] = metadata["readiness_details"]
+        return None, metadata
+
     if len(records) < min_observations_required:
         metadata["status"] = "insufficient_data"
         metadata["forecast_available"] = False
         metadata["readiness_status"] = READINESS_NOT_READY
-        metadata["message"] = (
-            f"There are records in {len(records)} months for {domain.title()} ({target_clean}). "
-            f"At least {min_observations_required} months are needed before an estimate can be made and checked."
-        )
+        if domain in {"disease", "mortality"}:
+            metadata["message"] = (
+                f"There are {len(records)} consecutive, fully covered monthly observations for {domain.title()} ({target_clean}). "
+                f"At least {min_observations_required} months are needed before an estimate can be made and checked."
+            )
+        else:
+            metadata["message"] = (
+                f"There are records in {len(records)} months for {domain.title()} ({target_clean}). "
+                f"At least {min_observations_required} months are needed before an estimate can be made and checked."
+            )
         return None, metadata
 
     if unmeasured_target_records:
@@ -647,17 +694,21 @@ def extract_monthly_series(
         metadata["message"] = metadata["readiness_details"]
         return None, metadata
 
-    # Monthly models and monthly horizons require one observation per calendar
-    # month. Filling absent event/report months with zero would invent reporting
-    # completeness, while dropping them would make adjacent rows look adjacent in
-    # time. Keep actual history visible and withhold the forecast instead.
+    # Monthly models require one covered observation per calendar month. For
+    # disease/mortality, the coverage ledger provides explicit zero months; gaps
+    # elsewhere remain unknown and block the forecast.
     if missing_months:
         metadata["status"] = "incomplete_coverage"
         metadata["forecast_available"] = False
         metadata["readiness_status"] = READINESS_NOT_READY
         metadata["readiness_details"] = (
-            f"There are {len(missing_months)} months without approved records. "
-            "The system cannot tell whether there was no activity or no report, so it does not count those months as zero or make an estimate."
+            (
+                f"There are {len(missing_months)} months without valid reporting coverage across the authorized barangays. "
+                "Confirm each barangay's monthly report status; pending, stale, or unassigned reports must be resolved before forecasting."
+                if domain in {"disease", "mortality"}
+                else f"There are {len(missing_months)} months without approved records. "
+                "The system cannot tell whether there was no activity or no report, so it does not count those months as zero or make an estimate."
+            )
         )
         metadata["message"] = metadata["readiness_details"]
         return None, metadata

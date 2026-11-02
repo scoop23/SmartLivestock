@@ -7,6 +7,7 @@ urlpatterns = [
     path("reports/export/", views.reports_export, name="reports-export"),
     path("dashboard/", views.dashboard_summary, name="dashboard-summary"),
     path("surveillance/", views.disease_mortality_surveillance, name="disease-mortality-surveillance"),
+    path("surveillance-coverage/", views.surveillance_coverage, name="surveillance-coverage"),
     path("surveillance/forecast-experiment/", views.surveillance_forecast_experiment, name="surveillance-forecast-experiment"),
     path("mortality-weather/", views.mortality_weather_context, name="mortality-weather-context"),
     path("nlp-evaluation/", views.nlp_evaluation, name="nlp-evaluation"),

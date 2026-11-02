@@ -19,6 +19,7 @@ from sklearn.linear_model import LinearRegression
 
 from diseases.models import DiseaseCase, MortalityRecord
 from smartlivestock.workflows import scope_reviewer_queryset
+from analytics.services.surveillance_coverage import build_confirmed_monthly_series
 from .evaluation import evaluate_rolling_origins
 from .models import forecast_candidate
 from .surveillance_features import (
@@ -73,7 +74,12 @@ def _monthly_sum(rows, availability_cutoff, value_key, *, event_before=None):
         if not event_date or event_date >= event_limit or not reviewed_at or reviewed_at > cutoff_stamp:
             continue
         month = _month_timestamp(event_date)
-        totals[month] += 1.0 if value_key == "report" else float(row.get(value_key) or 0)
+        if value_key == "report":
+            totals[month] += 1.0
+        elif value_key == "coverage_quantity":
+            totals[month] += float(row.get("coverage_quantity") or 0)
+        else:
+            totals[month] += float(row.get(value_key) or 0)
     return pd.DataFrame(
         [{"month": month, "quantity": value} for month, value in sorted(totals.items())],
         columns=["month", "quantity"],
@@ -293,6 +299,8 @@ def _row_value(rows, month, value_key):
     selected = [row for row in rows if _month_timestamp(row["record_date"]) == month]
     if value_key == "report":
         return float(len(selected))
+    if value_key == "coverage_quantity":
+        return float(sum(row.get("coverage_quantity") or 0 for row in selected))
     return float(sum(row.get(value_key) or 0 for row in selected))
 
 
@@ -305,9 +313,36 @@ def _predict_existing(history, forecast_month, model_name):
         return None
 
 
-def _evaluate_target(user, target_key, spec, source_rows, disease_rows, mortality_rows, today, as_of):
+def _evaluate_target(user, target_key, spec, source_rows, disease_rows, mortality_rows, today, as_of, reporting_coverage):
     domain = spec["domain"]
-    value_key = spec["value"]
+    value_key = "coverage_quantity"
+    if reporting_coverage.get("status") != "complete":
+        return {
+            "target": target_key,
+            "domain": domain,
+            "unit": spec["unit"],
+            "horizon_months": 1,
+            "status": "INSUFFICIENT_REPORTING_COVERAGE",
+            "training_status": "INCOMPLETE_REPORTING_COVERAGE",
+            "candidate_status": "INCOMPLETE_REPORTING_COVERAGE",
+            "candidate_reason": "Confirm every completed month across the authorized barangays. Any unknown, stale, unapproved, or unassigned month keeps the forecast unavailable.",
+            "training_sample_count": len(source_rows),
+            "minimum_training_samples": MIN_TRAIN_MONTHS,
+            "candidate_forecast": None,
+            "candidate_forecast_month": None,
+            "eligible_target_periods": 0,
+            "valid_evaluation_periods": 0,
+            "evaluation_periods": 0,
+            "excluded_period_counts": {},
+            "baseline": {"mae": None, "rmse": None, "prediction_coverage": 0.0, "periods": 0},
+            "simple_baseline": {"mae": None, "rmse": None, "prediction_coverage": 0.0, "periods": 0},
+            "calendar_linear_baseline": {"mae": None, "rmse": None, "prediction_coverage": 0.0, "periods": 0},
+            "enhanced": {"mae": None, "rmse": None, "prediction_coverage": 0.0, "periods": 0},
+            "comparison_conclusion": "INCONCLUSIVE",
+            "periods": [],
+            "enhanced_model_adopted": False,
+            "reporting_coverage": reporting_coverage,
+        }
     current_month_start = _month_start(today)
     current_history = _monthly_sum(source_rows, as_of, value_key, event_before=current_month_start)
     current_features, value_features = _feature_frame(
@@ -490,7 +525,7 @@ def _evaluate_target(user, target_key, spec, source_rows, disease_rows, mortalit
         "comparison_conclusion": conclusion,
         "periods": evaluated_rows,
         "enhanced_model_adopted": False,
-        "reporting_coverage": "unknown; no reporting-coverage ledger exists. Empty windows are imputed only after pairing the training-median value with an observed/missing indicator.",
+        "reporting_coverage": reporting_coverage,
     }
 
 
@@ -501,15 +536,39 @@ def evaluate_surveillance_forecast_experiment(*, user=None, today=None):
     disease_rows, mortality_rows = _load_surveillance_rows(user)
     targets = {}
     for key, spec in TARGETS.items():
-        source_rows = _load_target_rows(user, spec["domain"])
+        approved_rows = _load_target_rows(user, spec["domain"])
+        current_month_start = _month_start(today)
+        observed_months = _monthly_sum(
+            approved_rows, as_of, spec["value"], event_before=current_month_start,
+        )
+        target_monthly_records = [
+            {
+                "month": row.month.date(),
+                "total_quantity": float(row.quantity),
+                "total_records": 1,
+            }
+            for row in observed_months.itertuples(index=False)
+        ]
+        coverage_result = build_confirmed_monthly_series(
+            spec["domain"], user, target_monthly_records, current_month_start,
+        )
+        reporting_coverage = coverage_result["coverage"]
+        source_rows = [
+            {
+                "record_date": row["month"],
+                "reviewed_at": timezone.make_aware(datetime.combine(row["available_at"], time.min)),
+                "coverage_quantity": row["total_quantity"],
+            }
+            for row in coverage_result["records"]
+        ]
         targets[key] = _evaluate_target(
-            user, key, spec, source_rows, disease_rows, mortality_rows, today, as_of,
+            user, key, spec, source_rows, disease_rows, mortality_rows, today, as_of, reporting_coverage,
         )
 
     valid_periods = sum(target["valid_evaluation_periods"] for target in targets.values())
     if not valid_periods:
         overall_status = "INSUFFICIENT_EVALUATION_DATA"
-        reason = "No shared out-of-sample periods had both an existing baseline and a trainable surveillance-informed candidate. No metric is reported as zero."
+        reason = "No shared out-of-sample periods have complete monthly reporting coverage and both trainable candidates. No metric is reported as zero."
     elif any(target["status"] == "EXPERIMENTAL" for target in targets.values()):
         overall_status = "EXPERIMENTAL"
         reason = "Some predictions are available, but at least one target has fewer than the configured 12 comparison periods; improvement is not established."
@@ -521,7 +580,7 @@ def evaluate_surveillance_forecast_experiment(*, user=None, today=None):
         "status": overall_status,
         "evaluation_method": "Expanding chronological monthly origins; one-month-ahead forecasts; each cutoff uses earlier target values and cutoff-available surveillance features only.",
         "availability_rule": "Training inputs require current APPROVED status, a dated event, and reviewed_at no later than cutoff. Latest review time/current status are conservative proxies, not immutable approval history.",
-        "missing_data_rule": "Unobserved target months are omitted, not zero-filled. Empty surveillance windows are NaN with report-presence indicators; training medians are fit separately inside each historical fold.",
+        "missing_data_rule": "Disease and mortality target months use only the coverage ledger: explicit no-report confirmations contribute zero; unknown, stale, unapproved, and unassigned months block forecasts. Empty surveillance feature windows remain NaN with report-presence indicators; training medians are fit separately inside each historical fold.",
         "feature_rule": "Separate disease report, affected-head, and mortality-death columns; lag values use prior observed target months and expose their calendar age. Optional animal/herd links are omitted as incomplete; no current-inventory rate is used.",
         "minimum_periods_for_directional_signal": MIN_EVALUATION_PERIODS_FOR_SIGNAL,
         "enhanced_model_adopted": False,

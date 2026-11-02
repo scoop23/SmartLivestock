@@ -177,6 +177,24 @@ type SurveillanceResponse = {
 };
 
 type ForecastMetric = { mae: number | null; rmse: number | null; prediction_coverage: number; periods: number };
+type ReportingCoverage = {
+  status: string;
+  scope_barangay_count: number;
+  eligible_month_count: number;
+  missing_month_count: number;
+  first_month: string | null;
+  coverage_history_start_month?: string;
+  last_completed_month: string;
+  older_covered_month_count?: number;
+  historical_gap_month_count?: number;
+  trailing_missing_months?: string[];
+  unconfirmed_months?: string[];
+  stale_months?: string[];
+  inconsistent_months?: string[];
+  pending_approval_months?: string[];
+  missing_approval_time_months?: string[];
+  unassigned_record_months?: string[];
+};
 type ForecastExperimentTarget = {
   target: string;
   unit: string;
@@ -235,7 +253,7 @@ type ForecastExperimentTarget = {
     available_surveillance_features: string[];
   }[];
   enhanced_model_adopted: false;
-  reporting_coverage: string;
+  reporting_coverage: ReportingCoverage;
 };
 
 type ForecastExperimentResponse = {
@@ -2216,6 +2234,9 @@ export default function SurveillanceAnalytics() {
                     <p className="text-slate-600">
                       Records used: {target.training_status.replaceAll("_", " ")} ({target.training_sample_count}/
                       {target.minimum_training_samples} samples)
+                    </p>
+                    <p className="text-slate-600">
+                      Reporting coverage: {target.reporting_coverage.status.replaceAll("_", " ")} · {target.reporting_coverage.eligible_month_count} complete month(s), {target.reporting_coverage.missing_month_count} gap(s)
                     </p>
                     <p className="text-slate-600">Test method: {target.candidate_status.replaceAll("_", " ")}</p>
                     <p className="text-slate-800 font-semibold">
