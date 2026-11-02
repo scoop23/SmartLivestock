@@ -606,6 +606,64 @@ export default function LivestockDetailPage() {
     return null;
   }, [weightLogs]);
 
+  // Fit a straight line to this animal's dated weigh-ins and extend it 30 days.
+  // The prediction stays unavailable until at least two different dates exist.
+  const weightPrediction = useMemo(() => {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const points = weightLogs
+      .map((log) => ({
+        date: log.date,
+        timestamp: Date.parse(`${log.date}T00:00:00Z`),
+        weight: Number(log.weight),
+      }))
+      .filter((point) => Number.isFinite(point.timestamp) && Number.isFinite(point.weight));
+
+    if (points.length < 2) return null;
+    const firstTimestamp = points[0].timestamp;
+    const xs = points.map((point) => (point.timestamp - firstTimestamp) / dayMs);
+    const meanX = xs.reduce((sum, value) => sum + value, 0) / xs.length;
+    const meanY = points.reduce((sum, point) => sum + point.weight, 0) / points.length;
+    const variance = xs.reduce((sum, value) => sum + (value - meanX) ** 2, 0);
+    if (variance === 0) return null;
+
+    const slope = xs.reduce(
+      (sum, value, index) => sum + (value - meanX) * (points[index].weight - meanY),
+      0,
+    ) / variance;
+    const intercept = meanY - slope * meanX;
+    const lastPoint = points[points.length - 1];
+    const forecastTimestamp = lastPoint.timestamp + 30 * dayMs;
+    const forecastDays = (forecastTimestamp - firstTimestamp) / dayMs;
+    const forecastWeight = intercept + slope * forecastDays;
+    const chartData: (WeightLog & { recordedWeight: number | null; predictedWeight?: number })[] = points.map((point, index) => ({
+      date: point.date,
+      weight: point.weight,
+      recordedWeight: point.weight,
+      predictedWeight: Math.max(0, intercept + slope * xs[index]),
+      gain: 0,
+      adg: 0,
+      notes: "Recorded weigh-in",
+    }));
+    if (Number.isFinite(forecastWeight) && forecastWeight > 0) {
+      chartData.push({
+        date: new Date(forecastTimestamp).toISOString().slice(0, 10),
+        weight: lastPoint.weight,
+        recordedWeight: null,
+        predictedWeight: forecastWeight,
+        gain: 0,
+        adg: 0,
+        notes: "30-day linear estimate",
+      });
+    }
+
+    return {
+      forecastWeight: Number.isFinite(forecastWeight) && forecastWeight > 0 ? forecastWeight : null,
+      slope,
+      chartData,
+      recordCount: points.length,
+    };
+  }, [weightLogs]);
+
   // Filter production logs for this specific animal
   const canProduceMilk = Boolean(
     activeItem
@@ -1776,8 +1834,18 @@ export default function LivestockDetailPage() {
                     <CardDescription className="text-xs text-slate-500">
                       {targetWeight
                         ? `Historical body weight recordings compared against target market weight (${targetWeight} kg).`
-                        : "Historical body weight recordings over time."}
+                        : "Recorded weights with a 30-day estimate based on linear regression."}
                     </CardDescription>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] font-semibold text-slate-500">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="size-2 rounded-full bg-emerald-600" /> Recorded weight
+                      </span>
+                      {weightPrediction?.forecastWeight != null && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="w-4 border-t-2 border-dashed border-blue-600" /> 30-day estimate
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <Button
                     disabled={isInactive}
@@ -1798,7 +1866,10 @@ export default function LivestockDetailPage() {
                 <div className="h-64 w-full pt-2">
                   {weightLogs.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={weightLogs} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                      <LineChart
+                        data={weightPrediction?.chartData ?? weightLogs.map((log) => ({ ...log, recordedWeight: log.weight }))}
+                        margin={{ top: 10, right: 20, left: -10, bottom: 0 }}
+                      >
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                         <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748B" }} tickLine={false} />
                         <YAxis tick={{ fontSize: 11, fill: "#64748B" }} tickLine={false} unit="kg" />
@@ -1813,12 +1884,24 @@ export default function LivestockDetailPage() {
                         />
                         <Line
                           type="monotone"
-                          dataKey="weight"
+                          dataKey="recordedWeight"
                           stroke="#10B981"
                           strokeWidth={3}
                           dot={{ r: 4, fill: "#059669", stroke: "#FFFFFF", strokeWidth: 2 }}
                           name="Live Weight (kg)"
                         />
+                        {weightPrediction?.forecastWeight != null && (
+                          <Line
+                            type="linear"
+                            dataKey="predictedWeight"
+                            stroke="#2563EB"
+                            strokeWidth={2}
+                            strokeDasharray="6 4"
+                            dot={false}
+                            connectNulls
+                            name="Estimated Weight (kg)"
+                          />
+                        )}
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
@@ -1845,6 +1928,24 @@ export default function LivestockDetailPage() {
                     </p>
                     <p className="text-slate-600 text-[11px]">
                       {latestAdg === null ? "Add a second weigh-in to calculate daily gain." : "Calculated between recorded weigh-ins."}
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-sky-50 rounded-2xl border border-sky-100 space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-sky-800">
+                      Estimated Weight in 30 Days
+                    </span>
+                    <p className="text-xl font-black text-sky-950">
+                      {weightPrediction?.forecastWeight == null
+                        ? "—"
+                        : `${Math.round(weightPrediction.forecastWeight * 10) / 10} kg`}
+                    </p>
+                    <p className="text-slate-600 text-[11px]">
+                      {weightPrediction?.forecastWeight != null
+                        ? `Linear estimate from ${weightPrediction.recordCount} dated weigh-ins (${weightPrediction.slope >= 0 ? "+" : ""}${Math.round(weightPrediction.slope * 100) / 100} kg/day).`
+                        : weightPrediction
+                          ? "The recorded trend does not support a positive 30-day estimate."
+                          : "Record weights on at least two different dates to estimate future weight."}
                     </p>
                   </div>
 
