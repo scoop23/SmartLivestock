@@ -77,11 +77,18 @@ type AskResponse = {
 
 const EXAMPLES = [
   "How many approved active livestock heads are recorded across all species?",
+  "Ilan ang aprubadong aktibong hayop sa bawat barangay?",
   "Show approved active livestock heads by species.",
+  "Ilang baka ang aprubadong aktibo ngayon?",
   "How many cattle are currently registered?",
   "Which barangays reported the most cattle diseases this quarter?",
+  "Ilang kaso ng sakit ang naiulat sa bawat barangay ngayong quarter?",
+  "Ilan ang may sakit sa Manggas?",
   "Compare cattle mortality across barangays this quarter.",
+  "Ilang pagkamatay ang naitala sa bawat barangay ngayong quarter?",
+  "Ilan ang namamatay sa Manggas?",
   "Which submissions are waiting for MAO approval?",
+  "Aling mga ulat ng sakit ang naghihintay ng pag-apruba sa MAO?",
   "Ilang baka ang registered ngayon?",
   "How many cattle does Farmer Juan Dela Cruz have?",
   "Ilan ang baka ni Farmer Juan Dela Cruz?",
@@ -426,6 +433,7 @@ export function AskSmartLivestock({
   const [explainWithAI, setExplainWithAI] = useState(false);
   const [interpretWithAI, setInterpretWithAI] = useState(false);
   const questionInput = useRef<HTMLInputElement>(null);
+  const mobileResultRef = useRef<HTMLDivElement>(null);
   const panelContentId = useId();
   // A ref changes immediately; React state alone cannot block same-tick clicks.
   const submitting = useRef(false);
@@ -446,6 +454,18 @@ export function AskSmartLivestock({
       if (closeAssistantTimeoutRef.current) clearTimeout(closeAssistantTimeoutRef.current);
     };
   }, [handleOpenAssistant]);
+
+  useEffect(() => {
+    if (!response || !window.matchMedia("(max-width: 1023px)").matches) return;
+
+    const target = mobileResultRef.current;
+    if (!target) return;
+
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "auto"
+      : "smooth";
+    requestAnimationFrame(() => target.scrollIntoView({ behavior, block: "start" }));
+  }, [response]);
 
   useEffect(() => {
     if (!floating || !isOpen) return;
@@ -842,7 +862,7 @@ export function AskSmartLivestock({
   const renderContent = () => (
     <div className="space-y-5">
       {renderQueryControls()}
-      {response ? renderResultConsole() : null}
+      {response ? <div ref={mobileResultRef}>{renderResultConsole()}</div> : null}
     </div>
   );
 
@@ -943,7 +963,7 @@ export function AskSmartLivestock({
 
                 {/* On mobile screens (< lg), display the result inside this popup */}
                 {response && (
-                  <div className="lg:hidden pt-2">
+                  <div ref={mobileResultRef} className="lg:hidden pt-2 scroll-mt-3">
                     {renderResultConsole()}
                   </div>
                 )}
