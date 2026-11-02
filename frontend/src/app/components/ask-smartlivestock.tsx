@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Clock,
   Cpu,
   Database,
@@ -359,9 +360,20 @@ function ResultVisualization({ response }: { response: AskResponse }) {
   );
 }
 
-export function AskSmartLivestock() {
+export interface AskSmartLivestockProps {
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+  className?: string;
+}
+
+export function AskSmartLivestock({
+  collapsible = true,
+  defaultOpen = false,
+  className = "",
+}: AskSmartLivestockProps = {}) {
   const { user } = useAuth();
   const examples = EXAMPLES;
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState<AskResponse | null>(null);
   const [error, setError] = useState("");
@@ -372,15 +384,27 @@ export function AskSmartLivestock() {
   const [interpretWithAI, setInterpretWithAI] = useState(false);
   const questionInput = useRef<HTMLInputElement>(null);
   const resultContentId = useId();
+  const panelContentId = useId();
   // A ref changes immediately; React state alone cannot block same-tick clicks.
   const submitting = useRef(false);
 
   if (user?.role?.toUpperCase() !== "MAO") return null;
 
+  const handleToggle = () => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => questionInput.current?.focus(), 100);
+      }
+      return next;
+    });
+  };
+
   const ask = async (value: string) => {
     const trimmed = value.trim();
     if (!trimmed || submitting.current) return;
     submitting.current = true;
+    setIsOpen(true);
     setLoading(true);
     setResultExpanded(true);
     setError("");
@@ -408,15 +432,25 @@ export function AskSmartLivestock() {
   };
 
   return (
-    <section className="relative min-w-0 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6" aria-label="Ask SmartLivestock analytics assistant" aria-busy={loading}>
+    <section
+      className={`relative min-w-0 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs transition-all duration-200 ${
+        collapsible && !isOpen ? "p-3.5 sm:p-4" : "p-4 sm:p-6"
+      } ${className}`}
+      aria-label="Ask SmartLivestock analytics assistant"
+      aria-busy={loading}
+    >
       {/* Background Subtle Cyber Glow */}
       <div className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full bg-emerald-500/5 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -left-24 size-64 rounded-full bg-cyan-500/5 blur-3xl" />
 
       {/* Header Bar */}
-      <div className="relative mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
+      <div
+        className={`relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${
+          collapsible && !isOpen ? "" : "mb-4"
+        }`}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-800">
               <Cpu className="size-3 text-emerald-600" />
               NEURAL QUERY CO-PILOT
@@ -428,9 +462,48 @@ export function AskSmartLivestock() {
             Ask for livestock totals across all species or by type, plus disease, mortality, and MAO review summaries. Farmer milk and meat-yield logs are private.
           </p>
         </div>
+
+        {collapsible && (
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+            {response && !isOpen && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 font-mono text-[10px] font-bold text-emerald-800">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Result ready
+              </span>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleToggle}
+              aria-expanded={isOpen}
+              aria-controls={panelContentId}
+              className={`h-9 shrink-0 gap-1.5 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer ${
+                isOpen
+                  ? "border-slate-200 bg-white text-slate-700 shadow-2xs hover:bg-slate-50"
+                  : "border-emerald-300/90 bg-emerald-50/80 text-emerald-900 shadow-2xs hover:bg-emerald-100 hover:border-emerald-400"
+              }`}
+            >
+              {isOpen ? (
+                <>
+                  <span>Hide Assistant</span>
+                  <ChevronUp className="size-3.5 text-slate-500" />
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-3.5 text-emerald-600" />
+                  <span>Open Assistant</span>
+                  <ChevronDown className="size-3.5 text-emerald-700" />
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Query Input Terminal Form */}
+      {(!collapsible || isOpen) && (
+        <div id={panelContentId} className="animate-in fade-in slide-in-from-top-1 duration-200">
+          {/* Query Input Terminal Form */}
       <form onSubmit={handleSubmit} className="relative flex flex-col gap-2 sm:flex-row">
         <div className="min-w-0 flex-1">
           <Label htmlFor="analytics-question" className="sr-only">Your analytics question</Label>
@@ -799,6 +872,8 @@ export function AskSmartLivestock() {
           </div>
         </div>
       ) : null}
+        </div>
+      )}
     </section>
   );
 }

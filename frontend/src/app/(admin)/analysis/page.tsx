@@ -73,7 +73,7 @@ interface SurveillanceQuickResponse {
 
 export default function AnalysisOverviewPage() {
   const { user } = useAuth();
-  const [isAssistantOpen, setIsAssistantOpen] = useState(true);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
   // Fetch verified summary telemetry for real-data overview
   const dashboardQuery = useQuery<DashboardSummaryResponse>({
@@ -575,7 +575,7 @@ export default function AnalysisOverviewPage() {
 
           {isAssistantOpen && (
             <div id="ask-smartlivestock-content" className="p-4 sm:p-5 bg-white space-y-4">
-              <AskSmartLivestock />
+              <AskSmartLivestock collapsible={false} defaultOpen={true} />
             </div>
           )}
         </section>}
