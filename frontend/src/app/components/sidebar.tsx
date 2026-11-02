@@ -26,33 +26,41 @@ import { useAccessibilitySettings } from '@/contexts/accessibility-settings-cont
 import { useAuth } from '@/contexts/auth-context';
 import { cowHead } from '@lucide/lab';
 import {
-BarChart3,
-Bell,
-CalendarDays,
-ChevronDown,
-ClipboardCheck,
-Clock,
-Database,
-FileText,
-HelpCircle,
-History,
-Icon,
-Key,
-LayoutDashboard,
-LogOut,
-Map,
-Megaphone,
-Newspaper,
-Phone,
-Pin,
-PinOff,
-QrCode,
-Shield,
-ShieldCheck,
-Stethoscope,
-Upload,
-User as UserIcon,
-Users
+  Activity,
+  BarChart2,
+  BarChart3,
+  Beef,
+  Bell,
+  CalendarDays,
+  ChevronDown,
+  ClipboardCheck,
+  Clock,
+  FileBarChart,
+  FileSpreadsheet,
+  FileText,
+  Gavel,
+  HelpCircle,
+  History,
+  Icon,
+  Key,
+  LayoutDashboard,
+  LayoutGrid,
+  LogOut,
+  Map,
+  MapPin,
+  Megaphone,
+  Newspaper,
+  Phone,
+  Pin,
+  PinOff,
+  QrCode,
+  Shield,
+  ShieldPlus,
+  Sparkles,
+  Stethoscope,
+  TrendingUp,
+  User as UserIcon,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -61,6 +69,30 @@ import { MOBILE_NAV_EVENT } from './mobile-nav-open';
 
 const CowHeadIcon = ({ className }: { className?: string }) => (
   <Icon iconNode={cowHead} className={className} />
+);
+
+const DiseaseIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="5" />
+    <path d="M12 2v3m0 14v3M2 12h3m14 0h3" />
+    <path d="m4.93 4.93 2.12 2.12m9.9 9.9 2.12 2.12M4.93 19.07l2.12-2.12m9.9-9.9 2.12-2.12" />
+    <circle cx="12" cy="2" r="0.8" />
+    <circle cx="12" cy="22" r="0.8" />
+    <circle cx="2" cy="12" r="0.8" />
+    <circle cx="22" cy="12" r="0.8" />
+    <circle cx="4.93" cy="4.93" r="0.8" />
+    <circle cx="19.07" cy="19.07" r="0.8" />
+    <circle cx="4.93" cy="19.07" r="0.8" />
+    <circle cx="19.07" cy="4.93" r="0.8" />
+  </svg>
+);
+
+const MortalityIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 21V9a7 7 0 0 1 14 0v12Z" />
+    <path d="M12 8v7m-2.5-4.5h5" />
+    <path d="M3 21h18" />
+  </svg>
 );
 
 interface SidebarProps {
@@ -72,6 +104,7 @@ export interface SidebarSubLink {
   path: string;
   label: string;
   badge?: string;
+  icon?: React.ComponentType<{ className?: string }>;
 }
 
 export interface SidebarLink {
@@ -79,6 +112,7 @@ export interface SidebarLink {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
+  hasNotificationDot?: boolean;
   exactMatch?: boolean;
   subLinks?: SidebarSubLink[];
 }
@@ -87,39 +121,70 @@ const adminLinks: SidebarLink[] = [
   {
     path: '/admin',
     label: 'Dashboard',
-    icon: LayoutDashboard,
-    subLinks: [
-      { path: '/admin/census-analytics', label: 'Census Analytics' },
-    ],
+    icon: LayoutGrid,
   },
-  { path: '/data-overview', label: 'System Data', icon: Database },
-  { path: '/user-management', label: 'User Management', icon: Users },
   {
-    path: '/data-validation',
-    label: 'Data Validation',
-    icon: ShieldCheck,
+    path: '/user-management',
+    label: 'User Management',
+    icon: Users,
+  },
+  {
+    path: '/data-overview',
+    label: 'Livestock Records',
+    icon: CowHeadIcon,
     subLinks: [
-      { path: '/data-validation', label: 'Overview & Verification' },
-      { path: '/data-validation/batches', label: 'Herd Register', badge: 'Herds' },
-      { path: '/ownership-transfers', label: 'Ownership Transfers' },
+      { path: '/data-overview?tab=inventory', label: 'Individual Records', icon: CowHeadIcon },
+      { path: '/data-validation/batches', label: 'Herd Records', icon: Users },
     ],
   },
-  { path: '/gis-map', label: 'GIS Map', icon: Map },
+  {
+    path: '/data-overview?tab=disease',
+    label: 'Health Reports',
+    icon: ShieldPlus,
+    subLinks: [
+      { path: '/data-overview?tab=disease', label: 'Disease Reports', icon: DiseaseIcon },
+      { path: '/data-overview?tab=mortality', label: 'Mortality Reports', icon: MortalityIcon },
+    ],
+  },
+  {
+    path: '/ownership-transfers',
+    label: 'Auction',
+    icon: Gavel,
+  },
+  {
+    path: '/slaughter-record-review',
+    label: 'Slaughter',
+    icon: Beef,
+  },
   {
     path: '/analysis',
     label: 'Analytics',
-    icon: BarChart3,
+    icon: BarChart2,
     subLinks: [
-      { path: '/analysis', label: 'Overview' },
-      { path: '/analysis/descriptive', label: 'Descriptive' },
-      { path: '/analysis/predictive', label: 'Predictive' },
-      { path: '/analysis/prescriptive', label: 'Prescriptive' },
-      { path: '/analysis/surveillance-health', label: 'Surveillance & Health' },
+      { path: '/analysis', label: 'Overview', icon: BarChart3 },
+      { path: '/analysis/descriptive', label: 'Descriptive', icon: Activity },
+      { path: '/analysis/predictive', label: 'Predictive', icon: TrendingUp },
+      { path: '/analysis/prescriptive', label: 'Prescriptive', icon: Sparkles },
+      { path: '/analysis/surveillance-health', label: 'Surveillance & Health', icon: Stethoscope },
+      { path: '/admin/census-analytics', label: 'Census Analytics', icon: FileSpreadsheet },
     ],
   },
-  { path: '/reports', label: 'Reports', icon: FileText },
-  { path: '/data-uploads', label: 'Data Upload', icon: Upload },
-  { path: '/news-announcements', label: 'Announcements', icon: Newspaper },
+  {
+    path: '/gis-map',
+    label: 'GIS Map',
+    icon: MapPin,
+  },
+  {
+    path: '/reports',
+    label: 'Report Generation',
+    icon: FileBarChart,
+  },
+  {
+    path: '/news-announcements',
+    label: 'Announcements',
+    icon: Megaphone,
+    hasNotificationDot: true,
+  },
 ];
 
 const farmerLinks: SidebarLink[] = [
@@ -184,7 +249,7 @@ function getRoleBadge(role: SidebarProps['role']): { label: string; bg: string; 
     case 'slaughterhouse':
       return { label: 'Slaughterhouse Staff', bg: 'bg-rose-400/20', text: 'text-rose-200' };
     default:
-      return { label: 'MAO Admin', bg: 'bg-white/20', text: 'text-white' };
+      return { label: 'MAO ADMIN', bg: 'bg-emerald-950/80 border border-emerald-500/30', text: 'text-emerald-200' };
   }
 }
 
@@ -233,13 +298,20 @@ function SidebarNav({
   const profilePopoverOpen = controlledProfilePopoverOpen ?? internalProfilePopoverOpen;
   const setProfilePopoverOpen = onProfilePopoverOpenChange ?? setInternalProfilePopoverOpen;
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
+    const initial: Record<string, boolean> = {
+      '/data-overview': true,
+      '/data-overview?tab=disease': true,
+    };
     links.forEach((link) => {
+      const linkBase = link.path.split('?')[0];
       if (
         link.subLinks &&
-        (pathname === link.path ||
-          pathname.startsWith(link.path + "/") ||
-          link.subLinks.some((s) => pathname === s.path || pathname.startsWith(s.path + "/")))
+        (pathname === linkBase ||
+          pathname.startsWith(linkBase + "/") ||
+          link.subLinks.some((s) => {
+            const sBase = s.path.split('?')[0];
+            return pathname === sBase || pathname.startsWith(sBase + "/");
+          }))
       ) {
         initial[link.path] = true;
       }
@@ -259,7 +331,7 @@ function SidebarNav({
   };
 
   return (
-    <div className="flex flex-col h-full select-none bg-[#1E4D2B] border-r border-[#163b21] text-white">
+    <div className="flex flex-col h-full select-none bg-[#0B331B] border-r border-[#0D3D20] text-white">
       {/* Top Header Logo */}
       <div
         className={cn(
@@ -272,8 +344,8 @@ function SidebarNav({
         )}
       >
         <div className={cn("flex items-center min-w-0", collapsed ? "justify-center" : "gap-3")}>
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#1E4D2B] shadow-md shadow-black/20 ring-2 ring-white/20">
-            <Icon iconNode={cowHead} className="size-5.5 text-[#1E4D2B]" />
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-[#0B331B] shadow-md shadow-black/20 ring-2 ring-white/20 transition-transform duration-200 hover:scale-105">
+            <Icon iconNode={cowHead} className="size-5.5 text-[#0B331B]" />
           </div>
 
           <div
@@ -310,23 +382,20 @@ function SidebarNav({
 
       {/* Main Navigation Links */}
       <nav className="sidebar-nav-scrollbar flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2 space-y-1.5">
-        <p
-          className={cn(
-            "px-3 py-1 text-[11px] font-black uppercase tracking-widest text-emerald-200/50 whitespace-nowrap transition-all duration-200",
-            collapsed ? "opacity-0 h-0 py-0 overflow-hidden" : "opacity-100"
-          )}
-        >
-          Menu
-        </p>
+
 
         {links.map((link) => {
           const Icon = link.icon;
           const hasSubLinks = Boolean(link.subLinks && link.subLinks.length > 0);
           const isDropdownOpen = Boolean(openDropdowns[link.path]);
 
-          const isExactActive = pathname === link.path;
+          const linkBasePath = link.path.split('?')[0];
+          const isExactActive = pathname === linkBasePath;
           const isChildActive = Boolean(
-            hasSubLinks && link.subLinks?.some((s) => pathname === s.path || pathname.startsWith(s.path + "/"))
+            hasSubLinks && link.subLinks?.some((s) => {
+              const sBase = s.path.split('?')[0];
+              return pathname === sBase || pathname.startsWith(sBase + "/");
+            })
           );
           const isActive = isExactActive || isChildActive || (
             !hasSubLinks &&
@@ -335,7 +404,7 @@ function SidebarNav({
             link.path !== '/farmer' &&
             link.path !== '/sibat' &&
             link.path !== '/auction' &&
-            (pathname === link.path || pathname.startsWith(link.path + "/"))
+            (pathname === linkBasePath || pathname.startsWith(linkBasePath + "/"))
           );
 
           if (hasSubLinks && !collapsed) {
@@ -343,41 +412,31 @@ function SidebarNav({
               <div key={link.path} className="space-y-1">
                 <div
                   className={cn(
-                    "group relative flex items-center justify-between px-3 rounded-xl font-semibold transition-all duration-150",
+                    "group relative flex items-center justify-between px-3.5 py-2.5 rounded-2xl font-medium transition-all duration-200 cursor-pointer select-none",
                     role === "sibat" || role === "farmer" ? "min-h-14 py-3 text-base" : "py-2.5 text-sm",
-                    isActive
-                      ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs"
-                      : "text-emerald-100/75 hover:bg-white/10 hover:text-white"
+                    isActive && !isDropdownOpen
+                      ? "bg-[#7eedb6] text-[#062E16] font-bold shadow-md shadow-emerald-950/20 scale-[1.01]"
+                      : "text-white/90 hover:bg-white/10 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
                   )}
+                  onClick={(e) => toggleDropdown(link.path, e)}
                 >
-                  <Link
-                    href={link.path}
-                    onClick={() => onNavigate?.()}
-                    className="flex items-center gap-3 min-w-0 flex-1 truncate"
-                  >
-                    <Icon className={cn("size-5 shrink-0 transition-transform duration-150", isActive ? "text-emerald-300 scale-105" : "text-emerald-200/70 group-hover:text-white")} />
-                    <span className="truncate whitespace-nowrap">{link.label}</span>
-                  </Link>
+                  <div className="flex items-center gap-3 min-w-0 flex-1 truncate">
+                    <Icon className={cn("size-5 shrink-0 transition-transform duration-200 group-hover:scale-110", isActive && !isDropdownOpen ? "text-[#062E16]" : "text-white")} />
+                    <span className="truncate whitespace-nowrap text-sm font-medium">{link.label}</span>
+                  </div>
 
-                  <button
-                    type="button"
-                    aria-label={`Toggle ${link.label} sub-items`}
-                    aria-expanded={isDropdownOpen}
-                    aria-controls={`sublinks-${link.path.replace(/\//g, '-')}`}
-                    onClick={(e) => toggleDropdown(link.path, e)}
-                    className="p-1 rounded-lg hover:bg-white/10 text-emerald-200/70 hover:text-white transition-colors cursor-pointer"
-                  >
+                  <span className="p-1 rounded-lg text-white/70 group-hover:text-white transition-colors">
                     <ChevronDown
                       className={cn(
                         "size-4 transition-transform duration-200",
-                        isDropdownOpen ? "rotate-180 text-emerald-300" : "text-emerald-200/50"
+                        isDropdownOpen ? "rotate-180 text-white" : "text-white/70"
                       )}
                     />
-                  </button>
+                  </span>
                 </div>
 
                 <div
-                  id={`sublinks-${link.path.replace(/\//g, '-')}`}
+                  id={`sublinks-${link.path.replace(/[\/?=]/g, '-')}`}
                   className={cn(
                     "grid transition-all duration-200 ease-in-out motion-reduce:transition-none",
                     isDropdownOpen
@@ -386,9 +445,11 @@ function SidebarNav({
                   )}
                 >
                   <div className="overflow-hidden">
-                    <div className="ml-5 pl-2.5 my-1 border-l border-emerald-400/25 space-y-1">
-                      {link.subLinks?.map((sub, subIdx) => {
-                        const isSubActive = pathname === sub.path;
+                    <div className="relative ml-5 pl-3.5 my-1 border-l-2 border-emerald-500/40 space-y-1">
+                      {link.subLinks?.map((sub) => {
+                        const SubIcon = sub.icon;
+                        const sBase = sub.path.split('?')[0];
+                        const isSubActive = pathname === sBase;
                         const subLabel =
                           isCbatUser && sub.path === "/sibat/batches" ? "Herd" : sub.label;
                         return (
@@ -398,22 +459,24 @@ function SidebarNav({
                             onClick={() => onNavigate?.()}
                             tabIndex={isDropdownOpen ? 0 : -1}
                             className={cn(
-                              "flex min-h-12 items-center justify-between px-3 rounded-lg font-semibold transition-all duration-200 motion-reduce:transition-none",
-                              role === "sibat" || role === "farmer" ? "py-2.5 text-sm" : "py-1.5 text-xs",
+                              "flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200",
+                              role === "sibat" || role === "farmer" ? "py-2.5 text-sm" : "py-2 text-xs",
                               isSubActive
-                                ? "bg-emerald-500/25 text-white font-bold border border-emerald-400/30"
-                                : "text-emerald-100/70 hover:bg-white/10 hover:text-white hover:translate-x-1",
-                              isDropdownOpen
-                                ? "translate-y-0 opacity-100"
-                                : "-translate-y-1.5 opacity-0"
+                                ? "bg-[#7eedb6] text-[#062E16] font-bold shadow-xs scale-[1.01]"
+                                : "text-white/85 hover:bg-white/10 hover:text-white hover:translate-x-1"
                             )}
-                            style={{
-                              transitionDelay: isDropdownOpen ? `${subIdx * 35}ms` : "0ms",
-                            }}
                           >
+                            {SubIcon && (
+                              <SubIcon
+                                className={cn(
+                                  "size-4 shrink-0 transition-transform duration-200 group-hover:scale-110",
+                                  isSubActive ? "text-[#062E16]" : "text-white/80 group-hover:text-white"
+                                )}
+                              />
+                            )}
                             <span className="truncate">{subLabel}</span>
                             {sub.badge && (
-                              <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300">
+                              <span className="ml-auto text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300">
                                 {sub.badge}
                               </span>
                             )}
@@ -435,26 +498,34 @@ function SidebarNav({
               title={collapsed ? link.label : undefined}
               onClick={() => onNavigate?.()}
               className={cn(
-                "group relative flex min-h-12 items-center gap-3 rounded-xl font-semibold transition-all duration-150",
-                collapsed ? "justify-center gap-0 px-0" : "gap-3 px-3",
-                role === "sibat" || role === "farmer" ? "py-3 text-base" : "py-2.5 text-sm",
+                "group relative flex items-center rounded-2xl font-medium transition-all duration-200 select-none",
+                collapsed ? "justify-center gap-0 px-0 py-3" : "gap-3 px-3.5 py-2.5",
+                role === "sibat" || role === "farmer" ? "min-h-14 py-3 text-base" : "py-2.5 text-sm",
                 isActive
-                  ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs"
-                  : "text-emerald-100/75 hover:bg-white/10 hover:text-white hover:translate-x-0.5"
+                  ? "bg-[#7eedb6] text-[#062E16] font-bold shadow-md shadow-emerald-950/20 scale-[1.01]"
+                  : "text-white/90 hover:bg-white/10 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
               )}
             >
-              <Icon className={cn("size-5 shrink-0 transition-transform duration-150", isActive ? "text-emerald-300 scale-105" : "text-emerald-200/70 group-hover:text-white")} />
+              <Icon
+                className={cn(
+                  "size-5 shrink-0 transition-transform duration-200 group-hover:scale-110",
+                  isActive ? "text-[#062E16]" : "text-white"
+                )}
+              />
               <span
                 className={cn(
-                  "truncate whitespace-nowrap transition-all duration-200",
+                  "truncate whitespace-nowrap text-sm font-medium transition-all duration-200",
                   collapsed ? "opacity-0 w-0 max-w-0 pointer-events-none" : "opacity-100 max-w-[200px]"
                 )}
               >
                 {link.label}
               </span>
 
-              {isActive && !collapsed && (
-                <span className="ml-auto size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+              {link.hasNotificationDot && !collapsed && (
+                <span className="ml-auto relative flex size-2.5 shrink-0">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-rose-400 opacity-75 motion-reduce:animate-none" />
+                  <span className="relative inline-flex size-2.5 rounded-full bg-rose-500 ring-2 ring-[#0B331B]" />
+                </span>
               )}
             </Link>
           );
@@ -807,7 +878,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
             }
           }}
           className={cn(
-            "fixed inset-y-0 left-0 flex flex-col bg-[#2D5A27] text-white border-r border-white/10 overflow-hidden transform-gpu transition-[width,box-shadow] duration-200 ease-in-out",
+            "fixed inset-y-0 left-0 flex flex-col bg-[#0B331B] text-white border-r border-[#0D3D20] overflow-hidden transform-gpu transition-[width,box-shadow] duration-200 ease-in-out",
             isPinned
               ? "z-[var(--z-sidebar)] shadow-xl"
               : isHovered || desktopProfilePopoverOpen
@@ -834,7 +905,7 @@ export function Sidebar({ role, onLogout }: SidebarProps) {
 
       {/* Mobile — slide-over sheet drawer (Elevated to z-[var(--z-sidebar)] to sit cleanly above mobile map views) */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent ref={setMobileSheetContent} side="left" className="w-[min(20rem,88vw)] p-0 border-0 bg-[#2D5A27] z-[var(--z-dialog)] [&>button]:top-4 [&>button]:right-4 [&>button]:inline-flex [&>button]:size-11 [&>button]:items-center [&>button]:justify-center [&>button]:p-0 [&>button]:text-white">
+        <SheetContent ref={setMobileSheetContent} side="left" className="w-[min(20rem,88vw)] p-0 border-0 bg-[#0B331B] z-[var(--z-dialog)] [&>button]:top-4 [&>button]:right-4 [&>button]:inline-flex [&>button]:size-11 [&>button]:items-center [&>button]:justify-center [&>button]:p-0 [&>button]:text-white">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarNav
             collapsed={false}
