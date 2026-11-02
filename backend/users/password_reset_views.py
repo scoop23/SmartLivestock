@@ -23,6 +23,35 @@ RESET_REQUEST_MESSAGE = (
 )
 
 
+def send_staff_invitation_email(user):
+    """Send a short-lived password setup link to a pending staff account."""
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    setup_url = f"{settings.FRONTEND_URL}/reset-password?mode=invite&uid={uid}&token={token}"
+    role_label = {
+        "CBAT": "CBAT",
+        "AUCTION": "Auction",
+        "SLAUGHTERHOUSESTAFF": "Slaughterhouse Staff",
+    }.get(user.role.role_name, user.role.get_role_name_display())
+    sent_count = send_mail(
+        subject="Complete your SmartLivestock staff account setup",
+        message=(
+            f"Hello {user.first_name or user.username},\n\n"
+            f"MAO invited you to join SmartLivestock as {role_label}.\n"
+            "Set a password using this link:\n"
+            f"{setup_url}\n\n"
+            "Your account will remain pending until MAO approves it. "
+            "This setup link expires after three days. If you were not expecting this invitation, "
+            "please contact MAO."
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+    if sent_count != 1:
+        raise RuntimeError("The staff invitation email was not accepted by the configured email backend.")
+
+
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
 

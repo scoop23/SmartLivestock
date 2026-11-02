@@ -14,6 +14,19 @@ from django.utils import timezone
 from typing import cast
 
 
+STAFF_INVITATION_ROLES = (
+    Role.UserRoles.CBAT,
+    Role.UserRoles.AUCTION,
+    Role.UserRoles.SLAUGHTERHOUSESTAFF,
+)
+
+STAFF_INVITATION_CHOICES = (
+    (Role.UserRoles.CBAT, "CBAT"),
+    (Role.UserRoles.AUCTION, "Auction"),
+    (Role.UserRoles.SLAUGHTERHOUSESTAFF, "Slaughterhouse Staff"),
+)
+
+
 class MyTokenSerializer(TokenObtainPairSerializer):
     """
     Returns:
@@ -497,6 +510,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
     rsbsa_number = serializers.SerializerMethodField()
     assigned_barangay_id = serializers.IntegerField(read_only=True, allow_null=True)
     assigned_barangay_name = serializers.CharField(source="assigned_barangay.barangay_name", read_only=True, allow_null=True)
+    password_setup_pending = serializers.SerializerMethodField()
     documents = UserDocumentSerializer(many=True, read_only=True)
 
     class Meta:
@@ -518,6 +532,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
             "barangay_id",
             "assigned_barangay_id",
             "assigned_barangay_name",
+            "password_setup_pending",
             "access_scope",
             "farm_size",
             "address",
@@ -541,6 +556,12 @@ class UserManagementSerializer(serializers.ModelSerializer):
 
     def get_phone_number(self, obj):
         return str(obj.phone_number) if obj.phone_number else ""
+
+    def get_password_setup_pending(self, obj):
+        return bool(
+            obj.role.role_name in STAFF_INVITATION_ROLES
+            and not obj.has_usable_password()
+        )
 
     def get_barangay(self, obj):
         if obj.role.role_name in {"SIBAT", "CBAT"}:
@@ -594,6 +615,44 @@ class UserStatusUpdateSerializer(serializers.Serializer):
         PATCH /api/users/management/<id>/status/ by MAO officers.
     """
     status = serializers.ChoiceField(choices=User.AccountStatus.choices)
+
+
+class StaffInvitationSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=150, trim_whitespace=True)
+    last_name = serializers.CharField(max_length=150, trim_whitespace=True)
+    email = serializers.EmailField()
+    phone_number = serializers.CharField(max_length=32, required=False, allow_blank=True)
+    role = serializers.ChoiceField(choices=STAFF_INVITATION_CHOICES)
+    assigned_barangay_id = serializers.PrimaryKeyRelatedField(
+        source="assigned_barangay",
+        queryset=Barangay.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("An account already exists for this email address.")
+        return value
+
+    def validate(self, attrs):
+        extra_fields = set(self.initial_data) - set(self.fields)
+        if extra_fields:
+            raise serializers.ValidationError(
+                {field: "This field is not allowed for staff invitations." for field in sorted(extra_fields)}
+            )
+
+        assigned_barangay = attrs.get("assigned_barangay")
+        if attrs["role"] == Role.UserRoles.CBAT and assigned_barangay is None:
+            raise serializers.ValidationError(
+                {"assigned_barangay_id": "Choose the barangay this CBAT account will cover."}
+            )
+        if attrs["role"] != Role.UserRoles.CBAT and assigned_barangay is not None:
+            raise serializers.ValidationError(
+                {"assigned_barangay_id": "Only CBAT staff receive a barangay assignment."}
+            )
+        return attrs
 
 
 class SibatAssignmentSerializer(serializers.Serializer):

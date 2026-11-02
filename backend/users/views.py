@@ -1,7 +1,9 @@
 import os
 import json
 import mimetypes
+import uuid
 import urllib.request
+import logging
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -9,6 +11,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.exceptions import APIException
 from rest_framework_simplejwt.authentication import JWTAuthentication  # type: ignore
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError  # type: ignore
 from django.http import HttpResponse, HttpResponseNotFound, FileResponse
@@ -21,7 +24,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.throttling import AnonRateThrottle
 
 from livestock.permission import IsMAO
-from users.models import User, UserDocument, Notification
+from users.models import Role, User, UserDocument, Notification
 from .notification_views import create_notification
 from .serializer import (
     CurrentUserSerializer,
@@ -31,7 +34,11 @@ from .serializer import (
     UserManagementSerializer,
     UserStatusUpdateSerializer,
     SibatAssignmentSerializer,
+    StaffInvitationSerializer,
+    STAFF_INVITATION_ROLES,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def block_public_registration_document_media(request, path):
@@ -196,6 +203,16 @@ def update_user_status(request, pk):
     # Administrative safeguard:
     # If approving an account with submitted documents, ensure documents are not pending or under revision
     if new_status == User.AccountStatus.APPROVED:
+        if user.role.role_name in STAFF_INVITATION_ROLES and not user.has_usable_password():
+            return Response(
+                {"detail": "The staff member must set a password from their invitation before MAO can approve the account."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if user.role.role_name == Role.UserRoles.CBAT and user.assigned_barangay_id is None:
+            return Response(
+                {"detail": "Assign this CBAT account to a barangay before approving it."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         from .identity_service import evidence_fingerprint
         attempt = user.identity_attempts.select_for_update().first()
         if attempt and (not attempt.manual_review_at or attempt.manual_result_signature != evidence_fingerprint(attempt)):
@@ -226,6 +243,69 @@ def update_user_status(request, pk):
     response_serializer = UserManagementSerializer(user, context={"request": request})
 
     return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, IsMAO])
+@transaction.atomic
+def create_staff_invitation(request):
+    serializer = StaffInvitationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    invitation = serializer.validated_data
+
+    role, _ = Role.objects.get_or_create(role_name=invitation["role"])
+    user = User.objects.create_user(
+        username=f"staff-{uuid.uuid4().hex}",
+        email=invitation["email"],
+        password=None,
+        first_name=invitation["first_name"],
+        last_name=invitation["last_name"],
+        phone_number=invitation.get("phone_number") or None,
+        role=role,
+        account_status=User.AccountStatus.PENDING,
+        assigned_barangay=invitation.get("assigned_barangay"),
+    )
+
+    from .password_reset_views import send_staff_invitation_email
+
+    try:
+        send_staff_invitation_email(user)
+    except Exception as error:
+        logger.exception("Could not send a SmartLivestock staff invitation.")
+        raise APIException(
+            "The staff account was not created because its invitation email could not be sent. Check the mail configuration and try again."
+        ) from error
+
+    return Response(
+        UserManagementSerializer(user, context={"request": request}).data,
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, IsMAO])
+@transaction.atomic
+def resend_staff_invitation(request, pk):
+    user = get_object_or_404(User.objects.select_for_update().select_related("role"), pk=pk)
+    if user.role.role_name not in STAFF_INVITATION_ROLES:
+        return Response({"detail": "Only invited staff accounts can receive a setup invitation."}, status=400)
+    if user.account_status != User.AccountStatus.PENDING or user.has_usable_password():
+        return Response(
+            {"detail": "This account has already completed password setup or is no longer pending. Use password reset if needed."},
+            status=400,
+        )
+
+    from .password_reset_views import send_staff_invitation_email
+
+    try:
+        send_staff_invitation_email(user)
+    except Exception as error:
+        logger.exception("Could not resend a SmartLivestock staff invitation.")
+        raise APIException(
+            "The invitation email could not be sent. Check the mail configuration and try again."
+        ) from error
+
+    return Response(UserManagementSerializer(user, context={"request": request}).data)
 
 
 # PATCH /api/users/documents/<int:pk>/verification/ -> Review registration document (MAO only)
