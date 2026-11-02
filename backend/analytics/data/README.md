@@ -13,14 +13,15 @@ notice before any production query or optional explanation. The browser displays
 returned metadata and values; it does not calculate totals or invent answers.
 
 Supported operations include current approved-active population (including
-barangay and species breakdown), disease cases by barangay, recorded deaths by
-barangay, current MAO review queues, and exact Farmer inventory counts.
+barangay and species breakdown), disease reports, recorded deaths, 30-day
+mortality-rate estimates, approved livestock-sale totals, disease/mortality/sale
+forecasts, current MAO review queues, and exact Farmer inventory counts.
 Production question patterns are recognized but do not run: private Farmer
 production records are not exposed through this assistant. Official slaughter
 questions are explicitly identified as a separate municipal dataset and are
 not substituted with Farmer meat yield; the assistant does not currently
-provide a slaughter-count intent. Sales, owner counts, individual-animal
-filters, mortality rates and forecasts are not implemented here. Farmer
+provide a slaughter-count intent. Owner counts and individual-animal filters
+are not implemented here. Farmer
 inventory counts resolve an exact approved Farmer name or username and count
 approved, active, current individual animal rows by default. Explicit pending,
 verified, or subject-to-revision requests count records in that registration
@@ -42,6 +43,9 @@ current snapshots.
 | Current livestock inventory | How many approved active livestock heads are recorded? | Ilan ang aprubadong aktibong alagang hayop? | Current approved, active individual inventory; can group by registered type or barangay. |
 | Disease reports | How many disease reports were recorded in Manggas? | Ilan ang may sakit sa Manggas? | Approved reports; report count and reported affected heads are different measures. Affected-head totals can overlap across reports. |
 | Recorded deaths | How many deaths were recorded in Manggas? | Ilan ang namamatay sa Manggas? | Approved mortality reports; recorded death count is not a mortality rate. |
+| Mortality-rate estimate | What is the recorded-death rate in Manggas? | Ano ang porsyento ng naitalang pagkamatay sa Manggas? | Last 30 days of approved recorded deaths divided by current approved-active individual inventory. This is an estimate, not a historical population-at-risk rate. |
+| Approved sale totals | How much recorded sale value was approved this quarter? | Magkano ang naitalang halaga ng benta ngayong quarter? | Approved `LivestockOwnershipTransfer` events. Reports event count and known price total; missing prices remain excluded and are counted. |
+| Forecast | Forecast recorded deaths for the next three months. | Ilang pagkamatay ang inaasahan sa susunod na tatlong buwan? | Disease and mortality forecasts are monthly; approved sales forecasts are weekly. Results require sufficient eligible history and remain projections, not guarantees. |
 | MAO review queue | Which disease reports are waiting for MAO approval? | Aling mga ulat ng sakit ang naghihintay ng pag-apruba sa MAO? | Current queue counts by submission type; no historical or barangay-filtered queue query. |
 | One farmer's inventory | How many cattle does Farmer Juan Dela Cruz have? | Ilan ang baka ni Farmer Juan Dela Cruz? | Requires an exact approved Farmer name and one registered livestock type; MAO only. |
 
@@ -51,11 +55,11 @@ month,” a calendar quarter or year, or an explicit YYYY-MM-DD date range. The
 parser asks for clarification when an entity or period is ambiguous or outside
 these rules.
 
-This assistant does not provide Farmer production logs, animal sales totals,
-veterinary diagnosis or treatment, forecasts, or mortality rates. Ask for those
-through their existing reports or workflows instead. Groq can optionally help
-interpret wording and explain a verified aggregate; it does not query records
-or calculate the official totals.
+This assistant does not provide Farmer production logs or veterinary diagnosis
+and treatment. Leave animal diagnosis and treatment decisions to veterinarians.
+Groq can optionally help interpret wording and explain supported results; it
+does not query records or calculate official totals. Forecast values come from
+the existing statistical forecast service, not from Groq.
 
 ## Review workflow decision
 

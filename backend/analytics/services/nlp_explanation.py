@@ -32,6 +32,10 @@ EXPLAINABLE_INTENTS = {
     "production_breakdown": {"production_type", "unit", "quantity", "records", "livestock_type", "barangay"},
     "disease_by_barangay": {"barangay", "disease_cases", "affected_heads"},
     "mortality_comparison": {"barangay", "deaths", "records"},
+    "sales_summary": {
+        "approved_sale_events", "distinct_animals", "known_sale_value_php",
+        "priced_events", "missing_price_events",
+    },
 }
 # The system message describes the writing task; the user message below holds
 # aggregate JSON, not the person's original question. Exact numbers stay in the

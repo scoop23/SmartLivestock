@@ -12,7 +12,7 @@ from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
 from diseases.models import DiseaseCase, MortalityRecord
-from livestock.models import Barangay, Farmer, LivestockInventory, LivestockType
+from livestock.models import Barangay, Farmer, LivestockInventory, LivestockOwnershipTransfer, LivestockType
 from production.models import ProductionRecord
 from production.serializer import allowed_production_types
 from smartlivestock.workflows import role_name, scope_reviewer_queryset
@@ -26,7 +26,7 @@ MAX_EXPLICIT_PERIOD_DAYS = 366 * 5
 SUPPORTED_INTENTS = frozenset({
     "population_summary", "production_trend", "production_breakdown",
     "disease_by_barangay", "mortality_comparison", "pending_reviews",
-    "farmer_livestock_count",
+    "farmer_livestock_count", "sales_summary", "mortality_rate", "forecast",
 })
 
 PRODUCTION_ALIASES = {
@@ -46,8 +46,9 @@ _MUNICIPAL_PRODUCTION_NOTICE = (
 )
 SUPPORTED_QUESTION_MESSAGE = (
     "I can answer current approved livestock counts, approved disease reports and recorded deaths, "
-    "current MAO review queues, and current livestock counts for a specifically named farmer. "
-    "I cannot provide private Farmer production records, veterinary diagnosis or treatment, sales totals, forecasts, or mortality rates here."
+    "approved livestock sale totals, recorded-death rate estimates, supported forecasts, current MAO review queues, "
+    "and current livestock counts for a specifically named farmer. I cannot provide private Farmer production records "
+    "or veterinary diagnosis and treatment."
 )
 _BARANGAY_COMPARISON_PHRASES = (
     "by barangay", "per barangay", "across barangays", "across all barangays",
@@ -117,12 +118,53 @@ def _date_period(start, end, label, selection):
     }
 
 
+def _parse_forecast_horizon(text, domain):
+    """Parse a small, explicit horizon supported by the existing forecast services."""
+    is_sales = domain == "auction"
+    unit_word = r"weeks?|week|linggo|linggong" if is_sales else r"months?|month|buwan"
+    match = re.search(
+        rf"\b(?:next|for the next|for next|sa susunod na)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|isang|dalawang|tatlong|apat na|limang|anim na)\s+({unit_word})\b",
+        text,
+    )
+    if match:
+        number_words = {**NUMBER_WORDS, "isang": 1, "dalawang": 2, "tatlong": 3,
+                        "apat na": 4, "limang": 5, "anim na": 6}
+        token = match.group(1)
+        horizon = int(token) if token.isdigit() else number_words.get(token)
+        if horizon is None or not 1 <= horizon <= 12:
+            return None, "Choose a forecast horizon from 1 to 12 periods."
+        return horizon, None
+
+    if is_sales and re.search(r"\b(?:next|for the next|for next|sa susunod na)\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:months?|buwan)\b", text):
+        return None, "Sales forecasts use complete weeks. Ask for the next 1 to 12 weeks."
+    if not is_sales and _contains(text, "next quarter"):
+        return 3, None
+    horizon_prefix = r"(?:next|for the next|for next|sa susunod na)"
+    count_phrase = r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|isang|dalawang|tatlong)"
+    if re.search(rf"\b{horizon_prefix}\s+{count_phrase}\s+(?:years?|taon|days?|araw|quarters?|quarter)\b", text):
+        return None, "Forecast horizons are supported only in months for disease/death counts and weeks for sales."
+    if is_sales and _contains(text, "next quarter"):
+        return None, "Sales forecasts use complete weeks. Ask for the next 1 to 12 weeks."
+    if re.search(r"\b(?:last|past|previous|nakaraang)\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:months?|weeks?|buwan|linggo)\b", text):
+        return None, "Forecasts look ahead from the latest eligible records; use a future horizon rather than a past period."
+    if any(_contains(text, phrase) for phrase in ("this quarter", "last quarter", "this month", "last month", "nakaraang quarter", "nakaraang buwan")):
+        return None, "Please ask for a future forecast horizon, such as the next three months."
+    return (4 if is_sales else 3), None
+
+
 def _parse_period(text, today, intent):
     """Recognize explicit calendar periods and reject conflicting/invalid ranges."""
     matches = []
     unsupported_time = r"\b(?:yesterday|tomorrow|week|weeks|day|days|january|february|march|april|june|july|august|september|october|november|december|kahapon|linggo|since|until)\b"
+    standard_rate_window = intent == "mortality_rate" and any(_contains(text, phrase) for phrase in (
+        "last 30 days", "past 30 days", "nakaraang 30 araw",
+    ))
+    unsupported_time_text = re.sub(
+        r"\b(?:last|past)\s+30\s+days\b|\bnakaraang\s+30\s+araw\b",
+        " ", text,
+    ) if standard_rate_window else text
     unsupported_may_date = r"\b(?:in|during|for|this|last|previous)\s+may\b|\bmay\s+(?:\d{1,2}(?:,\s*20\d{2})?|20\d{2})\b"
-    if (re.search(unsupported_time, text) or re.search(unsupported_may_date, text)
+    if (re.search(unsupported_time, unsupported_time_text) or re.search(unsupported_may_date, text)
             or (_contains(text, "today") and intent not in ("population_summary", "pending_reviews"))):
         return None, "Use a supported calendar month, quarter, year, or an explicit YYYY-MM-DD date range."
 
@@ -206,7 +248,7 @@ def _parse_period(text, today, intent):
     # Never ignore an unrecognized date and silently substitute the default.
     if re.search(r"\b20\d{2}\b|\b(?:from|between)\b", text):
         return None, "Use a supported calendar month, quarter, year, or an explicit YYYY-MM-DD date range."
-    if intent in ("population_summary", "pending_reviews"):
+    if intent in ("population_summary", "pending_reviews", "mortality_rate", "forecast"):
         return None, None
     # Activity questions without a period use an explicit, visible default.
     return _date_period(_month_start(today, 11), today, "Last 12 calendar months to date", "default_last_12_months"), None
@@ -279,7 +321,9 @@ def _resolve_barangay(text, barangays):
             "the", "this", "that", "last", "past", "previous", "current", "each", "all",
             "cattle", "cow", "carabao", "buffalo", "goat", "sheep", "swine", "pig", "poultry",
             "chicken", "duck", "milk", "dairy", "eggs", "egg", "meat", "wool", "quarter", "year",
-            "q1", "q2", "q3", "q4", "2025", "2026", "bawat", "mao",
+            "q1", "q2", "q3", "q4", "2025", "2026", "bawat", "mao", "susunod", "next",
+            "one", "two", "three", "apat", "tatlong", "dalawang", "isang", "buwan", "months", "month",
+            "weeks", "week", "linggo", "linggong",
         }
         if first_word not in non_locations:
             return None, "I could not match that barangay within the data available to your account."
@@ -308,6 +352,8 @@ def _unknown_species_reference(text, species_names):
         "counts", "count", "figures", "figure", "grouped", "group", "compare", "comparison", "across", "each",
         "for", "the", "a", "an", "please", "can", "we", "look", "at", "this", "year", "month", "quarter",
         "pulong", "ulat", "maikling", "para", "sa", "ipakita", "bilang", "tala", "nakatalang", "ihambing",
+        "forecast", "forecasts", "predict", "prediction", "projection", "projected", "expected", "expect",
+        "next", "one", "two", "three", "months", "month", "weeks", "week", "linggo", "buwan", "susunod",
         "ilista", "pakitingnan", "kailangan", "makikita", "bawat", "ayon", "paano", "nasa", "kasalukuyang",
     }
     markers = ("mortality", "death", "deaths", "disease", "diseases", "production", "yield", "registered", "heads")
@@ -494,14 +540,14 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         "diagnostic", "treatment", "treat", "prescribe", "antibiotic", "dosage", "dose of",
         "severity", "clinical", "symptom", "symptoms", "anong sakit", "ano ang sakit",
         "gamot", "lunas", "gamutin", "paggamot", "fmd", "foot and mouth", "cause of death", "sanhi ng pagkamatay",
-        "sales", "sold", "revenue", "profit", "benta", "binenta", "nabenta", "sales records",
+        "profit", "profit margin",
     )
     if any(_contains(normalized, word) for word in unsupported_capabilities):
         return {
             "status": "unsupported",
             "message": (
-                "This assistant can only return the approved livestock summaries listed in its examples. "
-                "It cannot provide veterinary diagnosis or treatment, sales totals, or other unsupported data. "
+                "This assistant can only return approved livestock records and supported estimates. "
+                "It cannot provide veterinary diagnosis or treatment. "
                 "Hindi ito nagbibigay ng diagnosis o gamot para sa hayop."
             ),
         }
@@ -522,10 +568,16 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
             or re.search(r"\bdoes\s+.+\s+have\b|\blivestock\s+\d+\b", normalized)):
         return {"status": "unsupported", "message": "The assistant does not yet implement farmer-count, individual-owner, or animal-ID filters. This is a query capability limitation, not a decision about your permissions. Use the authorized farmer directory or inventory instead."}
     queue_request = _contains(normalized, "mao") and any(_contains(normalized, word) for word in ("waiting", "pending", "approval", "review", "naghihintay", "nakapila", "pag-apruba", "pagsusuri"))
-    if not queue_request and any(_contains(normalized, word) for word in ("sales", "sold", "revenue", "profit", "benta", "sold animals")):
-        return {"status": "unsupported", "message": "Sales and sold-animal summaries are not implemented in this assistant. Use the existing trade records interface."}
-    if any(_contains(normalized, word) for word in ("rate", "rates", "percentage", "predict", "forecast")):
-        return {"status": "unsupported", "message": "This assistant reports recorded counts and quantities, not rates, percentages, or forecasts."}
+    asks_rate = any(_contains(normalized, word) for word in (
+        "rate", "rates", "percentage", "porsyento", "antas ng pagkamatay",
+    ))
+    asks_forecast = any(_contains(normalized, word) for word in (
+        "predict", "prediction", "forecast", "projection", "pagtataya", "hulaan", "inaasahan", "tantyahin",
+    ))
+    mentions_mortality = any(_contains(normalized, phrase) for phrase in (
+        "mortality", "death", "deaths", "died", "namatay", "namamatay",
+        "mamatay", "kamatayan", "pagkamatay",
+    ))
     signals = {
         "pending_reviews": any(_contains(normalized, phrase) for phrase in (
             "pending", "waiting", "awaiting", "review", "approval", "for mao", "ma approve", "hindi pa approved",
@@ -534,10 +586,12 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
             "disease_by_barangay": any(_contains(normalized, phrase) for phrase in (
             "disease", "diseases", "desease", "disese", "outbreak", "illness", "illnesses", "sickness", "sakit", "may sakit", "karamdaman", "nagkasakit",
         )),
-        "mortality_comparison": any(_contains(normalized, phrase) for phrase in (
-            "mortality", "death", "deaths", "died", "namatay", "namamatay",
-            "mamatay", "kamatayan", "pagkamatay",
+        "mortality_rate": mentions_mortality and asks_rate,
+        "mortality_comparison": mentions_mortality and not asks_rate,
+        "sales": any(_contains(normalized, phrase) for phrase in (
+            "sale", "sales", "sold", "livestock sale", "benta", "binenta", "nabenta", "magkano",
         )),
+        "forecast": asks_forecast,
             "production": any(_contains(normalized, phrase) for phrase in (
             "production", "prodution", "produccion", "produksyon", "yield", "output", "milk", "dairy", "gatas", "egg", "eggs", "itlog", "wool", "meat", "karne",
         )),
@@ -546,16 +600,41 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         )),
     }
 
-    if not signals["pending_reviews"] and sum(signals[key] for key in ("disease_by_barangay", "mortality_comparison", "production")) > 1:
-        return {"status": "clarification", "message": "Please ask about one metric at a time: production, disease cases, or mortality."}
+    if not signals["pending_reviews"] and not signals["forecast"] and sum(signals[key] for key in ("disease_by_barangay", "mortality_comparison", "mortality_rate", "production", "sales")) > 1:
+        return {"status": "clarification", "message": "Please ask about one topic at a time: inventory, disease reports, deaths, sale records, or forecasts."}
     if signals["disease_by_barangay"] and signals["mortality_comparison"]:
         return {"status": "clarification", "message": "Do you want a disease-case comparison or a mortality comparison? Please ask about one metric."}
+    if asks_rate and not signals["mortality_rate"]:
+        return {"status": "unsupported", "message": "This assistant only calculates the recorded-death rate using its stated 30-day method; it does not calculate other rates or percentages."}
+    if asks_rate and asks_forecast:
+        return {"status": "clarification", "message": "The assistant estimates a current 30-day recorded-death share, but does not forecast mortality rates. Ask for the current estimate or a forecast of recorded death counts."}
+    forecast_domain = None
+    forecast_horizon = None
     if signals["pending_reviews"]:
         intent = "pending_reviews"
+    elif signals["forecast"]:
+        forecast_domains = [
+            domain for domain, matched in (
+                ("disease", signals["disease_by_barangay"]),
+                ("mortality", mentions_mortality),
+                ("auction", signals["sales"]),
+            ) if matched
+        ]
+        if len(forecast_domains) != 1 or signals["production"]:
+            return {"status": "clarification", "message": "Which recorded activity should I forecast: disease reports, deaths, or approved animal sales? Farmer production forecasts are not available through this assistant."}
+        intent = "forecast"
+        forecast_domain = forecast_domains[0]
+        forecast_horizon, horizon_error = _parse_forecast_horizon(normalized, forecast_domain)
+        if horizon_error:
+            return {"status": "clarification", "message": horizon_error}
+    elif signals["mortality_rate"]:
+        intent = "mortality_rate"
     elif signals["disease_by_barangay"]:
         intent = "disease_by_barangay"
     elif signals["mortality_comparison"]:
         intent = "mortality_comparison"
+    elif signals["sales"]:
+        intent = "sales_summary"
     elif signals["production"]:
         intent = "production"
     elif signals["population_summary"]:
@@ -571,9 +650,11 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         ))
         intent = "production_breakdown" if breakdown else "production_trend"
 
-    period, period_error = _parse_period(normalized, today, intent)
+    period, period_error = (None, None) if intent == "forecast" else _parse_period(normalized, today, intent)
     if period_error:
         return {"status": "clarification", "message": period_error}
+    if intent == "mortality_rate" and period:
+        return {"status": "clarification", "message": "This estimate uses the last 30 days of approved deaths and current approved active inventory. Ask without a different time period."}
     if intent == "population_summary" and period:
         return {"status": "clarification", "message": "The population query is a current approved-active snapshot; historical population totals are not available through this query."}
     if intent == "pending_reviews" and period:
@@ -585,6 +666,16 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     species, species_error = _resolve_species(normalized, species_names)
     if species_error:
         return {"status": "clarification", "message": species_error}
+    if intent == "forecast" and (barangay or species):
+        return {"status": "clarification", "message": "This forecast is municipality-wide. Ask without a barangay or livestock-type filter."}
+    if intent == "forecast" and any(_contains(normalized, phrase) for phrase in _BARANGAY_COMPARISON_PHRASES + ("by species", "by livestock type", "per species")):
+        return {"status": "clarification", "message": "This forecast is municipality-wide and does not compare barangays or livestock types."}
+    if intent == "mortality_rate" and species:
+        return {"status": "clarification", "message": "The available 30-day rate estimate covers all livestock in the selected area; species-specific mortality denominators are not available."}
+    if intent == "mortality_rate" and any(_contains(normalized, phrase) for phrase in _BARANGAY_COMPARISON_PHRASES + ("by species", "by livestock type", "per species")):
+        return {"status": "clarification", "message": "The estimate can cover the whole municipality or one named barangay; it cannot compare areas or livestock types."}
+    if intent == "sales_summary" and any(_contains(normalized, phrase) for phrase in _BARANGAY_COMPARISON_PHRASES + ("by species", "by livestock type", "per species")):
+        return {"status": "clarification", "message": "Sales totals can be filtered to one named barangay or livestock type, but the assistant does not yet compare sales across groups."}
     if len(species) > 1:
         return {"status": "clarification", "message": "Please ask about one livestock type at a time so the result stays clear."}
     if not species:
@@ -599,6 +690,7 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
                 "all", "type", "types", "species", "barangay", "barangays", "month", "months",
                 "year", "years", "head", "heads", "records", "record", "production", "the", "each",
                 "last", "past", "previous", "current", "this", "mao", "approval", "review", "all", "livestock",
+                "recorded", "death", "deaths", "mortality", "rate", "estimated", "percentage", "share",
             }
             known_species_words = {alias for aliases in SPECIES_ALIASES.values() for alias in aliases}
             known_species_words.update(normalize_question(name) for name in species_names)
@@ -681,6 +773,14 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
             "production_type": production_type,
             "group_by": group_by,
             "review_domain": review_domain,
+            "forecast_domain": forecast_domain,
+            "forecast_horizon": forecast_horizon,
+            "forecast_unit": (
+                "WEEKS" if forecast_domain == "auction" else "MONTHS"
+            ) if forecast_domain else None,
+            "sales_measure": "PHP" if any(_contains(normalized, word) for word in (
+                "amount", "value", "price", "peso", "php", "revenue", "magkano", "halaga",
+            )) else "HEADS",
         },
     }
 
@@ -1066,6 +1166,87 @@ def _mortality_results(parameters, user):
     ]
 
 
+def _sales_summary(parameters, user):
+    queryset = scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user).filter(
+        status=LivestockOwnershipTransfer.Status.APPROVED,
+        transfer_date__range=(
+            date.fromisoformat(parameters["period"]["start"]),
+            date.fromisoformat(parameters["period"]["end"]),
+        ),
+    )
+    if parameters["barangay_id"]:
+        queryset = queryset.filter(previous_owner__barangay_id=parameters["barangay_id"])
+    if parameters["species"]:
+        queryset = queryset.filter(livestock__livestock_type__name=parameters["species"])
+    totals = queryset.aggregate(
+        sale_events=Count("pk"),
+        distinct_animals=Count("livestock_id", distinct=True),
+        known_sale_value=Sum("purchase_price"),
+        missing_price_events=Count("pk", filter=Q(purchase_price__isnull=True)),
+        priced_events=Count("pk", filter=Q(purchase_price__isnull=False)),
+    )
+    if not totals["sale_events"]:
+        return []
+    return [{
+        "approved_sale_events": totals["sale_events"],
+        "distinct_animals": totals["distinct_animals"],
+        "known_sale_value_php": (
+            float(totals["known_sale_value"] or 0) if totals["priced_events"] else None
+        ),
+        "priced_events": totals["priced_events"],
+        "missing_price_events": totals["missing_price_events"],
+    }]
+
+
+def _mortality_rate_summary(parameters, user, today):
+    from .surveillance import surveillance_summary
+
+    summary = surveillance_summary(user=user, today=today)
+    barangay_id = parameters["barangay_id"]
+    if barangay_id:
+        name_row = next((row for row in summary["barangays_last_30_days"]
+                         if row["barangay_id"] == barangay_id), None)
+        deaths = int(name_row["deaths"] if name_row else 0)
+        inventory = official_inventory(user).filter(farmer__barangay_id=barangay_id)
+        barangay_name = parameters["barangay"]
+    else:
+        deaths = int(summary["mortality"]["last_30_days"]["deaths"])
+        inventory = official_inventory(user)
+        barangay_name = "all barangays"
+    population = int(inventory.aggregate(heads=Sum("quantity"))["heads"] or 0)
+    rate = round(deaths / population * 100, 4) if population else None
+    return [{
+        "barangay": barangay_name,
+        "recorded_deaths_last_30_days": deaths,
+        "current_approved_active_heads": population,
+        "estimated_rate_percent": rate,
+    }]
+
+
+def _forecast_summary(parameters, user):
+    from .predictive.forecasting import generate_future_forecast
+
+    domain = parameters["forecast_domain"]
+    is_sales = domain == "auction"
+    unit = "PHP" if is_sales and parameters["sales_measure"] == "PHP" else (
+        "HEADS" if is_sales or domain == "mortality" else "CASES"
+    )
+    forecast = generate_future_forecast(
+        domain=domain,
+        target="ALL",
+        unit=unit,
+        horizon_months=parameters["forecast_horizon"],
+        user=user,
+    )
+    points = forecast.get("forecast") or []
+    rows = [
+        {"period": point.get("month_label") or point.get("date"),
+         "projected_value": round(float(point.get("predicted", 0)), 2)}
+        for point in points
+    ]
+    return forecast, rows, unit
+
+
 def _resolve_farmer_reference(farmer_query):
     """Resolve an exact registered name or username; never choose a partial match."""
     normalized = normalize_question(farmer_query)
@@ -1278,6 +1459,108 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
         )
         response["as_of"] = workload["as_of"]
         response["period"] = None
+        return response
+
+    if intent == "sales_summary":
+        rows = _sales_summary(parameters, user)
+        period_label = parameters["period"]["label"]
+        if not rows:
+            answer = _empty_answer("approved livestock sales", period_label)
+        else:
+            row = rows[0]
+            if row["priced_events"]:
+                sale_value_text = (
+                    f"Known recorded sale value totals PHP {row['known_sale_value_php']:,.2f} across "
+                    f"{row['priced_events']:,} priced events; {row['missing_price_events']:,} events have no recorded price, "
+                    "so the value is incomplete."
+                )
+            else:
+                sale_value_text = "No sale prices were recorded, so a PHP total cannot be calculated."
+            answer = (
+                f"For {period_label}, {row['approved_sale_events']:,} approved animal-transfer sale events were recorded. "
+                f"{sale_value_text}"
+            )
+        columns = [
+            {"key": "approved_sale_events", "label": "Approved sale events"},
+            {"key": "distinct_animals", "label": "Distinct animals"},
+            {"key": "known_sale_value_php", "label": "Known recorded value (PHP)"},
+            {"key": "priced_events", "label": "Events with price"},
+            {"key": "missing_price_events", "label": "Events without price"},
+        ]
+        response = _result_response(
+            question=question, parsed=parsed, answer=answer, results=rows,
+            visualization={"type": "table", "x_key": "approved_sale_events", "y_key": "known_sale_value_php", "columns": columns},
+            coverage_note=(
+                f"Uses approved LivestockOwnershipTransfer records dated in {period_label}. Each transfer event represents one animal. "
+                "Only recorded purchase prices are summed; missing prices are not estimated."
+            ),
+        )
+        return response
+
+    if intent == "mortality_rate":
+        rows = _mortality_rate_summary(parameters, user, today)
+        row = rows[0]
+        end_date = today
+        start_date = today - timedelta(days=29)
+        parameters["period"] = _date_period(start_date, end_date, "Last 30 days", "last_30_days")
+        if row["estimated_rate_percent"] is None:
+            answer = (
+                f"There are {row['recorded_deaths_last_30_days']:,} approved recorded deaths in the last 30 days, "
+                "but no approved active inventory denominator is available, so a percentage cannot be estimated."
+            )
+        else:
+            answer = (
+                f"Recorded deaths in the last 30 days are about {row['estimated_rate_percent']:.4f}% of the "
+                f"current approved active inventory ({row['recorded_deaths_last_30_days']:,} deaths; "
+                f"{row['current_approved_active_heads']:,} current heads). This is an estimate, not a historical "
+                "population-at-risk mortality rate."
+            )
+        columns = [
+            {"key": "barangay", "label": "Area"},
+            {"key": "recorded_deaths_last_30_days", "label": "Recorded deaths (30 days)"},
+            {"key": "current_approved_active_heads", "label": "Current approved active heads"},
+            {"key": "estimated_rate_percent", "label": "Estimated rate (%)"},
+        ]
+        return _result_response(
+            question=question, parsed=parsed, answer=answer, results=rows,
+            visualization={"type": "kpi", "x_key": "barangay", "y_key": "estimated_rate_percent", "label": "Estimated recorded-death share", "columns": columns},
+            coverage_note=(
+                "Numerator: approved deaths recorded in the last 30 days. Denominator: current approved active individual inventory. "
+                "Historical population-at-risk and reporting completeness are unavailable, so this must not be interpreted as a true incidence or risk rate."
+            ),
+        )
+
+    if intent == "forecast":
+        forecast, rows, unit = _forecast_summary(parameters, user)
+        available = forecast.get("forecast_available", False) and bool(rows)
+        if not available:
+            answer = forecast.get("message") or forecast.get("readiness_details") or "There is not enough eligible history for this forecast."
+        else:
+            is_validated = forecast.get("is_validated", forecast.get("validation_status") == "VALIDATED")
+            if forecast.get("status") == "unvalidated":
+                is_validated = False
+            validation_prefix = "" if is_validated else "This forecast is not yet validated. "
+            answer = (
+                validation_prefix +
+                f"The current model projects {rows[0]['projected_value']:,.2f} {unit.lower()} for "
+                f"{rows[0]['period']}. This is a projection of recorded approved events, not a guarantee or a forecast of all real-world activity."
+            )
+        columns = [
+            {"key": "period", "label": "Forecast period"},
+            {"key": "projected_value", "label": f"Projected {unit.lower()}"},
+        ]
+        response = _result_response(
+            question=question, parsed=parsed, answer=answer, results=rows,
+            visualization={"type": "table", "x_key": "period", "y_key": "projected_value", "columns": columns},
+            coverage_note=(
+                f"Forecast domain: {parameters['forecast_domain']}; unit: {unit}; horizon: {parameters['forecast_horizon']} "
+                f"{parameters['forecast_unit'].lower()}. Readiness: {forecast.get('readiness_status', forecast.get('status', 'unknown'))}. "
+                f"{forecast.get('readiness_details') or forecast.get('message') or ''}"
+            ),
+        )
+        response["forecast_status"] = forecast.get("status")
+        response["forecast_available"] = available
+        response["readiness_status"] = forecast.get("readiness_status")
         return response
 
     if intent == "population_summary":
