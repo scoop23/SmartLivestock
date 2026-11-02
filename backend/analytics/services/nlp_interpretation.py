@@ -37,8 +37,8 @@ disease_by_barangay, mortality_comparison, or null. canonical_question must be a
 English question or null.
 Allowed intents:
 - population_summary: current approved-active livestock headcounts; no historical population period.
-- disease_by_barangay: approved disease cases grouped by barangay; affected heads are a separate metric.
-- mortality_comparison: approved mortality counts grouped by barangay.
+- disease_by_barangay: approved disease reports grouped across barangays or filtered to one named barangay; reported affected heads are a separate metric.
+- mortality_comparison: approved death counts grouped across barangays or filtered to one named barangay.
 Choose query only when the requested metric and its meaning are clear and fit one allowed
 intent. Preserve every requested species, barangay, date range, grouping, and comparison
 in canonical_question. Use an exact label from the supplied species and barangay lists.

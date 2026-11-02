@@ -44,6 +44,17 @@ _MUNICIPAL_PRODUCTION_NOTICE = (
     "Farmer milk and meat-yield logs are private Farmer production records and are not available through municipal NLP queries. "
     "Official slaughter records are a separate municipal dataset."
 )
+SUPPORTED_QUESTION_MESSAGE = (
+    "I can answer current approved livestock counts, approved disease reports and recorded deaths, "
+    "current MAO review queues, and current livestock counts for a specifically named farmer. "
+    "I cannot provide private Farmer production records, veterinary diagnosis or treatment, sales totals, forecasts, or mortality rates here."
+)
+_BARANGAY_COMPARISON_PHRASES = (
+    "by barangay", "per barangay", "across barangays", "across all barangays",
+    "each barangay", "for each barangay", "in each barangay", "which barangays",
+    "barangay comparison", "barangays reported", "sa bawat barangay",
+    "ayon sa barangay", "saang barangay", "bawat barangay", "bawat na barangay",
+)
 SPECIES_ALIASES = {
     "cattle": ("cattle", "cow", "cows", "baka", "bovine"),
     "carabao": ("carabao", "carabaos", "kalabaw", "buffalo", "buffaloes"),
@@ -109,8 +120,10 @@ def _date_period(start, end, label, selection):
 def _parse_period(text, today, intent):
     """Recognize explicit calendar periods and reject conflicting/invalid ranges."""
     matches = []
-    unsupported_time = r"\b(?:yesterday|tomorrow|week|weeks|day|days|january|february|march|april|may|june|july|august|september|october|november|december|kahapon|linggo|since|until)\b"
-    if re.search(unsupported_time, text) or (_contains(text, "today") and intent not in ("population_summary", "pending_reviews")):
+    unsupported_time = r"\b(?:yesterday|tomorrow|week|weeks|day|days|january|february|march|april|june|july|august|september|october|november|december|kahapon|linggo|since|until)\b"
+    unsupported_may_date = r"\b(?:in|during|for|this|last|previous)\s+may\b|\bmay\s+(?:\d{1,2}(?:,\s*20\d{2})?|20\d{2})\b"
+    if (re.search(unsupported_time, text) or re.search(unsupported_may_date, text)
+            or (_contains(text, "today") and intent not in ("population_summary", "pending_reviews"))):
         return None, "Use a supported calendar month, quarter, year, or an explicit YYYY-MM-DD date range."
 
     range_match = re.search(
@@ -266,7 +279,7 @@ def _resolve_barangay(text, barangays):
             "the", "this", "that", "last", "past", "previous", "current", "each", "all",
             "cattle", "cow", "carabao", "buffalo", "goat", "sheep", "swine", "pig", "poultry",
             "chicken", "duck", "milk", "dairy", "eggs", "egg", "meat", "wool", "quarter", "year",
-            "q1", "q2", "q3", "q4", "2025", "2026", "bawat",
+            "q1", "q2", "q3", "q4", "2025", "2026", "bawat", "mao",
         }
         if first_word not in non_locations:
             return None, "I could not match that barangay within the data available to your account."
@@ -479,11 +492,19 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         "weather", "sensor", "iot", "real time", "real-time", "auction", "subasta",
         "diagnose", "diagnosis",
         "diagnostic", "treatment", "treat", "prescribe", "antibiotic", "dosage", "dose of",
-        "severity", "clinical", "symptom", "symptoms", "fmd", "foot and mouth", "cause of death", "sanhi ng pagkamatay",
-        "sales", "sold", "revenue", "profit", "benta", "sales records",
+        "severity", "clinical", "symptom", "symptoms", "anong sakit", "ano ang sakit",
+        "gamot", "lunas", "gamutin", "paggamot", "fmd", "foot and mouth", "cause of death", "sanhi ng pagkamatay",
+        "sales", "sold", "revenue", "profit", "benta", "binenta", "nabenta", "sales records",
     )
     if any(_contains(normalized, word) for word in unsupported_capabilities):
-        return {"status": "unsupported", "message": "This assistant returns approved recorded analytics only. It does not provide sensor data, auction/slaughter summaries, veterinary diagnosis or treatment, or sales totals."}
+        return {
+            "status": "unsupported",
+            "message": (
+                "This assistant can only return the approved livestock summaries listed in its examples. "
+                "It cannot provide veterinary diagnosis or treatment, sales totals, or other unsupported data. "
+                "Hindi ito nagbibigay ng diagnosis o gamot para sa hayop."
+            ),
+        }
 
     today = today or timezone.localdate()
     if _has_farmer_count_request(normalized):
@@ -514,7 +535,8 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
             "disease", "diseases", "desease", "disese", "outbreak", "illness", "illnesses", "sickness", "sakit", "may sakit", "karamdaman", "nagkasakit",
         )),
         "mortality_comparison": any(_contains(normalized, phrase) for phrase in (
-            "mortality", "death", "deaths", "died", "namatay", "kamatayan", "pagkamatay",
+            "mortality", "death", "deaths", "died", "namatay", "namamatay",
+            "mamatay", "kamatayan", "pagkamatay",
         )),
             "production": any(_contains(normalized, phrase) for phrase in (
             "production", "prodution", "produccion", "produksyon", "yield", "output", "milk", "dairy", "gatas", "egg", "eggs", "itlog", "wool", "meat", "karne",
@@ -539,7 +561,7 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     elif signals["population_summary"]:
         intent = "population_summary"
     else:
-        return {"status": "unsupported", "reason": "unrecognized_intent", "message": "I can answer livestock population, production, disease, mortality, and MAO review-queue questions. Try one of the examples."}
+        return {"status": "unsupported", "reason": "unrecognized_intent", "message": SUPPORTED_QUESTION_MESSAGE}
     if intent != "pending_reviews" and any(_contains(normalized, word) for word in ("pending", "verified", "rejected", "declarations")):
         return {"status": "clarification", "message": "Production analytics use eligible farmer-recorded logs; official operational analytics use approved records. For current MAO queues, ask which submissions are pending review."}
     if intent == "production":
@@ -602,12 +624,13 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         return {"status": "clarification", "message": "Please choose one grouping: barangay or livestock type."}
     group_by = None
     if intent in ("disease_by_barangay", "mortality_comparison"):
-        if not any(_contains(normalized, phrase) for phrase in (
-            "by barangay", "per barangay", "across barangays", "across all barangays", "each barangay", "for each barangay", "in each barangay", "which barangays", "barangay comparison", "barangays reported", "sa bawat barangay", "ayon sa barangay", "saang barangay",
-            "bawat barangay", "bawat na barangay",
-        )):
-            return {"status": "clarification", "message": "Should I compare this metric by barangay? Please say 'by barangay' or 'across barangays'."}
-        group_by = "barangay"
+        compare_by_barangay = any(
+            _contains(normalized, phrase) for phrase in _BARANGAY_COMPARISON_PHRASES
+        )
+        if not compare_by_barangay and not barangay:
+            return {"status": "clarification", "message": "Which barangay should I check, or would you like a comparison across barangays?"}
+        if compare_by_barangay:
+            group_by = "barangay"
     elif intent == "population_summary":
         if any(_contains(normalized, phrase) for phrase in ("by barangay", "per barangay", "each barangay", "for each barangay", "in each barangay", "across barangays", "sa bawat barangay", "bawat barangay", "ayon sa barangay")):
             group_by = "barangay"
@@ -628,8 +651,8 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         domain_aliases = {
             "inventory": ("inventory", "livestock registration", "registration"),
             "production": ("production", "milk", "eggs", "meat", "wool"),
-            "disease": ("disease", "diseases"),
-            "mortality": ("mortality", "deaths"),
+            "disease": ("disease", "diseases", "sakit", "karamdaman"),
+            "mortality": ("mortality", "deaths", "death", "namatay", "namamatay", "pagkamatay", "kamatayan"),
             "calving": ("calving", "birth"),
             "census": ("census",),
             "ownership_transfers": ("ownership transfer", "transfer of ownership"),
@@ -1207,9 +1230,8 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
                 asked_question = " ".join(question.split())
                 response["answer"] = (
                     f'You asked: “{asked_question}”. I could not match it to an approved analytics question, '
-                    "so no analysis was run and I cannot provide a reliable data-based insight yet. Ask about "
-                    "current approved livestock totals, disease or mortality summaries, or the MAO review queue, "
-                    "or choose one of the suggested questions below."
+                    f"so no analysis was run and I cannot provide a reliable data-based insight yet. {SUPPORTED_QUESTION_MESSAGE} "
+                    "Choose one of the example questions below or rephrase your question."
                 )
             try:
                 from .nlp_intent_model import suggest_questions
@@ -1276,14 +1298,48 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
         metric_label = "farmer-recorded production"
     elif intent == "disease_by_barangay":
         rows = _disease_results(parameters, user)
-        chart_type, x_key, y_key, series_key = "bar", "barangay", "disease_cases", None
-        answer = _empty_answer("disease", parameters["period"]["label"]) if not rows else "Approved disease cases grouped by barangay; affected heads are shown separately."
-        metric_label = "approved disease"
+        chart_type, x_key, y_key, series_key = (
+            ("kpi", "barangay", "disease_cases", None)
+            if parameters["barangay_id"]
+            else ("bar", "barangay", "disease_cases", None)
+        )
+        if not rows:
+            answer = _empty_answer("disease", parameters["period"]["label"])
+        elif parameters["barangay_id"]:
+            row = rows[0]
+            answer = (
+                f"During {parameters['period']['label']}, {row['disease_cases']:,} approved disease reports "
+                f"were recorded in {parameters['barangay']}, covering {row['affected_heads']:,} reported affected heads. "
+                "Affected-head totals are reported counts and may include the same animal in more than one report."
+            )
+        else:
+            answer = "Approved disease reports grouped by barangay; reported affected heads are shown separately."
+        metric_label = (
+            f"approved disease reports in {parameters['barangay']}"
+            if parameters["barangay_id"] else "approved disease reports"
+        )
     else:
         rows = _mortality_results(parameters, user)
-        chart_type, x_key, y_key, series_key = "bar", "barangay", "deaths", None
-        answer = _empty_answer("mortality", parameters["period"]["label"]) if not rows else "Approved recorded deaths grouped by barangay. This is a count, not a mortality rate."
-        metric_label = "approved mortality"
+        chart_type, x_key, y_key, series_key = (
+            ("kpi", "barangay", "deaths", None)
+            if parameters["barangay_id"]
+            else ("bar", "barangay", "deaths", None)
+        )
+        if not rows:
+            answer = _empty_answer("mortality", parameters["period"]["label"])
+        elif parameters["barangay_id"]:
+            row = rows[0]
+            answer = (
+                f"During {parameters['period']['label']}, {row['deaths']:,} deaths were recorded in "
+                f"approved mortality reports for {parameters['barangay']} ({row['records']:,} reports). "
+                "This is a recorded count, not a mortality rate or proof that every death was reported."
+            )
+        else:
+            answer = "Approved recorded deaths grouped by barangay. This is a count, not a mortality rate."
+        metric_label = (
+            f"approved recorded deaths in {parameters['barangay']}"
+            if parameters["barangay_id"] else "approved recorded deaths"
+        )
 
     columns = [{"key": key, "label": key.replace("_", " ").title()} for key in (rows[0].keys() if rows else [])]
     visualization = {"type": chart_type, "x_key": x_key, "y_key": y_key, "columns": columns}
