@@ -9,7 +9,7 @@ from django.db.models.functions import Cast, Coalesce, TruncMonth
 from django.utils import timezone
 
 from diseases.models import DiseaseCase, MortalityRecord
-from livestock.models import LivestockOwnershipTransfer
+from livestock.models import LivestockInventory, LivestockOwnershipTransfer
 from movements.models import (
     LivestockInspection,
     LivestockInspectionItem,
@@ -56,6 +56,30 @@ def descriptive_summary(today=None, *, user=None):
     start = _window_start(today)
 
     population = population_summary(user=user, today=today)
+    inventory_registration_rows = list(
+        scope_reviewer_queryset(LivestockInventory.objects.all(), user)
+        .filter(
+            entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+            status=LivestockInventory.StatusType.APPROVED,
+            created_at__date__range=(start, today),
+        )
+        .annotate(month=TruncMonth("created_at"))
+        .values("month")
+        .annotate(records=Count("pk"), heads=Sum("quantity"))
+        .order_by("month")
+    )
+    inventory_registration_by_month = {
+        row["month"].strftime("%Y-%m"): row for row in inventory_registration_rows
+    }
+    inventory_registration_trend = [
+        {
+            "month": month.isoformat(),
+            "label": f"{calendar.month_abbr[month.month]} {month.year}",
+            "records": inventory_registration_by_month.get(month.strftime("%Y-%m"), {}).get("records", 0),
+            "heads": inventory_registration_by_month.get(month.strftime("%Y-%m"), {}).get("heads") or 0,
+        }
+        for month in _months(start)
+    ]
     total_heads = population["total_heads"]
     vaccinated_heads = sum(row["vaccinated"] for row in population["by_barangay"])
     coverage = [
@@ -806,6 +830,7 @@ def descriptive_summary(today=None, *, user=None):
     descriptive = {
         "period": {"start": start.isoformat(), "end": today.isoformat()},
         "population": population,
+        "inventory_registration_trend": inventory_registration_trend,
         "production": {"records": sum(row["records"] for row in production_by_type),
                        "available": role_name(user) == FARMER,
                        "by_type": production_by_type, "trend": production_trend,

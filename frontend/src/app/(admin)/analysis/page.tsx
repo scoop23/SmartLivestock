@@ -1,83 +1,239 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { AskSmartLivestock } from '@/app/components/ask-smartlivestock';
-import { PageHeader } from '@/app/components/page-header';
-import { AnalyticsNav } from '@/app/components/analytics/analytics-nav';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/contexts/auth-context';
-import api from '@/lib/axios';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
+import { useState } from 'react';
 import {
   Activity,
   ArrowRight,
   BarChart3,
-  Beef,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  Cpu,
-  FileSearch,
-  FileSpreadsheet,
-  Info,
-  Layers,
+  CalendarDays,
+  Download,
+  FileText,
   Lightbulb,
-  Map,
-  MapPin,
   RefreshCw,
-  ShieldAlert,
-  ShieldCheck,
   Sparkles,
   TrendingUp,
-  Workflow,
-  Zap,
 } from 'lucide-react';
-import Link from 'next/link';
-import { useState } from 'react';
+import { AnalyticsNav } from '@/app/components/analytics/analytics-nav';
+import { AskSmartLivestock } from '@/app/components/ask-smartlivestock';
+import { PageHeader } from '@/app/components/page-header';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/auth-context';
+import api from '@/lib/axios';
+import {
+  Area,
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+
+interface MonthlySurveillancePoint {
+  month: string;
+  label: string;
+  reported_heads: number;
+  deaths: number;
+}
+
+interface MonthlySalePoint {
+  month: string;
+  label: string;
+  transactions: number | null;
+  animals: number | null;
+  total_value_php: number | null;
+}
+
+interface MonthlyInventoryRegistrationPoint {
+  month: string;
+  label: string;
+  records: number;
+  heads: number;
+}
 
 interface DashboardSummaryResponse {
-  surveillance_series?: Array<{ month: string; label: string; reported_heads: number; deaths: number }>;
+  surveillance_series?: MonthlySurveillancePoint[];
   descriptive?: {
-    period: { start: string; end: string };
-    population: {
-      total_heads: number;
-      by_barangay: Array<{ barangay_id: number | null; barangay: string | null; heads: number; registered_farmers: number }>;
-      by_species: Array<{ species_id: number; species: string; heads: number }>;
-    };
-    production: {
-      records: number;
-    };
-    disease: {
-      cases: number;
-      affected_heads: number;
-    };
-    mortality: {
-      records: number;
-      deaths: number;
+    period?: { start: string; end: string };
+    disease?: { cases?: number; affected_heads?: number };
+    mortality?: { records?: number; deaths?: number };
+    sales?: { trend?: MonthlySalePoint[] };
+    inventory_registration_trend?: MonthlyInventoryRegistrationPoint[];
+    population?: {
+      total_heads?: number;
+      barangay_count?: number;
+      by_barangay?: Array<{ barangay_id: number | null; heads: number }>;
     };
   };
 }
 
-interface SurveillanceQuickResponse {
-  as_of?: string;
-  disease?: {
-    alert?: { level: string; explanation: string };
+interface PredictiveOverviewResponse {
+  summary_cards?: Array<{
+    domain: string;
+    forecast_available: boolean;
+    validation_status: string;
+  }>;
+}
+
+interface PrescriptiveOverviewResponse {
+  status: 'ready' | 'partial' | 'error';
+  recommendations?: Array<{
+    category: string;
+    severity: 'LOW' | 'MEDIUM' | 'HIGH';
+    title: string;
+    recommendation: string;
+  }>;
+}
+
+type MetricTone = 'emerald' | 'blue' | 'rose' | 'amber';
+
+const tones: Record<MetricTone, { icon: string; border: string }> = {
+  emerald: { icon: 'bg-emerald-100 text-emerald-800', border: 'border-emerald-100' },
+  blue: { icon: 'bg-sky-100 text-sky-800', border: 'border-sky-100' },
+  rose: { icon: 'bg-rose-100 text-rose-800', border: 'border-rose-100' },
+  amber: { icon: 'bg-amber-100 text-amber-800', border: 'border-amber-100' },
+};
+
+function formatDate(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function TrendChart({
+  title,
+  description,
+  data,
+  color,
+  kind,
+  loading,
+  rangeLabel,
+  unit,
+  chartId,
+  footnote,
+  emptyMessage,
+}: {
+  title: string;
+  description: string;
+  data: Array<{ label: string; value: number | null }>;
+  color: MetricTone;
+  kind: 'line' | 'bar';
+  loading: boolean;
+  rangeLabel: string;
+  unit: string;
+  chartId: 'affected-animals' | 'deaths' | 'inventory' | 'sales';
+  footnote: string;
+  emptyMessage: string;
+}) {
+  const chartColors: Record<MetricTone, { stroke: string; fill: string }> = {
+    emerald: { stroke: '#07835d', fill: '#10b981' },
+    blue: { stroke: '#2563eb', fill: '#60a5fa' },
+    rose: { stroke: '#e11d48', fill: '#fb7185' },
+    amber: { stroke: '#d97706', fill: '#fbbf24' },
   };
-  mortality?: {
-    alert?: { level: string; explanation: string };
-  };
+  const { stroke, fill } = chartColors[color];
+  const hasValues = data.some((point) => point.value !== null);
+
+  return (
+    <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label={title}>
+      <div className="mb-3 flex items-start gap-2.5">
+        <span className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg ${tones[color].icon}`}>
+          {kind === 'line' ? <TrendingUp className="size-4" /> : <Activity className="size-4" />}
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-sm font-bold text-slate-900">{title}</h2>
+          <p className="mt-0.5 text-[11px] text-slate-500">{description}</p>
+        </div>
+        <span className="ml-auto shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800">
+          {rangeLabel}
+        </span>
+      </div>
+
+      {loading ? (
+        <Skeleton className="h-64 w-full sm:h-72" />
+      ) : data.length && hasValues ? (
+        <>
+          <div className="h-64 w-full sm:h-72" role="img" aria-label={`${title} over ${rangeLabel.toLowerCase()}`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={data} margin={{ top: 12, right: 12, left: -12, bottom: data.length > 8 ? 18 : 4 }}>
+                <defs>
+                  <linearGradient id={`${chartId}-fill`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={fill} stopOpacity={0.22} />
+                    <stop offset="100%" stopColor={fill} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  stroke="#94a3b8"
+                  tick={{ fill: '#64748b', fontSize: 10 }}
+                  axisLine={{ stroke: '#e2e8f0' }}
+                  tickLine={{ stroke: '#e2e8f0' }}
+                  angle={data.length > 8 ? -35 : 0}
+                  textAnchor={data.length > 8 ? 'end' : 'middle'}
+                  height={data.length > 8 ? 42 : 28}
+                  interval="preserveStartEnd"
+                  minTickGap={10}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  tick={{ fill: '#64748b', fontSize: 10 }}
+                  axisLine={{ stroke: '#e2e8f0' }}
+                  tickLine={{ stroke: '#e2e8f0' }}
+                  tickFormatter={(value) => Number(value).toLocaleString('en-PH')}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  cursor={{ stroke: '#94a3b8', strokeDasharray: '3 3' }}
+                  contentStyle={{ borderRadius: 12, borderColor: '#a7f3d0', boxShadow: '0 12px 32px rgba(15, 23, 42, 0.12)' }}
+                  labelStyle={{ color: '#065f46', fontWeight: 700 }}
+                  formatter={(value) => [`${Number(value ?? 0).toLocaleString('en-PH')} ${unit}`, title]}
+                />
+                {kind === 'line' ? (
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    name={title}
+                    stroke={stroke}
+                    strokeWidth={2.5}
+                    fill={`url(#${chartId}-fill)`}
+                    dot={{ r: 3.5, fill: stroke, stroke: '#ffffff', strokeWidth: 1.5 }}
+                    activeDot={{ r: 6, fill, stroke, strokeWidth: 2 }}
+                    connectNulls
+                  />
+                ) : (
+                  <Bar dataKey="value" name={title} fill={stroke} radius={[4, 4, 0, 0]} maxBarSize={42} />
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-2 text-[10px] leading-relaxed text-slate-500">{footnote}</p>
+        </>
+      ) : (
+        <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-slate-200 px-4 text-center text-xs text-slate-500 sm:h-72">
+          {emptyMessage}
+        </div>
+      )}
+    </section>
+  );
 }
 
 export default function AnalysisOverviewPage() {
   const { user } = useAuth();
-  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [chartMonths, setChartMonths] = useState<6 | 12>(6);
+  const role = user?.role?.toUpperCase();
+  const canViewWeeklySurveillance = role === 'MAO' || role === 'ADMIN';
+  const queryKey = ['analytics-overview', user?.email, user?.accessScope, user?.assignedBarangayId];
 
-  // Fetch verified summary telemetry for real-data overview
   const dashboardQuery = useQuery<DashboardSummaryResponse>({
-    queryKey: ['analytics-overview-telemetry', user?.email, user?.accessScope, user?.assignedBarangayId],
+    queryKey: [...queryKey, 'dashboard'],
     queryFn: async ({ signal }) => {
       const { data } = await api.get<DashboardSummaryResponse>('analytics/dashboard/', { signal });
       return data;
@@ -85,651 +241,341 @@ export default function AnalysisOverviewPage() {
     staleTime: 60_000,
   });
 
-  const surveillanceQuery = useQuery<SurveillanceQuickResponse>({
-    queryKey: ['analytics-overview-surveillance', user?.email, user?.accessScope, user?.assignedBarangayId],
+  const predictiveOverviewQuery = useQuery<PredictiveOverviewResponse>({
+    queryKey: [...queryKey, 'predictive-overview'],
+    enabled: Boolean(user),
     queryFn: async ({ signal }) => {
-      const { data } = await api.get<SurveillanceQuickResponse>('analytics/surveillance/', { signal });
+      const { data } = await api.get<PredictiveOverviewResponse>('analytics/predictive/diagnostics/', {
+        params: { horizon: 6 },
+        signal,
+      });
       return data;
     },
     staleTime: 60_000,
   });
 
-  const descriptive = dashboardQuery.data?.descriptive;
-  const surveillance = surveillanceQuery.data;
+  const prescriptiveOverviewQuery = useQuery<PrescriptiveOverviewResponse>({
+    queryKey: [...queryKey, 'prescriptive-overview'],
+    enabled: Boolean(user),
+    queryFn: async ({ signal }) => {
+      const { data } = await api.get<PrescriptiveOverviewResponse>('analytics/prescriptive/', { signal });
+      return data;
+    },
+    staleTime: 60_000,
+  });
 
-  const periodEndFormatted = descriptive?.period?.end
-    ? new Date(`${descriptive.period.end}T00:00:00`).toLocaleDateString('en-PH', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
-    : null;
+  const population = dashboardQuery.data?.descriptive?.population;
+  const barangays = population?.by_barangay ?? [];
+  const coveredBarangays = barangays.filter((barangay) => barangay.heads > 0).length;
+  const totalBarangays = population?.barangay_count ?? barangays.length;
+  const diseaseReports = dashboardQuery.data?.descriptive?.disease;
+  const mortality = dashboardQuery.data?.descriptive?.mortality;
+  const inventorySeries = (dashboardQuery.data?.descriptive?.inventory_registration_trend ?? []).slice(-chartMonths);
+  const salesSeries = (dashboardQuery.data?.descriptive?.sales?.trend ?? []).slice(-chartMonths);
+  const availableSeries = dashboardQuery.data?.surveillance_series ?? [];
+  const series = availableSeries.slice(-chartMonths);
+  const forecastTopics = (predictiveOverviewQuery.data?.summary_cards ?? [])
+    .filter((card) => card.domain.toLowerCase() !== 'production');
+  const availableForecastCount = forecastTopics.filter((card) => card.forecast_available).length;
+  const checkedForecastCount = forecastTopics.filter((card) => card.validation_status === 'VALIDATED').length;
+  const suggestedActions = (prescriptiveOverviewQuery.data?.recommendations ?? [])
+    .filter((recommendation) => recommendation.category.toUpperCase() !== 'PRODUCTION');
+  const highPriorityActionCount = suggestedActions.filter((recommendation) => recommendation.severity === 'HIGH').length;
+  const featuredAction = suggestedActions.find((recommendation) => recommendation.severity === 'HIGH') ?? suggestedActions[0];
+  const rangeLabel = chartMonths === 6 ? 'Last 6 months' : 'Last 12 months';
+  const chartPeriodLabel = series.length
+    ? `${series[0].label} – ${series[series.length - 1].label}`
+    : rangeLabel;
+  const isFetching = dashboardQuery.isFetching || predictiveOverviewQuery.isFetching || prescriptiveOverviewQuery.isFetching;
+  const period = dashboardQuery.data?.descriptive?.period;
 
-  const periodStartFormatted = descriptive?.period?.start
-    ? new Date(`${descriptive.period.start}T00:00:00`).toLocaleDateString('en-PH', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
-    : null;
-
-  const isFetching = dashboardQuery.isFetching || surveillanceQuery.isFetching;
+  const exportReport = () => {
+    const rows: Array<Array<string | number>> = [
+      ['SmartLivestock Analytics Overview'],
+      ['Chart period', chartPeriodLabel],
+      ['Reporting period', period ? `${formatDate(period.start)} – ${formatDate(period.end)}` : ''],
+      [],
+      ['Summary', 'Value'],
+      ['Approved active livestock heads', population?.total_heads ?? ''],
+      ['Barangays with active livestock', coveredBarangays],
+      ['Barangays in scope', totalBarangays],
+      ['Disease reports in reporting period', diseaseReports?.cases ?? ''],
+      ['Animals listed in disease reports', diseaseReports?.affected_heads ?? ''],
+      ['Deaths in reporting period', mortality?.deaths ?? ''],
+      [],
+      ['Approved inventory registrations by month'],
+      ['Month', 'Approved inventory records', 'Registered heads'],
+      ...inventorySeries.map((row) => [row.label, row.records, row.heads]),
+      [],
+      ['Month', 'Animals listed in disease reports', 'Deaths reported'],
+      ...series.map((point) => [point.label, point.reported_heads, point.deaths]),
+      [],
+      ['Monthly livestock sale activity'],
+      ['Month', 'Approved sale transactions', 'Animals sold', 'Recorded sale value (PHP)'],
+      ...salesSeries.map((point) => [point.label, point.transactions ?? '', point.animals ?? '', point.total_value_php ?? '']),
+    ];
+    const csv = rows
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = 'smartlivestock-analytics-overview.csv';
+    downloadLink.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
   return (
     <>
       <PageHeader
         title="Analytics & Insights"
-        subtitle="Municipal livestock intelligence, empirical forecasting, and evidence-based decision guidance for Padre Garcia"
+        subtitle="Livestock records and animal health reports for Padre Garcia."
         variant="admin"
         maxWidthClass="w-full"
         icon={<BarChart3 className="size-5 text-emerald-800" />}
       />
 
-      <div className="px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6 pb-20 sm:pb-8">
-        {/* Navigation Bar */}
+      <main className="mx-auto w-full max-w-screen-2xl space-y-4 px-4 py-4 pb-20 sm:px-6 sm:py-5 sm:pb-8 lg:px-8">
         <AnalyticsNav currentSection="overview" />
 
-        {/* ----------------------------------------------------------------- */}
-        {/* A. COMMAND BANNER (Futuristic Municipal Intelligence Header)      */}
-        {/* ----------------------------------------------------------------- */}
-        <div className="relative overflow-hidden rounded-2xl border border-emerald-200/90 bg-gradient-to-r from-emerald-50/80 via-white to-cyan-50/40 p-5 shadow-2xs">
-          {/* Subtle decorative radial blurs */}
-          <div className="pointer-events-none absolute -right-16 -top-16 size-72 rounded-full bg-emerald-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute -left-16 -bottom-16 size-72 rounded-full bg-cyan-500/10 blur-3xl" />
-
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-emerald-800">
-                  <Activity className="size-3.5 text-emerald-600 animate-pulse" />
-                  Municipal Intelligence Hub
+        <section aria-label="Trend analysis controls" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-800">Monthly trend analysis</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <h2 className="text-lg font-bold tracking-tight text-slate-900">Records over time</h2>
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold tabular-nums text-slate-700">
+                  <CalendarDays className="size-3.5 text-emerald-700" />
+                  {chartPeriodLabel}
                 </span>
-                <span className="text-slate-300">•</span>
-                <span className="text-xs text-slate-600 font-medium">Padre Garcia Batangas</span>
-                {periodEndFormatted && (
-                  <>
-                    <span className="text-slate-300">•</span>
-                    <span className="text-xs font-mono text-slate-500 flex items-center gap-1">
-                      <Clock className="size-3 text-slate-400" />
-                      Data Active: {periodStartFormatted} – {periodEndFormatted}
-                    </span>
-                  </>
-                )}
               </div>
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-                Analytics &amp; Intelligence Overview
-                {/* <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-mono font-bold"> */}
-                {/*   v2.4 Core */}
-                {/* </Badge> */}
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                Authoritative command portal connecting descriptive census records, empirical time-series forecasts, deterministic decision rules, and active biosurveillance across Padre Garcia.
-              </p>
+              <p className="mt-1 text-xs text-slate-500">Compare approved inventory, sale, disease, and death records by month.</p>
             </div>
 
-            {/* Header Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs cursor-pointer"
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1" role="group" aria-label="Chart date range">
+                {[6, 12].map((months) => (
+                  <button
+                    key={months}
+                    type="button"
+                    aria-pressed={chartMonths === months}
+                    onClick={() => setChartMonths(months as 6 | 12)}
+                    className={`rounded-md px-3 py-2 text-xs font-bold transition ${chartMonths === months ? 'bg-white text-emerald-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    {months} months
+                  </button>
+                ))}
+              </div>
+              <Link href="/analysis/descriptive" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
+                <FileText className="size-3.5" />
+                Detailed report
+              </Link>
+              <button
+                type="button"
+                onClick={exportReport}
+                disabled={!dashboardQuery.data || dashboardQuery.isPending}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Link href={user?.role?.toUpperCase() === "SIBAT" || user?.role?.toUpperCase() === "CBAT" ? "/sibat-monitoring" : "/gis-map"}>
-                  <Map className="size-3.5 mr-1.5 text-teal-600" />
-                  Municipal GIS Map
-                </Link>
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  void dashboardQuery.refetch();
-                  void surveillanceQuery.refetch();
-                }}
+                <Download className="size-3.5" />
+                Download CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => { void queryClient.invalidateQueries({ queryKey }); }}
                 disabled={isFetching}
-                className="border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs cursor-pointer"
+                aria-label="Refresh analytics"
+                title="Refresh analytics"
+                className="inline-flex size-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <RefreshCw className={`size-3.5 mr-1.5 ${isFetching ? 'animate-spin text-emerald-600' : 'text-slate-500'}`} />
-                Refresh
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* ----------------------------------------------------------------- */}
-        {/* B. 4 EXECUTIVE METRIC HUD CARDS                                   */}
-        {/* ----------------------------------------------------------------- */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Metric 1: Total Active Livestock */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-                Active Livestock
-              </span>
-              <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                <Beef className="size-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              {dashboardQuery.isPending ? (
-                <Skeleton className="h-7 w-20" />
-              ) : (
-                <span className="text-2xl font-mono font-black text-slate-900">
-                  {descriptive?.population.total_heads?.toLocaleString('en-PH') ?? '0'}
-                </span>
+                <RefreshCw className={`size-4 ${isFetching ? 'animate-spin' : ''}`} />
+              </button>
+              {canViewWeeklySurveillance && (
+                <button
+                  type="button"
+                  onClick={() => setAssistantOpen((open) => !open)}
+                  aria-expanded={assistantOpen}
+                  className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
+                >
+                  <Sparkles className="size-3.5" aria-hidden="true" />
+                  {assistantOpen ? 'Hide assistant' : 'Ask SmartLivestock'}
+                </button>
               )}
-              <span className="text-xs font-semibold text-emerald-700">heads</span>
             </div>
-            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-              <span>Approved census snapshot</span>
-              <span className="font-mono font-bold text-slate-700">{descriptive?.population.by_species?.length ?? 0} species</span>
-            </div>
-          </div>
-
-          {/* Metric 2: Active Barangays */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-                Barangay Coverage
-              </span>
-              <div className="flex size-7 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700">
-                <MapPin className="size-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              {dashboardQuery.isPending ? (
-                <Skeleton className="h-7 w-20" />
-              ) : (
-                <span className="text-2xl font-mono font-black text-slate-900">
-                  {descriptive?.population.by_barangay.filter((b) => b.barangay_id !== null).length ?? '0'}
-                  <span className="text-base font-normal text-slate-400"> / 18</span>
-                </span>
-              )}
-              <span className="text-xs font-semibold text-cyan-700">reporting</span>
-            </div>
-            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-              <span>Barangays with registered farms</span>
-              <span className="font-mono font-bold text-slate-700">Padre Garcia</span>
-            </div>
-          </div>
-
-          {/* Metric 3: Recorded farmer production logs */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-                Recorded Production
-              </span>
-              <div className="flex size-7 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-                <Layers className="size-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              {dashboardQuery.isPending ? (
-                <Skeleton className="h-7 w-20" />
-              ) : (
-                <span className="text-2xl font-mono font-black text-slate-900">
-                  {descriptive?.production.records?.toLocaleString('en-PH') ?? '0'}
-                </span>
-              )}
-              <span className="text-xs font-semibold text-amber-700">logs</span>
-            </div>
-            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-              <span>Current farmer-recorded logs</span>
-              <span className="font-mono font-bold text-slate-700">Recorded</span>
-            </div>
-          </div>
-
-          {/* Metric 4: Health Surveillance Status */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs hover:shadow-xs transition-shadow">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-                Biosurveillance Status
-              </span>
-              <div className="flex size-7 items-center justify-center rounded-lg bg-rose-50 text-rose-700">
-                <Activity className="size-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              {dashboardQuery.isPending ? (
-                <Skeleton className="h-7 w-20" />
-              ) : (
-                <span className="text-2xl font-mono font-black text-slate-900">
-                  {descriptive?.disease.cases ?? 0}
-                </span>
-              )}
-              <span className="text-xs font-semibold text-rose-700">cases</span>
-            </div>
-            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-              <span>Mortality in period:</span>
-              <span className="font-mono font-bold text-slate-700">{descriptive?.mortality.deaths ?? 0} deaths</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ----------------------------------------------------------------- */}
-        {/* C. THE 4 CORE ANALYTICS PILLARS (Segmented Quadrant Cards)        */}
-        {/* ----------------------------------------------------------------- */}
-        <section aria-label="Four Core Analytics Pillars" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base sm:text-lg font-black text-slate-900">
-                Municipal Intelligence Pillars
-              </h2>
-              <p className="text-xs text-slate-500">
-                Select an analytical framework aligned with your administrative, forecasting, or veterinary goals.
-              </p>
-            </div>
-            <Badge variant="outline" className="text-xs font-mono font-bold text-slate-600 bg-slate-50">
-              4 Disciplines
-            </Badge>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* 1. Descriptive Intelligence */}
-            <Link
-              href="/analysis/descriptive"
-              className="group relative flex flex-col justify-between rounded-2xl border-2 border-slate-200/90 bg-white p-5 hover:border-emerald-600 hover:shadow-md transition-all cursor-pointer"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800 shadow-2xs group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                    <BarChart3 className="size-5 shrink-0" />
-                  </div>
-                  <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300 font-bold text-[11px]">
-                    What Happened
-                  </Badge>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 group-hover:text-emerald-950 transition-colors">
-                    Descriptive Intelligence
-                  </h3>
-                  <p className="text-xs font-semibold text-emerald-800 mt-0.5">
-                    Census &amp; Historical Records
-                  </p>
-                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                    Approved head counts, farmer-recorded monthly commodity yields, registered livestock trade, and barangay population distributions.
-                  </p>
-                </div>
-
-                <div className="space-y-1 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
-                    <span>Official active inventory census</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
-                    <span>Recorded milk, meat, and egg yields</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-800">
-                <span>Enter Descriptive HUD</span>
-                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
-
-            {/* 2. Predictive Analytics */}
-            <Link
-              href="/analysis/predictive"
-              className="group relative flex flex-col justify-between rounded-2xl border-2 border-slate-200/90 bg-white p-5 hover:border-cyan-600 hover:shadow-md transition-all cursor-pointer"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex size-10 items-center justify-center rounded-xl bg-cyan-100 text-cyan-800 shadow-2xs group-hover:bg-cyan-600 group-hover:text-white transition-colors">
-                    <TrendingUp className="size-5 shrink-0" />
-                  </div>
-                  <Badge variant="outline" className="bg-cyan-50 text-cyan-800 border-cyan-300 font-bold text-[11px]">
-                    What May Happen
-                  </Badge>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 group-hover:text-cyan-950 transition-colors">
-                    Predictive Analytics
-                  </h3>
-                  <p className="text-xs font-semibold text-cyan-800 mt-0.5">
-                    Empirical Time-Series Forecasts
-                  </p>
-                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                    1–6 month commodity and trade projections rigorously evaluated against historical backtesting and naive baselines.
-                  </p>
-                </div>
-
-                <div className="space-y-1 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="size-3 text-cyan-600 shrink-0" />
-                    <span>Multi-model bench (ARIMA, Holt-Winters)</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="size-3 text-cyan-600 shrink-0" />
-                    <span>Out-of-sample MAE &amp; RMSE cutoffs</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-cyan-800">
-                <span>Enter Forecast Bench</span>
-                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
-
-            {/* 3. Prescriptive Guidance */}
-            <Link
-              href="/analysis/prescriptive"
-              className="group relative flex flex-col justify-between rounded-2xl border-2 border-slate-200/90 bg-white p-5 hover:border-amber-600 hover:shadow-md transition-all cursor-pointer"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex size-10 items-center justify-center rounded-xl bg-amber-100 text-amber-800 shadow-2xs group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                    <Workflow className="size-5 shrink-0" />
-                  </div>
-                  <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 font-bold text-[11px]">
-                    What Actions to Take
-                  </Badge>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 group-hover:text-amber-950 transition-colors">
-                    Prescriptive Guidance
-                  </h3>
-                  <p className="text-xs font-semibold text-amber-800 mt-0.5">
-                    Deterministic Decision Rules
-                  </p>
-                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                    Quantitative threshold triggers advising feed reserves, quarantine buffers, and veterinary technician dispatches.
-                  </p>
-                </div>
-
-                <div className="space-y-1 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="size-3 text-amber-600 shrink-0" />
-                    <span>Transparent trigger formulas &amp; evidence</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="size-3 text-amber-600 shrink-0" />
-                    <span>Actionable administrative steps</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-800">
-                <span>Enter Decision Support</span>
-                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
-
-            {/* 4. Surveillance & Health */}
-            <Link
-              href="/analysis/surveillance-health"
-              className="group relative flex flex-col justify-between rounded-2xl border-2 border-slate-200/90 bg-white p-5 hover:border-rose-600 hover:shadow-md transition-all cursor-pointer"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex size-10 items-center justify-center rounded-xl bg-rose-100 text-rose-800 shadow-2xs group-hover:bg-rose-600 group-hover:text-white transition-colors">
-                    <ShieldAlert className="size-5 shrink-0" />
-                  </div>
-                  <Badge variant="outline" className="bg-rose-50 text-rose-800 border-rose-300 font-bold text-[11px]">
-                    Clinical Alerts
-                  </Badge>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 group-hover:text-rose-950 transition-colors">
-                    Surveillance &amp; Health
-                  </h3>
-                  <p className="text-xs font-semibold text-rose-800 mt-0.5">
-                    Biosurveillance &amp; Mortalities
-                  </p>
-                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                    Real-time approved disease reports, weekly comparison alert levels, and 30-day temporal herd contagion tracking.
-                  </p>
-                </div>
-
-                <div className="space-y-1 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="size-3 text-rose-600 shrink-0" />
-                    <span>Preceding disease-mortality links</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="size-3 text-rose-600 shrink-0" />
-                    <span>Barangay outbreak distribution donut</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-rose-800">
-                <span>Enter Biosurveillance</span>
-                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
           </div>
         </section>
 
-        {/* ----------------------------------------------------------------- */}
-        {/* D. MISSION CONTROL CENTERPIECE: NATURAL LANGUAGE ASSISTANT        */}
-        {/* ----------------------------------------------------------------- */}
-        {user?.role?.toUpperCase() === "MAO" && <section
-          aria-label="Natural Language Query Assistant"
-          className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-5 bg-gradient-to-r from-slate-50 via-white to-emerald-50/40 border-b border-slate-100">
-            <div className="flex items-start sm:items-center gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-200/60 shadow-2xs">
-                <Sparkles className="size-5 text-emerald-700" />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-sm sm:text-base font-bold text-slate-900">
-                    Ask Municipal Data Assistant
-                  </h2>
-                  <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs font-semibold">
-                    Rule-Based NLP
-                  </Badge>
-                </div>
-                <p className="text-xs text-slate-500 mt-0.5 leading-snug">
-                  Ask natural language questions in English or Tagalog about head counts, monthly commodity yields, disease alerts, or pending approvals.
-                </p>
-              </div>
-            </div>
+        {dashboardQuery.isError && (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-900">
+            <span>Analytics data could not be loaded. Try refreshing.</span>
+            <button type="button" onClick={() => { void dashboardQuery.refetch(); }} className="font-bold underline underline-offset-2">
+              Try again
+            </button>
+          </div>
+        )}
 
-            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-              {user?.role?.toUpperCase() === "MAO" && user?.isNlpDeveloper ? (
-                <Button asChild variant="outline" size="sm" className="h-8 text-xs font-semibold border-slate-200 hover:bg-slate-50 cursor-pointer">
-                  <Link href="/admin/analytics/nlp-example-review">
-                    <FileSearch className="mr-1.5 size-3.5 text-slate-500" />
-                    NLP Examples
-                  </Link>
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsAssistantOpen((prev) => !prev)}
-                className={`h-8 text-xs font-bold transition-colors cursor-pointer ${
-                  isAssistantOpen
-                    ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                }`}
-                aria-expanded={isAssistantOpen}
-                aria-controls="ask-smartlivestock-content"
-              >
-                {isAssistantOpen ? (
-                  <>
-                    <span>Hide Assistant</span>
-                    <ChevronUp className="ml-1.5 size-3.5" />
-                  </>
+        <section aria-label="Livestock and health graphs" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <TrendChart
+            title="Approved Inventory Registrations"
+            description="Approved animal records, grouped by registration month"
+            data={inventorySeries.map((row) => ({ label: row.label, value: row.heads }))}
+            color="blue"
+            kind="line"
+            loading={dashboardQuery.isPending}
+            rangeLabel={rangeLabel}
+            unit="heads"
+            chartId="inventory"
+            footnote="Groups records currently marked approved by registration month. It is not a historical livestock headcount."
+            emptyMessage="No approved inventory registrations are available for these months."
+          />
+          <TrendChart
+            title="Approved Livestock Sales"
+            description="Animals recorded in approved sales each month"
+            data={salesSeries.map((point) => ({ label: point.label, value: point.animals }))}
+            color="emerald"
+            kind="bar"
+            loading={dashboardQuery.isPending}
+            rangeLabel={rangeLabel}
+            unit="animals"
+            chartId="sales"
+            footnote="Only approved transfers are counted. Months without a sale record are left blank, not treated as confirmed zero sales."
+            emptyMessage="No approved livestock sale records are available for these months."
+          />
+          <TrendChart
+            title="Animals in Disease Reports"
+            description="Animals listed as affected on approved reports"
+            data={series.map((point) => ({ label: point.label, value: point.reported_heads }))}
+            color="emerald"
+            kind="line"
+            loading={dashboardQuery.isPending}
+            rangeLabel={rangeLabel}
+            unit="animals"
+            chartId="affected-animals"
+            footnote="Monthly affected-animal counts on approved disease reports; reporting completeness is not measured."
+            emptyMessage="Monthly disease report data is not available yet."
+          />
+          <TrendChart
+            title="Deaths Reported"
+            description="Deaths recorded in approved reports"
+            data={series.map((point) => ({ label: point.label, value: point.deaths }))}
+            color="rose"
+            kind="bar"
+            loading={dashboardQuery.isPending}
+            rangeLabel={rangeLabel}
+            unit="deaths"
+            chartId="deaths"
+            footnote="Monthly death counts in approved records; missing reports are not measured."
+            emptyMessage="Monthly death report data is not available yet."
+          />
+        </section>
+
+        <section aria-labelledby="advanced-overview-heading" className="space-y-3">
+          <div>
+            <h2 id="advanced-overview-heading" className="text-base font-bold tracking-tight text-slate-900">Predictive and prescriptive overview</h2>
+            <p className="mt-1 text-xs text-slate-500">A quick look at forecast availability and suggested next steps.</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <article className="rounded-2xl border border-sky-200 bg-white p-4 shadow-sm sm:p-5">
+              <div className="flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+                  <TrendingUp className="size-4.5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-sky-800">Predictive</p>
+                  <h3 className="mt-0.5 text-sm font-bold text-slate-900">Forecast availability</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Based on past approved records.</p>
+                </div>
+              </div>
+
+              <div className="mt-4 min-h-[92px]">
+                {predictiveOverviewQuery.isPending ? (
+                  <div className="space-y-2" aria-label="Loading forecast overview">
+                    <Skeleton className="h-8 w-36" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
+                ) : predictiveOverviewQuery.isError ? (
+                  <p role="status" className="rounded-lg bg-rose-50 p-3 text-xs text-rose-800">Forecast status could not be loaded.</p>
+                ) : forecastTopics.length === 0 ? (
+                  <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">No forecast topics are available for this account.</p>
                 ) : (
                   <>
-                    <span>Open Assistant</span>
-                    <ChevronDown className="ml-1.5 size-3.5" />
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                      <p className="text-sm font-semibold text-slate-700">
+                        <span className="text-2xl font-extrabold tracking-tight text-slate-900">{availableForecastCount}/{forecastTopics.length}</span>{' '}
+                        forecasts available
+                      </p>
+                      <p className="text-right text-[11px] text-slate-500">
+                        <span className="block text-sm font-bold text-slate-800">{checkedForecastCount}</span>
+                        checked against past data
+                      </p>
+                    </div>
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Available forecasts" aria-valuemin={0} aria-valuemax={forecastTopics.length} aria-valuenow={availableForecastCount}>
+                      <div className="h-full rounded-full bg-sky-600 transition-[width]" style={{ width: `${(availableForecastCount / forecastTopics.length) * 100}%` }} />
+                    </div>
                   </>
                 )}
-              </Button>
-            </div>
-          </div>
+              </div>
 
-          {isAssistantOpen && (
-            <div id="ask-smartlivestock-content" className="p-4 sm:p-5 bg-white space-y-4">
-              <AskSmartLivestock collapsible={false} defaultOpen={true} />
-            </div>
-          )}
-        </section>}
+              <Link href="/analysis/predictive" className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-sky-800 hover:text-sky-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700">
+                Open forecasts <ArrowRight className="size-3.5" aria-hidden="true" />
+              </Link>
+            </article>
 
-        {/* ----------------------------------------------------------------- */}
-        {/* E. SPECIALIZED WORKSPACES & WORKBENCHES                           */}
-        {/* ----------------------------------------------------------------- */}
-        <section aria-label="Explore Dedicated Analytics Workspaces" className="space-y-3">
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900">Dedicated Analysis Workspaces</h2>
-            <p className="text-xs text-slate-500">
-              Direct access to full-screen analytics workbenches, diagnostics, and municipal reporting tools.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Workspace 1: Municipal Records */}
-            <Link
-              href="/analysis/municipal-records"
-              className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 hover:border-emerald-500 hover:bg-emerald-50/20 hover:shadow-2xs transition-all group cursor-pointer"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="p-2 rounded-lg bg-emerald-100 text-emerald-800 group-hover:bg-emerald-200 transition-colors">
-                    <FileSpreadsheet className="size-4.5" />
-                  </div>
-                  <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200">
-                    Descriptive
-                  </Badge>
+            <article className="rounded-2xl border border-amber-200 bg-white p-4 shadow-sm sm:p-5">
+              <div className="flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                  <Lightbulb className="size-4.5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-800">Prescriptive</p>
+                  <h3 className="mt-0.5 text-sm font-bold text-slate-900">Suggested next steps</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Guidance from current health and vaccination records.</p>
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 group-hover:text-emerald-950 transition-colors">
-                  Municipal Records Matrix
-                </h3>
-                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                  Historical records, farmer production trends, approved municipal operations, and barangay matrices.
-                </p>
               </div>
-              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-800">
-                <span>Open Matrix</span>
-                <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
 
-            {/* Workspace 2: Evaluated Forecasts */}
-            <Link
-              href="/analysis/evaluated-forecasts"
-              className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 hover:border-cyan-500 hover:bg-cyan-50/20 hover:shadow-2xs transition-all group cursor-pointer"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="p-2 rounded-lg bg-cyan-100 text-cyan-800 group-hover:bg-cyan-200 transition-colors">
-                    <Cpu className="size-4.5" />
+              <div className="mt-4 min-h-[92px]">
+                {prescriptiveOverviewQuery.isPending ? (
+                  <div className="space-y-2" aria-label="Loading suggested actions">
+                    <Skeleton className="h-5 w-40" />
+                    <Skeleton className="h-10 w-full" />
                   </div>
-                  <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200">
-                    Predictive
-                  </Badge>
-                </div>
-                <h3 className="text-sm font-bold text-slate-900 group-hover:text-cyan-950 transition-colors">
-                  Evaluated Forecasts Bench
-                </h3>
-                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                  Out-of-sample projections, validation cutoffs, model benchmarks, and diagnostics.
-                </p>
+                ) : prescriptiveOverviewQuery.isError || prescriptiveOverviewQuery.data?.status === 'error' ? (
+                  <p role="status" className="rounded-lg bg-rose-50 p-3 text-xs text-rose-800">Suggested steps could not be loaded.</p>
+                ) : suggestedActions.length === 0 ? (
+                  <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">No health or vaccination suggestions are available from current records.</p>
+                ) : (
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-slate-700">{suggestedActions.length} suggestions from current records</p>
+                      {highPriorityActionCount > 0 && (
+                        <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">{highPriorityActionCount} high priority</span>
+                      )}
+                    </div>
+                    {featuredAction && (
+                      <>
+                        <p className="text-xs font-bold text-slate-900">{featuredAction.title}</p>
+                        <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-600">{featuredAction.recommendation}</p>
+                      </>
+                    )}
+                    <p className="mt-2 text-[10px] text-slate-500">Suggestions are advisory and need staff review.</p>
+                  </div>
+                )}
               </div>
-              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-cyan-800">
-                <span>View Projections</span>
-                <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
 
-            {/* Workspace 3: Decision Support */}
-            <Link
-              href="/analysis/decision-support"
-              className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 hover:border-amber-500 hover:bg-amber-50/20 hover:shadow-2xs transition-all group cursor-pointer"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="p-2 rounded-lg bg-amber-100 text-amber-800 group-hover:bg-amber-200 transition-colors">
-                    <Workflow className="size-4.5" />
-                  </div>
-                  <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200">
-                    Prescriptive
-                  </Badge>
-                </div>
-                <h3 className="text-sm font-bold text-slate-900 group-hover:text-amber-950 transition-colors">
-                  Decision Support Workspace
-                </h3>
-                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                  Rule-based evidence triggers, intervention suggestions, and follow-up guidance.
-                </p>
-              </div>
-              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-800">
-                <span>Inspect Rules</span>
-                <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
-
-            {/* Workspace 4: Spatial GIS Map */}
-            <Link
-              href={user?.role?.toUpperCase() === "SIBAT" || user?.role?.toUpperCase() === "CBAT" ? "/sibat-monitoring" : "/gis-map"}
-              className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 hover:border-rose-500 hover:bg-rose-50/20 hover:shadow-2xs transition-all group cursor-pointer"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="p-2 rounded-lg bg-rose-100 text-rose-800 group-hover:bg-rose-200 transition-colors">
-                    <Map className="size-4.5" />
-                  </div>
-                  <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600 border-slate-200">
-                    GIS &amp; Spatial
-                  </Badge>
-                </div>
-                <h3 className="text-sm font-bold text-slate-900 group-hover:text-rose-950 transition-colors">
-                  Spatial GIS Surveillance
-                </h3>
-                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                  Interactive barangay maps, registered livestock pens, and quarantine buffer zones.
-                </p>
-              </div>
-              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-rose-800">
-                <span>Open GIS Map</span>
-                <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </Link>
+              <Link href="/analysis/prescriptive" className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700">
+                Open suggested actions <ArrowRight className="size-3.5" aria-hidden="true" />
+              </Link>
+            </article>
           </div>
         </section>
 
-        {/* ----------------------------------------------------------------- */}
-        {/* F. DATA GOVERNANCE & LEGAL AUDIT STATEMENT                        */}
-        {/* ----------------------------------------------------------------- */}
-        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">
-              <ShieldCheck className="size-4.5 text-emerald-700" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm font-bold text-slate-900">
-                  Authoritative Municipal Data Scope
-                </span>
-                <Badge variant="outline" className="bg-white text-emerald-800 border-emerald-300 text-[10px] font-bold">
-                  Source-Appropriate Records
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5 leading-snug">
-                Farmer production summaries and forecasts use current recorded farmer logs only. Historical approval-state production logs are excluded. Official slaughter, inventory, disease, mortality, inspection, and movement metrics retain their own review and authorization rules.
-              </p>
-            </div>
-          </div>
-
-          <span className="text-xs text-slate-400 font-mono shrink-0">
-            SmartLivestock v2.4 Core
-          </span>
-        </div>
-      </div>
+        {canViewWeeklySurveillance && assistantOpen && (
+          <section aria-label="Ask SmartLivestock">
+            <AskSmartLivestock className="w-full" collapsible={false} defaultOpen />
+          </section>
+        )}
+      </main>
     </>
   );
 }
