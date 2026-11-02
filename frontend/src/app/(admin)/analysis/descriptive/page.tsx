@@ -21,13 +21,13 @@ import {
   CheckCircle2,
   Clock,
   FileSpreadsheet,
+  Gavel,
   Info,
   LineChart as LineChartIcon,
   MapPin,
   RefreshCw,
   Scale,
   ShieldCheck,
-  ShoppingBag,
   Sparkles,
   Table as TableIcon,
   TrendingUp,
@@ -68,6 +68,8 @@ interface DescriptiveResponse {
       sales: number;
       animals: number;
       recorded_value: number | null;
+      average_price?: number | null;
+      priced_sales?: number;
       completed_transfers: number;
       missing_price_transfers: number;
       trend: Array<{ month: string; label: string; transactions: number | null; animals: number | null; total_value_php: number | null }>;
@@ -80,8 +82,22 @@ interface DescriptiveResponse {
   };
 }
 
+interface TooltipPayloadItem {
+  dataKey?: string;
+  name?: string;
+  value?: number | string | null;
+  color?: string;
+}
+
+interface MissionControlTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+  unit?: string;
+}
+
 // Crisp Mission Control Tooltip matching futuristic design
-function MissionControlTooltip({ active, payload, label, unit }: any) {
+function MissionControlTooltip({ active, payload, label, unit }: MissionControlTooltipProps) {
   if (!active || !payload || !payload.length) return null;
 
   return (
@@ -91,7 +107,7 @@ function MissionControlTooltip({ active, payload, label, unit }: any) {
         {unit && <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">{unit}</span>}
       </div>
       <div className="space-y-1.5">
-        {payload.map((item: any, index: number) => {
+        {payload.map((item, index: number) => {
           if (item.value == null) return null;
           return (
             <div key={`${item.dataKey || item.name}-${index}`} className="flex items-center justify-between gap-4">
@@ -197,7 +213,7 @@ export default function DescriptiveAnalyticsLandingPage() {
                 </Badge>
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                Approved census snapshots, reviewed slaughter activity, health coverage, and live transfers. Simple by default, detailed on demand.
+                Approved census snapshots, reviewed slaughter activity, health coverage, and livestock auction sales. Simple by default, detailed on demand.
               </p>
             </div>
 
@@ -236,11 +252,11 @@ export default function DescriptiveAnalyticsLandingPage() {
           {[
             {
               id: 'sales' as const,
-              label: 'Live Transfers & Trade',
-              domain: 'Commerce',
-              reporting: 'Approved Transfers',
-              icon: ShoppingBag,
-              metric: `${data?.sales.completed_transfers ?? 0} transfers`,
+              label: 'Auction & Sales',
+              domain: 'Auction Market',
+              reporting: 'Approved Auction Sales',
+              icon: Gavel,
+              metric: `${data?.sales.completed_transfers ?? 0} sales`,
               badge: `${data?.sales.animals ?? 0} animals`,
             },
             {
@@ -338,13 +354,13 @@ export default function DescriptiveAnalyticsLandingPage() {
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800">
-                  {selectedDomain === 'sales' && <ShoppingBag className="size-4 text-emerald-700" />}
+                  {selectedDomain === 'sales' && <Gavel className="size-4 text-emerald-700" />}
                   {selectedDomain === 'population' && <Beef className="size-4 text-emerald-700" />}
                   {selectedDomain === 'slaughter' && <Scale className="size-4 text-emerald-700" />}
                   {selectedDomain === 'vaccination' && <ShieldCheck className="size-4 text-emerald-700" />}
                 </div>
                 <CardTitle className="text-base sm:text-lg font-bold text-slate-900">
-                  {selectedDomain === 'sales' && 'Approved Live Animal Transfers Timeline'}
+                  {selectedDomain === 'sales' && 'Approved Auction Sales & Live Animal Transfers'}
                   {selectedDomain === 'population' && 'Approved Population Distribution by Livestock Species'}
                   {selectedDomain === 'slaughter' && 'Approved Slaughter Activity by Month'}
                   {selectedDomain === 'vaccination' && 'Vaccination Coverage & Biological Protection Meter'}
@@ -401,8 +417,8 @@ export default function DescriptiveAnalyticsLandingPage() {
                     <TableHeader className="bg-slate-50">
                       <TableRow className="border-slate-200 hover:bg-transparent">
                         <TableHead className="font-mono text-xs text-slate-600">Month Period</TableHead>
-                        <TableHead className="font-mono text-xs text-slate-600 text-right">Approved Transfers</TableHead>
-                        <TableHead className="font-mono text-xs text-slate-600 text-right">Animals Moved</TableHead>
+                        <TableHead className="font-mono text-xs text-slate-600 text-right">Auction Sales / Transfers</TableHead>
+                        <TableHead className="font-mono text-xs text-slate-600 text-right">Animals Traded</TableHead>
                         <TableHead className="font-mono text-xs text-slate-600 text-right">Recorded Value (PHP)</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -527,16 +543,23 @@ export default function DescriptiveAnalyticsLandingPage() {
                 {selectedDomain === 'sales' && (
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-mono text-slate-600 pb-2 border-b border-slate-100">
-                      <span>Completed Transfers: <strong className="text-slate-900">{data?.sales.completed_transfers ?? 0}</strong></span>
-                      <span>Distinct Animals: <strong className="text-slate-900">{data?.sales.animals ?? 0}</strong></span>
+                      <span>Completed Auction Sales: <strong className="text-slate-900">{data?.sales.completed_transfers ?? 0}</strong></span>
+                      <span>Animals Sold / Traded: <strong className="text-slate-900">{data?.sales.animals ?? 0}</strong></span>
                       <span>
-                        Recorded Value: <strong className="text-emerald-800">
+                        Total Recorded Value: <strong className="text-emerald-800">
                           {data?.sales.recorded_value == null ? 'Not recorded' : `₱${data.sales.recorded_value.toLocaleString('en-PH')}`}
                         </strong>
                       </span>
+                      {data?.sales.average_price != null && (
+                        <span>
+                          Avg Head Price: <strong className="text-emerald-800">
+                            ₱{Math.round(data.sales.average_price).toLocaleString('en-PH')}
+                          </strong>
+                        </span>
+                      )}
                     </div>
 
-                    <div className="h-72 sm:h-80 w-full" role="img" aria-label="Monthly approved live animal transfers">
+                    <div className="h-72 sm:h-80 w-full" role="img" aria-label="Monthly approved livestock auction sales and transfers">
                       <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={salesTrend} margin={{ top: 10, right: 15, left: -10, bottom: 20 }}>
                           <defs>
@@ -561,11 +584,11 @@ export default function DescriptiveAnalyticsLandingPage() {
                             tickLine={{ stroke: "#e2e8f0" }}
                             tickFormatter={(v) => Number(v).toLocaleString("en-PH")}
                           />
-                          <Tooltip content={<MissionControlTooltip unit="Transfers" />} />
+                          <Tooltip content={<MissionControlTooltip unit="Auction Sales" />} />
                           <Area
                             type="monotone"
                             dataKey="transactions"
-                            name="Approved Transfers"
+                            name="Auction Sales / Transfers"
                             stroke="none"
                             fill="url(#salesGlowLight)"
                             connectNulls
@@ -573,7 +596,7 @@ export default function DescriptiveAnalyticsLandingPage() {
                           <Line
                             type="monotone"
                             dataKey="transactions"
-                            name="Approved Transfers"
+                            name="Auction Sales / Transfers"
                             stroke="#059669"
                             strokeWidth={2.5}
                             dot={{ r: 4, fill: "#10b981", stroke: "#047857", strokeWidth: 1.5 }}
@@ -742,10 +765,10 @@ export default function DescriptiveAnalyticsLandingPage() {
           <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-amber-300 transition-all relative overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">
-                Completed Transfers
+                Auction & Market Sales
               </span>
               <div className="size-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-800">
-                <ShoppingBag className="size-4" />
+                <Gavel className="size-4" />
               </div>
             </div>
             <div className="mt-3">
@@ -753,7 +776,7 @@ export default function DescriptiveAnalyticsLandingPage() {
                 {data?.sales.animals?.toLocaleString('en-PH') ?? '0'}
               </div>
               <p className="mt-1 text-[11px] text-slate-500 leading-tight">
-                {data?.sales.completed_transfers ?? 0} approved transfer events
+                {data?.sales.completed_transfers ?? 0} approved auction sales & transfers
               </p>
             </div>
           </Card>
@@ -860,7 +883,7 @@ export default function DescriptiveAnalyticsLandingPage() {
               Need detailed livestock, slaughter, or disease records?
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 max-w-2xl">
-              Open the Municipal Records matrix to review livestock, slaughter, transfer, disease, and mortality records, or export municipal CSV reports.
+              Open the Municipal Records matrix to review livestock, slaughter, auction sales, disease, and mortality records, or export municipal CSV reports.
             </p>
           </div>
 
