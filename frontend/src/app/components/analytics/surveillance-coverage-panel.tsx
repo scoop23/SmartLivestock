@@ -318,7 +318,8 @@ function CompactSingleBarangayCard({
               type="button"
               onClick={() => {
                 toast.warning(
-                  `Cannot attest zero reports: ${row.record_count} ${domain === "DISEASE" ? "disease" : "mortality"} report${row.record_count === 1 ? " is" : "s are"} already recorded for ${row.barangay_name} in ${formatReportMonth(reportMonth)}.`
+                  `Cannot attest zero reports: ${row.record_count} ${domain === "DISEASE" ? "disease" : "mortality"} report${row.record_count === 1 ? " is" : "s are"} already recorded for ${row.barangay_name} in ${formatReportMonth(reportMonth)}.`,
+                  { toasterId: "incoming-notifications" }
                 );
               }}
               className="h-7.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 font-semibold text-xs px-2.5 flex items-center justify-center border border-slate-200/80 cursor-pointer transition-colors shadow-2xs"
@@ -363,6 +364,7 @@ function CompactSingleBarangayCard({
                     `Cannot complete monthly attestation: ${row.needs_approval_count} ${domain === "DISEASE" ? "disease" : "mortality"} report${row.needs_approval_count === 1 ? " is" : "s are"} still pending review for ${row.barangay_name}.`,
                     {
                       description: `All reports for ${formatReportMonth(reportMonth)} must be reviewed and approved by MAO before this month can be marked complete.`,
+                      toasterId: "incoming-notifications",
                       action: {
                         label: `Review (${row.needs_approval_count})`,
                         onClick: () => {
@@ -373,7 +375,8 @@ function CompactSingleBarangayCard({
                   );
                 } else if (row.record_count === 0) {
                   toast.info(
-                    `Zero reports recorded for ${row.barangay_name} in ${formatReportMonth(reportMonth)}. Click "Attest No Reports" to confirm this quiet month.`
+                    `Zero reports recorded for ${row.barangay_name} in ${formatReportMonth(reportMonth)}. Click "Attest No Reports" to confirm this quiet month.`,
+                    { toasterId: "incoming-notifications" }
                   );
                 }
               }}
@@ -449,6 +452,8 @@ export function SurveillanceCoveragePanel() {
   const confirmedCount = rows.filter((r) => r.state === "CONFIRMED").length;
   const unconfirmedCount = rows.filter((r) => r.state === "UNCONFIRMED").length;
   const staleCount = rows.filter((r) => r.state === "STALE" || r.state === "INCONSISTENT").length;
+  const totalNeedsApproval = rows.reduce((sum, r) => sum + (r.needs_approval_count || 0), 0);
+  const unapprovedBarangays = rows.filter((r) => r.needs_approval_count > 0);
 
   const displayRows = rows.filter((r) => {
     if (isSingleBarangay) return true;
@@ -575,6 +580,32 @@ export function SurveillanceCoveragePanel() {
           </div>
 
           <div className="mt-4 space-y-3">
+            {/* Unfinished reports notification banner across authorized municipal barangays */}
+            {totalNeedsApproval > 0 && (
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 shadow-2xs">
+                <div className="flex items-start sm:items-center gap-3">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-900 border border-amber-200 shadow-2xs">
+                    <CircleHelp className="size-5 text-amber-700" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-bold text-amber-950">
+                      Unfinished Field Reports Pending MAO Review
+                    </h3>
+                    <p className="text-xs text-amber-900/90 mt-0.5">
+                      {totalNeedsApproval} {domain === "DISEASE" ? "disease" : "mortality"} report{totalNeedsApproval === 1 ? "" : "s"} across {unapprovedBarangays.length} barangay{unapprovedBarangays.length === 1 ? "" : "s"} ({unapprovedBarangays.map((b) => b.barangay_name).join(", ")}) must be reviewed and approved by MAO before coverage can be marked complete.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href={recordsHrefFor(unapprovedBarangays[0]?.barangay_name || "")}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-3.5 text-xs font-bold text-amber-900 shadow-2xs hover:bg-amber-100 shrink-0 transition-colors"
+                >
+                  <span>Review {totalNeedsApproval} Unapproved Report{totalNeedsApproval === 1 ? "" : "s"}</span>
+                  <ArrowRight className="size-3.5 text-amber-700" />
+                </Link>
+              </div>
+            )}
+
             {coverageQuery.data?.unassigned_record_count ? (
               <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
                 <CircleHelp className="mt-0.5 size-4 shrink-0" />
@@ -761,7 +792,8 @@ export function SurveillanceCoveragePanel() {
                           type="button"
                           onClick={() => {
                             toast.warning(
-                              `Cannot attest zero reports: ${row.record_count} ${domain === "DISEASE" ? "disease" : "mortality"} report${row.record_count === 1 ? " is" : "s are"} already recorded for ${row.barangay_name}.`
+                              `Cannot attest zero reports: ${row.record_count} ${domain === "DISEASE" ? "disease" : "mortality"} report${row.record_count === 1 ? " is" : "s are"} already recorded for ${row.barangay_name}.`,
+                              { toasterId: "incoming-notifications" }
                             );
                           }}
                           className="h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 font-semibold text-[11px] px-3 flex items-center justify-center border border-slate-200/80 cursor-pointer select-none truncate transition-colors"
@@ -806,6 +838,7 @@ export function SurveillanceCoveragePanel() {
                                 `Cannot complete monthly attestation: ${row.needs_approval_count} ${domain === "DISEASE" ? "disease" : "mortality"} report${row.needs_approval_count === 1 ? " is" : "s are"} still pending review for ${row.barangay_name}.`,
                                 {
                                   description: `All reports for ${formatReportMonth(reportMonth)} must be reviewed and approved by MAO before this month can be marked complete.`,
+                                  toasterId: "incoming-notifications",
                                   action: {
                                     label: `Review (${row.needs_approval_count})`,
                                     onClick: () => {
@@ -816,7 +849,8 @@ export function SurveillanceCoveragePanel() {
                               );
                             } else if (row.record_count === 0) {
                               toast.info(
-                                `Zero reports recorded for ${row.barangay_name} in ${formatReportMonth(reportMonth)}. Click "No Reports" to confirm this quiet month.`
+                                `Zero reports recorded for ${row.barangay_name} in ${formatReportMonth(reportMonth)}. Click "No Reports" to confirm this quiet month.`,
+                                { toasterId: "incoming-notifications" }
                               );
                             }
                           }}
