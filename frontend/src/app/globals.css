@@ -434,52 +434,77 @@ html[data-font-scale] .recharts-default-tooltip {
   border-radius: 16px !important;
 }
 
-@keyframes incoming-notification-float-in {
+@keyframes incoming-notification-glide-in {
   0% {
     opacity: 0;
-    translate: 20px -8px;
-    scale: 0.96;
-    filter: blur(5px);
-  }
-  72% {
-    opacity: 1;
-    translate: -2px 1px;
-    scale: 1;
-    filter: blur(0);
+    translate: 24px -6px;
+    scale: 0.97;
   }
   100% {
     opacity: 1;
     translate: 0 0;
     scale: 1;
-    filter: blur(0);
   }
 }
 
-@keyframes incoming-notification-idle-float {
+@keyframes incoming-notification-float {
   0%,
   100% {
     translate: 0 0;
+    box-shadow:
+      0 14px 38px rgba(16, 60, 45, 0.12),
+      0 0 20px rgba(52, 211, 153, 0.12),
+      inset 0 1px rgba(255, 255, 255, 0.92);
+    border-color: rgba(16, 185, 129, 0.28);
   }
   50% {
-    translate: 0 -4px;
+    translate: 0 -6px;
+    box-shadow:
+      0 22px 52px rgba(16, 60, 45, 0.18),
+      0 0 34px rgba(52, 211, 153, 0.26),
+      inset 0 1px rgba(255, 255, 255, 0.98);
+    border-color: rgba(16, 185, 129, 0.46);
+  }
+}
+
+[data-sonner-toaster][data-x-position="right"][data-y-position="top"] {
+  --offset-top: 34px !important;
+  --offset-right: 34px !important;
+  top: 34px !important;
+  right: 34px !important;
+}
+
+@media (max-width: 640px) {
+  [data-sonner-toaster][data-x-position="right"][data-y-position="top"] {
+    --offset-top: 20px !important;
+    --offset-right: 16px !important;
+    top: 20px !important;
+    right: 16px !important;
   }
 }
 
 [data-sonner-toaster][data-x-position="right"][data-y-position="top"]
   [data-sonner-toast][data-styled="true"] {
-  position: relative;
+  will-change: translate, opacity, transform, box-shadow;
+  backface-visibility: hidden;
+  transform-origin: top right;
   background:
     radial-gradient(circle at 100% 0%, rgba(52, 211, 153, 0.16), transparent 44%),
     linear-gradient(130deg, #f8fffb 0%, #effdf5 58%, #e0f8eb 100%) !important;
   color: #123b2e !important;
   border: 1px solid rgba(16, 185, 129, 0.28) !important;
   box-shadow:
-    0 18px 46px rgba(16, 60, 45, 0.14),
-    0 0 24px rgba(52, 211, 153, 0.12),
-    inset 0 1px rgba(255, 255, 255, 0.9) !important;
+    0 14px 38px rgba(16, 60, 45, 0.12),
+    0 0 20px rgba(52, 211, 153, 0.12),
+    inset 0 1px rgba(255, 255, 255, 0.92) !important;
   backdrop-filter: blur(18px) saturate(1.2);
-  transition: translate 400ms ease, transform 400ms ease, opacity 400ms ease,
-    height 400ms ease, box-shadow 200ms ease;
+  transition:
+    translate 380ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 460ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 350ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 380ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 300ms ease,
+    border-color 300ms ease;
 }
 
 [data-sonner-toaster][data-x-position="right"][data-y-position="top"]
@@ -498,10 +523,40 @@ html[data-font-scale] .recharts-default-tooltip {
 }
 
 [data-sonner-toaster][data-x-position="right"][data-y-position="top"]
-  [data-sonner-toast][data-mounted="true"][data-visible="true"] {
+  [data-sonner-toast] [data-close-button] {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms ease, border-color 200ms ease !important;
+}
+
+[data-sonner-toaster][data-x-position="right"][data-y-position="top"]
+  [data-sonner-toast] [data-close-button]:hover {
+  background: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #065f46 !important;
+}
+
+[data-sonner-toaster][data-x-position="right"][data-y-position="top"]
+  [data-sonner-toast][data-mounted="true"][data-visible="true"]:is([data-front="true"], [data-expanded="true"]) {
   animation:
-    incoming-notification-float-in 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both,
-    incoming-notification-idle-float 3.4s ease-in-out 480ms infinite;
+    incoming-notification-glide-in 460ms cubic-bezier(0.16, 1, 0.3, 1) both,
+    incoming-notification-float 3.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) 460ms infinite;
+}
+
+[data-sonner-toaster][data-x-position="right"][data-y-position="top"]
+  [data-sonner-toast]:hover {
+  animation-play-state: paused;
+  translate: 0 -3px;
+  box-shadow:
+    0 24px 56px rgba(16, 60, 45, 0.22),
+    0 0 36px rgba(52, 211, 153, 0.28),
+    inset 0 1px rgba(255, 255, 255, 1) !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+}
+
+[data-sonner-toaster][data-x-position="right"][data-y-position="top"]
+  [data-sonner-toast][data-expanded="false"][data-front="false"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

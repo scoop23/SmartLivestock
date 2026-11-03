@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { getNotificationQueryKey } from "@/lib/notification-query";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
@@ -11,14 +12,20 @@ interface IncomingNotification {
   id: number;
   title: string;
   message: string;
+  is_read?: boolean;
+  priority?: string;
+  created_at?: string;
+  link?: string;
 }
 
 interface IncomingNotificationsResponse {
   notifications: IncomingNotification[];
+  unread_count?: number;
 }
 
 export function IncomingNotificationToastListener() {
   const { user } = useAuth();
+  const router = useRouter();
   const userIdentity = user?.email ?? user?.username ?? null;
   const seenNotificationIds = useRef(new Set<number>());
   const initializedUser = useRef<string | null>(null);
@@ -54,25 +61,29 @@ export function IncomingNotificationToastListener() {
       return;
     }
 
-    // The first successful inbox fetch establishes a baseline so old unread
-    // notifications do not all appear as new when a user opens the app.
-    if (initializedUser.current !== userIdentity) {
+    const isNewUserSession = initializedUser.current !== userIdentity;
+    if (isNewUserSession) {
       initializedUser.current = userIdentity;
       seenNotificationIds.current.clear();
-      lastDataUpdatedAt.current = dataUpdatedAt;
-      hasBaseline.current = Boolean(data && dataUpdatedAt);
-      data?.notifications.forEach(({ id }) => seenNotificationIds.current.add(id));
-      return;
+      hasBaseline.current = false;
+      lastDataUpdatedAt.current = 0;
     }
 
-    if (!data || dataUpdatedAt <= lastDataUpdatedAt.current) return;
-    lastDataUpdatedAt.current = dataUpdatedAt;
+    if (!data) return;
 
+    // On initial sign-in / fresh page load:
+    // Establish the baseline so notifications that arrived before the user
+    // entered the site do NOT pop up as toasts. Only notifications that arrive
+    // in real-time while the user is actively inside the site will trigger popups.
     if (!hasBaseline.current) {
-      data.notifications.forEach(({ id }) => seenNotificationIds.current.add(id));
       hasBaseline.current = true;
+      lastDataUpdatedAt.current = dataUpdatedAt;
+      data.notifications.forEach(({ id }) => seenNotificationIds.current.add(id));
       return;
     }
+
+    if (dataUpdatedAt <= lastDataUpdatedAt.current) return;
+    lastDataUpdatedAt.current = dataUpdatedAt;
 
     const newlyReceived = data.notifications.filter(
       ({ id }) => !seenNotificationIds.current.has(id)
@@ -80,13 +91,24 @@ export function IncomingNotificationToastListener() {
 
     data.notifications.forEach(({ id }) => seenNotificationIds.current.add(id));
     newlyReceived.forEach((notification) => {
-      toast.info(notification.title || "New notification", {
-        description: notification.message,
-        duration: 8000,
+      const title = notification.title?.trim();
+      const message = notification.message?.trim();
+      if (!title && !message) return;
+
+      toast.info(title || "New notification", {
+        id: `incoming-notification-${notification.id}`,
+        description: message,
+        duration: 9000,
         toasterId: "incoming-notifications",
+        action: notification.link
+          ? {
+              label: "View",
+              onClick: () => router.push(notification.link!),
+            }
+          : undefined,
       });
     });
-  }, [data, dataUpdatedAt, userIdentity]);
+  }, [data, dataUpdatedAt, router, userIdentity]);
 
   return null;
 }

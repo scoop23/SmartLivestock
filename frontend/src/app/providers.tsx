@@ -37,7 +37,12 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <IncomingNotificationToastListener />
-          <Toaster id="incoming-notifications" position="top-right" />
+          <Toaster
+            id="incoming-notifications"
+            position="top-right"
+            expand={true}
+            offset={{ top: "34px", right: "34px" }}
+          />
           {children}
           <PrivacyConsentModal />
         </AuthProvider>
