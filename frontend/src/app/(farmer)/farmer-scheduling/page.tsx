@@ -181,6 +181,9 @@ function FarmerSchedulingContent() {
   const [bookingToastClosing, setBookingToastClosing] = useState(false);
   const [bookingFilter, setBookingFilter] = useState<"upcoming" | "past">("upcoming");
   const [highlightedBookingId, setHighlightedBookingId] = useState<number | null>(null);
+  const [highlightedBookingLabel, setHighlightedBookingLabel] = useState("Just booked");
+  const [highlightDurationMs, setHighlightDurationMs] = useState(6000);
+  const [highlightRequest, setHighlightRequest] = useState(0);
   const [photoViewer, setPhotoViewer] = useState<{
     photos: string[];
     alt: string;
@@ -301,6 +304,10 @@ function FarmerSchedulingContent() {
     );
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHighlightedBookingId(targetBooking.id);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHighlightedBookingLabel("Booking selected");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHighlightRequest((request) => request + 1);
 
     const url = new URL(window.location.href);
     url.searchParams.delete("bookingId");
@@ -321,13 +328,16 @@ function FarmerSchedulingContent() {
         block: "center",
       });
     });
-    const clearHighlight = window.setTimeout(() => setHighlightedBookingId(null), 6000);
+    const clearHighlight = window.setTimeout(() => {
+      setHighlightedBookingId(null);
+      setHighlightDurationMs(6000);
+    }, highlightDurationMs);
 
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(clearHighlight);
     };
-  }, [bookings, highlightedBookingId]);
+  }, [bookings, highlightedBookingId, highlightDurationMs, highlightRequest]);
 
   useEffect(() => {
     if (!bookingToast) return;
@@ -447,7 +457,9 @@ function FarmerSchedulingContent() {
       }
       setMessage(`Booking confirmed! Your assigned arrival time is ${formatTime(booking.time)}.`);
       setBookingFilter("upcoming");
+      setHighlightedBookingLabel("Just booked");
       setHighlightedBookingId(booking.id);
+      setHighlightRequest((request) => request + 1);
       setScheduleId("");
       setDetailsSchedule(null);
       window.history.replaceState({}, "", window.location.pathname);
@@ -1385,7 +1397,7 @@ function FarmerSchedulingContent() {
                             </div>
                             {highlightedBookingId === booking.id ? (
                               <Badge className="w-fit border-emerald-200 bg-emerald-100 text-emerald-900">
-                                Just booked
+                                {highlightedBookingLabel}
                               </Badge>
                             ) : null}
                             {booking.program_status === "CANCELLED" ? <p className="text-xs font-bold text-rose-700">This program was cancelled.</p> : null}
@@ -1715,8 +1727,19 @@ function FarmerSchedulingContent() {
                       onClick={() => {
                         setDetailsSchedule(null);
                         setScheduleId("");
-                        const el = document.getElementById("my-bookings-section");
-                        el?.scrollIntoView({ behavior: "smooth" });
+                        const booking = bookings.find(
+                          (item) => item.schedule === detailsSchedule.id && item.status === "CONFIRMED",
+                        );
+
+                        if (booking) {
+                          setBookingFilter(isUpcoming(booking.date) ? "upcoming" : "past");
+                          setHighlightedBookingLabel("Booking selected");
+                          setHighlightDurationMs(3000);
+                          setHighlightedBookingId(booking.id);
+                          setHighlightRequest((request) => request + 1);
+                        } else {
+                          document.getElementById("my-bookings-section")?.scrollIntoView({ behavior: "smooth" });
+                        }
                       }}
                       className="w-full h-11 sm:h-12 bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-all"
                     >

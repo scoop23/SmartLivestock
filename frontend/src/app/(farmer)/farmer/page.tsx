@@ -499,8 +499,8 @@ export default function FarmerDashboard() {
         )}
 
         {showContent && (
-          <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-7">
-            <div className="space-y-7 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
               {/* SECTION 1: QUICK ACTIONS ROW */}
               <section aria-label="Quick actions" className="space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
                 <div>
