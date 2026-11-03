@@ -127,13 +127,13 @@ export function IncidentsTable({
   return (
     <>
       {/* ── DESKTOP & TABLET VIEW (md and up) ── */}
-      <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+      <div className="hidden md:block bg-white rounded-2xl shadow-2xs border border-slate-200/90 overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-b border-gray-100">
                 {showCheckbox && (
-                  <TableHead className="w-14 px-6 py-5 text-center">
+                  <TableHead className="w-12 px-3 py-3 text-center">
                     <Checkbox
                       checked={allSelected}
                       onCheckedChange={(checked) => onSelectAll(Boolean(checked))}
@@ -141,25 +141,25 @@ export function IncidentsTable({
                     />
                   </TableHead>
                 )}
-                <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <TableHead className="pl-5 pr-3 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">
                   Event / Declaration Type
                 </TableHead>
-                <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <TableHead className="px-3 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">
                   Farmer / Raiser
                 </TableHead>
-                <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <TableHead className="px-3 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">
                   Barangay
                 </TableHead>
-                <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <TableHead className="px-3 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                   Summary & Symptoms
                 </TableHead>
-                <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <TableHead className="px-3 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">
                   Date
                 </TableHead>
-                <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
+                <TableHead className="px-3 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center whitespace-nowrap">
                   Status
                 </TableHead>
-                <TableHead className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <TableHead className="pl-3 pr-5 py-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">
                   Actions
                 </TableHead>
               </TableRow>
@@ -204,7 +204,7 @@ export function IncidentsTable({
                       }`}
                     >
                       {showCheckbox && (
-                        <TableCell className="px-6 py-5 text-center">
+                        <TableCell className="px-3 py-3 text-center">
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={() => onToggleSelect(inc.id)}
@@ -214,10 +214,10 @@ export function IncidentsTable({
                         </TableCell>
                       )}
 
-                      <TableCell className="px-8 py-5">
-                        <div className="flex items-center gap-3.5">
+                      <TableCell className="pl-5 pr-3 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
                           <div
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconStyle.bg}`}
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${iconStyle.bg}`}
                           >
                             {iconStyle.icon}
                           </div>
@@ -241,21 +241,21 @@ export function IncidentsTable({
                         </div>
                       </TableCell>
 
-                      <TableCell className="px-8 py-5">
+                      <TableCell className="px-3 py-3 whitespace-nowrap">
                         <p className="font-bold text-gray-800 text-sm">{inc.farmerName}</p>
                         <span className="text-[9px] font-bold text-gray-400">
                           {inc.tagNumber ? `Tag: ${inc.tagNumber}` : "Registered Raiser"}
                         </span>
                       </TableCell>
 
-                      <TableCell className="px-8 py-5 text-sm font-bold text-gray-600">
+                      <TableCell className="px-3 py-3 text-sm font-bold text-gray-600 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          <MapPin size={14} className="text-gray-300" />
+                          <MapPin size={13} className="text-gray-300 shrink-0" />
                           <span>{inc.barangayName}</span>
                         </div>
                       </TableCell>
 
-                      <TableCell className="px-8 py-5 max-w-xs">
+                      <TableCell className="px-3 py-3 max-w-[260px]">
                         <p className="text-xs text-gray-700 font-medium line-clamp-2 leading-relaxed">
                           {inc.conditionName ? `${inc.conditionName}: ` : ""}
                           {inc.details}
@@ -279,17 +279,17 @@ export function IncidentsTable({
                         )}
                       </TableCell>
 
-                      <TableCell className="px-8 py-5 text-sm font-bold text-gray-600">
+                      <TableCell className="px-3 py-3 text-xs font-bold text-gray-600 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          <Calendar size={14} className="text-gray-300" />
+                          <Calendar size={13} className="text-gray-300 shrink-0" />
                           <span>{inc.date}</span>
                         </div>
                       </TableCell>
 
-                      <TableCell className="px-8 py-5 text-center">
+                      <TableCell className="px-3 py-3 text-center whitespace-nowrap">
                         <Badge
                           variant="outline"
-                          className={`border text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${statusPill.bg}`}
+                          className={`border text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${statusPill.bg}`}
                         >
                           <span className={`size-1.5 rounded-full mr-1.5 ${statusPill.dot}`} />
                           {statusPill.label}
@@ -301,7 +301,7 @@ export function IncidentsTable({
                         )}
                       </TableCell>
 
-                      <TableCell className="px-8 py-5 text-right">
+                      <TableCell className="pl-3 pr-5 py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
                           {isHealthOrMortality ? (
                             <Button
