@@ -36,7 +36,8 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 interface RecommendationItem {
   rule: string;
@@ -64,10 +65,28 @@ interface PrescriptiveResponse {
   recommendations: RecommendationItem[];
 }
 
-export default function PrescriptiveAnalyticsLandingPage() {
+function PrescriptiveLandingContent() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const domainParam = searchParams?.get('domain');
+
+  const initialCat = useMemo<'ALL' | 'PRODUCTION' | 'DISEASE' | 'VACCINATION'>(() => {
+    if (!domainParam) return 'ALL';
+    const d = domainParam.toLowerCase();
+    if (d === 'disease') return 'DISEASE';
+    if (d === 'inventory' || d === 'barangay') return 'VACCINATION';
+    if (d === 'production') return 'PRODUCTION';
+    return 'ALL';
+  }, [domainParam]);
+
   const [expandedRule, setExpandedRule] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'PRODUCTION' | 'DISEASE' | 'VACCINATION'>('ALL');
+  const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'PRODUCTION' | 'DISEASE' | 'VACCINATION'>(initialCat);
+
+  useEffect(() => {
+    if (initialCat) {
+      setSelectedCategory(initialCat);
+    }
+  }, [initialCat]);
   const [showTableView, setShowTableView] = useState(false);
 
   const { data, isPending: loading, isError, error, refetch, isFetching } = useQuery<PrescriptiveResponse>({
@@ -594,5 +613,13 @@ export default function PrescriptiveAnalyticsLandingPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function PrescriptiveAnalyticsLandingPage() {
+  return (
+    <Suspense fallback={<div className="h-96 w-full animate-pulse rounded-2xl bg-slate-100" />}>
+      <PrescriptiveLandingContent />
+    </Suspense>
   );
 }

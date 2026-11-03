@@ -30,7 +30,8 @@ Sparkles,
 TrendingDown,
 TrendingUp
 } from "lucide-react";
-import { useMemo,useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
 Bar,
 BarChart,
@@ -549,7 +550,27 @@ const ANALYTICS_TOOLTIP_CURSOR = {
 export default function PredictiveAnalyticsView() {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<"readiness_dashboard" | "deep_benchmarks">("readiness_dashboard");
-  const [activeDomain, updateActiveDomain] = useState<AnalyticsDomain>("disease");
+  const searchParams = useSearchParams();
+  const domainParam = searchParams?.get("domain");
+  const initialDomain: AnalyticsDomain = useMemo(() => {
+    if (domainParam) {
+      const d = domainParam.toLowerCase();
+      if (d === "slaughter") return "slaughter";
+      if (d === "auction" || d === "sales") return "auction";
+      if (d === "disease") return "disease";
+      if (d === "mortality") return "mortality";
+      if (d === "production") return "production";
+    }
+    return "disease";
+  }, [domainParam]);
+
+  const [activeDomain, updateActiveDomain] = useState<AnalyticsDomain>(initialDomain);
+
+  useEffect(() => {
+    if (initialDomain) {
+      updateActiveDomain(initialDomain);
+    }
+  }, [initialDomain]);
   const [productionType, setProductionType] = useState<string>("MILK");
   const [unit, setUnit] = useState<string>("CASES");
   const [targetMetric, setTargetMetric] = useState<string>("ALL");

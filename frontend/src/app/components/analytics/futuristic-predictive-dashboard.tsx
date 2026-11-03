@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -343,8 +344,29 @@ function MissionControlTooltip({ active, payload, label, unit }: any) {
 // MAIN COMPONENT: FuturisticPredictiveDashboard (Light & Green Municipal Intelligence)
 // ---------------------------------------------------------------------------
 
+function getTargetFromDomain(domain: string | null): string {
+  if (!domain) return "disease_reports";
+  const d = domain.toLowerCase();
+  if (d === "slaughter") return "slaughter_meat";
+  if (d === "auction" || d === "sales") return "livestock_sales";
+  if (d === "mortality") return "mortality_deaths";
+  if (d === "disease") return "disease_reports";
+  return "disease_reports";
+}
+
 export function FuturisticPredictiveDashboard() {
-  const [selectedTargetId, setSelectedTargetId] = useState<string>("disease_reports");
+  const searchParams = useSearchParams();
+  const domainParam = searchParams?.get("domain");
+  const targetParam = searchParams?.get("target");
+  const targetFromParam = targetParam || getTargetFromDomain(domainParam);
+
+  const [selectedTargetId, setSelectedTargetId] = useState<string>(targetFromParam);
+
+  useEffect(() => {
+    if (targetFromParam) {
+      setSelectedTargetId(targetFromParam);
+    }
+  }, [targetFromParam]);
   const [horizonMonths, setHorizonMonths] = useState<number>(6);
   const [viewMode, setViewMode] = useState<"overview" | "backtest" | "models" | "checklist">("overview");
   const [showTableView, setShowTableView] = useState<boolean>(false);

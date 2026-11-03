@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { PageHeader } from '@/app/components/page-header';
 import { AnalyticsNav } from '@/app/components/analytics/analytics-nav';
 import { FuturisticPredictiveDashboard } from '@/app/components/analytics/futuristic-predictive-dashboard';
@@ -61,11 +61,13 @@ export default function PredictiveAnalyticsLandingPage() {
         </div>
 
         <div className="w-full">
-          {activeTab === 'evaluated' ? (
-            <FuturisticPredictiveDashboard />
-          ) : (
-            <PredictiveAnalyticsView />
-          )}
+          <Suspense fallback={<div className="h-96 w-full animate-pulse rounded-2xl bg-slate-100" />}>
+            {activeTab === 'evaluated' ? (
+              <FuturisticPredictiveDashboard />
+            ) : (
+              <PredictiveAnalyticsView />
+            )}
+          </Suspense>
         </div>
       </div>
     </>
