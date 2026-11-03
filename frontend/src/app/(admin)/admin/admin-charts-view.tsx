@@ -6,6 +6,8 @@ import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle } from 
 import { getSpeciesColor } from '@/lib/species-colors';
 import {
 Activity,
+AlertTriangle,
+ArrowUpRight,
 BarChart3,
 CheckCircle2,
 PieChart as PieIcon,
@@ -14,6 +16,7 @@ Scale,
 ShieldCheck,
 ShoppingCart
 } from 'lucide-react';
+import Link from 'next/link';
 import { useState,type ReactNode } from 'react';
 import {
 Area,
@@ -129,6 +132,9 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
   const selectedPeriodLabel = productionTimeframe === '6M' ? 'Last 6 months' : 'Last 12 months';
   const totalSlaughterYield = slicedSlaughterYield.reduce((sum, row) => sum + row.value, 0);
   const totalAnimalsSold = slicedAnimalsSold.reduce((sum, row) => sum + row.value, 0);
+  const totalReportedCases = surveillanceTrends.reduce((sum, row) => sum + (row.reported || 0), 0);
+  const totalDeaths = surveillanceTrends.reduce((sum, row) => sum + (row.deaths || 0), 0);
+  const fatalityRate = totalReportedCases > 0 ? ((totalDeaths / totalReportedCases) * 100).toFixed(1) : "0.0";
   const topBarangays = barangayHerdDistribution.slice(0, 7);
   const farmersQuery = useAdminBarangayCurrentFarmers(selectedBarangay?.barangayId ?? null, farmersDialogOpen);
   const barangayTypeComposition = farmersQuery.data?.livestock_types ?? [];
@@ -408,11 +414,67 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
 
       {/* ── ROW 2: Production privacy and biosecurity surveillance ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        <div className="lg:col-span-5 flex min-h-56 flex-col justify-center rounded-xl border border-slate-200 bg-white p-4 shadow-2xs sm:p-5">
-          <h3 className="text-sm font-black text-slate-900">Farmer production records</h3>
-          <p className="mt-2 max-w-lg text-xs leading-relaxed text-slate-600">
-            Milk and individual farmer meat-yield logs are private to the owning farmer. Municipal analytics, reports, and exports exclude those records. Official slaughter output is shown separately below.
-          </p>
+        {/* Biosecurity & Disease Surveillance Summary Card */}
+        <div className="lg:col-span-5 flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-2xs sm:p-5">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-800">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-black text-slate-900 tracking-tight">Biosecurity & Health Overview</h3>
+              </div>
+              <Badge variant="outline" className="text-[10px] font-black uppercase tracking-wider text-slate-600 bg-slate-50 border-slate-200">
+                12-Month Scope
+              </Badge>
+            </div>
+            <p className="text-xs text-slate-500 font-medium mb-3">
+              Consolidated disease cases and mortality records across all 17 barangays in Padre Garcia.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-3">
+                <div className="flex items-center gap-1.5 text-amber-800 text-[11px] font-bold">
+                  <AlertTriangle className="size-3.5 shrink-0" />
+                  <span>Case Incidence</span>
+                </div>
+                <div className="mt-1.5 text-xl font-black text-slate-900 tabular-nums">
+                  {totalReportedCases.toLocaleString()} <span className="text-xs font-semibold text-slate-500">heads</span>
+                </div>
+                <p className="mt-0.5 text-[10px] text-slate-500 font-medium">Certified disease cases</p>
+              </div>
+
+              <div className="rounded-xl border border-rose-200/80 bg-rose-50/50 p-3">
+                <div className="flex items-center gap-1.5 text-rose-800 text-[11px] font-bold">
+                  <Activity className="size-3.5 shrink-0" />
+                  <span>Total Deaths</span>
+                </div>
+                <div className="mt-1.5 text-xl font-black text-slate-900 tabular-nums">
+                  {totalDeaths.toLocaleString()} <span className="text-xs font-semibold text-slate-500">heads</span>
+                </div>
+                <p className="mt-0.5 text-[10px] text-slate-500 font-medium">Recorded mortalities</p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 p-2.5 border border-slate-100 text-xs">
+              <span className="text-slate-600 font-medium">Observed Fatality Ratio:</span>
+              <span className="font-bold text-slate-900 tabular-nums">{fatalityRate}%</span>
+            </div>
+          </div>
+
+          <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-[11px] text-slate-500 font-medium">Surveillance matrix updated</span>
+            <Link
+              href="/disease-mortality"
+              className="inline-flex items-center gap-1 text-xs font-bold text-[#1E4D2B] hover:text-[#163b21] hover:underline"
+            >
+              <span>View Records & Coverage</span>
+              <ArrowUpRight className="size-3.5" />
+            </Link>
+          </div>
+
+
+
         </div>
 
         {/* Biosecurity & Disease Surveillance Area Chart */}
