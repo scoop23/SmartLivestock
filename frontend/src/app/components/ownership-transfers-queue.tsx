@@ -29,9 +29,10 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { fetchInspections, type InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
+import { MovementLivestockInspectionsTab } from "./movement-livestock-inspections-tab";
 import api from "@/lib/axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
 import {
   Activity,
   AlertCircle,
@@ -91,6 +92,7 @@ export type Transfer = {
 export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO" }) {
   const client = useQueryClient();
   const isMao = reviewer === "MAO";
+  const [activeReviewTab, setActiveReviewTab] = useState<"ownership" | "inspections">("ownership");
 
   // MAO review default tab: PENDING (focus directly on transfers awaiting MAO approval)
   const [statusFilter, setStatusFilter] = useState<string>("PENDING");
@@ -125,6 +127,11 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
   const { data = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ["ownership-transfers"],
     queryFn: async () => (await api.get<Transfer[]>("livestock/ownership-transfers/")).data,
+  });
+  const inspectionsQuery = useQuery<InspectionRecord[]>({
+    queryKey: ["inspections"],
+    queryFn: () => fetchInspections(),
+    enabled: isMao && activeReviewTab === "inspections",
   });
 
   // Deep-linking from notification or URL ?transferId=123
@@ -280,19 +287,54 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
     toast.success("Transfer records exported to CSV spreadsheet.");
   };
 
+  const handleExportInspectionsCSV = () => {
+    const records = inspectionsQuery.data ?? [];
+    if (!records.length) {
+      toast.error("No movement or inspection records are available to export.");
+      return;
+    }
+    const csvCell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const headers = ["Control Number", "Shipper", "Origin", "Destination", "Purpose", "Animal Heads", "Inspection Date", "Status", "MAO Remarks"];
+    const rows = records.map((record) => [
+      record.control_number || `INS-${record.id}`,
+      record.shipper_name,
+      record.origin,
+      record.destination,
+      record.purpose,
+      record.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
+      record.inspection_date,
+      record.status,
+      record.review_remarks,
+    ].map(csvCell).join(","));
+    const csv = [headers.map(csvCell).join(","), ...rows].join("\n");
+    const link = document.createElement("a");
+    link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+    link.download = `MAO_Movement_Livestock_Inspections_${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Movement and livestock inspection records exported to CSV.");
+  };
+
   return (
     <>
       <PageHeader
-        title={isMao ? "Auction Transfer Review" : "Ownership Transfers"}
+        title={isMao && activeReviewTab === "inspections" ? "Movement/Livestock Inspections" : isMao ? "Auction Transfer Review" : "Ownership Transfers"}
         subtitle={
-          isMao
+          isMao && activeReviewTab === "inspections"
+            ? "Review auction movement submissions and livestock inspection clearances."
+            : isMao
             ? "Review and approve livestock ownership transfers submitted by the Padre Garcia Auction Market."
             : "Review certificate-backed changes to livestock ownership from municipal sellers."
         }
         variant="admin"
         icon={<ShieldCheck className="size-6 text-[#1E7E34]" />}
         maxWidthClass="w-full"
-        breadcrumbs={[
+        breadcrumbs={isMao && activeReviewTab === "inspections" ? [
+          { label: "Admin", href: "/admin" },
+          { label: "Auction Review", href: "/ownership-transfers" },
+          { label: "Movement/Livestock Inspections", href: "/ownership-transfers" },
+        ] : [
           { label: "Admin", href: "/admin" },
           { label: "Validations", href: "/data-validation" },
           { label: "Auction Transfer Review", href: "/ownership-transfers" },
@@ -328,45 +370,59 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/90 pb-3">
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-600 font-semibold">
-              Auction Market Submissions
+              {activeReviewTab === "ownership" ? "Auction Ownership Transfer Submissions" : "Auction Movement / Livestock Inspection Submissions"}
             </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {reviewer === "MAO" ? (
-              <Link
-                href="/data-validation?domain=incidents&recordType=INSPECTION"
-                title="Review livestock movement and inspection records"
-                className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-900 shadow-2xs transition-colors hover:bg-emerald-100"
-              >
-                <Activity className="size-3.5" />
-                <span>Movement &amp; Livestock Inspections</span>
-              </Link>
-            ) : null}
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void refetch()}
+              onClick={() => activeReviewTab === "ownership" ? void refetch() : void inspectionsQuery.refetch()}
               className="h-9 gap-1.5 rounded-xl border-slate-200 bg-white/95 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
-              title="Sync transfer records"
+              title={activeReviewTab === "ownership" ? "Sync transfer records" : "Sync movement and inspection records"}
             >
-              <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin text-emerald-600" : "text-slate-500"}`} />
+              <RefreshCw className={`size-3.5 ${(activeReviewTab === "ownership" ? isFetching : inspectionsQuery.isFetching) ? "animate-spin text-emerald-600" : "text-slate-500"}`} />
               <span>Sync Queue</span>
             </Button>
 
             <Button
               variant="outline"
               size="sm"
-              onClick={handleExportCSV}
+              onClick={activeReviewTab === "ownership" ? handleExportCSV : handleExportInspectionsCSV}
+              disabled={activeReviewTab === "inspections" && inspectionsQuery.isLoading}
               className="h-9 gap-1.5 rounded-xl border-slate-200 bg-white/95 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
-              title="Export audit CSV"
+              title={activeReviewTab === "ownership" ? "Export ownership transfer audit CSV" : "Export movement and inspection CSV"}
             >
               <FileSpreadsheet className="size-3.5 text-emerald-600" />
-              <span>Export Audit CSV</span>
+              <span>Export CSV</span>
             </Button>
           </div>
         </div>
 
+        {isMao ? (
+          <div role="group" aria-label="Auction review records" className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+            <button
+              type="button"
+              aria-pressed={activeReviewTab === "ownership"}
+              onClick={() => setActiveReviewTab("ownership")}
+              className={`inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition-colors ${activeReviewTab === "ownership" ? "bg-[#0F5A38] text-white shadow-xs" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+            >
+              <FileText className="size-4" /> Ownership Transfers
+            </button>
+            <button
+              type="button"
+              aria-pressed={activeReviewTab === "inspections"}
+              onClick={() => setActiveReviewTab("inspections")}
+              className={`inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition-colors ${activeReviewTab === "inspections" ? "bg-[#0F5A38] text-white shadow-xs" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+            >
+              <Activity className="size-4" /> Movement/Livestock Inspections
+            </button>
+          </div>
+        ) : null}
+
+        {activeReviewTab === "ownership" ? (
+          <>
         {/* 4 Bespoke MAO Approval KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* KPI 1: Waiting for MAO Approval */}
@@ -839,6 +895,14 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
             Approving a transfer officially registers the animal under the new owner and marks the seller&apos;s animal as <strong className="text-slate-900 font-bold">SOLD</strong> in their herd inventory.
           </p>
         </div>
+          </>
+        ) : (
+          <MovementLivestockInspectionsTab
+            inspections={inspectionsQuery.data ?? []}
+            isLoading={inspectionsQuery.isLoading}
+            isError={inspectionsQuery.isError}
+          />
+        )}
       </div>
 
       {/* =================================================================== */}
