@@ -3,7 +3,6 @@
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -34,30 +33,22 @@ import api from "@/lib/axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
-  ArrowLeftRight,
   Building,
-  Calendar,
   Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
-  Download,
   Eye,
   FileCheck2,
   FileSpreadsheet,
   FileText,
-  Filter,
-  HelpCircle,
-  Info,
-  ListFilter,
   RefreshCw,
   RotateCcw,
   Search,
   ShieldAlert,
   ShieldCheck,
   Tag,
-  UserCheck,
   X,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
@@ -143,14 +134,18 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
     if (!found) return;
 
     // Switch to ALL or match status so the deep-linked row is visible
-    setStatusFilter("ALL");
-    setSelectedTransfer(found);
-    const card = document.getElementById(`ownership-transfer-${transferId}`);
-    card?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timer = setTimeout(() => {
+      setStatusFilter("ALL");
+      setSelectedTransfer(found);
+      const card = document.getElementById(`ownership-transfer-${transferId}`);
+      card?.scrollIntoView({ behavior: "smooth", block: "center" });
 
-    const url = new URL(window.location.href);
-    url.searchParams.delete("transferId");
-    window.history.replaceState({}, "", url.toString());
+      const url = new URL(window.location.href);
+      url.searchParams.delete("transferId");
+      window.history.replaceState({}, "", url.toString());
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [data, isLoading]);
 
   // Review Mutation (MAO Approval / Revision)
@@ -302,16 +297,36 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
         ]}
       />
 
+      {/* Upper Micro-Telemetry Banner with Live Realtime Clock (like in /admin page) */}
+      <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-2 sm:px-6 md:px-8">
+        <div className="w-full flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
+          <div className="flex items-center gap-2 font-semibold text-slate-600">
+            <Building className="size-3.5 text-emerald-600" />
+            <span>
+              MUNICIPAL JURISDICTION:{" "}
+              <strong className="font-mono text-slate-900 uppercase">
+                PADRE GARCIA, BATANGAS
+              </strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
+              <Clock className="size-3.5 text-slate-400" />
+              <span className="tabular-nums font-bold">
+                {clockString || "Loading Manila time…"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="w-full min-h-[calc(100vh-4.5rem)] nexus-ambient-bg p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Upper Information Banner */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/90 pb-3">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/10 text-emerald-800 border border-emerald-500/20">
-              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-              MUNICIPAL AGRICULTURE OFFICE · PADRE GARCIA
-            </span>
-            <span className="hidden sm:inline-block text-xs text-slate-500 font-medium">
-              Transfers from Auction Market
+            <span className="text-xs text-slate-600 font-semibold">
+              Auction Market Submissions
             </span>
           </div>
 
@@ -321,10 +336,10 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
               size="sm"
               onClick={() => void refetch()}
               className="h-9 gap-1.5 rounded-xl border-slate-200 bg-white/95 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
-              title="Refresh records"
+              title="Sync transfer records"
             >
               <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin text-emerald-600" : "text-slate-500"}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              <span>Sync Queue</span>
             </Button>
 
             <Button
@@ -332,15 +347,11 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
               size="sm"
               onClick={handleExportCSV}
               className="h-9 gap-1.5 rounded-xl border-slate-200 bg-white/95 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50"
+              title="Export audit CSV"
             >
               <FileSpreadsheet className="size-3.5 text-emerald-600" />
-              <span>Download Spreadsheet</span>
+              <span>Export Audit CSV</span>
             </Button>
-
-            <div className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700 bg-white/95 border border-slate-200/90 rounded-xl px-3 py-2 shadow-2xs">
-              <Clock className="size-3.5 text-emerald-600" />
-              <span className="tabular-nums font-bold">{clockString || "Loading Manila time…"}</span>
-            </div>
           </div>
         </div>
 

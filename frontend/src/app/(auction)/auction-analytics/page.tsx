@@ -502,7 +502,7 @@ export default function AuctionAnalyticsPage() {
                       fontSize: "11px",
                       fontWeight: "bold",
                     }}
-                    formatter={(val: number | string | undefined) => [`${val ?? 0} heads`, "Auctioned"]}
+                    formatter={(val: any) => [`${val ?? 0} heads`, "Auctioned"]}
                   />
                   <Area
                     type="monotone"
@@ -564,7 +564,7 @@ export default function AuctionAnalyticsPage() {
                           border: "none",
                           fontSize: "11px",
                         }}
-                        formatter={(val: number | string | undefined) => [`${val ?? 0} heads`, "Cattle"]}
+                        formatter={(val: any) => [`${val ?? 0} heads`, "Cattle"]}
                       />
                     </PieChart>
                   </ResponsiveContainer>

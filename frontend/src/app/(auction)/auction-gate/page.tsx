@@ -267,7 +267,7 @@ export default function AuctionGatePage() {
       const newRecord: GateRecordItem = {
         id: animal.id,
         certificateNo: animal.ownership_certificate_number || `PG-2026-${String(animal.id).padStart(4, "0")}`,
-        farmerName: animal.farmer_name || "Registered Farmer",
+        farmerName: animal.owner_name || "Registered Farmer",
         livestockType: animal.livestock_type_name || "Cattle",
         tagNo: animal.tag_number || String(animal.id),
         sex: animal.sex || "Male",
