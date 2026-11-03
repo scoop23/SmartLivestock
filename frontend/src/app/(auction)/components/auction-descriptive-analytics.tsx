@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import api from "@/lib/axios";
 import {
   Beef,
-  Cpu,
+  ChevronDown,
+  ChevronUp,
   LineChart as LineChartIcon,
   MapPin,
   RefreshCw,
@@ -103,10 +104,11 @@ export function AuctionDescriptiveAnalytics() {
   const [showTableView, setShowTableView] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
 
-  // 1. Fetch inspections for market movement & clearance telemetry
+  // Load the live operational records from the existing backend APIs.
   const {
     data: inspections = [],
     isLoading: isInspectionsLoading,
+    isError: isInspectionsError,
     isRefetching: isInspectionsRefetching,
     refetch: refetchInspections,
   } = useQuery<InspectionRecord[]>({
@@ -115,10 +117,10 @@ export function AuctionDescriptiveAnalytics() {
     staleTime: 30_000,
   });
 
-  // 2. Fetch ownership transfers for trade commerce & valuation telemetry
   const {
     data: transfers = [],
     isLoading: isTransfersLoading,
+    isError: isTransfersError,
     isRefetching: isTransfersRefetching,
     refetch: refetchTransfers,
   } = useQuery<TransferRecord[]>({
@@ -129,6 +131,11 @@ export function AuctionDescriptiveAnalytics() {
 
   const isLoading = isInspectionsLoading || isTransfersLoading;
   const isRefetching = isInspectionsRefetching || isTransfersRefetching;
+  const hasDataError = isInspectionsError || isTransfersError;
+
+  // Include all records returned by the APIs, including demo/seed rows.
+  const dashboardInspections = inspections;
+  const dashboardTransfers = transfers;
 
   const handleRefresh = () => {
     refetchInspections();
@@ -141,15 +148,15 @@ export function AuctionDescriptiveAnalytics() {
 
   // A. Sales & Trade Valuation Analytics
   const salesMetrics = useMemo(() => {
-    const totalTransfers = transfers.length;
-    const completedTransfers = transfers.filter(
+    const totalTransfers = dashboardTransfers.length;
+    const completedTransfers = dashboardTransfers.filter(
       (t) => (t.status || "").toUpperCase() === "APPROVED" || (t.status || "").toUpperCase() === "VERIFIED"
     ).length;
 
     let totalValuation = 0;
     let pricedCount = 0;
 
-    transfers.forEach((t) => {
+    dashboardTransfers.forEach((t) => {
       if (t.purchase_price) {
         const p = parseFloat(t.purchase_price);
         if (!isNaN(p) && p > 0) {
@@ -174,7 +181,7 @@ export function AuctionDescriptiveAnalytics() {
       monthlyMap[key] = { label, count: 0, value: 0 };
     }
 
-    transfers.forEach((t) => {
+    dashboardTransfers.forEach((t) => {
       const dateStr = t.transfer_date || "";
       const monthKey = dateStr.slice(0, 7);
       if (monthlyMap[monthKey]) {
@@ -200,11 +207,11 @@ export function AuctionDescriptiveAnalytics() {
       pricingRate,
       trend,
     };
-  }, [transfers]);
+  }, [dashboardTransfers]);
 
   // B. Market Intake & Clearance Velocity
   const intakeMetrics = useMemo(() => {
-    const totalLogs = inspections.length;
+    const totalLogs = dashboardInspections.length;
     let totalHeads = 0;
     const purposeMap: Record<string, number> = {
       SLAUGHTER: 0,
@@ -213,7 +220,7 @@ export function AuctionDescriptiveAnalytics() {
       OTHER: 0,
     };
 
-    inspections.forEach((insp) => {
+    dashboardInspections.forEach((insp) => {
       const heads = insp.items?.reduce((acc, it) => acc + (it.quantity || 1), 0) ?? 1;
       totalHeads += heads;
       const p = (insp.purpose || "OTHER").toUpperCase();
@@ -224,14 +231,14 @@ export function AuctionDescriptiveAnalytics() {
       }
     });
 
-    const approvedCount = inspections.filter((i) => i.status === "APPROVED").length;
-    const submittedCount = inspections.filter((i) => i.status === "VERIFIED").length;
-    const pendingCount = inspections.filter((i) => i.status === "PENDING").length;
-    const revisionCount = inspections.filter(
+    const approvedCount = dashboardInspections.filter((i) => i.status === "APPROVED").length;
+    const submittedCount = dashboardInspections.filter((i) => i.status === "VERIFIED").length;
+    const pendingCount = dashboardInspections.filter((i) => i.status === "PENDING").length;
+    const revisionCount = dashboardInspections.filter(
       (i) => i.status === "SUBJECT_TO_REVISION" || i.status === "REJECTED"
     ).length;
 
-    const clearanceRate = totalLogs > 0 ? Math.round((approvedCount / totalLogs) * 100) : 0;
+    const clearanceApprovalRate = totalLogs > 0 ? Math.round((approvedCount / totalLogs) * 100) : null;
 
     const purposeData = [
       { name: "Slaughter", heads: purposeMap.SLAUGHTER, color: "#EF4444" },
@@ -247,16 +254,16 @@ export function AuctionDescriptiveAnalytics() {
       submittedCount,
       pendingCount,
       revisionCount,
-      clearanceRate,
+      clearanceApprovalRate,
       purposeData,
     };
-  }, [inspections]);
+  }, [dashboardInspections]);
 
   // C. Species Composition Breakdown
   const speciesMetrics = useMemo(() => {
     const speciesCountMap: Record<string, number> = {};
 
-    inspections.forEach((insp) => {
+    dashboardInspections.forEach((insp) => {
       insp.items?.forEach((it) => {
         const name = it.livestock_type_name?.trim() || "Livestock";
         speciesCountMap[name] = (speciesCountMap[name] || 0) + (it.quantity || 1);
@@ -264,7 +271,7 @@ export function AuctionDescriptiveAnalytics() {
     });
 
     // Also factor in transfers
-    transfers.forEach((t) => {
+    dashboardTransfers.forEach((t) => {
       const name = t.livestock_type_name?.trim() || "Livestock";
       speciesCountMap[name] = (speciesCountMap[name] || 0) + 1;
     });
@@ -281,13 +288,13 @@ export function AuctionDescriptiveAnalytics() {
         color: colors[i % colors.length],
       }))
       .sort((a, b) => b.heads - a.heads);
-  }, [inspections, transfers]);
+  }, [dashboardInspections, dashboardTransfers]);
 
   // D. Origin Hotspots (Top Supplying Barangays & Municipalities)
   const originMetrics = useMemo(() => {
     const originMap: Record<string, number> = {};
 
-    inspections.forEach((insp) => {
+    dashboardInspections.forEach((insp) => {
       const rawOrigin = insp.origin?.trim() || insp.shipper_address?.trim() || "Padre Garcia";
       const clean = rawOrigin.replace(/^Brgy\.?\s*/i, "").trim() || "Padre Garcia";
       const heads = insp.items?.reduce((acc, it) => acc + (it.quantity || 1), 0) ?? 1;
@@ -304,7 +311,7 @@ export function AuctionDescriptiveAnalytics() {
       }))
       .sort((a, b) => b.heads - a.heads)
       .slice(0, 6);
-  }, [inspections]);
+  }, [dashboardInspections]);
 
   return (
     <section className="space-y-4">
@@ -322,26 +329,24 @@ export function AuctionDescriptiveAnalytics() {
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap font-mono text-[10px]">
-              <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 uppercase tracking-widest font-black py-0.5 px-2.5">
-                <span className="size-1.5 rounded-full bg-emerald-400 animate-ping mr-1.5 inline-block" />
-                Live Telemetry
+            <div className="flex items-center gap-2 flex-wrap text-[10px]">
+              <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black py-0.5 px-2.5">
+                Current system records
               </Badge>
-              <Badge className="bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 uppercase tracking-widest font-bold py-0.5 px-2">
+              <Badge className="bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-bold py-0.5 px-2">
                 Padre Garcia Trading Center
               </Badge>
               <span className="text-emerald-300/70 hidden sm:inline">
-                Sync: Active · Real Municipal Ledger
+                From inspection and transfer records
               </span>
             </div>
 
             <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-emerald-100 to-emerald-300">
-              Auction Descriptive Analytics
+              Auction Activity Summary
             </h2>
 
             <p className="text-xs sm:text-sm text-emerald-200/80 max-w-2xl font-medium leading-relaxed">
-              Real-time trading volume, official transfer valuations, antemortem clearance rates,
-              and livestock species telemetry verified across Padre Garcia checkpoint records.
+              See animals inspected, clearance decisions, recorded transfer amounts, and animal types.
             </p>
           </div>
 
@@ -352,10 +357,10 @@ export function AuctionDescriptiveAnalytics() {
               size="sm"
               onClick={handleRefresh}
               disabled={isRefetching}
-              className="h-9 rounded-xl border-emerald-500/40 bg-emerald-900/30 hover:bg-emerald-900/60 text-emerald-200 text-xs font-mono font-bold shadow-xs cursor-pointer gap-1.5"
+              className="h-9 rounded-xl border-emerald-500/40 bg-emerald-900/30 hover:bg-emerald-900/60 text-emerald-100 text-xs font-semibold shadow-xs cursor-pointer gap-1.5"
             >
               <RefreshCw className={`size-3.5 ${isRefetching ? "animate-spin text-emerald-400" : ""}`} />
-              <span>{isRefetching ? "Syncing..." : "Sync Ledger"}</span>
+              <span>{isRefetching ? "Refreshing..." : "Refresh data"}</span>
             </Button>
 
             <Button
@@ -363,49 +368,60 @@ export function AuctionDescriptiveAnalytics() {
               variant="outline"
               size="sm"
               onClick={() => setIsCompact((prev) => !prev)}
-              className="h-9 rounded-xl border-emerald-500/40 bg-emerald-900/30 hover:bg-emerald-900/60 text-emerald-200 text-xs font-mono font-bold shadow-xs cursor-pointer gap-1.5"
+              className="h-9 rounded-xl border-emerald-500/40 bg-emerald-900/30 hover:bg-emerald-900/60 text-emerald-100 text-xs font-semibold shadow-xs cursor-pointer gap-1.5"
             >
-              <Cpu className="size-3.5 text-emerald-300" />
-              <span>{isCompact ? "Expand Console" : "Compact View"}</span>
+              {isCompact ? <ChevronDown className="size-3.5" /> : <ChevronUp className="size-3.5" />}
+              <span>{isCompact ? "Show more detail" : "Show less detail"}</span>
             </Button>
           </div>
         </div>
 
-        {/* HUD Pulse Micro-Capsules */}
-        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-4 border-t border-emerald-500/20 font-mono">
+        {/* Summary numbers use all records returned by the backend APIs. */}
+        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-4 border-t border-emerald-500/20">
           <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
-            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block">Total Headcount</span>
+            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block">Animals inspected</span>
             <span className="text-base sm:text-lg font-black text-white tabular-nums">
-              {isLoading ? "—" : intakeMetrics.totalHeads.toLocaleString("en-PH")}
+              {isLoading ? "—" : isInspectionsError ? "Unavailable" : intakeMetrics.totalHeads.toLocaleString("en-PH")}
             </span>
           </div>
 
           <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
-            <span className="text-[9px] uppercase tracking-wider text-cyan-300 block">Gross Trade Turnover</span>
+            <span className="text-[9px] uppercase tracking-wider text-cyan-300 block">Recorded transfer value</span>
             <span className="text-base sm:text-lg font-black text-cyan-300 tabular-nums">
-              {isLoading
-                ? "—"
-                : salesMetrics.totalValuation > 0
+              {isLoading ? "—" : isTransfersError ? "Unavailable" : salesMetrics.totalValuation > 0
                 ? `₱${salesMetrics.totalValuation.toLocaleString("en-PH")}`
-                : "Ledger Recorded"}
+                : salesMetrics.totalTransfers === 0 ? "No transfers yet" : "No prices recorded"}
             </span>
           </div>
 
           <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
-            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block">Clearance Pass Rate</span>
+            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block">Inspection records approved</span>
             <span className="text-base sm:text-lg font-black text-emerald-400 tabular-nums">
-              {isLoading ? "—" : `${intakeMetrics.clearanceRate}%`}
+              {isLoading ? "—" : isInspectionsError ? "Unavailable" : intakeMetrics.clearanceApprovalRate === null
+                ? "No records yet"
+                : `${intakeMetrics.clearanceApprovalRate}%`}
             </span>
+            {!isLoading && !isInspectionsError && intakeMetrics.totalLogs > 0 && (
+              <span className="mt-0.5 block text-[9px] text-emerald-100/75">
+                {intakeMetrics.approvedCount} of {intakeMetrics.totalLogs} records approved
+              </span>
+            )}
           </div>
 
           <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
-            <span className="text-[9px] uppercase tracking-wider text-amber-300 block">Active Species Tracked</span>
+            <span className="text-[9px] uppercase tracking-wider text-amber-300 block">Animal types recorded</span>
             <span className="text-base sm:text-lg font-black text-amber-300 tabular-nums">
-              {isLoading ? "—" : speciesMetrics.length}
+              {isLoading ? "—" : hasDataError ? "Unavailable" : speciesMetrics.length}
             </span>
           </div>
         </div>
       </div>
+
+      {hasDataError && (
+        <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          Some records could not be loaded. Select <strong>Refresh data</strong> to try again.
+        </div>
+      )}
 
       {!isCompact && (
         <>
@@ -432,7 +448,11 @@ export function AuctionDescriptiveAnalytics() {
                 reporting: "CHECKPOINT INTAKE",
                 icon: ShieldCheck,
                 metric: `${intakeMetrics.totalHeads} Heads Inspected`,
-                badge: `${intakeMetrics.clearanceRate}% Pass Rate`,
+                badge: isInspectionsError
+                  ? "Unavailable"
+                  : intakeMetrics.clearanceApprovalRate === null
+                  ? "No inspection records"
+                  : `${intakeMetrics.clearanceApprovalRate}% approved`,
                 color: "emerald",
               },
               {
@@ -753,7 +773,11 @@ export function AuctionDescriptiveAnalytics() {
                     <div className="space-y-4">
                       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-mono text-slate-600 pb-2 border-b border-slate-100">
                         <span>Total Inspected: <strong className="text-slate-900">{intakeMetrics.totalHeads} heads</strong></span>
-                        <span>Pass Rate: <strong className="text-emerald-700 font-bold">{intakeMetrics.clearanceRate}%</strong></span>
+                        <span>Clearance approvals: <strong className="text-emerald-700 font-bold">
+                          {intakeMetrics.clearanceApprovalRate === null
+                            ? "No inspection records"
+                            : `${intakeMetrics.approvedCount} of ${intakeMetrics.totalLogs} records (${intakeMetrics.clearanceApprovalRate}%)`}
+                        </strong></span>
                         <span>Pending Check: <strong className="text-amber-700 font-bold">{intakeMetrics.pendingCount}</strong></span>
                         <span>Cleared by MAO: <strong className="text-sky-700 font-bold">{intakeMetrics.approvedCount}</strong></span>
                       </div>
@@ -784,12 +808,15 @@ export function AuctionDescriptiveAnalytics() {
                           <div className="space-y-1.5">
                             <div className="flex justify-between text-xs font-mono">
                               <span className="text-emerald-800 font-bold">Approved / Cleared</span>
-                              <span className="font-black text-slate-900">{intakeMetrics.approvedCount} ({intakeMetrics.clearanceRate}%)</span>
+                              <span className="font-black text-slate-900">
+                                {intakeMetrics.approvedCount} of {intakeMetrics.totalLogs}
+                                {intakeMetrics.clearanceApprovalRate === null ? "" : ` (${intakeMetrics.clearanceApprovalRate}%)`}
+                              </span>
                             </div>
                             <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                                style={{ width: `${intakeMetrics.clearanceRate}%` }}
+                                style={{ width: `${intakeMetrics.clearanceApprovalRate ?? 0}%` }}
                               />
                             </div>
                           </div>
