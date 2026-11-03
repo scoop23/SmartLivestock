@@ -3,6 +3,7 @@ from . import views
 from . import identity_views
 from .views import RegisterView
 from .password_reset_views import PasswordResetRequestView, PasswordResetConfirmView
+from .system_settings_views import system_settings
 
 urlpatterns = [
     path("identity/config/", identity_views.configuration, name="identity_config"),
@@ -18,6 +19,7 @@ urlpatterns = [
     path("password-reset/", PasswordResetRequestView.as_view(), name="password_reset_request"),
     path("password-reset/confirm/", PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
     path("me/", views.get_user_information, name="get_user_information"),
+    path("system-settings/", system_settings, name="system_settings"),
     path("pending/", views.pending_users_list, name="pending_users_list"),
     path("directory/", views.all_users_list, name="all_users_list"),
     path("staff-invitations/", views.create_staff_invitation, name="create_staff_invitation"),

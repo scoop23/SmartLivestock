@@ -250,6 +250,45 @@ class PushSubscription(models.Model):
         ordering = ["-updated_at"]
 
 
+class SystemConfiguration(models.Model):
+    """Small set of municipality-wide options managed by MAO/Admin."""
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    browser_push_enabled = models.BooleanField(default=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="system_configuration_updates",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "system configuration"
+        verbose_name_plural = "system configuration"
+
+
+class SystemConfigurationChange(models.Model):
+    """Audit entry for each change to a system-wide option."""
+    configuration = models.ForeignKey(
+        SystemConfiguration,
+        on_delete=models.CASCADE,
+        related_name="change_history",
+    )
+    setting_name = models.CharField(max_length=80)
+    old_value = models.CharField(max_length=255)
+    new_value = models.CharField(max_length=255)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="system_configuration_changes",
+    )
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-changed_at", "-pk"]
+
+
 
 PROGRAM_TIME_SLOTS = ("08:00", "09:30", "11:00", "13:30")
 

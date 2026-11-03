@@ -10,6 +10,7 @@ from users.serializer import NotificationSerializer
 from django.db.models import Q
 from rest_framework.exceptions import ValidationError
 from .models import PushSubscription
+from .models import SystemConfiguration
 from .push_notifications import create_user_push_notification, is_supported_push_endpoint, send_push_for_notification
 from smartlivestock.workflows import role_name
 
@@ -165,7 +166,7 @@ def notify_role(
 @permission_classes([IsAuthenticated])
 def push_public_key(request):
     public_key = getattr(django_settings, "WEB_PUSH_VAPID_PUBLIC_KEY", "")
-    if not public_key:
+    if not public_key or not SystemConfiguration.objects.get_or_create(pk=1)[0].browser_push_enabled:
         return Response({"enabled": False, "public_key": None})
     return Response({"enabled": True, "public_key": public_key})
 

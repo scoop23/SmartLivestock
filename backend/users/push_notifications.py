@@ -43,6 +43,10 @@ def send_push_for_notification(notification):
     if not public_key or not private_key:
         return
 
+    from .models import SystemConfiguration
+    if not SystemConfiguration.objects.get_or_create(pk=1)[0].browser_push_enabled:
+        return
+
     from pywebpush import WebPushException, webpush
 
     payload = json.dumps({
