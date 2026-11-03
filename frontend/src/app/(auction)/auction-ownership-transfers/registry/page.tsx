@@ -1,6 +1,7 @@
 "use client";
 
 import { HeaderNotifications } from "@/app/components/header-notifications";
+import { AuctionTelemetryBanner } from "@/app/components/auction-telemetry-banner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -124,28 +125,6 @@ export default function AuctionOwnershipTransferRegistryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
   const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
-
-  // Live real-time clock updating every second (Manila PHT — matching admin)
-  const [clockString, setClockString] = useState<string>("");
-
-  useEffect(() => {
-    const formatter = new Intl.DateTimeFormat("sv-SE", {
-      timeZone: "Asia/Manila",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-    });
-    const updateTime = () => {
-      setClockString(`${formatter.format(new Date())} PHT`);
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // 100% Connected to the live Django REST backend endpoint
   const {
@@ -325,15 +304,10 @@ export default function AuctionOwnershipTransferRegistryPage() {
               <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
             </Button>
             <HeaderNotifications variant="auction" />
-            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-white/90 bg-white/10 hover:bg-white/15 transition-colors border border-white/20 rounded-xl px-3 py-2 shadow-xs backdrop-blur-xs">
-              <Clock className="size-3.5 text-emerald-300" />
-              <span className="tabular-nums font-bold">
-                {clockString || "Loading Manila time…"}
-              </span>
-            </div>
           </div>
         </div>
       </div>
+      <AuctionTelemetryBanner />
 
       {/* Main Full-Width Container */}
       <div className="w-full px-4 sm:px-6 lg:px-8 py-5 space-y-5">

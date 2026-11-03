@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { HeaderNotifications } from "@/app/components/header-notifications";
+import { AuctionTelemetryBanner } from "@/app/components/auction-telemetry-banner";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 import { httpError } from "@/lib/http-error";
 import api from "@/lib/axios";
@@ -139,28 +140,6 @@ export default function AuctionOwnershipTransfersPage() {
   const [editing, setEditing] = useState<Transfer | null>(null);
   const [outsideLivestock, setOutsideLivestock] = useState(false);
   const [showUserGuide, setShowUserGuide] = useState(false);
-
-  // Live real-time clock updating every second (Manila PHT — matching admin)
-  const [clockString, setClockString] = useState<string>("");
-
-  useEffect(() => {
-    const formatter = new Intl.DateTimeFormat("sv-SE", {
-      timeZone: "Asia/Manila",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-    });
-    const updateTime = () => {
-      setClockString(`${formatter.format(new Date())} PHT`);
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -409,15 +388,10 @@ export default function AuctionOwnershipTransfersPage() {
 
           <div className="flex items-center gap-3 shrink-0">
             <HeaderNotifications variant="auction" />
-            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-white/90 bg-white/10 hover:bg-white/15 transition-colors border border-white/20 rounded-xl px-3 py-2 shadow-xs backdrop-blur-xs">
-              <Clock className="size-3.5 text-emerald-300" />
-              <span className="tabular-nums font-bold">
-                {clockString || "Loading Manila time…"}
-              </span>
-            </div>
           </div>
         </div>
       </div>
+      <AuctionTelemetryBanner />
 
       {/* Main Container */}
       <div className="w-full px-4 sm:px-6 lg:px-8 py-5 space-y-5">
