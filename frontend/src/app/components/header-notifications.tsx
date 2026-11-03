@@ -64,7 +64,7 @@ export interface HeaderNotification {
 }
 
 export interface HeaderNotificationsProps {
-  variant?: "admin" | "farmer" | "sibat" | "auction" | "slaughterhouse";
+  variant?: "admin" | "farmer" | "sibat" | "cbat" | "auction" | "slaughterhouse";
   className?: string;
 }
 
@@ -133,7 +133,7 @@ export const getEffectiveRole = (
   if (normalized === "MAO" || normalized === "ADMIN") return "admin";
 
   // 3. Fallback to passed variant
-  if (variant && variant !== "admin") return variant;
+  if (variant && variant !== "admin") return variant === "cbat" ? "sibat" : variant;
   if (variant === "admin" && (!normalized || normalized === "MAO" || normalized === "ADMIN")) return "admin";
 
   return "farmer";
@@ -727,6 +727,8 @@ export function HeaderNotifications({
     farmer:
       "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
     sibat:
+      "bg-white hover:bg-slate-50 text-slate-800 border-slate-200/90 shadow-xs",
+    cbat:
       "bg-white hover:bg-slate-50 text-slate-800 border-slate-200/90 shadow-xs",
     auction:
       "bg-white hover:bg-slate-50 text-slate-800 border-slate-200/90 shadow-xs",

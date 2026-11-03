@@ -420,6 +420,9 @@ export default function LivestockTypeCards({
                 {typeSummaries.map((type) => {
                   const config = getSpeciesConfig(type.name);
                   const Icon = config.icon;
+                  const reviewedHeads = type.approved + type.verified;
+                  const groupLabel = `${type.batches} herd ${type.batches === 1 ? "group" : "groups"}`;
+                  const animalRecordLabel = `${type.individuals} animal ${type.individuals === 1 ? "record" : "records"}`;
                   return (
                     <TableRow
                       key={type.name}

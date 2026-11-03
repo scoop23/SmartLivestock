@@ -77,7 +77,7 @@ export interface AnimalReviewDetail {
   photo_url?: string | null;
   left_side_photo_url?: string | null;
   right_side_photo_url?: string | null;
-  avatar_key?: string;
+  avatar_key?: string | null;
   last_vaccination_date?: string | null;
   status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   operational_status?: string;
