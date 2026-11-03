@@ -114,8 +114,6 @@ function formatReportMonth(ym: string) {
 function CompactSingleBarangayCard({
   row,
   domain,
-  viewMode,
-  setViewMode,
   reportMonth,
   setDomain,
   setReportMonth,
@@ -125,8 +123,6 @@ function CompactSingleBarangayCard({
 }: {
   row: CoverageBarangay;
   domain: CoverageDomain;
-  viewMode: CoverageViewMode;
-  setViewMode: (mode: CoverageViewMode) => void;
   reportMonth: string;
   setDomain: (d: CoverageDomain) => void;
   setReportMonth: (m: string) => void;
@@ -242,7 +238,6 @@ function CompactSingleBarangayCard({
             onChange={(event) => setReportMonth(event.target.value)}
             className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700"
           />
-          <CoverageViewToggle viewMode={viewMode} onChange={setViewMode} />
         </div>
       </div>
 
@@ -400,7 +395,7 @@ export function SurveillanceCoveragePanel() {
   const [domain, setDomain] = useState<CoverageDomain>("DISEASE");
   const [reportMonth, setReportMonth] = useState(previousMonthValue);
   const [filterMode, setFilterMode] = useState<"ALL" | "UNCONFIRMED" | "CONFIRMED">("ALL");
-  const [viewMode, setViewMode] = useState<CoverageViewMode>("GRID");
+  const [viewMode, setViewMode] = useState<CoverageViewMode>("LIST");
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingCoverageConfirmation | null>(null);
 
   const coverageQuery = useQuery<CoverageResponse>({
@@ -474,12 +469,10 @@ export function SurveillanceCoveragePanel() {
         <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800">
           Coverage could not be loaded. Refresh the page or check your account’s barangay access.
         </section>
-      ) : isSingleBarangay && singleRow && viewMode === "GRID" ? (
+      ) : isSingleBarangay && singleRow ? (
         <CompactSingleBarangayCard
           row={singleRow}
           domain={domain}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
           reportMonth={reportMonth}
           setDomain={setDomain}
           setReportMonth={setReportMonth}
@@ -627,7 +620,11 @@ export function SurveillanceCoveragePanel() {
                 return (
                   <div
                     key={row.barangay_id}
-                    className={`${viewMode === "GRID" ? "flex flex-col justify-between rounded-2xl p-4" : "flex flex-col gap-3 rounded-xl p-3 sm:flex-row sm:items-center sm:gap-4"} border transition-all duration-150 ${
+                    className={`${
+                      viewMode === "GRID"
+                        ? "flex flex-col justify-between rounded-2xl p-4"
+                        : "flex flex-col gap-3 rounded-xl px-4 py-3 sm:min-h-[60px] sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                    } border transition-all duration-150 ${
                       isConfirmed
                         ? "border-emerald-200/90 bg-emerald-50 shadow-2xs hover:border-emerald-300"
                         : isStale
@@ -636,66 +633,107 @@ export function SurveillanceCoveragePanel() {
                     }`}
                   >
                     {/* Card Header: Title + Status Badge */}
-                    <div className={viewMode === "LIST" ? "flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-4" : ""}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-extrabold text-slate-900 text-sm truncate" title={row.barangay_name}>
-                            {row.barangay_name}
-                          </h3>
-                          <p className="text-[11px] font-semibold text-slate-500 mt-0.5">
-                            {row.record_count === 0 ? "0 field reports" : `${row.record_count} total report${row.record_count === 1 ? "" : "s"}`}
-                          </p>
-                        </div>
+                    <div
+                      className={
+                        viewMode === "LIST"
+                          ? "flex items-center justify-between gap-3 sm:w-56 sm:shrink-0"
+                          : "flex items-start justify-between gap-2"
+                      }
+                    >
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-extrabold text-slate-900 text-sm truncate" title={row.barangay_name}>
+                          {row.barangay_name}
+                        </h3>
+                        <p className="text-[11px] font-semibold text-slate-500 mt-0.5 truncate">
+                          {row.record_count === 0 ? "0 field reports" : `${row.record_count} total report${row.record_count === 1 ? "" : "s"}`}
+                        </p>
+                      </div>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold shrink-0 ${
+                          isConfirmed
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300/80"
+                            : isStale
+                            ? "bg-rose-100 text-rose-800 border border-rose-300/80"
+                            : "bg-amber-100 text-amber-800 border border-amber-300/80"
+                        }`}
+                      >
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold shrink-0 ${
-                            isConfirmed
-                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300/80"
-                              : isStale
-                              ? "bg-rose-100 text-rose-800 border border-rose-300/80"
-                              : "bg-amber-100 text-amber-800 border border-amber-300/80"
+                          className={`size-1.5 rounded-full ${
+                            isConfirmed ? "bg-emerald-500" : isStale ? "bg-rose-500" : "bg-amber-500"
                           }`}
-                        >
-                          <span
-                            className={`size-1.5 rounded-full ${
-                              isConfirmed ? "bg-emerald-500" : isStale ? "bg-rose-500" : "bg-amber-500"
-                            }`}
-                          />
-                          {stateLabel(row.state)}
+                        />
+                        {stateLabel(row.state)}
+                      </span>
+                    </div>
+
+                    {/* Card Body: Breakdown metrics */}
+                    <div
+                      className={
+                        viewMode === "GRID"
+                          ? "my-3 space-y-1 rounded-xl bg-slate-50/90 p-2.5 text-[11px] border border-slate-100"
+                          : "flex flex-1 flex-wrap items-center gap-x-5 gap-y-1 border-t border-slate-100 pt-2 text-[11px] sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0"
+                      }
+                    >
+                      <div className={viewMode === "GRID" ? "flex items-center justify-between" : "flex items-center gap-1.5"}>
+                        <span className="text-slate-500">Approved records:</span>
+                        <span className="font-mono font-bold text-slate-800">
+                          {row.approved_record_count} / {row.record_count}
                         </span>
                       </div>
-
-                      {/* Card Body: Breakdown metrics */}
-                      <div className={viewMode === "GRID" ? "my-3 space-y-1 rounded-xl bg-slate-50/90 p-2.5 text-[11px] border border-slate-100" : "flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-slate-100 pt-2 text-[11px] sm:min-w-[290px] sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0"}>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Approved records:</span>
-                          <span className="font-mono font-bold text-slate-800">
-                            {row.approved_record_count} / {row.record_count}
-                          </span>
+                      {row.needs_approval_count > 0 && (
+                        <div className={viewMode === "GRID" ? "flex items-center justify-between text-amber-700 font-bold" : "flex items-center gap-1.5 text-amber-700 font-bold"}>
+                          <span>Not approved:</span>
+                          <span className="font-mono">{row.needs_approval_count}</span>
                         </div>
-                        {row.needs_approval_count > 0 && (
-                          <div className="flex items-center justify-between text-amber-700 font-bold">
-                            <span>Not approved:</span>
-                            <span className="font-mono">{row.needs_approval_count}</span>
-                          </div>
-                        )}
-                        {row.confirmation ? (
-                        <div className={viewMode === "GRID" ? "text-[10px] text-slate-500 pt-1.5 border-t border-slate-200/60 leading-snug truncate" : "text-[10px] text-slate-500 leading-snug"}>
-                            Confirmed {row.confirmation.status === "NO_REPORTS_RECEIVED" ? "zero reports" : "complete"} by <span className="font-bold text-slate-700">{row.confirmation.confirmed_by}</span>
-                          </div>
-                        ) : (
-                          <div className="text-[10px] text-slate-400 italic pt-1.5 border-t border-slate-200/60">
-                            No monthly attestation yet
-                          </div>
-                        )}
-                      </div>
+                      )}
+                      {row.confirmation ? (
+                        <div
+                          className={
+                            viewMode === "GRID"
+                              ? "text-[10px] text-slate-500 pt-1.5 border-t border-slate-200/60 leading-snug truncate"
+                              : "text-[11px] text-slate-500 leading-snug"
+                          }
+                        >
+                          Confirmed {row.confirmation.status === "NO_REPORTS_RECEIVED" ? "zero reports" : "complete"} by{" "}
+                          <span className="font-bold text-slate-700">{row.confirmation.confirmed_by}</span>
+                        </div>
+                      ) : (
+                        <div
+                          className={
+                            viewMode === "GRID"
+                              ? "text-[10px] text-slate-400 italic pt-1.5 border-t border-slate-200/60"
+                              : "text-[11px] text-slate-400 italic"
+                          }
+                        >
+                          No monthly attestation yet
+                        </div>
+                      )}
                     </div>
 
                     {/* Card Actions: 2 high-contrast, crystal-clear buttons */}
-                    <div className={`grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 ${viewMode === "LIST" ? "sm:w-[340px] sm:shrink-0 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0" : ""}`}>
+                    <div
+                      className={
+                        viewMode === "GRID"
+                          ? "grid grid-cols-2 gap-2 pt-2 border-t border-slate-100"
+                          : "flex items-center justify-end gap-2 border-t border-slate-100 pt-2 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0 shrink-0"
+                      }
+                    >
+                      {/* In LIST view, Review button appears inline so row height remains uniform */}
+                      {viewMode === "LIST" && row.needs_approval_count > 0 && (
+                        <Link
+                          href={recordsHrefFor(row.barangay_name)}
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 text-[11px] font-bold text-amber-900 transition-colors hover:bg-amber-100 shadow-2xs shrink-0"
+                          title={`Review ${row.needs_approval_count} unapproved report${row.needs_approval_count === 1 ? "" : "s"}`}
+                        >
+                          <ArrowRight className="size-3.5 shrink-0 text-amber-700" />
+                          <span>Review ({row.needs_approval_count})</span>
+                        </Link>
+                      )}
+
                       {/* Left Action: No Reports */}
                       {isConfirmedNoReports ? (
                         <div
-                          className="h-8 rounded-lg bg-emerald-700 text-white font-bold text-[11px] px-2 flex items-center justify-center gap-1.5 border border-emerald-800 shadow-2xs select-none truncate"
+                          className="h-8 rounded-lg bg-emerald-700 text-white font-bold text-[11px] px-3 flex items-center justify-center gap-1.5 border border-emerald-800 shadow-2xs select-none truncate"
                           title={`Confirmed zero reports by ${row.confirmation?.confirmed_by || "staff"}`}
                         >
                           <CheckCircle2 className="size-3.5 shrink-0 text-white" />
@@ -706,7 +744,7 @@ export function SurveillanceCoveragePanel() {
                           type="button"
                           onClick={() => requestConfirmation(row, "NO_REPORTS_RECEIVED")}
                           disabled={confirmationMutation.isPending}
-                          className="h-8 rounded-lg bg-white hover:bg-slate-100 text-slate-800 font-bold text-[11px] px-2 flex items-center justify-center gap-1.5 border border-slate-300 hover:border-slate-400 shadow-2xs active:scale-98 transition-all cursor-pointer truncate disabled:opacity-50"
+                          className="h-8 rounded-lg bg-white hover:bg-slate-100 text-slate-800 font-bold text-[11px] px-3 flex items-center justify-center gap-1.5 border border-slate-300 hover:border-slate-400 shadow-2xs active:scale-98 transition-all cursor-pointer truncate disabled:opacity-50"
                           title="Attest that zero disease/mortality cases occurred this month"
                         >
                           {isPendingNoReports ? (
@@ -726,7 +764,7 @@ export function SurveillanceCoveragePanel() {
                               `Cannot attest zero reports: ${row.record_count} ${domain === "DISEASE" ? "disease" : "mortality"} report${row.record_count === 1 ? " is" : "s are"} already recorded for ${row.barangay_name}.`
                             );
                           }}
-                          className="h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 font-semibold text-[11px] px-2 flex items-center justify-center border border-slate-200/80 cursor-pointer select-none truncate transition-colors"
+                          className="h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 font-semibold text-[11px] px-3 flex items-center justify-center border border-slate-200/80 cursor-pointer select-none truncate transition-colors"
                           title="Click to view why zero reports cannot be attested"
                         >
                           <span className="truncate">No Reports</span>
@@ -736,7 +774,7 @@ export function SurveillanceCoveragePanel() {
                       {/* Right Action: Complete */}
                       {isConfirmedAllEntered ? (
                         <div
-                          className="h-8 rounded-lg bg-emerald-50 text-emerald-900 font-bold text-[11px] px-2 flex items-center justify-center gap-1.5 border border-emerald-300 shadow-2xs select-none truncate"
+                          className="h-8 rounded-lg bg-emerald-50 text-emerald-900 font-bold text-[11px] px-3 flex items-center justify-center gap-1.5 border border-emerald-300 shadow-2xs select-none truncate"
                           title={`Confirmed all reports complete by ${row.confirmation?.confirmed_by || "staff"}`}
                         >
                           <CheckCircle2 className="size-3.5 shrink-0 text-emerald-800" />
@@ -747,7 +785,7 @@ export function SurveillanceCoveragePanel() {
                           type="button"
                           onClick={() => requestConfirmation(row, "REPORTS_COMPLETE")}
                           disabled={confirmationMutation.isPending}
-                          className="h-8 rounded-lg bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold text-[11px] px-2 flex items-center justify-center gap-1.5 border border-[#163b21] shadow-2xs active:scale-98 transition-all cursor-pointer truncate disabled:opacity-50"
+                          className="h-8 rounded-lg bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold text-[11px] px-3 flex items-center justify-center gap-1.5 border border-[#163b21] shadow-2xs active:scale-98 transition-all cursor-pointer truncate disabled:opacity-50"
                           title="Attest that all field reports are submitted and approved"
                         >
                           {isPendingAllEntered ? (
@@ -782,21 +820,23 @@ export function SurveillanceCoveragePanel() {
                               );
                             }
                           }}
-                          className="h-8 rounded-lg bg-slate-100 hover:bg-amber-50 hover:text-amber-900 hover:border-amber-300 text-slate-500 font-bold text-[11px] px-2 flex items-center justify-center border border-slate-200/80 cursor-pointer select-none truncate transition-colors shadow-2xs"
+                          className="h-8 rounded-lg bg-slate-100 hover:bg-amber-50 hover:text-amber-900 hover:border-amber-300 text-slate-500 font-bold text-[11px] px-3 flex items-center justify-center border border-slate-200/80 cursor-pointer select-none truncate transition-colors shadow-2xs"
                           title="Click to view why completion is blocked"
                         >
                           <span className="truncate">Complete</span>
                         </button>
                       )}
-                    {row.needs_approval_count > 0 && (
-                      <Link
-                        href={recordsHrefFor(row.barangay_name)}
-                        className="col-span-2 inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 text-[11px] font-bold text-amber-900 transition-colors hover:bg-amber-100"
-                      >
-                        <ArrowRight className="size-3.5 shrink-0" />
-                        Review {row.needs_approval_count} unapproved report{row.needs_approval_count === 1 ? "" : "s"}
-                      </Link>
-                    )}
+
+                      {/* In GRID view only, Review button spans 2 columns at the bottom of the card */}
+                      {viewMode === "GRID" && row.needs_approval_count > 0 && (
+                        <Link
+                          href={recordsHrefFor(row.barangay_name)}
+                          className="col-span-2 inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 text-[11px] font-bold text-amber-900 transition-colors hover:bg-amber-100"
+                        >
+                          <ArrowRight className="size-3.5 shrink-0" />
+                          Review {row.needs_approval_count} unapproved report{row.needs_approval_count === 1 ? "" : "s"}
+                        </Link>
+                      )}
                     </div>
                   </div>
                 );
