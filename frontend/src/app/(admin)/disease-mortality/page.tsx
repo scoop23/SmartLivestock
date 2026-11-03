@@ -78,16 +78,18 @@ function DiseaseMortalityContent() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
-  // Tab State: 'disease', 'mortality', or 'all'
+  // Tab State: 'disease', 'mortality', 'all', or 'coverage'
   const initialTab = searchParams.get("tab") === "mortality"
     ? "mortality"
     : searchParams.get("tab") === "all"
     ? "all"
+    : searchParams.get("tab") === "coverage"
+    ? "coverage"
     : "disease";
 
-  const [activeTab, setActiveTab] = useState<"disease" | "mortality" | "all">(initialTab);
+  const [activeTab, setActiveTab] = useState<"disease" | "mortality" | "all" | "coverage">(initialTab);
 
-  const handleTabChange = (tab: "disease" | "mortality" | "all") => {
+  const handleTabChange = (tab: "disease" | "mortality" | "all" | "coverage") => {
     setActiveTab(tab);
     const params = new URLSearchParams(window.location.search);
     params.set("tab", tab);
@@ -359,7 +361,6 @@ function DiseaseMortalityContent() {
 
       {/* ── Main Workspace with Futuristic Background Pattern ── */}
       <div className="relative isolate min-h-[calc(100vh-8rem)] w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16 sm:pb-8">
-        <SurveillanceCoveragePanel />
         {/* Subtle futuristic grid background pattern */}
         <div
           aria-hidden="true"
@@ -500,9 +501,22 @@ function DiseaseMortalityContent() {
                 {kpis.disease}
               </span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => handleTabChange("coverage")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+                activeTab === "coverage"
+                  ? "bg-[#1E4D2B] text-white shadow-sm ring-1 ring-emerald-950/20"
+                  : "bg-white/80 text-slate-700 hover:text-slate-950 hover:bg-white border border-slate-200"
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Reporting Coverage</span>
+            </button>
           </div>
 
-          {selectedIds.length > 0 && (
+          {selectedIds.length > 0 && activeTab !== "coverage" && (
             <div className="hidden sm:flex items-center gap-2">
               <span className="text-xs font-bold text-slate-700">
                 {selectedIds.length} selected
@@ -510,7 +524,7 @@ function DiseaseMortalityContent() {
               <Button
                 size="sm"
                 onClick={openReviewBatch}
-                className="h-8 px-3 rounded-xl bg-[#1E4D2B] hover:bg-emerald-800 text-white text-xs font-bold gap-1 shadow-xs"
+                className="h-8 px-3 rounded-xl bg-[#1E4D2B] hover:bg-emerald-800 text-white text-xs font-bold gap-1 shadow-xs cursor-pointer"
               >
                 <ShieldCheck className="size-3.5" />
                 <span>Bulk Certify</span>
@@ -519,7 +533,7 @@ function DiseaseMortalityContent() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setSelectedIds([])}
-                className="h-8 px-2 text-xs font-bold text-slate-500 hover:text-slate-700"
+                className="h-8 px-2 text-xs font-bold text-slate-500 hover:text-slate-700 cursor-pointer"
               >
                 Clear
               </Button>
@@ -527,8 +541,14 @@ function DiseaseMortalityContent() {
           )}
         </div>
 
-        {/* ── Filter Toolbar ── */}
-        <div className="bg-white/95 backdrop-blur-xs p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+        {activeTab === "coverage" ? (
+          <div className="pt-2">
+            <SurveillanceCoveragePanel />
+          </div>
+        ) : (
+          <>
+            {/* ── Filter Toolbar ── */}
+            <div className="bg-white/95 backdrop-blur-xs p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-12 gap-2.5">
             {/* Search Input */}
             <div className="relative lg:col-span-6">
@@ -644,13 +664,17 @@ function DiseaseMortalityContent() {
             />
           )}
         </DataTableSection>
+        </>
+        )}
 
         {/* ── FLOATING MOBILE BULK ACTION DOCK ── */}
-        <BulkActionDock
-          count={selectedIds.length}
-          onValidate={openReviewBatch}
-          onClear={() => setSelectedIds([])}
-        />
+        {activeTab !== "coverage" && (
+          <BulkActionDock
+            count={selectedIds.length}
+            onValidate={openReviewBatch}
+            onClear={() => setSelectedIds([])}
+          />
+        )}
 
         {/* ── SINGLE / BATCH REVIEW DIALOG ── */}
         <ValidationReviewDialog
