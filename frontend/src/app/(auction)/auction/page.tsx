@@ -3,7 +3,7 @@
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card,CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
 Table,
@@ -22,18 +22,14 @@ import {
   ClipboardCheck,
   Clock,
   Loader2,
-  Map,
   MapPin,
-  Megaphone,
   Plus,
-  QrCode,
   RotateCcw,
   Send,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 import {
   InspectionRecord,
   fetchInspections,
@@ -41,31 +37,12 @@ import {
 import { InspectionDetailsDialog } from "../auction-inspections/inspection-details-dialog";
 import { AuctionDescriptiveAnalytics } from "../components/auction-descriptive-analytics";
 
+
+
 export default function AuctionDashboard() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
-  const [clockString, setClockString] = useState<string>("");
-
-  useEffect(() => {
-    const formatter = new Intl.DateTimeFormat("sv-SE", {
-      timeZone: "Asia/Manila",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-    });
-    const updateTime = () => {
-      setClockString(`${formatter.format(new Date())} PHT`);
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // React Query loads the role-scoped inspection list; KPI cards below summarize
   // those records and link to the full registry for filtering and review.
@@ -74,6 +51,8 @@ export default function AuctionDashboard() {
     queryFn: () => fetchInspections(),
     staleTime: 30_000,
   });
+
+
 
   const handleSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ["inspections"] });
@@ -127,7 +106,7 @@ export default function AuctionDashboard() {
         );
       case "BREEDING":
         return (
-          <span className="font-extrabold text-[10px] text-purple-800 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
+          <span className="font-extrabold text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
             Breeding
           </span>
         );
@@ -156,7 +135,7 @@ export default function AuctionDashboard() {
       />
 
       {/* Market active status banner */}
-      <div className="bg-gradient-to-r from-purple-800 to-purple-700 text-white shadow-xs border-b border-purple-900/30">
+      <div className="bg-gradient-to-r from-emerald-800 to-emerald-700 text-white shadow-xs border-b border-emerald-900/30">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="p-1.5 rounded-lg bg-white/20 shrink-0">
@@ -166,7 +145,7 @@ export default function AuctionDashboard() {
               <p className="text-xs font-black">
                 Auction Livestock Intake Active — Padre Garcia Livestock Trading Center
               </p>
-              <p className="text-[10px] text-purple-100 font-semibold">
+              <p className="text-[10px] text-emerald-100 font-semibold">
                 Auction records are submitted to MAO for official review and clearance decisions.
               </p>
             </div>
@@ -175,17 +154,8 @@ export default function AuctionDashboard() {
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              onClick={() => setIsScannerOpen(true)}
-              className="bg-purple-950/70 hover:bg-purple-950 text-white border border-purple-300/30 text-xs font-bold rounded-xl shadow-xs gap-1.5 cursor-pointer"
-            >
-              <QrCode className="w-3.5 h-3.5" />
-              Scan Gate QR Pass
-            </Button>
-
-            <Button
-              size="sm"
               onClick={() => router.push("/auction-inspections/new")}
-              className="bg-white hover:bg-purple-50 text-[#7C3AED] text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
+              className="bg-white hover:bg-emerald-50 text-[#0F5A38] text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               New Movement Log
@@ -194,32 +164,8 @@ export default function AuctionDashboard() {
         </div>
       </div>
 
-      {/* Upper Micro-Telemetry Banner with Live Realtime Clock */}
-      <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-2 sm:px-6 md:px-8">
-        <div className="w-full flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
-          <div className="flex items-center gap-2 font-semibold text-slate-600">
-            <Building className="size-3.5 text-purple-600" />
-            <span>
-              FACILITY:{" "}
-              <strong className="font-mono text-slate-900 uppercase">
-                PADRE GARCIA LIVESTOCK TRADING CENTER
-              </strong>
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
-              <Clock className="size-3.5 text-slate-400" />
-              <span className="tabular-nums font-bold">
-                {clockString || "Loading Manila time…"}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* ═══ Operational KPI Cards ═══ */}
+        {/* ═══ Operational Clearance Queue ═══ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           <KpiCard
             size="sm"
@@ -267,89 +213,6 @@ export default function AuctionDashboard() {
           />
         </div>
 
-        {/* ═══ Quick Actions Grid ═══ */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <Card
-            onClick={() => setIsScannerOpen(true)}
-            className="border border-purple-200/90 bg-white/95 backdrop-blur-xs hover:border-purple-400 shadow-holo-card transition-all duration-200 rounded-2xl cursor-pointer group"
-          >
-            <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3.5">
-                <div className="p-3 rounded-xl bg-[#7C3AED] text-white group-hover:scale-105 transition-transform shrink-0 shadow-xs">
-                  <QrCode className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 group-hover:text-[#7C3AED] transition-colors">
-                    Scan Gate Pass
-                  </h3>
-                  <p className="text-xs font-medium text-slate-500">Fast gate ingress verify for animal lots</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] group-hover:translate-x-0.5 transition-all shrink-0" />
-            </CardContent>
-          </Card>
-
-          <Card
-            onClick={() => router.push("/auction-inspections/new")}
-            className="border border-purple-100/90 bg-white/95 backdrop-blur-xs hover:border-purple-300 shadow-holo-card transition-all duration-200 rounded-2xl cursor-pointer group"
-          >
-            <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3.5">
-                <div className="p-3 rounded-xl bg-purple-100 text-[#7C3AED] group-hover:scale-105 transition-transform shrink-0">
-                  <Plus className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 group-hover:text-[#7C3AED] transition-colors">
-                    Issue Clearance
-                  </h3>
-                  <p className="text-xs font-medium text-slate-500">Record transport and antemortem check</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#7C3AED] group-hover:translate-x-0.5 transition-all shrink-0" />
-            </CardContent>
-          </Card>
-
-          <Card
-            onClick={() => router.push("/auction-gis")}
-            className="border border-sky-100/90 bg-white/95 backdrop-blur-xs hover:border-sky-300 shadow-holo-card transition-all duration-200 rounded-2xl cursor-pointer group"
-          >
-            <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3.5">
-                <div className="p-3 rounded-xl bg-sky-100 text-sky-800 group-hover:scale-105 transition-transform shrink-0">
-                  <Map className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 group-hover:text-sky-800 transition-colors">
-                    Movement GIS Map
-                  </h3>
-                  <p className="text-xs font-medium text-slate-500">Trace animal origin &amp; destination routes</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-sky-800 group-hover:translate-x-0.5 transition-all shrink-0" />
-            </CardContent>
-          </Card>
-
-          <Card
-            onClick={() => router.push("/auction-announcement")}
-            className="border border-emerald-100/90 bg-white/95 backdrop-blur-xs hover:border-emerald-300 shadow-holo-card transition-all duration-200 rounded-2xl cursor-pointer group"
-          >
-            <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3.5">
-                <div className="p-3 rounded-xl bg-emerald-100 text-emerald-800 group-hover:scale-105 transition-transform shrink-0">
-                  <Megaphone className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 group-hover:text-emerald-800 transition-colors">
-                    Market Notices
-                  </h3>
-                  <p className="text-xs font-medium text-slate-500">Biosecurity alerts &amp; auction bulletins</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-800 group-hover:translate-x-0.5 transition-all shrink-0" />
-            </CardContent>
-          </Card>
-        </div>
-
         {/* ═══ Futuristic Market Descriptive Analytics Console ═══ */}
         <AuctionDescriptiveAnalytics />
 
@@ -358,7 +221,7 @@ export default function AuctionDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                <ClipboardCheck className="w-5 h-5 text-[#7C3AED]" />
+                <ClipboardCheck className="w-5 h-5 text-[#0F5A38]" />
                 Recent Auction Movement Logs
               </h2>
               <p className="text-xs text-slate-500 font-medium">
@@ -369,7 +232,7 @@ export default function AuctionDashboard() {
               variant="outline"
               size="sm"
               onClick={() => router.push("/auction-inspections")}
-              className="rounded-xl text-xs font-extrabold text-[#7C3AED] hover:bg-purple-50 border-purple-200 gap-1 cursor-pointer"
+              className="rounded-xl text-xs font-extrabold text-[#0F5A38] hover:bg-emerald-50 border-emerald-200 gap-1 cursor-pointer"
             >
               View Full Registry <ArrowRight className="w-3.5 h-3.5" />
             </Button>
@@ -378,7 +241,7 @@ export default function AuctionDashboard() {
           {isLoading ? (
             <Card className="border-2 border-slate-200/80 bg-white p-12 text-center rounded-2xl">
               <div className="flex flex-col items-center justify-center space-y-2">
-                <Loader2 className="w-8 h-8 text-[#7C3AED] animate-spin" />
+                <Loader2 className="w-8 h-8 text-[#0F5A38] animate-spin" />
                 <p className="text-sm font-bold text-slate-700">Loading livestock inspections...</p>
               </div>
             </Card>
@@ -436,12 +299,12 @@ export default function AuctionDashboard() {
                           <TableRow
                             key={record.id}
                             onClick={() => setSelectedInspection(record)}
-                            className="cursor-pointer border-b border-slate-100 hover:bg-purple-50/40 transition-colors"
+                            className="cursor-pointer border-b border-slate-100 hover:bg-emerald-50/40 transition-colors"
                           >
                             <TableCell className="py-3.5 pl-5">
                               <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-xl bg-purple-50 text-[#7C3AED] border border-purple-100/60 shrink-0">
-                                  <ClipboardCheck className="size-4 text-[#7C3AED]" />
+                                <div className="p-2 rounded-xl bg-emerald-50 text-[#0F5A38] border border-emerald-100/60 shrink-0">
+                                  <ClipboardCheck className="size-4 text-[#0F5A38]" />
                                 </div>
                                 <div>
                                   <p className="font-black text-sm text-slate-900">{record.shipper_name}</p>
@@ -486,7 +349,7 @@ export default function AuctionDashboard() {
                                   e.stopPropagation();
                                   setSelectedInspection(record);
                                 }}
-                                className="rounded-xl h-8 px-3 text-xs font-extrabold bg-[#7C3AED] text-white hover:bg-[#6D28D9] transition-colors shadow-2xs gap-1 cursor-pointer"
+                                className="rounded-xl h-8 px-3 text-xs font-extrabold bg-[#0F5A38] text-white hover:bg-[#0c482d] transition-colors shadow-2xs gap-1 cursor-pointer"
                               >
                                 View <ChevronRight className="size-3" />
                               </Button>
@@ -510,12 +373,12 @@ export default function AuctionDashboard() {
                     <Card
                       key={record.id}
                       onClick={() => setSelectedInspection(record)}
-                      className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-4 shadow-holo-card cursor-pointer hover:border-purple-300 transition-all"
+                      className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-4 shadow-holo-card cursor-pointer hover:border-emerald-300 transition-all"
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div>
                           <p className="font-black text-sm text-slate-900">{record.shipper_name}</p>
-                          <p className="text-[11px] font-mono text-purple-700 font-bold">{record.control_number}</p>
+                          <p className="text-[11px] font-mono text-emerald-700 font-bold">{record.control_number}</p>
                         </div>
                         {getStatusBadge(record.status, record)}
                       </div>
@@ -533,7 +396,7 @@ export default function AuctionDashboard() {
 
                       <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100">
                         {getPurposeBadge(record.purpose)}
-                        <span className="text-xs font-black text-[#7C3AED] flex items-center gap-1">
+                        <span className="text-xs font-black text-[#0F5A38] flex items-center gap-1">
                           View details <ChevronRight className="w-3.5 h-3.5" />
                         </span>
                       </div>
@@ -558,12 +421,6 @@ export default function AuctionDashboard() {
         }}
       />
 
-      {/* Universal Gate Pass QR Scanner */}
-      <UniversalQrScannerDialog
-        isOpen={isScannerOpen}
-        onOpenChange={setIsScannerOpen}
-        role="auction"
-      />
     </>
   );
 }

@@ -140,7 +140,7 @@ export function InspectionDetailsDialog({
           </div>
         </section>}
         {/* Header Banner */}
-        <DialogHeader className="p-5 sm:p-6 bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] text-white rounded-t-3xl">
+        <DialogHeader className="p-5 sm:p-6 bg-gradient-to-r from-[#0F5A38] via-[#0c482d] to-[#064e3b] text-white rounded-t-3xl">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <Badge className="bg-white/20 text-white font-mono text-xs px-2.5 py-0.5 border border-white/30">
               Control #{inspection.control_number}
@@ -150,7 +150,7 @@ export function InspectionDetailsDialog({
           <DialogTitle className="text-xl sm:text-2xl font-black mt-2 tracking-tight">
             {inspection.status === "APPROVED" ? "Livestock Transport Clearance" : "Auction Livestock Movement Log"}
           </DialogTitle>
-          <DialogDescription className="text-purple-100 text-xs sm:text-sm">
+          <DialogDescription className="text-emerald-100 text-xs sm:text-sm">
             Auction house intake record submitted for official MAO review
           </DialogDescription>
         </DialogHeader>
@@ -184,7 +184,7 @@ export function InspectionDetailsDialog({
               <div
                 className={`p-2.5 rounded-xl text-center border transition-all ${
                   currentStep >= 0
-                    ? "bg-purple-100/70 border-purple-300 text-[#7C3AED]"
+                    ? "bg-emerald-100/70 border-emerald-300 text-[#0F5A38]"
                     : "bg-white border-slate-200 text-slate-400"
                 }`}
               >
@@ -261,7 +261,7 @@ export function InspectionDetailsDialog({
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                <CowHeadIcon className="w-4 h-4 text-[#7C3AED]" />
+                <CowHeadIcon className="w-4 h-4 text-[#0F5A38]" />
                 Livestock Breakdown ({totalAnimals} Heads Total)
               </h4>
               <Badge variant="outline" className="text-[11px] font-mono font-bold">
@@ -282,11 +282,11 @@ export function InspectionDetailsDialog({
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {inspection.items.map((it, idx) => (
-                    <tr key={idx} className="hover:bg-purple-50/30 transition-colors">
+                    <tr key={idx} className="hover:bg-emerald-50/30 transition-colors">
                       <td className="p-3 pl-4 font-bold text-slate-900">
                         {it.livestock_type_name || String(it.livestock_type)}
                         {it.inventory_tag && (
-                          <span className="block text-[10px] font-mono text-purple-700 font-bold">
+                          <span className="block text-[10px] font-mono text-emerald-700 font-bold">
                             Tag: {it.inventory_tag}
                           </span>
                         )}
@@ -315,7 +315,7 @@ export function InspectionDetailsDialog({
           {/* ════ SECTION 3: AUCTION & SHIPPER PARTICULARS ════ */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-              <Building className="w-4 h-4 text-[#7C3AED]" />
+              <Building className="w-4 h-4 text-[#0F5A38]" />
               Auction, Shipper &amp; Transport Particulars
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
@@ -330,13 +330,13 @@ export function InspectionDetailsDialog({
               <div>
                 <span className="text-[10px] font-bold uppercase text-slate-400 block">Inspection Date</span>
                 <p className="font-black text-slate-900 font-mono mt-0.5 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-purple-600" /> {inspection.inspection_date}
+                  <Calendar className="w-3.5 h-3.5 text-emerald-600" /> {inspection.inspection_date}
                 </p>
               </div>
 
               <div>
                 <span className="text-[10px] font-bold uppercase text-slate-400 block">Purpose</span>
-                <span className="font-extrabold text-[11px] text-purple-700 bg-purple-100/70 border border-purple-200 px-2 py-0.5 rounded-md inline-block mt-0.5">
+                <span className="font-extrabold text-[11px] text-emerald-700 bg-emerald-100/70 border border-emerald-200 px-2 py-0.5 rounded-md inline-block mt-0.5">
                   {inspection.purpose}
                 </span>
               </div>
@@ -365,11 +365,11 @@ export function InspectionDetailsDialog({
           </div>
 
           {/* ════ SECTION 4: MOVEMENT ROUTE & GIS CONNECTION ════ */}
-          <div className="bg-gradient-to-br from-purple-50/70 via-white to-purple-50/30 p-4 rounded-2xl border-2 border-purple-200/80 space-y-3">
+          <div className="bg-gradient-to-br from-emerald-50/70 via-white to-emerald-50/30 p-4 rounded-2xl border-2 border-emerald-200/80 space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-purple-950 flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-[#7C3AED]" />
+                <h4 className="text-xs font-black uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-[#0F5A38]" />
                   Livestock Movement Route &amp; GIS Telemetry
                 </h4>
                 <p className="text-[11px] text-slate-500 font-medium">
@@ -383,7 +383,7 @@ export function InspectionDetailsDialog({
                   onClose();
                   router.push("/auction-gis");
                 }}
-                className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-black rounded-xl shadow-xs gap-1.5 cursor-pointer"
+                className="bg-[#0F5A38] hover:bg-[#0c482d] text-white text-xs font-black rounded-xl shadow-xs gap-1.5 cursor-pointer"
               >
                 <Map className="w-3.5 h-3.5" />
                 View Movement on GIS Map
@@ -391,8 +391,8 @@ export function InspectionDetailsDialog({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div className="bg-white p-3 rounded-xl border border-purple-100 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-100 text-[#7C3AED] shrink-0">
+              <div className="bg-white p-3 rounded-xl border border-emerald-100 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-100 text-[#0F5A38] shrink-0">
                   <Truck className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -403,7 +403,7 @@ export function InspectionDetailsDialog({
                 </div>
               </div>
 
-              <div className="bg-white p-3 rounded-xl border border-purple-100 flex items-center gap-3">
+              <div className="bg-white p-3 rounded-xl border border-emerald-100 flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-emerald-100 text-emerald-800 shrink-0">
                   <MapPin className="w-4 h-4" />
                 </div>

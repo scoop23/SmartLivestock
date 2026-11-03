@@ -200,11 +200,11 @@ export function AuctionQrScannerDialog({
       <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white border-slate-100 shadow-2xl max-h-[92vh] overflow-y-auto">
         <DialogHeader className="pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2 mb-1">
-            <div className="p-2 rounded-xl bg-purple-100 text-[#7C3AED]">
+            <div className="p-2 rounded-xl bg-emerald-100 text-[#0F5A38]">
               <QrCode className="size-4" />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase text-purple-700 tracking-wider">
+              <p className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">
                 Padre Garcia Livestock Trading Center • Auction Gate
               </p>
               <DialogTitle className="text-lg font-black text-slate-900 leading-tight">
@@ -222,16 +222,16 @@ export function AuctionQrScannerDialog({
             {/* Camera / Scanner Viewfinder Graphic */}
             <div className="relative p-6 bg-slate-950 rounded-2xl flex flex-col items-center justify-center text-center overflow-hidden border border-slate-800">
               {/* Corner guide brackets */}
-              <div className="absolute top-3 left-3 size-6 border-t-2 border-l-2 border-purple-400 rounded-tl-lg" />
-              <div className="absolute top-3 right-3 size-6 border-t-2 border-r-2 border-purple-400 rounded-tr-lg" />
-              <div className="absolute bottom-3 left-3 size-6 border-b-2 border-l-2 border-purple-400 rounded-bl-lg" />
-              <div className="absolute bottom-3 right-3 size-6 border-b-2 border-r-2 border-purple-400 rounded-br-lg" />
+              <div className="absolute top-3 left-3 size-6 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg" />
+              <div className="absolute top-3 right-3 size-6 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg" />
+              <div className="absolute bottom-3 left-3 size-6 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg" />
+              <div className="absolute bottom-3 right-3 size-6 border-b-2 border-r-2 border-emerald-400 rounded-br-lg" />
 
               {/* Laser scan line animation */}
-              <div className="w-48 h-0.5 bg-gradient-to-r from-transparent via-purple-400 to-transparent animate-pulse my-4" />
+              <div className="w-48 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-pulse my-4" />
 
-              <div className="size-16 rounded-2xl bg-white/10 flex items-center justify-center text-purple-300 mb-3 border border-white/10">
-                <Camera className="size-8 text-purple-300 animate-pulse" />
+              <div className="size-16 rounded-2xl bg-white/10 flex items-center justify-center text-emerald-300 mb-3 border border-white/10">
+                <Camera className="size-8 text-emerald-300 animate-pulse" />
               </div>
               <p className="text-xs font-bold text-white tracking-wide">
                 Scanner Terminal Active
@@ -256,7 +256,7 @@ export function AuctionQrScannerDialog({
                 />
                 <Button
                   onClick={() => handleLookup(scanInput)}
-                  className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold text-xs rounded-xl gap-1.5 px-4 cursor-pointer"
+                  className="bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold text-xs rounded-xl gap-1.5 px-4 cursor-pointer"
                 >
                   <Search className="size-3.5" /> Verify
                 </Button>
@@ -272,7 +272,7 @@ export function AuctionQrScannerDialog({
                 <button
                   type="button"
                   onClick={() => handleLookup("BATCH-SWN-2026-01")}
-                  className="text-[11px] font-mono font-bold bg-purple-50 text-purple-900 border border-purple-200 px-2.5 py-1 rounded-lg hover:bg-purple-100 transition-colors cursor-pointer"
+                  className="text-[11px] font-mono font-bold bg-emerald-50 text-emerald-900 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors cursor-pointer"
                 >
                   BATCH-SWN-2026-01 (10 Pigs)
                 </button>
@@ -344,7 +344,7 @@ export function AuctionQrScannerDialog({
                 </div>
                 <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
                   <span className="text-slate-500 font-medium">Lot / Head Count:</span>
-                  <span className="font-black text-purple-700">
+                  <span className="font-black text-emerald-700">
                     {activeResult.quantity} Head{activeResult.quantity > 1 ? "s" : ""}
                     {activeResult.weightKg ? ` (~${activeResult.weightKg} kg avg)` : ""}
                   </span>

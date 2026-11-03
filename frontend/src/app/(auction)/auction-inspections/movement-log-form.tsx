@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useEffect,useMemo,useRef,useState } from "react";
 import { createInspection,InspectionRecord,lookupRegisteredLivestock,RegisteredAnimalOption,RegisteredShipperOption,searchRegisteredShippers,updateInspection } from "./auction-analytics";
 import { MovementLivestockQrDialog } from "./movement-livestock-qr-dialog";
+import { AuctionTelemetryBanner } from "@/app/components/auction-telemetry-banner";
 
 interface NewInspectionFormProps {
   onSubmitSuccess: () => void;
@@ -434,13 +435,13 @@ export function NewInspectionForm({
   if (draftStatus === "prompt") {
     return (
       <main className="w-full px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-        <section className="rounded-3xl border border-violet-200 bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-xs font-black uppercase tracking-wider text-violet-700">Unfinished movement log found</p>
+        <section className="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm sm:p-8">
+          <p className="text-xs font-black uppercase tracking-wider text-emerald-700">Unfinished movement log found</p>
           <h1 className="mt-2 text-2xl font-black text-slate-950">Your previous draft was saved locally.</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">Continue where you left off, or discard this saved draft and start fresh. No movement record exists until you submit to MAO.</p>
           <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={startNewDraft} className="min-h-11 rounded-xl">Start New</Button>
-            <Button type="button" onClick={restoreDraft} className="min-h-11 rounded-xl bg-[#7C3AED] text-white hover:bg-[#6D28D9]">Continue Draft</Button>
+            <Button type="button" onClick={restoreDraft} className="min-h-11 rounded-xl bg-[#0F5A38] text-white hover:bg-[#0c482d]">Continue Draft</Button>
           </div>
         </section>
       </main>
@@ -449,13 +450,14 @@ export function NewInspectionForm({
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <AuctionTelemetryBanner className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 mb-6" />
       <div className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Button type="button" variant="ghost" onClick={cancelForm} className="-ml-3 mb-3 min-h-10 gap-2 px-3 text-slate-600">
             <ArrowLeft className="size-4" /> Back to movement logs
           </Button>
           <div className="flex items-center gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-800"><ClipboardCheck className="size-5" /></span>
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800"><ClipboardCheck className="size-5" /></span>
             <div>
               <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{inspectionToEdit ? "Correct Movement Log" : "New Movement Log"}</h1>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Record livestock entering or moving through the auction house. Registered livestock can be found by tag or QR; external livestock can be entered manually.</p>
@@ -470,7 +472,7 @@ export function NewInspectionForm({
       </div>
 
       {!inspectionToEdit && <div className="mb-6 flex flex-wrap items-center gap-2 text-xs font-bold">
-        <span className="rounded-full bg-violet-100 px-3 py-1.5 text-violet-900">Draft</span><span className="text-slate-300">→</span><span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">Submitted to MAO</span><span className="text-slate-300">→</span><span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">MAO Review</span>
+        <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-emerald-900">Draft</span><span className="text-slate-300">→</span><span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">Submitted to MAO</span><span className="text-slate-300">→</span><span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">MAO Review</span>
       </div>}
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -512,7 +514,7 @@ export function NewInspectionForm({
                   <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-white">
                     {shipperOptions.map((shipper) => (
                       <button key={shipper.id} type="button" onClick={() => selectShipper(shipper)}
-                        className="block w-full px-3 py-2 text-left text-xs hover:bg-purple-50">
+                        className="block w-full px-3 py-2 text-left text-xs hover:bg-emerald-50">
                         {shipper.name} — {shipper.address}
                       </button>
                     ))}
@@ -603,7 +605,7 @@ export function NewInspectionForm({
                 variant="outline"
                 size="sm"
                 onClick={handleAddItem}
-                className="rounded-xl text-xs font-bold gap-1 text-[#7C3AED] border-purple-200 hover:bg-purple-50 cursor-pointer"
+                className="rounded-xl text-xs font-bold gap-1 text-[#0F5A38] border-emerald-200 hover:bg-emerald-50 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Add External Livestock</span><span className="sm:hidden">Add External</span>
               </Button>
@@ -749,7 +751,7 @@ export function NewInspectionForm({
             <Button
               type="submit"
               disabled={isSubmitting || speciesOptions.length === 0}
-              className="min-h-11 bg-[#7C3AED] hover:bg-[#6D28D9] text-white rounded-xl font-bold cursor-pointer w-full sm:w-auto gap-1.5"
+              className="min-h-11 bg-[#0F5A38] hover:bg-[#0c482d] text-white rounded-xl font-bold cursor-pointer w-full sm:w-auto gap-1.5"
             >
               {isSubmitting ? (
                 <>

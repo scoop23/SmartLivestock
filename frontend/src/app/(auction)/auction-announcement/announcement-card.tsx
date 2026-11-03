@@ -13,7 +13,7 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
   const getCategoryStyle = (category: Announcement["category"]) => {
     switch (category) {
       case "Policy":
-        return "bg-purple-100 text-purple-800 border-purple-200";
+        return "bg-emerald-100 text-emerald-800 border-emerald-200";
       case "Schedule":
         return "bg-blue-100 text-blue-800 border-blue-200";
       case "System":
@@ -26,7 +26,7 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
   };
 
   return (
-    <Card className="border-2 border-slate-100 hover:border-purple-200 rounded-2xl bg-white shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden group">
+    <Card className="border-2 border-slate-100 hover:border-emerald-200 rounded-2xl bg-white shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden group">
       <CardContent className="p-5 sm:p-6 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-wrap">
@@ -42,12 +42,12 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
             </span>
           </div>
 
-          <span className="text-[11px] font-semibold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full w-fit">
+          <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full w-fit">
             {announcement.author}
           </span>
         </div>
 
-        <h3 className="text-base sm:text-lg font-black text-slate-900 group-hover:text-[#7C3AED] transition-colors">
+        <h3 className="text-base sm:text-lg font-black text-slate-900 group-hover:text-[#0F5A38] transition-colors">
           {announcement.title}
         </h3>
 

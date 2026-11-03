@@ -1,0 +1,166 @@
+"""
+Deterministic Seed Command for Municipal Livestock Ownership Transfers (Auction Market).
+Seeds 27 realistic commercial ownership transfers matching the Padre Garcia auction telemetry.
+"""
+
+from datetime import date
+from decimal import Decimal
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+
+from livestock.models import LivestockOwnershipTransfer
+from users.models import User
+
+SEED_MARKER = "AI_SEED::AUCTION_TRANSFER::V1"
+
+# 27 Transfers distribution
+# Buyers: 18 unique names
+BUYERS = [
+    "Lipa Cattle Trading Corp",
+    "Batangas Livestock Buyers Inc",
+    "San Juan Meat Dealers",
+    "Rosario Abattoir Traders",
+    "Tanauan Commercial Feedlot",
+    "Malvar Agri-Commerce",
+    "Ibaan Beef Center",
+    "Southern Luzon Cattle Buyers",
+    "San Jose Meat Market",
+    "Padre Garcia Trading Union",
+    "Batangas Prime Meats",
+    "Calabarzon Agro-Holdings",
+    "Lipa Quality Beef Co",
+    "San Juan Livestock Hub",
+    "Rosario Prime Cattle",
+    "Batangas Meat Packers",
+    "Taal Heritage Meats",
+    "Alangilan Cattle Wholesale",
+]
+
+SELLERS = [
+    ("Ricardo Mendoza", "Brgy. Banaba, Padre Garcia, Batangas"),
+    ("Elena Santos", "Brgy. Castillo, Padre Garcia, Batangas"),
+    ("Antonio Garcia", "Brgy. Cawongan, Padre Garcia, Batangas"),
+    ("Maria Hernandez", "Brgy. Manggas, Padre Garcia, Batangas"),
+    ("Juanito Reyes", "Brgy. Poblacion, Padre Garcia, Batangas"),
+    ("Carmela Bautista", "Brgy. San Miguel, Padre Garcia, Batangas"),
+    ("Danilo Ilagan", "Brgy. Quilo-quilo North, Padre Garcia, Batangas"),
+    ("Teresa Dimaculangan", "Brgy. Bawi, Padre Garcia, Batangas"),
+]
+
+# Destination & Volume Plan:
+# Lipa City: 34 heads total
+# Batangas City: 28 heads total
+# San Juan: 24 heads total
+# Rosario: 18 heads total
+# Others: 48 heads total (Tanauan, Malvar, Ibaan, San Jose)
+# Total: 152 heads across 27 events!
+#
+# Status: 21 APPROVED, 6 PENDING
+# Price total: ~₱4,560,000
+
+TRANSFER_PLANS = [
+    # ── Recent November 2026 ──────────────────────────────────────────
+    {"code": "AUC-2026-027", "date": date(2026, 11, 2), "dest": "Lipa City", "buyer_idx": 0, "heads": 10, "price": "300000.00", "status": "APPROVED", "desc": "10 head Brahman cross cattle lot."},
+    {"code": "AUC-2026-026", "date": date(2026, 10, 30), "dest": "Batangas City", "buyer_idx": 1, "heads": 8, "price": "240000.00", "status": "APPROVED", "desc": "8 head commercial steers."},
+    {"code": "AUC-2026-025", "date": date(2026, 10, 28), "dest": "San Juan", "buyer_idx": 2, "heads": 12, "price": "360000.00", "status": "PENDING", "desc": "12 head fattening steers awaiting transport clearance."},
+    {"code": "AUC-2026-024", "date": date(2026, 10, 24), "dest": "Rosario", "buyer_idx": 3, "heads": 6, "price": "180000.00", "status": "APPROVED", "desc": "6 head breeding heifers."},
+    {"code": "AUC-2026-023", "date": date(2026, 10, 20), "dest": "Tanauan City", "buyer_idx": 4, "heads": 14, "price": "420000.00", "status": "APPROVED", "desc": "14 head commercial batch."},
+    {"code": "AUC-2026-022", "date": date(2026, 10, 15), "dest": "Lipa City", "buyer_idx": 12, "heads": 5, "price": "150000.00", "status": "APPROVED", "desc": "5 head high-yield breeding cattle."},
+    {"code": "AUC-2026-021", "date": date(2026, 10, 8), "dest": "Batangas City", "buyer_idx": 10, "heads": 5, "price": "150000.00", "status": "PENDING", "desc": "5 head yearling cattle lot."},
+
+    # ── September 2026 (42 heads total) ───────────────────────────────
+    {"code": "AUC-2026-020", "date": date(2026, 9, 28), "dest": "Lipa City", "buyer_idx": 0, "heads": 9, "price": "270000.00", "status": "APPROVED", "desc": "9 head yearling fatteners."},
+    {"code": "AUC-2026-019", "date": date(2026, 9, 24), "dest": "San Juan", "buyer_idx": 13, "heads": 7, "price": "210000.00", "status": "APPROVED", "desc": "7 head dairy-cross heifers."},
+    {"code": "AUC-2026-018", "date": date(2026, 9, 19), "dest": "Batangas City", "buyer_idx": 1, "heads": 8, "price": "240000.00", "status": "APPROVED", "desc": "8 head commercial steers."},
+    {"code": "AUC-2026-017", "date": date(2026, 9, 14), "dest": "Rosario", "buyer_idx": 14, "heads": 6, "price": "180000.00", "status": "PENDING", "desc": "6 head finished bulls."},
+    {"code": "AUC-2026-016", "date": date(2026, 9, 9), "dest": "Malvar", "buyer_idx": 5, "heads": 6, "price": "180000.00", "status": "APPROVED", "desc": "6 head breeding cows."},
+    {"code": "AUC-2026-015", "date": date(2026, 9, 4), "dest": "Ibaan", "buyer_idx": 6, "heads": 6, "price": "180000.00", "status": "APPROVED", "desc": "6 head native cattle."},
+
+    # ── August 2026 (30 heads total) ──────────────────────────────────
+    {"code": "AUC-2026-014", "date": date(2026, 8, 28), "dest": "Lipa City", "buyer_idx": 12, "heads": 6, "price": "180000.00", "status": "APPROVED", "desc": "6 head prime slaughter cattle."},
+    {"code": "AUC-2026-013", "date": date(2026, 8, 22), "dest": "Batangas City", "buyer_idx": 15, "heads": 7, "price": "210000.00", "status": "APPROVED", "desc": "7 head feedlot cattle."},
+    {"code": "AUC-2026-012", "date": date(2026, 8, 17), "dest": "San Juan", "buyer_idx": 2, "heads": 5, "price": "150000.00", "status": "APPROVED", "desc": "5 head steers."},
+    {"code": "AUC-2026-011", "date": date(2026, 8, 12), "dest": "San Jose", "buyer_idx": 8, "heads": 6, "price": "180000.00", "status": "APPROVED", "desc": "6 head breeder cattle."},
+    {"code": "AUC-2026-010", "date": date(2026, 8, 5), "dest": "Rosario", "buyer_idx": 3, "heads": 6, "price": "180000.00", "status": "PENDING", "desc": "6 head fatteners."},
+
+    # ── July 2026 (20 heads total) ────────────────────────────────────
+    {"code": "AUC-2026-009", "date": date(2026, 7, 29), "dest": "Lipa City", "buyer_idx": 0, "heads": 4, "price": "120000.00", "status": "APPROVED", "desc": "4 head dairy heifers."},
+    {"code": "AUC-2026-008", "date": date(2026, 7, 24), "dest": "Batangas City", "buyer_idx": 1, "heads": 4, "price": "120000.00", "status": "APPROVED", "desc": "4 head commercial lot."},
+    {"code": "AUC-2026-007", "date": date(2026, 7, 18), "dest": "San Juan", "buyer_idx": 13, "heads": 4, "price": "120000.00", "status": "APPROVED", "desc": "4 head Brahman cattle."},
+    {"code": "AUC-2026-006", "date": date(2026, 7, 12), "dest": "Alangilan", "buyer_idx": 17, "heads": 4, "price": "120000.00", "status": "APPROVED", "desc": "4 head steers."},
+    {"code": "AUC-2026-005", "date": date(2026, 7, 5), "dest": "Taal", "buyer_idx": 16, "heads": 4, "price": "120000.00", "status": "APPROVED", "desc": "4 head draft cattle."},
+
+    # ── Earlier Records (Matching Balance) ────────────────────────────
+    {"code": "AUC-2026-004", "date": date(2026, 6, 26), "dest": "Batangas City", "buyer_idx": 11, "heads": 4, "price": "120000.00", "status": "APPROVED", "desc": "4 head steers."},
+    {"code": "AUC-2026-003", "date": date(2026, 6, 18), "dest": "Tanauan City", "buyer_idx": 7, "heads": 4, "price": "120000.00", "status": "PENDING", "desc": "4 head heifers."},
+    {"code": "AUC-2026-002", "date": date(2026, 6, 10), "dest": "Padre Garcia", "buyer_idx": 9, "heads": 4, "price": "120000.00", "status": "APPROVED", "desc": "4 head breeding stock."},
+    {"code": "AUC-2026-001", "date": date(2026, 6, 3), "dest": "Tanauan City", "buyer_idx": 4, "heads": 4, "price": "120000.00", "status": "PENDING", "desc": "4 head commercial lot."},
+]
+
+
+class Command(BaseCommand):
+    help = "Seeds 27 realistic commercial ownership transfers for the Auction Market."
+
+    def add_arguments(self, parser):
+        parser.add_argument("--clean", action="store_true", help="Remove seeded synthetic auction transfers.")
+
+    def handle(self, *args, **options):
+        if options["clean"]:
+            deleted, _ = LivestockOwnershipTransfer.objects.filter(original_certificate_number__contains=SEED_MARKER).delete()
+            self.stdout.write(self.style.SUCCESS(f"Cleaned {deleted} seeded ownership transfers."))
+            return
+
+        auction_user = User.objects.filter(role__role_name="AUCTION").first()
+        if not auction_user:
+            self.stderr.write(self.style.ERROR("No user with AUCTION role found. Please create or seed users first."))
+            return
+
+        # Check existing
+        existing = LivestockOwnershipTransfer.objects.filter(original_certificate_number__contains=SEED_MARKER).count()
+        if existing > 0:
+            self.stdout.write(self.style.WARNING(f"Found {existing} existing seeded transfers. Run with --clean first."))
+            return
+
+        created_count = 0
+        total_heads = 0
+        total_price = Decimal("0.00")
+
+        for idx, plan in enumerate(TRANSFER_PLANS):
+            seller_name, seller_addr = SELLERS[idx % len(SELLERS)]
+            buyer_name = BUYERS[plan["buyer_idx"]]
+            price = Decimal(plan["price"])
+            heads = plan["heads"]
+
+            LivestockOwnershipTransfer.objects.create(
+                external_seller_name=seller_name,
+                external_seller_address=seller_addr,
+                external_livestock_type="Cattle",
+                external_livestock_tag_number=f"PG-C-0{27 - idx:02d}",
+                origin_municipality="Padre Garcia",
+                origin_province="Batangas",
+                owner_type=LivestockOwnershipTransfer.OwnerType.EXTERNAL_INDIVIDUAL,
+                external_owner_name=buyer_name,
+                external_owner_address=f"{plan['dest']}, Batangas",
+                transfer_certificate_number=plan["code"],
+                original_certificate_number=f"{SEED_MARKER}::ORIG-{plan['code']}",
+                transfer_date=plan["date"],
+                municipality=plan["dest"],
+                province="Batangas",
+                animal_description=f"{heads} heads - {plan['desc']}",
+                purchase_price=price,
+                status=plan["status"],
+                created_by=auction_user,
+            )
+            created_count += 1
+            total_heads += heads
+            total_price += price
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Successfully seeded {created_count} commercial auction transfer records!\n"
+                f"  Total Heads: {total_heads}\n"
+                f"  Total Value: PHP {total_price:,.2f}\n"
+                f"  Unique Buyers: {len(set(b['buyer_idx'] for b in TRANSFER_PLANS))}\n"
+                f"  Created By: {auction_user.username}"
+            )
+        )

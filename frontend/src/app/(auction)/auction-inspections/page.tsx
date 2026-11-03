@@ -133,7 +133,7 @@ export default function AuctionInspections() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <ClipboardCheck className="w-5 h-5 text-[#7C3AED]" />
+              <ClipboardCheck className="w-5 h-5 text-[#0F5A38]" />
               Auction Movement Registry
             </h2>
             <p className="text-xs text-slate-500 font-medium">
@@ -149,7 +149,7 @@ export default function AuctionInspections() {
                 onClick={() => setViewMode("card")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                   viewMode === "card"
-                    ? "bg-white text-purple-950 shadow-xs"
+                    ? "bg-white text-emerald-950 shadow-xs"
                     : "text-slate-500 hover:text-slate-900"
                 }`}
               >
@@ -162,7 +162,7 @@ export default function AuctionInspections() {
                 onClick={() => setViewMode("table")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                   viewMode === "table"
-                    ? "bg-white text-purple-950 shadow-xs"
+                    ? "bg-white text-emerald-950 shadow-xs"
                     : "text-slate-500 hover:text-slate-900"
                 }`}
               >
@@ -185,7 +185,7 @@ export default function AuctionInspections() {
               size="sm"
               variant="outline"
               onClick={() => setIsScannerOpen(true)}
-              className="border-purple-300 text-[#7C3AED] hover:bg-purple-50 text-xs font-black rounded-xl shadow-xs gap-1.5 cursor-pointer"
+              className="border-emerald-300 text-[#0F5A38] hover:bg-emerald-50 text-xs font-black rounded-xl shadow-xs gap-1.5 cursor-pointer"
             >
               <QrCode className="size-3.5" />
               Scan Gate Pass
@@ -194,7 +194,7 @@ export default function AuctionInspections() {
             <Button
               size="sm"
               onClick={() => router.push("/auction-inspections/new")}
-              className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
+              className="bg-[#0F5A38] hover:bg-[#0c482d] text-white text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               New Movement Log
@@ -263,7 +263,7 @@ export default function AuctionInspections() {
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer ${
                       isActive
-                        ? "bg-[#7C3AED] text-white shadow-xs"
+                        ? "bg-[#0F5A38] text-white shadow-xs"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
@@ -287,7 +287,7 @@ export default function AuctionInspections() {
         {/* Table & Cards List View */}
         {isLoading ? (
           <div className="p-12 text-center bg-white rounded-2xl border border-slate-200">
-            <Loader2 className="w-8 h-8 text-[#7C3AED] animate-spin mx-auto mb-2" />
+            <Loader2 className="w-8 h-8 text-[#0F5A38] animate-spin mx-auto mb-2" />
             <p className="text-sm font-bold text-slate-700">Loading inspection registry...</p>
           </div>
         ) : isError ? (

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { HeaderMenuButton } from "./header-menu-button";
 import { HeaderNotifications } from "./header-notifications";
 import { Breadcrumbs, type BreadcrumbItem } from "./breadcrumbs";
+import { AuctionTelemetryBanner } from "./auction-telemetry-banner";
 
 type PageHeaderVariant = "admin" | "farmer" | "sibat" | "cbat" | "auction" | "slaughterhouse";
 
@@ -36,7 +37,7 @@ const headerClasses: Record<PageHeaderVariant, string> = {
   farmer: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   sibat: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   cbat: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
-  auction: "bg-gradient-to-r from-[#7C3AED] to-[#9F67FF] text-white shadow-lg",
+  auction: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   slaughterhouse: "bg-gradient-to-r from-[#9F1239] to-[#E11D48] text-white shadow-lg",
 };
 
@@ -45,7 +46,7 @@ const glowClasses: Record<PageHeaderVariant, string> = {
   farmer: "bg-emerald-300/20",
   sibat: "bg-emerald-300/20",
   cbat: "bg-emerald-300/20",
-  auction: "bg-fuchsia-200/25",
+  auction: "bg-emerald-300/20",
   slaughterhouse: "bg-rose-200/25",
 };
 
@@ -131,6 +132,10 @@ export function PageHeader({
     </div>
   ) : null;
 
+  const auctionTelemetryBar = variant === "auction" ? (
+    <AuctionTelemetryBanner />
+  ) : null;
+
   if (mobileActionsInline) {
     return (
       <div className={sticky ? "sticky top-0 z-20" : ""}>
@@ -208,6 +213,7 @@ export function PageHeader({
           </div>
         </header>
         {sibatNodeBar}
+        {auctionTelemetryBar}
         {breadcrumbsSubBar}
       </div>
     );
@@ -292,6 +298,7 @@ export function PageHeader({
         </div>
       </header>
       {sibatNodeBar}
+      {auctionTelemetryBar}
       {breadcrumbsSubBar}
     </div>
   );

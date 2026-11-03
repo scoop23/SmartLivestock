@@ -71,10 +71,10 @@ function FuturisticMissionTooltip({ active, payload, label, unit }: FuturisticMi
   if (!active || !payload || !payload.length) return null;
 
   return (
-    <div className="rounded-xl border border-purple-500/40 bg-slate-950/95 p-3 text-xs text-white shadow-2xl backdrop-blur-md">
+    <div className="rounded-xl border border-emerald-500/40 bg-slate-950/95 p-3 text-xs text-white shadow-2xl backdrop-blur-md">
       <div className="border-b border-slate-800 pb-1.5 mb-2 flex items-center justify-between gap-3 font-mono">
-        <span className="font-bold text-purple-300">{label}</span>
-        {unit && <span className="text-[10px] text-purple-400 uppercase tracking-widest">{unit}</span>}
+        <span className="font-bold text-emerald-300">{label}</span>
+        {unit && <span className="text-[10px] text-emerald-400 uppercase tracking-widest">{unit}</span>}
       </div>
       <div className="space-y-1.5">
         {payload.map((item, index) => {
@@ -82,7 +82,7 @@ function FuturisticMissionTooltip({ active, payload, label, unit }: FuturisticMi
           return (
             <div key={`${item.dataKey || item.name}-${index}`} className="flex items-center justify-between gap-4 font-mono">
               <div className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full" style={{ backgroundColor: item.color || "#A855F7" }} />
+                <span className="size-2 rounded-full" style={{ backgroundColor: item.color || "#047857" }} />
                 <span className="text-slate-300">{item.name}</span>
               </div>
               <span className="font-black text-white">
@@ -235,7 +235,7 @@ export function AuctionDescriptiveAnalytics() {
 
     const purposeData = [
       { name: "Slaughter", heads: purposeMap.SLAUGHTER, color: "#EF4444" },
-      { name: "Breeding", heads: purposeMap.BREEDING, color: "#8B5CF6" },
+      { name: "Breeding", heads: purposeMap.BREEDING, color: "#047857" },
       { name: "Fattening", heads: purposeMap.FATTENING, color: "#06B6D4" },
       { name: "Other Trade", heads: purposeMap.OTHER, color: "#10B981" },
     ].filter((p) => p.heads > 0);
@@ -271,7 +271,7 @@ export function AuctionDescriptiveAnalytics() {
 
     const totalAnimals = Object.values(speciesCountMap).reduce((a, b) => a + b, 0) || 1;
 
-    const colors = ["#A855F7", "#3B82F6", "#10B981", "#F59E0B", "#EC4899", "#6366F1"];
+    const colors = ["#047857", "#3B82F6", "#10B981", "#F59E0B", "#EC4899", "#6366F1"];
 
     return Object.entries(speciesCountMap)
       .map(([species, heads], i) => ({
@@ -309,11 +309,11 @@ export function AuctionDescriptiveAnalytics() {
   return (
     <section className="space-y-4">
       {/* ═══ 1. FUTURISTIC MISSION CONTROL HERO BANNER ═══ */}
-      <div className="relative overflow-hidden rounded-3xl border border-purple-500/30 bg-gradient-to-r from-slate-950 via-purple-950/60 to-slate-900 p-5 sm:p-6 shadow-2xl shadow-purple-950/30 text-white">
+      <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-slate-950 via-emerald-950/60 to-slate-900 p-5 sm:p-6 shadow-2xl shadow-emerald-950/30 text-white">
         {/* Cyber backdrop effects */}
         <div
           aria-hidden="true"
-          className="absolute -right-20 -top-24 size-80 rounded-full bg-purple-600/15 blur-3xl pointer-events-none"
+          className="absolute -right-20 -top-24 size-80 rounded-full bg-emerald-600/15 blur-3xl pointer-events-none"
         />
         <div
           aria-hidden="true"
@@ -323,23 +323,23 @@ export function AuctionDescriptiveAnalytics() {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap font-mono text-[10px]">
-              <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/40 uppercase tracking-widest font-black py-0.5 px-2.5">
-                <span className="size-1.5 rounded-full bg-purple-400 animate-ping mr-1.5 inline-block" />
+              <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 uppercase tracking-widest font-black py-0.5 px-2.5">
+                <span className="size-1.5 rounded-full bg-emerald-400 animate-ping mr-1.5 inline-block" />
                 Live Telemetry
               </Badge>
               <Badge className="bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 uppercase tracking-widest font-bold py-0.5 px-2">
                 Padre Garcia Trading Center
               </Badge>
-              <span className="text-purple-300/70 hidden sm:inline">
+              <span className="text-emerald-300/70 hidden sm:inline">
                 Sync: Active · Real Municipal Ledger
               </span>
             </div>
 
-            <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-purple-100 to-purple-300">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-emerald-100 to-emerald-300">
               Auction Descriptive Analytics
             </h2>
 
-            <p className="text-xs sm:text-sm text-purple-200/80 max-w-2xl font-medium leading-relaxed">
+            <p className="text-xs sm:text-sm text-emerald-200/80 max-w-2xl font-medium leading-relaxed">
               Real-time trading volume, official transfer valuations, antemortem clearance rates,
               and livestock species telemetry verified across Padre Garcia checkpoint records.
             </p>
@@ -352,9 +352,9 @@ export function AuctionDescriptiveAnalytics() {
               size="sm"
               onClick={handleRefresh}
               disabled={isRefetching}
-              className="h-9 rounded-xl border-purple-500/40 bg-purple-900/30 hover:bg-purple-900/60 text-purple-200 text-xs font-mono font-bold shadow-xs cursor-pointer gap-1.5"
+              className="h-9 rounded-xl border-emerald-500/40 bg-emerald-900/30 hover:bg-emerald-900/60 text-emerald-200 text-xs font-mono font-bold shadow-xs cursor-pointer gap-1.5"
             >
-              <RefreshCw className={`size-3.5 ${isRefetching ? "animate-spin text-purple-400" : ""}`} />
+              <RefreshCw className={`size-3.5 ${isRefetching ? "animate-spin text-emerald-400" : ""}`} />
               <span>{isRefetching ? "Syncing..." : "Sync Ledger"}</span>
             </Button>
 
@@ -363,18 +363,18 @@ export function AuctionDescriptiveAnalytics() {
               variant="outline"
               size="sm"
               onClick={() => setIsCompact((prev) => !prev)}
-              className="h-9 rounded-xl border-purple-500/40 bg-purple-900/30 hover:bg-purple-900/60 text-purple-200 text-xs font-mono font-bold shadow-xs cursor-pointer gap-1.5"
+              className="h-9 rounded-xl border-emerald-500/40 bg-emerald-900/30 hover:bg-emerald-900/60 text-emerald-200 text-xs font-mono font-bold shadow-xs cursor-pointer gap-1.5"
             >
-              <Cpu className="size-3.5 text-purple-300" />
+              <Cpu className="size-3.5 text-emerald-300" />
               <span>{isCompact ? "Expand Console" : "Compact View"}</span>
             </Button>
           </div>
         </div>
 
         {/* HUD Pulse Micro-Capsules */}
-        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-4 border-t border-purple-500/20 font-mono">
+        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-4 border-t border-emerald-500/20 font-mono">
           <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
-            <span className="text-[9px] uppercase tracking-wider text-purple-300 block">Total Headcount</span>
+            <span className="text-[9px] uppercase tracking-wider text-emerald-300 block">Total Headcount</span>
             <span className="text-base sm:text-lg font-black text-white tabular-nums">
               {isLoading ? "—" : intakeMetrics.totalHeads.toLocaleString("en-PH")}
             </span>
@@ -423,7 +423,7 @@ export function AuctionDescriptiveAnalytics() {
                   salesMetrics.totalValuation > 0
                     ? `₱${salesMetrics.totalValuation.toLocaleString("en-PH")}`
                     : `${salesMetrics.completedTransfers} Cleared`,
-                color: "purple",
+                color: "emerald",
               },
               {
                 id: "intake" as const,
@@ -466,16 +466,16 @@ export function AuctionDescriptiveAnalytics() {
                   onClick={() => setSelectedDomain(pod.id)}
                   className={`group relative flex flex-col justify-between rounded-2xl p-4 text-left transition-all duration-200 cursor-pointer ${
                     isSelected
-                      ? "border-2 border-purple-500 bg-gradient-to-br from-purple-950/20 via-purple-50/70 to-white shadow-md shadow-purple-500/10"
-                      : "border border-slate-200 bg-white hover:border-purple-300 hover:bg-slate-50/70 shadow-2xs"
+                      ? "border-2 border-emerald-500 bg-gradient-to-br from-emerald-950/20 via-emerald-50/70 to-white shadow-md shadow-emerald-500/10"
+                      : "border border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/70 shadow-2xs"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div
                       className={`flex size-9 items-center justify-center rounded-xl transition-colors ${
                         isSelected
-                          ? "bg-[#7C3AED] text-white shadow-xs"
-                          : "bg-slate-100 text-slate-600 group-hover:bg-purple-100 group-hover:text-purple-700"
+                          ? "bg-[#0F5A38] text-white shadow-xs"
+                          : "bg-slate-100 text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-700"
                       }`}
                     >
                       <Icon className="size-4.5" />
@@ -485,7 +485,7 @@ export function AuctionDescriptiveAnalytics() {
                       variant="outline"
                       className={`text-[10px] font-mono font-bold ${
                         isSelected
-                          ? "bg-purple-100 text-purple-900 border-purple-300"
+                          ? "bg-emerald-100 text-emerald-900 border-emerald-300"
                           : "bg-slate-50 text-slate-600 border-slate-200"
                       }`}
                     >
@@ -499,19 +499,19 @@ export function AuctionDescriptiveAnalytics() {
                     </div>
                     <div
                       className={`text-sm font-bold transition-colors mt-0.5 ${
-                        isSelected ? "text-purple-950 font-black" : "text-slate-800 group-hover:text-slate-900"
+                        isSelected ? "text-emerald-950 font-black" : "text-slate-800 group-hover:text-slate-900"
                       }`}
                     >
                       {pod.label}
                     </div>
                     <div className="text-xs text-slate-500 mt-1 flex items-center justify-between font-mono">
-                      <span className="text-purple-800 font-bold">{pod.metric}</span>
+                      <span className="text-emerald-800 font-bold">{pod.metric}</span>
                       <span className="text-[10px] text-slate-400 uppercase">Verified</span>
                     </div>
                   </div>
 
                   {isSelected && (
-                    <div className="absolute -bottom-px left-4 right-4 h-0.5 bg-[#7C3AED] rounded-full" />
+                    <div className="absolute -bottom-px left-4 right-4 h-0.5 bg-[#0F5A38] rounded-full" />
                   )}
                 </button>
               );
@@ -519,11 +519,11 @@ export function AuctionDescriptiveAnalytics() {
           </div>
 
           {/* ═══ 3. CENTERPIECE VISUALIZATION CONSOLE ═══ */}
-          <Card className="overflow-hidden rounded-2xl border border-purple-200/80 bg-white shadow-xs">
+          <Card className="overflow-hidden rounded-2xl border border-emerald-200/80 bg-white shadow-xs">
             <CardHeader className="border-b border-slate-100 bg-slate-50/70 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-purple-100 text-[#7C3AED]">
+                  <div className="p-1.5 rounded-lg bg-emerald-100 text-[#0F5A38]">
                     {selectedDomain === "sales" && <TrendingUp className="size-4" />}
                     {selectedDomain === "intake" && <ShieldCheck className="size-4" />}
                     {selectedDomain === "species" && <Beef className="size-4" />}
@@ -537,7 +537,7 @@ export function AuctionDescriptiveAnalytics() {
                   </CardTitle>
                 </div>
                 <CardDescription className="text-xs text-slate-500 flex flex-wrap items-center gap-2 font-medium">
-                  <span>Scope: <strong className="font-mono text-purple-900">Padre Garcia Livestock Market</strong></span>
+                  <span>Scope: <strong className="font-mono text-emerald-900">Padre Garcia Livestock Market</strong></span>
                   <span>•</span>
                   <span>Status: <strong className="text-slate-700">Official Municipal Checkpoint Records</strong></span>
                 </CardDescription>
@@ -553,12 +553,12 @@ export function AuctionDescriptiveAnalytics() {
                 >
                   {showTableView ? (
                     <>
-                      <LineChartIcon className="size-3.5 mr-1 text-[#7C3AED]" />
+                      <LineChartIcon className="size-3.5 mr-1 text-[#0F5A38]" />
                       <span>Visual HUD Chart</span>
                     </>
                   ) : (
                     <>
-                      <TableIcon className="size-3.5 mr-1 text-[#7C3AED]" />
+                      <TableIcon className="size-3.5 mr-1 text-[#0F5A38]" />
                       <span>Inspect Numbers</span>
                     </>
                   )}
@@ -585,7 +585,7 @@ export function AuctionDescriptiveAnalytics() {
                         {salesMetrics.trend.map((row) => (
                           <TableRow key={row.month} className="border-slate-100 hover:bg-slate-50/70">
                             <TableCell className="font-mono text-xs font-semibold text-slate-900">{row.label}</TableCell>
-                            <TableCell className="font-mono text-xs text-right font-bold text-purple-900">
+                            <TableCell className="font-mono text-xs text-right font-bold text-emerald-900">
                               {row.transfers.toLocaleString("en-PH")}
                             </TableCell>
                             <TableCell className="font-mono text-xs text-right text-emerald-700 font-bold">
@@ -613,7 +613,7 @@ export function AuctionDescriptiveAnalytics() {
                             <TableCell className="font-mono text-xs text-right font-bold text-slate-900">
                               {row.heads.toLocaleString("en-PH")} Heads
                             </TableCell>
-                            <TableCell className="font-mono text-xs text-right font-bold text-purple-900">
+                            <TableCell className="font-mono text-xs text-right font-bold text-emerald-900">
                               {intakeMetrics.totalHeads > 0
                                 ? `${Math.round((row.heads / intakeMetrics.totalHeads) * 100)}%`
                                 : "0%"}
@@ -684,7 +684,7 @@ export function AuctionDescriptiveAnalytics() {
                           Transfers: <strong className="text-slate-900">{salesMetrics.totalTransfers}</strong>
                         </span>
                         <span>
-                          Completed / Approved: <strong className="text-purple-900">{salesMetrics.completedTransfers}</strong>
+                          Completed / Approved: <strong className="text-emerald-900">{salesMetrics.completedTransfers}</strong>
                         </span>
                         <span>
                           Recorded Value:{" "}
@@ -706,9 +706,9 @@ export function AuctionDescriptiveAnalytics() {
                         <ResponsiveContainer width="100%" height="100%">
                           <ComposedChart data={salesMetrics.trend} margin={{ top: 10, right: 15, left: -10, bottom: 20 }}>
                             <defs>
-                              <linearGradient id="purpleCyberGlow" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#7C3AED" stopOpacity={0.35} />
-                                <stop offset="100%" stopColor="#7C3AED" stopOpacity={0.0} />
+                              <linearGradient id="emeraldCyberGlow" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#0F5A38" stopOpacity={0.35} />
+                                <stop offset="100%" stopColor="#0F5A38" stopOpacity={0.0} />
                               </linearGradient>
                             </defs>
 
@@ -731,17 +731,17 @@ export function AuctionDescriptiveAnalytics() {
                               type="monotone"
                               dataKey="transfers"
                               name="Recorded Transfers"
-                              stroke="#7C3AED"
+                              stroke="#0F5A38"
                               strokeWidth={2.5}
-                              fill="url(#purpleCyberGlow)"
+                              fill="url(#emeraldCyberGlow)"
                             />
                             <Line
                               type="monotone"
                               dataKey="transfers"
                               name="Transaction Velocity"
-                              stroke="#A855F7"
+                              stroke="#047857"
                               strokeWidth={2}
-                              dot={{ r: 4, fill: "#7C3AED", stroke: "#fff", strokeWidth: 2 }}
+                              dot={{ r: 4, fill: "#0F5A38", stroke: "#fff", strokeWidth: 2 }}
                             />
                           </ComposedChart>
                         </ResponsiveContainer>
@@ -840,21 +840,21 @@ export function AuctionDescriptiveAnalytics() {
                     <div className="space-y-4">
                       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-mono text-slate-600 pb-2 border-b border-slate-100">
                         <span>Total Cataloged: <strong className="text-slate-900">{speciesMetrics.length} Species</strong></span>
-                        <span>Leading Lot: <strong className="text-purple-900">{speciesMetrics[0]?.species || "Cattle"} ({speciesMetrics[0]?.sharePct || 0}%)</strong></span>
+                        <span>Leading Lot: <strong className="text-emerald-900">{speciesMetrics[0]?.species || "Cattle"} ({speciesMetrics[0]?.sharePct || 0}%)</strong></span>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {speciesMetrics.map((item) => (
                           <div
                             key={item.species}
-                            className="p-4 rounded-xl border border-slate-200/80 bg-white hover:border-purple-300 transition-colors shadow-2xs space-y-2"
+                            className="p-4 rounded-xl border border-slate-200/80 bg-white hover:border-emerald-300 transition-colors shadow-2xs space-y-2"
                           >
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-sm text-slate-900 flex items-center gap-2">
                                 <span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                                 {item.species}
                               </span>
-                              <span className="font-mono text-xs font-black text-purple-900">{item.sharePct}%</span>
+                              <span className="font-mono text-xs font-black text-emerald-900">{item.sharePct}%</span>
                             </div>
                             <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                               <div

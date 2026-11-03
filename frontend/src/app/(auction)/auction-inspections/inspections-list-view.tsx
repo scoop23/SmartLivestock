@@ -66,7 +66,7 @@ function InspectionsListViewContent({
         >
           ‹ Prev
         </Button>
-        <span className="px-2.5 py-1 rounded-xl bg-[#7C3AED] text-white font-black text-[10px]">
+        <span className="px-2.5 py-1 rounded-xl bg-[#0F5A38] text-white font-black text-[10px]">
           Page {page} / {pageCount}
         </span>
         <Button
@@ -137,13 +137,13 @@ function InspectionsListViewContent({
                     <TableRow
                       key={record.id}
                       onClick={() => onSelectInspection(record)}
-                      className="cursor-pointer border-b border-slate-100 hover:bg-purple-50/40 transition-colors"
+                      className="cursor-pointer border-b border-slate-100 hover:bg-emerald-50/40 transition-colors"
                     >
                       {/* Control Number + Shipper */}
                       <TableCell className="py-3.5 pl-5">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-xl bg-purple-50 text-[#7C3AED] border border-purple-100/60 shrink-0">
-                            <ClipboardCheck className="size-4 text-[#7C3AED]" />
+                          <div className="p-2 rounded-xl bg-emerald-50 text-[#0F5A38] border border-emerald-100/60 shrink-0">
+                            <ClipboardCheck className="size-4 text-[#0F5A38]" />
                           </div>
                           <div>
                             <p className="font-black text-sm text-slate-900">{record.shipper_name}</p>
@@ -196,7 +196,7 @@ function InspectionsListViewContent({
                             e.stopPropagation();
                             onSelectInspection(record);
                           }}
-                          className="rounded-xl h-8 px-3 text-xs font-extrabold bg-[#7C3AED] text-white hover:bg-[#6D28D9] transition-colors shadow-2xs gap-1 cursor-pointer"
+                          className="rounded-xl h-8 px-3 text-xs font-extrabold bg-[#0F5A38] text-white hover:bg-[#0c482d] transition-colors shadow-2xs gap-1 cursor-pointer"
                         >
                           View <ChevronRight className="size-3" />
                         </Button>
@@ -227,12 +227,12 @@ function InspectionsListViewContent({
           <Card
             key={record.id}
             onClick={() => onSelectInspection(record)}
-            className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card hover:border-purple-300 transition-all duration-200 overflow-hidden flex flex-col justify-between cursor-pointer group"
+            className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card hover:border-emerald-300 transition-all duration-200 overflow-hidden flex flex-col justify-between cursor-pointer group"
           >
             <div className="p-5 space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <Badge className="bg-[#7C3AED] text-white font-mono text-xs px-2.5 py-0.5 mb-1.5">
+                  <Badge className="bg-[#0F5A38] text-white font-mono text-xs px-2.5 py-0.5 mb-1.5">
                     {record.control_number}
                   </Badge>
                   <h3 className="text-base font-black text-slate-900">{record.shipper_name}</h3>
@@ -272,7 +272,7 @@ function InspectionsListViewContent({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 px-3 rounded-xl text-xs font-extrabold text-[#7C3AED] hover:bg-purple-50"
+                className="h-8 px-3 rounded-xl text-xs font-extrabold text-[#0F5A38] hover:bg-emerald-50"
               >
                 <Eye className="w-3.5 h-3.5 mr-1" /> View Details
               </Button>

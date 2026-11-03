@@ -379,7 +379,7 @@ export function MovementLivestockQrDialog({
         {/* ═══ Header ═══ */}
         <DialogHeader className="space-y-1 pb-1">
           <div className="flex items-center gap-2">
-            <QrCode className="size-5 text-violet-600 shrink-0" />
+            <QrCode className="size-5 text-emerald-600 shrink-0" />
             <DialogTitle className="text-base sm:text-lg font-bold text-slate-900">
               Scan registered livestock
             </DialogTitle>
@@ -402,7 +402,7 @@ export function MovementLivestockQrDialog({
                 }}
                 className={`flex items-center justify-center gap-2 rounded-lg py-2 px-3 text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === "camera"
-                    ? "bg-violet-100/70 border border-violet-200 text-violet-700 shadow-2xs"
+                    ? "bg-emerald-100/70 border border-emerald-200 text-emerald-700 shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -417,7 +417,7 @@ export function MovementLivestockQrDialog({
                 }}
                 className={`flex items-center justify-center gap-2 rounded-lg py-2 px-3 text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === "manual"
-                    ? "bg-violet-100/70 border border-violet-200 text-violet-700 shadow-2xs"
+                    ? "bg-emerald-100/70 border border-emerald-200 text-emerald-700 shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -486,9 +486,9 @@ export function MovementLivestockQrDialog({
                       {/* Bottom-right */}
                       <div className="absolute bottom-0 right-0 h-8 w-8 rounded-br-xl border-b-3 border-r-3 border-white shadow-[0_0_8px_rgba(0,0,0,0.5)]" />
 
-                      {/* Glowing purple laser scan line */}
+                      {/* Glowing emerald laser scan line */}
                       <div
-                        className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-violet-400 to-transparent shadow-[0_0_12px_#a855f7]"
+                        className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_12px_#047857]"
                         style={{
                           top: "50%",
                           animation: "scan-line 2.5s ease-in-out infinite alternate",
@@ -518,7 +518,7 @@ export function MovementLivestockQrDialog({
                         className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 hover:bg-slate-900 backdrop-blur-xs px-2.5 py-1 text-[10px] font-semibold text-slate-200 border border-white/20 shadow-md cursor-pointer"
                         title="Click to activate live webcam hardware"
                       >
-                        <Video className="size-3 text-violet-400" />
+                        <Video className="size-3 text-emerald-400" />
                         <span>Camera Viewfinder</span>
                       </button>
                     )}
@@ -544,7 +544,7 @@ export function MovementLivestockQrDialog({
                       title="Upload Image"
                     >
                       {isDecodingImage ? (
-                        <Loader2 className="size-4.5 animate-spin text-violet-600" />
+                        <Loader2 className="size-4.5 animate-spin text-emerald-600" />
                       ) : (
                         <ImageIcon className="size-4.5" />
                       )}
@@ -552,12 +552,12 @@ export function MovementLivestockQrDialog({
                     <span className="text-[11px] font-medium text-slate-600">Upload Image</span>
                   </div>
 
-                  {/* Circular Purple Scan Button */}
+                  {/* Circular Emerald Scan Button */}
                   <div className="flex flex-col items-center gap-1.5">
                     <button
                       type="button"
                       onClick={handleManualTriggerScan}
-                      className="size-13 rounded-full bg-violet-600 hover:bg-violet-700 active:scale-95 flex items-center justify-center text-white shadow-md shadow-violet-200 ring-4 ring-violet-100 transition-all cursor-pointer"
+                      className="size-13 rounded-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 flex items-center justify-center text-white shadow-md shadow-emerald-200 ring-4 ring-emerald-100 transition-all cursor-pointer"
                       title="Scan QR"
                     >
                       <div className="size-6 rounded-full border-2 border-white/80 bg-white/20 flex items-center justify-center">
@@ -611,13 +611,13 @@ export function MovementLivestockQrDialog({
                     }
                   }}
                   placeholder="e.g. 240, ABC-123, or INV-0001"
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3.5 text-xs sm:text-sm font-medium focus-visible:ring-violet-500"
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-3.5 text-xs sm:text-sm font-medium focus-visible:ring-emerald-500"
                 />
                 <Button
                   type="button"
                   onClick={() => void lookupCode(code)}
                   disabled={!code.trim() || searching}
-                  className="h-11 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold px-5 gap-1.5 shrink-0 shadow-2xs cursor-pointer"
+                  className="h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 gap-1.5 shrink-0 shadow-2xs cursor-pointer"
                 >
                   {searching ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -736,7 +736,7 @@ export function MovementLivestockQrDialog({
                       onClick={() => setPhotoAngle("front")}
                       className={`flex-1 py-1 px-1.5 rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer border ${
                         photoAngle === "front"
-                          ? "bg-violet-600 text-white border-violet-600 shadow-2xs"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
                           : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                       }`}
                     >
@@ -747,7 +747,7 @@ export function MovementLivestockQrDialog({
                       onClick={() => setPhotoAngle("left")}
                       className={`flex-1 py-1 px-1.5 rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer border ${
                         photoAngle === "left"
-                          ? "bg-violet-600 text-white border-violet-600 shadow-2xs"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
                           : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                       }`}
                     >
@@ -758,7 +758,7 @@ export function MovementLivestockQrDialog({
                       onClick={() => setPhotoAngle("right")}
                       className={`flex-1 py-1 px-1.5 rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer border ${
                         photoAngle === "right"
-                          ? "bg-violet-600 text-white border-violet-600 shadow-2xs"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
                           : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                       }`}
                     >
@@ -825,7 +825,7 @@ export function MovementLivestockQrDialog({
             {/* Section 1: Owner / Shipper Information */}
             <div className="space-y-2 pt-1">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
-                <Users className="size-4 text-violet-600" />
+                <Users className="size-4 text-emerald-600" />
                 <span>Owner / Shipper Information</span>
               </div>
               <div className="space-y-1.5 text-xs">
@@ -851,7 +851,7 @@ export function MovementLivestockQrDialog({
             {/* Section 2: Registration Details */}
             <div className="space-y-2 pt-2 border-t border-slate-100">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
-                <FileText className="size-4 text-violet-600" />
+                <FileText className="size-4 text-emerald-600" />
                 <span>Registration Details</span>
               </div>
               <div className="space-y-1.5 text-xs">
@@ -924,7 +924,7 @@ export function MovementLivestockQrDialog({
                 type="button"
                 disabled={!record.eligible || isConfirming}
                 onClick={handleConfirm}
-                className="h-10 rounded-xl bg-violet-600 hover:bg-violet-700 active:scale-98 text-white px-5 text-xs font-semibold flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
+                className="h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white px-5 text-xs font-semibold flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
               >
                 {isConfirming ? (
                   <Loader2 className="size-4 animate-spin" />
@@ -945,7 +945,7 @@ export function MovementLivestockQrDialog({
         <div className="relative space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800">
             <div className="flex items-center gap-2">
-              <Camera className="size-4 text-violet-400" />
+              <Camera className="size-4 text-emerald-400" />
               <span className="text-sm font-bold text-white">
                 Livestock Passport Photo — {record?.tag_number ? `Tag #${record.tag_number}` : `ID #${record?.id}`}
               </span>
@@ -974,7 +974,7 @@ export function MovementLivestockQrDialog({
                 type="button"
                 onClick={() => setPhotoAngle("front")}
                 className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer ${
-                  photoAngle === "front" ? "bg-violet-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  photoAngle === "front" ? "bg-emerald-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
                 }`}
               >
                 Front
@@ -983,7 +983,7 @@ export function MovementLivestockQrDialog({
                 type="button"
                 onClick={() => setPhotoAngle("left")}
                 className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer ${
-                  photoAngle === "left" ? "bg-violet-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  photoAngle === "left" ? "bg-emerald-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
                 }`}
               >
                 Left
@@ -992,7 +992,7 @@ export function MovementLivestockQrDialog({
                 type="button"
                 onClick={() => setPhotoAngle("right")}
                 className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer ${
-                  photoAngle === "right" ? "bg-violet-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  photoAngle === "right" ? "bg-emerald-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
                 }`}
               >
                 Right
