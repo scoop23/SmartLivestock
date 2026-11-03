@@ -2,8 +2,6 @@
 
 import type { ReactNode } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { BellRing } from "lucide-react";
-import { toast } from "sonner";
 import { HeaderMenuButton } from "./header-menu-button";
 import { HeaderNotifications } from "./header-notifications";
 import { Breadcrumbs, type BreadcrumbItem } from "./breadcrumbs";
@@ -58,29 +56,6 @@ const chipClasses: Record<PageHeaderVariant, string> = {
   auction: "bg-white/15 text-white border border-white/20",
   slaughterhouse: "bg-white/15 text-white border border-white/20",
 };
-
-// Temporary admin-only QA control for the incoming notification toast.
-function AdminNotificationTestButton() {
-  return (
-    <button
-      type="button"
-      aria-label="Show a test notification"
-      title="Show a test notification"
-      onClick={() =>
-        toast.info("Test notification", {
-          description: "The top-left notification popup is working.",
-          duration: 8000,
-          toasterId: "incoming-notifications",
-        })
-      }
-      className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-2.5 text-xs font-semibold text-emerald-800 shadow-sm transition-colors hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
-    >
-      <BellRing aria-hidden="true" size={15} />
-      <span className="sm:hidden">Test</span>
-      <span className="hidden sm:inline">Test notification</span>
-    </button>
-  );
-}
 
 export function PageHeader({
   title,
@@ -168,7 +143,6 @@ export function PageHeader({
                   </h1>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {variant === "admin" && <AdminNotificationTestButton />}
                   {showNotifications && <HeaderNotifications variant={variant} />}
                   {action ? action : null}
                 </div>
@@ -204,7 +178,6 @@ export function PageHeader({
               </div>
               <div className="shrink-0 flex items-center gap-2.5 ml-2">
                 <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2.5">
-                  {variant === "admin" && <AdminNotificationTestButton />}
                   {showNotifications && <HeaderNotifications variant={variant} />}
                   {action ? action : null}
                 </div>
@@ -249,7 +222,6 @@ export function PageHeader({
                 </h1>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                {variant === "admin" && <AdminNotificationTestButton />}
                 {showNotifications && <HeaderNotifications variant={variant} />}
               </div>
             </div>
@@ -289,7 +261,6 @@ export function PageHeader({
             </div>
             <div className="shrink-0 flex items-center gap-2.5 ml-2">
               <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2.5">
-                {variant === "admin" && <AdminNotificationTestButton />}
                 {showNotifications && <HeaderNotifications variant={variant} />}
                 {action ? action : null}
               </div>
