@@ -99,6 +99,15 @@ type Transfer = {
   can_edit: boolean;
 };
 
+type OwnershipTransferSubmission = {
+  values: Record<string, FormDataEntryValue>;
+  transferId?: number;
+  animalCount: number;
+  buyerName: string;
+  isCorrection: boolean;
+  isOutsideLivestock: boolean;
+};
+
 function getLocalDateInputValue() {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -140,6 +149,8 @@ export default function AuctionOwnershipTransfersPage() {
   const [editing, setEditing] = useState<Transfer | null>(null);
   const [outsideLivestock, setOutsideLivestock] = useState(false);
   const [showUserGuide, setShowUserGuide] = useState(false);
+  const [pendingSubmission, setPendingSubmission] = useState<OwnershipTransferSubmission | null>(null);
+  const [submissionSuccess, setSubmissionSuccess] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -262,14 +273,14 @@ export default function AuctionOwnershipTransfersPage() {
   }
 
   const submit = useMutation({
-    mutationFn: async ({ form, transferId }: { form: HTMLFormElement; transferId?: number }) => {
+    mutationFn: async ({ values: submittedValues, transferId }: OwnershipTransferSubmission) => {
       if (!outsideLivestock && (!farmer || !selectedAnimalIds.length)) {
         throw new Error("Select a Farmer and at least one eligible animal first.");
       }
       if (ownerType === "REGISTERED_FARMER" && !buyer) {
         throw new Error("Find and select the registered buyer first.");
       }
-      const values = Object.fromEntries(new FormData(form).entries());
+      const values = { ...submittedValues };
       if (ownerType === "REGISTERED_FARMER" && buyer) values.new_owner_identifier = buyer.username;
       if (!values.purchase_price) delete values.purchase_price;
       if (outsideLivestock) {
@@ -293,15 +304,15 @@ export default function AuctionOwnershipTransfersPage() {
         ),
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, submission) => {
       await queryClient.invalidateQueries({ queryKey: ["auction-ownership-transfers"] });
       await queryClient.invalidateQueries({ queryKey: ["ownership-transfers"] });
-      toast.success(
-        editing
-          ? "Transfer corrected and sent to MAO."
-          : outsideLivestock
-          ? "Outside livestock transfer recorded and sent to MAO. It remains outside local inventory."
-          : `Transfer certificate recorded for ${selectedAnimalIds.length} animal${selectedAnimalIds.length === 1 ? "" : "s"} and sent to MAO.`
+      setSubmissionSuccess(
+        submission.isCorrection
+          ? "Your corrected ownership transfer has been sent to MAO for review."
+          : submission.isOutsideLivestock
+          ? "The outside-animal transfer has been recorded and sent to MAO. It remains outside local livestock inventory."
+          : `The transfer certificate for ${submission.animalCount} animal${submission.animalCount === 1 ? "" : "s"} has been sent to MAO for review.`
       );
       setFarmer(null);
       setFarmerAnimals([]);
@@ -320,7 +331,21 @@ export default function AuctionOwnershipTransfersPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    submit.mutate({ form: event.currentTarget, transferId: editing?.id });
+    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+    setPendingSubmission({
+      values,
+      transferId: editing?.id,
+      animalCount: outsideLivestock ? 1 : selectedAnimalIds.length,
+      buyerName: ownerType === "REGISTERED_FARMER" ? buyer?.name || "Registered buyer" : String(values.external_owner_name || "External buyer"),
+      isCorrection: Boolean(editing),
+      isOutsideLivestock: outsideLivestock,
+    });
+  }
+
+  function confirmTransferSubmission() {
+    if (!pendingSubmission) return;
+    submit.mutate(pendingSubmission);
+    setPendingSubmission(null);
   }
 
   async function correctReturnedTransfer(transfer: Transfer) {
@@ -1280,6 +1305,49 @@ export default function AuctionOwnershipTransfersPage() {
           )}
         </div>
       </div>
+
+      <Dialog open={pendingSubmission !== null} onOpenChange={(open) => {
+        if (!open && !submit.isPending) setPendingSubmission(null);
+      }}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>{pendingSubmission?.isCorrection ? "Resubmit this ownership transfer?" : "Submit this ownership transfer?"}</DialogTitle>
+            <DialogDescription>
+              This record will be sent to MAO for review. It becomes an official ownership record only after approval.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+            <p><span className="font-semibold text-slate-500">Seller:</span> <span className="font-bold text-slate-900">{pendingSubmission?.isOutsideLivestock ? String(pendingSubmission.values.external_seller_name || "Outside seller") : farmer?.name || "Selected farmer"}</span></p>
+            <p><span className="font-semibold text-slate-500">Buyer:</span> <span className="font-bold text-slate-900">{pendingSubmission?.buyerName || "Selected buyer"}</span></p>
+            <p><span className="font-semibold text-slate-500">Animals:</span> <span className="font-bold text-slate-900">{pendingSubmission?.animalCount ?? 0}</span></p>
+            <p><span className="font-semibold text-slate-500">Certificate:</span> <span className="font-bold text-slate-900">{String(pendingSubmission?.values.transfer_certificate_number || "Not provided")}</span></p>
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" disabled={submit.isPending} onClick={() => setPendingSubmission(null)} className="rounded-xl">Review details</Button>
+            <Button type="button" disabled={submit.isPending} onClick={confirmTransferSubmission} className="rounded-xl bg-[#0F5A38] text-white hover:bg-[#0c482d]">
+              {submit.isPending ? "Sending…" : "Confirm and send"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(submissionSuccess)} onOpenChange={(open) => {
+        if (!open) setSubmissionSuccess("");
+      }}>
+        <DialogContent className="max-w-md rounded-2xl text-center">
+          <div className="mx-auto flex size-20 animate-[bounce_700ms_ease-in-out_1] items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+            <CheckCircle2 className="size-11" />
+          </div>
+          <DialogHeader>
+            <DialogTitle className="text-center">Ownership transfer submitted</DialogTitle>
+            <DialogDescription className="text-center">{submissionSuccess}</DialogDescription>
+          </DialogHeader>
+          <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-900">
+            You can follow its review status in the records list.
+          </p>
+          <Button type="button" onClick={() => setSubmissionSuccess("")} className="mx-auto min-h-10 rounded-xl bg-[#0F5A38] px-6 text-white hover:bg-[#0c482d]">Done</Button>
+        </DialogContent>
+      </Dialog>
 
       {/* User Guide Dialog */}
       <Dialog open={showUserGuide} onOpenChange={setShowUserGuide}>
