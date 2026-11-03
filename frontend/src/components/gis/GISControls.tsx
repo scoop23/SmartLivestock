@@ -185,7 +185,6 @@ export function GISControls({
       list.push(
         { id: 'milk', label: 'Recorded Milk (Farmer-reported)', icon: '🥛' },
         { id: 'farmer_meat', label: 'Recorded Meat Yield (Farmer-reported)', icon: '🥩' },
-        { id: 'slaughter_yield', label: 'Slaughter Yield', icon: '🔪' },
         { id: 'movement', label: 'Movement', icon: '🚛' },
       );
     }
@@ -199,8 +198,7 @@ export function GISControls({
     }
     return allLayerOptions.filter(
       (opt) =>
-        (userScope.allowed_layers.includes(opt.id) ||
-          (opt.id === 'slaughter_yield' && userScope.allowed_layers.includes('meat' as MapLayer))) &&
+        userScope.allowed_layers.includes(opt.id) &&
         (!isCbat || !['movement', 'milk', 'farmer_meat', 'slaughter_yield', 'meat'].includes(opt.id))
     );
   }, [allLayerOptions, userScope, isCbat]);

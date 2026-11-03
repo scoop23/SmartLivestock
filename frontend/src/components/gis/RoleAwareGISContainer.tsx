@@ -130,6 +130,8 @@ export function RoleAwareGISContainer({
     queryKey: ["gis-telemetry", scopeKey],
     enabled: Boolean(user),
     queryFn: async ({ signal }) => (await api.get<GISTelemetryResponse>('/api/analytics/gis/', { signal })).data,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1500 * 2 ** attemptIndex, 8000),
   });
   const gisData = telemetry.data ?? null;
   const isLoading = telemetry.isPending || telemetry.isFetching;
@@ -142,7 +144,7 @@ export function RoleAwareGISContainer({
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const layerParam = params.get('layer');
-      if (layerParam && ['cattle', 'disease', 'milk', 'farmer_meat', 'slaughter_yield', 'mortality', 'movement'].includes(layerParam)) {
+      if (layerParam && ['cattle', 'disease', 'milk', 'farmer_meat', 'mortality', 'movement'].includes(layerParam)) {
         return layerParam as MapLayer;
       }
     }
@@ -252,11 +254,13 @@ export function RoleAwareGISContainer({
       const neighborList = alerts
         .map((a) => `Brgy. ${a.name} (${a.active_cases} report${a.active_cases > 1 ? 's' : ''})`)
         .join(', ');
-      toast.warning(
-        `Animal health alert: Recent approved disease reports near ${neighborList} need follow-up. Red markers show reports to check; they do not confirm disease.`,
+      toast.info(
+        'Biosecurity Advisory: Monitoring Radius Watch',
         {
           id: 'adjacent-disease-biosecurity-toast',
+          description: `Animal health alert: Recent approved disease reports near ${neighborList} need follow-up. Red markers show reports to check; they do not confirm disease.`,
           duration: 9000,
+          toasterId: 'incoming-notifications',
         }
       );
     }
@@ -474,7 +478,21 @@ export function RoleAwareGISContainer({
 
   return (
     <div className="relative w-full h-full max-h-full min-h-0 overflow-hidden flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white">
-      {telemetry.isError && <p role="alert" className="z-[1000] bg-red-950 p-3 text-sm text-white">Map data could not be loaded. Use Refresh to retry.</p>}
+      {telemetry.isError && (
+        <div role="alert" className="z-[1000] bg-rose-950/95 border-b border-rose-800/80 px-4 py-2 text-xs sm:text-sm text-rose-100 flex items-center justify-between gap-3 shadow-lg backdrop-blur-md">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="inline-block size-2 rounded-full bg-rose-500 shrink-0 animate-pulse" />
+            <span className="truncate">Map data could not be loaded. The server might have timed out while waking up.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchGISTelemetry(true)}
+            className="px-3 py-1 rounded-lg bg-rose-900 hover:bg-rose-800 text-white font-bold text-xs border border-rose-700/80 transition-all cursor-pointer shrink-0 shadow-xs active:scale-95"
+          >
+            Retry Now
+          </button>
+        </div>
+      )}
       {/* 0. Mobile Back Button Header */}
       <button
         type="button"
