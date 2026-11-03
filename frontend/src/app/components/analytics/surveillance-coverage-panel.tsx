@@ -5,7 +5,6 @@ import { CheckCircle2, CircleHelp, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import api from "@/lib/axios";
 
 type CoverageDomain = "DISEASE" | "MORTALITY";
@@ -208,12 +207,27 @@ export function SurveillanceCoveragePanel() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3.5">
               {displayRows.map((row) => {
-                const sameConfirmation = row.state === "CONFIRMED";
-                const noReportsDisabled = !row.can_confirm_no_reports || confirmationMutation.isPending || (sameConfirmation && row.confirmation?.status === "NO_REPORTS_RECEIVED");
-                const allEnteredDisabled = !row.can_confirm_reports_complete || confirmationMutation.isPending || (sameConfirmation && row.confirmation?.status === "REPORTS_COMPLETE");
-
                 const isConfirmed = row.state === "CONFIRMED";
                 const isStale = row.state === "STALE" || row.state === "INCONSISTENT";
+
+                const isConfirmedNoReports = isConfirmed && row.confirmation?.status === "NO_REPORTS_RECEIVED";
+                const isConfirmedAllEntered = isConfirmed && row.confirmation?.status === "REPORTS_COMPLETE";
+
+                const isPendingNoReports =
+                  confirmationMutation.isPending &&
+                  confirmationMutation.variables?.barangay_id === row.barangay_id &&
+                  confirmationMutation.variables?.status === "NO_REPORTS_RECEIVED";
+
+                const isPendingAllEntered =
+                  confirmationMutation.isPending &&
+                  confirmationMutation.variables?.barangay_id === row.barangay_id &&
+                  confirmationMutation.variables?.status === "REPORTS_COMPLETE";
+
+                const canAttestNoReports =
+                  row.can_confirm_no_reports && !isConfirmedNoReports && !confirmationMutation.isPending;
+
+                const canAttestAllEntered =
+                  row.can_confirm_reports_complete && !isConfirmedAllEntered && !confirmationMutation.isPending;
 
                 return (
                   <div
@@ -281,38 +295,81 @@ export function SurveillanceCoveragePanel() {
                       </div>
                     </div>
 
-                    {/* Card Actions: 2 concise action buttons */}
+                    {/* Card Actions: 2 high-contrast, crystal-clear buttons */}
                     <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={noReportsDisabled}
-                        onClick={() => confirmationMutation.mutate({ barangay_id: row.barangay_id, status: "NO_REPORTS_RECEIVED" })}
-                        className={`h-8 text-[11px] font-bold px-2 truncate cursor-pointer ${
-                          sameConfirmation && row.confirmation?.status === "NO_REPORTS_RECEIVED"
-                            ? "border-emerald-300 bg-emerald-50 text-emerald-800 font-extrabold"
-                            : ""
-                        }`}
-                        title={row.can_confirm_no_reports ? "Attest that zero reports were received for this month" : "Cannot confirm: records already exist"}
-                      >
-                        {sameConfirmation && row.confirmation?.status === "NO_REPORTS_RECEIVED" ? "✓ No Reports" : "No Reports"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={allEnteredDisabled}
-                        onClick={() => confirmationMutation.mutate({ barangay_id: row.barangay_id, status: "REPORTS_COMPLETE" })}
-                        className={`h-8 text-[11px] font-bold px-2 truncate cursor-pointer ${
-                          sameConfirmation && row.confirmation?.status === "REPORTS_COMPLETE"
-                            ? "bg-[#1E4D2B] text-white border-[#1E4D2B] font-extrabold"
-                            : "bg-[#1E4D2B] hover:bg-[#163b21] text-white disabled:bg-slate-100 disabled:text-slate-400"
-                        }`}
-                        title={row.can_confirm_reports_complete ? "Attest that all reports are submitted and approved" : "Cannot confirm: no reports or pending approval"}
-                      >
-                        {sameConfirmation && row.confirmation?.status === "REPORTS_COMPLETE" ? "✓ All Entered" : "All Entered"}
-                      </Button>
+                      {/* Left Action: No Reports */}
+                      {isConfirmedNoReports ? (
+                        <div
+                          className="h-8 rounded-lg bg-emerald-700 text-white font-bold text-[11px] px-2 flex items-center justify-center gap-1.5 border border-emerald-800 shadow-2xs select-none truncate"
+                          title={`Confirmed zero reports by ${row.confirmation?.confirmed_by || "staff"}`}
+                        >
+                          <CheckCircle2 className="size-3.5 shrink-0 text-white" />
+                          <span className="truncate">✓ No Reports</span>
+                        </div>
+                      ) : canAttestNoReports ? (
+                        <button
+                          type="button"
+                          onClick={() => confirmationMutation.mutate({ barangay_id: row.barangay_id, status: "NO_REPORTS_RECEIVED" })}
+                          disabled={confirmationMutation.isPending}
+                          className="h-8 rounded-lg bg-white hover:bg-slate-100 text-slate-800 font-bold text-[11px] px-2 flex items-center justify-center gap-1.5 border border-slate-300 hover:border-slate-400 shadow-2xs active:scale-98 transition-all cursor-pointer truncate disabled:opacity-50"
+                          title="Attest that zero disease/mortality cases occurred this month"
+                        >
+                          {isPendingNoReports ? (
+                            <>
+                              <RefreshCw className="size-3 shrink-0 animate-spin text-slate-600" />
+                              <span className="truncate">Saving...</span>
+                            </>
+                          ) : (
+                            <span className="truncate">No Reports</span>
+                          )}
+                        </button>
+                      ) : (
+                        <div
+                          className="h-8 rounded-lg bg-slate-100 text-slate-500 font-semibold text-[11px] px-2 flex items-center justify-center border border-slate-200/80 cursor-not-allowed select-none truncate"
+                          title="Cannot attest zero reports: field records already exist"
+                        >
+                          <span className="truncate">No Reports</span>
+                        </div>
+                      )}
+
+                      {/* Right Action: All Entered */}
+                      {isConfirmedAllEntered ? (
+                        <div
+                          className="h-8 rounded-lg bg-[#1E4D2B] text-white font-bold text-[11px] px-2 flex items-center justify-center gap-1.5 border border-[#163b21] shadow-2xs select-none truncate"
+                          title={`Confirmed all reports complete by ${row.confirmation?.confirmed_by || "staff"}`}
+                        >
+                          <CheckCircle2 className="size-3.5 shrink-0 text-white" />
+                          <span className="truncate">✓ All Entered</span>
+                        </div>
+                      ) : canAttestAllEntered ? (
+                        <button
+                          type="button"
+                          onClick={() => confirmationMutation.mutate({ barangay_id: row.barangay_id, status: "REPORTS_COMPLETE" })}
+                          disabled={confirmationMutation.isPending}
+                          className="h-8 rounded-lg bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold text-[11px] px-2 flex items-center justify-center gap-1.5 border border-[#163b21] shadow-2xs active:scale-98 transition-all cursor-pointer truncate disabled:opacity-50"
+                          title="Attest that all field reports are submitted and approved"
+                        >
+                          {isPendingAllEntered ? (
+                            <>
+                              <RefreshCw className="size-3 shrink-0 animate-spin text-white" />
+                              <span className="truncate">Saving...</span>
+                            </>
+                          ) : (
+                            <span className="truncate">All Entered</span>
+                          )}
+                        </button>
+                      ) : (
+                        <div
+                          className="h-8 rounded-lg bg-slate-100 text-slate-500 font-semibold text-[11px] px-2 flex items-center justify-center border border-slate-200/80 cursor-not-allowed select-none truncate"
+                          title={
+                            row.record_count === 0
+                              ? "Cannot confirm complete: zero records exist"
+                              : "Cannot confirm complete: pending approval"
+                          }
+                        >
+                          <span className="truncate">All Entered</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
