@@ -27,6 +27,8 @@ interface DailySlaughterhousePdfDialogProps {
   onOpenChange: (open: boolean) => void;
   records: SlaughterRecordData[];
   loading: boolean;
+  initialMonth?: number;
+  initialYear?: number;
 }
 
 const MONTH_NAMES = [
@@ -49,21 +51,41 @@ export function DailySlaughterhousePdfDialog({
   onOpenChange,
   records,
   loading,
+  initialMonth,
+  initialYear,
 }: DailySlaughterhousePdfDialogProps) {
   const currentDate = new Date();
-  const [selectedPeriod, setSelectedPeriod] = useState<{ month: number; year: number } | null>(null);
-  const approvedRecords = useMemo(
-    () => records.filter((record) => record.status === "APPROVED"),
-    [records],
+  const [customPeriod, setCustomPeriod] = useState<{ month: number; year: number } | null>(null);
+  const [includePending, setIncludePending] = useState(false);
+
+  const eligibleRecords = useMemo(
+    () => (includePending ? records : records.filter((record) => record.status === "APPROVED")),
+    [records, includePending],
   );
-  const latestApprovedDate = useMemo(
-    () => approvedRecords.map((record) => record.record_date).filter(Boolean).sort().at(-1),
-    [approvedRecords],
+
+  const latestEligibleDate = useMemo(
+    () => eligibleRecords.map((record) => record.record_date).filter(Boolean).sort().at(-1),
+    [eligibleRecords],
   );
-  const selectedMonth = selectedPeriod?.month ?? (latestApprovedDate ? Number(latestApprovedDate.slice(5, 7)) - 1 : currentDate.getMonth());
-  const selectedYear = selectedPeriod?.year ?? (latestApprovedDate ? Number(latestApprovedDate.slice(0, 4)) : currentDate.getFullYear());
+
+  const selectedMonth =
+    customPeriod?.month ??
+    (initialMonth !== undefined
+      ? initialMonth
+      : latestEligibleDate
+      ? Number(latestEligibleDate.slice(5, 7)) - 1
+      : currentDate.getMonth());
+
+  const selectedYear =
+    customPeriod?.year ??
+    (initialYear !== undefined
+      ? initialYear
+      : latestEligibleDate
+      ? Number(latestEligibleDate.slice(0, 4))
+      : currentDate.getFullYear());
+
   const [signatoryName, setSignatoryName] = useState("REYMEL CORONEL");
-  const [signatoryTitle, setSignatoryTitle] = useState("SLAUGHTERHOUSE MASTER II");
+  const [signatoryTitle] = useState("SLAUGHTERHOUSE MASTER II");
 
   // Determine days in selected month (e.g., 28, 29, 30, or 31)
   const daysInMonth = useMemo(() => {
@@ -92,7 +114,7 @@ export function DailySlaughterhousePdfDialog({
     }
 
     // Filter relevant records for the month
-    approvedRecords.forEach((rec) => {
+    eligibleRecords.forEach((rec) => {
       if (!rec.record_date || !rec.record_date.startsWith(monthPrefix)) return;
 
       const dayNumber = parseInt(rec.record_date.slice(8, 10), 10);
@@ -139,7 +161,7 @@ export function DailySlaughterhousePdfDialog({
     );
 
     return { dailyRows, totals };
-  }, [approvedRecords, selectedYear, selectedMonth]);
+  }, [eligibleRecords, selectedYear, selectedMonth]);
 
   const handlePrint = () => {
     window.print();
@@ -208,7 +230,7 @@ export function DailySlaughterhousePdfDialog({
             <div className="w-36">
               <Select
                 value={String(selectedMonth)}
-                onValueChange={(val) => setSelectedPeriod({ month: parseInt(val, 10), year: selectedYear })}
+                onValueChange={(val) => setCustomPeriod({ month: parseInt(val, 10), year: selectedYear })}
               >
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="Month" />
@@ -229,7 +251,7 @@ export function DailySlaughterhousePdfDialog({
                 min={2020}
                 max={2035}
                 value={selectedYear}
-                onChange={(e) => setSelectedPeriod({ month: selectedMonth, year: parseInt(e.target.value, 10) || selectedYear })}
+                onChange={(e) => setCustomPeriod({ month: selectedMonth, year: parseInt(e.target.value, 10) || selectedYear })}
                 className="h-9"
               />
             </div>
@@ -243,10 +265,27 @@ export function DailySlaughterhousePdfDialog({
                 className="h-9 text-xs"
               />
             </div>
+
+            <div className="w-36">
+              <Select
+                value={includePending ? "ALL" : "APPROVED"}
+                onValueChange={(val) => setIncludePending(val === "ALL")}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="APPROVED">Approved Only</SelectItem>
+                  <SelectItem value="ALL">Include Pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <p className="w-full text-[11px] text-slate-500" role="status">
               {loading
-                ? "Loading approved slaughter records…"
-                : "Prefilled from approved slaughter records. The latest month with approved data is selected automatically."}
+                ? "Loading slaughter records…"
+                : includePending
+                ? "Showing all records (including pending submissions)."
+                : "Prefilled from approved slaughter records. Use dropdown to include pending."}
             </p>
           </div>
 
@@ -255,7 +294,7 @@ export function DailySlaughterhousePdfDialog({
               <Download className="mr-1.5 size-3.5" />
               CSV
             </Button>
-            <Button size="sm" onClick={handlePrint} disabled={loading} className="h-9 bg-rose-700 hover:bg-rose-800 text-xs">
+            <Button size="sm" onClick={handlePrint} disabled={loading} className="h-9 bg-[#1B4D2E] hover:bg-[#163e25] text-white text-xs">
               <Printer className="mr-1.5 size-3.5" />
               Print / Save as PDF
             </Button>

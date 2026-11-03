@@ -104,17 +104,27 @@ class Command(BaseCommand):
             )
             return
 
-        # The generated carcass weights below describe cattle. Do not silently
-        # attach them to an unrelated first lookup value (for example, poultry).
-        livestock_type = (
+        # Fetch species for realistic municipal abattoir throughput
+        cattle_type = (
             LivestockType.objects.filter(name__icontains="cattle").first()
             or LivestockType.objects.filter(name__icontains="cow").first()
         )
-        if not livestock_type:
-            self.stdout.write(self.style.ERROR("Cannot seed cattle slaughter data: add a Cattle/Cow LivestockType first."))
+        carabao_type = (
+            LivestockType.objects.filter(name__icontains="carabao").first()
+            or LivestockType.objects.filter(name__icontains="buffalo").first()
+        )
+        swine_type = (
+            LivestockType.objects.filter(name__icontains="swine").first()
+            or LivestockType.objects.filter(name__icontains="hog").first()
+            or LivestockType.objects.filter(name__icontains="pig").first()
+        )
+
+        if not cattle_type:
+            self.stdout.write(self.style.ERROR("Cannot seed slaughter data: Cattle LivestockType not found."))
             return
 
-        barangay = Barangay.objects.first()
+        barangays = list(Barangay.objects.all())
+        default_barangay = barangays[0] if barangays else None
 
         mao_user = (
             User.objects.filter(role__role_name__icontains="MAO").first()
@@ -125,13 +135,18 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR("Cannot seed: No user account found."))
             return
 
+        staff_user = (
+            User.objects.filter(role__role_name__icontains="SLAUGHTER").first()
+            or mao_user
+        )
+
         rng = np.random.RandomState(42)
         today = timezone.localdate()
 
         records_to_create = []
 
         # Include each calendar month from the first day of the oldest requested
-        # month through today, producing one facility-total row per day.
+        # month through today, producing facility-total rows per day.
         start_year, start_month = today.year, today.month
         for _ in range(months - 1):
             start_month -= 1
@@ -143,28 +158,58 @@ class Command(BaseCommand):
         for day_offset in range((today - start_date).days + 1):
             record_date = start_date + timedelta(days=day_offset)
             month_offset = (record_date.year - start_year) * 12 + record_date.month - start_month
-            holiday_multiplier = 1.35 if record_date.month in (11, 12) else 1.0
-            trend_bump = month_offset * 0.15
+            holiday_multiplier = 1.25 if record_date.month in (11, 12) else 1.0
 
-            # One daily facility total; carcass kilograms remain separate from head count.
-            heads = max(1, int(round(float(rng.uniform(1, 5)) * holiday_multiplier + trend_bump)))
-            avg_carcass_per_head = float(rng.uniform(185.0, 215.0))
-            total_carcass_kg = round(heads * avg_carcass_per_head, 2)
-            slaughter = SlaughterRecord(
-                livestock=None,
-                batch=None,
-                barangay=barangay,
-                livestock_type=livestock_type,
-                quantity=heads,
-                carcass_weight=Decimal(str(total_carcass_kg)),
-                record_date=record_date,
-                status=SlaughterRecord.StatusType.APPROVED,
-                reviewed_by=mao_user,
-                reviewed_at=timezone.now(),
-                review_remarks=f"{SEED_MARKER_SLAUGHTER} Synthetic daily municipal abattoir total for {record_date}.",
-                created_by=mao_user,
-            )
-            records_to_create.append(slaughter)
+            # Select barangay rotation
+            b_idx = day_offset % len(barangays) if barangays else 0
+            rec_barangay = barangays[b_idx] if barangays else default_barangay
+
+            # Leave the most recent 3 days as PENDING so MAO has real review queue items
+            is_pending = (today - record_date).days < 3
+            status = SlaughterRecord.StatusType.PENDING if is_pending else SlaughterRecord.StatusType.APPROVED
+            reviewer = None if is_pending else mao_user
+            reviewed_time = None if is_pending else timezone.now()
+
+            # 1. Cattle throughput
+            cattle_heads = max(1, int(round(float(rng.uniform(8, 22)) * holiday_multiplier)))
+            cattle_avg_kg = float(rng.uniform(220.0, 260.0))
+            cattle_total_kg = round(cattle_heads * cattle_avg_kg, 2)
+            records_to_create.append(SlaughterRecord(
+                livestock=None, batch=None, barangay=rec_barangay,
+                livestock_type=cattle_type, quantity=cattle_heads,
+                carcass_weight=Decimal(str(cattle_total_kg)), record_date=record_date,
+                status=status, reviewed_by=reviewer, reviewed_at=reviewed_time,
+                review_remarks=f"{SEED_MARKER_SLAUGHTER} Daily cattle abattoir total for {record_date}.",
+                created_by=staff_user,
+            ))
+
+            # 2. Carabao throughput (if type exists)
+            if carabao_type:
+                carabao_heads = max(1, int(round(float(rng.uniform(4, 12)) * holiday_multiplier)))
+                carabao_avg_kg = float(rng.uniform(210.0, 250.0))
+                carabao_total_kg = round(carabao_heads * carabao_avg_kg, 2)
+                records_to_create.append(SlaughterRecord(
+                    livestock=None, batch=None, barangay=rec_barangay,
+                    livestock_type=carabao_type, quantity=carabao_heads,
+                    carcass_weight=Decimal(str(carabao_total_kg)), record_date=record_date,
+                    status=status, reviewed_by=reviewer, reviewed_at=reviewed_time,
+                    review_remarks=f"{SEED_MARKER_SLAUGHTER} Daily carabao abattoir total for {record_date}.",
+                    created_by=staff_user,
+                ))
+
+            # 3. Swine / Hogs throughput (if type exists)
+            if swine_type:
+                swine_heads = max(5, int(round(float(rng.uniform(35, 85)) * holiday_multiplier)))
+                swine_avg_kg = float(rng.uniform(65.0, 85.0))
+                swine_total_kg = round(swine_heads * swine_avg_kg, 2)
+                records_to_create.append(SlaughterRecord(
+                    livestock=None, batch=None, barangay=rec_barangay,
+                    livestock_type=swine_type, quantity=swine_heads,
+                    carcass_weight=Decimal(str(swine_total_kg)), record_date=record_date,
+                    status=status, reviewed_by=reviewer, reviewed_at=reviewed_time,
+                    review_remarks=f"{SEED_MARKER_SLAUGHTER} Daily swine abattoir total for {record_date}.",
+                    created_by=staff_user,
+                ))
 
         SlaughterRecord.objects.bulk_create(records_to_create)
         self.stdout.write(
