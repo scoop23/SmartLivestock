@@ -135,6 +135,15 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
   const totalReportedCases = surveillanceTrends.reduce((sum, row) => sum + (row.reported || 0), 0);
   const totalDeaths = surveillanceTrends.reduce((sum, row) => sum + (row.deaths || 0), 0);
   const fatalityRate = totalReportedCases > 0 ? ((totalDeaths / totalReportedCases) * 100).toFixed(1) : "0.0";
+  const recoveredOrActive = Math.max(0, totalReportedCases - totalDeaths);
+  const surveillanceDonutData = totalReportedCases > 0 || totalDeaths > 0
+    ? [
+        { name: "Recovered / Survived", value: recoveredOrActive, color: "#F59E0B" },
+        { name: "Mortalities", value: totalDeaths, color: "#E11D48" },
+      ]
+    : [
+        { name: "Healthy (Zero Incidents)", value: 1, color: "#10B981" },
+      ];
   const topBarangays = barangayHerdDistribution.slice(0, 7);
   const farmersQuery = useAdminBarangayCurrentFarmers(selectedBarangay?.barangayId ?? null, farmersDialogOpen);
   const barangayTypeComposition = farmersQuery.data?.livestock_types ?? [];
@@ -415,66 +424,101 @@ export function AdminChartsView({ data, isFetching, refetchAll }: ReturnType<typ
       {/* ── ROW 2: Production privacy and biosecurity surveillance ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
         {/* Biosecurity & Disease Surveillance Summary Card */}
-        <div className="lg:col-span-5 flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-2xs sm:p-5">
+        <div className="lg:col-span-5 flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-2xs">
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-1.5">
-                <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-800">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <h3 className="text-sm font-black text-slate-900 tracking-tight">Biosecurity & Health Overview</h3>
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                <h3 className="text-[13px] font-black text-slate-900 tracking-tight">Biosecurity & Health Overview</h3>
               </div>
               <Badge variant="outline" className="text-[10px] font-black uppercase tracking-wider text-slate-600 bg-slate-50 border-slate-200">
                 12-Month Scope
               </Badge>
             </div>
-            <p className="text-xs text-slate-500 font-medium mb-3">
-              Consolidated disease cases and mortality records across all 17 barangays in Padre Garcia.
+            <p className="text-xs text-slate-500 font-medium mb-2">
+              Case outcome distribution and mortality ratio
             </p>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-3">
-                <div className="flex items-center gap-1.5 text-amber-800 text-[11px] font-bold">
-                  <AlertTriangle className="size-3.5 shrink-0" />
-                  <span>Case Incidence</span>
+            {/* Donut Chart & Outcome Metrics */}
+            <div className="flex items-center gap-3 my-1">
+              {/* Donut with centered metric */}
+              <div className="relative size-[140px] shrink-0">
+                <ResponsiveContainer width="100%" height="100%" debounce={150}>
+                  <PieChart>
+                    <Pie
+                      data={surveillanceDonutData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={42}
+                      outerRadius={62}
+                      paddingAngle={surveillanceDonutData.length > 1 ? 3 : 0}
+                      dataKey="value"
+                      nameKey="name"
+                    >
+                      {surveillanceDonutData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} stroke="#FFFFFF" strokeWidth={2} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#0F172A', borderRadius: '8px', border: 'none', color: '#fff', fontSize: '11px' }}
+                      formatter={(val: ValueType | undefined) => [
+                        totalReportedCases > 0 || totalDeaths > 0 ? `${Number(val ?? 0).toLocaleString()} heads` : "0 cases",
+                        "",
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-base font-black text-slate-900 tabular-nums">
+                    {totalReportedCases > 0 ? `${fatalityRate}%` : "0.0%"}
+                  </span>
+                  <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">
+                    {totalReportedCases > 0 ? "Fatality" : "Healthy"}
+                  </span>
                 </div>
-                <div className="mt-1.5 text-xl font-black text-slate-900 tabular-nums">
-                  {totalReportedCases.toLocaleString()} <span className="text-xs font-semibold text-slate-500">heads</span>
-                </div>
-                <p className="mt-0.5 text-[10px] text-slate-500 font-medium">Certified disease cases</p>
               </div>
 
-              <div className="rounded-xl border border-rose-200/80 bg-rose-50/50 p-3">
-                <div className="flex items-center gap-1.5 text-rose-800 text-[11px] font-bold">
-                  <Activity className="size-3.5 shrink-0" />
-                  <span>Total Deaths</span>
+              {/* Side Breakdown Stats */}
+              <div className="flex-1 space-y-2 min-w-0">
+                <div className="rounded-lg border border-amber-200/80 bg-amber-50/60 p-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-amber-800 flex items-center gap-1">
+                      <span className="size-2 rounded-full bg-[#F59E0B]" />
+                      Case Incidence
+                    </span>
+                    <span className="font-black text-slate-900 tabular-nums">
+                      {totalReportedCases.toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Reported disease heads</p>
                 </div>
-                <div className="mt-1.5 text-xl font-black text-slate-900 tabular-nums">
-                  {totalDeaths.toLocaleString()} <span className="text-xs font-semibold text-slate-500">heads</span>
-                </div>
-                <p className="mt-0.5 text-[10px] text-slate-500 font-medium">Recorded mortalities</p>
-              </div>
-            </div>
 
-            <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 p-2.5 border border-slate-100 text-xs">
-              <span className="text-slate-600 font-medium">Observed Fatality Ratio:</span>
-              <span className="font-bold text-slate-900 tabular-nums">{fatalityRate}%</span>
+                <div className="rounded-lg border border-rose-200/80 bg-rose-50/60 p-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-rose-800 flex items-center gap-1">
+                      <span className="size-2 rounded-full bg-[#E11D48]" />
+                      Mortalities
+                    </span>
+                    <span className="font-black text-slate-900 tabular-nums">
+                      {totalDeaths.toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Recorded animal deaths</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-[11px] text-slate-500 font-medium">Surveillance matrix updated</span>
+          <div className="pt-2.5 mt-2 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-[11px] text-slate-500 font-medium">17 Barangays Monitored</span>
             <Link
               href="/disease-mortality"
               className="inline-flex items-center gap-1 text-xs font-bold text-[#1E4D2B] hover:text-[#163b21] hover:underline"
             >
-              <span>View Records & Coverage</span>
+              <span>View Surveillance Matrix</span>
               <ArrowUpRight className="size-3.5" />
             </Link>
           </div>
-
-
-
         </div>
 
         {/* Biosecurity & Disease Surveillance Area Chart */}
