@@ -9,6 +9,7 @@ urlpatterns = [
     path("surveillance/", views.disease_mortality_surveillance, name="disease-mortality-surveillance"),
     path("surveillance-coverage/", views.surveillance_coverage, name="surveillance-coverage"),
     path("surveillance/forecast-experiment/", views.surveillance_forecast_experiment, name="surveillance-forecast-experiment"),
+    path("mortality-classification/", views.mortality_cause_classification, name="mortality-cause-classification"),
     path("mortality-weather/", views.mortality_weather_context, name="mortality-weather-context"),
     path("nlp-evaluation/", views.nlp_evaluation, name="nlp-evaluation"),
     path("nlp-dataset/", views.nlp_dataset, name="nlp-dataset"),

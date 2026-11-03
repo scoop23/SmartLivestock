@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import SurveillanceAnalytics from '@/app/components/analytics/surveillance-analytics';
 import { PageHeader } from '@/app/components/page-header';
 import { AnalyticsNav } from '@/app/components/analytics/analytics-nav';
@@ -30,7 +31,9 @@ export default function SurveillanceHealthPage() {
         <AnalyticsNav currentSection="surveillance" />
 
         <div className="w-full">
-          <SurveillanceAnalytics />
+          <Suspense fallback={<div className="h-96 w-full animate-pulse rounded-2xl bg-slate-100" />}>
+            <SurveillanceAnalytics />
+          </Suspense>
         </div>
       </div>
     </>

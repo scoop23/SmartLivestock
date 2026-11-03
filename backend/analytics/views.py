@@ -123,6 +123,50 @@ def surveillance_forecast_experiment(request):
 
 
 @api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated, isMAO])
+def mortality_cause_classification(request):
+    """Read the advisory classifier queue or append an MAO-confirmed cause label."""
+    from django.db import transaction
+    from diseases.models import MortalityCauseClassificationReview, MortalityRecord
+    from .services.mortality_classifier import mortality_classification_dashboard
+
+    class InputSerializer(serializers.Serializer):
+        mortality_record_id = serializers.IntegerField(min_value=1)
+        category = serializers.ChoiceField(choices=MortalityCauseClassificationReview.Category.choices)
+        note = serializers.CharField(max_length=1000, required=False, allow_blank=True, default="")
+
+    if request.method == "GET":
+        return Response(mortality_classification_dashboard())
+
+    input_serializer = InputSerializer(data=request.data)
+    input_serializer.is_valid(raise_exception=True)
+    values = input_serializer.validated_data
+
+    with transaction.atomic():
+        real_record = Q(review_remarks__isnull=True) | ~Q(review_remarks__contains="AI_SEED")
+        record = get_object_or_404(
+            MortalityRecord.objects.select_for_update().filter(
+                status=MortalityRecord.MortalityRecordStatus.APPROVED,
+            ).filter(real_record),
+            pk=values["mortality_record_id"],
+        )
+        review = MortalityCauseClassificationReview.objects.create(
+            mortality_record=record,
+            category=values["category"],
+            note=values["note"],
+            reviewer=request.user,
+        )
+
+    return Response({
+        "detail": "Staff classification saved.",
+        "mortality_record_id": review.mortality_record_id,
+        "category": review.category,
+        "category_label": review.get_category_display(),
+        "reviewed_at": review.reviewed_at,
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated, isMAO | isSibat])
 def surveillance_coverage(request):
     """Read or append a scoped monthly disease/mortality coverage confirmation."""
@@ -172,7 +216,9 @@ def surveillance_coverage(request):
     if coverage_status == SurveillanceCoverageReport.Status.NO_REPORTS_RECEIVED and not selected["can_confirm_no_reports"]:
         raise ValidationError({"status": "Reports exist for this barangay and month. Confirm that all reports are entered."})
     if coverage_status == SurveillanceCoverageReport.Status.REPORTS_COMPLETE and not selected["can_confirm_reports_complete"]:
-        raise ValidationError({"status": "No reports exist for this barangay and month. Confirm that no reports were received."})
+        if selected["record_count"] == 0:
+            raise ValidationError({"status": "No reports exist for this barangay and month. Confirm that no reports were received."})
+        raise ValidationError({"status": "All reports must be approved before confirming complete."})
 
     confirmation = SurveillanceCoverageReport.objects.create(
         barangay=barangay,

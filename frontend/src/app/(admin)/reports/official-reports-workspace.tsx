@@ -7,6 +7,7 @@ import {
   fetchOfficialReport,
   type OfficialReport,
   type ReportFilters,
+  type ReportingCoverage,
   type ReportType,
 } from "./report-api";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +43,6 @@ import {
   FileSpreadsheet,
   FileText,
   HeartPulse,
-  MapPin,
   PawPrint,
   PieChart as PieIcon,
   RefreshCw,
@@ -414,6 +414,85 @@ function deriveSummaryKpis(report: OfficialReport, reportType: ReportType) {
   }
 }
 
+function MonthlyReportingCoveragePanel({ coverage }: { coverage: ReportingCoverage }) {
+  const statusClass = coverage.status === "COMPLETE"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+    : coverage.status === "PARTIAL"
+    ? "border-sky-200 bg-sky-50 text-sky-800"
+    : coverage.status === "INCOMPLETE"
+    ? "border-amber-200 bg-amber-50 text-amber-900"
+    : "border-slate-200 bg-slate-100 text-slate-700";
+
+  const summary = [
+    ["Completed months assessed", coverage.assessed_months.length],
+    ["Barangays in scope", coverage.scope_barangay_count],
+    ["Confirmed zero", coverage.confirmed_zero_count],
+    ["Confirmed complete", coverage.confirmed_complete_count],
+    ["Need attention", coverage.needs_attention_count],
+    ["Partial / current months", coverage.not_assessed_months.length],
+  ] as const;
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5" aria-labelledby="monthly-reporting-coverage-heading">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 id="monthly-reporting-coverage-heading" className="font-bold text-slate-900">Monthly Reporting Coverage</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-600">{coverage.notice}</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">{coverage.scope_note}</p>
+        </div>
+        <Badge variant="outline" className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${statusClass}`}>
+          {coverage.status_label}
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        {summary.map(([label, value]) => (
+          <div key={label} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[11px] font-medium leading-4 text-slate-500">{label}</p>
+            <p className="mt-1 text-lg font-black tabular-nums text-slate-900">{Number(value).toLocaleString()}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 max-h-96 overflow-auto rounded-xl border border-slate-200">
+        <table className="min-w-[900px] w-full text-left text-xs">
+          <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-3 py-2">Domain</th>
+              <th className="px-3 py-2">Month</th>
+              <th className="px-3 py-2">Barangay</th>
+              <th className="px-3 py-2">Coverage status</th>
+              <th className="px-3 py-2">Recorded / approved</th>
+              <th className="px-3 py-2">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {coverage.rows.map((row, index) => (
+              <tr key={`${row.domain}-${row.report_month}-${row.barangay}-${index}`} className="border-t border-slate-100 align-top">
+                <td className="whitespace-nowrap px-3 py-2 font-semibold text-slate-700">{row.domain_label}</td>
+                <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">{row.report_month}</td>
+                <td className="px-3 py-2 font-medium text-slate-800">{row.barangay}</td>
+                <td className="whitespace-nowrap px-3 py-2 font-semibold text-slate-800">{row.status_label}</td>
+                <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
+                  {row.record_count === null
+                    ? "Not assessed"
+                    : `${row.record_count.toLocaleString()} / ${(row.approved_record_count ?? 0).toLocaleString()}`}
+                </td>
+                <td className="min-w-64 px-3 py-2 leading-5 text-slate-600">{row.detail}</td>
+              </tr>
+            ))}
+            {!coverage.rows.length && (
+              <tr>
+                <td colSpan={6} className="px-3 py-5 text-center text-slate-500">No barangay-month coverage rows are available for this scope.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function TrendChartComponent({
   rows,
   dateFrom,
@@ -734,64 +813,21 @@ export function OfficialReportsWorkspace({
 
   const chartConfig = CHART_CONFIGS[reportType];
 
-  const reportingAreaPill = (
-    <div className="flex items-center gap-3 self-start rounded-2xl border border-emerald-100 bg-emerald-50/50 px-4 py-3 sm:self-auto">
-      <div className="grid size-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-800">
-        <MapPin className="size-5" />
-      </div>
-      <div>
-        <div className="text-sm font-bold text-slate-900">
-          Reporting area:{" "}
-          <span className="font-extrabold text-slate-950">{effectiveReportingArea}</span>
-          {!isBarangayWorkspace ? (
-            <span className="text-xs font-semibold text-slate-500">
-              {" "}({selectedBarangay ? "Filtered" : "All Barangays"})
-            </span>
-          ) : null}
-        </div>
-        <div className="text-xs text-slate-500">
-          {isBarangayWorkspace
-            ? `You can view reports for ${effectiveReportingArea} only.`
-            : "You can view reports across all barangays."}
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <>
-      {isBarangayWorkspace ? (
-        <PageHeader
-          title="Reports"
-          subtitle="View and generate official livestock reports for your assigned reporting area."
-          variant="sibat"
-          maxWidthClass="w-full"
-          icon={<FileText className="size-5 text-white" />}
-          hideIconOnMobile
-          showTutorialToggle={false}
-          mobileActionsInline
-        />
-      ) : null}
+      <PageHeader
+        title={isBarangayWorkspace ? "Reports" : "Report Generation"}
+        subtitle={isBarangayWorkspace
+          ? "View and generate official livestock reports for your assigned reporting area."
+          : "Generate and export official livestock and municipal surveillance reports."}
+        variant={isBarangayWorkspace ? "sibat" : "admin"}
+        maxWidthClass="w-full"
+        icon={<FileText className={`size-5 ${isBarangayWorkspace ? "text-white" : "text-slate-800"}`} />}
+        hideIconOnMobile
+        showTutorialToggle={false}
+        mobileActionsInline
+      />
       <main className="w-full space-y-6 px-3.5 py-4 pb-14 sm:px-6 lg:px-8 lg:py-6">
-        {/* 1. Top Header */}
-        {!isBarangayWorkspace && (
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3.5">
-              <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-100/70 text-emerald-800 sm:size-14">
-                <FileText className="size-6 sm:size-7" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Reports</h1>
-                <p className="mt-0.5 text-sm text-slate-500">
-                  View and manage livestock reports and official municipal records.
-                </p>
-              </div>
-            </div>
-
-            {reportingAreaPill}
-          </div>
-        )}
-
       {/* 2. Choose a Report Type */}
       <section aria-labelledby="choose-report-heading" className="space-y-3">
         <div>
@@ -1073,6 +1109,10 @@ export function OfficialReportsWorkspace({
               <SpeciesBreakdownComponent rows={report.rows} />
             </div>
           </div>
+
+          {report.analysis.reporting_coverage && (
+            <MonthlyReportingCoveragePanel coverage={report.analysis.reporting_coverage} />
+          )}
 
           {/* 6. Records Table Section */}
           <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200/90 bg-white py-0 shadow-xs">

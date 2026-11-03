@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import api from "@/lib/axios";
+import { MortalityClassificationPanel } from "@/app/components/analytics/mortality-classification-panel";
 import {
   Activity,
   AlertCircle,
@@ -22,6 +24,7 @@ import {
   Clock,
   Compass,
   FileSpreadsheet,
+  GitBranch,
   HeartPulse,
   Inbox,
   Info,
@@ -750,8 +753,26 @@ const clinicalStatusLabel: Record<string, string> = {
 
 export default function SurveillanceAnalytics() {
   const { user } = useAuth();
-  const [selectedFocus, setSelectedFocus] = useState<"all" | "disease" | "mortality" | "associations">("all");
-  const [centerpieceTab, setCenterpieceTab] = useState<"timeline" | "telemetry" | "diagnostics" | "sandbox">("timeline");
+  const searchParams = useSearchParams();
+  const domainParam = searchParams?.get("domain");
+
+  const initialFocus = useMemo<"all" | "disease" | "mortality" | "associations">(() => {
+    if (!domainParam) return "all";
+    const d = domainParam.toLowerCase();
+    if (d === "disease") return "disease";
+    if (d === "mortality") return "mortality";
+    if (d === "inventory" || d === "barangay") return "associations";
+    return "all";
+  }, [domainParam]);
+
+  const [selectedFocus, setSelectedFocus] = useState<"all" | "disease" | "mortality" | "associations">(initialFocus);
+
+  useEffect(() => {
+    if (initialFocus) {
+      setSelectedFocus(initialFocus);
+    }
+  }, [initialFocus]);
+  const [centerpieceTab, setCenterpieceTab] = useState<"timeline" | "telemetry" | "diagnostics" | "classification" | "sandbox">("timeline");
   const [showTableView, setShowTableView] = useState(false);
 
   const [associationPage, setAssociationPage] = useState(1);
@@ -1217,7 +1238,7 @@ export default function SurveillanceAnalytics() {
 
             {/* View Switcher Cluster */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200/60">
+              <div className="inline-flex max-w-full flex-wrap rounded-xl bg-slate-100 p-0.5 border border-slate-200/60">
                 <button
                   type="button"
                   onClick={() => setCenterpieceTab("timeline")}
@@ -1253,6 +1274,22 @@ export default function SurveillanceAnalytics() {
                 >
                   <FileSpreadsheet className="size-3.5" />
                   Report Types and Causes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedFocus("mortality");
+                    setCenterpieceTab("classification");
+                  }}
+                  aria-pressed={centerpieceTab === "classification"}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    centerpieceTab === "classification"
+                      ? "bg-slate-900 text-white shadow-xs font-extrabold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <GitBranch className="size-3.5" />
+                  Mortality Classification
                 </button>
                 <button
                   type="button"
@@ -2082,6 +2119,9 @@ export default function SurveillanceAnalytics() {
           {centerpieceTab === "sandbox" && (
             <PadreGarciaForecaster />
           )}
+          {centerpieceTab === "classification" && (
+            <MortalityClassificationPanel />
+          )}
         </CardContent>
       </Card>
 
@@ -2153,6 +2193,23 @@ export default function SurveillanceAnalytics() {
                 Use linked records to understand current herd activity and movement.
               </p>
             </div>
+          </div>
+          <div className="mt-2.5 flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-2.5">
+              <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-700" />
+              <div>
+                <p className="text-xs font-bold text-emerald-950">Before using mortality trend analytics</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-900">
+                  Open the Reporting Coverage Matrix, choose Mortality Records and a completed month, then confirm each barangay as No Reports or Complete. Unconfirmed months remain gaps; a confirmed no-report month counts as zero. Reports must be approved before a forecast can use them.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/disease-mortality?tab=coverage"
+              className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-emerald-300 bg-white px-3 text-[11px] font-bold text-emerald-900 transition-colors hover:bg-emerald-100"
+            >
+              Open Reporting Coverage Matrix
+            </Link>
           </div>
         </CardContent>
       </Card>

@@ -10,6 +10,7 @@ from django.utils.dateparse import parse_date
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from diseases.models import DiseaseCase, MortalityRecord
+from analytics.services.surveillance_coverage import report_period_coverage
 from livestock.models import LivestockInventory
 from movements.models import LivestockInspection, LivestockInspectionClearance
 from production.models import LiveAnimalSale, SlaughterRecord
@@ -422,11 +423,13 @@ def _build_analysis(report_type, rows, previous_rows, previous_period, summary):
 
     methodologies = {
         "inventory": "Inventory rows are approved livestock registrations selected by their registration date. Operational status reflects the latest saved state. The model does not store historical inventory snapshots, so this report cannot reconstruct holdings as of past dates.",
-        "disease_mortality": "Disease statistics represent reported approved case records, not clinical diagnoses or epidemiological predictions. Mortality records are counted separately.",
+        "disease_mortality": "Disease statistics represent approved reported case records, not clinical diagnoses or epidemiological predictions. Mortality records are counted separately. Monthly reporting coverage is assessed by barangay and domain for full completed calendar months; confirmed zero reports are distinguished from unconfirmed periods.",
         "slaughter": "Slaughter statistics use approved slaughter records; animal counts and carcass kilograms are separate measures.",
         "movement": "Auction activity comes from approved sale records. Movement direction and volume come from approved inspection/clearance records and remain separate from auction activity.",
         "inspection": "Inspection statistics are based on records with MAO-approved clearances under the existing validation workflow.",
     }
+
+
     data_status = {
         "inventory": "Approved registrations; latest operational status",
         "movement": "Approved auction sales and approved clearances",
@@ -473,6 +476,89 @@ def _build_analysis(report_type, rows, previous_rows, previous_period, summary):
     }
 
 
+def _disease_mortality_reporting_coverage(start, end, filters, user):
+    disease = report_period_coverage("DISEASE", user, start, end, filters.get("barangay", ""))
+    mortality = report_period_coverage("MORTALITY", user, start, end, filters.get("barangay", ""))
+    scope_count = disease["scope_barangay_count"]
+    assessed_months = disease["assessed_months"]
+    not_assessed_months = disease["not_assessed_months"]
+    expected_count = disease["expected_confirmation_count"] + mortality["expected_confirmation_count"]
+    confirmed_count = disease["confirmed_confirmation_count"] + mortality["confirmed_confirmation_count"]
+    unresolved_count = disease["unresolved_confirmation_count"] + mortality["unresolved_confirmation_count"]
+    unassigned_month_count = disease["unassigned_month_count"] + mortality["unassigned_month_count"]
+    unassigned_record_count = disease["unassigned_record_count"] + mortality["unassigned_record_count"]
+    status_counts = {}
+    for result in (disease, mortality):
+        for key, value in result["status_counts"].items():
+            status_counts[key] = status_counts.get(key, 0) + value
+    rows = disease["rows"] + mortality["rows"]
+    rows.sort(key=lambda row: (row["report_month"], row["domain"], row["barangay"]))
+
+    if scope_count == 0:
+        coverage_status = "NOT_ASSESSED"
+        status_label = "Not assessed"
+        notice = "Monthly reporting coverage could not be assessed because no barangay matches the authorized report scope."
+    elif unresolved_count or unassigned_month_count:
+        coverage_status = "INCOMPLETE"
+        status_label = "Incomplete"
+        notice = (
+            f"{unresolved_count} of {expected_count} disease/mortality barangay-month confirmation(s) are missing or need attention. "
+            "Unconfirmed periods remain unknown; zero recorded reports are not treated as confirmed zero incidents."
+        )
+        if unassigned_month_count:
+            notice += f" {unassigned_month_count} domain-month group(s) also contain reports without a barangay assignment."
+        if not_assessed_months:
+            notice += f" {len(set(not_assessed_months))} partial or in-progress month(s) were not assessed."
+    elif not assessed_months:
+        coverage_status = "NOT_ASSESSED"
+        status_label = "Not assessed"
+        notice = "The selected dates do not contain a fully completed month that can be checked against monthly reporting confirmations."
+    elif not_assessed_months:
+        coverage_status = "PARTIAL"
+        status_label = "Partial"
+        notice = (
+            f"Coverage is confirmed for all barangay-months in {len(assessed_months)} completed month(s). "
+            f"{len(set(not_assessed_months))} partial or in-progress month(s) were not assessed."
+        )
+    else:
+        coverage_status = "COMPLETE"
+        status_label = "Complete"
+        notice = (
+            f"All {expected_count} disease/mortality barangay-month confirmations are complete "
+            f"across {len(assessed_months)} completed month(s)."
+        )
+
+    if filters.get("species"):
+        scope_note = (
+            "Reporting coverage is confirmed for the full disease or mortality domain by barangay and month; "
+            "the selected species filter applies to report records, not the coverage attestation."
+        )
+    else:
+        scope_note = "Coverage is assessed by reporting domain, barangay, and fully completed calendar month."
+
+    return {
+        "status": coverage_status,
+        "status_label": status_label,
+        "notice": notice,
+        "scope_note": scope_note,
+        "assessed_months": assessed_months,
+        "not_assessed_months": sorted(set(not_assessed_months)),
+        "scope_barangay_count": scope_count,
+        "expected_confirmation_count": expected_count,
+        "confirmed_confirmation_count": confirmed_count,
+        "unresolved_confirmation_count": unresolved_count,
+        "needs_attention_count": unresolved_count + unassigned_month_count,
+        "confirmed_zero_count": status_counts.get("CONFIRMED_ZERO", 0),
+        "confirmed_complete_count": status_counts.get("CONFIRMED_COMPLETE", 0),
+        "unconfirmed_count": status_counts.get("UNCONFIRMED", 0),
+        "stale_count": status_counts.get("STALE", 0),
+        "inconsistent_count": status_counts.get("INCONSISTENT", 0),
+        "awaiting_approval_count": status_counts.get("AWAITING_APPROVAL", 0),
+        "unassigned_month_count": unassigned_month_count,
+        "unassigned_record_count": unassigned_record_count,
+        "rows": rows,
+    }
+
 def build_report(report_type, params, user):
     """Validate query parameters, enforce role, and return the shared report dataset."""
     role = role_name(user)
@@ -513,6 +599,10 @@ def build_report(report_type, params, user):
     previous_rows = [] if report_type == "inventory" else _base(report_type, previous_start, previous_end, filters)[1]
     previous_period = {"date_from": previous_start.isoformat(), "date_to": previous_end.isoformat()}
     analysis = _build_analysis(report_type, rows, previous_rows, previous_period, summary)
+    if report_type == "disease_mortality":
+        analysis["reporting_coverage"] = _disease_mortality_reporting_coverage(
+            start, end, filters, user
+        )
     return {"report_type": report_type, "title": REPORT_TITLES[report_type],
             "municipality": "Padre Garcia, Batangas", "period": {"date_from": start.isoformat(), "date_to": end.isoformat()},
             "generated_at": timezone.now().isoformat(), "generated_by": user.get_full_name() or user.username,

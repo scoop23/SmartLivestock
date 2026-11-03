@@ -1,7 +1,7 @@
 """Monthly reporting coverage for disease and mortality surveillance."""
 
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
 from django.db.models import Count, F, Max, Q
 from django.db.models.functions import Coalesce, TruncMonth
@@ -117,7 +117,7 @@ def month_snapshot(domain, user, report_month):
                 "confirmed_by": confirmation.confirmed_by.username,
             } if confirmation else None),
             "can_confirm_no_reports": record_count == 0,
-            "can_confirm_reports_complete": record_count > 0,
+            "can_confirm_reports_complete": record_count > 0 and approved_count == record_count,
         })
 
     unassigned_count = event_summary.get(None, {}).get("record_count", 0)
@@ -126,6 +126,183 @@ def month_snapshot(domain, user, report_month):
         "report_month": report_month.strftime("%Y-%m"),
         "barangays": rows,
         "unassigned_record_count": unassigned_count,
+    }
+
+
+def report_period_coverage(domain, user, start_date, end_date, barangay_name=""):
+    """Summarize monthly attestations for completed months in an official report period."""
+    domain = domain.upper()
+    _, date_field, approved_status = domain_model(domain)
+    current_month_start = date(timezone.localdate().year, timezone.localdate().month, 1)
+
+    months = []
+    not_assessed_months = []
+    cursor = date(start_date.year, start_date.month, 1)
+    final_month = date(end_date.year, end_date.month, 1)
+    while cursor <= final_month:
+        next_month = month_bounds(cursor)[1]
+        month_end = next_month - timedelta(days=1)
+        selected_full_month = start_date <= cursor and end_date >= month_end
+        month_completed = next_month <= current_month_start
+        if selected_full_month and month_completed:
+            months.append(cursor)
+        else:
+            reason = "MONTH_IN_PROGRESS" if cursor >= current_month_start else "PARTIAL_PERIOD"
+            not_assessed_months.append({
+                "domain": domain,
+                "domain_label": "Disease" if domain == SurveillanceCoverageReport.Domain.DISEASE else "Mortality",
+                "report_month": cursor.strftime("%Y-%m"),
+                "barangay": "All selected barangays",
+                "status": reason,
+                "status_label": "Month not completed" if reason == "MONTH_IN_PROGRESS" else "Partial month not assessed",
+                "record_count": None,
+                "approved_record_count": None,
+                "detail": (
+                    "Coverage is confirmed only after the reporting month has ended."
+                    if reason == "MONTH_IN_PROGRESS"
+                    else "This date range does not include the full calendar month."
+                ),
+            })
+        cursor = next_month
+
+    selected_barangay_name = barangay_name.strip()
+    barangays = list(
+        scope_reviewer_queryset(Barangay.objects.all(), user)
+        .order_by("barangay_name", "pk")
+        .values("id", "barangay_name")
+    )
+    if selected_barangay_name:
+        selected_name = selected_barangay_name.casefold()
+        barangays = [row for row in barangays if row["barangay_name"].casefold() == selected_name]
+    barangay_ids = [row["id"] for row in barangays]
+    rows = []
+    counts = defaultdict(int)
+    unassigned_record_count = 0
+
+    if months and barangay_ids:
+        first_month = months[0]
+        _, after_last_month = month_bounds(months[-1])
+        events = _event_queryset(domain, user, first_month, after_last_month)
+        if selected_barangay_name:
+            events = events.filter(
+                Q(livestock__farmer__barangay_id__in=barangay_ids)
+                | Q(batch__farmer__barangay_id__in=barangay_ids)
+            )
+        event_rows = events.annotate(
+            month=TruncMonth(date_field),
+            coverage_barangay_id=Coalesce(
+                F("livestock__farmer__barangay_id"), F("batch__farmer__barangay_id")
+            ),
+        ).values("month", "coverage_barangay_id").annotate(
+            record_count=Count("pk"),
+            approved_record_count=Count("pk", filter=Q(status=approved_status)),
+            latest_created_at=Max("created_at"),
+        )
+        event_map = {}
+        for row in event_rows:
+            month_value = row["month"]
+            month = month_value.date() if hasattr(month_value, "date") else month_value
+            event_map[(month, row["coverage_barangay_id"])] = row
+
+        confirmations = SurveillanceCoverageReport.objects.filter(
+            domain=domain,
+            report_month__in=months,
+            barangay_id__in=barangay_ids,
+        ).order_by("report_month", "barangay_id", "-confirmed_at", "-pk")
+        latest_confirmation = {}
+        for confirmation in confirmations:
+            latest_confirmation.setdefault((confirmation.report_month, confirmation.barangay_id), confirmation)
+
+        domain_label = "Disease" if domain == SurveillanceCoverageReport.Domain.DISEASE else "Mortality"
+        for month in months:
+            for barangay in barangays:
+                events = event_map.get((month, barangay["id"]), {})
+                record_count = events.get("record_count", 0)
+                approved_count = events.get("approved_record_count", 0)
+                confirmation = latest_confirmation.get((month, barangay["id"]))
+                if confirmation is None:
+                    state = "UNCONFIRMED"
+                    detail = f"{record_count} report(s) recorded; no monthly attestation is on file."
+                elif events.get("latest_created_at") and events["latest_created_at"] > confirmation.confirmed_at:
+                    state = "STALE"
+                    detail = "A report was entered after the last confirmation; coverage needs reconfirmation."
+                elif (
+                    confirmation.status == SurveillanceCoverageReport.Status.NO_REPORTS_RECEIVED
+                    and record_count > 0
+                ) or (
+                    confirmation.status == SurveillanceCoverageReport.Status.REPORTS_COMPLETE
+                    and record_count == 0
+                ):
+                    state = "INCONSISTENT"
+                    detail = "The attestation does not match the reports currently recorded."
+                elif confirmation.status == SurveillanceCoverageReport.Status.NO_REPORTS_RECEIVED:
+                    state = "CONFIRMED_ZERO"
+                    detail = "An officer confirmed that no reports were received for this month."
+                elif approved_count != record_count:
+                    state = "AWAITING_APPROVAL"
+                    detail = f"{record_count - approved_count} of {record_count} recorded report(s) are not approved."
+                else:
+                    state = "CONFIRMED_COMPLETE"
+                    detail = "An officer confirmed all recorded reports were entered and approved."
+
+                status_labels = {
+                    "CONFIRMED_ZERO": "Confirmed zero reports",
+                    "CONFIRMED_COMPLETE": "Confirmed reports complete",
+                    "UNCONFIRMED": "Unconfirmed",
+                    "STALE": "Reconfirmation needed",
+                    "INCONSISTENT": "Inconsistent",
+                    "AWAITING_APPROVAL": "Awaiting approval",
+                }
+                counts[state] += 1
+                rows.append({
+                    "domain": domain,
+                    "domain_label": domain_label,
+                    "report_month": month.strftime("%Y-%m"),
+                    "barangay": barangay["barangay_name"],
+                    "status": state,
+                    "status_label": status_labels[state],
+                    "record_count": record_count,
+                    "approved_record_count": approved_count,
+                    "detail": detail,
+                })
+
+        if not barangay_name:
+            for month in months:
+                unassigned = event_map.get((month, None), {})
+                unassigned_count = unassigned.get("record_count", 0)
+                if not unassigned_count:
+                    continue
+                counts["UNASSIGNED_RECORDS"] += 1
+                unassigned_record_count += unassigned_count
+                rows.append({
+                    "domain": domain,
+                    "domain_label": domain_label,
+                    "report_month": month.strftime("%Y-%m"),
+                    "barangay": "Unassigned records",
+                    "status": "UNASSIGNED_RECORDS",
+                    "status_label": "Barangay assignment needed",
+                    "record_count": unassigned_count,
+                    "approved_record_count": unassigned.get("approved_record_count", 0),
+                    "detail": "Assign these reports to a barangay before confirming monthly coverage.",
+                })
+
+    expected_count = len(months) * len(barangays)
+    confirmed_count = counts["CONFIRMED_ZERO"] + counts["CONFIRMED_COMPLETE"]
+    unresolved_count = expected_count - confirmed_count
+    rows.extend(not_assessed_months)
+    rows.sort(key=lambda row: (row["report_month"], row["domain"], row["barangay"]))
+    return {
+        "domain": domain,
+        "scope_barangay_count": len(barangays),
+        "assessed_months": [month.strftime("%Y-%m") for month in months],
+        "not_assessed_months": [row["report_month"] for row in not_assessed_months],
+        "expected_confirmation_count": expected_count,
+        "confirmed_confirmation_count": confirmed_count,
+        "unresolved_confirmation_count": unresolved_count,
+        "unassigned_month_count": counts["UNASSIGNED_RECORDS"],
+        "unassigned_record_count": unassigned_record_count,
+        "status_counts": dict(counts),
+        "rows": rows,
     }
 
 

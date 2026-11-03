@@ -75,6 +75,33 @@ def excel_report(report):
         for index, item in enumerate(ranking["items"], start=1):
             sheet.append([index, item["name"], item["value"], ranking["unit"]])
     sheet.append(["DATA COVERAGE", analysis["coverage_notice"]])
+    reporting_coverage = analysis.get("reporting_coverage")
+    if reporting_coverage:
+        sheet.append([])
+        sheet.append(["MONTHLY REPORTING COVERAGE"])
+        sheet.cell(sheet.max_row, 1).font = Font(bold=True, color="1E4D2B")
+        sheet.append(["Coverage status", reporting_coverage["status_label"]])
+        sheet.append(["Coverage summary", reporting_coverage["notice"]])
+        sheet.append(["Coverage scope", reporting_coverage["scope_note"]])
+        sheet.append(["Completed months assessed", ", ".join(reporting_coverage["assessed_months"]) or "None"])
+        sheet.append(["Partial or in-progress months", ", ".join(reporting_coverage["not_assessed_months"]) or "None"])
+        sheet.append(["Confirmed zero months", reporting_coverage["confirmed_zero_count"]])
+        sheet.append(["Confirmed complete months", reporting_coverage["confirmed_complete_count"]])
+        sheet.append(["Unresolved confirmations", reporting_coverage["unresolved_confirmation_count"]])
+        sheet.append(["Need attention", reporting_coverage["needs_attention_count"]])
+        sheet.append(["Unassigned reports", reporting_coverage["unassigned_record_count"]])
+        sheet.append(["Domain", "Month", "Barangay", "Coverage status", "Recorded reports", "Approved reports", "Details"])
+        for cell in sheet[sheet.max_row]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="1E4D2B")
+            cell.alignment = Alignment(wrap_text=True)
+        for row in reporting_coverage["rows"]:
+            sheet.append([
+                row["domain_label"], row["report_month"], row["barangay"], row["status_label"],
+                "Not assessed" if row["record_count"] is None else row["record_count"],
+                "Not assessed" if row["approved_record_count"] is None else row["approved_record_count"],
+                row["detail"],
+            ])
     sheet.append(["DATA & METHODOLOGY", analysis["methodology"]])
     sheet.append([])
     sheet.append(["CHART DATA"])
@@ -555,6 +582,45 @@ def pdf_report(report):
                                                      ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5D0")),
                                                      ("VALIGN", (0, 0), (-1, -1), "TOP")])))
     story.extend([Spacer(1, 7), Paragraph("Data Coverage", section_style), Paragraph(escape(analysis["coverage_notice"]), normal), Spacer(1, 10)])
+    reporting_coverage = analysis.get("reporting_coverage")
+    if reporting_coverage:
+        story.extend([
+            Paragraph("Monthly Reporting Coverage", section_style),
+            Paragraph(f"Status: <b>{escape(reporting_coverage['status_label'])}</b>. {escape(reporting_coverage['notice'])}", normal),
+            Paragraph(escape(reporting_coverage["scope_note"]), normal),
+            Paragraph(
+                f"Completed months assessed: {len(reporting_coverage['assessed_months'])} &nbsp; | &nbsp; "
+                f"Barangays in scope: {reporting_coverage['scope_barangay_count']} &nbsp; | &nbsp; "
+                f"Confirmed zero: {reporting_coverage['confirmed_zero_count']} &nbsp; | &nbsp; "
+                f"Confirmed complete: {reporting_coverage['confirmed_complete_count']} &nbsp; | &nbsp; "
+                f"Need attention: {reporting_coverage['needs_attention_count']} &nbsp; | &nbsp; "
+                f"Partial/current months: {len(reporting_coverage['not_assessed_months'])}",
+                normal,
+            ),
+            Spacer(1, 5),
+        ])
+        coverage_rows = [[Paragraph(label, header) for label in (
+            "Domain", "Month", "Barangay", "Coverage status", "Recorded", "Approved", "Details",
+        )]]
+        for row in reporting_coverage["rows"]:
+            coverage_rows.append([
+                Paragraph(escape(row["domain_label"]), normal),
+                Paragraph(escape(row["report_month"]), normal),
+                Paragraph(escape(row["barangay"]), normal),
+                Paragraph(escape(row["status_label"]), normal),
+                Paragraph("Not assessed" if row["record_count"] is None else escape(_format_metric(row["record_count"])), normal),
+                Paragraph("Not assessed" if row["approved_record_count"] is None else escape(_format_metric(row["approved_record_count"])), normal),
+                Paragraph(escape(row["detail"]), normal),
+            ])
+        if len(coverage_rows) == 1:
+            coverage_rows.append([Paragraph("No barangay-month coverage rows are available for this scope.", normal)] + [""] * 6)
+        story.extend([
+            LongTable(coverage_rows, colWidths=[0.8 * inch, 0.8 * inch, 1.35 * inch, 1.2 * inch, 0.65 * inch, 0.65 * inch, 3.7 * inch], repeatRows=1,
+                      style=TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1E4D2B")),
+                                        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5D0")),
+                                        ("VALIGN", (0, 0), (-1, -1), "TOP")])),
+            Spacer(1, 10),
+        ])
     # The exporter receives the exact backend-filtered rows used by the preview;
     # deriving charts here avoids a second query or a frontend-supplied dataset.
     story.extend([Paragraph("Charts &amp; Analysis", ParagraphStyle("ChartSection", fontName="Helvetica-Bold", fontSize=11, textColor=colors.HexColor("#1E4D2B"))), Spacer(1, 5)])

@@ -185,3 +185,34 @@ class MortalityRecord(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     inventory_reconciled_at = models.DateTimeField(null=True, blank=True)
+
+
+class MortalityCauseClassificationReview(models.Model):
+    """Append-only MAO labels for training an advisory mortality text classifier."""
+
+    class Category(models.TextChoices):
+        SUSPECTED_INFECTIOUS = "SUSPECTED_INFECTIOUS", "Suspected infectious"
+        INJURY_ACCIDENT = "INJURY_ACCIDENT", "Injury or accident"
+        REPRODUCTIVE_PERINATAL = "REPRODUCTIVE_PERINATAL", "Reproductive or perinatal"
+        OTHER_REPORTED_CAUSE = "OTHER_REPORTED_CAUSE", "Other reported cause"
+        UNDETERMINED = "UNDETERMINED", "Undetermined"
+
+    mortality_record = models.ForeignKey(
+        MortalityRecord,
+        on_delete=models.PROTECT,
+        related_name="cause_classification_reviews",
+    )
+    category = models.CharField(max_length=32, choices=Category.choices)
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="mortality_cause_classification_reviews",
+    )
+    note = models.CharField(max_length=1000, blank=True, default="")
+    reviewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-reviewed_at", "-id"]
+        indexes = [
+            models.Index(fields=["mortality_record", "-reviewed_at"], name="mortality_cause_review_idx"),
+        ]

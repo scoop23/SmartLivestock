@@ -128,6 +128,7 @@ export interface ValidationIncidentItem {
   farmerContact?: string;
   details: string;
   date: string;
+  eventDate?: string | null;
   createdAt?: string;
   status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   reviewRemarks: string | null;
@@ -369,6 +370,7 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
           ? `Disease case: ${dc.name}. Affected: ${dc.affected_count || 1} head(s). Tag: ${dc.tag_number || "N/A"}`
           : "Disease condition reported",
         date: dc.record_date || (dc.created_at ? dc.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+        eventDate: dc.record_date || null,
         createdAt: dc.created_at || dc.record_date,
         status: (dc.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
         reviewRemarks: dc.review_remarks || null,
@@ -433,6 +435,7 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         barangayName: m.barangay_name || "Padre Garcia",
         details: `Mortality cause: ${m.cause || "Unspecified"}. Death count: ${m.death_count || 1} head(s). Target: ${targetIdentifier}`,
         date: m.record_date || (m.created_at ? m.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+        eventDate: m.record_date || null,
         createdAt: m.created_at || m.record_date,
         status: (m.status || "PENDING").toUpperCase() as "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED",
         reviewRemarks: m.review_remarks || null,

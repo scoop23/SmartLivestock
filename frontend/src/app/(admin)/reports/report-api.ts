@@ -2,12 +2,46 @@ import api from "@/lib/axios";
 
 export type ReportType = "inventory" | "disease_mortality" | "slaughter" | "movement" | "inspection";
 export type ReportFilters = { species: string; barangay: string; purpose: string; direction: string };
+export type ReportingCoverageRow = {
+  domain: "DISEASE" | "MORTALITY";
+  domain_label: string;
+  report_month: string;
+  barangay: string;
+  status: string;
+  status_label: string;
+  record_count: number | null;
+  approved_record_count: number | null;
+  detail: string;
+};
+export type ReportingCoverage = {
+  status: "COMPLETE" | "INCOMPLETE" | "PARTIAL" | "NOT_ASSESSED";
+  status_label: string;
+  notice: string;
+  scope_note: string;
+  assessed_months: string[];
+  not_assessed_months: string[];
+  scope_barangay_count: number;
+  expected_confirmation_count: number;
+  confirmed_confirmation_count: number;
+  unresolved_confirmation_count: number;
+  needs_attention_count: number;
+  confirmed_zero_count: number;
+  confirmed_complete_count: number;
+  unconfirmed_count: number;
+  stale_count: number;
+  inconsistent_count: number;
+  awaiting_approval_count: number;
+  unassigned_month_count: number;
+  unassigned_record_count: number;
+  rows: ReportingCoverageRow[];
+};
 export type ReportAnalysis = {
   executive_summary: { label: string; value: string | number; detail?: string }[];
   key_findings: string[];
   rankings: { title: string; unit: string; items: { name: string; value: number }[] }[];
   coverage_notice: string;
   coverage_level: "none" | "sparse" | "adequate";
+  reporting_coverage?: ReportingCoverage;
   data_status: string;
   methodology: string;
   comparison: {

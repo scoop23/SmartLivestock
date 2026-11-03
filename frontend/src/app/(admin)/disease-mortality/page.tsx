@@ -30,7 +30,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { startTransition, Suspense, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 // Domain & Analytics from data-validation
@@ -55,12 +55,24 @@ import {
   type ReviewTargetItem,
 } from "../data-validation/validation-review-dialog";
 
+type IncidentStatusFilter = ValidationStatus | "UNAPPROVED";
+const INCIDENT_STATUS_FILTERS: IncidentStatusFilter[] = [
+  "ALL", "PENDING", "AWAITING_MAO", "VERIFIED", "CBAT_VERIFIED", "APPROVED",
+  "SUBJECT_TO_REVISION", "REJECTED", "UNAPPROVED",
+];
+
+function parseIncidentStatusFilter(value: string | null): IncidentStatusFilter {
+  const normalized = (value || "").toUpperCase() as IncidentStatusFilter;
+  return INCIDENT_STATUS_FILTERS.includes(normalized) ? normalized : "ALL";
+}
+
 function matchesStatusFilter(
   rawStatus: string | null | undefined,
-  statusFilter: ValidationStatus
+  statusFilter: IncidentStatusFilter
 ): boolean {
   if (statusFilter === "ALL") return true;
   const s = (rawStatus || "PENDING").toUpperCase();
+  if (statusFilter === "UNAPPROVED") return s !== "APPROVED";
   if (statusFilter === "AWAITING_MAO" || (statusFilter as string) === "CBAT_VERIFIED") return s === "VERIFIED";
   if (statusFilter === "SUBJECT_TO_REVISION") {
     return (
@@ -99,8 +111,11 @@ function DiseaseMortalityContent() {
   // Filter States
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [barangayFilter, setBarangayFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState<ValidationStatus>("ALL");
+  const [barangayFilter, setBarangayFilter] = useState(searchParams.get("barangay") ?? "ALL");
+  const [statusFilter, setStatusFilter] = useState<IncidentStatusFilter>(
+    parseIncidentStatusFilter(searchParams.get("status"))
+  );
+  const [reportMonthFilter, setReportMonthFilter] = useState(searchParams.get("month") ?? "ALL");
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
@@ -111,6 +126,46 @@ function DiseaseMortalityContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
+
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab");
+    startTransition(() => {
+      if (requestedTab === "disease" || requestedTab === "mortality" || requestedTab === "all" || requestedTab === "coverage") {
+        setActiveTab(requestedTab);
+      }
+      setBarangayFilter(searchParams.get("barangay") ?? "ALL");
+      setStatusFilter(parseIncidentStatusFilter(searchParams.get("status")));
+      setReportMonthFilter(searchParams.get("month") ?? "ALL");
+      setCurrentPage(1);
+    });
+  }, [searchParams]);
+
+  const updateFilterParam = (key: string, value: string, defaultValue: string) => {
+    const params = new URLSearchParams(window.location.search);
+    if (value === defaultValue) params.delete(key);
+    else params.set(key, value);
+    const query = params.toString();
+    router.replace(query ? `/disease-mortality?${query}` : "/disease-mortality", { scroll: false });
+  };
+
+  const handleBarangayFilterChange = (value: string) => {
+    setBarangayFilter(value);
+    setCurrentPage(1);
+    updateFilterParam("barangay", value, "ALL");
+  };
+
+  const handleStatusFilterChange = (value: IncidentStatusFilter) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+    updateFilterParam("status", value, "ALL");
+  };
+
+  const handleReportMonthFilterChange = (value: string) => {
+    const nextValue = value || "ALL";
+    setReportMonthFilter(nextValue);
+    setCurrentPage(1);
+    updateFilterParam("month", nextValue, "ALL");
+  };
 
   // Dialog States
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -185,10 +240,12 @@ function DiseaseMortalityContent() {
 
       // Status matching
       const matchStatus = matchesStatusFilter(inc.status, statusFilter);
+      const matchMonth =
+        reportMonthFilter === "ALL" || inc.eventDate?.slice(0, 7) === reportMonthFilter;
 
-      return matchSearch && matchBarangay && matchStatus;
+      return matchSearch && matchBarangay && matchStatus && matchMonth;
     });
-  }, [healthIncidents, activeTab, debouncedSearch, barangayFilter, statusFilter]);
+  }, [healthIncidents, activeTab, debouncedSearch, barangayFilter, statusFilter, reportMonthFilter]);
 
   // Paginated Records
   const totalItems = filteredRecords.length;
@@ -452,7 +509,7 @@ function DiseaseMortalityContent() {
         </div>
 
         {/* ── Top Navigation Tabs (Disease vs Mortality vs All) ── */}
-        <div className="flex items-center justify-between border-b border-slate-200/90 pb-2">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <button
               type="button"
@@ -551,7 +608,7 @@ function DiseaseMortalityContent() {
             <div className="bg-white/95 backdrop-blur-xs p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-12 gap-2.5">
             {/* Search Input */}
-            <div className="relative lg:col-span-6">
+            <div className="relative lg:col-span-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input
                 placeholder="Search tag number, farmer, barangay, symptoms, or cause of death..."
@@ -572,7 +629,7 @@ function DiseaseMortalityContent() {
 
             {/* Barangay Dropdown */}
             <div className="lg:col-span-3">
-              <Select value={barangayFilter} onValueChange={setBarangayFilter}>
+              <Select value={barangayFilter} onValueChange={handleBarangayFilterChange}>
                 <SelectTrigger className="h-9 rounded-xl border-slate-200 text-xs font-semibold bg-slate-50/50">
                   <SelectValue placeholder="All Barangays" />
                 </SelectTrigger>
@@ -589,12 +646,13 @@ function DiseaseMortalityContent() {
 
             {/* Status Dropdown */}
             <div className="lg:col-span-3">
-              <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as ValidationStatus)}>
+              <Select value={statusFilter} onValueChange={(val) => handleStatusFilterChange(val as IncidentStatusFilter)}>
                 <SelectTrigger className="h-9 rounded-xl border-slate-200 text-xs font-semibold bg-slate-50/50">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Status</SelectItem>
+                  <SelectItem value="UNAPPROVED">Unapproved</SelectItem>
                   <SelectItem value="AWAITING_MAO">Awaiting MAO Review</SelectItem>
                   <SelectItem value="VERIFIED">CBAT Verified</SelectItem>
                   <SelectItem value="APPROVED">Certified / Approved</SelectItem>
@@ -602,9 +660,18 @@ function DiseaseMortalityContent() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="lg:col-span-2">
+              <Input
+                type="month"
+                aria-label="Filter records by reporting month"
+                value={reportMonthFilter === "ALL" ? "" : reportMonthFilter}
+                onChange={(event) => handleReportMonthFilterChange(event.target.value)}
+                className="h-9 rounded-xl border-slate-200 bg-slate-50/50 text-xs font-semibold"
+              />
+            </div>
           </div>
 
-          {(debouncedSearch || barangayFilter !== "ALL" || statusFilter !== "ALL") && (
+          {(debouncedSearch || barangayFilter !== "ALL" || statusFilter !== "ALL" || reportMonthFilter !== "ALL") && (
             <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
               <span className="text-[11px] text-slate-500 font-medium">Active filters applied</span>
               <Button
@@ -614,6 +681,14 @@ function DiseaseMortalityContent() {
                   setSearchQuery("");
                   setBarangayFilter("ALL");
                   setStatusFilter("ALL");
+                  setReportMonthFilter("ALL");
+                  setCurrentPage(1);
+                  const params = new URLSearchParams(window.location.search);
+                  params.delete("barangay");
+                  params.delete("status");
+                  params.delete("month");
+                  const query = params.toString();
+                  router.replace(query ? `/disease-mortality?${query}` : "/disease-mortality", { scroll: false });
                 }}
                 className="h-6 text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 rounded-lg"
               >
