@@ -31,7 +31,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { KpiCard } from "@/components/ui/kpi-card";
 import api from "@/lib/axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import {
+  Activity,
   AlertCircle,
   Building,
   Check,
@@ -330,7 +332,17 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {reviewer === "MAO" ? (
+              <Link
+                href="/data-validation?domain=incidents&recordType=INSPECTION"
+                title="Review livestock movement and inspection records"
+                className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-900 shadow-2xs transition-colors hover:bg-emerald-100"
+              >
+                <Activity className="size-3.5" />
+                <span>Movement &amp; Livestock Inspections</span>
+              </Link>
+            ) : null}
             <Button
               variant="outline"
               size="sm"

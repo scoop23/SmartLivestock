@@ -181,7 +181,12 @@ function AdminDataValidationContent() {
     census: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
     production: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
     inventory: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL" },
-    incidents: { searchQuery: "", statusFilter: "ALL", barangayFilter: "ALL", incidentTypeFilter: "ALL" },
+    incidents: {
+      searchQuery: "",
+      statusFilter: "ALL",
+      barangayFilter: "ALL",
+      incidentTypeFilter: requestedRecordType === "INSPECTION" ? "inspection" : "ALL",
+    },
   });
   const [isOverviewCollapsed, setIsOverviewCollapsed] = useState(() =>
     Boolean(requestedDomain || highlightId || highlightTag)
