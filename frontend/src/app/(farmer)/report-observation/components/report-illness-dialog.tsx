@@ -410,7 +410,7 @@ function ReportIllnessDialogContent({
         queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
         toast.success(isEditMode
           ? "Report resubmitted successfully. Your report has been returned to the validation queue."
-          : `${submittedCount} disease report${submittedCount === 1 ? "" : "s"} submitted. SIBAT field officers and MAO have been notified.`);
+          : `${submittedCount} disease report${submittedCount === 1 ? "" : "s"} submitted. CBAT field officers and MAO have been notified.`);
       } else {
         queryClient.invalidateQueries({ queryKey: ["farmer-mortality-records"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-mortality-records"] });
@@ -419,7 +419,7 @@ function ReportIllnessDialogContent({
         queryClient.invalidateQueries({ queryKey: ["farmer-dashboard-analytics"] });
         toast.success(isEditMode
           ? "Mortality report resubmitted successfully. Your report has been returned to the validation queue."
-          : `One mortality report logged for ${submittedCount} animal${submittedCount === 1 ? "" : "s"}. SIBAT and MAO will review the shared incident.`);
+          : `One mortality report logged for ${submittedCount} animal${submittedCount === 1 ? "" : "s"}. CBAT and MAO will review the shared incident.`);
       }
 
       setConditionName(defaultType === "MORTALITY" ? DEFAULT_MORTALITY_CAUSE : "");
@@ -799,7 +799,7 @@ function ReportIllnessDialogContent({
                   <div className="flex-1 min-w-0 text-xs">
                     <p className="font-bold text-slate-900 truncate">{photoName}</p>
                     <p className="text-[11px] text-emerald-700 font-semibold">
-                      Photo attached & ready for SIBAT validation
+                      Photo attached & ready for CBAT validation
                     </p>
                   </div>
                   <Button

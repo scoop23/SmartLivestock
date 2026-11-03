@@ -44,7 +44,7 @@ useReviewClinicalHealth,
 } from "../sibat/sibat-analytics";
 import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
 
-type StatusFilterOption = "Needs Review" | "Returned for Correction" | "Forwarded to MAO" | "MAO Approved";
+type StatusFilterOption = "All statuses" | "Unapproved reports" | "Needs Review" | "Returned for Correction" | "Forwarded to MAO" | "MAO Approved";
 
 function StatusBadge({ status }: { status: SibatStatus }) {
   const s = (status || "PENDING").toUpperCase();
@@ -109,8 +109,15 @@ function SibatAlertsContent() {
   const { user } = useAuth();
 
   // Filter States matching DiseasesPage design basis
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilterOption | null>(null);
+  const [query, setQuery] = useState(() => searchParams.get("search") ?? "");
+  const [statusFilter, setStatusFilter] = useState<StatusFilterOption | null>(() =>
+    searchParams.get("status")?.toUpperCase() === "ALL"
+      ? "All statuses"
+      : searchParams.get("status")?.toUpperCase() === "UNAPPROVED"
+        ? "Unapproved reports"
+        : null
+  );
+  const [reportMonthFilter, setReportMonthFilter] = useState(() => searchParams.get("month") ?? "");
   const [typeFilter, setTypeFilter] = useState<"ALL" | "DISEASE" | "MORTALITY">(() => {
     const p = searchParams.get("recordType")?.toUpperCase() || searchParams.get("type")?.toUpperCase();
     return p === "MORTALITY" ? "MORTALITY" : p === "DISEASE" ? "DISEASE" : "ALL";
@@ -118,17 +125,28 @@ function SibatAlertsContent() {
 
   useEffect(() => {
     const p = searchParams.get("recordType")?.toUpperCase() || searchParams.get("type")?.toUpperCase();
+    const search = searchParams.get("search") ?? "";
+    const statusParam = searchParams.get("status")?.toUpperCase();
+    const month = searchParams.get("month") ?? "";
     startTransition(() => {
       if (p === "MORTALITY" || p === "DISEASE") {
         setTypeFilter(p);
       } else if (p === "ALL") {
         setTypeFilter("ALL");
       }
+      setQuery(search);
+      if (statusParam === "ALL") setStatusFilter("All statuses");
+      else if (statusParam === "UNAPPROVED") setStatusFilter("Unapproved reports");
+      setReportMonthFilter(month);
     });
   }, [searchParams]);
 
   const { records, isLoading, isError } = useClinicalHealthRecords();
   const reviewMutation = useReviewClinicalHealth();
+
+  const handleReportMonthFilterChange = (month: string) => {
+    setReportMonthFilter(month);
+  };
 
   const isCbat = user?.role === "CBAT";
   const needsReviewCount = records.filter(
@@ -272,7 +290,14 @@ function SibatAlertsContent() {
 
       if (!matchSearch) return false;
 
+      if (reportMonthFilter && d.eventDate?.slice(0, 7) !== reportMonthFilter) {
+        return false;
+      }
+
+      if (status === "All statuses") return true;
+
       const s = (d.status || "").toUpperCase();
+      if (status === "Unapproved reports") return s !== "APPROVED";
       if (status === "Needs Review") {
         return s === "PENDING";
       }
@@ -292,7 +317,7 @@ function SibatAlertsContent() {
 
       return s === "APPROVED";
     });
-  }, [records, query, status]);
+  }, [records, query, status, typeFilter, reportMonthFilter]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -301,7 +326,7 @@ function SibatAlertsContent() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [query, typeFilter, status]);
+  }, [query, typeFilter, status, reportMonthFilter]);
 
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -457,7 +482,7 @@ function SibatAlertsContent() {
 
         {/* ── Filter Card ── */}
         <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
-          <CardContent className="flex flex-col items-stretch gap-2.5 p-2.5 sm:flex-row sm:items-center sm:p-3.5">
+          <CardContent className="flex flex-col items-stretch gap-2.5 p-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:p-3.5">
             {/* Search Box */}
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
@@ -509,6 +534,8 @@ function SibatAlertsContent() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="All statuses">All statuses</SelectItem>
+                  <SelectItem value="Unapproved reports">Unapproved reports</SelectItem>
                   <SelectItem value="Needs Review">Needs Review</SelectItem>
                   <SelectItem value="Returned for Correction">Returned for Correction</SelectItem>
                   <SelectItem value="Forwarded to MAO">Forwarded to MAO</SelectItem>
@@ -517,8 +544,18 @@ function SibatAlertsContent() {
               </Select>
             </div>
 
+            <div className="w-full shrink-0 sm:w-36">
+              <Input
+                type="month"
+                aria-label="Filter reports by month"
+                value={reportMonthFilter}
+                onChange={(event) => handleReportMonthFilterChange(event.target.value)}
+                className="h-10 w-full rounded-lg border-slate-200 bg-white text-xs font-bold text-slate-800"
+              />
+            </div>
+
             {/* Secondary actions / reset */}
-            {(query || status !== "Needs Review" || typeFilter !== "ALL") && (
+            {(query || status !== "Needs Review" || typeFilter !== "ALL" || reportMonthFilter) && (
               <Button
                 variant="outline"
                 size="sm"
@@ -526,10 +563,14 @@ function SibatAlertsContent() {
                   setQuery("");
                   setStatus("Needs Review");
                   setTypeFilter("ALL");
+                  setReportMonthFilter("");
                   setCurrentPage(1);
                   const url = new URL(window.location.href);
                   url.searchParams.delete("recordType");
                   url.searchParams.delete("type");
+                  url.searchParams.delete("search");
+                  url.searchParams.delete("status");
+                  url.searchParams.delete("month");
                   router.replace(`${pathname}${url.search}${url.hash}`, { scroll: false });
                 }}
                 className="h-10 rounded-lg text-xs font-bold text-slate-600 gap-1.5 shrink-0"

@@ -101,6 +101,7 @@ export interface SibatValidationRecord {
   name: string;
   reportedCount: number;
   reportedDate: string;
+  eventDate?: string | null;
   reportedAt: string;
   farmerSymptoms: string[];
   farmerDescription: string;
@@ -376,8 +377,8 @@ function MortalityReadOnlyDetails({
           <div className="space-y-2.5 border-slate-200 lg:border-l lg:pl-4">
             <h4 className="font-bold text-slate-900">Field Observations</h4>
             <div>
-              <p className="mb-1 text-xs font-semibold text-slate-600">Signs observed before death</p>
-              <p className="text-sm text-slate-800">{inspection?.confirmedSymptoms?.length ? inspection.confirmedSymptoms.join(", ") : "None recorded"}</p>
+              <p className="mb-1 text-xs font-semibold text-slate-600">Farmer/witness-reported signs before death</p>
+              <p className="text-sm text-slate-800">{inspection?.confirmedSymptoms?.length ? inspection.confirmedSymptoms.join(", ") : "Not recorded / unknown"}</p>
             </div>
             <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800">{inspection?.remarks || "No field observations recorded."}</p>
             <div className="flex flex-wrap gap-2 text-xs font-bold">
@@ -901,7 +902,7 @@ function SibatInspectionDialogContent({
                 </DialogTitle>
                 <p className="mt-0.5 text-xs text-blue-100 leading-snug sm:text-sm">
                   {isMortality
-                    ? "Record signs observed before death, verify the animal and count, and document carcass biosecurity actions for MAO review."
+                    ? "Record only signs reported by the farmer or a witness (if known), verify the dead animal and count, and document carcass biosecurity actions for MAO review."
                     : "Record clinically observed signs, verify the animal and count, and document biosecurity actions for MAO review."}
                 </p>
               </div>
@@ -1470,7 +1471,7 @@ function SibatInspectionDialogContent({
                       {isRevision
                         ? `Edit or add the missing information requested by the ${reviewerRoleName}.`
                         : isMortality
-                          ? "Record signs reported before death, verify ear tag and physical count, and document carcass disposal actions."
+                    ? "Record farmer- or witness-reported signs only (if known), verify the ear tag and physical count, and document carcass disposal actions."
                           : "Verify physical ear tag and count on-site, record clinical signs, body temperature, and biosecurity actions."}
                     </p>
                   </div>
@@ -1698,7 +1699,7 @@ function SibatInspectionDialogContent({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-black text-slate-800 block">
-                    {isMortality ? "Signs Observed Before Death" : "Clinically Observed Signs"} {selectedHeadTag !== "ALL" ? `for Tag #${selectedHeadTag}` : isReadOnly ? "(Recorded)" : "(Click to toggle)"}:
+                    {isMortality ? "Farmer/Witness-Reported Signs Before Death" : "Clinically Observed Signs"} {selectedHeadTag !== "ALL" ? `for Tag #${selectedHeadTag}` : isReadOnly ? "(Recorded)" : "(Click to toggle)"}:
                   </label>
                   {selectedHeadTag !== "ALL" && (
                     <span className="text-[10px] font-bold text-sky-800 bg-sky-100 px-2 py-0.5 rounded-full">
@@ -2109,7 +2110,7 @@ function SibatInspectionDialogContent({
                   {/* Clinically Observed Signs */}
                   <div className="pt-1 border-t border-sky-100">
                     <span className="text-[10px] text-slate-500 font-bold block uppercase mb-1">
-                      {isMortality ? "Observed Signs Before Death" : "Clinically Observed Signs"}
+                      {isMortality ? "Farmer/Witness-Reported Signs Before Death" : "Clinically Observed Signs"}
                     </span>
                     {activeSymptoms.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
