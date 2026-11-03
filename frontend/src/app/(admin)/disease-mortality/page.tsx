@@ -661,6 +661,7 @@ function DiseaseMortalityContent() {
               onViewDetail={(data) => setRecordDetailModal({ open: true, data })}
               onReview={openReviewSingle}
               onReviewHealth={(record) => setHealthReviewDialog({ open: true, record })}
+              showCheckbox={false}
             />
           )}
         </DataTableSection>

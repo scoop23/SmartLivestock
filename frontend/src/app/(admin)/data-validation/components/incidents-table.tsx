@@ -43,22 +43,24 @@ function getIncidentStatusPill(incident: ValidationIncidentItem) {
 
 interface IncidentsTableProps {
   records: ValidationIncidentItem[];
-  selectedIds: (string | number)[];
-  onToggleSelect: (id: string | number) => void;
-  onSelectAll: (checked: boolean) => void;
+  selectedIds?: (string | number)[];
+  onToggleSelect?: (id: string | number) => void;
+  onSelectAll?: (checked: boolean) => void;
   onViewDetail: (detail: DetailRecordData) => void;
   onReview: (target: ReviewTargetItem) => void;
   onReviewHealth?: (record: ValidationIncidentItem) => void;
+  showCheckbox?: boolean;
 }
 
 export function IncidentsTable({
   records,
-  selectedIds,
-  onToggleSelect,
-  onSelectAll,
+  selectedIds = [],
+  onToggleSelect = () => {},
+  onSelectAll = () => {},
   onViewDetail,
   onReview,
   onReviewHealth,
+  showCheckbox = true,
 }: IncidentsTableProps) {
   const reviewableRecords = records.filter(
     (record) => (record.status || "PENDING").toUpperCase() === "VERIFIED" ||
@@ -130,13 +132,15 @@ export function IncidentsTable({
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 border-b border-gray-100">
-                <TableHead className="w-14 px-6 py-5 text-center">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={(checked) => onSelectAll(Boolean(checked))}
-                    className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
-                  />
-                </TableHead>
+                {showCheckbox && (
+                  <TableHead className="w-14 px-6 py-5 text-center">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={(checked) => onSelectAll(Boolean(checked))}
+                      className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
+                    />
+                  </TableHead>
+                )}
                 <TableHead className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                   Event / Declaration Type
                 </TableHead>
@@ -199,14 +203,16 @@ export function IncidentsTable({
                         isSelected ? "bg-green-50/40" : ""
                       }`}
                     >
-                      <TableCell className="px-6 py-5 text-center">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => onToggleSelect(inc.id)}
-                          disabled={!canReview}
-                          className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
-                        />
-                      </TableCell>
+                      {showCheckbox && (
+                        <TableCell className="px-6 py-5 text-center">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => onToggleSelect(inc.id)}
+                            disabled={!canReview}
+                            className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27]"
+                          />
+                        </TableCell>
+                      )}
 
                       <TableCell className="px-8 py-5">
                         <div className="flex items-center gap-3.5">
@@ -356,7 +362,7 @@ export function IncidentsTable({
 
       {/* ── MOBILE CARD LIST VIEW (under md) ── */}
       <div className="md:hidden space-y-3">
-        {records.length > 0 && (
+        {showCheckbox && records.length > 0 && (
           <div className="flex items-center justify-between px-2.5 py-1">
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
               <div className="-m-2 p-2 flex items-center justify-center">
@@ -414,20 +420,22 @@ export function IncidentsTable({
                 {/* Header Row */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="-m-2 p-2 flex items-center justify-center cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (canReview) onToggleSelect(inc.id);
-                      }}
-                    >
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => onToggleSelect(inc.id)}
-                        disabled={!canReview}
-                        className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27] shrink-0"
-                      />
-                    </div>
+                    {showCheckbox && (
+                      <div
+                        className="-m-2 p-2 flex items-center justify-center cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (canReview) onToggleSelect(inc.id);
+                        }}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => onToggleSelect(inc.id)}
+                          disabled={!canReview}
+                          className="rounded-md border-gray-300 data-[state=checked]:bg-[#2D5A27] data-[state=checked]:border-[#2D5A27] shrink-0"
+                        />
+                      </div>
+                    )}
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconStyle.bg}`}
                     >
