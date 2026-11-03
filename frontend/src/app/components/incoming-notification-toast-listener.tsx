@@ -23,6 +23,27 @@ interface IncomingNotificationsResponse {
   unread_count?: number;
 }
 
+const SESSION_SEEN_KEY = "smartlivestock_seen_toast_notifs";
+
+function getSessionSeenIds(): Set<number> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = sessionStorage.getItem(SESSION_SEEN_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveSessionSeenIds(ids: Set<number>) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(SESSION_SEEN_KEY, JSON.stringify(Array.from(ids)));
+  } catch {
+    // ignore
+  }
+}
+
 export function IncomingNotificationToastListener() {
   const { user } = useAuth();
   const router = useRouter();
@@ -72,24 +93,57 @@ export function IncomingNotificationToastListener() {
     if (!data) return;
 
     // On initial sign-in / fresh page load:
-    // Establish the baseline so notifications that arrived before the user
-    // entered the site do NOT pop up as toasts. Only notifications that arrive
-    // in real-time while the user is actively inside the site will trigger popups.
+    // Surface recent unread notifications that haven't been shown yet in this session,
+    // so incoming items immediately come up for Admin / CBAT on login or navigation.
     if (!hasBaseline.current) {
       hasBaseline.current = true;
       lastDataUpdatedAt.current = dataUpdatedAt;
+
+      const sessionSeen = getSessionSeenIds();
+      const unreadToShow = data.notifications
+        .filter((n) => !n.is_read && !seenNotificationIds.current.has(n.id) && !sessionSeen.has(n.id))
+        .slice(0, 2);
+
       data.notifications.forEach(({ id }) => seenNotificationIds.current.add(id));
+
+      unreadToShow.forEach((notification) => {
+        sessionSeen.add(notification.id);
+        saveSessionSeenIds(sessionSeen);
+
+        const title = notification.title?.trim();
+        const message = notification.message?.trim();
+        if (!title && !message) return;
+
+        toast.info(title || "New notification", {
+          id: `incoming-notification-${notification.id}`,
+          description: message,
+          duration: 9000,
+          toasterId: "incoming-notifications",
+          action: notification.link
+            ? {
+                label: "View",
+                onClick: () => router.push(notification.link!),
+              }
+            : undefined,
+        });
+      });
       return;
     }
 
     if (dataUpdatedAt <= lastDataUpdatedAt.current) return;
     lastDataUpdatedAt.current = dataUpdatedAt;
 
+    const sessionSeen = getSessionSeenIds();
     const newlyReceived = data.notifications.filter(
-      ({ id }) => !seenNotificationIds.current.has(id)
+      ({ id }) => !seenNotificationIds.current.has(id) && !sessionSeen.has(id)
     );
 
-    data.notifications.forEach(({ id }) => seenNotificationIds.current.add(id));
+    data.notifications.forEach(({ id }) => {
+      seenNotificationIds.current.add(id);
+      sessionSeen.add(id);
+    });
+    saveSessionSeenIds(sessionSeen);
+
     newlyReceived.forEach((notification) => {
       const title = notification.title?.trim();
       const message = notification.message?.trim();
