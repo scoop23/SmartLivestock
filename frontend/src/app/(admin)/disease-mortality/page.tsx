@@ -61,7 +61,7 @@ function matchesStatusFilter(
 ): boolean {
   if (statusFilter === "ALL") return true;
   const s = (rawStatus || "PENDING").toUpperCase();
-  if (statusFilter === "AWAITING_MAO") return s === "VERIFIED";
+  if (statusFilter === "AWAITING_MAO" || (statusFilter as string) === "CBAT_VERIFIED") return s === "VERIFIED";
   if (statusFilter === "SUBJECT_TO_REVISION") {
     return (
       s === "SUBJECT_TO_REVISION" ||
@@ -240,7 +240,7 @@ function DiseaseMortalityContent() {
       }));
 
     if (targets.length === 0) {
-      toast.info("Please select SIBAT-verified records ready for MAO certification.");
+      toast.info("Please select CBAT-verified records ready for MAO certification.");
       return;
     }
 
@@ -420,7 +420,7 @@ function DiseaseMortalityContent() {
                 </span>
                 <span className="text-[10px] text-sky-700 font-bold bg-sky-50 px-2 py-0.5 rounded-md inline-flex items-center gap-1 mt-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping" />
-                  SIBAT Verified
+                  CBAT Verified
                 </span>
               </div>
               <div className="size-11 rounded-2xl bg-gradient-to-br from-sky-100 to-sky-50 text-sky-800 flex items-center justify-center shrink-0 border border-sky-200 shadow-2xs">
@@ -576,7 +576,7 @@ function DiseaseMortalityContent() {
                 <SelectContent>
                   <SelectItem value="ALL">All Status</SelectItem>
                   <SelectItem value="AWAITING_MAO">Awaiting MAO Review</SelectItem>
-                  <SelectItem value="VERIFIED">SIBAT Verified</SelectItem>
+                  <SelectItem value="VERIFIED">CBAT Verified</SelectItem>
                   <SelectItem value="APPROVED">Certified / Approved</SelectItem>
                   <SelectItem value="SUBJECT_TO_REVISION">Revision Required</SelectItem>
                 </SelectContent>

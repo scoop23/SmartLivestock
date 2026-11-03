@@ -26,7 +26,7 @@ const STATUS_FILTERS = [
   { id: "ALL", label: "All Records", dotClass: "bg-slate-400" },
   { id: "PENDING", label: "Awaiting SIBAT", dotClass: "bg-amber-500" },
   { id: "AWAITING_MAO", label: "Awaiting MAO", dotClass: "bg-indigo-500" },
-  { id: "VERIFIED", label: "SIBAT Verified", dotClass: "bg-sky-500" },
+  { id: "VERIFIED", label: "CBAT Verified", dotClass: "bg-sky-500" },
   { id: "APPROVED", label: "MAO Approved", dotClass: "bg-emerald-500" },
   { id: "SUBJECT_TO_REVISION", label: "Revision Required", dotClass: "bg-rose-500" },
 ] as const;

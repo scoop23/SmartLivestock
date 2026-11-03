@@ -916,7 +916,7 @@ function AdminBatchesDrilldownContent() {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300">
           <ShieldCheck className="w-3 h-3 text-sky-600" />
-          All animals SIBAT verified
+          All animals CBAT verified
         </span>
       );
     }
@@ -950,7 +950,7 @@ function AdminBatchesDrilldownContent() {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300">
           <ShieldCheck className="w-3 h-3 text-sky-600" />
-          SIBAT Verified
+          CBAT Verified
         </span>
       );
     }
@@ -1231,7 +1231,7 @@ function AdminBatchesDrilldownContent() {
                   <SelectItem value="ALL">All Statuses</SelectItem>
                   <SelectItem value="APPROVED">MAO Approved ({kpis.approvedAnimals})</SelectItem>
                   <SelectItem value="PENDING">Awaiting SIBAT ({kpis.pendingAnimals})</SelectItem>
-                  <SelectItem value="VERIFIED">SIBAT Verified ({kpis.verifiedAnimals})</SelectItem>
+                  <SelectItem value="VERIFIED">CBAT Verified ({kpis.verifiedAnimals})</SelectItem>
                   <SelectItem value="SUBJECT_TO_REVISION">Revision Required ({kpis.revisionAnimals})</SelectItem>
                 </SelectContent>
               </Select>

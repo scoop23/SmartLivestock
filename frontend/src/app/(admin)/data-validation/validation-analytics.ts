@@ -20,7 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 
 export type ValidationDomain = "census" | "production" | "inventory" | "incidents";
 
-export type ValidationStatus = "ALL" | "PENDING" | "AWAITING_MAO" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
+export type ValidationStatus = "ALL" | "PENDING" | "AWAITING_MAO" | "VERIFIED" | "CBAT_VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
 
 export interface ValidationDomainConfig {
   id: ValidationDomain;
@@ -601,9 +601,10 @@ export function getStatusPill(status: string) {
         dot: "bg-rose-500",
       };
     case "VERIFIED":
+    case "CBAT_VERIFIED":
       return {
-        label: "SIBAT Verified",
-        shortLabel: "SIBAT Verified",
+        label: "CBAT Verified",
+        shortLabel: "CBAT Verified",
         bg: "bg-sky-50 text-sky-700 border-sky-200/80",
         dot: "bg-sky-500",
       };

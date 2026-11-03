@@ -463,7 +463,7 @@ export function IncidentsTable({
 
                 {(inc.status === "VERIFIED" || statusPill.label.includes("Verified")) && inc.reviewedBy && (
                   <div className="text-[10px] text-sky-800 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100 flex items-center justify-between">
-                    <span className="font-bold">Verified by SIBAT Officer</span>
+                    <span className="font-bold">Verified by CBAT Officer</span>
                     <span className="font-mono font-bold">{inc.reviewedBy}</span>
                   </div>
                 )}

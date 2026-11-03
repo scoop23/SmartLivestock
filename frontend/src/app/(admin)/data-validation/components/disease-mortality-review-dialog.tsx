@@ -156,7 +156,7 @@ export function DiseaseMortalityReviewDialog({
                   </Badge>
                   {isSibatVerified && (
                     <Badge className="bg-sky-100 text-sky-800 border-sky-300 font-black text-[10px] uppercase">
-                      Step 2 Complete: SIBAT Verified
+                      Step 2 Complete: CBAT Verified
                     </Badge>
                   )}
                   {isFmdSuspected ? (
