@@ -57,6 +57,7 @@ import {
   QrCode,
   Shield,
   ShieldPlus,
+  Settings2,
   Sparkles,
   Stethoscope,
   TrendingUp,
@@ -194,10 +195,12 @@ const sibatLinks: SidebarLink[] = [
 
 const auctionLinks: SidebarLink[] = [
   { path: '/auction', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/auction-analytics', label: 'Market Analytics', icon: BarChart3 },
   { path: '/auction-gate', label: 'Gate Check', icon: QrCode },
-  { path: '/auction-ownership-transfers', label: 'Record Transfer', icon: FileText, exactMatch: true },
+
   { path: '/auction-ownership-transfers/registry', label: 'Transfer Records', icon: ClipboardCheck },
   { path: '/auction-inspections', label: 'Intake Logs', icon: ClipboardCheck },
+
   { path: '/auction-gis', label: 'Movement Map', icon: Map },
   { path: '/auction-announcement', label: 'Announcements', icon: Newspaper },
 ];
@@ -264,6 +267,7 @@ function SidebarNav({
 }) {
   const { user } = useAuth();
   const isCbatUser = user?.role?.toUpperCase() === 'CBAT';
+  const canManageSystemSettings = ['MAO', 'ADMIN'].includes(user?.role?.toUpperCase() ?? '');
   const roleBadge = getRoleBadge(role);
 
   const userDisplayName = user?.firstName
@@ -377,7 +381,10 @@ function SidebarNav({
               return pathname === sBase || pathname.startsWith(sBase + "/");
             })
           );
-          const isActive = isExactActive || isChildActive || (
+          const isAuctionTransferActive =
+            link.path === '/auction-ownership-transfers/registry' &&
+            pathname.startsWith('/auction-ownership-transfers');
+          const isActive = isExactActive || isChildActive || isAuctionTransferActive || (
             !hasSubLinks &&
             !link.exactMatch &&
             link.path !== '/admin' &&
@@ -393,7 +400,7 @@ function SidebarNav({
                 <div
                   className={cn(
                     "group relative flex items-center justify-between px-3.5 py-2.5 rounded-2xl font-semibold transition-all duration-200 cursor-pointer select-none",
-                    role === "sibat" || role === "farmer" ? "min-h-14 py-3 text-base" : "py-2.5 text-sm",
+                    role === "sibat" ? "min-h-14 py-3 text-base" : "py-2.5 text-sm",
                     isActive && !isDropdownOpen
                       ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs scale-[1.01]"
                       : "text-emerald-100/75 hover:bg-white/10 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
@@ -440,7 +447,7 @@ function SidebarNav({
                             tabIndex={isDropdownOpen ? 0 : -1}
                             className={cn(
                               "flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200",
-                              role === "sibat" || role === "farmer" ? "py-2.5 text-sm" : "py-2 text-xs",
+                              role === "sibat" ? "py-2.5 text-sm" : "py-2 text-xs",
                               isSubActive
                                 ? "bg-emerald-500/25 text-white font-bold border border-emerald-400/30 shadow-xs scale-[1.01]"
                                 : "text-emerald-100/70 hover:bg-white/10 hover:text-white hover:translate-x-1"
@@ -480,7 +487,7 @@ function SidebarNav({
               className={cn(
                 "group relative flex items-center rounded-2xl font-semibold transition-all duration-200 select-none",
                 collapsed ? "justify-center gap-0 px-0 py-3" : "gap-3 px-3.5 py-2.5",
-                role === "sibat" || role === "farmer" ? "min-h-14 py-3 text-base" : "py-2.5 text-sm",
+                role === "sibat" ? "min-h-14 py-3 text-base" : "py-2.5 text-sm",
                 isActive
                   ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs scale-[1.01]"
                   : "text-emerald-100/75 hover:bg-white/10 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
@@ -708,6 +715,25 @@ function SidebarNav({
                   <span className="text-[10px] text-slate-400 font-normal">SMS biosecurity & emails</span>
                 </div>
               </Link>
+
+              {canManageSystemSettings && (
+                <Link
+                  href="/system-settings"
+                  onClick={() => {
+                    setProfilePopoverOpen(false);
+                    onNavigate?.();
+                  }}
+                  className="flex min-h-11 items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-950 hover:bg-emerald-50 transition-colors group cursor-pointer"
+                >
+                  <div className="size-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-700 group-hover:text-white transition-colors">
+                    <Settings2 className="size-3.5" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span>System Settings</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Municipal options & notifications</span>
+                  </div>
+                </Link>
+              )}
 
               <button
                 type="button"
