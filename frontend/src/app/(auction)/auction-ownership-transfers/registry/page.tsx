@@ -38,11 +38,9 @@ import api from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
-  Activity,
   BarChart2,
   Calendar,
   Check,
-  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -57,7 +55,6 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
-  Sparkles,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -128,22 +125,25 @@ export default function AuctionOwnershipTransferRegistryPage() {
   const itemsPerPage = 6;
   const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
 
-  // Realtime clock
-  const [clock, setClock] = useState({
-    date: "Oct 27, 2026",
-    time: "7:32 PM",
-  });
+  // Live real-time clock updating every second (Manila PHT — matching admin)
+  const [clockString, setClockString] = useState<string>("");
 
   useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      setClock({
-        date: now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-        time: now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
-      });
+    const formatter = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    const updateTime = () => {
+      setClockString(`${formatter.format(new Date())} PHT`);
     };
-    update();
-    const interval = setInterval(update, 1000);
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -199,7 +199,7 @@ export default function AuctionOwnershipTransferRegistryPage() {
         { name: "Cattle", value: 0, percentage: "0%", color: "#10B981" },
         { name: "Swine", value: 0, percentage: "0%", color: "#F472B6" },
         { name: "Goat", value: 0, percentage: "0%", color: "#FBBF24" },
-        { name: "Carabao", value: 0, percentage: "0%", color: "#8B5CF6" },
+        { name: "Carabao", value: 0, percentage: "0%", color: "#047857" },
       ];
     }
 
@@ -209,7 +209,7 @@ export default function AuctionOwnershipTransferRegistryPage() {
       counts[type] = (counts[type] || 0) + 1;
     });
 
-    const palette = ["#10B981", "#F472B6", "#FBBF24", "#8B5CF6", "#06B6D4", "#64748B"];
+    const palette = ["#10B981", "#F472B6", "#FBBF24", "#047857", "#06B6D4", "#64748B"];
     const total = rawData.length;
 
     return Object.entries(counts).map(([name, count], index) => ({
@@ -289,7 +289,7 @@ export default function AuctionOwnershipTransferRegistryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-16">
+    <div className="min-h-screen bg-transparent pb-16">
       {/* Top Banner Header: Dark Forest Green with Cattle Watermark */}
       <div className="relative overflow-hidden bg-[#073827] text-white">
         <div
@@ -325,12 +325,11 @@ export default function AuctionOwnershipTransferRegistryPage() {
               <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
             </Button>
             <HeaderNotifications variant="auction" />
-            <div className="flex items-center gap-3 bg-white/10 hover:bg-white/15 transition-colors border border-white/20 rounded-2xl px-4 py-2 text-white shadow-xs backdrop-blur-xs">
-              <Calendar className="size-5 text-emerald-200 shrink-0" />
-              <div className="flex flex-col text-left">
-                <span className="text-xs font-bold leading-tight tracking-wide">{clock.date}</span>
-                <span className="text-[11px] font-medium text-emerald-200/90 leading-tight">{clock.time}</span>
-              </div>
+            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-white/90 bg-white/10 hover:bg-white/15 transition-colors border border-white/20 rounded-xl px-3 py-2 shadow-xs backdrop-blur-xs">
+              <Clock className="size-3.5 text-emerald-300" />
+              <span className="tabular-nums font-bold">
+                {clockString || "Loading Manila time…"}
+              </span>
             </div>
           </div>
         </div>
@@ -345,11 +344,7 @@ export default function AuctionOwnershipTransferRegistryPage() {
               SmartLivestock
             </Link>
             <span className="text-slate-400">/</span>
-            <Link href="/auction-ownership-transfers" className="hover:text-slate-800 transition-colors">
-              Ownership Transfers
-            </Link>
-            <span className="text-slate-400">/</span>
-            <span className="text-slate-900 font-bold">Registry Records</span>
+            <span className="text-slate-900 font-bold">Transfer Records</span>
           </div>
 
           <Button
@@ -531,7 +526,7 @@ export default function AuctionOwnershipTransferRegistryPage() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           {/* Search Input */}
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none z-10" />
             <Input
               value={search}
               onChange={(e) => {
@@ -539,7 +534,7 @@ export default function AuctionOwnershipTransferRegistryPage() {
                 setCurrentPage(1);
               }}
               placeholder="Search seller, buyer, tag number, or certificate number..."
-              className="pl-10 h-10 bg-white/95 backdrop-blur-xs border-slate-200/90 rounded-xl text-xs placeholder:text-slate-400 focus-visible:ring-emerald-500 shadow-holo-card"
+              className="pl-10 h-10 bg-white border-slate-200/90 rounded-xl text-xs placeholder:text-slate-400 focus-visible:ring-emerald-500 shadow-holo-card"
             />
           </div>
 

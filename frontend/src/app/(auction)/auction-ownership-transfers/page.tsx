@@ -34,6 +34,7 @@ import {
   BookOpen,
   Calendar,
   CheckCircle2,
+  Clock,
   FileCheck,
   FileText,
   Info,
@@ -139,23 +140,26 @@ export default function AuctionOwnershipTransfersPage() {
   const [outsideLivestock, setOutsideLivestock] = useState(false);
   const [showUserGuide, setShowUserGuide] = useState(false);
 
-  // Realtime clock display in header
-  const [clock, setClock] = useState({
-    date: "Oct 27, 2026",
-    time: "7:32 PM",
-  });
+  // Live real-time clock updating every second (Manila PHT — matching admin)
+  const [clockString, setClockString] = useState<string>("");
 
   useEffect(() => {
-    const updateClock = () => {
-      const now = new Date();
-      setClock({
-        date: now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-        time: now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
-      });
+    const formatter = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    const updateTime = () => {
+      setClockString(`${formatter.format(new Date())} PHT`);
     };
-    updateClock();
-    const timer = setInterval(updateClock, 1000);
-    return () => clearInterval(timer);
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -384,7 +388,7 @@ export default function AuctionOwnershipTransfersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-16">
+    <div className="min-h-screen bg-transparent pb-16">
       {/* Top Banner Header: Dark Forest Green with Cattle Watermark */}
       <div className="relative overflow-hidden bg-[#073827] text-white">
         <div
@@ -405,12 +409,11 @@ export default function AuctionOwnershipTransfersPage() {
 
           <div className="flex items-center gap-3 shrink-0">
             <HeaderNotifications variant="auction" />
-            <div className="flex items-center gap-3 bg-white/10 hover:bg-white/15 transition-colors border border-white/20 rounded-2xl px-4 py-2 text-white shadow-xs backdrop-blur-xs">
-              <Calendar className="size-5 text-emerald-200 shrink-0" />
-              <div className="flex flex-col text-left">
-                <span className="text-xs font-bold leading-tight tracking-wide">{clock.date}</span>
-                <span className="text-[11px] font-medium text-emerald-200/90 leading-tight">{clock.time}</span>
-              </div>
+            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-white/90 bg-white/10 hover:bg-white/15 transition-colors border border-white/20 rounded-xl px-3 py-2 shadow-xs backdrop-blur-xs">
+              <Clock className="size-3.5 text-emerald-300" />
+              <span className="tabular-nums font-bold">
+                {clockString || "Loading Manila time…"}
+              </span>
             </div>
           </div>
         </div>
@@ -424,7 +427,11 @@ export default function AuctionOwnershipTransfersPage() {
             SmartLivestock
           </Link>
           <span className="text-slate-400">/</span>
-          <span className="text-slate-900 font-bold">Ownership Transfers</span>
+          <Link href="/auction-ownership-transfers/registry" className="hover:text-slate-800 transition-colors">
+            Transfer Records
+          </Link>
+          <span className="text-slate-400">/</span>
+          <span className="text-slate-900 font-bold">Record Transfer</span>
         </div>
 
         {/* Action Buttons Row */}
@@ -435,9 +442,9 @@ export default function AuctionOwnershipTransfersPage() {
             size="sm"
             className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-3.5 rounded-xl shadow-xs gap-1.5"
           >
-            <Link href="/auction">
+            <Link href="/auction-ownership-transfers/registry">
               <ArrowLeft className="size-4" />
-              Back to Auction
+              Back to Transfer Records
             </Link>
           </Button>
 
@@ -453,9 +460,9 @@ export default function AuctionOwnershipTransfersPage() {
           </Button>
         </div>
 
-        {/* Purple Callout Card */}
-        <div className="rounded-2xl border border-[#E9DDFD] bg-[#F8F5FF] p-4 flex items-center gap-3.5 shadow-xs">
-          <div className="shrink-0 rounded-xl bg-[#EDE4FF] text-[#7C3AED] p-2.5 flex items-center justify-center">
+        {/* Emerald Callout Card */}
+        <div className="rounded-2xl border border-[#D4F1E1] bg-[#F0FAF4] p-4 flex items-center gap-3.5 shadow-xs">
+          <div className="shrink-0 rounded-xl bg-[#E3F6EC] text-[#0F5A38] p-2.5 flex items-center justify-center">
             <ArrowLeftRight className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
@@ -1203,7 +1210,7 @@ export default function AuctionOwnershipTransfersPage() {
         <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="shrink-0 rounded-xl bg-[#EDE4FF] text-[#7C3AED] p-2 flex items-center justify-center">
+              <div className="shrink-0 rounded-xl bg-[#E3F6EC] text-[#0F5A38] p-2 flex items-center justify-center">
                 <FileText className="size-5" />
               </div>
               <div>
@@ -1217,7 +1224,7 @@ export default function AuctionOwnershipTransfersPage() {
             </div>
             <Link
               href="/auction-ownership-transfers/registry"
-              className="text-xs font-bold text-[#7C3AED] hover:text-[#6D28D9] flex items-center gap-1 group transition-colors"
+              className="text-xs font-bold text-[#0F5A38] hover:text-[#0c482d] flex items-center gap-1 group transition-colors"
             >
               <span>View All Records</span>
               <ArrowRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -1336,12 +1343,12 @@ export default function AuctionOwnershipTransfersPage() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-purple-200 bg-purple-50/50 p-3 space-y-1">
-              <p className="font-bold text-purple-950 flex items-center gap-1.5">
-                <Info className="size-4 text-purple-700" />
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 space-y-1">
+              <p className="font-bold text-emerald-950 flex items-center gap-1.5">
+                <Info className="size-4 text-emerald-700" />
                 Step 3: Verification & Official Record
               </p>
-              <p className="text-[11px] text-purple-900">
+              <p className="text-[11px] text-emerald-900">
                 Click <strong>Record animals</strong>. Once recorded, the transfer is submitted to MAO for approval, updating the official registry and livestock inventory upon confirmation.
               </p>
             </div>
