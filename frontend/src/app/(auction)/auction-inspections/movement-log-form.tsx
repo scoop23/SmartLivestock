@@ -2,16 +2,22 @@
 
 import { LivestockIdentityResult } from "@/components/livestock-identity-result";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import axios from "axios";
-import { AlertCircle,ArrowLeft,ClipboardCheck,Loader2,Plus,QrCode,Save,Search,Trash2 } from "lucide-react";
+import { AlertCircle,ArrowLeft,CheckCircle2,Loader2,Plus,QrCode,Save,Search,Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect,useMemo,useRef,useState } from "react";
 import { createInspection,InspectionRecord,lookupRegisteredLivestock,RegisteredAnimalOption,RegisteredShipperOption,searchRegisteredShippers,updateInspection } from "./auction-analytics";
 import { MovementLivestockQrDialog } from "./movement-livestock-qr-dialog";
-import { AuctionTelemetryBanner } from "@/app/components/auction-telemetry-banner";
 
 interface NewInspectionFormProps {
   onSubmitSuccess: () => void;
@@ -89,6 +95,8 @@ export function NewInspectionForm({
   const [handlerLicense, setHandlerLicense] = useState(inspectionToEdit?.livestock_handler_license_no || "");
   const [speciesOptions, setSpeciesOptions] = useState<LivestockTypeOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSubmitConfirmation, setShowSubmitConfirmation] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [lookupCodes, setLookupCodes] = useState<string[]>([]);
   const [lookupIndex, setLookupIndex] = useState<number | null>(null);
@@ -364,8 +372,13 @@ export function NewInspectionForm({
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+    setShowSubmitConfirmation(true);
+  };
+
+  const submitInspection = async () => {
     setIsSubmitting(true);
     setErrorMsg(null);
 
@@ -401,19 +414,8 @@ export function NewInspectionForm({
       }
 
       onSubmitSuccess();
-      router.replace("/auction-inspections");
-
-      // Reset Form
-      setShipperName("");
-      setShipperId(null);
-      setShipperOptions([]);
-      setSelectedAnimals([]);
-      setShipperAddress("");
-      setOrigin("");
-      setDestination("");
-      setPlateNumber("");
-      setHandlerLicense("");
-      setItems(createInitialItems(speciesOptions[0]?.id || 0));
+      setShowSubmitConfirmation(false);
+      setSubmitted(true);
     } catch (err: unknown) {
       const respData = axios.isAxiosError(err) ? err.response?.data as Record<string, unknown> | undefined : undefined;
       if (typeof respData === "object" && respData !== null) {
@@ -423,10 +425,33 @@ export function NewInspectionForm({
       } else {
         setErrorMsg("Failed to save the auction record. Please check your connection.");
       }
+      setShowSubmitConfirmation(false);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (submitted) {
+    return (
+      <main className="mx-auto flex min-h-[60vh] w-full max-w-3xl items-center justify-center px-4 py-10 sm:px-6">
+        <section role="status" aria-live="polite" className="w-full rounded-3xl border border-emerald-200 bg-white p-8 text-center shadow-lg sm:p-10">
+          <div className="mx-auto flex size-20 animate-[bounce_700ms_ease-in-out_1] items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+            <CheckCircle2 className="size-11" />
+          </div>
+          <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Submission complete</p>
+          <h1 className="mt-2 text-2xl font-black text-slate-950">{inspectionToEdit ? "Correction sent to MAO" : "Movement log sent to MAO"}</h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
+            {inspectionToEdit
+              ? "Your corrected movement details are now waiting for MAO review."
+              : "Your movement details are now waiting for MAO review. You can check their status in the movement logs."}
+          </p>
+          <Button type="button" onClick={() => router.replace("/auction-inspections")} className="mt-7 min-h-11 rounded-xl bg-[#0F5A38] px-6 font-bold text-white hover:bg-[#0c482d]">
+            Back to movement logs
+          </Button>
+        </section>
+      </main>
+    );
+  }
 
   if (draftStatus === "checking") {
     return <main className="mx-auto flex min-h-[60vh] max-w-3xl items-center justify-center p-5 text-sm font-semibold text-slate-500">Checking for a saved movement log…</main>;
@@ -450,20 +475,10 @@ export function NewInspectionForm({
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      <AuctionTelemetryBanner className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 mb-6" />
       <div className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <Button type="button" variant="ghost" onClick={cancelForm} className="-ml-3 mb-3 min-h-10 gap-2 px-3 text-slate-600">
-            <ArrowLeft className="size-4" /> Back to movement logs
-          </Button>
-          <div className="flex items-center gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800"><ClipboardCheck className="size-5" /></span>
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{inspectionToEdit ? "Correct Movement Log" : "New Movement Log"}</h1>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Record livestock entering or moving through the auction house. Registered livestock can be found by tag or QR; external livestock can be entered manually.</p>
-            </div>
-          </div>
-        </div>
+        <Button type="button" variant="ghost" onClick={cancelForm} className="-ml-3 min-h-10 gap-2 px-3 text-slate-600">
+          <ArrowLeft className="size-4" /> Back to movement logs
+        </Button>
         {!inspectionToEdit && (
           <div aria-live="polite" className="flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
             {draftStatus === "saving" ? <><Save className="size-3.5 animate-pulse" /> Saving draft…</> : draftStatus === "error" ? <><AlertCircle className="size-3.5 text-rose-600" /> Local draft could not be saved</> : <><Save className="size-3.5 text-emerald-600" /> Draft saved locally</>}
@@ -764,6 +779,31 @@ export function NewInspectionForm({
             </div>
           </div>
       </form>
+      <Dialog open={showSubmitConfirmation} onOpenChange={(open) => {
+        if (!isSubmitting) setShowSubmitConfirmation(open);
+      }}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>{inspectionToEdit ? "Send these corrections to MAO?" : "Submit this movement log?"}</DialogTitle>
+            <DialogDescription>
+              {inspectionToEdit
+                ? "The corrected record will be returned to MAO for review."
+                : "This record will be sent to MAO for review. Auction staff do not approve movement records."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+            <p><span className="font-semibold text-slate-500">Shipper:</span> <span className="font-bold text-slate-900">{shipperName || "Not provided"}</span></p>
+            <p><span className="font-semibold text-slate-500">Route:</span> <span className="font-bold text-slate-900">{origin || "Origin"} → {destination || "Destination"}</span></p>
+            <p><span className="font-semibold text-slate-500">Animals:</span> <span className="font-bold text-slate-900">{items.reduce((total, item) => total + (Number(item.quantity) || 0), 0)} head across {items.length} line{items.length === 1 ? "" : "s"}</span></p>
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" disabled={isSubmitting} onClick={() => setShowSubmitConfirmation(false)} className="rounded-xl">Review details</Button>
+            <Button type="button" disabled={isSubmitting} onClick={() => void submitInspection()} className="rounded-xl bg-[#0F5A38] text-white hover:bg-[#0c482d]">
+              {isSubmitting ? <><Loader2 className="mr-2 size-4 animate-spin" /> Sending…</> : "Confirm and send"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <MovementLivestockQrDialog open={isQrOpen} onOpenChange={setIsQrOpen} onFound={(animal) => {
         const failure = addRegisteredAnimal(animal, qrItemIndex);
         if (!failure) setErrorMsg(null);
