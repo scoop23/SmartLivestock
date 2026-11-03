@@ -87,11 +87,8 @@ def review_workload_summary(*, now=None, user=None):
     standard_domains = [
         # Aggregated legacy rows cannot be independently verified as animals.
         ("inventory", "Livestock Inventory", scoped(LivestockInventory.objects.filter(entry_type=LivestockInventory.EntryType.INDIVIDUAL))),
-        ("production", "Production", scoped(ProductionRecord.objects.none())),
         ("disease", "Disease Reports", scoped(DiseaseCase.objects.all())),
         ("mortality", "Mortality", scoped(MortalityRecord.objects.all())),
-        ("calving", "Calving", scoped(CalvingRecord.objects.all())),
-        ("sales", "Auction Sales", scoped(LiveAnimalSale.objects.all())),
     ]
     direct_mao_domains = [
         ("slaughter", "Slaughter", scoped(SlaughterRecord.objects.all())),
@@ -229,8 +226,6 @@ def review_workload_summary(*, now=None, user=None):
             overall["mao"]["aging"][bucket] += mao_aging[bucket]
 
     for key, label, queryset in standard_domains:
-        if (is_sibat or is_cbat) and key in ("sales", "production"):
-            continue
         if is_cbat and key == "disease":
             continue
         add_domain(
@@ -242,13 +237,13 @@ def review_workload_summary(*, now=None, user=None):
             mao_reviewed_statuses=("VERIFIED",),
         )
 
-    # Census is encoded by SIBAT, so its VERIFIED submissions are MAO's queue.
+    # Census is encoded by SIBAT, so its PENDING/VERIFIED submissions are in review.
     add_domain(
         "census",
         "Quarterly Census",
         scoped(CensusSubmission.objects.all()),
         sibat_statuses=(),
-        mao_created_statuses=(),
+        mao_created_statuses=("PENDING",),
         mao_reviewed_statuses=("VERIFIED",),
     )
     for key, label, queryset in direct_mao_domains:

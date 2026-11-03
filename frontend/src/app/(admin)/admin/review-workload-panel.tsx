@@ -18,8 +18,6 @@ export function ReviewWorkloadPanel({ scopeLabel, hideMaoQueue = false }: { scop
           "slaughter",
           "ownership_transfers",
           "inspection_clearances",
-          "production",
-          "sales",
           ...(isCbat ? ["disease"] : []),
         ]
       : []
