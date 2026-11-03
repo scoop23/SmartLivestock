@@ -271,7 +271,9 @@ class LivestockInventorySerializer(serializers.Serializer):
     age = serializers.SerializerMethodField(read_only=True)
     age_classification = serializers.SerializerMethodField(read_only=True)
     tag_number = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
-    ownership_certificate_number = serializers.CharField(read_only=True)
+    ownership_certificate_number = serializers.CharField(
+        max_length=100, required=False, allow_blank=True, default=""
+    )
     breed = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
     sex = serializers.CharField(max_length=10, required=False, allow_blank=True, default="")
     weight = serializers.DecimalField(
@@ -376,6 +378,18 @@ class LivestockInventorySerializer(serializers.Serializer):
                 exclude_pk=self.instance.pk if self.instance else None,
             )
 
+        if "ownership_certificate_number" in attrs:
+            cert = attrs.get("ownership_certificate_number", "").strip()
+            attrs["ownership_certificate_number"] = cert
+            if cert:
+                cert_qs = LivestockInventory.objects.filter(ownership_certificate_number__iexact=cert)
+                if self.instance:
+                    cert_qs = cert_qs.exclude(pk=self.instance.pk)
+                if cert_qs.exists():
+                    raise serializers.ValidationError({
+                        "ownership_certificate_number": "This ownership certificate number is already registered to another animal."
+                    })
+
         quantity = attrs.get("quantity", self.instance.quantity if self.instance else 1)
         if entry_type == "INDIVIDUAL" and quantity != 1:
             raise serializers.ValidationError({"quantity": "An individual animal must represent exactly one head."})
@@ -406,6 +420,9 @@ class LivestockInventorySerializer(serializers.Serializer):
         user = self.context["request"].user
         validated_data["created_by"] = user
         validated_data["farmer"] = user.farmer_profile
+        if validated_data.get("ownership_certificate_number"):
+            validated_data["ownership_certificate_recorded_by"] = user
+            validated_data["ownership_certificate_recorded_at"] = timezone.now()
         instance = LivestockInventory.objects.create(**validated_data)
         if instance.batch_id:
             LivestockHerdMembershipHistory.objects.create(
@@ -427,6 +444,7 @@ class LivestockInventorySerializer(serializers.Serializer):
             "quantity",
             "birth_date",
             "tag_number",
+            "ownership_certificate_number",
             "breed",
             "sex",
             "weight",
@@ -439,6 +457,14 @@ class LivestockInventorySerializer(serializers.Serializer):
         for field in allowed:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
+        if "ownership_certificate_number" in validated_data:
+            cert = validated_data["ownership_certificate_number"]
+            if cert and cert != instance.ownership_certificate_number:
+                instance.ownership_certificate_recorded_by = self.context["request"].user
+                instance.ownership_certificate_recorded_at = timezone.now()
+            elif not cert:
+                instance.ownership_certificate_recorded_by = None
+                instance.ownership_certificate_recorded_at = None
         instance.save()
 
         new_batch = instance.batch if instance.batch_id else None

@@ -264,6 +264,14 @@ function LivestockInfographicHeroContent({
             <span>Owner: <strong className="text-white">{activeItem.farmerName}</strong></span>
             <span>&bull;</span>
             <span>Registered: <strong className="text-white">{formatCalendarDate(activeItem.createdAt)}</strong></span>
+            {activeItem.ownershipCertificateNumber && (
+              <>
+                <span>&bull;</span>
+                <span className="font-mono bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/40 text-emerald-200 font-bold">
+                  COLC #{activeItem.ownershipCertificateNumber}
+                </span>
+              </>
+            )}
             <span>&bull;</span>
             <span className="text-emerald-300 font-medium">Municipality of Padre Garcia, Batangas</span>
           </div>

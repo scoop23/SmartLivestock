@@ -1328,26 +1328,28 @@ export default function LivestockRecordList({
       {/* ═══ Content Area: Loading / Empty / Grid / Table ═══ */}
       {isLoading ? (
         /* Premium Skeleton Loading States */
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 2xl:grid-cols-2 gap-3.5">
           {[1, 2, 3, 4, 5, 6].map((sk) => (
             <Card
               key={sk}
-              className="p-4 rounded-xl border border-slate-200 animate-pulse space-y-3 h-[270px] flex flex-col justify-between"
+              className="rounded-2xl border border-slate-200 animate-pulse flex flex-col sm:flex-row overflow-hidden min-h-[200px]"
             >
-              <div className="flex justify-between items-center">
-                <div className="h-6 w-28 bg-slate-200 rounded-full" />
-                <div className="h-5 w-20 bg-slate-200 rounded-full" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="h-10 bg-slate-100 rounded-lg" />
-                <div className="h-10 bg-slate-100 rounded-lg" />
-                <div className="h-10 bg-slate-100 rounded-lg" />
-                <div className="h-10 bg-slate-100 rounded-lg" />
-              </div>
-              <div className="h-8 bg-slate-100 rounded-lg" />
-              <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                <div className="h-4 w-20 bg-slate-200 rounded" />
-                <div className="h-7 w-20 bg-slate-200 rounded-lg" />
+              <div className="w-full sm:w-52 md:w-56 lg:w-60 bg-slate-200 shrink-0 min-h-[150px] sm:min-h-full" />
+              <div className="flex-1 p-4 space-y-3 flex flex-col justify-between">
+                <div className="flex justify-between items-center">
+                  <div className="h-6 w-36 bg-slate-200 rounded-full" />
+                  <div className="h-5 w-20 bg-slate-200 rounded-full" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="h-10 bg-slate-100 rounded-lg" />
+                  <div className="h-10 bg-slate-100 rounded-lg" />
+                  <div className="h-10 bg-slate-100 rounded-lg" />
+                  <div className="h-10 bg-slate-100 rounded-lg" />
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                  <div className="h-4 w-24 bg-slate-200 rounded" />
+                  <div className="h-8 w-28 bg-slate-200 rounded-lg" />
+                </div>
               </div>
             </Card>
           ))}
@@ -1397,8 +1399,8 @@ export default function LivestockRecordList({
           </div>
         </Card>
       ) : viewMode === "grid" ? (
-        /* ═══ 4. Data Display Cards: Split Hero Cards Grid Layout ═══ */
-        <div className="grid min-w-0 grid-cols-1 gap-3.5 xl:grid-cols-2">
+        /* ═══ 4. Data Display Cards: Split Hero Cards Layout (1-Col on md/xl, 2-Col on 2xl) ═══ */
+        <div className="grid min-w-0 grid-cols-1 gap-3.5 2xl:grid-cols-2">
           {paginatedItems.map((item) => (
             <LivestockSplitCard
               key={item.id}

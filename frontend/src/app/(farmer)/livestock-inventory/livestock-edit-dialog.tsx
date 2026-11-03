@@ -25,7 +25,7 @@ import api from "@/lib/axios";
 import { localCalendarDateToday } from "@/lib/livestock-age";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Calendar, Pencil, Pill, Plus, Syringe, Tag } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import type { EntryType, LivestockInventoryItem } from "./page";
 
@@ -59,6 +59,7 @@ export interface UpdateInventoryPayload {
   entry_type: EntryType;
   quantity: number;
   tag_number: string;
+  ownership_certificate_number?: string | null;
   breed: string;
   sex: string;
   birth_date: string | null;
@@ -79,6 +80,7 @@ interface FormState {
   batchId: string;
   livestockType: string;
   tagNumber: string;
+  ownershipCertificateNumber: string;
   breed: string;
   sex: string;
   birthDate: string;
@@ -90,6 +92,7 @@ const toFormState = (item: LivestockInventoryItem): FormState => ({
   batchId: item.batchId ? String(item.batchId) : "",
   livestockType: item.livestockTypeName,
   tagNumber: item.tagNumber || "",
+  ownershipCertificateNumber: item.ownershipCertificateNumber || "",
   breed: item.breed || "",
   sex: item.sex || "Female",
   birthDate: item.birthDate ?? "",
@@ -101,6 +104,7 @@ const EMPTY_FORM: FormState = {
   batchId: "",
   livestockType: "",
   tagNumber: "",
+  ownershipCertificateNumber: "",
   breed: "",
   sex: "Female",
   birthDate: "",
@@ -246,6 +250,7 @@ function LivestockEditDialogContent({
       entry_type: "INDIVIDUAL",
       quantity: 1,
       tag_number: form.tagNumber.trim(),
+      ownership_certificate_number: form.ownershipCertificateNumber.trim() || null,
       // Keep the existing herd relationship when this dialog edits animal details.
       batch: form.batchId ? Number(form.batchId) : null,
       breed: form.breed.trim(),
@@ -362,6 +367,17 @@ function LivestockEditDialogContent({
                     value={form.tagNumber}
                     onChange={(e) => set({ tagNumber: e.target.value })}
                     required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="editColc">Certificate of Ownership (COLC) # (optional)</Label>
+                  <Input
+                    id="editColc"
+                    placeholder="e.g. COLC-2026-0001"
+                    value={form.ownershipCertificateNumber}
+                    onChange={(e) => set({ ownershipCertificateNumber: e.target.value.toUpperCase() })}
+                    className="font-mono"
                   />
                 </div>
 

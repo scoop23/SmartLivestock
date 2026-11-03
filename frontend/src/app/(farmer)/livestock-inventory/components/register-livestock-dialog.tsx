@@ -126,6 +126,7 @@ const initialFormData = {
   tagNumber: "",
   isCustomTag: false,
   customTagName: "",
+  ownershipCertificateNumber: "",
   batchId: "",
   batchName: "",
   housingPen: "",
@@ -693,6 +694,9 @@ function RegisterLivestockDialogContent({
           body.append("tag_number", formData.tagNumber.trim());
           body.append("breed", finalBreed);
           body.append("sex", formData.sex);
+          if (formData.ownershipCertificateNumber?.trim()) {
+            body.append("ownership_certificate_number", formData.ownershipCertificateNumber.trim());
+          }
           if (formData.birthDate) body.append("birth_date", formData.birthDate);
           if (formData.weight) body.append("weight", formData.weight);
           if (formData.lastVaccinationDate) body.append("last_vaccination_date", formData.lastVaccinationDate);
@@ -709,6 +713,7 @@ function RegisterLivestockDialogContent({
             entry_type: "INDIVIDUAL",
             quantity: 1,
             tag_number: formData.tagNumber.trim(),
+            ownership_certificate_number: formData.ownershipCertificateNumber?.trim() || null,
             breed: finalBreed,
             sex: formData.sex,
             birth_date: formData.birthDate || null,
@@ -1338,6 +1343,38 @@ function RegisterLivestockDialogContent({
                       )}
                     </div>
                   )}
+
+                  {/* Certificate of Ownership of Large Cattle (COLC) # (Optional) */}
+                  <div className="pt-3 border-t border-slate-200/80 space-y-1.5 animate-in fade-in-50 duration-200">
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="ownershipCertificateNumber"
+                        className="text-xs font-bold text-slate-700 flex items-center gap-1.5"
+                      >
+                        <ClipboardCheck className="size-3.5 text-emerald-700" />
+                        <span>Certificate of Ownership (COLC) #</span>
+                        <InfoTooltip text="If the Municipal Treasury has already issued an official paper Certificate of Ownership of Large Cattle (COLC), enter its serial number here." />
+                      </Label>
+                      <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-600 border-slate-300 font-bold">
+                        Optional
+                      </Badge>
+                    </div>
+                    <Input
+                      id="ownershipCertificateNumber"
+                      placeholder="e.g. COLC-2026-0001 or PG-2024-1234"
+                      value={formData.ownershipCertificateNumber}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          ownershipCertificateNumber: e.target.value.toUpperCase(),
+                        })
+                      }
+                      className="h-11 rounded-xl font-mono font-bold text-xs sm:text-sm border-slate-200 focus-visible:ring-emerald-500/20 bg-white"
+                    />
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Official paper certificate serial number issued by Padre Garcia Municipal Agriculture Office or Treasury.
+                    </p>
+                  </div>
 
                   {/* Animal Photo & Visual Avatar (Optional) - Merged into Step 1 */}
                   <div className="pt-4 border-t border-slate-200/80 space-y-3.5">
@@ -2218,6 +2255,14 @@ function RegisterLivestockDialogContent({
                           {formData.entryType === "INDIVIDUAL" ? "Individual Animal" : "Herd"}
                         </span>
                       </div>
+                      {formData.entryType === "INDIVIDUAL" && (
+                        <div>
+                          <span className="text-slate-400 font-medium block">COLC Certificate #</span>
+                          <span className="font-mono font-bold text-emerald-800">
+                            {formData.ownershipCertificateNumber || "None / Pending"}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

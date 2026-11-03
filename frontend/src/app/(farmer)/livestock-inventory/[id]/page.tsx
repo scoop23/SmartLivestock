@@ -258,6 +258,7 @@ export default function LivestockDetailPage() {
         livestockTypeName: directInventory.livestock_type_name || "Livestock",
         entryType: directInventory.entry_type || "INDIVIDUAL",
         quantity: directInventory.quantity || 1,
+        ownershipCertificateNumber: directInventory.ownership_certificate_number || null,
         breed: directInventory.breed || "",
         // Keep unknown sex unknown; defaulting to Female would expose the
         // female-cattle prediction tab for records with missing sex data.
@@ -852,7 +853,9 @@ export default function LivestockDetailPage() {
 
   // ═══ Desktop Profile Tabs Horizontal Scrollbar State & Handlers ═══
   const desktopTabsContainerRef = useRef<HTMLDivElement>(null);
+  const profileStatsSectionRef = useRef<HTMLDivElement>(null);
   const desktopTrackRef = useRef<HTMLDivElement>(null);
+  const [profileStatsRevealRequest, setProfileStatsRevealRequest] = useState(0);
   const isDesktopDraggingRef = useRef(false);
   const desktopDragStartRef = useRef<{ startX: number; startScrollLeft: number }>({ startX: 0, startScrollLeft: 0 });
   const [desktopScrollInfo, setDesktopScrollInfo] = useState({
@@ -985,6 +988,16 @@ export default function LivestockDetailPage() {
         behavior: "smooth",
         block: "nearest",
         inline: "nearest",
+      });
+    }
+  };
+  const handleSelectProfileStat = (tabValue: string) => {
+    setActiveProfileTab(tabValue);
+    setProfileStatsRevealRequest((current) => current + 1);
+
+    if (window.innerWidth >= 1024) {
+      requestAnimationFrame(() => {
+        profileStatsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     }
   };
@@ -1518,7 +1531,7 @@ export default function LivestockDetailPage() {
           onOpenCorrection={() => setIsCorrectionDialogOpen(true)}
           canCorrectIndividual={canCorrectIndividual}
           onOpenManageHerd={() => setIsManageHerdOpen(true)}
-          onSelectTab={(tabKey) => setActiveProfileTab(tabKey)}
+          onSelectTab={handleSelectProfileStat}
           photoUrl={photoUrl}
           avatar={avatar}
           speciesImageUrl={speciesImageUrl}
@@ -1660,11 +1673,13 @@ export default function LivestockDetailPage() {
         )}
 
         {/* ── EXPANDABLE BOTTOM SHEET / DRAGGABLE SLIDING PANEL (MOBILE) & DASHBOARD TABS (DESKTOP) ── */}
-        <LivestockSlidingPanel
-          activeTab={effectiveProfileTab}
-          onSelectTab={setActiveProfileTab}
-          tabItems={tabItems}
-        >
+        <div ref={profileStatsSectionRef} id="livestock-profile-stats" className="scroll-mt-20">
+          <LivestockSlidingPanel
+            activeTab={effectiveProfileTab}
+            onSelectTab={setActiveProfileTab}
+            revealRequest={profileStatsRevealRequest}
+            tabItems={tabItems}
+          >
           <Tabs value={effectiveProfileTab === "breeding-care" ? "breeding" : effectiveProfileTab} onValueChange={setActiveProfileTab} className="w-full space-y-6">
             <div
               ref={desktopTabsContainerRef}
@@ -2720,7 +2735,8 @@ export default function LivestockDetailPage() {
             <p className="px-1 text-xs text-slate-500">After approval, this seller-side record remains in history as SOLD with the buyer recorded. A registered buyer submits their own inventory record for the acquired animal.</p>
           </TabsContent>
         </Tabs>
-      </LivestockSlidingPanel>
+          </LivestockSlidingPanel>
+        </div>
     </div>
 
       {/* ── MODAL: LOG WEIGHT ─────────────────────────────────────────────── */}

@@ -180,6 +180,7 @@ export interface CreateInventoryPayload {
   livestock_type: number;
   quantity: number;
   tag_number?: string;
+  ownership_certificate_number?: string | null;
   breed?: string;
   sex?: string;
   birth_date?: string | null;
@@ -197,6 +198,7 @@ export interface UpdateInventoryPayload {
   livestock_type: number;
   quantity: number;
   tag_number?: string;
+  ownership_certificate_number?: string | null;
   breed?: string;
   sex?: string;
   birth_date?: string | null;

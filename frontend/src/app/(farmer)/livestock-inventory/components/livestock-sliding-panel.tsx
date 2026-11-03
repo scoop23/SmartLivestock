@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import React, { useRef, useState, type PointerEvent, type KeyboardEvent } from "react";
+import React, { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from "react";
 
 export type SheetSnapState = "collapsed" | "half" | "expanded";
 
@@ -23,6 +23,7 @@ const nearestMobileSnap = (height: number, viewportHeight: number): SheetSnapSta
 interface LivestockSlidingPanelProps {
   activeTab: string;
   onSelectTab: (tab: string) => void;
+  revealRequest?: number;
   tabItems: Array<{
     id: string;
     label: string;
@@ -35,10 +36,12 @@ interface LivestockSlidingPanelProps {
 export function LivestockSlidingPanel({
   activeTab,
   onSelectTab,
+  revealRequest = 0,
   tabItems,
   children,
 }: LivestockSlidingPanelProps) {
   const [snapState, setSnapState] = useState<SheetSnapState>("half");
+  const [isStatsHighlighted, setIsStatsHighlighted] = useState(false);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const pointerStartY = useRef<number | null>(null);
@@ -46,6 +49,15 @@ export function LivestockSlidingPanel({
   const pointerDeltaY = useRef<number>(0);
   const didDrag = useRef<boolean>(false);
   const suppressClickUntil = useRef<number>(0);
+
+  useEffect(() => {
+    if (revealRequest <= 0) return;
+
+    setSnapState("expanded");
+    setIsStatsHighlighted(true);
+    const timeout = window.setTimeout(() => setIsStatsHighlighted(false), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [revealRequest]);
 
   const activeTabMeta = tabItems.find((t) => t.id === activeTab) || tabItems[0];
 
@@ -142,7 +154,7 @@ export function LivestockSlidingPanel({
     <div
       ref={panelRef}
       style={dragHeight === null ? undefined : { height: `${dragHeight}px` }}
-      className={`w-full ${mobileHeightClass} max-h-[89dvh] flex flex-col fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 rounded-t-3xl shadow-[0_-8px_30px_rgba(15,23,42,0.12)] overflow-hidden transition-[height] duration-300 ${dragHeight === null ? "" : "!transition-none"} lg:static lg:h-auto lg:max-h-none lg:border-0 lg:shadow-none lg:bg-transparent lg:!bg-transparent lg:rounded-none lg:z-auto lg:p-0 lg:overflow-visible`}
+      className={`w-full ${mobileHeightClass} max-h-[89dvh] flex flex-col fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 rounded-t-3xl shadow-[0_-8px_30px_rgba(15,23,42,0.12)] overflow-hidden transition-all duration-300 ${dragHeight === null ? "" : "!transition-none"} lg:static lg:h-auto lg:max-h-none lg:border-0 lg:shadow-none lg:bg-transparent lg:rounded-none lg:z-auto lg:p-0 lg:overflow-visible ${isStatsHighlighted ? "border-emerald-300 bg-emerald-50 ring-4 ring-emerald-200/80 shadow-lg lg:!border lg:!border-emerald-300 lg:!bg-emerald-50/70" : ""}`}
     >
       {/* ── DRAG HANDLE & HEADER (Visible only on mobile/tablet) ── */}
       <div className="shrink-0 lg:hidden">
