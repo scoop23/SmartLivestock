@@ -270,7 +270,7 @@ export function GISControls({
 
         {/* Quick Map Tools: 2D/3D Switcher, Camera Reset, Sidebar Toggle */}
         <div className="flex items-center gap-1 sm:gap-1.5 pl-1 sm:pl-2 border-l border-slate-200">
-          {/* 2D / 3D Segmented Control (3D enabled only for authorized roles like Admin/MAO) */}
+          {/* 2D / 3D Segmented Control follows the role-scoped modes from the GIS API. */}
           {canUse3D ? (
             <div className="bg-slate-100 p-0.5 rounded-lg flex items-center border border-slate-200">
               <button

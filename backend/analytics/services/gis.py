@@ -350,9 +350,10 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
             "allowed_barangays": set(OFFICIAL_BARANGAYS),
             "adjacent_barangays": [],
             "can_view_all_barangays": True,
-            # Auction team needs transport origin/destination, inspection volume, and cattle counts
+            # Auction team needs transport origin/destination, inspection volume, and cattle counts;
+            # allow 3D presentation for those same role-scoped map layers.
             "allowed_layers": ["movement", "cattle"],
-            "allowed_modes": ["2D"],
+            "allowed_modes": ["2D", "3D"],
             "can_use_simulation": False,
             "can_use_advanced_analytics": False,
             "title": "Livestock Movement & Trade GIS",
