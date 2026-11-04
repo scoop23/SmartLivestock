@@ -54,7 +54,8 @@ export function IncomingNotificationToastListener() {
   const initializedUser = useRef<string | null>(null);
   const hasBaseline = useRef(false);
   const lastDataUpdatedAt = useRef(0);
-  const isLoginPage = pathname === "/login";
+  const normalizedPathname = pathname.replace(/\/+$/, "") || "/";
+  const isLoginPage = normalizedPathname === "/login" || normalizedPathname === "/";
 
   const { data, dataUpdatedAt } = useQuery<IncomingNotificationsResponse | null>({
     queryKey: getNotificationQueryKey(userIdentity),
