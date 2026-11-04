@@ -435,6 +435,40 @@ export function GISMap({
     viewMode,
   ]);
 
+  // Ensure SVG movement polyline animation runs reliably across all production builds and minifiers
+  useEffect(() => {
+    const styleId = 'smartlivestock-gis-movement-flow-styles';
+    if (typeof document === 'undefined' || document.getElementById(styleId)) return;
+    const styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    styleEl.textContent = `
+      @keyframes gis-movement-line-flow {
+        0% { stroke-dashoffset: 40; }
+        100% { stroke-dashoffset: 0; }
+      }
+      @-webkit-keyframes gis-movement-line-flow {
+        0% { stroke-dashoffset: 40; }
+        100% { stroke-dashoffset: 0; }
+      }
+      path.movement-polyline-flow,
+      .leaflet-overlay-pane path.movement-polyline-flow,
+      .movement-polyline-flow {
+        stroke-dashoffset: 0;
+        -webkit-animation: gis-movement-line-flow 1.4s linear infinite !important;
+        animation: gis-movement-line-flow 1.4s linear infinite !important;
+      }
+      path.movement-polyline-flow-selected,
+      .leaflet-overlay-pane path.movement-polyline-flow-selected,
+      .movement-polyline-flow-selected {
+        stroke-dashoffset: 0;
+        -webkit-animation: gis-movement-line-flow 0.75s linear infinite !important;
+        animation: gis-movement-line-flow 0.75s linear infinite !important;
+        filter: drop-shadow(0 0 6px #facc15);
+      }
+    `;
+    document.head.appendChild(styleEl);
+  }, []);
+
   useEffect(() => {
     const root = mapRootRef.current;
     if (!root) return;
@@ -1260,29 +1294,31 @@ export function GISMap({
         /* Animated Dashed Polyline Flow for Livestock Movement Corridors */
         @keyframes gis-movement-line-flow {
           0% {
-            stroke-dashoffset: 40px;
+            stroke-dashoffset: 40;
           }
           100% {
-            stroke-dashoffset: 0.001px;
+            stroke-dashoffset: 0;
           }
         }
         @-webkit-keyframes gis-movement-line-flow {
           0% {
-            stroke-dashoffset: 40px;
+            stroke-dashoffset: 40;
           }
           100% {
-            stroke-dashoffset: 0.001px;
+            stroke-dashoffset: 0;
           }
         }
         path.movement-polyline-flow,
         .leaflet-overlay-pane path.movement-polyline-flow,
         .movement-polyline-flow {
+          stroke-dashoffset: 0;
           -webkit-animation: gis-movement-line-flow 1.4s linear infinite !important;
           animation: gis-movement-line-flow 1.4s linear infinite !important;
         }
         path.movement-polyline-flow-selected,
         .leaflet-overlay-pane path.movement-polyline-flow-selected,
         .movement-polyline-flow-selected {
+          stroke-dashoffset: 0;
           -webkit-animation: gis-movement-line-flow 0.75s linear infinite !important;
           animation: gis-movement-line-flow 0.75s linear infinite !important;
           filter: drop-shadow(0 0 6px #facc15);
