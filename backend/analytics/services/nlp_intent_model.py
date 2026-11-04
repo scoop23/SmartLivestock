@@ -12,7 +12,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import FeatureUnion, make_pipeline
 from threadpoolctl import threadpool_limits
-from .nlp_query import normalize_question, tokenize_question
+from .nlp_query import SUPPORTED_INTENTS, normalize_question, tokenize_question
 
 
 TRAINING_DATA_PATH = (
@@ -33,6 +33,9 @@ ALLOWED_INTENTS = {
     "unsupported",
     "clarification",
 }
+# Keep the nine-label corpus contract separate from TF-IDF's current labels:
+# candidate-corpus and spaCy audits still use ALLOWED_INTENTS.
+MODEL_INTENTS = set(SUPPORTED_INTENTS) | {"unsupported", "clarification"}
 
 @lru_cache(maxsize=1)
 def _trained_pipeline():
@@ -53,7 +56,7 @@ def _make_pipeline(examples, *, use_character_features=True):
     for example in examples:
         question = str(example.get("question", "")).strip()
         intent = example.get("intent")
-        if not question or intent not in ALLOWED_INTENTS:
+        if not question or intent not in MODEL_INTENTS:
             raise ValueError("Intent training data contains an empty question or unknown label.")
         questions.append(question)
         labels.append(intent)
@@ -86,6 +89,9 @@ SUGGESTION_QUESTIONS = {
     "disease_by_barangay": ("Disease reports", "Show disease cases by barangay this quarter."),
     "mortality_comparison": ("Recorded deaths", "Compare mortality across barangays this quarter."),
     "pending_reviews": ("MAO review queue", "Which submissions are waiting for MAO approval?"),
+    "sales_summary": ("Livestock sales summary", "Summarize approved sales from last month."),
+    "mortality_rate": ("Recorded mortality rate", "What is the recorded death rate over the last 30 days?"),
+    "forecast": ("Livestock forecast", "Forecast disease reports for the next two months."),
 }
 
 

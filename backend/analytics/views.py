@@ -267,6 +267,7 @@ class AskSmartLivestockSerializer(serializers.Serializer):
     question = serializers.CharField(max_length=500, allow_blank=False, trim_whitespace=True)
     explain = serializers.BooleanField(required=False, default=False)
     interpret_with_ai = serializers.BooleanField(required=False, default=False)
+    test_intent_model = serializers.BooleanField(required=False, default=False)
 
 
 @api_view(["POST"])
@@ -282,6 +283,29 @@ def nlp_query(request):
         user=request.user,
         interpret_with_ai=serializer.validated_data["interpret_with_ai"],
     )
+    if serializer.validated_data["test_intent_model"]:
+        try:
+            from .services.nlp_intent_model import classify_intent
+
+            prediction = classify_intent(serializer.validated_data["question"])
+            system_intent = result.get("intent")
+            result["intent_test"] = {
+                "status": "evaluated",
+                "engine": "TF-IDF + Logistic Regression",
+                "model_intent": prediction["intent"],
+                "confidence": prediction["confidence"],
+                "margin": prediction["margin"],
+                "system_intent": system_intent,
+                "matches_system": system_intent == prediction["intent"] if system_intent else None,
+                "note": "Test result only; this prediction did not affect the answer or query permissions.",
+            }
+        except Exception:
+            logger.exception("Ask SmartLivestock intent-model test failed")
+            result["intent_test"] = {
+                "status": "unavailable",
+                "engine": "TF-IDF + Logistic Regression",
+                "message": "The intent classifier could not run. The rules-based result is unchanged.",
+            }
     # The UI's explain flag requests optional prose; the explanation service
     # still checks both deployment gates before sending any aggregates to Groq.
     if serializer.validated_data["explain"]:

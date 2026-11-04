@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
@@ -72,6 +73,17 @@ type AskResponse = {
   ai_interpretation?: {
     status: "used" | "rules_fallback" | "skipped" | "clarification" | "unsupported" | "unavailable";
     message: string;
+  };
+  intent_test?: {
+    status: "evaluated" | "unavailable";
+    engine: string;
+    model_intent?: string;
+    confidence?: number;
+    margin?: number;
+    system_intent?: string | null;
+    matches_system?: boolean | null;
+    note?: string;
+    message?: string;
   };
 };
 
@@ -442,6 +454,7 @@ export function AskSmartLivestock({
   const [draftNotice, setDraftNotice] = useState("");
   const [explainWithAI, setExplainWithAI] = useState(false);
   const [interpretWithAI, setInterpretWithAI] = useState(false);
+  const [testIntentModel, setTestIntentModel] = useState(false);
   const questionInput = useRef<HTMLInputElement>(null);
   const mobileResultRef = useRef<HTMLDivElement>(null);
   const panelContentId = useId();
@@ -517,6 +530,7 @@ export function AskSmartLivestock({
         question: trimmed,
         explain: explainWithAI,
         interpret_with_ai: interpretWithAI,
+        test_intent_model: testIntentModel,
       });
       setResponse(result.data);
       handleOpenResult();
@@ -597,11 +611,33 @@ export function AskSmartLivestock({
         </span>
       </label>
 
+      <div className="mt-2 flex items-start justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50/70 px-3 py-2.5">
+        <div className="min-w-0">
+          <Label htmlFor="test-intent-model" className="cursor-pointer text-xs font-semibold text-violet-950">
+            Test the current TF-IDF intent classifier
+          </Label>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-violet-900/75">
+            Shows its guess beside the system intent. It will not change the answer or data query.
+          </p>
+        </div>
+        <Switch
+          id="test-intent-model"
+          checked={testIntentModel}
+          onCheckedChange={setTestIntentModel}
+          disabled={loading}
+          aria-label="Test the TF-IDF intent classifier"
+          className="mt-0.5 data-[state=checked]:bg-violet-700"
+        />
+      </div>
+
       {draftNotice ? <p role="status" className="mt-2 font-mono text-xs text-emerald-800">{draftNotice}</p> : null}
 
       {/* Futuristic Example Prompt Pills */}
-      <div className="mt-3 flex flex-wrap items-center gap-1.5" aria-label="Example questions">
-        <span className="mr-1 inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      <div
+        className="mt-3 flex max-h-48 sm:max-h-56 flex-wrap items-center gap-1.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] scrollbar-thin scrollbar-thumb-slate-200"
+        aria-label="Example questions"
+      >
+        <span className="mr-1 inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0">
           <Zap className="size-3 text-amber-500" />
           QUICK QUERIES:
         </span>
@@ -611,9 +647,12 @@ export function AskSmartLivestock({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setQuestion(example)}
+            onClick={() => {
+              setQuestion(example);
+              questionInput.current?.focus();
+            }}
             disabled={loading}
-            className="group h-auto max-w-full whitespace-normal rounded-lg border-slate-200/80 bg-slate-50/70 px-2.5 py-1 text-left font-mono text-[11px] font-medium text-slate-700 transition-all hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-950"
+            className="group h-auto max-w-full whitespace-normal rounded-lg border-slate-200/80 bg-slate-50/70 px-2.5 py-1 text-left font-mono text-[11px] font-medium text-slate-700 transition-all hover:border-emerald-300 hover:bg-emerald-50/50 hover:text-emerald-950 cursor-pointer"
           >
             <ChevronRight className="mr-1 inline size-3 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-600" />
             {example}
@@ -667,6 +706,61 @@ export function AskSmartLivestock({
         <div className="pointer-events-none absolute -bottom-20 -left-20 size-56 rounded-full bg-cyan-500/10 blur-3xl" />
 
         <div className="relative z-10 space-y-4" aria-live="polite">
+          {response.intent_test ? (
+            <div className="rounded-xl border border-violet-200 bg-violet-50/80 p-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-violet-950">
+                  <Cpu className="size-4 text-violet-700" />
+                  TF-IDF CLASSIFIER TEST
+                </div>
+                {response.intent_test.status === "evaluated" ? (
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                    response.intent_test.matches_system === true
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : response.intent_test.matches_system === false
+                        ? "border-amber-200 bg-amber-50 text-amber-800"
+                        : "border-slate-200 bg-white text-slate-600"
+                  }`}>
+                    {response.intent_test.matches_system === true
+                      ? "MATCHES SYSTEM"
+                      : response.intent_test.matches_system === false
+                        ? "DIFFERS FROM SYSTEM"
+                        : "NO SYSTEM INTENT TO COMPARE"}
+                  </span>
+                ) : null}
+              </div>
+              {response.intent_test.status === "evaluated" ? (
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-lg border border-violet-100 bg-white/80 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Model guess</p>
+                    <p className="mt-0.5 text-xs font-bold text-slate-900">
+                      {response.intent_test.model_intent?.replaceAll("_", " ") ?? "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-violet-100 bg-white/80 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Raw model score</p>
+                    <p className="mt-0.5 text-xs font-bold text-slate-900">
+                      {typeof response.intent_test.confidence === "number"
+                        ? `${(response.intent_test.confidence * 100).toFixed(1)}%`
+                        : "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-violet-100 bg-white/80 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">System intent</p>
+                    <p className="mt-0.5 text-xs font-bold text-slate-900">
+                      {response.intent_test.system_intent?.replaceAll("_", " ") ?? "Not recognized"}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-violet-900">{response.intent_test.message}</p>
+              )}
+              <p className="mt-2 text-[10px] leading-relaxed text-violet-900/75">
+                Test only. The score is not calibrated and did not affect the answer or records queried.
+              </p>
+            </div>
+          ) : null}
+
           {response.status === "answered" ? (
             <>
               {/* Telemetry Header HUD Bar */}

@@ -1,0 +1,2276 @@
+{
+  "schema_version": 1,
+  "source": "Synthetic paraphrases authored for the optional XLM-RoBERTa experiment; no user questions or livestock records are included.",
+  "groups": [
+    {
+      "id": "forecast-sales-train-a",
+      "split": "train",
+      "intent": "forecast",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Forecast approved livestock sales over the next three weeks."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang aprubadong benta ng hayop sa susunod na tatlong linggo."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "I-forecast ang approved na benta ng livestock for the next three weeks."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "I-forecast ang aproved na benta ng livestock for the next three weeks."
+        }
+      ]
+    },
+    {
+      "id": "forecast-deaths-train-b",
+      "split": "train",
+      "intent": "forecast",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Predict recorded animal deaths for the next three months."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ilang pagkamatay ng hayop ang inaasahan sa susunod na tatlong buwan?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "I-forecast ang recorded deaths for the next three months."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "I-forecast ang recorded death for next three months."
+        }
+      ]
+    },
+    {
+      "id": "forecast-disease-validation",
+      "split": "validation",
+      "intent": "forecast",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Forecast disease reports for the next three months."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang mga ulat ng sakit sa susunod na tatlong buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Forecast ang reported disease cases for the next three months."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Forecast the disease report trend for the next three months."
+        }
+      ]
+    },
+    {
+      "id": "forecast-sales-test",
+      "split": "test",
+      "intent": "forecast",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Forecast approved cattle sales for next week."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "I-forecast ang aprubadong benta ng baka para sa susunod na linggo."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Forecast the approved cattle sales for next week."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Forecast approved cattle sales para sa next week."
+        }
+      ]
+    },
+    {
+      "id": "sales-value-train-a",
+      "split": "train",
+      "intent": "sales_summary",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "How much approved livestock sale value was recorded this quarter?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Magkano ang halaga ng aprubadong benta ng hayop ngayong quarter?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Magkano ang recorded value ng approved livestock sales this quarter?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Magkano ang recorded valyu ng approved livestock sales this quarter?"
+        }
+      ]
+    },
+    {
+      "id": "sales-count-train-b",
+      "split": "train",
+      "intent": "sales_summary",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "How many approved animal sale events were recorded in 2025?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ilang aprubadong benta ng hayop ang naitala noong 2025?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ilang approved livestock sales ang na-record in 2025?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Ilang approved livestock sales ang na-rekord in 2025?"
+        }
+      ]
+    },
+    {
+      "id": "sales-current-validation",
+      "split": "validation",
+      "intent": "sales_summary",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Show approved livestock sales for the current quarter."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ipakita ang aprubadong benta ng hayop ngayong quarter."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ipakita yung approved animal sales this quarter."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Ipakita yung approved animal sale this quater."
+        }
+      ]
+    },
+    {
+      "id": "sales-month-test",
+      "split": "test",
+      "intent": "sales_summary",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Summarize approved livestock sales last month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibuod ang mga aprubadong benta ng hayop noong nakaraang buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Summary ng approved livestock sales last month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Summary ng approved livestock sales last mont."
+        }
+      ]
+    },
+    {
+      "id": "mortality-rate-train-a",
+      "split": "train",
+      "intent": "mortality_rate",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "What is the recorded death rate over the last 30 days?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ano ang porsyento ng naitalang pagkamatay sa nakaraang 30 araw?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ano ang recorded mortality rate for the last 30 days?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Ano ang recoreded mortality rate for the last 30 days?"
+        }
+      ]
+    },
+    {
+      "id": "mortality-rate-train-b",
+      "split": "train",
+      "intent": "mortality_rate",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Calculate the approved mortality rate for the past 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Kuwentahin ang mortality rate ng mga aprubadong pagkamatay nitong nakaraang 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ipakita ang approved recorded-death rate for the past 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Ipakita ang aproved recorded-death rate for the past 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality-rate-validation",
+      "split": "validation",
+      "intent": "mortality_rate",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "What percentage of recorded deaths occurred in the last 30 days?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ilang porsyento ang naitalang pagkamatay nitong nakaraang 30 araw?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "What is the approved death rate for the last 30 days?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "What is the approved death rate for the last 30 dayz?"
+        }
+      ]
+    },
+    {
+      "id": "mortality-rate-test",
+      "split": "test",
+      "intent": "mortality_rate",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Estimate the recorded mortality rate during the past 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang rate ng mga naitalang pagkamatay sa nakaraang 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ano yung recorded mortality percentage over the past 30 days?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Ano yung recorded mortality percantage over the past 30 days?"
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-01",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Predict approved cattle sales expected during the next week."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang aprubadong benta ng baka sa susunod na linggo."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Forecast ang approved cattle sales sa next week."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "forcast ang approved cattle sales sa next week."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-02",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Predict the number of goat sales over the next two weeks."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Hulaan ang bilang ng benta ng kambing sa susunod na dalawang linggo."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Predict ang bilang ng goat sales over the next two weeks."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "predcit ang bilang ng goat sales over the next two weeks."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-03",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Project swine auction sales during the next three weeks."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "I-proyekto ang benta ng baboy sa auction sa susunod na tatlong linggo."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "I-project ang swine auction sales sa next three weeks."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "I-project ang swine auction salse sa next three weeks."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-04",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Estimate approved carabao sales for the coming month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang aprubadong benta ng kalabaw sa darating na buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Estimate ang approved carabao sales for next month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Estimate ang aproved carabao sales for next month."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-05",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "How many chicken sales are forecast for next week?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ilang benta ng manok ang tinataya para sa susunod na linggo?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ilang chicken sales ang forecast for next week?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Ilang chicken salse ang forecast for next week?"
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-06",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Forecast duck sales over the next four weeks."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang benta ng pato sa susunod na apat na linggo."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Forecast ang duck sales over the next four weeks."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Forecast ang duck salse over the next four weeks."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-07",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Predict sheep sales during the next two weeks."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Hulaan ang benta ng tupa sa susunod na dalawang linggo."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Predict ang sheep sales sa next two weeks."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "predcit ang sheep sales sa next two weeks."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-08",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Show the projected headcount of cattle sold next month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ipakita ang tinatayang bilang ng baryang baka na maibebenta sa susunod na buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Show the projected cattle sales headcount for next month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Show the projected cattle salse headcount for next month."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-09",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Forecast the next month of approved goat sales."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang aprubadong benta ng kambing para sa susunod na buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Forecast ang approved goat sales for next month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "forcast ang approved goat sales for next month."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-10",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Project how many carabaos may be sold in the next three weeks."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "I-proyekto kung ilang kalabaw ang maaaring maibenta sa susunod na tatlong linggo."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "I-project kung ilang carabao ang mabebenta in the next three weeks."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "I-poject kung ilang carabao ang mabebenta in the next three weeks."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-11",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Predict approved swine sales for next month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Hulaan ang aprubadong benta ng baboy para sa susunod na buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Predict ang approved swine sales for next month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "predcit ang approved swine sales for next month."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-12",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Show the sales forecast for cattle over the next two weeks."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ipakita ang pagtataya ng benta ng baka sa susunod na dalawang linggo."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Show the cattle sales forecast for the next two weeks."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Show the cattle salse forecast for the next two weeks."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-13",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Forecast recorded animal deaths for next month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang naitalang pagkamatay ng hayop sa susunod na buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Forecast ang recorded animal deaths for next month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Forecast ang recoreded animal deaths for next month."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-14",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Predict approved livestock deaths over the next two months."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Hulaan ang aprubadong pagkamatay ng hayop sa susunod na dalawang buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Predict ang approved livestock deaths for the next two months."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Predict ang aproved livestock deaths for the next two months."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-15",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Estimate animal death reports for the next three months."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang mga ulat ng pagkamatay ng hayop sa susunod na tatlong buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Estimate ang animal death reports for the next three months."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "estimte ang animal death reports for the next three months."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-16",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Project recorded mortality counts for the coming month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "I-proyekto ang bilang ng naitalang pagkamatay para sa darating na buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "I-project ang recorded mortality count for next month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "I-project ang recorded mortaltiy count for next month."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-17",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Forecast livestock deaths during the next two months."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang pagkamatay ng mga hayop sa susunod na dalawang buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Forecast ang livestock deaths for the next two months."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "forcast ang livestock deaths for the next two months."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-18",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "How many animal deaths are predicted in the next month?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ilang pagkamatay ng hayop ang tinataya sa susunod na buwan?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ilang animal deaths ang predicted for next month?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Ilang animal deaths ang predcited for next month?"
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-19",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Predict deaths from approved records for the coming three months."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Hulaan ang mga pagkamatay batay sa aprubadong tala para sa susunod na tatlong buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Predict ang deaths from approved records for the next three months."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "predcit ang deaths from approved records for the next three months."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-20",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Estimate the trend in recorded deaths for the next two months."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang takbo ng naitalang pagkamatay sa susunod na dalawang buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Estimate ang trend ng recorded deaths for the next two months."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "estimte ang trend ng recorded deaths for the next two months."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-21",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Forecast disease reports over the next month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang mga ulat ng sakit sa susunod na buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Forecast ang disease reports for next month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "forcast ang disease reports for next month."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-22",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Predict reported animal disease cases for the next two months."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Hulaan ang naiulat na kaso ng sakit ng hayop sa susunod na dalawang buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Predict ang reported animal disease cases for the next two months."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "predcit ang reported animal disease cases for the next two months."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-23",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Project the number of disease reports over the next three months."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "I-proyekto ang bilang ng mga ulat ng sakit sa susunod na tatlong buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "I-project ang number ng disease reports for the next three months."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "I-project ang number ng diseaes reports for the next three months."
+        }
+      ]
+    },
+    {
+      "id": "forecast-train-aug-24",
+      "intent": "forecast",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Estimate reported FMD cases for next month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang mga naiulat na kaso ng FMD para sa susunod na buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Estimate ang reported FMD cases for next month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "estimte ang reported FMD cases for next month."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-01",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Summarize approved cattle sales from last month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibuod ang aprubadong benta ng baka noong nakaraang buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Summary ng approved cattle sales from last month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Summary ng aproved cattle sales from last month."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-02",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "How many approved goat sales were recorded in 2025?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ilang aprubadong benta ng kambing ang naitala noong 2025?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ilang approved goat sales ang na-record in 2025?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Ilang aproved goat sales ang na-record in 2025?"
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-03",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Show the total value of approved swine sales this quarter."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ipakita ang kabuuang halaga ng aprubadong benta ng baboy ngayong quarter."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Show the total value ng approved swine sales this quarter."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Show the total value ng aproved swine sales this quarter."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-04",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Give a summary of carabao sales for the previous month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibuod ang benta ng kalabaw noong nakaraang buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Paki-summary ang carabao sales for the previous month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Paki-summary ang carabao salse for the previous month."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-05",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Report the number of cattle sold during this year."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Iulat ang bilang ng mga bakang naibenta ngayong taon."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Report ang number of cattle sold this year."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Reprt ang number of cattle sold this year."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-06",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "What was the approved sales amount last quarter?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Magkano ang halaga ng aprubadong benta noong nakaraang quarter?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Magkano ang approved sales amount last quarter?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Magkano ang approved salse amount last quarter?"
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-07",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Count the recorded duck sales in 2024."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Bilangin ang naitalang benta ng pato noong 2024."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Count ang recorded duck sales in 2024."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Count ang recoreded duck sales in 2024."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-08",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Summarize approved chicken sales for January 2026."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibuod ang aprubadong benta ng manok noong Enero 2026."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Summary ng approved chicken sales for January 2026."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Summary ng aproved chicken sales for January 2026."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-09",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Show approved sheep sales recorded last month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ipakita ang aprubadong benta ng tupa na naitala noong nakaraang buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Show the approved sheep sales recorded last month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Show the aproved sheep sales recorded last month."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-10",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "How much sale value came from cattle auctions in 2025?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Magkano ang halaga ng benta ng baka sa auction noong 2025?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Magkano ang sale value ng cattle auctions in 2025?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Magano ang sale value ng cattle auctions in 2025?"
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-11",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "List the number of livestock sale events this quarter."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ilista ang bilang ng mga bentahan ng hayop ngayong quarter."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ilista ang number ng livestock sale events this quarter."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Ilita ang number ng livestock sale events this quarter."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-12",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Provide total approved goat sales for the current month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibigay ang kabuuang aprubadong benta ng kambing ngayong buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Provide the total approved goat sales for this month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Provide the total aproved goat sales for this month."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-13",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "What was the total value recorded for animal sales last year?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Magkano ang kabuuang halagang naitala para sa benta ng hayop noong nakaraang taon?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "What was the total recorded value ng animal sales last year?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "What was the total recoreded value ng animal sales last year?"
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-14",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Sum the approved swine sale proceeds in 2025."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Pagsamahin ang kita mula sa aprubadong benta ng baboy noong 2025."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "I-sum ang proceeds ng approved swine sales in 2025."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "I-sum ang proceeds ng aproved swine sales in 2025."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-15",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Give the approved cattle auction summary for 2026."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibigay ang buod ng aprubadong auction ng baka para sa 2026."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Give the approved cattle auction sales summary for 2026."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Give the approved cattle auction salse summary for 2026."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-16",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "How many animal sales are in the approved records for 2024?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ilang benta ng hayop ang nasa aprubadong tala noong 2024?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ilang animal sales ang nasa approved records for 2024?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Ilang animal salse ang nasa approved records for 2024?"
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-17",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Show the recorded sale amount for carabaos last quarter."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ipakita ang naitalang halaga ng benta ng kalabaw noong nakaraang quarter."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Show the recorded sale amount ng carabaos last quarter."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Show the recoreded sale amount ng carabaos last quarter."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-18",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Summarize approved livestock sale proceeds from last year."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibuod ang kita mula sa aprubadong benta ng hayop noong nakaraang taon."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Summary ng approved livestock sale proceeds from last year."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Summary ng aproved livestock sale proceeds from last year."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-19",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Count approved cattle sale records during the past month."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Bilangin ang mga aprubadong tala ng benta ng baka noong nakaraang buwan."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Count the approved cattle sale records from last month."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Count the aproved cattle sale records from last month."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-20",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Report total value from goat sales this year."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Iulat ang kabuuang halaga ng benta ng kambing ngayong taon."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Report the total value ng goat sales this year."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Report the total value ng goat salse this year."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-21",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Give the approved duck auction sales summary for March 2026."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibigay ang buod ng aprubadong benta ng pato sa auction noong Marso 2026."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Paki-summary ang approved duck auction sales for March 2026."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Give the aproved duck auction sales summary for March 2026."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-22",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "What are the recorded sale totals for chickens during 2025?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ano ang kabuuang naitalang benta ng manok noong 2025?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "What are the recorded chicken sales totals for 2025?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "What are the recoreded chicken sales totals for 2025?"
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-23",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Provide a count and value summary of livestock sales for 2026."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibigay ang buod ng bilang at halaga ng benta ng hayop para sa 2026."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Provide a count and value summary ng livestock sales for 2026."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Provide a count and value summary ng livestock salse for 2026."
+        }
+      ]
+    },
+    {
+      "id": "sales_summary-train-aug-24",
+      "intent": "sales_summary",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Summarize the approved sales records from the last quarter."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibuod ang mga aprubadong tala ng benta noong nakaraang quarter."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Summary ng approved sales records from last quarter."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Summary ng aproved sales records from last quarter."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-01",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "What recorded animal mortality rate applies to the past 30 days?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ano ang naitalang mortality rate ng hayop sa nakaraang 30 araw?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "What is the recorded animal mortality rate for the past 30 days?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "What is the recoreded animal mortality rate for the past 30 days?"
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-02",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Calculate the approved livestock death rate for the last 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Kuwentahin ang aprubadong death rate ng hayop sa nakaraang 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "I-calculate ang approved livestock death rate for the last 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Calculate the aproved livestock death rate for the last 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-03",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "What percentage of recorded animal deaths occurred in the past 30 days?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ilang porsyento ng mga naitalang pagkamatay ng hayop ang nangyari sa nakaraang 30 araw?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "What percentage ng recorded animal deaths occurred in the past 30 days?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "What percentage ng recoreded animal deaths occurred in the past 30 days?"
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-04",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Show the overall mortality percentage from the last 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ipakita ang kabuuang mortality percentage mula sa nakaraang 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Show the overall mortality percentage for the last 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Show the overall mortaltiy percentage for the last 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-05",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Estimate the recorded death rate based on approved animals for the past 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang naitalang death rate batay sa aprubadong hayop sa nakaraang 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Estimate ang recorded death rate gamit ang approved animal records for the past 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Estimate the recoreded death rate based on approved animals for the past 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-06",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Give the 30-day mortality rate for the municipality."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibigay ang 30-day mortality rate para sa munisipalidad."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Give the municipality-wide mortality rate for the last 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Give the municipality-wide mortaltiy rate for the last 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-07",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "What share of active livestock died in the past 30 days?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ilang bahagi ng aktibong hayop ang namatay sa nakaraang 30 araw?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ano ang share ng active livestock na namatay in the past 30 days?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "What share of actve livestock died in the past 30 days?"
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-08",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Calculate the recorded mortality percentage for the last 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Kuwentahin ang naitalang mortality percentage sa nakaraang 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "I-calculate ang recorded mortality percentage for the last 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Calculate the recorded mortaltiy percentage for the last 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-09",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Report the percentage of approved deaths over current active inventory for 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Iulat ang porsyento ng aprubadong pagkamatay kumpara sa kasalukuyang aktibong imbentaryo sa loob ng 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "I-report ang percentage ng approved deaths kumpara sa current active inventory for 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Report the percentge of approved deaths over current active inventory for 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-10",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Provide an estimate of the animal death rate for the most recent 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibigay ang tantiya ng death rate ng hayop sa pinakahuling 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Provide an estimate of the animal death rate for the latest 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Provide an estimate of the animal death raet for the latest 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-11",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "What is the recorded livestock mortality rate for this 30-day window?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ano ang naitalang mortality rate ng hayop para sa 30-araw na panahong ito?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ano ang recorded livestock mortality rate within this 30-day window?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "What is the recoreded livestock mortality rate for this 30-day window?"
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-12",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Show the 30-day death percentage for the approved records."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ipakita ang porsyento ng pagkamatay sa aprubadong tala para sa nakaraang 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Show the 30-day death percentage from the approved records."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Show the 30-day death percentage from the aproved records."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-13",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "How high was the approved mortality rate during the last thirty days?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Gaano kataas ang aprubadong mortality rate nitong nakaraang tatlumpung araw?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "How high was the approved mortality rate during the last 30 days?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "How high was the aproved mortality rate during the last 30 days?"
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-14",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Give the death rate estimate for all livestock over the past 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibigay ang tantiya ng death rate ng lahat ng hayop sa nakaraang 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ibigay ang death rate estimate ng all livestock over the past 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Give the death raet estimate for all livestock over the past 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-15",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "What percentage of active heads were recorded as deaths within 30 days?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ilang porsyento ng aktibong bilang ng hayop ang naitalang namatay sa loob ng 30 araw?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "What percentage of active heads were recorded as deaths in the last 30 days?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "What percentage of active heads were recoreded as deaths in the last 30 days?"
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-16",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Calculate the current approved death rate using a 30-day window."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Kuwentahin ang kasalukuyang aprubadong death rate gamit ang 30-araw na saklaw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "I-calculate ang current approved death rate using a 30-day window."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Calculate the current approved death raet using a 30-day window."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-17",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Report recorded mortality as a percentage for the last 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Iulat ang naitalang mortality bilang porsyento sa nakaraang 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "I-report ang recorded mortality as a percentage for the last 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Report recorded mortaltiy as a percentage for the last 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-18",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "What is the municipality-wide animal mortality rate over the past 30 days?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ano ang mortality rate ng hayop sa buong munisipalidad sa nakaraang 30 araw?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "What is the municipality-wide animal mortality rate for the past 30 days?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "What is the municipality-wide animal mortaltiy rate for the past 30 days?"
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-19",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Show the percentage share of animal deaths for the past 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ipakita ang porsyento ng pagkamatay ng hayop sa nakaraang 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Ipakita ang percentage share ng animal deaths for the past 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Show the percentge share of animal deaths for the past 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-20",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Estimate the all-species recorded death rate over the last 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Tantyahin ang naitalang death rate ng lahat ng uri ng hayop sa nakaraang 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Estimate the all-species recorded death rate for the last 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Estimate the all-species recorded death raet for the last 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-21",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "How much of the active inventory died according to the last 30 days of records?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Gaano karami sa aktibong imbentaryo ang namatay ayon sa tala sa nakaraang 30 araw?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "How much of the active inventory died in the last 30 days of records?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "How much of the actve inventory died in the last 30 days of records?"
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-22",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Give the 30-day recorded death percentage for livestock."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibigay ang naitalang porsyento ng pagkamatay ng hayop sa loob ng 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Give the recorded livestock death percentage for the past 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Give the recoreded livestock death percentage for the past 30 days."
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-23",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Can you calculate the 30-day recorded mortality rate?"
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Maaari mo bang kuwentahin ang naitalang mortality rate sa nakaraang 30 araw?"
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Can you calculate the recorded mortality rate for the past 30 days?"
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Can you calculate the recoreded mortality rate for the past 30 days?"
+        }
+      ]
+    },
+    {
+      "id": "mortality_rate-train-aug-24",
+      "intent": "mortality_rate",
+      "split": "train",
+      "examples": [
+        {
+          "language": "en",
+          "variant": "base",
+          "question": "Summarize the approved death rate for the last 30 days."
+        },
+        {
+          "language": "tl",
+          "variant": "base",
+          "question": "Ibuod ang aprubadong death rate sa nakaraang 30 araw."
+        },
+        {
+          "language": "taglish",
+          "variant": "base",
+          "question": "Summary ng approved death rate for the last 30 days."
+        },
+        {
+          "language": "taglish",
+          "variant": "typo",
+          "question": "Summary ng aproved death rate for the last 30 days."
+        }
+      ]
+    }
+  ],
+  "version": "xlmr-intent-extension-2026-11-04-v2",
+  "generation_note": "AI-authored train-only paraphrase families added for forecast, sales_summary, and mortality_rate. Candidate labels require human review; no user utterances or livestock records are included."
+}

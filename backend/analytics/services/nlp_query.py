@@ -121,6 +121,10 @@ def _date_period(start, end, label, selection):
 def _parse_forecast_horizon(text, domain):
     """Parse a small, explicit horizon supported by the existing forecast services."""
     is_sales = domain == "auction"
+    if is_sales and any(_contains(text, phrase) for phrase in (
+        "next week", "the next week", "sa susunod na linggo", "sa susunod linggo",
+    )):
+        return 1, None
     unit_word = r"weeks?|week|linggo|linggong" if is_sales else r"months?|month|buwan"
     match = re.search(
         rf"\b(?:next|for the next|for next|sa susunod na)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|isang|dalawang|tatlong|apat na|limang|anim na)\s+({unit_word})\b",
@@ -228,7 +232,7 @@ def _parse_period(text, today, intent):
             return None, "The requested quarter is in the future."
         matches.append((start, min(end, today), f"q{quarter}_{year}", f"{year} Q{quarter}"))
 
-    requested_year = re.search(r"\b(?:in|during|for|year)\s+(20\d{2})\b", text)
+    requested_year = re.search(r"\b(?:in|during|for|year|noong|taong)\s+(20\d{2})\b", text)
     if requested_year and not quarter_year:
         year = int(requested_year.group(1))
         if year > today.year:
@@ -323,7 +327,8 @@ def _resolve_barangay(text, barangays):
             "chicken", "duck", "milk", "dairy", "eggs", "egg", "meat", "wool", "quarter", "year",
             "q1", "q2", "q3", "q4", "2025", "2026", "bawat", "mao", "susunod", "next",
             "one", "two", "three", "apat", "tatlong", "dalawang", "isang", "buwan", "months", "month",
-            "weeks", "week", "linggo", "linggong",
+            "weeks", "week", "linggo", "linggong", "nakaraang", "huling", "nakalipas", "araw", "days", "day",
+            "noong", "taong", "ngayong", "30", "60", "90",
         }
         if first_word not in non_locations:
             return None, "I could not match that barangay within the data available to your account."
@@ -352,6 +357,9 @@ def _unknown_species_reference(text, species_names):
         "counts", "count", "figures", "figure", "grouped", "group", "compare", "comparison", "across", "each",
         "for", "the", "a", "an", "please", "can", "we", "look", "at", "this", "year", "month", "quarter",
         "pulong", "ulat", "maikling", "para", "sa", "ipakita", "bilang", "tala", "nakatalang", "ihambing",
+        "calculate", "calculated", "calculating", "estimate", "estimated", "rate", "rates", "percentage",
+        "porsyento", "kuwentahin", "kwentahin", "kalkulahin", "gamit", "using", "share", "me", "it",
+        "ano", "large", "high", "low", "i-forecast", "i-predict",
         "forecast", "forecasts", "predict", "prediction", "projection", "projected", "expected", "expect",
         "next", "one", "two", "three", "months", "month", "weeks", "week", "linggo", "buwan", "susunod",
         "ilista", "pakitingnan", "kailangan", "makikita", "bawat", "ayon", "paano", "nasa", "kasalukuyang",
@@ -573,6 +581,7 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     ))
     asks_forecast = any(_contains(normalized, word) for word in (
         "predict", "prediction", "forecast", "projection", "pagtataya", "hulaan", "inaasahan", "tantyahin",
+        "mabebenta", "maibebenta", "ibebenta", "will be sold", "expected to be sold",
     ))
     mentions_mortality = any(_contains(normalized, phrase) for phrase in (
         "mortality", "death", "deaths", "died", "namatay", "namamatay",
@@ -590,6 +599,7 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         "mortality_comparison": mentions_mortality and not asks_rate,
         "sales": any(_contains(normalized, phrase) for phrase in (
             "sale", "sales", "sold", "livestock sale", "benta", "binenta", "nabenta", "magkano",
+            "mabebenta", "maibebenta", "ibebenta",
         )),
         "forecast": asks_forecast,
             "production": any(_contains(normalized, phrase) for phrase in (
@@ -666,8 +676,10 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
     species, species_error = _resolve_species(normalized, species_names)
     if species_error:
         return {"status": "clarification", "message": species_error}
-    if intent == "forecast" and (barangay or species):
-        return {"status": "clarification", "message": "This forecast is municipality-wide. Ask without a barangay or livestock-type filter."}
+    if intent == "forecast" and barangay:
+        return {"status": "clarification", "message": "This forecast is municipality-wide and cannot be filtered to a barangay."}
+    if intent == "forecast" and species and forecast_domain != "auction":
+        return {"status": "clarification", "message": "Only approved sales forecasts can be filtered to one livestock type. Disease and death forecasts are municipality-wide."}
     if intent == "forecast" and any(_contains(normalized, phrase) for phrase in _BARANGAY_COMPARISON_PHRASES + ("by species", "by livestock type", "per species")):
         return {"status": "clarification", "message": "This forecast is municipality-wide and does not compare barangays or livestock types."}
     if intent == "mortality_rate" and species:
@@ -1233,7 +1245,7 @@ def _forecast_summary(parameters, user):
     )
     forecast = generate_future_forecast(
         domain=domain,
-        target="ALL",
+        target=(parameters.get("species") or "ALL") if is_sales else "ALL",
         unit=unit,
         horizon_months=parameters["forecast_horizon"],
         user=user,
@@ -1540,9 +1552,16 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
             if forecast.get("status") == "unvalidated":
                 is_validated = False
             validation_prefix = "" if is_validated else "This forecast is not yet validated. "
+            forecast_measure = (
+                f"{parameters['species']} heads"
+                if parameters["forecast_domain"] == "auction" and parameters.get("species")
+                else "livestock heads"
+                if parameters["forecast_domain"] == "auction"
+                else unit.lower()
+            )
             answer = (
                 validation_prefix +
-                f"The current model projects {rows[0]['projected_value']:,.2f} {unit.lower()} for "
+                f"The current model projects {rows[0]['projected_value']:,.2f} {forecast_measure} for "
                 f"{rows[0]['period']}. This is a projection of recorded approved events, not a guarantee or a forecast of all real-world activity."
             )
         columns = [
@@ -1553,7 +1572,8 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
             question=question, parsed=parsed, answer=answer, results=rows,
             visualization={"type": "table", "x_key": "period", "y_key": "projected_value", "columns": columns},
             coverage_note=(
-                f"Forecast domain: {parameters['forecast_domain']}; unit: {unit}; horizon: {parameters['forecast_horizon']} "
+                f"Forecast domain: {parameters['forecast_domain']}; target: {parameters.get('species') or 'all livestock'}; "
+                f"unit: {unit}; horizon: {parameters['forecast_horizon']} "
                 f"{parameters['forecast_unit'].lower()}. Readiness: {forecast.get('readiness_status', forecast.get('status', 'unknown'))}. "
                 f"{forecast.get('readiness_details') or forecast.get('message') or ''}"
             ),

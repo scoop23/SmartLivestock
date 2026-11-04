@@ -1,0 +1,4 @@
+# Optional offline experiment only. Do not add these packages to the production lock.
+torch==2.15.0
+transformers==5.22.1
+sentencepiece==0.2.2

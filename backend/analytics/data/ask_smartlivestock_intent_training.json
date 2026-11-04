@@ -350,5 +350,101 @@
   {
     "question": "How many pending swine registrations does Farmer Rosa Mendoza have?",
     "intent": "farmer_livestock_count"
+  },
+  {
+    "question": "Predict disease reports for the next two months.",
+    "intent": "forecast"
+  },
+  {
+    "question": "Tantyahin ang ulat ng sakit sa susunod na dalawang buwan.",
+    "intent": "forecast"
+  },
+  {
+    "question": "Predict recorded deaths for the next three months.",
+    "intent": "forecast"
+  },
+  {
+    "question": "Hulaan ang mga pagkamatay sa susunod na tatlong buwan.",
+    "intent": "forecast"
+  },
+  {
+    "question": "Forecast disease reports for the next month.",
+    "intent": "forecast"
+  },
+  {
+    "question": "Predict animal deaths for the next month.",
+    "intent": "forecast"
+  },
+  {
+    "question": "I-forecast ang disease cases for the next two months.",
+    "intent": "forecast"
+  },
+  {
+    "question": "I-predict ang animal deaths for the next two months.",
+    "intent": "forecast"
+  },
+  {
+    "question": "Summarize approved sales last month.",
+    "intent": "sales_summary"
+  },
+  {
+    "question": "How much was the approved sales value in 2025?",
+    "intent": "sales_summary"
+  },
+  {
+    "question": "Show all approved sales for this quarter.",
+    "intent": "sales_summary"
+  },
+  {
+    "question": "Magkano ang approved sales last month?",
+    "intent": "sales_summary"
+  },
+  {
+    "question": "Ibuod ang aprubadong benta ngayong buwan.",
+    "intent": "sales_summary"
+  },
+  {
+    "question": "Show the recorded sales total for 2024.",
+    "intent": "sales_summary"
+  },
+  {
+    "question": "How many sale events were recorded last quarter?",
+    "intent": "sales_summary"
+  },
+  {
+    "question": "Summarize sales in the previous month.",
+    "intent": "sales_summary"
+  },
+  {
+    "question": "What is the recorded death rate over the last 30 days?",
+    "intent": "mortality_rate"
+  },
+  {
+    "question": "Show the mortality percentage for the last 30 days.",
+    "intent": "mortality_rate"
+  },
+  {
+    "question": "Give me the death rate over the last 30 days.",
+    "intent": "mortality_rate"
+  },
+  {
+    "question": "Calculate the mortality rate for the last 30 days.",
+    "intent": "mortality_rate"
+  },
+  {
+    "question": "Report recorded deaths as a percentage for the last 30 days.",
+    "intent": "mortality_rate"
+  },
+  {
+    "question": "How large was the mortality rate during the last 30 days?",
+    "intent": "mortality_rate"
+  },
+  {
+    "question": "Ano ang mortality rate for the last 30 days?",
+    "intent": "mortality_rate"
+  },
+  {
+    "question": "Ano ang recorded death rate over the last 30 days?",
+    "intent": "mortality_rate"
   }
 ]
