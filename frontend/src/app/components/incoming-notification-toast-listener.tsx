@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { getNotificationQueryKey } from "@/lib/notification-query";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
@@ -45,13 +45,16 @@ function saveSessionSeenIds(ids: Set<number>) {
 }
 
 export function IncomingNotificationToastListener() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const userIdentity = user?.email ?? user?.username ?? null;
   const seenNotificationIds = useRef(new Set<number>());
+  const activeToastIds = useRef(new Set<string>());
   const initializedUser = useRef<string | null>(null);
   const hasBaseline = useRef(false);
   const lastDataUpdatedAt = useRef(0);
+  const isLoginPage = pathname === "/login";
 
   const { data, dataUpdatedAt } = useQuery<IncomingNotificationsResponse | null>({
     queryKey: getNotificationQueryKey(userIdentity),
@@ -66,14 +69,20 @@ export function IncomingNotificationToastListener() {
         return null;
       }
     },
-    enabled: Boolean(userIdentity),
-    refetchInterval: userIdentity ? 15000 : false,
+    enabled: Boolean(userIdentity) && !isLoading && !isLoginPage,
+    refetchInterval: userIdentity && !isLoading && !isLoginPage ? 15000 : false,
     refetchOnWindowFocus: true,
     refetchOnMount: "always",
     staleTime: 0,
   });
 
   useEffect(() => {
+    if (isLoginPage) {
+      activeToastIds.current.forEach((id) => toast.dismiss(id));
+      activeToastIds.current.clear();
+      return;
+    }
+
     if (!userIdentity) {
       initializedUser.current = null;
       seenNotificationIds.current.clear();
@@ -81,6 +90,8 @@ export function IncomingNotificationToastListener() {
       lastDataUpdatedAt.current = 0;
       return;
     }
+
+    if (isLoading) return;
 
     const isNewUserSession = initializedUser.current !== userIdentity;
     if (isNewUserSession) {
@@ -114,8 +125,10 @@ export function IncomingNotificationToastListener() {
         const message = notification.message?.trim();
         if (!title && !message) return;
 
+        const toastId = `incoming-notification-${notification.id}`;
+        activeToastIds.current.add(toastId);
         toast.info(title || "New notification", {
-          id: `incoming-notification-${notification.id}`,
+          id: toastId,
           description: message,
           duration: 9000,
           toasterId: "incoming-notifications",
@@ -149,8 +162,10 @@ export function IncomingNotificationToastListener() {
       const message = notification.message?.trim();
       if (!title && !message) return;
 
+      const toastId = `incoming-notification-${notification.id}`;
+      activeToastIds.current.add(toastId);
       toast.info(title || "New notification", {
-        id: `incoming-notification-${notification.id}`,
+        id: toastId,
         description: message,
         duration: 9000,
         toasterId: "incoming-notifications",
@@ -162,7 +177,7 @@ export function IncomingNotificationToastListener() {
           : undefined,
       });
     });
-  }, [data, dataUpdatedAt, router, userIdentity]);
+  }, [data, dataUpdatedAt, isLoading, isLoginPage, pathname, router, userIdentity]);
 
   return null;
 }
