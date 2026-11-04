@@ -51,7 +51,7 @@ from .forecasting import generate_future_forecast
 from .auction_weekly import evaluate_weekly_auction, generate_weekly_auction_forecast
 
 
-# The four authoritative dashboard targets
+# Authoritative dashboard forecast targets
 CORE_DIAGNOSTIC_TARGETS = [
     {
         "id": "milk",
@@ -108,6 +108,16 @@ CORE_DIAGNOSTIC_TARGETS = [
         "reporting_type": "TRANSACTION_BASED",
         "description": "Approved ownership transfers (one animal per transfer event), including transfers on all weekdays.",
     },
+    {
+        "id": "cattle_price",
+        "domain": "auction",
+        "target": "CATTLE",
+        "unit": "PHP_PER_HEAD",
+        "label": "Cattle Price per Head",
+        "commodity_type": "LIVE_ANIMAL_PRICE",
+        "reporting_type": "SALE_PRICE_BASED",
+        "description": "Weekly average recorded sale price per cattle transfer; not weight-adjusted or a market-wide quotation.",
+    },
 ]
 
 
@@ -148,6 +158,11 @@ def _approval_status_breakdown(domain: str, target: str, unit: str, user=None) -
         queryset = scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user).filter(
             transfer_date__lt=current_week,
         )
+        if target not in {"ALL", "HEADS", "TRANSACTIONS", "SALES", "PHP", "PHP_PER_HEAD", "AVG_PHP_PER_HEAD", "PRICE_PER_HEAD"}:
+            queryset = queryset.filter(
+                Q(livestock__livestock_type__name__icontains=target)
+                | Q(external_livestock_type__icontains=target)
+            )
         model = LivestockOwnershipTransfer
         scope_note = "Current workflow status for ownership transfers dated before the current Monday; status totals count transfer events, not distinct animals or market coverage."
     else:
@@ -434,8 +449,11 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
     )
     scoped_sales = scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user)
     target_clean = (target or "ALL").upper()
-    if target_clean not in {"ALL", "HEADS", "TRANSACTIONS", "SALES", "PHP"}:
-        scoped_sales = scoped_sales.filter(livestock__livestock_type__name__icontains=target_clean)
+    if target_clean not in {"ALL", "HEADS", "TRANSACTIONS", "SALES", "PHP", "PHP_PER_HEAD", "AVG_PHP_PER_HEAD", "PRICE_PER_HEAD"}:
+        scoped_sales = scoped_sales.filter(
+            Q(livestock__livestock_type__name__icontains=target_clean)
+            | Q(external_livestock_type__icontains=target_clean)
+        )
     approved_qs = scoped_sales.filter(status=LivestockOwnershipTransfer.Status.APPROVED)
     missing_review_count = approved_qs.filter(reviewed_at__isnull=True).count()
     synthetic_count = approved_qs.filter(review_remarks__contains="AI_SEED").count()
@@ -458,7 +476,7 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
     if missing_review_count:
         message += f" {missing_review_count} approved transfer(s) have no review date, so we cannot tell whether they were approved by the date being checked."
     if synthetic_count:
-        message += " The current records include demo entries. They are left out when describing real market patterns."
+        message += " The current records include synthetic demo entries; any estimate that uses them is for demonstration, not a report of real market prices or activity."
     checklist = [
         {"id": "approved_transfers", "title": "Approved ownership transfers", "category": "DATA_COLLECTION",
          "status": "PASSED" if approved_qs.exists() else "BLOCKED", "actual_value": f"{approved_qs.count()} approved transfer event(s)",
@@ -467,9 +485,17 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
          "action_needed": None if approved_qs.exists() else "Record completed ownership transfers through the existing transfer workflow.", "resolution_type": "DATA_COLLECTION"},
         {"id": "weekly_history", "title": "Complete weeks of records", "category": "DATA_QUALITY",
          "status": "PASSED" if evaluation.get("forecast_available") else "WARNING",
-         "actual_value": f"{progress_count} observed week(s); {len(missing_weeks)} week(s) without complete totals",
-         "expected_requirement": f"At least {required_count} complete weeks in a row",
-         "explanation": "When no transfer is recorded, we cannot tell whether there were no sales or no records.",
+         "actual_value": f"{progress_count} observed week(s); {len(missing_weeks)} week(s) without complete values",
+         "expected_requirement": (
+             f"At least {required_count} consecutive weekly cattle price averages, with every transfer priced"
+             if unit == "PHP_PER_HEAD" else
+             f"At least {required_count} complete weeks in a row"
+         ),
+         "explanation": (
+             "A weekly average is unknown when a cattle transfer has no price or the week has no priced transfer."
+             if unit == "PHP_PER_HEAD" else
+             "When no transfer is recorded, we cannot tell whether there were no sales or no records."
+         ),
          "action_needed": evaluation.get("message") if not evaluation.get("forecast_available") else None, "resolution_type": "DATA_QUALITY"},
         {"id": "weekday_pattern", "title": "Thursday and Friday activity pattern", "category": "DATA_QUALITY",
          "status": "WARNING", "actual_value": "Only approved transfers recorded in SmartLivestock",
@@ -492,10 +518,24 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
     return {
         "metric_id": f"auction_{target_clean.lower()}_{unit.lower()}",
         "domain": "auction", "target": target_clean, "unit": evaluation.get("target", {}).get("unit", unit),
-        "label": "Completed transfer events" if unit == "TRANSACTIONS" else "Animals transferred" if unit == "HEADS" else "Recorded transfer value",
+        "label": (
+            "Average cattle sale price per head" if unit == "PHP_PER_HEAD" else
+            "Completed transfer events" if unit == "TRANSACTIONS" else
+            "Animals transferred" if unit == "HEADS" else
+            "Recorded transfer value"
+        ),
         "source": "Approved livestock transfers", "frequency": "WEEKLY",
-        "reporting_type": "TRANSFER_EVENT_BASED", "expected_reporting": "SmartLivestock does not record all market activity. A week without transfers may mean no sale or missing records.",
-        "minimum_rule": f"At least {required_count} complete weeks of records in a row. Missing weeks are not counted as zero.",
+        "reporting_type": "SALE_PRICE_BASED" if unit == "PHP_PER_HEAD" else "TRANSFER_EVENT_BASED",
+        "expected_reporting": (
+            "Each approved cattle transfer should have a recorded purchase price. A week without priced transfers has no known average."
+            if unit == "PHP_PER_HEAD" else
+            "SmartLivestock does not record all market activity. A week without transfers may mean no sale or missing records."
+        ),
+        "minimum_rule": (
+            f"At least {required_count} complete weekly cattle price averages in a row, with a price on every approved transfer."
+            if unit == "PHP_PER_HEAD" else
+            f"At least {required_count} complete weeks of records in a row. Missing weeks are not counted as zero."
+        ),
         "forecast_status": forecast_status, "forecast_available": evaluation.get("forecast_available", False),
         "validation_status": validation_status,
         "validation_details": (
@@ -506,6 +546,10 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
         "readiness_details": evaluation.get("readiness_details", message),
         "blocker_summary": message,
         "next_step": (
+            "Keep approved cattle transfer dates and prices complete. Record weight and animal characteristics before using prices to compare market value."
+            if unit == "PHP_PER_HEAD" and evaluation.get("forecast_available") else
+            "Continue recording and approving cattle transfers with prices. A week without priced transfers has no known average."
+            if unit == "PHP_PER_HEAD" else
             "Keep weekly transfer records complete and dated. Record daily market activity to compare sales by weekday."
             if evaluation.get("forecast_available") else
             "Continue recording and approving transfers. Without daily market records, we cannot tell whether weeks without transfers had no sales."

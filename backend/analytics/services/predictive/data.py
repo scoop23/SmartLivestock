@@ -62,6 +62,7 @@ from analytics.seed_markers import (
     SEED_MARKER_PRODUCTION_V2,
     SEED_MARKER_PRODUCTION_LEGACY,
     SEED_MARKER_DISEASE,
+    SEED_MARKER_OWNERSHIP_TRANSFER,
     SEED_MARKER_MORTALITY,
     SEED_MARKER_SLAUGHTER,
     SEED_MARKER_AUCTION,
@@ -417,10 +418,13 @@ def extract_monthly_series(
         )
         event_date_field = "transfer_date"
         if target_clean not in ("ALL", "HEADS", "SALES", "TRANSACTIONS", "PHP", ""):
-            base_qs = base_qs.filter(livestock__livestock_type__name__icontains=target_clean)
+            base_qs = base_qs.filter(
+                Q(livestock__livestock_type__name__icontains=target_clean)
+                | Q(external_livestock_type__icontains=target_clean)
+            )
 
         # Check for synthetic test seed markers so test datasets are clearly flagged
-        # (This allows safe cleaning via python manage.py seed_auction --clean without touching real records)
+        # Clean each fixture with its owning seed command; do not infer ownership from a generic AI_SEED prefix.
         seeded_record = base_qs.filter(review_remarks__contains="AI_SEED").first()
         if seeded_record:
             has_seed = True
@@ -428,9 +432,20 @@ def extract_monthly_series(
                 SEED_MARKER_FORECAST_QUALITY_IDEAL,
                 SEED_MARKER_FORECAST_QUALITY_POOR,
                 SEED_MARKER_AUCTION,
+                SEED_MARKER_OWNERSHIP_TRANSFER,
             ) if marker in (seeded_record.review_remarks or "")), "AI_SEED")
 
-        if unit_clean in ("PHP", "VALUE", "TOTAL_PRICE"):
+        if unit_clean in ("TRANSACTIONS", "EVENTS"):
+            unit_clean = "TRANSACTIONS"
+            monthly_data = (
+                base_qs.annotate(month=TruncMonth("transfer_date"))
+                .values("month")
+                .annotate(total_quantity=Count("transfer_certificate_number", distinct=True), latest_event_date=Max("transfer_date"), latest_approval=Max("reviewed_at"),
+                          latest_creation=Max("created_at"), total_records=Count("pk"),
+                          reviewed_records=Count("reviewed_at"), created_records=Count("created_at"))
+                .order_by("month")
+            )
+        elif unit_clean in ("PHP", "VALUE", "TOTAL_PRICE"):
             unit_clean = "PHP"
             unmeasured_target_records = base_qs.filter(purchase_price__isnull=True).count()
             monthly_data = (
@@ -446,7 +461,7 @@ def extract_monthly_series(
             monthly_data = (
                 base_qs.annotate(month=TruncMonth("transfer_date"))
                 .values("month")
-                .annotate(total_quantity=Count("livestock_id", distinct=True), latest_event_date=Max("transfer_date"), latest_approval=Max("reviewed_at"),
+                .annotate(total_quantity=Count("pk"), latest_event_date=Max("transfer_date"), latest_approval=Max("reviewed_at"),
                           latest_creation=Max("created_at"), total_records=Count("pk"),
                           reviewed_records=Count("reviewed_at"), created_records=Count("created_at"))
                 .order_by("month")

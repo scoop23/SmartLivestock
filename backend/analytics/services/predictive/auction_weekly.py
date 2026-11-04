@@ -1,9 +1,11 @@
 """Weekly forecasts and weekday diagnostics for approved ownership transfers.
 
-Each approved transfer represents one animal event. The source has no market
-session or reporting-coverage ledger, so the service forecasts only contiguous
-weekly totals of approved transfers captured in SmartLivestock. Missing weeks
-remain unknown and are never filled with zero.
+Each approved transfer row represents one animal, including outside-market
+animals without a local inventory link. Certificates may cover multiple rows,
+so head counts use rows while transaction counts use distinct certificates.
+The source has no market-session or reporting-coverage ledger, so the service
+forecasts only contiguous weekly observations captured in SmartLivestock.
+Missing weeks remain unknown and are never filled with zero.
 """
 
 from collections import defaultdict
@@ -12,12 +14,17 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+from django.db.models import Q
 from django.utils import timezone
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from .models import ARIMAForecaster, HoltWintersForecaster
 
 from livestock.models import LivestockOwnershipTransfer
 from analytics.seed_markers import (
     SEED_MARKER_AUCTION,
+    SEED_MARKER_OWNERSHIP_TRANSFER,
     SEED_MARKER_FORECAST_QUALITY_IDEAL,
     SEED_MARKER_FORECAST_QUALITY_POOR,
 )
@@ -28,6 +35,7 @@ MIN_HISTORY_WEEKS = 12
 MAX_HORIZON_WEEKS = 12
 MAX_BACKTEST_WINDOWS = 8
 SYNTHETIC_TRANSFER_MARKERS = (
+    SEED_MARKER_OWNERSHIP_TRANSFER,
     SEED_MARKER_FORECAST_QUALITY_IDEAL,
     SEED_MARKER_FORECAST_QUALITY_POOR,
     SEED_MARKER_AUCTION,
@@ -40,8 +48,11 @@ def _filtered_sales(target: str, user=None):
         transfer_date__isnull=False,
     )
     target = (target or "ALL").upper()
-    if target not in {"ALL", "HEADS", "TRANSACTIONS", "SALES", "PHP"}:
-        qs = qs.filter(livestock__livestock_type__name__icontains=target)
+    if target not in {"ALL", "HEADS", "TRANSACTIONS", "SALES", "PHP", "PHP_PER_HEAD", "AVG_PHP_PER_HEAD", "PRICE_PER_HEAD"}:
+        qs = qs.filter(
+            Q(livestock__livestock_type__name__icontains=target)
+            | Q(external_livestock_type__icontains=target)
+        )
     return qs
 
 
@@ -52,24 +63,32 @@ def build_weekly_auction_series(target="ALL", unit="HEADS", user=None) -> Tuple[
         unit = "TRANSACTIONS"
     elif unit in {"PHP", "VALUE", "TOTAL_PRICE"}:
         unit = "PHP"
+    elif unit in {"PHP_PER_HEAD", "AVG_PHP_PER_HEAD", "PRICE_PER_HEAD"}:
+        unit = "PHP_PER_HEAD"
     else:
         unit = "HEADS"
 
-    qs = _filtered_sales(target, user)
-    raw_rows = list(qs.values_list(
-        "pk", "livestock_id", "transfer_date", "purchase_price", "created_at", "reviewed_at", "review_remarks"
-    ))
+    target_clean = (target or "ALL").upper()
+    requires_specific_target = unit == "PHP_PER_HEAD" and target_clean in {
+        "ALL", "HEADS", "TRANSACTIONS", "SALES", "PHP", "PHP_PER_HEAD", "AVG_PHP_PER_HEAD", "PRICE_PER_HEAD"
+    }
+    qs = LivestockOwnershipTransfer.objects.none() if requires_specific_target else _filtered_sales(target, user)
+    raw_rows = qs.values_list(
+        "pk", "transfer_certificate_number", "livestock_id", "transfer_date", "purchase_price",
+        "created_at", "reviewed_at", "review_remarks"
+    ).iterator(chunk_size=10000)
     today = timezone.localdate()
     current_week_start = today - timedelta(days=today.weekday())
     last_complete_week_start = current_week_start - timedelta(days=7)
 
     weekday_rows = {
-        day: {"weekday": day, "transaction_count": 0, "heads_sold": 0, "sales_value_php": 0.0,
-              "transactions_with_value": 0, "synthetic_transactions": 0}
+        day: {"certificate_numbers": set(), "priced_certificates": set(), "heads_sold": 0,
+              "sales_value_php": 0.0, "synthetic_transactions": 0}
         for day in range(7)
     }
     grouped = defaultdict(lambda: {
-        "quantity": 0.0, "record_count": 0, "missing_value_records": 0, "livestock_ids": set(),
+        "quantity": 0.0, "record_count": 0, "missing_value_records": 0, "certificate_numbers": set(),
+        "price_total": 0.0, "priced_records": 0,
         "latest_created_at": None, "latest_reviewed_at": None,
         "created_count": 0, "reviewed_count": 0,
     })
@@ -78,15 +97,15 @@ def build_weekly_auction_series(target="ALL", unit="HEADS", user=None) -> Tuple[
     observed_seed_markers = set()
     unmeasured_value_count = 0
 
-    for transfer_id, livestock_id, sale_date, purchase_price, created_at, reviewed_at, remarks in raw_rows:
+    for transfer_id, certificate_number, livestock_id, sale_date, purchase_price, created_at, reviewed_at, remarks in raw_rows:
         if not sale_date or sale_date >= current_week_start:
             continue  # Current week is partial; do not use it as a completed observation.
         weekday = weekday_rows[sale_date.weekday()]
-        weekday["transaction_count"] += 1
+        weekday["certificate_numbers"].add(certificate_number)
         weekday["heads_sold"] += 1
         if purchase_price is not None:
             weekday["sales_value_php"] += float(purchase_price)
-            weekday["transactions_with_value"] += 1
+            weekday["priced_certificates"].add(certificate_number)
         row_marker = next((marker for marker in SYNTHETIC_TRANSFER_MARKERS if marker in (remarks or "")), None)
         marker_present = row_marker is not None
         if marker_present:
@@ -99,10 +118,13 @@ def build_weekly_auction_series(target="ALL", unit="HEADS", user=None) -> Tuple[
         week_start = sale_date - timedelta(days=sale_date.weekday())
         bucket = grouped[week_start]
         bucket["record_count"] += 1
-        bucket["livestock_ids"].add(livestock_id)
-        if unit == "PHP" and purchase_price is not None:
-            bucket["quantity"] += float(purchase_price)
-        if unit == "PHP" and purchase_price is None:
+        bucket["certificate_numbers"].add(certificate_number)
+        if unit in {"PHP", "PHP_PER_HEAD"} and purchase_price is not None:
+            bucket["price_total"] += float(purchase_price)
+            bucket["priced_records"] += 1
+            if unit == "PHP":
+                bucket["quantity"] += float(purchase_price)
+        if unit in {"PHP", "PHP_PER_HEAD"} and purchase_price is None:
             bucket["missing_value_records"] += 1
         for value_key, count_key in ((created_at, "created_count"), (reviewed_at, "reviewed_count")):
             if value_key is not None:
@@ -126,10 +148,12 @@ def build_weekly_auction_series(target="ALL", unit="HEADS", user=None) -> Tuple[
                 record_count = bucket["record_count"]
                 missing_value_records = bucket["missing_value_records"]
                 quantity = (
-                    np.nan if unit == "PHP" and missing_value_records
+                    np.nan if unit in {"PHP", "PHP_PER_HEAD"} and missing_value_records
                     else bucket["quantity"] if unit == "PHP"
-                    else float(record_count) if unit == "TRANSACTIONS"
-                    else float(len(bucket["livestock_ids"]))
+                    else bucket["price_total"] / bucket["priced_records"] if unit == "PHP_PER_HEAD" and bucket["priced_records"]
+                    else np.nan if unit == "PHP_PER_HEAD"
+                    else float(len(bucket["certificate_numbers"])) if unit == "TRANSACTIONS"
+                    else float(record_count)
                 )
                 latest_created = bucket["latest_created_at"]
                 latest_reviewed = bucket["latest_reviewed_at"]
@@ -157,20 +181,32 @@ def build_weekly_auction_series(target="ALL", unit="HEADS", user=None) -> Tuple[
     missing_weeks = [row["week"].date().isoformat() for row in df.to_dict("records")
                      if not np.isfinite(row["quantity"])]
     observed = df.loc[np.isfinite(df["quantity"])].copy() if not df.empty else df.copy()
-    weekday_profile = [
-        {**weekday_rows[day], "weekday": date(2024, 1, 1) + timedelta(days=day)}
-        for day in range(7)
-    ]
-    for row in weekday_profile:
-        row["weekday"] = row["weekday"].strftime("%A")
-        row["sales_value_php"] = round(row["sales_value_php"], 2)
+    weekday_profile = []
+    for day in range(7):
+        row = weekday_rows[day]
+        weekday_profile.append({
+            "weekday": (date(2024, 1, 1) + timedelta(days=day)).strftime("%A"),
+            "transaction_count": len(row["certificate_numbers"]),
+            "heads_sold": row["heads_sold"],
+            "sales_value_php": round(row["sales_value_php"], 2),
+            "transactions_with_value": len(row["priced_certificates"]),
+            "synthetic_transactions": row["synthetic_transactions"],
+        })
 
-    fully_measured_value = unit != "PHP" or unmeasured_value_count == 0
+    fully_measured_value = unit not in {"PHP", "PHP_PER_HEAD"} or unmeasured_value_count == 0
     has_weekday_observations = bool(eligible_rows)
     metadata = {
-        "domain": "auction", "target": (target or "ALL").upper(), "unit": unit,
+        "domain": "auction", "target": target_clean, "unit": unit,
         "frequency": "WEEKLY", "week_boundary": "Monday-Sunday; only complete weeks included",
-        "scope": "Approved livestock transfers recorded in SmartLivestock; other market activity may not be included",
+        "scope": (
+            "Average recorded purchase price per approved transfer for the selected livestock type; this is not a per-kilogram price or a complete market quotation."
+            if unit == "PHP_PER_HEAD" else
+            "Approved livestock transfers recorded in SmartLivestock; other market activity may not be included"
+        ),
+        "target_requirement_note": (
+            "Select one livestock type to estimate an average price per head. Prices across different livestock types are not comparable."
+            if requires_specific_target else None
+        ),
         "total_records": sum(int(value["record_count"]) for value in grouped.values()),
         "synthetic_records": synthetic_count,
         "is_seeded": synthetic_count > 0,
@@ -182,7 +218,7 @@ def build_weekly_auction_series(target="ALL", unit="HEADS", user=None) -> Tuple[
         "data_through_date": last_complete_week_start.isoformat(),
         "missing_weeks": missing_weeks,
         "missing_week_count": len(missing_weeks),
-        "unmeasured_value_records": unmeasured_value_count if unit == "PHP" else 0,
+        "unmeasured_value_records": unmeasured_value_count if unit in {"PHP", "PHP_PER_HEAD"} else 0,
         "value_measurement_complete": fully_measured_value,
         "weekday_activity": weekday_profile,
         "weekday_pattern_estimable": False,
@@ -207,6 +243,18 @@ def build_weekly_auction_series(target="ALL", unit="HEADS", user=None) -> Tuple[
     return df, metadata
 
 
+def _weekly_calendar_features(weeks: List[pd.Timestamp], first_week: pd.Timestamp) -> np.ndarray:
+    """Build weekly trend and annual-cycle features for regression candidates."""
+    origin = pd.Timestamp(first_week)
+    features = []
+    for value in weeks:
+        week = pd.Timestamp(value)
+        elapsed_weeks = (week - origin).days / 7.0
+        annual_angle = 2 * np.pi * (week.dayofyear - 1) / 365.2425
+        features.append([elapsed_weeks, np.sin(annual_angle), np.cos(annual_angle)])
+    return np.asarray(features, dtype=float)
+
+
 def _predict(model_name: str, history: pd.DataFrame, future_weeks: List[pd.Timestamp]) -> np.ndarray:
     values = history["quantity"].astype(float).to_numpy()
     horizon = len(future_weeks)
@@ -222,10 +270,61 @@ def _predict(model_name: str, history: pd.DataFrame, future_weeks: List[pd.Times
         if any(key not in by_week for key in keys):
             raise ValueError("A matching observation from 52 weeks earlier is unavailable.")
         result = np.asarray([by_week[key] for key in keys], dtype=float)
-    elif model_name == "Linear Trend":
-        x = np.arange(len(values), dtype=float)
-        slope, intercept = np.polyfit(x, values, 1) if len(values) > 1 else (0.0, values[-1])
-        result = intercept + slope * np.arange(len(values), len(values) + horizon, dtype=float)
+    elif model_name == "Linear Regression":
+        weeks = pd.to_datetime(history["week"]).tolist()
+        first_week = pd.Timestamp(weeks[0])
+        model = LinearRegression().fit(_weekly_calendar_features(weeks, first_week), values)
+        result = model.predict(_weekly_calendar_features(future_weeks, first_week))
+    elif model_name == "Random Forest":
+        weeks = pd.to_datetime(history["week"]).tolist()
+        first_week = pd.Timestamp(weeks[0])
+        lag_count = 4
+        if len(values) <= lag_count:
+            raise ValueError("Random Forest needs at least five weekly observations to build lag features.")
+
+        training_features = []
+        training_targets = []
+        for index in range(lag_count, len(values)):
+            calendar = _weekly_calendar_features([weeks[index]], first_week)[0]
+            prior_values = values[index - lag_count:index]
+            training_features.append([
+                *calendar,
+                float(values[index - 1]),
+                float(values[index - lag_count]),
+                float(np.mean(prior_values)),
+            ])
+            training_targets.append(float(values[index]))
+
+        model = RandomForestRegressor(
+            n_estimators=50,
+            max_depth=5,
+            min_samples_split=2,
+            random_state=42,
+        ).fit(np.asarray(training_features, dtype=float), np.asarray(training_targets, dtype=float))
+
+        running_values = values.tolist()
+        predictions = []
+        for future_week in future_weeks:
+            calendar = _weekly_calendar_features([future_week], first_week)[0]
+            prior_values = running_values[-lag_count:]
+            features = np.asarray([[
+                *calendar,
+                float(running_values[-1]),
+                float(running_values[-lag_count]),
+                float(np.mean(prior_values)),
+            ]], dtype=float)
+            prediction = max(0.0, float(model.predict(features)[0]))
+            predictions.append(prediction)
+            running_values.append(prediction)
+        result = np.asarray(predictions, dtype=float)
+    elif model_name == "ARIMA":
+        model = ARIMAForecaster(order=(1, 1, 1)).fit(pd.Series(values))
+        result = model.predict_steps(horizon)
+    elif model_name == "Holt-Winters":
+        # A full annual weekly seasonal cycle needs two years of observations;
+        # the forecaster falls back to trend-only smoothing when history is shorter.
+        model = HoltWintersForecaster(seasonal_periods=52).fit(pd.Series(values))
+        result = model.predict_steps(horizon)
     else:
         raise ValueError(f"Unsupported weekly auction model: {model_name}")
     return np.maximum(np.asarray(result, dtype=float), 0.0)
@@ -247,14 +346,34 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
     df, meta = build_weekly_auction_series(target, unit, user)
     obs_count = int(meta["total_weekly_observations"])
     missing_count = int(meta["missing_week_count"])
-    candidate_names = ["Naive Baseline", "Moving Average (4 weeks)", "Linear Trend"]
+    candidate_names = [
+        "Naive Baseline", "Moving Average (4 weeks)", "Linear Regression",
+        "Random Forest", "ARIMA", "Holt-Winters",
+    ]
+    baseline_model_names = {"Naive Baseline", "Moving Average (4 weeks)", "Seasonal Naive (52 weeks)"}
+    model_type_names = {
+        "Linear Regression": "Weekly trend and annual pattern",
+        "Random Forest": "Machine learning",
+        "ARIMA": "Time-series model",
+        "Holt-Winters": "Exponential smoothing",
+    }
     if len(df) >= 52 + horizon:
         candidate_names.insert(2, "Seasonal Naive (52 weeks)")
     min_train = 52 if "Seasonal Naive (52 weeks)" in candidate_names else MIN_TRAIN_WEEKS
 
-    if obs_count < MIN_HISTORY_WEEKS or missing_count or not meta["value_measurement_complete"]:
+    if meta.get("target_requirement_note"):
+        message = meta["target_requirement_note"]
+        status = "insufficient_data"
+        forecast_available = False
+    elif obs_count < MIN_HISTORY_WEEKS or missing_count or not meta["value_measurement_complete"]:
         if obs_count < MIN_HISTORY_WEEKS:
             message = f"Records cover {obs_count} complete weeks. At least {MIN_HISTORY_WEEKS} are needed for an initial weekly estimate."
+        elif unit == "PHP_PER_HEAD" and (missing_count or not meta["value_measurement_complete"]):
+            message = (
+                f"{missing_count} week(s) do not have a complete cattle price average, and "
+                f"{meta['unmeasured_value_records']} approved transfer(s) have no purchase price. "
+                "Missing price weeks are unknown and are not filled in."
+            )
         elif missing_count:
             message = f"{missing_count} week(s) have no complete approved transfer total. Missing weeks are not counted as zero activity."
         else:
@@ -351,7 +470,8 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
 
         if valid_windows:
             metric_rows = [
-                {"name": name, "model_type": "Time-series baseline" if "Baseline" in name or "Naive" in name or "Average" in name else "Linear trend",
+                {"name": name,
+                 "model_type": "Time-series baseline" if name in baseline_model_names else model_type_names.get(name, "Time-series model"),
                  "status": "EVALUATED", "description": name,
                  **_metric_summary(values["actual"], values["predicted"]),
                  "test_predictions": final_predictions["predictions"][name] if final_predictions else [],
@@ -370,8 +490,8 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
     if forecast_available and not valid_windows:
         status = "unvalidated"
 
-    baseline_models = [row for row in metric_rows if row["name"] in {"Naive Baseline", "Moving Average (4 weeks)", "Seasonal Naive (52 weeks)"}]
-    advanced_models = [row for row in metric_rows if row["name"] == "Linear Trend"]
+    baseline_models = [row for row in metric_rows if row["name"] in baseline_model_names]
+    advanced_models = [row for row in metric_rows if row["name"] not in baseline_model_names]
     best_baseline = min(baseline_models, key=lambda row: row["mae"]) if baseline_models else None
     best_advanced = min(advanced_models, key=lambda row: row["mae"]) if advanced_models else None
     winner = best_baseline
@@ -387,7 +507,7 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
             winner = best_advanced
             comparison = "MODEL_BEATS_BASELINE"
             source = "MACHINE_LEARNING"
-            rationale = f"The trend method matched past records better than the simple weekly forecast across {valid_windows} checks."
+            rationale = f"{winner['name']} matched past records better than the best simple weekly forecast across {valid_windows} checks."
         if winner:
             winner["is_selected"] = True
 
@@ -426,7 +546,7 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
                                  "actual_values": final_predictions["actual"],
                                  "weeks": final_predictions["weeks"]}
                                 if final_predictions else None)},
-        "selection": {"criterion": "Lowest pooled MAE on identical rolling-origin weekly windows; advanced trend must beat the best simple baseline.",
+        "selection": {"criterion": "Lowest pooled MAE on identical rolling-origin weekly windows; an advanced model must beat the best simple baseline.",
                       "selected_model": winner["name"] if winner else None,
                       "baseline_model": best_baseline["name"] if best_baseline else "Naive Baseline",
                       "baseline_mae": best_baseline["mae"] if best_baseline else None,
@@ -451,7 +571,18 @@ def generate_weekly_auction_forecast(target="ALL", unit="HEADS", horizon_weeks=6
     """Return next-week projections, retaining the complete weekly actual history."""
     result = evaluate_weekly_auction(target, unit, horizon_weeks, user)
     if not result["forecast_available"]:
-        result.update({"forecast": [], "chart_data": result["historical_trend"]})
+        df, _ = build_weekly_auction_series(target, unit, user)
+        chart_data = [
+            {
+                "date": row.week.date().isoformat(),
+                "month_label": f"Week of {row.week:%b %d, %Y}",
+                "actual": float(row.quantity) if np.isfinite(row.quantity) else None,
+                "forecast": None,
+                "is_future": False,
+            }
+            for row in df.itertuples()
+        ]
+        result.update({"forecast": [], "chart_data": chart_data})
         return result
     df, meta = build_weekly_auction_series(target, unit, user)
     winner = result["selection"].get("selected_model")

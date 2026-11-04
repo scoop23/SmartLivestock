@@ -537,6 +537,45 @@ def descriptive_summary(today=None, *, user=None):
         }
         for m in _months(start)
     ]
+    sales_with_species = sales.annotate(
+        sale_species=Coalesce(
+            F("livestock__livestock_type__name"),
+            F("external_livestock_type"),
+            Value("Unknown"),
+            output_field=CharField(),
+        )
+    )
+    cattle_sales = sales_with_species.filter(sale_species__icontains="cattle")
+    cattle_price_totals = cattle_sales.aggregate(
+        transfers=Count("pk", distinct=True),
+        priced_transfers=Count("pk", filter=Q(purchase_price__isnull=False), distinct=True),
+        average_price_per_head=Avg("purchase_price"),
+    )
+    cattle_price_monthly = list(
+        cattle_sales.annotate(month=TruncMonth("transfer_date"))
+        .values("month")
+        .annotate(
+            transfers=Count("pk", distinct=True),
+            priced_transfers=Count("pk", filter=Q(purchase_price__isnull=False), distinct=True),
+            average_price_per_head=Avg("purchase_price"),
+        )
+        .order_by("month")
+    )
+    cattle_price_by_month = {row["month"]: row for row in cattle_price_monthly}
+    cattle_price_trend = []
+    for month in _months(start):
+        row = cattle_price_by_month.get(month)
+        transfers = row["transfers"] if row else 0
+        priced_transfers = row["priced_transfers"] if row else 0
+        average_price = row["average_price_per_head"] if row else None
+        cattle_price_trend.append({
+            "month": month.isoformat(),
+            "label": f"{calendar.month_abbr[month.month]} {month.year}",
+            "transfers": transfers,
+            "priced_transfers": priced_transfers,
+            "missing_price_transfers": transfers - priced_transfers,
+            "average_price_per_head": float(average_price) if average_price is not None else None,
+        })
     sales_by_species_monthly = list(
         sales.annotate(month=TruncMonth("transfer_date"), species=F("livestock__livestock_type__name"))
         .values("month", "species")
@@ -867,6 +906,16 @@ def descriptive_summary(today=None, *, user=None):
             "period_end": today.isoformat(),
             "by_species": sales_by_species,
             "monthly_trend_by_species": sales_species_trend,
+            "cattle_price": {
+                "transfers": cattle_price_totals["transfers"],
+                "priced_transfers": cattle_price_totals["priced_transfers"],
+                "missing_price_transfers": cattle_price_totals["transfers"] - cattle_price_totals["priced_transfers"],
+                "average_price_per_head": (
+                    float(cattle_price_totals["average_price_per_head"])
+                    if cattle_price_totals["average_price_per_head"] is not None else None
+                ),
+                "trend": cattle_price_trend,
+            },
             "trend": sales_trend,
         },
         "ownership_transfers": {

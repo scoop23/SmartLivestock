@@ -239,6 +239,7 @@ function formatTargetUnit(unit: string) {
   if (u === "KILOGRAMS") return "kg";
   if (u === "HEADS") return "animals";
   if (u === "CASES") return "cases";
+  if (u === "PHP_PER_HEAD") return "₱ per head";
   return unit;
 }
 
@@ -276,6 +277,7 @@ function readableReportingType(type: string) {
     MONTHLY_TOTAL: "Monthly total",
     EVENT_BASED: "Recorded events",
     TRANSFER_EVENT_BASED: "Livestock transfers",
+    SALE_PRICE_BASED: "Recorded sale prices",
   };
   return labels[type] || type.replaceAll("_", " ").toLowerCase();
 }
@@ -296,6 +298,8 @@ function getTargetIcon(id: string) {
   switch (id) {
     case "livestock_sales":
       return ShoppingBag;
+    case "cattle_price":
+      return Scale;
     case "slaughter_meat":
       return Scale;
     default:
@@ -326,7 +330,7 @@ function MissionControlTooltip({ active, payload, label, unit }: any) {
                   style={{ backgroundColor: item.color || (isForecast ? "#059669" : "#64748b") }}
                 />
                 <span className="text-slate-600 font-medium">
-              {isForecast ? "Estimate" : isActual ? "Recorded amount" : item.name}
+              {isForecast ? "Estimate" : isActual ? (unit === "₱ per head" ? "Recorded average price" : "Recorded amount") : item.name}
                 </span>
               </div>
               <span className="font-mono font-bold text-slate-900">
@@ -371,6 +375,7 @@ export function FuturisticPredictiveDashboard() {
   const [viewMode, setViewMode] = useState<"overview" | "backtest" | "models" | "checklist">("overview");
   const [showTableView, setShowTableView] = useState<boolean>(false);
   const [timelinePage, setTimelinePage] = useState(0);
+  const [historyWindowMonths, setHistoryWindowMonths] = useState(12);
   const timelinePageSize = 10;
 
   // Fetch Authoritative Readiness Diagnostics from Backend
@@ -394,7 +399,30 @@ export function FuturisticPredictiveDashboard() {
   const TargetIcon = getTargetIcon(activeTargetId);
 
   // Chart Data preparation
-  const chartTimeline = targetDetail?.forecast?.chart_data || [];
+  const rawChartTimeline = targetDetail?.forecast?.chart_data || [];
+  const isAuctionForecast = currentCard?.domain === "auction";
+  const isCattlePriceForecast = currentCard?.id === "cattle_price";
+  const hasWeeklyHistoryRange = currentCard?.id === "livestock_sales" || isCattlePriceForecast;
+  const hasWeeklyHistory = rawChartTimeline.some((point) => !point.is_future && point.actual != null);
+  const chartTimeline = useMemo(() => {
+    if (!hasWeeklyHistoryRange) return rawChartTimeline;
+
+    const latestHistoricalPoint = [...rawChartTimeline]
+      .reverse()
+      .find((point) => !point.is_future && point.actual != null);
+    if (!latestHistoricalPoint) return rawChartTimeline;
+
+    const cutoff = new Date(`${latestHistoricalPoint.date}T00:00:00.000Z`);
+    if (!Number.isFinite(cutoff.getTime())) return rawChartTimeline;
+    cutoff.setUTCMonth(cutoff.getUTCMonth() - historyWindowMonths);
+    const cutoffTime = cutoff.getTime();
+
+    return rawChartTimeline.filter((point) => {
+      if (point.is_future) return true;
+      const pointTime = Date.parse(`${point.date}T00:00:00.000Z`);
+      return Number.isFinite(pointTime) && pointTime >= cutoffTime;
+    });
+  }, [rawChartTimeline, hasWeeklyHistoryRange, historyWindowMonths]);
   const timelinePageCount = Math.max(1, Math.ceil(chartTimeline.length / timelinePageSize));
   const safeTimelinePage = Math.min(timelinePage, timelinePageCount - 1);
   const visibleTimeline = chartTimeline.slice(
@@ -403,6 +431,7 @@ export function FuturisticPredictiveDashboard() {
   );
   const forecastPoints = targetDetail?.forecast?.forecast_points || [];
   const metadata = targetDetail?.forecast?.metadata || {};
+  const horizonUnit = currentCard?.frequency === "WEEKLY" ? "weeks" : "months";
   const backtestInfo = targetDetail?.backtesting || targetDetail?.evaluation;
   const candidateModels = backtestInfo?.models || backtestInfo?.model_metrics || {};
   const cutoffTimeline = backtestInfo?.cutoffs || backtestInfo?.cutoff_timeline || [];
@@ -528,7 +557,7 @@ export function FuturisticPredictiveDashboard() {
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/70"
                   }`}
                 >
-                  {m} {m === 1 ? "month" : "months"}
+                  {m} {m === 1 ? (horizonUnit === "weeks" ? "week" : "month") : horizonUnit}
                 </button>
               ))}
             </div>
@@ -550,9 +579,9 @@ export function FuturisticPredictiveDashboard() {
       {/* ----------------------------------------------------------------- */}
       {/* B. FORECAST TARGET SELECTOR (Light Emerald Segmented Cards)       */}
       {/* ----------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {isPending
-          ? Array.from({ length: 5 }).map((_, i) => (
+          ? Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-24 rounded-2xl bg-white border border-slate-200" />
             ))
           : summaryCards.map((card) => {
@@ -636,7 +665,9 @@ export function FuturisticPredictiveDashboard() {
                 <TargetIcon className="size-4 text-emerald-700" />
               </div>
               <CardTitle className="text-base sm:text-lg font-bold text-slate-900">
-                {currentCard?.label} - estimate for the next {horizonMonths} months
+                {isAuctionForecast && !isCattlePriceForecast
+                  ? `Approved SmartLivestock transfers - estimate for the next ${horizonMonths} ${horizonUnit}`
+                  : `${currentCard?.label} - estimate for the next ${horizonMonths} ${horizonUnit}`}
               </CardTitle>
             </div>
             <CardDescription className="text-xs text-slate-500 flex flex-wrap items-center gap-2">
@@ -644,7 +675,7 @@ export function FuturisticPredictiveDashboard() {
               <span>•</span>
               <span>Unit: <strong className="text-slate-700">{formatTargetUnit(currentCard?.unit || "")}</strong></span>
               <span>•</span>
-              <span>Updated: <strong className="text-slate-700">{currentCard?.frequency === "WEEKLY" ? "Weekly" : "Monthly"}</strong></span>
+              <span>Interval: <strong className="text-slate-700">{currentCard?.frequency === "WEEKLY" ? "Weekly" : "Monthly"}</strong></span>
             </CardDescription>
           </div>
 
@@ -671,6 +702,51 @@ export function FuturisticPredictiveDashboard() {
         </CardHeader>
 
         <CardContent className="p-4 sm:p-6 space-y-4">
+          {isAuctionForecast && isCattlePriceForecast && (
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs leading-relaxed text-slate-700">
+              <>
+                <p>
+                  <strong className="text-slate-900">Price basis:</strong> This is the weekly average recorded purchase price per animal from approved cattle transfers. It is not a price per kilogram or a market-wide quote, and it does not adjust for weight, breed, age, or sex.
+                </p>
+                <p className="mt-1">
+                  The estimate uses approved cattle transfers recorded in SmartLivestock and does not represent the full auction market. Seeded transfers are synthetic examples, not actual cattle prices.
+                </p>
+              </>
+            </div>
+          )}
+          {hasWeeklyHistoryRange && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <div>
+                <p className="text-xs font-semibold text-slate-800">Show past records</p>
+                <p className="text-[11px] text-slate-500">
+                  {hasWeeklyHistory ? "The estimate stays visible." : "Available after weekly records are added."}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Past records time range">
+                {[3, 6, 12].map((months) => (
+                  <Button
+                    key={months}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-pressed={historyWindowMonths === months}
+                    disabled={!hasWeeklyHistory}
+                    onClick={() => {
+                      setHistoryWindowMonths(months);
+                      setTimelinePage(0);
+                    }}
+                    className={`h-8 border px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${
+                      historyWindowMonths === months
+                        ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    {months} months
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
           {isPending ? (
             <Skeleton className="h-80 w-full rounded-xl bg-slate-100" />
           ) : chartTimeline.length === 0 ? (
@@ -836,19 +912,19 @@ export function FuturisticPredictiveDashboard() {
                   <Line
                     type="monotone"
                     dataKey="actual"
-                    name="Observed Actuals"
+                    name={isCattlePriceForecast ? "Recorded cattle price per head" : isAuctionForecast ? "Approved SmartLivestock transfers" : "Observed Actuals"}
                     stroke="#64748b"
                     strokeWidth={2}
                     dot={{ r: 3.5, fill: "#94a3b8", stroke: "#ffffff", strokeWidth: 1.5 }}
                     activeDot={{ r: 6, fill: "#475569" }}
-                    connectNulls
+                    connectNulls={!isCattlePriceForecast}
                   />
 
                   {/* Future Forecast Vibrant Emerald Green Series */}
                   <Line
                     type="monotone"
                     dataKey="forecast"
-                    name="Future Projection"
+                    name={isCattlePriceForecast ? "Estimated cattle price per head" : isAuctionForecast ? "Projected SmartLivestock transfers" : "Future Projection"}
                     stroke="#059669"
                     strokeWidth={2.5}
                     strokeDasharray="5 3"
@@ -871,7 +947,7 @@ export function FuturisticPredictiveDashboard() {
         <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-emerald-300 transition-all relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">
-              Next Period Forecast
+              {isCattlePriceForecast ? "Next Week Price Estimate" : "Next Period Forecast"}
             </span>
             <div className="size-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-800">
               <TrendingUp className="size-4" />
@@ -881,7 +957,7 @@ export function FuturisticPredictiveDashboard() {
             {nextForecast ? (
               <>
                 <div className="text-2xl font-mono font-extrabold text-slate-900 tracking-tight flex items-baseline gap-1.5">
-                  <span>{nextForecast.predicted.toLocaleString("en-PH", { maximumFractionDigits: 1 })}</span>
+                  <span>{nextForecast.predicted.toLocaleString("en-PH", { maximumFractionDigits: isCattlePriceForecast ? 2 : 1 })}</span>
                   <span className="text-xs font-sans text-emerald-700 font-bold">{formatTargetUnit(currentCard?.unit || "")}</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
@@ -1071,7 +1147,7 @@ export function FuturisticPredictiveDashboard() {
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
-              Summary View
+              Overview
             </Button>
             <Button
               variant={viewMode === "models" ? "default" : "outline"}
@@ -1083,7 +1159,7 @@ export function FuturisticPredictiveDashboard() {
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
-              Compare Methods
+              Compare estimates
             </Button>
             <Button
               variant={viewMode === "backtest" ? "default" : "outline"}
@@ -1095,7 +1171,7 @@ export function FuturisticPredictiveDashboard() {
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
-              Past Forecast Checks
+              Past comparisons
             </Button>
             <Button
               variant={viewMode === "checklist" ? "default" : "outline"}
@@ -1107,12 +1183,12 @@ export function FuturisticPredictiveDashboard() {
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
-              Data Checklist
+              Data & records
             </Button>
           </div>
 
           <span className="text-xs text-slate-500 font-mono">
-            {viewMode === "overview" ? "Summary and guidance" : "More details"}
+            {viewMode === "overview" ? "Forecast summary and next steps" : "Supporting details"}
           </span>
         </div>
 
@@ -1213,7 +1289,7 @@ export function FuturisticPredictiveDashboard() {
                       onClick={() => setViewMode("models")}
                       className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
                     >
-                      <span>Compare prediction methods</span>
+                      <span>Compare estimates with past records</span>
                       <ArrowRight className="size-3" />
                     </button>
                   </div>
@@ -1267,10 +1343,10 @@ export function FuturisticPredictiveDashboard() {
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Cpu className="size-4 text-emerald-700" />
-                  Compare prediction methods
+                  Which estimates were closest?
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Each method was checked against later records for {currentCard?.label}. The method with the smallest average difference is used for estimates.
+                  We compared earlier estimates for {currentCard?.label} with records saved later. The approach that was closest to those records is used for the current estimate.
                 </p>
               </div>
 
@@ -1278,12 +1354,12 @@ export function FuturisticPredictiveDashboard() {
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow className="border-slate-200">
-                      <TableHead className="font-mono text-xs text-slate-700">Method</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700">Status</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700 text-right">Average difference ({formatTargetUnit(currentCard?.unit || "")})</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700 text-right">Large misses</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700 text-right">Pattern match</TableHead>
-                      <TableHead className="font-mono text-xs text-slate-700 text-right">Use</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700">Approach</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700">Result</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700 text-right">Typical difference ({formatTargetUnit(currentCard?.unit || "")})</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700 text-right">Largest miss</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700 text-right">Tracks changes</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700 text-right">Selected</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1359,7 +1435,7 @@ export function FuturisticPredictiveDashboard() {
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <History className="size-4 text-emerald-700" />
-                  Past Forecast Checks
+                  How past estimates compared
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   These checks recreate earlier forecasts using only records that were available at the time.
@@ -1427,7 +1503,7 @@ export function FuturisticPredictiveDashboard() {
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <FileCheck2 className="size-4 text-emerald-700" />
-                  Data Checklist
+                  Record coverage
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Checks for missing records and other issues that can affect estimates for {currentCard?.label}.

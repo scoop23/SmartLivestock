@@ -73,6 +73,20 @@ interface DescriptiveResponse {
       completed_transfers: number;
       missing_price_transfers: number;
       trend: Array<{ month: string; label: string; transactions: number | null; animals: number | null; total_value_php: number | null }>;
+      cattle_price: {
+        transfers: number;
+        priced_transfers: number;
+        missing_price_transfers: number;
+        average_price_per_head: number | null;
+        trend: Array<{
+          month: string;
+          label: string;
+          transfers: number;
+          priced_transfers: number;
+          missing_price_transfers: number;
+          average_price_per_head: number | null;
+        }>;
+      };
     };
     vaccination: {
       vaccinated: number;
@@ -165,6 +179,8 @@ export default function DescriptiveAnalyticsLandingPage() {
     : '';
 
   const salesTrend = data?.sales.trend || [];
+  const cattlePriceTrend = data?.sales.cattle_price.trend || [];
+  const hasCattlePriceObservations = cattlePriceTrend.some((point) => point.average_price_per_head !== null);
 
   return (
     <>
@@ -213,7 +229,7 @@ export default function DescriptiveAnalyticsLandingPage() {
                 </Badge>
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                Approved census snapshots, reviewed slaughter activity, health coverage, and livestock auction sales. Simple by default, detailed on demand.
+                Approved census snapshots, reviewed slaughter activity, health coverage, and livestock auction sales and prices. Simple by default, detailed on demand.
               </p>
             </div>
 
@@ -552,11 +568,19 @@ export default function DescriptiveAnalyticsLandingPage() {
                       </span>
                       {data?.sales.average_price != null && (
                         <span>
-                          Avg Head Price: <strong className="text-emerald-800">
+                          Avg Head Price (all species): <strong className="text-emerald-800">
                             ₱{Math.round(data.sales.average_price).toLocaleString('en-PH')}
                           </strong>
                         </span>
                       )}
+                      <span>
+                        Avg Cattle Price / Head: <strong className="text-emerald-800">
+                          {data?.sales.cattle_price.average_price_per_head == null
+                            ? 'Not recorded'
+                            : `₱${data.sales.cattle_price.average_price_per_head.toLocaleString('en-PH', { maximumFractionDigits: 2 })}`}
+                        </strong>
+                        <span className="ml-1 text-slate-500">({data?.sales.cattle_price.priced_transfers ?? 0} priced transfers)</span>
+                      </span>
                     </div>
 
                     <div className="h-72 sm:h-80 w-full" role="img" aria-label="Monthly approved livestock auction sales and transfers">
@@ -604,6 +628,55 @@ export default function DescriptiveAnalyticsLandingPage() {
                           />
                         </ComposedChart>
                       </ResponsiveContainer>
+                    </div>
+
+                    <div className="space-y-2 border-t border-slate-100 pt-4">
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900">Average Cattle Sale Price per Head</h4>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                          Monthly average from approved cattle transfers with recorded prices. Each transfer row represents one animal; unpriced transfers are excluded. This is not a price per kilogram.
+                        </p>
+                      </div>
+                      {loading ? (
+                        <Skeleton className="h-72 w-full rounded-xl bg-slate-100" />
+                      ) : hasCattlePriceObservations ? (
+                        <div className="h-72 sm:h-80 w-full" role="img" aria-label="Monthly average approved cattle sale price per animal">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={cattlePriceTrend} margin={{ top: 10, right: 15, left: 5, bottom: 20 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                              <XAxis
+                                dataKey="label"
+                                stroke="#94a3b8"
+                                tick={{ fill: "#64748b", fontSize: 11, fontFamily: "monospace" }}
+                                axisLine={{ stroke: "#e2e8f0" }}
+                                tickLine={{ stroke: "#e2e8f0" }}
+                              />
+                              <YAxis
+                                stroke="#94a3b8"
+                                tick={{ fill: "#64748b", fontSize: 11, fontFamily: "monospace" }}
+                                axisLine={{ stroke: "#e2e8f0" }}
+                                tickLine={{ stroke: "#e2e8f0" }}
+                                tickFormatter={(value) => `₱${Number(value).toLocaleString("en-PH")}`}
+                              />
+                              <Tooltip content={<MissionControlTooltip unit="PHP per head" />} />
+                              <Line
+                                type="monotone"
+                                dataKey="average_price_per_head"
+                                name="Average recorded price per head"
+                                stroke="#d97706"
+                                strokeWidth={2.5}
+                                dot={{ r: 4, fill: "#f59e0b", stroke: "#92400e", strokeWidth: 1.5 }}
+                                activeDot={{ r: 6, fill: "#d97706" }}
+                                connectNulls={false}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : (
+                        <div className="flex min-h-36 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center text-sm text-slate-600">
+                          No approved cattle transfers with recorded prices in this 12-month period.
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
