@@ -100,7 +100,7 @@ import { LivestockInfographicHero } from "../components/livestock-infographic-he
 import { LivestockLineageTree } from "../components/livestock-lineage-tree";
 import { LivestockSlidingPanel } from "../components/livestock-sliding-panel";
 import { ManageHerdDialog } from "../components/manage-herd-dialog";
-import LivestockEditDialog from "../livestock-edit-dialog";
+import LivestockEditDialog, { type UpdateInventoryPayload as DialogUpdatePayload } from "../livestock-edit-dialog";
 import {
 getAvatarById,
 useLivestockTypes,
@@ -370,7 +370,7 @@ export default function LivestockDetailPage() {
   const isInactive = isDeceased || isSlaughtered;
 
   const correctionMutation = useMutation({
-    mutationFn: async (payload: UpdateInventoryPayload) => {
+    mutationFn: async (payload: DialogUpdatePayload) => {
       if (!activeItem) throw new Error("No livestock record is selected.");
       if (isInactive) throw new Error(`${isDeceased ? "Deceased" : "Slaughtered"} animals are read-only.`);
       const response = await api.put(`livestock/inventory/${activeItem.id}/`, payload);

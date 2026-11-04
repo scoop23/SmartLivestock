@@ -60,7 +60,17 @@ export default function AllLivestockInventoryPage() {
   const updateMutation = useMutation({
     mutationFn: async (payload: UpdateInventoryPayload) => {
       if (!editTarget) throw new Error("No record selected");
-      const response = await api.put(`/livestock/inventory/${editTarget.id}/`, payload);
+      const url = `/livestock/inventory/${editTarget.id}/`;
+      if (payload.kind === "maintenance") {
+        const response = await api.patch(url, {
+          last_vaccination_date: payload.last_vaccination_date,
+        });
+        return response.data;
+      }
+
+      const { kind, ...correction } = payload;
+      void kind;
+      const response = await api.put(url, correction);
       return response.data;
     },
     onSuccess: () => {
@@ -68,9 +78,21 @@ export default function AllLivestockInventoryPage() {
       setEditTarget(null);
       toast.success("Livestock entry updated successfully");
     },
-    onError: (err) => {
-      console.error(err);
-      toast.error("Failed to update livestock entry");
+    onError: (err: unknown) => {
+      const apiErr = err as { response?: { data?: unknown } };
+      const responseData = apiErr.response?.data;
+      const data = responseData && typeof responseData === "object"
+        ? responseData as Record<string, unknown>
+        : undefined;
+      const fieldMessage = Object.values(data ?? {})
+        .flatMap((value) => Array.isArray(value) ? value : [value])
+        .find((value): value is string => typeof value === "string");
+      toast.error(
+        (typeof data?.error === "string" && data.error) ||
+        (typeof data?.detail === "string" && data.detail) ||
+        fieldMessage ||
+        "Could not update livestock entry. Check your connection and try again."
+      );
     },
   });
 

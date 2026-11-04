@@ -54,19 +54,22 @@ const TREATMENT_TYPE_LABELS: Record<string, string> = {
   OTHER: "Other Clinical Treatment",
 };
 
-export interface UpdateInventoryPayload {
-  livestock_type: number;
-  entry_type: EntryType;
-  quantity: number;
-  tag_number: string;
-  ownership_certificate_number?: string | null;
-  breed: string;
-  sex: string;
-  birth_date: string | null;
-  weight: number | null;
-  last_vaccination_date: string | null;
-  batch?: number | null;
-}
+export type UpdateInventoryPayload =
+  | { kind: "maintenance"; last_vaccination_date: string | null }
+  | {
+      kind: "correction";
+      livestock_type: number;
+      entry_type: EntryType;
+      quantity: number;
+      tag_number: string;
+      ownership_certificate_number: string;
+      breed: string;
+      sex: string;
+      birth_date: string | null;
+      weight: number | null;
+      last_vaccination_date: string | null;
+      batch?: number | null;
+    };
 
 const statusClasses: Record<string, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -141,6 +144,7 @@ function LivestockEditDialogContent({
   );
   const [formError, setFormError] = useState("");
   const queryClient = useQueryClient();
+  const maintenanceOnly = item?.status === "APPROVED" || item?.status === "VERIFIED";
 
   const [isTreatmentPopupOpen, setIsTreatmentPopupOpen] = useState(false);
   const [treatmentForm, setTreatmentForm] = useState({
@@ -231,6 +235,14 @@ function LivestockEditDialogContent({
     setFormError("");
     if (!item) return;
 
+    if (maintenanceOnly) {
+      onSubmit({
+        kind: "maintenance",
+        last_vaccination_date: form.lastVaccinationDate || null,
+      });
+      return;
+    }
+
     if (!form.tagNumber.trim()) {
       setFormError("Ear tag / ID number is required.");
       return;
@@ -246,11 +258,13 @@ function LivestockEditDialogContent({
     }
 
     onSubmit({
+      kind: "correction",
       livestock_type: typeId,
       entry_type: "INDIVIDUAL",
       quantity: 1,
       tag_number: form.tagNumber.trim(),
-      ownership_certificate_number: form.ownershipCertificateNumber.trim() || null,
+      // This is a blankable text field, not a nullable field in the API.
+      ownership_certificate_number: form.ownershipCertificateNumber.trim(),
       // Keep the existing herd relationship when this dialog edits animal details.
       batch: form.batchId ? Number(form.batchId) : null,
       breed: form.breed.trim(),
@@ -334,6 +348,12 @@ function LivestockEditDialogContent({
                 </div>
               )}
 
+              {maintenanceOnly && (
+                <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+                  This record is approved or verified. You can update its vaccination date here; animal identity details stay locked.
+                </p>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="editVaxDate">Last Vaccination Date (optional)</Label>
@@ -346,7 +366,7 @@ function LivestockEditDialogContent({
                     className="h-11 min-w-0 w-full"
                   />
                 </div>
-                {!hideBirthDate && (
+                {!maintenanceOnly && !hideBirthDate && (
                   <div className="space-y-2">
                     <Label htmlFor="editBirthDate">Birth Date (optional)</Label>
                     <Input
@@ -359,87 +379,95 @@ function LivestockEditDialogContent({
                     />
                   </div>
                 )}
-                <div className="space-y-2">
-                  <Label htmlFor="editTagNumber">Ear Tag / ID Number</Label>
-                  <Input
-                    id="editTagNumber"
-                    placeholder="e.g. NAME-001"
-                    value={form.tagNumber}
-                    onChange={(e) => set({ tagNumber: e.target.value })}
-                    required
-                  />
-                </div>
+                {!maintenanceOnly && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="editTagNumber">Ear Tag / ID Number</Label>
+                      <Input
+                        id="editTagNumber"
+                        placeholder="e.g. NAME-001"
+                        value={form.tagNumber}
+                        onChange={(e) => set({ tagNumber: e.target.value })}
+                        required
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="editColc">Certificate of Ownership (COLC) # (optional)</Label>
-                  <Input
-                    id="editColc"
-                    placeholder="e.g. COLC-2026-0001"
-                    value={form.ownershipCertificateNumber}
-                    onChange={(e) => set({ ownershipCertificateNumber: e.target.value.toUpperCase() })}
-                    className="font-mono"
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="editColc">Certificate of Ownership (COLC) # (optional)</Label>
+                      <Input
+                        id="editColc"
+                        placeholder="e.g. COLC-2026-0001"
+                        value={form.ownershipCertificateNumber}
+                        onChange={(e) => set({ ownershipCertificateNumber: e.target.value.toUpperCase() })}
+                        className="font-mono"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="editLivestockType">Livestock Species</Label>
-                  <Select
-                    value={form.livestockType}
-                    onValueChange={(val) => set({ livestockType: val })}
-                    disabled={!!item.batchId}
-                  >
-                    <SelectTrigger id="editLivestockType">
-                      <SelectValue placeholder="Select animal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(livestockTypes).map(([name, id]) => (
-                        <SelectItem key={id} value={name}>
-                          {name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="editLivestockType">Livestock Species</Label>
+                      <Select
+                        value={form.livestockType}
+                        onValueChange={(val) => set({ livestockType: val })}
+                        disabled={!!item.batchId}
+                      >
+                        <SelectTrigger id="editLivestockType">
+                          <SelectValue placeholder="Select animal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(livestockTypes).map(([name, id]) => (
+                            <SelectItem key={id} value={name}>
+                              {name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <LivestockBreedField
-                    id="editBreed"
-                    species={form.livestockType}
-                    value={form.breed}
-                    onChange={(breed) => set({ breed })}
-                    required
-                    placeholder="Select a breed"
-                />
-              </div>
+              {!maintenanceOnly && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <LivestockBreedField
+                      id="editBreed"
+                      species={form.livestockType}
+                      value={form.breed}
+                      onChange={(breed) => set({ breed })}
+                      required
+                      placeholder="Select a breed"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="editSex">Sex / Gender</Label>
-                  <Select value={form.sex} onValueChange={(val) => set({ sex: val })}>
-                    <SelectTrigger id="editSex">
-                      <SelectValue placeholder="Select sex" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Female">Female</SelectItem>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Castrated">Castrated (Steer)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="editSex">Sex / Gender</Label>
+                      <Select value={form.sex} onValueChange={(val) => set({ sex: val })}>
+                        <SelectTrigger id="editSex">
+                          <SelectValue placeholder="Select sex" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Female">Female</SelectItem>
+                          <SelectItem value="Male">Male</SelectItem>
+                          <SelectItem value="Castrated">Castrated (Steer)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="editWeight">Scale Weight (kg)</Label>
-                  <Input
-                    id="editWeight"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={form.weight}
-                    onChange={(e) => set({ weight: e.target.value })}
-                  />
-                </div>
-              </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="editWeight">Scale Weight (kg)</Label>
+                      <Input
+                        id="editWeight"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={form.weight}
+                        onChange={(e) => set({ weight: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Clinical Treatments & Medications Section under the Update dialog */}
               <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-4 space-y-3">
@@ -525,7 +553,7 @@ function LivestockEditDialogContent({
                       <Pencil className="w-4 h-4" />
                       {item.status === "SUBJECT_TO_REVISION"
                         ? item.batchId ? "Save Corrections" : "Save Corrections & Resubmit"
-                        : "Save Changes"}
+                        : maintenanceOnly ? "Save Health Update" : "Save Changes"}
                     </>
                   )}
                 </Button>

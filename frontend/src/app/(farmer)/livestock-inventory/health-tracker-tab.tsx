@@ -235,6 +235,11 @@ export default function HealthTrackerTab({
               <TableBody>
                 {filteredList.map((item) => {
                   const hasVax = Boolean(item.lastVaccinationDate);
+                  const canUpdate =
+                    item.status === "PENDING" ||
+                    item.status === "SUBJECT_TO_REVISION" ||
+                    ((item.status === "APPROVED" || item.status === "VERIFIED") &&
+                      item.operationalStatus === "ACTIVE");
                   return (
                     <TableRow
                       key={item.id}
@@ -328,7 +333,15 @@ export default function HealthTrackerTab({
                             variant="outline"
                             size="sm"
                             onClick={() => onEdit(item)}
-                            className="rounded-xl h-8 px-2.5 text-xs font-bold text-emerald-800 border-emerald-200 hover:bg-emerald-50"
+                            disabled={!canUpdate}
+                            title={
+                              item.operationalStatus !== "ACTIVE"
+                                ? "Inactive livestock records cannot be updated"
+                                : item.status === "REJECTED"
+                                ? "Rejected entries cannot be edited"
+                                : "Update health details"
+                            }
+                            className="rounded-xl h-8 px-2.5 text-xs font-bold text-emerald-800 border-emerald-200 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <Pencil className="w-3.5 h-3.5 mr-1" />
                             Update

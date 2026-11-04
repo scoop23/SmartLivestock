@@ -336,6 +336,7 @@ function LivestockSplitCard({
   const isDeceased = item.operationalStatus === "DECEASED";
   const isSlaughtered = item.operationalStatus === "SLAUGHTERED";
   const isInactive = isDeceased || isSlaughtered;
+  const canEditDetails = isPending && item.operationalStatus === "ACTIVE";
   const canDelete = isPending && !isInactive;
   const speciesTheme = getSpeciesTheme(item.livestockTypeName);
 
@@ -741,7 +742,7 @@ function LivestockSplitCard({
                       variant="ghost"
                       size="icon"
                       onClick={() => onEdit(item)}
-                      disabled={isApproved || isInactive}
+                      disabled={!canEditDetails}
                       title={
                         isDeceased
                           ? "Deceased animals are read-only"
@@ -749,6 +750,10 @@ function LivestockSplitCard({
                           ? "Slaughtered animals are read-only"
                           : isApproved
                           ? "Approved entries are locked"
+                          : item.status === "REJECTED"
+                          ? "Rejected entries cannot be edited"
+                          : item.operationalStatus !== "ACTIVE"
+                          ? "Inactive livestock records are read-only"
                           : "Edit animal record"
                       }
                       className="size-8 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
@@ -764,6 +769,10 @@ function LivestockSplitCard({
                     ? "Slaughtered animals are read-only"
                     : isApproved
                     ? "Approved entries are locked"
+                    : item.status === "REJECTED"
+                    ? "Rejected entries cannot be edited"
+                    : item.operationalStatus !== "ACTIVE"
+                    ? "Inactive livestock records are read-only"
                     : "Edit animal record"}
                 </TooltipContent>
               </Tooltip>
@@ -1460,6 +1469,7 @@ export default function LivestockRecordList({
                 const isDeceased = item.operationalStatus === "DECEASED";
                 const isSlaughtered = item.operationalStatus === "SLAUGHTERED";
                 const isInactive = isDeceased || isSlaughtered;
+                const canEditDetails = isPending && item.operationalStatus === "ACTIVE";
                 const canDelete = isPending && !isInactive;
                 const localPhoto = typeof window !== "undefined" ? localStorage.getItem(`livestock_photo_${item.id}`) : null;
                 const localAvatar = typeof window !== "undefined" ? localStorage.getItem(`livestock_avatar_${item.id}`) : null;
@@ -1653,7 +1663,7 @@ export default function LivestockRecordList({
                           variant="ghost"
                           size="icon"
                           onClick={() => onEdit(item)}
-                          disabled={isApproved || isInactive}
+                          disabled={!canEditDetails}
                           title={
                             isDeceased
                               ? "Deceased animals are read-only"
@@ -1661,6 +1671,10 @@ export default function LivestockRecordList({
                               ? "Slaughtered animals are read-only"
                               : isApproved
                               ? "Approved entries are locked"
+                              : item.status === "REJECTED"
+                              ? "Rejected entries cannot be edited"
+                              : item.operationalStatus !== "ACTIVE"
+                              ? "Inactive livestock records are read-only"
                               : "Edit animal record"
                           }
                           className="h-7 w-7 rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-25"
