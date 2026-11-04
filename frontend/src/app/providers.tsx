@@ -41,6 +41,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             id="incoming-notifications"
             position="top-right"
             expand={true}
+            gap={15}
             offset={{ top: "34px", right: "34px" }}
           />
           {children}

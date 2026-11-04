@@ -507,25 +507,26 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
         </div>
 
         {/* MAO Workflow Filter & Search Toolbar */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-4 shadow-2xs">
+        <div className="flex flex-col gap-3.5 rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-2xs lg:flex-row lg:items-center lg:justify-between">
           {/* Status Tabs — PENDING is default */}
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
+              aria-pressed={statusFilter === "PENDING"}
               onClick={() => {
                 setStatusFilter("PENDING");
                 setCurrentPage(1);
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
                 statusFilter === "PENDING"
                   ? "bg-amber-600 text-white shadow-xs"
-                  : "bg-amber-50/80 text-amber-900 border border-amber-200/80 hover:bg-amber-100/70"
+                  : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
               }`}
             >
               <Clock className="size-3.5" />
-              <span>Pending Approval</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                statusFilter === "PENDING" ? "bg-white/20 text-white" : "bg-amber-200/80 text-amber-900"
+              <span>Waiting for Review</span>
+              <span className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${
+                statusFilter === "PENDING" ? "bg-white/20" : "bg-white"
               }`}>
                 {counts.pending}
               </span>
@@ -533,20 +534,21 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
 
             <button
               type="button"
+              aria-pressed={statusFilter === "APPROVED"}
               onClick={() => {
                 setStatusFilter("APPROVED");
                 setCurrentPage(1);
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
                 statusFilter === "APPROVED"
                   ? "bg-emerald-700 text-white shadow-xs"
-                  : "bg-emerald-50/80 text-emerald-900 border border-emerald-200/80 hover:bg-emerald-100/70"
+                  : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
               }`}
             >
               <Check className="size-3.5" />
               <span>Approved</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                statusFilter === "APPROVED" ? "bg-white/20 text-white" : "bg-emerald-200/80 text-emerald-900"
+              <span className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${
+                statusFilter === "APPROVED" ? "bg-white/20" : "bg-white"
               }`}>
                 {counts.approved}
               </span>
@@ -554,20 +556,21 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
 
             <button
               type="button"
+              aria-pressed={statusFilter === "SUBJECT_TO_REVISION"}
               onClick={() => {
                 setStatusFilter("SUBJECT_TO_REVISION");
                 setCurrentPage(1);
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
                 statusFilter === "SUBJECT_TO_REVISION"
                   ? "bg-rose-700 text-white shadow-xs"
-                  : "bg-rose-50/80 text-rose-900 border border-rose-200/80 hover:bg-rose-100/70"
+                  : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
               }`}
             >
               <RotateCcw className="size-3.5" />
               <span>Returned</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                statusFilter === "SUBJECT_TO_REVISION" ? "bg-white/20 text-white" : "bg-rose-200/80 text-rose-900"
+              <span className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${
+                statusFilter === "SUBJECT_TO_REVISION" ? "bg-white/20" : "bg-white"
               }`}>
                 {counts.revision}
               </span>
@@ -575,24 +578,30 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
 
             <button
               type="button"
+              aria-pressed={statusFilter === "ALL"}
               onClick={() => {
                 setStatusFilter("ALL");
                 setCurrentPage(1);
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
                 statusFilter === "ALL"
                   ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-slate-100/80 text-slate-600 hover:bg-slate-200/70"
+                  : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
               }`}
             >
-              All Records ({counts.total})
+              <span>All Records</span>
+              <span className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${
+                statusFilter === "ALL" ? "bg-white/20" : "bg-white"
+              }`}>
+                {counts.total}
+              </span>
             </button>
           </div>
 
           {/* Search Bar & Species Filter */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 lg:max-w-md">
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+          <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center lg:max-w-xl">
+            <div className="relative flex-1 lg:max-w-sm">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
               <Input
                 value={search}
                 onChange={(e) => {
@@ -600,12 +609,13 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                   setCurrentPage(1);
                 }}
                 placeholder="Search certificate #, seller, buyer, or tag…"
-                className="pl-10 h-9 bg-white border-slate-200 text-xs rounded-xl shadow-2xs"
+                className="h-9 rounded-xl border-slate-200 bg-white pl-10 text-xs shadow-2xs"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch("")}
+                  aria-label="Clear search"
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                   <X className="size-3.5" />
@@ -620,7 +630,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                 setCurrentPage(1);
               }}
             >
-              <SelectTrigger className="h-9 sm:w-36 bg-white border-slate-200 text-xs font-semibold rounded-xl shadow-2xs">
+              <SelectTrigger className="h-9 w-full rounded-xl border-slate-200 bg-white text-xs font-semibold shadow-2xs sm:w-36">
                 <SelectValue placeholder="All Species" />
               </SelectTrigger>
               <SelectContent>
