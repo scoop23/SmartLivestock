@@ -21,14 +21,14 @@ OBSERVATION_COUNT = 60
 
 
 class Command(BaseCommand):
-    help = "Seed 60 isolated synthetic daily milk observations for CAT-B301-10."
+    help = "Seed 60 isolated synthetic daily milk observations for CAT-B301-10 without changing inventory."
 
     def add_arguments(self, parser):
         """Add cleanup mode; it removes demo rows only and never changes the animal."""
         parser.add_argument(
             "--clean",
             action="store_true",
-            help="Remove this cow's synthetic demo records (the livestock birth date is retained).",
+            help="Remove this cow's synthetic demo records without changing livestock inventory.",
         )
 
     def handle(self, *args, **options):
@@ -58,19 +58,18 @@ class Command(BaseCommand):
             raise CommandError(f"{TAG_NUMBER} must be an individual female cattle record to seed this demo.")
 
         today = timezone.localdate()
-        # This is the explicitly requested age correction on the canonical animal record.
-        birth_date = today - relativedelta(years=6)
+        # The assumed age belongs only to the isolated demo fixture. Never invent or
+        # overwrite a historical birth date on the canonical inventory animal.
+        demo_birth_date = today - relativedelta(years=6)
 
         with transaction.atomic():
-            animal.birth_date = birth_date
-            animal.save(update_fields=["birth_date"])
             self._clean_demo_data(report=False)
             demo_cow = IndividualMilkDemoCow.objects.create(
                 demo_id=DEMO_ID,
                 tag_number=TAG_NUMBER,
                 breed=animal.breed or "",
                 sex="FEMALE",
-                birth_date=birth_date,
+                birth_date=demo_birth_date,
                 weight_kg=animal.weight,
                 # No calving date is invented; the feature is omitted if it is unknown.
                 calving_date=None,
@@ -79,8 +78,8 @@ class Command(BaseCommand):
             self._create_observations(demo_cow, today)
 
         self.stdout.write(self.style.SUCCESS(
-            f"Set {TAG_NUMBER}'s birth date to {birth_date} (6 years old) and created "
-            f"{OBSERVATION_COUNT} isolated synthetic daily observations from "
+            f"Created an isolated demo cow fixture with an assumed six-year age and "
+            f"{OBSERVATION_COUNT} synthetic daily observations from "
             f"{today - timedelta(days=OBSERVATION_COUNT - 1)} through {today}."
         ))
         self.stdout.write(
@@ -114,7 +113,7 @@ class Command(BaseCommand):
         deleted, _ = demo_cow.delete()
         if report:
             self.stdout.write(self.style.SUCCESS(
-                f"Removed {deleted} CAT-B301-10 demo rows. The canonical livestock and birth date were untouched."
+                f"Removed {deleted} CAT-B301-10 demo rows. The canonical livestock record was untouched."
             ))
 
     def _create_observations(self, cow, today):

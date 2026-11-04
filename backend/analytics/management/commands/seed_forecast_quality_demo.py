@@ -11,15 +11,13 @@ accuracy. The ideal scenario uses explicitly simulated historical timestamps so
 the dashboard can demonstrate cutoff-based backtesting.
 """
 
-import os
-import sys
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from math import sin, pi
+from random import Random
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from django.db import connections, transaction
+from django.db import transaction
 from django.utils import timezone
 
 from analytics.seed_markers import (
@@ -30,11 +28,44 @@ from analytics.seed_markers import (
 )
 from livestock.models import Farmer, LivestockInventory, LivestockOwnershipTransfer, LivestockType
 from production.models import ProductionRecord, SlaughterRecord
+from smartlivestock.seed_safety import assert_safe_seed_database
 from users.models import User
 
 
 MONTHS = 36
 AUCTION_WEEKS = 104
+# DEPDev CALABARZON's 2022 report gave these weekly averages; together they sum to 2,500.
+MARKET_WEEKLY_HEAD_AVERAGES = (
+    {"code": "CAT", "label": "Cattle", "average": 1280, "lot_size": (1, 5), "price_range": (32000, 46000)},
+    {"code": "CAR", "label": "Carabao", "average": 500, "lot_size": (1, 4), "price_range": None},
+    {"code": "GOA", "label": "Goat", "average": 600, "lot_size": (5, 25), "price_range": None},
+    {"code": "HOR", "label": "Horse", "average": 120, "lot_size": (1, 2), "price_range": None},
+)
+SYNTHETIC_MARKET_ORIGINS = (
+    ("Lipa City", "Batangas", "CALABARZON"),
+    ("Lucena City", "Quezon", "CALABARZON"),
+    ("Malolos City", "Bulacan", "Central Luzon"),
+    ("Calapan City", "Oriental Mindoro", "MIMAROPA"),
+    ("Naga City", "Camarines Sur", "Bicol Region"),
+    ("Quezon City", "Metro Manila", "NCR"),
+)
+
+
+def weekly_counts_with_average(rng, average_heads, week_count):
+    """Return varied integer weekly counts whose multiweek mean is exact."""
+    weights = [rng.uniform(0.90, 1.10) for _ in range(week_count)]
+    weight_total = sum(weights)
+    exact_counts = [average_heads * week_count * weight / weight_total for weight in weights]
+    weekly_counts = [int(value) for value in exact_counts]
+    remainder = average_heads * week_count - sum(weekly_counts)
+    largest_remainders = sorted(
+        range(week_count),
+        key=lambda index: exact_counts[index] - weekly_counts[index],
+        reverse=True,
+    )
+    for index in largest_remainders[:remainder]:
+        weekly_counts[index] += 1
+    return weekly_counts
 
 
 def shift_month(month_start: date, offset: int) -> date:
@@ -47,11 +78,17 @@ def aware_at(day: date, hour: int) -> datetime:
 
 
 class Command(BaseCommand):
-    help = "Seed or clean ideal/poor synthetic forecast-quality examples for milk, meat, slaughter, and auction sales."
+    help = (
+        "Seed or clean forecast-quality examples. The ideal auction scenario creates 104 weeks "
+        "of synthetic benchmark-calibrated external-market transfer rows."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument("--scenario", choices=("ideal", "poor"), required=True)
         parser.add_argument("--clean", action="store_true", help="Remove only the selected scenario's owned records.")
+        parser.add_argument("--farmer-email", action="append", help="Use this Farmer account as a scenario owner; repeat for multiple demo farmers.")
+        parser.add_argument("--mao-email", help="Use this active, approved MAO account as reviewer.")
+        parser.add_argument("--auction-email", help="Use this active, approved Auction account to create transfer events.")
 
     def handle(self, *args, **options):
         scenario = options["scenario"]
@@ -60,7 +97,7 @@ class Command(BaseCommand):
             if scenario == "ideal"
             else SEED_MARKER_FORECAST_QUALITY_POOR
         )
-        self._assert_safe_database(clean=options["clean"])
+        assert_safe_seed_database(clean=options["clean"])
 
         if options["clean"]:
             self._clean(marker)
@@ -81,12 +118,27 @@ class Command(BaseCommand):
                 f"The {scenario} scenario already exists. Run this command with --scenario {scenario} --clean before reseeding."
             )
 
-        mao_user = (
-            User.objects.filter(role__role_name__icontains="MAO").first()
-            or User.objects.filter(is_superuser=True).first()
-        )
+        mao_users = User.objects.filter(role__role_name="MAO", account_status=User.AccountStatus.APPROVED, is_active=True)
+        mao_user = mao_users.filter(email__iexact=options["mao_email"]).first() if options["mao_email"] else mao_users.first()
+        if not mao_user and not options["mao_email"]:
+            mao_user = User.objects.filter(is_superuser=True, is_active=True).first()
         if not mao_user:
-            raise CommandError("A MAO or superuser account is required as the synthetic record creator/reviewer.")
+            raise CommandError("An active, approved MAO account is required as the synthetic reviewer.")
+        if mao_user.role.role_name != "MAO" or mao_user.account_status != User.AccountStatus.APPROVED or not mao_user.is_active:
+            raise CommandError("The selected reviewer must be an active, approved MAO account.")
+
+        auction_user = None
+        if options["auction_email"]:
+            auction_user = User.objects.filter(
+                email__iexact=options["auction_email"], role__role_name="AUCTION",
+                account_status=User.AccountStatus.APPROVED, is_active=True,
+            ).first()
+            if not auction_user:
+                raise CommandError("The selected Auction account must exist, be active, and be approved.")
+        else:
+            auction_user = User.objects.filter(
+                role__role_name="AUCTION", account_status=User.AccountStatus.APPROVED, is_active=True,
+            ).order_by("pk").first() or mao_user
 
         cattle_type = (
             LivestockType.objects.filter(name__icontains="cattle").first()
@@ -94,9 +146,23 @@ class Command(BaseCommand):
         )
         if not cattle_type:
             raise CommandError("A Cattle/Cow LivestockType is required for synthetic slaughter events.")
-        seller = Farmer.objects.select_related("user").first()
-        if not seller:
-            raise CommandError("At least one Farmer record is required as the seller for synthetic transfer events.")
+        farmer_emails = options["farmer_email"] or []
+        if isinstance(farmer_emails, str):
+            farmer_emails = [farmer_emails]
+        farmer_queryset = Farmer.objects.select_related("user").filter(
+            user__role__role_name="FARMER",
+        )
+        if farmer_emails:
+            sellers = list(farmer_queryset.filter(user__email__in=farmer_emails).order_by("pk"))
+            found_emails = {seller.user.email.lower() for seller in sellers}
+            missing_emails = [email for email in farmer_emails if email.lower() not in found_emails]
+            if missing_emails:
+                raise CommandError(f"No Farmer profile exists for: {', '.join(missing_emails)}")
+        else:
+            seller = farmer_queryset.first()
+            sellers = [seller] if seller else []
+        if not sellers:
+            raise CommandError("At least one Farmer record is required for synthetic farm-production and meat events.")
 
         # Warn rather than silently overwrite or remove unrelated source rows.
         existing_counts = {
@@ -115,48 +181,26 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             if scenario == "ideal":
-                created = self._seed_ideal(marker, mao_user, seller, cattle_type)
+                created = self._seed_ideal(marker, mao_user, sellers, cattle_type, auction_user)
             else:
-                created = self._seed_poor(marker, mao_user, seller, cattle_type)
+                created = self._seed_poor(marker, mao_user, sellers, cattle_type, auction_user)
         self.stdout.write(self.style.SUCCESS(
             f"Seeded the synthetic '{scenario}' forecast-quality scenario: "
             f"{created['milk']} milk session rows, {created['farmer_meat']} farmer meat events, "
             f"{created['slaughter']} slaughter events, and {created['sales']} approved/pending ownership transfer events."
         ))
+        if scenario == "ideal":
+            self.stdout.write(
+                "The ideal auction series has 104 complete weeks. Its synthetic weekly species averages "
+                "match the 2022 reported mix: 1,280 cattle, 500 carabaos, 600 goats, and 120 horses "
+                "(2,500 total heads per week). Each head is one external transfer row; sellers and buyers "
+                "use synthetic identities and different city addresses."
+            )
         self.stdout.write(
-            "This dataset is synthetic. Its simulated dates and approval timestamps demonstrate system behavior; "
-            "they are not real operational evidence or measured forecast accuracy.\n"
+            "All generated records and timestamps are synthetic. The ideal auction counts are calibrated to a "
+            "published average, not dated historical market totals or evidence of forecast accuracy.\n"
             f"Remove only this scenario with: python manage.py seed_forecast_quality_demo --scenario {scenario} --clean"
         )
-
-    def _assert_safe_database(self, *, clean):
-        connection = connections["default"]
-        isolated_test = "test" in sys.argv and "test" in str(connection.settings_dict.get("NAME", "")).lower()
-        if isolated_test:
-            return
-        host = str(connection.settings_dict.get("HOST") or "").strip().lower()
-        target_env = os.environ.get("SMARTLIVESTOCK_DEMO_ENV", "").lower()
-        db_name = str(connection.settings_dict.get("NAME") or "")
-        expected_ack = f"development:{db_name}"
-        if (
-            connection.vendor != "postgresql"
-            # An empty PostgreSQL HOST means Django uses the local Unix socket.
-            or host not in {"", "localhost", "127.0.0.1", "::1"}
-            or not settings.DEBUG
-            or target_env != "development"
-            or os.environ.get("SMARTLIVESTOCK_DEMO_DATABASE_ACK") != expected_ack
-        ):
-            raise CommandError(
-                "Forecast demo seeds are restricted to a local PostgreSQL development database. "
-                "Set SMARTLIVESTOCK_DEMO_ENV=development and "
-                "SMARTLIVESTOCK_DEMO_DATABASE_ACK=development:<database-name> after verifying the target. "
-                "No database changes were made."
-            )
-        if clean and os.environ.get("SMARTLIVESTOCK_DEMO_ALLOW_CLEANUP") != "YES":
-            raise CommandError(
-                "--clean requires SMARTLIVESTOCK_DEMO_ALLOW_CLEANUP=YES after confirming this is the intended local database. "
-                "No database changes were made."
-            )
 
     @staticmethod
     def _scenario_exists(marker):
@@ -202,12 +246,11 @@ class Command(BaseCommand):
         first_month = shift_month(last_month, -(month_count - 1))
         return [shift_month(first_month, index) for index in range(month_count)]
 
-    def _production_row(self, *, marker, user, day, kind, amount, status, session=None,
-                        approved_time=None, review_time=None, note=""):
+    def _production_row(self, *, marker, user, day, kind, amount, status, session=None, farmer=None, note=""):
         record = ProductionRecord(
             livestock=None,
             batch=None,
-            farmer_at_record=None,
+            farmer_at_record=farmer,
             production_type=kind,
             quantity=Decimal(str(amount)),
             unit=(ProductionRecord.UnitType.LITERS if kind == "MILK" else ProductionRecord.UnitType.KILOGRAMS),
@@ -243,7 +286,7 @@ class Command(BaseCommand):
         return row
 
     def _sale_row(self, *, marker, user, seller, cattle_type, day, heads, price, status,
-                  review_time=None, note=""):
+                  reviewer=None, review_time=None, note=""):
         """Create one marked inventory identity and transfer event per animal."""
         animal_rows = []
         transfer_rows = []
@@ -268,9 +311,9 @@ class Command(BaseCommand):
                                     if status == LivestockOwnershipTransfer.Status.APPROVED
                                     else LivestockInventory.OperationalStatus.ACTIVE),
                 operational_status_changed_at=(review_time if status == LivestockOwnershipTransfer.Status.APPROVED else None),
-                reviewed_by=user, reviewed_at=review_time,
+                reviewed_by=reviewer or user, reviewed_at=review_time,
                 review_remarks=f"{marker} Synthetic forecast-quality inventory fixture.",
-                created_by=user,
+                created_by=seller.user,
             )
             animal._demo_created_at = aware_at(day, 7)
             animal_rows.append(animal)
@@ -284,7 +327,7 @@ class Command(BaseCommand):
                 transfer_date=day, municipality="Padre Garcia", province="Batangas",
                 animal_description=f"Synthetic {cattle_type.name} transfer; {note}"[:500],
                 purchase_price=per_animal_prices[index],
-                status=status, reviewed_by=user if review_time else None,
+                status=status, reviewed_by=(reviewer or user) if review_time else None,
                 reviewed_at=review_time,
                 review_remarks=f"{marker} Synthetic fixture; {note}"[:1000],
                 created_by=user,
@@ -293,38 +336,143 @@ class Command(BaseCommand):
             transfer_rows.append(transfer)
         return animal_rows, transfer_rows
 
-    def _seed_ideal(self, marker, user, seller, cattle_type):
+    def _external_market_lot_rows(
+        self, *, marker, auction_user, reviewer, species, seller_origin, buyer_origin,
+        day, heads, certificate_number, rng,
+    ):
+        """Create one external ownership-transfer row per synthetic market head."""
+        rows = []
+        review_time = aware_at(day, 17)
+        seller_city, seller_province, seller_region = seller_origin
+        buyer_city, buyer_province, _ = buyer_origin
+        self._demo_market_lot_serial += 1
+        seller_number = (self._demo_market_lot_serial % 24) + 1
+        owner_type = rng.choice((
+            LivestockOwnershipTransfer.OwnerType.EXTERNAL_INDIVIDUAL,
+            LivestockOwnershipTransfer.OwnerType.COMPANY,
+            LivestockOwnershipTransfer.OwnerType.TRADER,
+        ))
+        if owner_type == LivestockOwnershipTransfer.OwnerType.COMPANY:
+            buyer_name = f"Synthetic Livestock Trading Co. {seller_number:02d}"
+        elif owner_type == LivestockOwnershipTransfer.OwnerType.TRADER:
+            buyer_name = f"Synthetic Market Trader {seller_number:02d}"
+        else:
+            buyer_name = f"Synthetic Livestock Buyer {seller_number:02d}"
+
+        for _ in range(heads):
+            self._demo_market_animal_serial += 1
+            serial = self._demo_market_animal_serial
+            price = None
+            if species["price_range"]:
+                price = Decimal(rng.randrange(*species["price_range"], 500))
+            transfer = LivestockOwnershipTransfer(
+                livestock=None,
+                previous_owner=None,
+                external_seller_name=f"Synthetic {seller_region} Trader {seller_number:02d}",
+                external_seller_address=f"Synthetic seller address, {seller_city}, {seller_province}",
+                external_livestock_type=species["label"],
+                external_livestock_tag_number=f"DEMO-{species['code']}-{serial:07d}",
+                origin_municipality=seller_city,
+                origin_province=seller_province,
+                owner_type=owner_type,
+                new_owner=None,
+                external_owner_name=buyer_name,
+                external_owner_address=f"Synthetic buyer address, {buyer_city}, {buyer_province}",
+                transfer_certificate_number=certificate_number,
+                original_certificate_number=f"ORIG-{certificate_number}",
+                transfer_date=day,
+                municipality="Padre Garcia",
+                province="Batangas",
+                animal_description=(
+                    f"Synthetic {species['label']} head in benchmark-calibrated market lot {certificate_number}."
+                ),
+                purchase_price=price,
+                status=LivestockOwnershipTransfer.Status.APPROVED,
+                created_by=auction_user,
+                reviewed_by=reviewer,
+                reviewed_at=review_time,
+                review_remarks=(
+                    f"{marker} Synthetic benchmark-calibrated external-market fixture; one row represents one head."
+                ),
+            )
+            transfer._demo_created_at = aware_at(day, 9)
+            rows.append(transfer)
+        return rows
+
+    def _dairy_inventory_rows(self, marker, reviewer, seller, cattle_type, farm_index, first_month):
+        rows = []
+        for animal_index in range(6):
+            arrival_day = first_month + timedelta(days=animal_index)
+            row = LivestockInventory(
+                farmer=seller,
+                livestock_type=cattle_type,
+                entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+                quantity=1,
+                birth_date=arrival_day - timedelta(days=365 * (3 + animal_index % 4)),
+                tag_number=f"{marker}-F{farm_index + 1}-COW-{animal_index + 1:02d}",
+                breed="Synthetic dairy cross",
+                sex="Female",
+                weight=Decimal(str(360 + animal_index * 18)),
+                status=LivestockInventory.StatusType.APPROVED,
+                operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+                created_by=seller.user,
+                reviewed_by=reviewer,
+                reviewed_at=aware_at(arrival_day, 17),
+                review_remarks=f"{marker} Synthetic dairy herd fixture; not a real animal.",
+            )
+            row._demo_created_at = aware_at(arrival_day, 7)
+            rows.append(row)
+        return rows
+
+    def _seed_ideal(self, marker, user, sellers, cattle_type, auction_user=None):
+        auction_user = auction_user or user
         months = self._months_back(MONTHS)
         production_rows = []
         meat_rows = []
         slaughter_rows = []
+        dairy_animals = []
+        for farm_index, seller in enumerate(sellers):
+            dairy_animals.extend(self._dairy_inventory_rows(marker, user, seller, cattle_type, farm_index, months[0]))
+
         for month_index, month in enumerate(months):
             next_month = shift_month(month, 1)
             days = (next_month - month).days
-            annual = 1 + 0.06 * sin((month.month - 1) * 2 * pi / 12)
-            trend = 1 + month_index * 0.003
-            for day_number in range(1, days + 1):
-                production_day = date(month.year, month.month, day_number)
-                for session, base in (("MORNING", 82), ("AFTERNOON", 59), ("EVENING", 41)):
-                    variation = ((day_number * 7 + month.month * 3) % 9 - 4) * 0.7
-                    production_rows.append(self._production_row(
-                        marker=marker, user=user, day=production_day, kind="MILK",
-                        amount=round((base + variation) * annual * trend, 2),
+            annual = 1 + 0.07 * sin((month.month - 1) * 2 * pi / 12)
+            trend = 1 + month_index * 0.0015
+            for farm_index, seller in enumerate(sellers):
+                farmer_user = seller.user
+                farm_scale = 0.92 + farm_index * 0.08
+                for day_number in range(1, days + 1):
+                    production_day = date(month.year, month.month, day_number)
+                    # Two daily sessions are a plausible small-farm demonstration.
+                    # A few deterministic missed logs and bounded day-to-day changes
+                    # avoid presenting a perfectly repeating machine-generated series.
+                    if (day_number * 13 + month.month * 7 + month_index * 5 + farm_index * 11) % 37 == 0:
+                        continue
+                    for session_index, (session, base) in enumerate((("MORNING", 43), ("AFTERNOON", 31))):
+                        variation = ((day_number * 17 + month.month * 11 + month_index * 3 + session_index * 7 + farm_index * 5) % 17 - 8) * 0.65
+                        production_rows.append(self._production_row(
+                            marker=marker, user=farmer_user, farmer=seller, day=production_day, kind="MILK",
+                            amount=round(max(12, (base + variation) * farm_scale * annual * trend), 2),
+                            status=ProductionRecord.ProductionStatus.RECORDED,
+                            session=session, note="synthetic twice-daily farm log with seasonal and day-to-day variation",
+                        ))
+                meat_days = (10, 24) if month.month in {3, 6, 9, 12} else (17,)
+                for event_index, day_number in enumerate(meat_days):
+                    event_day = date(month.year, month.month, min(day_number, days))
+                    event_variation = ((month_index * 7 + month.month * 5 + event_index * 3 + farm_index * 13) % 21 - 10) * 2.4
+                    kg = round(max(55, (155 + 38 * event_index + month_index * 0.7 + event_variation) * annual * farm_scale), 2)
+                    meat_rows.append(self._production_row(
+                        marker=marker, user=farmer_user, farmer=seller, day=event_day, kind="MEAT", amount=kg,
                         status=ProductionRecord.ProductionStatus.RECORDED,
-                        session=session, note="complete daily session report",
+                        note="farmer-reported event yield in kilograms",
                     ))
-            for event_index, day_number in enumerate((6, 16, 26)):
+            slaughter_days = (9, 23) if month.month in {2, 5, 8, 11} else (14,)
+            for event_index, day_number in enumerate(slaughter_days):
                 event_day = date(month.year, month.month, min(day_number, days))
-                kg = round((135 + 16 * event_index + month_index * 1.8) * annual, 2)
-                meat_rows.append(self._production_row(
-                    marker=marker, user=user, day=event_day, kind="MEAT", amount=kg,
-                    status=ProductionRecord.ProductionStatus.RECORDED,
-                    note="farmer-reported event yield in kilograms",
-                ))
-            for event_index, day_number in enumerate((9, 23)):
-                event_day = date(month.year, month.month, min(day_number, days))
-                heads = 4 + ((month_index + event_index) % 5)
-                weight = round(heads * (188 + ((month_index + 2 * event_index) % 17)), 2)
+                heads = 2 + ((month_index + 2 * event_index) % 5)
+                weight_per_head = 175 + ((month_index * 3 + month.month * 2 + event_index * 5) % 43)
+                weight = round(heads * weight_per_head, 2)
                 slaughter_rows.append(self._slaughter_row(
                     marker=marker, user=user, cattle_type=cattle_type, day=event_day,
                     heads=heads, kg=weight, status=SlaughterRecord.StatusType.APPROVED,
@@ -333,57 +481,84 @@ class Command(BaseCommand):
 
         self._create_rows(ProductionRecord, production_rows + meat_rows)
         self._create_rows(SlaughterRecord, slaughter_rows)
+        self._create_rows(LivestockInventory, dairy_animals)
 
         today = timezone.localdate()
         current_week_start = today - timedelta(days=today.weekday())
         final_week_start = current_week_start - timedelta(weeks=AUCTION_WEEKS)
-        sale_animals = []
-        sale_rows = []
+        rng = Random(20261104)
+        weekly_market_heads = {
+            species["code"]: weekly_counts_with_average(rng, species["average"], AUCTION_WEEKS)
+            for species in MARKET_WEEKLY_HEAD_AVERAGES
+        }
+        self._demo_market_animal_serial = 0
+        self._demo_market_lot_serial = 0
+        # One transfer row represents one head. This intentionally creates
+        # about 260,000 external-market rows for a two-year, 2,500-head/week
+        # synthetic scenario; the reported averages are calibration targets,
+        # not recovered week-by-week market records.
+        sales_count = 0
         for week_index in range(AUCTION_WEEKS):
             week_start = final_week_start + timedelta(weeks=week_index)
-            for weekday in range(7):
-                sale_day = week_start + timedelta(days=weekday)
-                heads = 2 + ((week_index * 3 + weekday) % 5)
-                for extra in range(2 if weekday == 4 else 1 if weekday == 3 else 0):
-                    total_price = heads * (30000 + ((week_index + extra) % 9) * 850)
-                    animals, transfers = self._sale_row(
-                        marker=marker, user=user, seller=seller, cattle_type=cattle_type,
-                        day=sale_day, heads=heads,
-                        price=total_price, status=LivestockOwnershipTransfer.Status.APPROVED,
-                        review_time=aware_at(sale_day, 17),
-                        note="all weekdays represented; Thursday/Friday pattern is synthetic only",
-                    )
-                    sale_animals.extend(animals)
-                    sale_rows.extend(transfers)
-        self._create_rows(LivestockInventory, sale_animals)
-        self._create_rows(LivestockOwnershipTransfer, sale_rows)
+            weekly_transfer_rows = []
+            for species in MARKET_WEEKLY_HEAD_AVERAGES:
+                remaining_heads = weekly_market_heads[species["code"]][week_index]
+                lot_index = 0
+                while remaining_heads:
+                    heads = min(remaining_heads, rng.randint(*species["lot_size"]))
+                    lot_index += 1
+                    seller_origin_index = rng.randrange(len(SYNTHETIC_MARKET_ORIGINS))
+                    buyer_origin_index = (
+                        seller_origin_index + rng.randrange(1, len(SYNTHETIC_MARKET_ORIGINS))
+                    ) % len(SYNTHETIC_MARKET_ORIGINS)
+                    sale_day = week_start + timedelta(days=rng.choice((3, 4)))
+                    certificate = f"DEMO-MKT-W{week_index + 1:03d}-{species['code']}-{lot_index:04d}"
+                    weekly_transfer_rows.extend(self._external_market_lot_rows(
+                        marker=marker,
+                        auction_user=auction_user,
+                        reviewer=user,
+                        species=species,
+                        seller_origin=SYNTHETIC_MARKET_ORIGINS[seller_origin_index],
+                        buyer_origin=SYNTHETIC_MARKET_ORIGINS[buyer_origin_index],
+                        day=sale_day,
+                        heads=heads,
+                        certificate_number=certificate,
+                        rng=rng,
+                    ))
+                    remaining_heads -= heads
+            self._create_rows(LivestockOwnershipTransfer, weekly_transfer_rows)
+            sales_count += len(weekly_transfer_rows)
         return {"milk": len(production_rows), "farmer_meat": len(meat_rows),
-                "slaughter": len(slaughter_rows), "sales": len(sale_rows)}
+                "slaughter": len(slaughter_rows), "sales": sales_count}
 
-    def _seed_poor(self, marker, user, seller, cattle_type):
+    def _seed_poor(self, marker, user, sellers, cattle_type, auction_user=None):
+        auction_user = auction_user or user
         months = self._months_back(MONTHS)
         observed_indexes = (0, 4, 8, 12, 16, 20, 24, 28, 32, 35)
         production_rows = []
         meat_rows = []
         slaughter_rows = []
+        dairy_animals = []
+        for farm_index, seller in enumerate(sellers):
+            dairy_animals.extend(self._dairy_inventory_rows(marker, user, seller, cattle_type, farm_index, months[0]))
         for observed_number, month_index in enumerate(observed_indexes):
+            seller = sellers[observed_number % len(sellers)]
+            farmer_user = seller.user
             month = months[month_index]
             event_day = date(month.year, month.month, 12)
             recorded = ProductionRecord.ProductionStatus.RECORDED
             # Sparse milk reporting: some dates omit a session label, and one
-            # approved session in every second month lacks a current approval time.
+            # observation is deliberately extreme to show an outlier warning.
             for session_number, session in enumerate(("MORNING", None)):
-                review_time = aware_at(event_day + timedelta(days=40), 17) if observed_number % 2 else None
                 production_rows.append(self._production_row(
-                    marker=marker, user=user, day=event_day + timedelta(days=session_number), kind="MILK",
+                    marker=marker, user=farmer_user, farmer=seller, day=event_day + timedelta(days=session_number), kind="MILK",
                     amount=(48 if session_number == 0 else 21), status=recorded,
-                    session=session, approved_time=review_time, review_time=review_time,
-                    note="sparse session entry; timestamps are intentionally incomplete/late",
+                    session=session,
+                    note="sparse session entry with deliberately incomplete monthly coverage",
                 ))
             meat_kg = 2400 if observed_number == 6 else 95 + observed_number * 31
-            meat_review = None if observed_number % 3 == 0 else aware_at(event_day + timedelta(days=45), 17)
             meat_rows.append(self._production_row(
-                marker=marker, user=user, day=event_day, kind="MEAT", amount=meat_kg,
+                marker=marker, user=farmer_user, farmer=seller, day=event_day, kind="MEAT", amount=meat_kg,
                 status=recorded,
                 note="sparse event history with a suspicious high observation",
             ))
@@ -398,10 +573,11 @@ class Command(BaseCommand):
         # Unapproved rows are visible to the workflow diagnostics but excluded
         # from model training, as they should be.
         for pending_index in (2, 6, 10, 14, 18, 22, 26, 30):
+            seller = sellers[pending_index % len(sellers)]
             month = months[pending_index]
             pending_day = date(month.year, month.month, 22)
             production_rows.append(self._production_row(
-                marker=marker, user=user, day=pending_day, kind="MEAT",
+                marker=marker, user=seller.user, farmer=seller, day=pending_day, kind="MEAT",
                 amount=180 + pending_index, status=ProductionRecord.ProductionStatus.PENDING,
                 note="pending approval; correctly excluded from approved-only forecast data",
             ))
@@ -428,7 +604,7 @@ class Command(BaseCommand):
             sale_day = week_start + timedelta(days=weekday)
             reviewed = None if index in (1, 4, 7) else aware_at(sale_day + timedelta(days=35), 17)
             animals, transfers = self._sale_row(
-                marker=marker, user=user, seller=seller, cattle_type=cattle_type,
+                marker=marker, user=auction_user, reviewer=user, seller=sellers[index % len(sellers)], cattle_type=cattle_type,
                 day=sale_day, heads=1 + index,
                 price=None if index % 3 == 0 else (28000 + index * 1100) * (1 + index),
                 status=LivestockOwnershipTransfer.Status.APPROVED,
@@ -439,14 +615,14 @@ class Command(BaseCommand):
         for offset in (5, 13, 20):
             sale_day = last_complete_start - timedelta(weeks=offset) + timedelta(days=4)
             animals, transfers = self._sale_row(
-                marker=marker, user=user, seller=seller, cattle_type=cattle_type,
+                marker=marker, user=auction_user, reviewer=user, seller=sellers[offset % len(sellers)], cattle_type=cattle_type,
                 day=sale_day, heads=2, price=None,
                 status=LivestockOwnershipTransfer.Status.SUBJECT_TO_REVISION,
                 note="returned for revision; excluded from approved completed-sale totals",
             )
             sale_animals.extend(animals)
             sale_rows.extend(transfers)
-        self._create_rows(LivestockInventory, sale_animals)
+        self._create_rows(LivestockInventory, dairy_animals + sale_animals)
         self._create_rows(LivestockOwnershipTransfer, sale_rows)
         return {"milk": len(production_rows), "farmer_meat": len(meat_rows),
                 "slaughter": len(slaughter_rows), "sales": len(sale_rows)}

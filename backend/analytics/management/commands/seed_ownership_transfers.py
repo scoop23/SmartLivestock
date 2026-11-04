@@ -1,19 +1,24 @@
 """
-Deterministic Seed Command for Municipal Livestock Ownership Transfers (Auction Market).
-Seeds 27 realistic commercial ownership transfers matching the Padre Garcia auction telemetry.
+Deterministic seed command for synthetic municipal Auction ownership-transfer records.
+The 27 certificate lots expand into one transfer row per animal.
 """
 
 from datetime import date
 from decimal import Decimal
 from django.core.management.base import BaseCommand
+from django.db import transaction
 from django.utils import timezone
 
+from analytics.seed_markers import SEED_MARKER_OWNERSHIP_TRANSFER
 from livestock.models import LivestockOwnershipTransfer
+from smartlivestock.seed_safety import assert_safe_seed_database
+from smartlivestock.workflows import MAO, validate_review_transition
 from users.models import User
 
-SEED_MARKER = "AI_SEED::AUCTION_TRANSFER::V1"
+SEED_MARKER = SEED_MARKER_OWNERSHIP_TRANSFER
+LEGACY_SEED_MARKER = "AI_SEED::AUCTION_TRANSFER::V1"
 
-# 27 Transfers distribution
+# 27 certificate lots; each lot expands to one transfer event per animal.
 # Buyers: 18 unique names
 BUYERS = [
     "Lipa Cattle Trading Corp",
@@ -53,7 +58,7 @@ SELLERS = [
 # San Juan: 24 heads total
 # Rosario: 18 heads total
 # Others: 48 heads total (Tanauan, Malvar, Ibaan, San Jose)
-# Total: 152 heads across 27 events!
+# Total: 152 heads across 27 certificate lots.
 #
 # Status: 21 APPROVED, 6 PENDING
 # Price total: ~₱4,560,000
@@ -99,68 +104,119 @@ TRANSFER_PLANS = [
 
 
 class Command(BaseCommand):
-    help = "Seeds 27 realistic commercial ownership transfers for the Auction Market."
+    help = "Seeds marked synthetic ownership-transfer events through the current Auction-to-MAO workflow."
 
     def add_arguments(self, parser):
-        parser.add_argument("--clean", action="store_true", help="Remove seeded synthetic auction transfers.")
+        parser.add_argument("--clean", action="store_true", help="Remove only this command's marked synthetic transfers.")
 
     def handle(self, *args, **options):
+        assert_safe_seed_database(clean=options["clean"])
+        from django.db.models import Q
+
+        seeded_rows = LivestockOwnershipTransfer.objects.filter(
+            Q(original_certificate_number__contains=SEED_MARKER)
+            | Q(review_remarks__contains=SEED_MARKER)
+            | Q(original_certificate_number__contains=LEGACY_SEED_MARKER)
+            | Q(review_remarks__contains=LEGACY_SEED_MARKER)
+        )
         if options["clean"]:
-            deleted, _ = LivestockOwnershipTransfer.objects.filter(original_certificate_number__contains=SEED_MARKER).delete()
+            deleted, _ = seeded_rows.delete()
             self.stdout.write(self.style.SUCCESS(f"Cleaned {deleted} seeded ownership transfers."))
             return
 
-        auction_user = User.objects.filter(role__role_name="AUCTION").first()
+        auction_user = User.objects.filter(
+            role__role_name="AUCTION",
+            account_status=User.AccountStatus.APPROVED,
+            is_active=True,
+        ).order_by("pk").first()
         if not auction_user:
-            self.stderr.write(self.style.ERROR("No user with AUCTION role found. Please create or seed users first."))
+            self.stderr.write(self.style.ERROR("An active, approved AUCTION user is required; no transfers were created."))
+            return
+
+        mao_user = User.objects.filter(
+            role__role_name=MAO,
+            account_status=User.AccountStatus.APPROVED,
+            is_active=True,
+        ).order_by("pk").first()
+        if not mao_user:
+            self.stderr.write(self.style.ERROR("An active, approved MAO reviewer is required; no transfers were created."))
             return
 
         # Check existing
-        existing = LivestockOwnershipTransfer.objects.filter(original_certificate_number__contains=SEED_MARKER).count()
+        existing = seeded_rows.count()
         if existing > 0:
             self.stdout.write(self.style.WARNING(f"Found {existing} existing seeded transfers. Run with --clean first."))
             return
 
         created_count = 0
         total_heads = 0
+        approved_heads = 0
+        pending_heads = 0
         total_price = Decimal("0.00")
 
-        for idx, plan in enumerate(TRANSFER_PLANS):
-            seller_name, seller_addr = SELLERS[idx % len(SELLERS)]
-            buyer_name = BUYERS[plan["buyer_idx"]]
-            price = Decimal(plan["price"])
-            heads = plan["heads"]
+        validate_review_transition(
+            domain="ownership_transfers",
+            role=MAO,
+            current=LivestockOwnershipTransfer.Status.PENDING,
+            target=LivestockOwnershipTransfer.Status.APPROVED,
+        )
 
-            LivestockOwnershipTransfer.objects.create(
-                external_seller_name=seller_name,
-                external_seller_address=seller_addr,
-                external_livestock_type="Cattle",
-                external_livestock_tag_number=f"PG-C-0{27 - idx:02d}",
-                origin_municipality="Padre Garcia",
-                origin_province="Batangas",
-                owner_type=LivestockOwnershipTransfer.OwnerType.EXTERNAL_INDIVIDUAL,
-                external_owner_name=buyer_name,
-                external_owner_address=f"{plan['dest']}, Batangas",
-                transfer_certificate_number=plan["code"],
-                original_certificate_number=f"{SEED_MARKER}::ORIG-{plan['code']}",
-                transfer_date=plan["date"],
-                municipality=plan["dest"],
-                province="Batangas",
-                animal_description=f"{heads} heads - {plan['desc']}",
-                purchase_price=price,
-                status=plan["status"],
-                created_by=auction_user,
-            )
-            created_count += 1
-            total_heads += heads
-            total_price += price
+        with transaction.atomic():
+            for idx, plan in enumerate(TRANSFER_PLANS):
+                seller_name, seller_addr = SELLERS[idx % len(SELLERS)]
+                buyer_name = BUYERS[plan["buyer_idx"]]
+                lot_price = Decimal(plan["price"])
+                heads = plan["heads"]
+                price_per_head = (lot_price / heads).quantize(Decimal("0.01"))
+                # Each transfer row represents exactly one animal. The paper lot
+                # certificate can be shared by all rows in that lot.
+                for animal_index in range(1, heads + 1):
+                    approved = plan["status"] == LivestockOwnershipTransfer.Status.APPROVED
+                    transfer = LivestockOwnershipTransfer(
+                        external_seller_name=seller_name,
+                        external_seller_address=seller_addr,
+                        external_livestock_type="Cattle",
+                        external_livestock_tag_number=(
+                            f"PG-{plan['code']}-{animal_index:02d}"
+                        ),
+                        origin_municipality="Padre Garcia",
+                        origin_province="Batangas",
+                        owner_type=LivestockOwnershipTransfer.OwnerType.COMPANY,
+                        external_owner_name=buyer_name,
+                        external_owner_address=f"{plan['dest']}, Batangas",
+                        transfer_certificate_number=plan["code"],
+                        original_certificate_number=f"{SEED_MARKER}::ORIG-{plan['code']}",
+                        transfer_date=plan["date"],
+                        municipality=plan["dest"],
+                        province="Batangas",
+                        animal_description=f"Synthetic demo head {animal_index}/{heads}: {plan['desc']}",
+                        purchase_price=price_per_head,
+                        status=plan["status"],
+                        reviewed_by=mao_user if approved else None,
+                        reviewed_at=timezone.now() if approved else None,
+                        review_remarks=(
+                            f"{SEED_MARKER} Synthetic transfer fixture; "
+                            f"head {animal_index} of {heads} under certificate {plan['code']}."
+                        ),
+                        created_by=auction_user,
+                    )
+                    transfer.full_clean()
+                    transfer.save()
+                    created_count += 1
+                    total_heads += 1
+                    if approved:
+                        approved_heads += 1
+                    else:
+                        pending_heads += 1
+                    total_price += price_per_head
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Successfully seeded {created_count} commercial auction transfer records!\n"
-                f"  Total Heads: {total_heads}\n"
-                f"  Total Value: PHP {total_price:,.2f}\n"
+                f"Successfully seeded {created_count} synthetic per-animal ownership transfer records!\n"
+                f"  Planned Heads: {total_heads} ({approved_heads} approved, {pending_heads} pending)\n"
+                f"  Declared Value: PHP {total_price:,.2f} including pending transfers\n"
                 f"  Unique Buyers: {len(set(b['buyer_idx'] for b in TRANSFER_PLANS))}\n"
-                f"  Created By: {auction_user.username}"
+                f"  Created By: {auction_user.username}\n"
+                f"  Approved By: {mao_user.username}"
             )
         )

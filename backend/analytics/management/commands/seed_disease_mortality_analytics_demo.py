@@ -1,24 +1,23 @@
-"""Seed 12 complete months of approved synthetic disease and mortality data."""
+"""Seed irregular synthetic disease and mortality events with monthly coverage."""
 
-import os
-import sys
 from calendar import monthrange
 from datetime import date
 from types import SimpleNamespace
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from django.db import connections, transaction
+from django.db.models import Q
+from django.db import transaction
 from django.utils import timezone
 
-from analytics.models import SurveillanceDemoOwnership
+from analytics.models import SurveillanceCoverageReport, SurveillanceDemoOwnership
 from analytics.seed_markers import SEED_MARKER_DISEASE, SEED_MARKER_MORTALITY
 from diseases.models import DiseaseCase, MortalityRecord
 from diseases.serializer import DiseaseCaseSerializer, MortalityRecordSerializer
 from livestock.models import Barangay, Farmer, LivestockInventory, LivestockType
 from livestock.reconciliation import reconcile_approved_mortality
+from smartlivestock.seed_safety import assert_safe_seed_database
 from smartlivestock.workflows import validate_review_transition
-from users.models import Role, User
+from users.models import Notification, Role, User
 
 
 PREFIX = "disease-mortality-analytics-v1:"
@@ -28,16 +27,18 @@ OBJECT_MODELS = {
     "livestock": LivestockInventory,
     "disease": DiseaseCase,
     "mortality": MortalityRecord,
+    "coverage": SurveillanceCoverageReport,
+    "notification": Notification,
 }
-MONTHS = 12
-DISEASE_CASES_PER_MONTH = (1, 2, 1, 3, 2, 1, 2, 3, 1, 2, 3, 2)
-MORTALITY_RECORDS_PER_MONTH = (1, 2, 1, 2, 3, 1, 2, 1, 3, 2, 1, 2)
+MONTHS = 24
+DISEASE_CASES_PER_MONTH = (1, 2, 0, 1, 2, 0, 3, 1, 0, 1, 2, 0, 2, 1, 0, 3, 1, 0, 2, 1, 0, 2, 1, 0)
+MORTALITY_RECORDS_PER_MONTH = (0, 1, 0, 0, 1, 0, 2, 0, 1, 0, 0, 1, 0, 1, 0, 2, 0, 1, 0, 1, 0, 1, 0, 0)
 
 
 class Command(BaseCommand):
     help = (
-        "Create 12 complete months of clearly marked, approved synthetic disease and mortality records "
-        "for two inactive demo farmer accounts."
+        "Create 24 months of irregular, clearly marked synthetic disease and mortality events "
+        "for an existing Farmer account or two inactive demo farmer accounts."
     )
 
     def add_arguments(self, parser):
@@ -51,11 +52,14 @@ class Command(BaseCommand):
             action="store_true",
             help="Show the planned month range and owned-row action without changing data.",
         )
+        parser.add_argument("--cbat-email", help="Use this active, approved CBAT account for field verification.")
+        parser.add_argument("--mao-email", help="Use this active, approved MAO account for review.")
+        parser.add_argument("--farmer-email", help="Use this existing Farmer account and profile for the event records.")
 
     def handle(self, *args, **options):
         clean = options["clean"]
         dry_run = options["dry_run"]
-        self._assert_safe_database(clean=clean, dry_run=dry_run)
+        assert_safe_seed_database(clean=clean, dry_run=dry_run)
         months = self._completed_months(timezone.localdate())
 
         if dry_run:
@@ -73,12 +77,12 @@ class Command(BaseCommand):
             self._clean_owned_objects()
             if clean:
                 return
-            plan = self._build_plan()
+            plan = self._build_plan(options)
             self._seed(plan, months)
 
     @staticmethod
     def _completed_months(today):
-        """Return month-end event dates for the 12 most recently completed months."""
+        """Return the final day of each of the 24 most recently completed months."""
         month_index = today.year * 12 + today.month - 1
         dates = []
         for offset in range(MONTHS, 0, -1):
@@ -87,58 +91,6 @@ class Command(BaseCommand):
             dates.append(date(year, month, monthrange(year, month)[1]))
         return dates
 
-    def _assert_safe_database(self, *, clean, dry_run):
-        connection = connections["default"]
-        database_name = str(connection.settings_dict.get("NAME") or "")
-        in_test_run = "test" in sys.argv or (
-            connection.vendor == "sqlite" and "memory" in database_name.lower()
-        )
-        target_env = os.environ.get("SMARTLIVESTOCK_DEMO_ENV", "").lower()
-        is_render = any(
-            os.environ.get(key)
-            for key in ("RENDER", "RENDER_SERVICE_ID", "RENDER_EXTERNAL_HOSTNAME")
-        )
-
-        if target_env == "production":
-            raise CommandError("Refusing to run this synthetic analytics seed against production.")
-        if is_render and target_env != "staging":
-            raise CommandError(
-                "Refusing to seed an unidentified Render service. Identify a confirmed staging "
-                "database with SMARTLIVESTOCK_DEMO_ENV=staging and its exact database acknowledgement."
-            )
-        if not settings.DEBUG and target_env != "staging" and not in_test_run:
-            raise CommandError(
-                "Refusing to seed with DEBUG disabled unless this database is explicitly identified as staging."
-            )
-        if target_env == "development" and connection.vendor == "postgresql":
-            host = str(connection.settings_dict.get("HOST") or "").lower()
-            if host not in {"localhost", "127.0.0.1", "::1"}:
-                raise CommandError(
-                    "Development seeding requires local PostgreSQL. No database changes were made."
-                )
-
-        is_test_memory_database = (
-            connection.vendor == "sqlite" and "memory" in database_name.lower()
-        )
-        if not is_test_memory_database and not in_test_run:
-            expected_ack = f"{target_env}:{database_name}"
-            if (
-                target_env not in {"development", "staging"}
-                or os.environ.get("SMARTLIVESTOCK_DEMO_DATABASE_ACK") != expected_ack
-            ):
-                raise CommandError(
-                    "This database needs explicit environment identification: set "
-                    "SMARTLIVESTOCK_DEMO_ENV=development|staging and "
-                    "SMARTLIVESTOCK_DEMO_DATABASE_ACK=<environment>:<database-name>. "
-                    "No database changes were made."
-                )
-        if clean and not dry_run and not in_test_run:
-            if os.environ.get("SMARTLIVESTOCK_DEMO_ALLOW_CLEANUP") != "YES":
-                raise CommandError(
-                    "--clean requires SMARTLIVESTOCK_DEMO_ALLOW_CLEANUP=YES after confirming "
-                    "this is a development or staging database."
-                )
-
     @staticmethod
     def _exactly_one(queryset, label):
         count = queryset.count()
@@ -146,53 +98,90 @@ class Command(BaseCommand):
             raise CommandError(f"Expected exactly one existing {label}; found {count}. No shared lookup data was created.")
         return queryset.get()
 
-    def _build_plan(self):
-        barangay = self._exactly_one(
-            Barangay.objects.filter(barangay_name__iexact="Tangob"), "Tangob barangay"
-        )
+    def _build_plan(self, options):
+        farmer_user = None
+        farmer_profile = None
+        if options["farmer_email"]:
+            farmer_user = User.objects.filter(
+                email__iexact=options["farmer_email"],
+                role__role_name=Role.UserRoles.FARMER,
+            ).first()
+            if farmer_user is None or not hasattr(farmer_user, "farmer_profile"):
+                raise CommandError("The selected seed_farmers account must have a Farmer profile.")
+            farmer_profile = farmer_user.farmer_profile
+            barangay = farmer_profile.barangay
+        else:
+            barangay = self._exactly_one(
+                Barangay.objects.filter(barangay_name__iexact="Tangob"), "Tangob barangay"
+            )
         cattle = self._exactly_one(
             LivestockType.objects.filter(name__iexact="Cattle"), "Cattle livestock type"
         )
         roles = {
             role_name: self._exactly_one(Role.objects.filter(role_name=role_name), f"{role_name} role")
-            for role_name in (Role.UserRoles.FARMER, Role.UserRoles.SIBAT, Role.UserRoles.MAO)
+            for role_name in (Role.UserRoles.FARMER, Role.UserRoles.CBAT, Role.UserRoles.MAO)
         }
-        reviewer = User.objects.filter(
-            role__role_name__in=(Role.UserRoles.MAO, "ADMIN"),
+        reviewers = User.objects.filter(
+            role__role_name=Role.UserRoles.MAO,
             account_status=User.AccountStatus.APPROVED,
             is_active=True,
-        ).order_by("pk").first()
+        )
+        reviewer = reviewers.filter(email__iexact=options["mao_email"]).first() if options["mao_email"] else reviewers.order_by("pk").first()
         if reviewer is None:
-            reviewer = User.objects.filter(is_superuser=True, is_active=True).order_by("pk").first()
+            if not options["mao_email"]:
+                reviewer = User.objects.filter(is_superuser=True, is_active=True).order_by("pk").first()
         if reviewer is None:
             raise CommandError("An active approved MAO/Admin reviewer is required to approve the demo records.")
-        return {"barangay": barangay, "cattle": cattle, "roles": roles, "reviewer": reviewer}
+        if options["mao_email"] and reviewer.role.role_name != Role.UserRoles.MAO:
+            raise CommandError("The selected reviewer must be an active, approved MAO account.")
+
+        verifier = None
+        if options["cbat_email"]:
+            verifier = User.objects.filter(
+                email__iexact=options["cbat_email"],
+                role__role_name=Role.UserRoles.CBAT,
+                account_status=User.AccountStatus.APPROVED,
+                is_active=True,
+            ).first()
+            if verifier is None:
+                raise CommandError("The selected verifier must be an active, approved CBAT account.")
+        return {
+            "barangay": barangay, "cattle": cattle, "roles": roles,
+            "reviewer": reviewer, "verifier": verifier,
+            "farmer_user": farmer_user, "farmer_profile": farmer_profile,
+        }
 
     def _seed(self, plan, months):
-        now = timezone.now()
         farmers = []
-        for suffix in ("a", "b"):
-            user = self._create_demo_user(
-                key=f"farmer-{suffix}",
-                email=f"demo.analytics.farmer.{suffix}@smartlivestock-demo.invalid",
-                username=f"demo-analytics-farmer-{suffix}",
-                role=plan["roles"][Role.UserRoles.FARMER],
-            )
-            farmer = Farmer.objects.create(
-                user=user,
-                barangay=plan["barangay"],
-                address=f"DEMO ONLY - synthetic analytics farm {suffix.upper()} in Tangob",
-            )
-            self._track(f"farmer-{suffix}:profile", "farmer", farmer)
-            farmers.append({"user": user, "farmer": farmer, "mortality_animals": []})
+        if plan["farmer_user"]:
+            farmers.append({
+                "user": plan["farmer_user"],
+                "farmer": plan["farmer_profile"],
+                "mortality_animals": [],
+            })
+        else:
+            for suffix in ("a", "b"):
+                user = self._create_demo_user(
+                    key=f"farmer-{suffix}",
+                    email=f"demo.analytics.farmer.{suffix}@smartlivestock-demo.invalid",
+                    username=f"demo-analytics-farmer-{suffix}",
+                    role=plan["roles"][Role.UserRoles.FARMER],
+                )
+                farmer = Farmer.objects.create(
+                    user=user,
+                    barangay=plan["barangay"],
+                    address=f"DEMO ONLY - synthetic analytics farm {suffix.upper()} in Tangob",
+                )
+                self._track(f"farmer-{suffix}:profile", "farmer", farmer)
+                farmers.append({"user": user, "farmer": farmer, "mortality_animals": []})
 
-        verifier = self._create_demo_user(
-            key="sibat-verifier",
-            email="demo.analytics.sibat@smartlivestock-demo.invalid",
-            username="demo-analytics-sibat-verifier",
-            role=plan["roles"][Role.UserRoles.SIBAT],
+        verifier = plan["verifier"] or self._create_demo_user(
+            key="cbat-verifier",
+            email="demo.analytics.cbat@smartlivestock-demo.invalid",
+            username="demo-analytics-cbat-verifier",
+            role=plan["roles"][Role.UserRoles.CBAT],
             assigned_barangay=plan["barangay"],
-            last_name="SIBAT Verifier",
+            last_name="CBAT Verifier",
         )
 
         disease_count = 0
@@ -213,10 +202,11 @@ class Command(BaseCommand):
                     key=f"disease:{month_end:%Y-%m}:{event_index + 1}",
                     farmer_user=owner["user"],
                     animal=disease_animal,
-                    record_date=month_end,
+                    record_date=self._event_day(month_end, month_index, event_index, offset=3),
                     verifier=verifier,
                     reviewer=plan["reviewer"],
                 )
+                self._track_notifications("disease_case", f"disease:{month_end:%Y-%m}:{event_index + 1}")
 
             for event_index in range(MORTALITY_RECORDS_PER_MONTH[month_index]):
                 owner_index = (month_index + event_index) % len(farmers)
@@ -234,26 +224,100 @@ class Command(BaseCommand):
                     key=f"mortality:{month_end:%Y-%m}:{event_index + 1}",
                     farmer_user=owner["user"],
                     animal=mortality_animal,
-                    record_date=month_end,
+                    record_date=self._event_day(month_end, month_index, event_index, offset=11),
                     verifier=verifier,
                     reviewer=plan["reviewer"],
                 )
+                self._track_notifications("mortality_record", f"mortality:{month_end:%Y-%m}:{event_index + 1}")
 
-        self.stdout.write(self.style.SUCCESS("Disease and mortality monthly analytics demo is ready."))
+        self._seed_coverage_confirmations(plan, months)
+        self.stdout.write(self.style.SUCCESS("Disease and mortality event analytics demo is ready."))
+        farmer_summary = (
+            f"Used Farmer demo {plan['farmer_user'].email}"
+            if plan["farmer_user"]
+            else "Created 2 inactive analytics-only demo farmers"
+        )
         self.stdout.write(
-            f"Created 2 inactive demo farmers in {plan['barangay'].barangay_name}; "
+            f"{farmer_summary} in {plan['barangay'].barangay_name}; "
             f"{disease_count} approved disease cases and {mortality_count} approved mortality records from "
             f"{months[0]:%b %Y} through {months[-1]:%b %Y}."
         )
         self.stdout.write(
-            "Each report passed the PENDING -> VERIFIED -> APPROVED transition checks. "
+            "Each report passed the PENDING -> CBAT VERIFIED -> MAO APPROVED transition checks. "
             f"Mortality approvals reconciled {mortality_count} uniquely identified demo animals as deceased."
         )
         self.stdout.write(
             "All records are synthetic and explicitly marked; disease labels are not diagnoses. "
             "They are intended for analytics display, not real-world surveillance evidence."
         )
-        self.stdout.write("Forecast backtests may remain limited because all reports are created and reviewed now.")
+        self.stdout.write(
+            "Synthetic coverage confirmations demonstrate explicit quiet months; they are not operational attestations. "
+            "Existing coverage confirmations are preserved."
+        )
+
+    @staticmethod
+    def _event_day(month_end, month_index, event_index, *, offset):
+        days_in_month = monthrange(month_end.year, month_end.month)[1]
+        day = 3 + ((month_index * 7 + event_index * 11 + offset) % (days_in_month - 5))
+        return date(month_end.year, month_end.month, day)
+
+    def _seed_coverage_confirmations(self, plan, months):
+        """Add reversible synthetic coverage only where no prior attestation exists."""
+        for domain, model, approved_status, marker in (
+            (SurveillanceCoverageReport.Domain.DISEASE, DiseaseCase, DiseaseCase.DiseaseStatus.APPROVED, SEED_MARKER_DISEASE),
+            (SurveillanceCoverageReport.Domain.MORTALITY, MortalityRecord, MortalityRecord.MortalityRecordStatus.APPROVED, SEED_MARKER_MORTALITY),
+        ):
+            for month_end in months:
+                month_start = date(month_end.year, month_end.month, 1)
+                if SurveillanceCoverageReport.objects.filter(
+                    barangay=plan["barangay"], domain=domain, report_month=month_start,
+                ).exists():
+                    continue
+
+                events = model.objects.filter(
+                    record_date__year=month_start.year,
+                    record_date__month=month_start.month,
+                ).filter(
+                    Q(livestock__farmer__barangay=plan["barangay"])
+                    | Q(batch__farmer__barangay=plan["barangay"])
+                )
+                if events.filter(
+                    Q(review_remarks__isnull=True)
+                    | ~Q(review_remarks__contains=marker)
+                ).exists():
+                    # Do not create a synthetic attestation over real or other
+                    # seed records in the same barangay and month.
+                    continue
+                record_count = events.count()
+                approved_count = events.filter(status=approved_status).count()
+                if record_count and approved_count != record_count:
+                    continue
+                report = SurveillanceCoverageReport.objects.create(
+                    barangay=plan["barangay"],
+                    domain=domain,
+                    report_month=month_start,
+                    status=(
+                        SurveillanceCoverageReport.Status.REPORTS_COMPLETE
+                        if record_count
+                        else SurveillanceCoverageReport.Status.NO_REPORTS_RECEIVED
+                    ),
+                    confirmed_by=plan["reviewer"],
+                )
+                self._track(f"coverage:{domain.lower()}:{month_start:%Y-%m}", "coverage", report)
+
+    def _track_notifications(self, entity_type, record_key):
+        record_marker = SurveillanceDemoOwnership.objects.filter(identifier=f"{PREFIX}{record_key}").first()
+        if record_marker is None:
+            return
+        for notification in Notification.objects.filter(
+            related_entity_type=entity_type,
+            related_entity_id=record_marker.object_id,
+        ):
+            self._track(
+                f"notification:{entity_type}:{record_marker.object_id}:{notification.pk}",
+                "notification",
+                notification,
+            )
 
     def _create_demo_user(self, *, key, email, username, role, assigned_barangay=None, last_name="Farmer"):
         if User.objects.filter(email__iexact=email).exists() or User.objects.filter(username=username).exists():
@@ -349,10 +413,10 @@ class Command(BaseCommand):
         *, domain, record, verified_status, approved_status, verifier, reviewer, marker, label,
     ):
         verify_time = timezone.now()
-        verify_remark = f"{marker} Synthetic SIBAT verification for analytics demo; not a field inspection."
+        verify_remark = f"{marker} Synthetic CBAT verification for analytics demo; not a field inspection."
         validate_review_transition(
             domain=domain,
-            role=Role.UserRoles.SIBAT,
+            role=Role.UserRoles.CBAT,
             current=record.status,
             target=verified_status,
             remarks=verify_remark,
@@ -400,6 +464,24 @@ class Command(BaseCommand):
             raise CommandError(f"Ownership marker conflict for {identifier}; refusing to claim another row.")
 
     def _clean_owned_objects(self):
+        # Earlier versions created notifications before the ownership ledger
+        # tracked them. Recover only notifications whose entity IDs point to
+        # this seed's already-owned synthetic reports.
+        entity_types = {"disease": "disease_case", "mortality": "mortality_record"}
+        for record_marker in SurveillanceDemoOwnership.objects.filter(
+            identifier__startswith=PREFIX,
+            object_type__in=entity_types,
+        ):
+            for notification in Notification.objects.filter(
+                related_entity_type=entity_types[record_marker.object_type],
+                related_entity_id=record_marker.object_id,
+            ):
+                self._track(
+                    f"notification:{record_marker.object_type}:{record_marker.object_id}:{notification.pk}",
+                    "notification",
+                    notification,
+                )
+
         markers = list(
             SurveillanceDemoOwnership.objects.filter(identifier__startswith=PREFIX).order_by("identifier")
         )
@@ -438,7 +520,7 @@ class Command(BaseCommand):
                             f"#{related_id} is related but is not owned by this seed. No rows were deleted."
                         )
 
-        for object_type in ("mortality", "disease", "livestock", "farmer", "user"):
+        for object_type in ("notification", "coverage", "mortality", "disease", "livestock", "farmer", "user"):
             model = OBJECT_MODELS[object_type]
             ids = owned_ids.get(model, set())
             if ids:

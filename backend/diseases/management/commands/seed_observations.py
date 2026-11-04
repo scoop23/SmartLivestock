@@ -1,81 +1,29 @@
+"""Compatibility alias for the ownership-tracked disease/mortality analytics demo."""
+
+from django.core.management import call_command
 from django.core.management.base import BaseCommand
-from django.utils import timezone
-from livestock.models import LivestockInventory
-from diseases.models import DiseaseCase, MortalityRecord
-from users.models import User
 
 
 class Command(BaseCommand):
-    help = "Seeds realistic disease cases and mortality records linked to existing livestock inventory"
+    help = (
+        "Deprecated compatibility command; forwards to the ownership-tracked disease/mortality analytics demo."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--clean",
             action="store_true",
-            help="Deletes all seeded disease cases and mortality records.",
+            help="Delete only objects tracked as owned by the disease/mortality analytics demo.",
+        )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Show the demo command's planned action without changing data.",
         )
 
     def handle(self, *args, **options):
-        if options.get("clean"):
-            dc = DiseaseCase.objects.all().delete()[0]
-            mr = MortalityRecord.objects.all().delete()[0]
-            self.stdout.write(
-                self.style.SUCCESS(f"Cleanup Complete! Removed {dc} disease cases and {mr} mortality records.")
-            )
-            return
-
-        inventories = list(LivestockInventory.objects.select_related("created_by").all()[:10])
-        if not inventories:
-            self.stdout.write(self.style.WARNING("No livestock inventories found. Run seed_farmers first."))
-            return
-
-        sibat_user = User.objects.filter(role__role_name="SIBAT").first() or User.objects.first()
-
-        sample_diseases = [
-            ("Limping / Weak Legs", 1, "VERIFIED", sibat_user, "Joint palpation performed. Minor sprain on left hind leg. Applied liniment; stall rest advised. [Severity: MILD] [Action: PEN_ISOLATION]"),
-            ("Coughing / Runny Nose", 2, "VERIFIED", sibat_user, "On-farm physical check completed. Mild pneumonic wheezing. Prescribed oral electrolytes and temporary stall isolation. [Severity: MODERATE] [Action: PEN_ISOLATION] [Temp: 39.8°C]"),
-            ("Skin Sores / Blisters", 1, "VERIFIED", sibat_user, "Inspected skin lesions on neck and flanks. No oral or hoof lesions found; ruled out vesicular diseases. Prescribed topical antiseptic wash. [Severity: MILD] [Action: TREATMENT_PRESCRIBED]"),
-            ("High Fever / Hot Ears", 1, "VERIFIED", sibat_user, "Hot ears and elevated body temperature. Antipyretic administered. [Severity: MILD] [Action: TREATMENT_PRESCRIBED] [Temp: 40.1°C]"),
-        ]
-
-        sample_mortalities = [
-            ("Sudden Death / Severe Bloat", 1, "APPROVED", sibat_user, "Carcass verified on site. Severe tympany/bloat with no signs of anthrax. Supervised 2m deep pit burial with lime. [Severity: CRITICAL] [Action: BIOSECURE_BURIAL]"),
-            ("Calving / Birthing Complications", 1, "VERIFIED", sibat_user, "Dystocia with uterine rupture verified on site. Carcass inspected and cleared for disposal. [Severity: SEVERE] [Action: BIOSECURE_BURIAL]"),
-            ("Physical Injury / Severe Fracture", 1, "VERIFIED", sibat_user, "Severe unrecoverable pelvic injury following ravine fall. [Severity: SEVERE]"),
-        ]
-
-        created_count = 0
-
-        for i, (d_name, count, status, reviewer, remarks) in enumerate(sample_diseases):
-            animal = inventories[i % len(inventories)]
-            DiseaseCase.objects.create(
-                livestock=animal,
-                name=d_name,
-                affected_count=count,
-                record_date=timezone.now().date(),
-                status=status,
-                reviewed_by=reviewer,
-                reviewed_at=timezone.now() if reviewer else None,
-                review_remarks=remarks or "",
-                created_by=animal.created_by,
-            )
-            created_count += 1
-
-        for j, (cause, count, status, reviewer, remarks) in enumerate(sample_mortalities):
-            animal = inventories[(j + 2) % len(inventories)]
-            MortalityRecord.objects.create(
-                livestock=animal,
-                death_count=count,
-                cause=cause,
-                record_date=timezone.now().date(),
-                status=status,
-                reviewed_by=reviewer,
-                reviewed_at=timezone.now() if reviewer else None,
-                review_remarks=remarks or "",
-                created_by=animal.created_by,
-            )
-            created_count += 1
-
-        self.stdout.write(
-            self.style.SUCCESS(f"Successfully seeded {created_count} observation records (Disease & Mortality)!")
+        call_command(
+            "seed_disease_mortality_analytics_demo",
+            clean=options["clean"],
+            dry_run=options["dry_run"],
         )

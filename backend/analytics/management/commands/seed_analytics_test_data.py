@@ -5,12 +5,13 @@ Master Test-Data Management Command for SmartLivestock Analytics.
 EDUCATIONAL OVERVIEW:
 =============================================================================
 This master command coordinates the deterministic seeding and cleaning of synthetic
-test records across all 5 analytics test domains:
+test records across analytics domains:
   1. Monthly Production (Milk, Farmer-reported Meat, Eggs, Wool)
   2. Calving & Offspring Records
   3. Disease Surveillance Cases
   4. Livestock Mortality Records
   5. Pre-Movement Inspection & Transport Clearance Certificates
+  6. Current per-animal Ownership Transfers (when approved AUCTION and MAO users exist)
 
 SAFETY GUARANTEES:
   - Running without --clean seeds realistic synthetic test datasets with distinct markers.
@@ -20,12 +21,13 @@ SAFETY GUARANTEES:
 
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
+from smartlivestock.seed_safety import assert_safe_seed_database
 
 
 class Command(BaseCommand):
     help = (
         "Deterministically seeds or cleans all synthetic test datasets for SmartLivestock analytics.\n"
-        "Runs: seed_productions, seed_slaughters, seed_calving, seed_diseases, seed_mortality, seed_inspections.\n"
+        "Runs the production, ownership-transfer, calving, disease, mortality, and inspection seed commands.\n"
         "Use --clean to safely purge ONLY synthetic records carrying project seed markers."
     )
 
@@ -51,17 +53,18 @@ class Command(BaseCommand):
             "--include-milk",
             action="store_true",
             default=False,
-            help="Explicitly include synthetic milk yield records (omitted by default since milk workflow was removed).",
+            help="Explicitly include synthetic milk yield records (omitted by default; available for demonstrations).",
         )
         parser.add_argument(
             "--include-slaughter",
             action="store_true",
             default=False,
-            help="Explicitly include synthetic daily slaughterhouse records (omitted by default since slaughter workflow was removed).",
+            help="Explicitly include synthetic daily slaughterhouse records (omitted by default; available for demonstrations).",
         )
 
     def handle(self, *args, **options):
         clean_mode = options["clean"]
+        assert_safe_seed_database(clean=clean_mode)
         months = options["months"]
         slaughter_months = options["slaughter_months"]
         include_milk = options["include_milk"]
@@ -77,6 +80,7 @@ class Command(BaseCommand):
             call_command("seed_inspections", clean=True)
 
             self.stdout.write("2. Cleaning synthetic auction & live animal sale records...")
+            call_command("seed_ownership_transfers", clean=True)
             call_command("seed_auction", clean=True)
 
             self.stdout.write("3. Cleaning synthetic slaughter records...")
@@ -105,6 +109,21 @@ class Command(BaseCommand):
         if include_slaughter and slaughter_months < 1:
             raise CommandError("--slaughter-months must be at least 1.")
 
+        from users.models import User
+
+        ownership_seed_ready = (
+            User.objects.filter(
+                role__role_name="AUCTION",
+                account_status=User.AccountStatus.APPROVED,
+                is_active=True,
+            ).exists()
+            and User.objects.filter(
+                role__role_name="MAO",
+                account_status=User.AccountStatus.APPROVED,
+                is_active=True,
+            ).exists()
+        )
+
         # MULTI-DOMAIN SEEDING FLOW:
         # Generates >= 12 months (default: 36 months) of approved records across predictive domains.
         # This provides the minimum time-series observations needed for:
@@ -112,7 +131,7 @@ class Command(BaseCommand):
         # 2. Chronological holdout splitting (training on earlier months, testing on recent months).
         self.stdout.write(self.style.NOTICE(f"Seeding synthetic analytics test datasets ({months} months)..."))
 
-        total_steps = 7 if include_slaughter else 6
+        total_steps = (8 if include_slaughter else 7) if ownership_seed_ready else (7 if include_slaughter else 6)
         current_step = 1
 
         commodities_desc = "Milk, Meat, Eggs, Wool" if include_milk else "Meat, Eggs, Wool"
@@ -128,6 +147,17 @@ class Command(BaseCommand):
         self.stdout.write(f"\n--- [{current_step}/{total_steps}] Auction & Live Animal Sales (Heads & PHP Volume) ---")
         call_command("seed_auction", months=months)
         current_step += 1
+
+        if ownership_seed_ready:
+            self.stdout.write(f"\n--- [{current_step}/{total_steps}] Current Ownership Transfers (per-animal events) ---")
+            call_command("seed_ownership_transfers")
+            current_step += 1
+        else:
+            self.stdout.write(
+                self.style.WARNING(
+                    "Skipping current ownership-transfer fixtures: an active approved AUCTION user and MAO reviewer are required."
+                )
+            )
 
         self.stdout.write(f"\n--- [{current_step}/{total_steps}] Calving & Reproduction Records ---")
         call_command("seed_calving", count=24)
