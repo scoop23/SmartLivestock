@@ -9,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { reviewInspection, type InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Activity, Check, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Clock, Eye, FileText, MapPin, RotateCcw, Search, ShieldAlert } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Activity, Check, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Clock, Eye, FileCheck2, FileText, MapPin, RefreshCw, RotateCcw, Search, ShieldAlert } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type InspectionStatusFilter = "PENDING" | "APPROVED" | "SUBJECT_TO_REVISION" | "ALL";
@@ -51,7 +51,26 @@ export function MovementLivestockInspectionsTab({
   const [selectedInspection, setSelectedInspection] = useState<InspectionRecord | null>(null);
   const [revisionTarget, setRevisionTarget] = useState<InspectionRecord | null>(null);
   const [revisionRemarks, setRevisionRemarks] = useState("");
+  const [approveConfirmTarget, setApproveConfirmTarget] = useState<InspectionRecord | null>(null);
   const pageSize = 10;
+
+  const deepLinkedInspectionRef = useRef<string | null>(null);
+
+  // Deep-linking from notification ?inspectionId=123
+  useEffect(() => {
+    if (isLoading || !inspections.length || typeof window === "undefined") return;
+    const inspectionId = new URLSearchParams(window.location.search).get("inspectionId");
+    if (!inspectionId || deepLinkedInspectionRef.current === inspectionId) return;
+
+    const found = inspections.find(
+      (item) => String(item.id) === inspectionId || item.control_number === inspectionId
+    );
+    if (found) {
+      deepLinkedInspectionRef.current = inspectionId;
+      setStatusFilter("ALL");
+      setSelectedInspection(found);
+    }
+  }, [inspections, isLoading]);
 
   const review = useMutation({
     mutationFn: ({
@@ -72,6 +91,7 @@ export function MovementLivestockInspectionsTab({
       setSelectedInspection(null);
       setRevisionTarget(null);
       setRevisionRemarks("");
+      setApproveConfirmTarget(null);
       toast.success(
         variables.status === "APPROVED"
           ? "Livestock inspection approved and clearance issued."
@@ -280,7 +300,13 @@ export function MovementLivestockInspectionsTab({
                         <div className="flex flex-wrap justify-end gap-1.5">
                           {canReview ? (
                             <>
-                              <Button type="button" size="sm" disabled={review.isPending} onClick={() => review.mutate({ id: record.id, status: "APPROVED" })} className="h-8 gap-1 rounded-lg bg-emerald-700 px-2.5 text-xs font-bold text-white hover:bg-emerald-800">
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={review.isPending}
+                                onClick={() => setApproveConfirmTarget(record)}
+                                className="h-8 gap-1 rounded-lg bg-[#1E4D2B] px-2.5 text-xs font-bold text-white hover:bg-[#163b21] shadow-xs cursor-pointer transition-all hover:scale-[1.02] active:scale-98"
+                              >
                                 <Check className="size-3.5" /><span>Approve</span>
                               </Button>
                               <Button type="button" size="sm" variant="outline" disabled={review.isPending} onClick={() => openRevisionDialog(record)} className="h-8 gap-1 rounded-lg border-rose-200 px-2.5 text-xs font-semibold text-rose-700 hover:bg-rose-50">
@@ -355,7 +381,15 @@ export function MovementLivestockInspectionsTab({
                 {isAwaitingReview(selectedInspection.status) ? (
                   <>
                     <Button type="button" variant="outline" disabled={review.isPending} onClick={() => openRevisionDialog(selectedInspection)} className="h-auto min-h-10 w-full min-w-0 whitespace-normal border-rose-200 px-3 text-rose-700 hover:bg-rose-50"><RotateCcw className="mr-1 size-3.5 shrink-0" /><span>Return for Correction</span></Button>
-                    <Button type="button" disabled={review.isPending} onClick={() => review.mutate({ id: selectedInspection.id, status: "APPROVED" })} className="h-auto min-h-10 w-full min-w-0 whitespace-normal bg-emerald-700 px-3 text-white hover:bg-emerald-800"><Check className="mr-1 size-3.5 shrink-0" /><span>Approve &amp; Issue Clearance</span></Button>
+                    <Button
+                      type="button"
+                      disabled={review.isPending}
+                      onClick={() => setApproveConfirmTarget(selectedInspection)}
+                      className="h-auto min-h-10 w-full min-w-0 whitespace-normal bg-[#1E4D2B] px-3 text-white hover:bg-[#163b21] font-bold shadow-xs cursor-pointer transition-all hover:scale-[1.02] active:scale-98"
+                    >
+                      <Check className="mr-1 size-3.5 shrink-0" />
+                      <span>Approve &amp; Issue Clearance</span>
+                    </Button>
                   </>
                 ) : null}
               </DialogFooter>
@@ -383,6 +417,119 @@ export function MovementLivestockInspectionsTab({
               </DialogFooter>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================================== */}
+      {/* MAO APPROVAL CONFIRMATION DIALOG (Green Primary & Animations)       */}
+      {/* =================================================================== */}
+      <Dialog
+        open={Boolean(approveConfirmTarget)}
+        onOpenChange={(open) => {
+          if (!open && !review.isPending) setApproveConfirmTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md rounded-3xl p-6 border border-emerald-200/90 bg-white shadow-2xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
+          {approveConfirmTarget && (
+            <div className="space-y-5">
+              {/* Animated Top Icon Banner */}
+              <div className="flex flex-col items-center text-center pt-2">
+                <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-200/80 border-2 border-emerald-400 text-[#1E4D2B] shadow-md shadow-emerald-900/10 mb-3 animate-in zoom-in-75 duration-300">
+                  <span className="absolute inset-0 rounded-2xl bg-emerald-400/25 animate-ping [animation-duration:2s]" aria-hidden="true" />
+                  <FileCheck2 className="size-8 text-[#1E4D2B] stroke-[2.2] animate-in zoom-in-50 duration-300" />
+                </div>
+                <DialogTitle className="text-xl font-black text-slate-900 tracking-tight">
+                  Are you sure?
+                </DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm text-slate-600 mt-1.5 max-w-xs leading-relaxed font-normal">
+                  You are about to officially approve this movement inspection and issue the municipal livestock clearance.
+                </DialogDescription>
+              </div>
+
+              {/* Inspection Details Card */}
+              <div className="rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/70 via-slate-50/50 to-white p-4 space-y-3 text-xs shadow-2xs">
+                <div className="flex items-center justify-between pb-2 border-b border-emerald-100">
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-emerald-900">
+                    {approveConfirmTarget.control_number || `INS-${approveConfirmTarget.id}`}
+                  </span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-mono text-[10px] font-bold">
+                    Official MAO Action
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-slate-700">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-slate-400 block font-semibold">Shipper / Handler</span>
+                    <span className="font-bold text-slate-900 truncate block">
+                      {approveConfirmTarget.shipper_name || "Auction Handler"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-slate-400 block font-semibold">Purpose</span>
+                    <span className="font-semibold text-slate-800 block capitalize">
+                      {approveConfirmTarget.purpose.replaceAll("_", " ").toLowerCase()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-emerald-100/70 flex items-center justify-between gap-2 text-[11px]">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-mono uppercase text-slate-400 block font-semibold">Origin</span>
+                    <span className="font-bold text-slate-800 truncate block">
+                      {approveConfirmTarget.origin || "Origin not set"}
+                    </span>
+                  </div>
+                  <div className="text-emerald-700 shrink-0 font-black px-1.5">➔</div>
+                  <div className="min-w-0 text-right">
+                    <span className="text-[10px] font-mono uppercase text-slate-400 block font-semibold">Destination</span>
+                    <span className="font-bold text-emerald-900 truncate block">
+                      {approveConfirmTarget.destination || "Destination not set"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-emerald-100/70 flex items-center justify-between text-[11px] text-slate-600 font-medium">
+                  <span>Total Head:</span>
+                  <span className="font-bold text-slate-900 font-mono">
+                    {approveConfirmTarget.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)} head ({approveConfirmTarget.items.length} line items)
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={review.isPending}
+                  onClick={() => setApproveConfirmTarget(null)}
+                  className="w-full sm:w-auto h-10 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={review.isPending}
+                  onClick={() =>
+                    review.mutate({ id: approveConfirmTarget.id, status: "APPROVED" })
+                  }
+                  className="w-full sm:flex-1 h-10 rounded-xl text-xs font-bold bg-[#1E4D2B] hover:bg-[#163b21] text-white shadow-md shadow-emerald-900/20 gap-1.5 cursor-pointer transition-all hover:scale-[1.02] active:scale-98"
+                >
+                  {review.isPending ? (
+                    <>
+                      <RefreshCw className="size-4 animate-spin" />
+                      <span>Issuing Clearance…</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="size-4 text-emerald-300" />
+                      <span>Yes, Approve &amp; Issue Clearance</span>
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

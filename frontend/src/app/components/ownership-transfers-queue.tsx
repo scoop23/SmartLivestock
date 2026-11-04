@@ -92,7 +92,23 @@ export type Transfer = {
 export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO" }) {
   const client = useQueryClient();
   const isMao = reviewer === "MAO";
-  const [activeReviewTab, setActiveReviewTab] = useState<"ownership" | "inspections">("ownership");
+  const [activeReviewTab, setActiveReviewTab] = useState<"ownership" | "inspections">(() => {
+    if (typeof window !== "undefined") {
+      const tabParam = new URLSearchParams(window.location.search).get("tab");
+      if (tabParam === "inspections") return "inspections";
+    }
+    return "ownership";
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const tabParam = new URLSearchParams(window.location.search).get("tab");
+    if (tabParam === "inspections") {
+      setActiveReviewTab("inspections");
+    } else if (tabParam === "ownership") {
+      setActiveReviewTab("ownership");
+    }
+  }, []);
 
   // MAO review default tab: PENDING (focus directly on transfers awaiting MAO approval)
   const [statusFilter, setStatusFilter] = useState<string>("PENDING");
@@ -101,6 +117,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
   const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
   const [revisionTarget, setRevisionTarget] = useState<Transfer | null>(null);
   const [revisionRemarks, setRevisionRemarks] = useState("");
+  const [approveConfirmTarget, setApproveConfirmTarget] = useState<Transfer | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -134,10 +151,11 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
     enabled: isMao && activeReviewTab === "inspections",
   });
 
-  // Deep-linking from notification or URL ?transferId=123
+  // Deep-linking from notification or URL ?transferId=123 or ?saleId=123
   useEffect(() => {
     if (isLoading || !data.length) return;
-    const transferId = new URLSearchParams(window.location.search).get("transferId");
+    const searchParamsObj = new URLSearchParams(window.location.search);
+    const transferId = searchParamsObj.get("transferId") || searchParamsObj.get("saleId");
     if (!transferId) return;
     const found = data.find((item) => String(item.id) === transferId);
     if (!found) return;
@@ -151,6 +169,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
 
       const url = new URL(window.location.href);
       url.searchParams.delete("transferId");
+      url.searchParams.delete("saleId");
       window.history.replaceState({}, "", url.toString());
     }, 0);
 
@@ -174,6 +193,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
       setRevisionTarget(null);
       setRevisionRemarks("");
       setSelectedTransfer(null);
+      setApproveConfirmTarget(null);
       if (variables.status === "APPROVED") {
         toast.success("Transfer certificate officially approved.");
       } else {
@@ -817,8 +837,8 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                                   type="button"
                                   size="sm"
                                   disabled={review.isPending}
-                                  onClick={() => review.mutate({ id: t.id, status: "APPROVED" })}
-                                  className="h-8 px-3 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg shadow-2xs gap-1 cursor-pointer transition-all active:scale-95"
+                                  onClick={() => setApproveConfirmTarget(t)}
+                                  className="h-8 px-3 text-xs font-bold bg-[#1E4D2B] hover:bg-[#163b21] text-white rounded-lg shadow-2xs gap-1 cursor-pointer transition-all active:scale-95"
                                   title="Approve transfer"
                                 >
                                   <Check className="size-3.5" />
@@ -1096,8 +1116,8 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                     <Button
                       type="button"
                       disabled={review.isPending}
-                      onClick={() => review.mutate({ id: selectedTransfer.id, status: "APPROVED" })}
-                      className="flex-1 sm:flex-none text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-xs"
+                      onClick={() => setApproveConfirmTarget(selectedTransfer)}
+                      className="flex-1 sm:flex-none text-xs bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold shadow-xs cursor-pointer transition-all hover:scale-[1.02] active:scale-98"
                     >
                       <Check className="size-3.5 mr-1" />
                       Approve Transfer
@@ -1175,6 +1195,112 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                   className="text-xs font-bold"
                 >
                   Return to Auction Staff
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================================== */}
+      {/* 3. MAO APPROVAL CONFIRMATION DIALOG (Green Primary & Animations)    */}
+      {/* =================================================================== */}
+      <Dialog
+        open={Boolean(approveConfirmTarget)}
+        onOpenChange={(open) => {
+          if (!open && !review.isPending) setApproveConfirmTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md rounded-3xl p-6 border border-emerald-200/90 bg-white shadow-2xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
+          {approveConfirmTarget && (
+            <div className="space-y-5">
+              {/* Animated Top Icon Banner */}
+              <div className="flex flex-col items-center text-center pt-2">
+                <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-200/80 border-2 border-emerald-400 text-[#1E4D2B] shadow-md shadow-emerald-900/10 mb-3 animate-in zoom-in-75 duration-300">
+                  <span className="absolute inset-0 rounded-2xl bg-emerald-400/25 animate-ping [animation-duration:2s]" aria-hidden="true" />
+                  <FileCheck2 className="size-8 text-[#1E4D2B] stroke-[2.2] animate-in zoom-in-50 duration-300" />
+                </div>
+                <DialogTitle className="text-xl font-black text-slate-900 tracking-tight">
+                  Are you sure?
+                </DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm text-slate-600 mt-1.5 max-w-xs leading-relaxed font-normal">
+                  You are about to officially approve and certify this municipal livestock ownership transfer certificate.
+                </DialogDescription>
+              </div>
+
+              {/* Transfer Details Card */}
+              <div className="rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/70 via-slate-50/50 to-white p-4 space-y-3 text-xs shadow-2xs">
+                <div className="flex items-center justify-between pb-2 border-b border-emerald-100">
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-emerald-900">
+                    Certificate #{approveConfirmTarget.transfer_certificate_number || approveConfirmTarget.id}
+                  </span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-mono text-[10px] font-bold">
+                    Official MAO Action
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-slate-700">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-slate-400 block font-semibold">Animal Tag / Species</span>
+                    <span className="font-bold text-slate-900 truncate block">
+                      {approveConfirmTarget.livestock_tag || "Tag Not Specified"} ({approveConfirmTarget.livestock_type_name || "Livestock"})
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-slate-400 block font-semibold">Transfer Date</span>
+                    <span className="font-semibold text-slate-800 block">
+                      {approveConfirmTarget.transfer_date || "Today"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-emerald-100/70 flex items-center justify-between gap-2 text-[11px]">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-mono uppercase text-slate-400 block font-semibold">Current Owner</span>
+                    <span className="font-bold text-slate-800 truncate block">
+                      {approveConfirmTarget.previous_owner_name || "Registered Owner"}
+                    </span>
+                  </div>
+                  <div className="text-emerald-700 shrink-0 font-black px-1.5">➔</div>
+                  <div className="min-w-0 text-right">
+                    <span className="text-[10px] font-mono uppercase text-slate-400 block font-semibold">New Owner</span>
+                    <span className="font-bold text-emerald-900 truncate block">
+                      {approveConfirmTarget.new_owner_name || "New Buyer"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={review.isPending}
+                  onClick={() => setApproveConfirmTarget(null)}
+                  className="w-full sm:w-auto h-10 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={review.isPending}
+                  onClick={() =>
+                    review.mutate({ id: approveConfirmTarget.id, status: "APPROVED" })
+                  }
+                  className="w-full sm:flex-1 h-10 rounded-xl text-xs font-bold bg-[#1E4D2B] hover:bg-[#163b21] text-white shadow-md shadow-emerald-900/20 gap-1.5 cursor-pointer transition-all hover:scale-[1.02] active:scale-98"
+                >
+                  {review.isPending ? (
+                    <>
+                      <RefreshCw className="size-4 animate-spin" />
+                      <span>Approving Certificate…</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="size-4 text-emerald-300" />
+                      <span>Yes, Approve Transfer</span>
+                    </>
+                  )}
                 </Button>
               </DialogFooter>
             </div>

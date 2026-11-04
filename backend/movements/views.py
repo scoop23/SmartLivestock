@@ -318,7 +318,7 @@ def inspection_list_create(request):
                     priority=Notification.Priority.MEDIUM,
                     title="New Livestock Inspection Awaiting Validation",
                     message=f"Inspection #{inspection.id} for {inspection.shipper_name} created by {user.get_full_name() or user.username}.",
-                    link="/data-validation",
+                    link=f"/ownership-transfers?tab=inspections&inspectionId={inspection.id}",
                     related_entity_type="inspection",
                     related_entity_id=inspection.id,
                 )
@@ -470,7 +470,7 @@ def inspection_resubmit(request, pk):
             priority=Notification.Priority.HIGH,
             title=f"Auction Record #{inspection.id} Resubmitted",
             message=f"{inspection.shipper_name}'s movement record is awaiting review again.",
-            link="/auction-inspections" if next_role == "AUCTION" else "/data-validation",
+            link="/auction-inspections" if next_role == "AUCTION" else f"/ownership-transfers?tab=inspections&inspectionId={inspection.id}",
             related_entity_type="inspection",
             related_entity_id=inspection.id,
         )
@@ -501,7 +501,7 @@ def inspection_verify(request, pk):
             priority=Notification.Priority.HIGH,
             title=f"Auction Record #{inspection.id} Submitted",
             message=f"Auction submitted {inspection.shipper_name}'s movement record for MAO review.",
-            link="/data-validation",
+            link=f"/ownership-transfers?tab=inspections&inspectionId={inspection.id}",
             related_entity_type="inspection",
             related_entity_id=inspection.id,
         )

@@ -199,6 +199,39 @@ function DiseaseMortalityContent() {
     return rawIncidents.filter((inc) => inc.type === "disease" || inc.type === "mortality");
   }, [rawIncidents]);
 
+  const deepLinkedRecordRef = React.useRef<string | null>(null);
+
+  // Auto-open review dialog when navigated with ?recordId=123 from notifications
+  useEffect(() => {
+    const recordId = searchParams.get("recordId");
+    if (!recordId || isLoading || healthIncidents.length === 0) return;
+    if (deepLinkedRecordRef.current === recordId) return;
+
+    const cleanTarget = recordId.trim().toLowerCase();
+    const found = healthIncidents.find((inc) => {
+      const idStr = String(inc.id).toLowerCase();
+      const cleanId = idStr.replace(/^(dis-|mor-)/, "");
+      const rawIdStr = (inc as any).rawRecord?.id != null ? String((inc as any).rawRecord.id) : "";
+      return (
+        idStr === cleanTarget ||
+        cleanId === cleanTarget ||
+        idStr === `dis-${cleanTarget}` ||
+        idStr === `mor-${cleanTarget}` ||
+        rawIdStr === cleanTarget ||
+        (inc.tagNumber && inc.tagNumber.toLowerCase() === cleanTarget)
+      );
+    });
+    if (found) {
+      deepLinkedRecordRef.current = recordId;
+      if (found.type === "disease" && activeTab !== "disease") {
+        setActiveTab("disease");
+      } else if (found.type === "mortality" && activeTab !== "mortality") {
+        setActiveTab("mortality");
+      }
+      setHealthReviewDialog({ open: true, record: found });
+    }
+  }, [searchParams, healthIncidents, isLoading, activeTab]);
+
   // KPIs
   const kpis = useMemo(() => {
     const diseaseTotal = healthIncidents.filter((inc) => inc.type === "disease").length;

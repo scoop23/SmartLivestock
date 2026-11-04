@@ -90,7 +90,7 @@ def _notify_production_route(record: ProductionRecord, actor: User, *, is_resubm
             priority=Notification.Priority.MEDIUM,
             title="Farmer-reported slaughter awaiting official review",
             message=f"{farmer_name} reported slaughter of {record.slaughter.quantity} animal(s). Review the official slaughter report before inventory changes.",
-            link=f"/data-validation?domain=slaughter&slaughterReportId={record.slaughter_id}",
+            link=f"/slaughter-record-review",
             related_entity_type="slaughter_record", related_entity_id=record.slaughter_id,
         )
         return
@@ -303,7 +303,7 @@ def live_animal_sales_list_create(request):
             priority=Notification.Priority.MEDIUM,
             title="New Livestock Sale Recorded",
             message=f"{farmer_name} recorded a sale for {sale_reference}.",
-            link=f"/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
+            link=f"/ownership-transfers?tab=ownership&saleId={sale.pk}",
             related_entity_type="livestock_sale",
             related_entity_id=sale.pk,
         )
@@ -363,11 +363,11 @@ def live_animal_sale_delete(request, pk):
             notify_role(role_name="MAO", barangay_id=(sale.livestock or sale.batch).farmer.barangay_id,
                 notification_type=Notification.NotificationType.GENERAL,
                 title="Sale Resubmitted", message=f"Sale #{sale.pk} was corrected by its farmer.",
-                link=f"/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
+                link=f"/ownership-transfers?tab=ownership&saleId={sale.pk}",
                 related_entity_type="livestock_sale", related_entity_id=sale.pk)
             notify_role(role_name="ADMIN", notification_type=Notification.NotificationType.GENERAL,
                 title="Sale Resubmitted", message=f"Sale #{sale.pk} was corrected by its farmer.",
-                link=f"/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
+                link=f"/ownership-transfers?tab=ownership&saleId={sale.pk}",
                 related_entity_type="livestock_sale", related_entity_id=sale.pk)
         return Response(serializer.data)
     if sale.status != "PENDING":
@@ -428,7 +428,7 @@ def review_live_animal_sale(request, pk):
     if new_status == "VERIFIED":
         notify_role(role_name="MAO", notification_type=Notification.NotificationType.PRODUCTION,
             title="Verified Sale Awaiting MAO Approval", message=f"Sale #{sale.pk} was verified by {user_role}.",
-            link=f"/data-validation?domain=incidents&recordType=SALE&recordId={sale.pk}",
+            link=f"/ownership-transfers?tab=ownership&saleId={sale.pk}",
             related_entity_type="livestock_sale", related_entity_id=sale.pk)
     serializer = LiveAnimalSaleSerializer(sale)
     return Response(serializer.data, status=200)
@@ -620,7 +620,7 @@ def review_calving_record(request, pk):
     if new_status == "VERIFIED":
         notify_role(role_name="MAO", notification_type=Notification.NotificationType.PRODUCTION,
             title="Verified Calving Awaiting MAO Approval", message=f"Calving #{calving.pk} was verified by {user_role}.",
-            link=f"/data-validation?domain=incidents&recordType=CALVING&recordId={calving.pk}",
+            link=f"/livestock-records?tab=individual&recordId={calving.pk}",
             related_entity_type="calving_record", related_entity_id=calving.pk)
     serializer = CalvingRecordSerializer(calving)
     return Response(serializer.data, status=200)
@@ -709,7 +709,7 @@ def calving_detail(request, pk):
                 priority=Notification.Priority.MEDIUM,
                 title="Calving Record Resubmitted",
                 message=f"{user.get_full_name() or user.username} corrected a birth declaration for calf {calving.calf_tag or 'Newborn'}.",
-                link=f"/data-validation?domain=incidents&recordType=CALVING&recordId={calving.pk}",
+                link=f"/livestock-records?tab=individual&recordId={calving.pk}",
                 related_entity_type="calving_record",
                 related_entity_id=calving.pk,
             )

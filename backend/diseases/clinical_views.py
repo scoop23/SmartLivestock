@@ -103,7 +103,7 @@ def disease_case_follow_ups(request, pk):
         link = (
             f"/report-observation?reportId=DIS-{case.pk}" if recipient_role == "FARMER"
             else f"/sibat-alerts?recordType=DISEASE&recordId={case.pk}" if recipient_role in {"SIBAT", "CBAT"}
-            else f"/data-validation?domain=incidents&recordType=DISEASE&recordId={case.pk}"
+            else f"/disease-mortality?tab=disease&recordId={case.pk}"
         )
         create_notification(
             person, notification_type=Notification.NotificationType.DISEASE,

@@ -377,6 +377,7 @@ export function UniversalQrScannerDialog({
           "/health-report-qr",
           "/sibat-alerts",
           "/data-validation",
+          "/disease-mortality",
           "/report-observation",
         ].includes(reportUrl.pathname);
         const supportedRecordType =
@@ -452,7 +453,7 @@ export function UniversalQrScannerDialog({
                 ? "/auction-inspections"
                 : role === "sibat"
                 ? `/sibat/batches?batchId=${encodeURIComponent(id)}`
-                : `/data-validation?domain=inventory&highlightId=batch-${id}&tag=${encodeURIComponent(batch.batch_code || id)}`,
+                : `/livestock-records?tab=herd&batchId=${encodeURIComponent(id)}`,
           });
           return;
         }
@@ -494,7 +495,7 @@ export function UniversalQrScannerDialog({
               ? "/auction-inspections"
               : role === "sibat"
               ? "/sibat/livestock-registry"
-              : `/data-validation?domain=inventory&highlightId=${animal.id}&tag=${encodeURIComponent(animal.tag_number || animal.id)}`,
+              : `/livestock-records?tab=individual&recordId=${animal.id}`,
         });
       } catch (cause: unknown) {
         if (requestId !== lookupRequestId.current) return;

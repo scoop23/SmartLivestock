@@ -169,17 +169,19 @@ export const resolveNotificationLink = (
   const effectiveVariant = getEffectiveRole(variant, userRole, currentPath);
   if (effectiveVariant === "admin") {
     const adminRoutes: Record<string, (id: number) => string> = {
-      livestock_inventory: (id) => `/data-validation?domain=inventory&recordType=INVENTORY&recordId=${id}`,
-      livestock_batch: (id) => `/data-validation?domain=inventory&recordType=BATCH&recordId=${id}`,
-      production_record: (id) => `/data-validation?domain=production&recordType=PRODUCTION&recordId=${id}`,
+      livestock_inventory: (id) => `/livestock-records?tab=individual&recordId=${id}`,
+      livestock_batch: (id) => `/livestock-records?tab=herd&batchId=${id}`,
+      production_record: (id) => `/production-dashboard?recordId=${id}`,
       program_booking: (id) => `/schedules?bookingId=${id}`,
-      livestock_sale: (id) => `/data-validation?domain=incidents&recordType=SALE&recordId=${id}`,
-      calving_record: (id) => `/data-validation?domain=incidents&recordType=CALVING&recordId=${id}`,
-      disease_case: (id) => `/data-validation?domain=incidents&recordType=DISEASE&recordId=${id}`,
-      mortality_record: (id) => `/data-validation?domain=incidents&recordType=MORTALITY&recordId=${id}`,
+      livestock_sale: (id) => `/ownership-transfers?tab=ownership&saleId=${id}`,
+      calving_record: (id) => `/livestock-records?tab=individual&recordId=${id}`,
+      disease_case: (id) => `/disease-mortality?tab=disease&recordId=${id}`,
+      mortality_record: (id) => `/disease-mortality?tab=mortality&recordId=${id}`,
       ownership_transfer: (id) => `/ownership-transfers?transferId=${id}`,
       census_submission: (id) => `/data-validation?domain=census&recordType=CENSUS&recordId=${id}`,
-      inspection: (id) => `/data-validation?domain=incidents&recordType=INSPECTION&recordId=${id}`,
+      inspection: (id) => `/ownership-transfers?tab=inspections&inspectionId=${id}`,
+      slaughter_record: () => `/slaughter-record-review`,
+      slaughter_report: () => `/slaughter-record-review`,
     };
     const routeFromEntity = notification.related_entity_type
       ? adminRoutes[notification.related_entity_type]
@@ -190,54 +192,120 @@ export const resolveNotificationLink = (
 
     // Older livestock resubmission notices already contain the primary key in
     // their URL but predate the explicit record type parameter.
-    const oldReviewId = notification.link?.match(/[?&]reviewId=(\d+)/)?.[1];
-    if (oldReviewId && notification.title.includes("Livestock Entry Resubmitted")) {
-      return `/data-validation?domain=inventory&recordType=INVENTORY&recordId=${oldReviewId}`;
+    const oldReviewId = notification.link?.match(/[?&](?:reviewId|recordId)=(\d+)/)?.[1];
+    if (oldReviewId && (notification.title.includes("Livestock Entry Resubmitted") || notification.title.includes("Livestock Entry"))) {
+      return `/livestock-records?tab=individual&recordId=${oldReviewId}`;
     }
-    if (oldReviewId && notification.title.includes("Herd Resubmitted")) {
-      return `/data-validation?domain=inventory&recordType=BATCH&recordId=${oldReviewId}`;
+    if (oldReviewId && (notification.title.includes("Herd Resubmitted") || notification.title.includes("Batch Resubmitted") || notification.title.includes("Livestock Batch"))) {
+      return `/livestock-records?tab=herd&batchId=${oldReviewId}`;
     }
 
-    // Some older notifications have no related-entity ID. Keep their record
-    // type and message so the validation page can resolve an exact, unique row.
-    const diseaseId = notification.title.match(/\bDIS-(\d+)\b/i)?.[1];
-    if (diseaseId) {
-      return `/data-validation?domain=incidents&recordType=DISEASE&recordId=${diseaseId}`;
+    // Health notifications with DIS / MOR code
+    const diseaseId = notification.title.match(/\bDIS-(\d+)\b/i)?.[1]
+      ?? notification.message.match(/\bDIS-(\d+)\b/i)?.[1]
+      ?? notification.link?.match(/[?&]recordId=(\d+)/)?.[1];
+    if (diseaseId && /disease|dis-\d+/i.test(notification.title + " " + notification.message + " " + (notification.link || ""))) {
+      return `/disease-mortality?tab=disease&recordId=${diseaseId}`;
     }
-    const mortalityId = notification.title.match(/\bMOR-(\d+)\b/i)?.[1];
-    if (mortalityId) {
-      return `/data-validation?domain=incidents&recordType=MORTALITY&recordId=${mortalityId}`;
+
+    const mortalityId = notification.title.match(/\bMOR-(\d+)\b/i)?.[1]
+      ?? notification.message.match(/\bMOR-(\d+)\b/i)?.[1]
+      ?? notification.link?.match(/[?&]recordId=(\d+)/)?.[1];
+    if (mortalityId && /mortality|mor-\d+/i.test(notification.title + " " + notification.message + " " + (notification.link || ""))) {
+      return `/disease-mortality?tab=mortality&recordId=${mortalityId}`;
     }
+
+    // Inspection notifications with inspection ID
     const inspectionId = notification.message.match(/\bInspection\s*#(\d+)/i)?.[1]
-      ?? notification.title.match(/\bInspection\s*#(\d+)/i)?.[1];
-    if (inspectionId) {
-      return `/data-validation?domain=incidents&recordType=INSPECTION&recordId=${inspectionId}`;
-    }
-    const legacyKind = notification.title.toLowerCase().includes("census")
-      ? "CENSUS"
-      : notification.title.includes("Herd") || notification.title.includes("Batch")
-      ? "BATCH"
-      : notification.title.toLowerCase().includes("production")
-        ? "PRODUCTION"
-        : notification.title.toLowerCase().includes("calving") || notification.title.toLowerCase().includes("birth")
-          ? "CALVING"
-          : notification.title.toLowerCase().includes("sale")
-            ? "SALE"
-            : notification.title.toLowerCase().includes("livestock entry") || notification.title.toLowerCase().includes("livestock record")
-              ? "INVENTORY"
-              : null;
-    if (legacyKind && notification.link?.startsWith("/data-validation")) {
-      const domain = legacyKind === "CENSUS" ? "census"
-        : legacyKind === "INVENTORY" || legacyKind === "BATCH" ? "inventory"
-        : legacyKind === "PRODUCTION" ? "production" : "incidents";
-      const params = new URLSearchParams({ domain, legacyType: legacyKind, legacyMessage: notification.message });
-      return `/data-validation?${params.toString()}`;
+      ?? notification.title.match(/\bInspection\s*#(\d+)/i)?.[1]
+      ?? notification.link?.match(/[?&]inspectionId=(\d+)/)?.[1];
+    if (inspectionId || /inspection/i.test(notification.title + " " + notification.message)) {
+      return `/ownership-transfers?tab=inspections${inspectionId ? `&inspectionId=${inspectionId}` : ""}`;
     }
 
-    // Older notifications may have persisted the route-group folder as a URL
-    // segment. Next.js route groups are omitted from public paths.
-    if (notification.link?.startsWith("/admin/data-validation")) {
-      return notification.link.replace("/admin/data-validation", "/data-validation");
+    // Ownership transfer notices
+    const transferId = notification.message.match(/\bTransfer\s*#(\d+)/i)?.[1]
+      ?? notification.title.match(/\bTransfer\s*#(\d+)/i)?.[1]
+      ?? notification.link?.match(/[?&]transferId=(\d+)/)?.[1];
+    if (transferId || /transfer/i.test(notification.title + " " + notification.message)) {
+      return `/ownership-transfers${transferId ? `?transferId=${transferId}` : ""}`;
+    }
+
+    // Slaughterhouse records
+    if (/slaughter/i.test(notification.title + " " + notification.message + " " + (notification.link || ""))) {
+      return `/slaughter-record-review`;
+    }
+
+    // Legacy links starting with /data-validation or /admin/data-validation
+    const rawLink = notification.link || "";
+    if (rawLink.includes("/data-validation")) {
+      try {
+        const url = new URL(rawLink, "http://localhost");
+        const domain = url.searchParams.get("domain")?.toLowerCase();
+        const recordType = (url.searchParams.get("recordType") || "").toUpperCase();
+        const recordId = url.searchParams.get("recordId") || url.searchParams.get("reviewId") || url.searchParams.get("highlightId")?.replace(/^(batch-|ind-)/, "");
+        const transferIdParam = url.searchParams.get("transferId");
+        const slaughterReportId = url.searchParams.get("slaughterReportId");
+
+        if (domain === "census" || recordType === "CENSUS") {
+          return rawLink.replace("/admin/data-validation", "/data-validation");
+        }
+        if (domain === "slaughter" || slaughterReportId) {
+          return "/slaughter-record-review";
+        }
+        if (recordType === "DISEASE" || /disease/i.test(notification.title)) {
+          return `/disease-mortality?tab=disease${recordId ? `&recordId=${recordId}` : ""}`;
+        }
+        if (recordType === "MORTALITY" || /mortality/i.test(notification.title)) {
+          return `/disease-mortality?tab=mortality${recordId ? `&recordId=${recordId}` : ""}`;
+        }
+        if (recordType === "INSPECTION" || /inspection/i.test(notification.title)) {
+          return `/ownership-transfers?tab=inspections${recordId ? `&inspectionId=${recordId}` : ""}`;
+        }
+        if (recordType === "SALE" || /sale/i.test(notification.title)) {
+          return `/ownership-transfers?tab=ownership${recordId ? `&saleId=${recordId}` : ""}`;
+        }
+        if (recordType === "CALVING" || /calving|birth/i.test(notification.title)) {
+          return `/livestock-records?tab=individual${recordId ? `&recordId=${recordId}` : ""}`;
+        }
+        if (domain === "inventory" || recordType === "INVENTORY" || recordType === "BATCH") {
+          if (recordType === "BATCH" || /batch|herd/i.test(notification.title)) {
+            return `/livestock-records?tab=herd${recordId ? `&batchId=${recordId}` : ""}`;
+          }
+          return `/livestock-records?tab=individual${recordId ? `&recordId=${recordId}` : ""}`;
+        }
+        if (domain === "incidents") {
+          return `/disease-mortality`;
+        }
+        if (domain === "transfers" || transferIdParam) {
+          return `/ownership-transfers${transferIdParam ? `?transferId=${transferIdParam}` : ""}`;
+        }
+      } catch {
+        // Fallback below
+      }
+    }
+
+    const combinedText = `${notification.title} ${notification.message}`.toLowerCase();
+    if (combinedText.includes("disease")) {
+      return "/disease-mortality?tab=disease";
+    }
+    if (combinedText.includes("mortality") || combinedText.includes("death")) {
+      return "/disease-mortality?tab=mortality";
+    }
+    if (combinedText.includes("inspection")) {
+      return "/ownership-transfers?tab=inspections";
+    }
+    if (combinedText.includes("transfer") || combinedText.includes("clearance") || combinedText.includes("ownership")) {
+      return "/ownership-transfers";
+    }
+    if (combinedText.includes("slaughter")) {
+      return "/slaughter-record-review";
+    }
+    if (combinedText.includes("herd") || combinedText.includes("batch")) {
+      return "/livestock-records?tab=herd";
+    }
+    if (combinedText.includes("livestock") || combinedText.includes("entry") || combinedText.includes("animal")) {
+      return "/livestock-records?tab=individual";
     }
   }
 
@@ -352,6 +420,9 @@ export const resolveNotificationLink = (
     // confusing apparent logout.
     if (notification.title === "Account status updated" && notification.link === "/login") {
       return "/profile";
+    }
+    if (effectiveVariant === "admin" && notification.link?.startsWith("/data-validation") && !notification.link.includes("domain=census")) {
+      return "/disease-mortality";
     }
     return notification.link || undefined;
   }

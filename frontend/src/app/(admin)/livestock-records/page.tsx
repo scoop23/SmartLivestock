@@ -656,6 +656,57 @@ function LivestockRecordsContent() {
     setIsAnimalReviewOpen(true);
   };
 
+  // Sync tab with URL searchParams
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "individual" || tabParam === "herd") {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  const deepLinkedAnimalRef = React.useRef<string | null>(null);
+  const deepLinkedBatchRef = React.useRef<string | null>(null);
+
+  // Deep-linking for individual animal: ?tab=individual&recordId=123
+  useEffect(() => {
+    const recordId = searchParams.get("recordId");
+    if (!recordId || isInventoryLoading || individualAnimals.length === 0) return;
+    if (deepLinkedAnimalRef.current === recordId) return;
+
+    const target = recordId.trim().toLowerCase();
+    const found = individualAnimals.find((item) => {
+      const rawId = String(item.rawId ?? item.id);
+      return rawId === target || item.tagNumber?.toLowerCase() === target;
+    });
+    if (found) {
+      deepLinkedAnimalRef.current = recordId;
+      if (activeTab !== "individual") {
+        setActiveTab("individual");
+      }
+      openAnimalReview(found, true);
+    }
+  }, [searchParams, individualAnimals, isInventoryLoading, activeTab]);
+
+  // Deep-linking for herd batch: ?tab=herd&batchId=45
+  useEffect(() => {
+    const batchId = searchParams.get("batchId");
+    if (!batchId || isBatchLoading || batches.length === 0) return;
+    if (deepLinkedBatchRef.current === batchId) return;
+
+    const target = batchId.trim().toLowerCase();
+    const found = batches.find((batch) => {
+      return String(batch.id) === target || batch.batch_code?.toLowerCase() === target;
+    });
+    if (found) {
+      deepLinkedBatchRef.current = batchId;
+      if (activeTab !== "herd") {
+        setActiveTab("herd");
+      }
+      setSelectedBatch(found);
+      setIsDrilldownOpen(true);
+    }
+  }, [searchParams, batches, isBatchLoading, activeTab]);
+
   const openChildAnimalReview = (animal: ChildAnimal, batch: BatchItem, reviewMode = false) => {
     setSelectedAnimalId(animal.id);
     setSelectedAnimalFallback({
