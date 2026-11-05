@@ -262,22 +262,8 @@ function formatTargetUnit(unit: string) {
   return unit;
 }
 
-const FRIENDLY_METHOD_NAMES: Record<string, string> = {
-  "Naive Baseline": "Simple forecast",
-  "Seasonal Naive": "Seasonal pattern",
-  "Linear Regression": "Trend-based method",
-  "Random Forest": "Pattern-based method",
-  ARIMA: "Trend and pattern method",
-  "Holt-Winters": "Seasonal trend method",
-  "Moving Average (3 periods)": "Recent average",
-  "Moving Average (4 weeks)": "Recent average",
-  "Seasonal Naive (52 weeks)": "Seasonal pattern",
-  "Linear Trend": "Trend method",
-};
-
 function readableMethodName(name?: string | null) {
-  if (!name) return "Simple forecast";
-  return FRIENDLY_METHOD_NAMES[name] || name;
+  return name?.trim() || "Not selected";
 }
 
 function readableDomain(domain: string) {
@@ -430,7 +416,7 @@ export function FuturisticPredictiveDashboard() {
   const [cattlePriceView, setCattlePriceView] = useState<"trend" | "profile">("trend");
   const [showTableView, setShowTableView] = useState<boolean>(false);
   const [timelinePage, setTimelinePage] = useState(0);
-  const [historyWindowMonths, setHistoryWindowMonths] = useState(12);
+  const [historyWindowMonths, setHistoryWindowMonths] = useState<number | "all">(12);
   const timelinePageSize = 10;
 
   // Fetch Authoritative Readiness Diagnostics from Backend
@@ -497,10 +483,35 @@ export function FuturisticPredictiveDashboard() {
   const cattlePriceSourceDescription = isRegisteredCattlePriceForecast
     ? "approved transfers linked to a registered cattle record"
     : "approved external cattle transfers recorded in SmartLivestock";
-  const hasWeeklyHistoryRange = currentCard?.id === "livestock_sales" || isCattlePriceForecast;
-  const hasWeeklyHistory = rawChartTimeline.some((point) => !point.is_future && point.actual != null);
+  const weeklyTargetSelected =
+    currentCard?.frequency === "WEEKLY" ||
+    ["livestock_sales", "registered_cattle_price", "external_cattle_price"].includes(activeTargetId);
+  const horizonUnit = weeklyTargetSelected ? "weeks" : "months";
+
+  const historyOptions: Array<{ label: string; value: number | "all" }> = useMemo(() => {
+    if (weeklyTargetSelected) {
+      return [
+        { label: "3 months", value: 3 },
+        { label: "6 months", value: 6 },
+        { label: "12 months", value: 12 },
+        { label: "All records", value: "all" },
+      ];
+    }
+    return [
+      { label: "6 months", value: 6 },
+      { label: "12 months", value: 12 },
+      { label: "24 months", value: 24 },
+      { label: "All records", value: "all" },
+    ];
+  }, [weeklyTargetSelected]);
+
+  const activeHistoryWindow = historyOptions.some((opt) => opt.value === historyWindowMonths)
+    ? historyWindowMonths
+    : 12;
+
+  const hasHistory = rawChartTimeline.some((point) => !point.is_future && point.actual != null);
   const chartTimeline = useMemo(() => {
-    if (!hasWeeklyHistoryRange) return rawChartTimeline;
+    if (activeHistoryWindow === "all") return rawChartTimeline;
 
     const latestHistoricalPoint = [...rawChartTimeline]
       .reverse()
@@ -509,7 +520,7 @@ export function FuturisticPredictiveDashboard() {
 
     const cutoff = new Date(`${latestHistoricalPoint.date}T00:00:00.000Z`);
     if (!Number.isFinite(cutoff.getTime())) return rawChartTimeline;
-    cutoff.setUTCMonth(cutoff.getUTCMonth() - historyWindowMonths);
+    cutoff.setUTCMonth(cutoff.getUTCMonth() - activeHistoryWindow);
     const cutoffTime = cutoff.getTime();
 
     return rawChartTimeline.filter((point) => {
@@ -517,7 +528,7 @@ export function FuturisticPredictiveDashboard() {
       const pointTime = Date.parse(`${point.date}T00:00:00.000Z`);
       return Number.isFinite(pointTime) && pointTime >= cutoffTime;
     });
-  }, [rawChartTimeline, hasWeeklyHistoryRange, historyWindowMonths]);
+  }, [rawChartTimeline, activeHistoryWindow]);
   const timelinePageCount = Math.max(1, Math.ceil(chartTimeline.length / timelinePageSize));
   const safeTimelinePage = Math.min(timelinePage, timelinePageCount - 1);
   const visibleTimeline = chartTimeline.slice(
@@ -526,10 +537,6 @@ export function FuturisticPredictiveDashboard() {
   );
   const forecastPoints = targetDetail?.forecast?.forecast_points || [];
   const metadata = targetDetail?.forecast?.metadata || {};
-  const weeklyTargetSelected =
-    currentCard?.frequency === "WEEKLY" ||
-    ["livestock_sales", "registered_cattle_price", "external_cattle_price"].includes(selectedTargetId);
-  const horizonUnit = weeklyTargetSelected ? "weeks" : "months";
   const backtestInfo = targetDetail?.backtesting || targetDetail?.evaluation;
   const candidateModels = backtestInfo?.models || backtestInfo?.model_metrics || {};
   const cutoffTimeline = backtestInfo?.cutoffs || backtestInfo?.cutoff_timeline || [];
@@ -927,32 +934,32 @@ export function FuturisticPredictiveDashboard() {
               </>
             </div>
           )}
-          {hasWeeklyHistoryRange && (
+          {hasHistory && (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
               <div>
                 <p className="text-xs font-semibold text-slate-800">Show past records</p>
                 <p className="text-[11px] text-slate-500">
-                  {hasWeeklyHistory ? "The estimate stays visible." : "Available after weekly records are added."}
+                  {hasHistory ? "The estimate stays visible." : "Available after records are added."}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Past records time range">
-                {[3, 6, 12].map((months) => (
+                {historyOptions.map((option) => (
                   <button
-                    key={months}
+                    key={String(option.value)}
                     type="button"
-                    aria-pressed={historyWindowMonths === months}
-                    disabled={!hasWeeklyHistory}
+                    aria-pressed={activeHistoryWindow === option.value}
+                    disabled={!hasHistory}
                     onClick={() => {
-                      setHistoryWindowMonths(months);
+                      setHistoryWindowMonths(option.value);
                       setTimelinePage(0);
                     }}
                     className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
-                      historyWindowMonths === months
+                      activeHistoryWindow === option.value
                         ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800 shadow-2xs font-bold"
                         : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                     }`}
                   >
-                    {months} months
+                    {option.label}
                   </button>
                 ))}
               </div>
@@ -1312,7 +1319,7 @@ export function FuturisticPredictiveDashboard() {
         <Card className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-green-300 transition-all relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-500">
-              Compare with a simple forecast
+              Compare with the baseline
             </span>
             <div className="size-8 rounded-lg bg-green-50 border border-green-200 flex items-center justify-center text-green-800">
               <Scale className="size-4" />
@@ -1330,14 +1337,14 @@ export function FuturisticPredictiveDashboard() {
                   ) : (
                     <span className="text-amber-700 flex items-center gap-1 font-bold">
                       <Info className="size-4 shrink-0" />
-                      Simple forecast did better
+                      Baseline did better
                     </span>
                   )}
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500 leading-tight">
                   {isBeatingBaseline
-                    ? `${readableMethodName(winningModel)} had ${baselineImprovementPct}% less error than the simple forecast.`
-                    : `The simple forecast had less error (${baselineMae.toFixed(1)} vs ${selectedMae.toFixed(1)}).`}
+                    ? `${readableMethodName(winningModel)} had ${baselineImprovementPct}% less error than the baseline.`
+                    : `The baseline had less error (${baselineMae.toFixed(1)} vs ${selectedMae.toFixed(1)}).`}
                 </p>
               </>
             ) : (
@@ -1545,14 +1552,14 @@ export function FuturisticPredictiveDashboard() {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">How well did it match past records?</h3>
-                    <p className="text-[11px] text-slate-500">Compared with a simple forecast</p>
+                    <p className="text-[11px] text-slate-500">Compared with the baseline</p>
                   </div>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   <p className="text-slate-600 leading-relaxed text-xs">
                     {isValidated
-                      ? `The ${readableMethodName(winningModel)} method was checked against ${backtestInfo?.valid_cutoffs_count ?? 0} past periods and did better than the simple forecast.`
+                      ? `The ${readableMethodName(winningModel)} method was checked against ${backtestInfo?.valid_cutoffs_count ?? 0} past periods and did better than the baseline.`
                       : isAvailableUnvalidated
                       ? "An estimate is available, but there are not enough past periods to check how well it matches recorded results."
                       : "There are not enough approved past records to make and check an estimate."}
@@ -1570,12 +1577,12 @@ export function FuturisticPredictiveDashboard() {
                       </strong>
                     </div>
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">Compared with simple forecast:</span>
+                      <span className="text-slate-500">Compared with baseline:</span>
                       <span className="font-mono font-bold text-emerald-700">
                         {baselineImprovementPct != null
                           ? `${baselineImprovementPct}% less error`
                           : baselineMae != null
-                          ? `Simple forecast difference: ${baselineMae.toFixed(1)}`
+                          ? `Baseline difference: ${baselineMae.toFixed(1)}`
                           : "Waiting for enough past records to compare"}
                       </span>
                     </div>
