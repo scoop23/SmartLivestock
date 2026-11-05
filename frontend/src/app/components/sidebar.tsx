@@ -198,6 +198,7 @@ const auctionLinks: SidebarLink[] = [
   { path: '/auction-analytics', label: 'Market Analytics', icon: BarChart3 },
   { path: '/auction-gate', label: 'Gate Check', icon: QrCode },
 
+  { path: '/auction-preregistrations', label: 'Preregistrations', icon: ClipboardCheck },
   { path: '/auction-ownership-transfers/registry', label: 'Transfer Records', icon: ClipboardCheck },
   { path: '/auction-inspections', label: 'Intake Logs', icon: ClipboardCheck },
 

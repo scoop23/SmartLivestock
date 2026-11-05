@@ -242,7 +242,34 @@ export default function AuctionOwnershipTransfersPage() {
     queryFn: async () => (await api.get<Transfer[]>("livestock/ownership-transfers/")).data,
   });
 
-  async function loadFarmerAnimals(seller: FarmerLookup, selectedAnimalId?: number, originalCertificate?: string) {
+  const [preregistrationReference, setPreregistrationReference] = useState("");
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("preregistration");
+    if (!id || !/^\d+$/.test(id)) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data: registration } = await api.get<{ reference: string; farmer_id: number; livestock: number; original_certificate_number: string; registration_status: string }>(`production/dispositions/${id}/`);
+        if (cancelled) return;
+        if (registration.registration_status !== "CHECKED") {
+          setLookupError("Complete the arrival and physical checks on the preregistration page first.");
+          return;
+        }
+        const { data: seller } = await api.get<FarmerLookup>(`livestock/ownership-transfer-farmers/${registration.farmer_id}/`);
+        if (cancelled) return;
+        setOutsideLivestock(false);
+        setPreregistrationReference(registration.reference);
+        await loadFarmerAnimals(seller, registration.livestock, registration.original_certificate_number, true);
+      } catch {
+        if (!cancelled) setLookupError("Could not load the preregistration. Return to Auction Preregistrations and try again.");
+      }
+    })();
+    return () => { cancelled = true; };
+    // This is an initial route handoff, not a response to form edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadFarmerAnimals(seller: FarmerLookup, selectedAnimalId?: number, originalCertificate?: string, forceNew = false) {
     setFarmer(seller);
     setBuyer(null);
     setBuyerResults([]);
@@ -258,7 +285,7 @@ export default function AuctionOwnershipTransfersPage() {
       const selectedAnimal = response.data.find((animal) => animal.id === selectedAnimalId);
       if (selectedAnimal?.transfer_eligible) {
         setSelectedAnimalIds([selectedAnimal.id]);
-        if (!editing) autofillAnimalTraits(selectedAnimal);
+        if (!editing || forceNew) autofillAnimalTraits(selectedAnimal);
       } else {
         setSelectedAnimalIds([]);
       }
@@ -532,9 +559,14 @@ export default function AuctionOwnershipTransfersPage() {
         </div>
       </div>
       <AuctionTelemetryBanner />
+      {preregistrationReference && <div className="mx-4 mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950 sm:mx-6 lg:mx-8">
+        <strong>Loaded from {preregistrationReference}.</strong> Farmer, animal, recorded animal traits, and original certificate number are filled in. Add the actual buyer, final sale price, sale date, and issued transfer certificate details.
+        <Link href="/auction-preregistrations" className="ml-2 font-semibold underline">Back to preregistrations</Link>
+      </div>}
+
 
       {/* Main Container */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-5 space-y-5">
+      <div id="auction-transfer-form-start" className="w-full px-4 sm:px-6 lg:px-8 py-5 space-y-5">
         {/* Breadcrumb line */}
         <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
           <Link href="/auction" className="hover:text-slate-800 transition-colors">

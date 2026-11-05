@@ -1,5 +1,7 @@
 "use client";
 
+import { QrCodePass } from "@/components/qr-code-pass";
+import AuctionPreregistrations from "@/app/components/auction-preregistrations";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
 import {
@@ -20,6 +22,7 @@ SelectTrigger,
 SelectValue,
 } from "@/components/ui/select";
 import api from "@/lib/axios";
+import axios from "axios";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
@@ -83,6 +86,7 @@ export default function ProductionSalesTab({
 }) {
   const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const queryClient = useQueryClient();
+  const [submittedRegistration, setSubmittedRegistration] = useState<{ id: number; reference: string } | null>(null);
   const [isIntentOpen, setIsIntentOpen] = useState(autoOpenIntent);
   // Intent form state
   const [intentLivestockId, setIntentLivestockId] = useState("");
@@ -90,6 +94,8 @@ export default function ProductionSalesTab({
   const [targetDate, setTargetDate] = useState("");
   const [targetDestination, setTargetDestination] = useState("");
   const [intentNotes, setIntentNotes] = useState("");
+  const [intentDocument, setIntentDocument] = useState<File | null>(null);
+  const [intentCertificate, setIntentCertificate] = useState("");
 
   const startIntentTutorial = useCallback(() => {
     const steps: DriveStep[] = [
@@ -127,20 +133,29 @@ export default function ProductionSalesTab({
 
   const recordIntentMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const res = await api.post("production/dispositions/", payload);
+      const body = new FormData();
+      Object.entries(payload).forEach(([key, value]) => { if (value != null && value !== "") body.append(key, String(value)); });
+      if (intentDocument && intentType === "FOR_SALE") body.append("supporting_document", intentDocument);
+      const res = await api.post("production/dispositions/", body);
       return res.data;
     },
-    onSuccess: () => {
-      toast.success("Animal commercial intent declared!");
+    onSuccess: (data: { id: number; reference: string }) => {
+      if (intentType === "FOR_SALE") setSubmittedRegistration(data);
+      toast.success(intentType === "FOR_SALE" ? "Auction preregistration submitted. Keep your AP reference below." : "Animal intent declared.");
       setIsIntentOpen(false);
       setIntentLivestockId("");
       setTargetDate("");
       setTargetDestination("");
       setIntentNotes("");
+      setIntentDocument(null);
+      setIntentCertificate("");
       queryClient.invalidateQueries({ queryKey: ["animal_dispositions"] });
+      queryClient.invalidateQueries({ queryKey: ["auction-preregistration-list"] });
     },
-    onError: () => {
-      toast.error("Failed to declare animal intent.");
+    onError: (error) => {
+      const body: unknown = axios.isAxiosError(error) ? error.response?.data : null;
+      const message = body && typeof body === "object" ? Object.values(body).flat().filter(value => typeof value === "string").join(" ") : "Check the details and try again.";
+      toast.error("Could not submit your declaration.", { description: message });
     },
   });
 
@@ -157,6 +172,7 @@ export default function ProductionSalesTab({
       target_date: targetDate || null,
       target_destination: targetDestination.trim(),
       notes: intentNotes.trim(),
+      original_certificate_number: intentCertificate.trim(),
     });
   };
 
@@ -347,6 +363,16 @@ export default function ProductionSalesTab({
         </Card>
       </div>
 
+      <AuctionPreregistrations />
+
+      <Dialog open={submittedRegistration !== null} onOpenChange={open => { if (!open) setSubmittedRegistration(null); }}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-2xl bg-white sm:max-w-lg">
+          <DialogHeader><DialogTitle>Preregistration submitted</DialogTitle><DialogDescription>Save this QR and show it to Auction staff at the market. Staff can scan it to open this preregistration for review.</DialogDescription></DialogHeader>
+          {submittedRegistration && <QrCodePass code={submittedRegistration.reference} qrPayload={submittedRegistration.reference} title="Auction preregistration" subtitle="Save this QR for your market visit." status="SUBMITTED" compact />}
+          <Button variant="outline" onClick={() => setSubmittedRegistration(null)}>Done</Button>
+        </DialogContent>
+      </Dialog>
+
       {/* Declare Intent Dialog */}
       <Dialog open={isIntentOpen} onOpenChange={setIsIntentOpen}>
         <DialogContent className="sm:max-w-md p-6 rounded-2xl">
@@ -418,6 +444,12 @@ export default function ProductionSalesTab({
                 onChange={(e) => setTargetDestination(e.target.value)}
               />
             </div>
+
+            {intentType === "FOR_SALE" && <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-xs text-emerald-900">Preregister your paperwork before going to the market. Auction staff can request corrections online. Bring the animal and original documents for required checks.</p>
+              <div className="space-y-1"><Label htmlFor="intent-certificate">Original ownership certificate number</Label><Input id="intent-certificate" value={intentCertificate} onChange={event => setIntentCertificate(event.target.value)} maxLength={100} /></div>
+              <div className="space-y-1"><Label htmlFor="intent-document">Supporting document (optional)</Label><Input id="intent-document" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={event => setIntentDocument(event.target.files?.[0] || null)} /><p className="text-xs text-slate-500">PDF, JPG, or PNG, up to 5 MB.</p></div>
+            </div>}
 
             <div data-tour="intent-record-notes" className="space-y-1.5">
               <Label htmlFor="intent-notes">Notes / Scheduling</Label>

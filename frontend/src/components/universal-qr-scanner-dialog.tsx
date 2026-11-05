@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/axios";
+import { decodeUploadedQr } from "@/lib/decode-uploaded-qr";
 import {
   formatAgeClassification,
   formatCalendarDate,
@@ -55,6 +56,7 @@ export interface UniversalQrScannerDialogProps {
   onOpenChange: (open: boolean) => void;
   role?: "admin" | "sibat" | "auction" | "farmer" | "lgu";
   onSelectFarmer?: (farmerId: number) => void;
+  onSelectPreregistration?: (registrationId: number) => void;
   actionLabel?: string;
 }
 
@@ -137,6 +139,7 @@ export function UniversalQrScannerDialog({
   onOpenChange,
   role = "admin",
   onSelectFarmer,
+  onSelectPreregistration,
   actionLabel,
 }: UniversalQrScannerDialogProps) {
   const router = useRouter();
@@ -292,6 +295,25 @@ export function UniversalQrScannerDialog({
         return;
       }
       if (lookupInFlight.current) return;
+
+      // A preregistration QR identifies paperwork, never an animal or farmer.
+      let preregistrationId: string | null = input.match(/^AP-(\d+)$/i)?.[1] || null;
+      try {
+        const url = new URL(input, window.location.origin);
+        if (url.pathname === "/auction-preregistrations") {
+          preregistrationId = url.searchParams.get("registration");
+        }
+      } catch { /* Plain AP references are accepted above. */ }
+      if (preregistrationId && /^\d+$/.test(preregistrationId)) {
+        if (role !== "auction") {
+          setError("Open this preregistration with an Auction staff account.");
+          return;
+        }
+        handleDialogOpenChange(false);
+        if (onSelectPreregistration) onSelectPreregistration(Number(preregistrationId));
+        else router.push(`/auction-preregistrations?registration=${Number(preregistrationId)}`);
+        return;
+      }
 
       // Farmer profile QRs identify an account first
       const farmerQr = input.match(/^SL-FARMER:(\d+)$/i) || (onSelectFarmer ? input.match(/^(\d+)$/) : null);
@@ -520,7 +542,7 @@ export function UniversalQrScannerDialog({
         }
       }
     },
-    [handleDialogOpenChange, isAuction, onSelectFarmer, role, router, stopCamera]
+    [handleDialogOpenChange, isAuction, onSelectFarmer, onSelectPreregistration, role, router, stopCamera]
   );
 
   // Auto-start camera when dialog opens on camera tab without an existing record
@@ -640,24 +662,22 @@ export function UniversalQrScannerDialog({
     }
 
     setIsDecodingImage(true);
-    const imageUrl = URL.createObjectURL(file);
+    let text: string;
     try {
-      const reader = new BrowserQRCodeReader();
-      const result = await reader.decodeFromImageUrl(imageUrl);
-      const text = result.getText();
-      if (text) {
-        setScanInput(text);
-        toast.success("QR code decoded successfully.");
-        await handleLookup(text);
-      } else {
-        toast.error("No readable QR code found in this image.");
-      }
+      text = await decodeUploadedQr(file);
     } catch {
-      toast.error("Could not read a QR code from the uploaded image. Try another photo.");
-    } finally {
-      URL.revokeObjectURL(imageUrl);
+      toast.error("Could not read the QR image.", {
+        description: role === "auction"
+          ? "Upload the saved QR PNG, or enter its AP reference (for example AP-000123) in the manual tab."
+          : "Upload the saved QR image or enter its identifier manually.",
+      });
       setIsDecodingImage(false);
+      return;
     }
+    setIsDecodingImage(false);
+    setScanInput(text);
+    toast.success("QR code decoded successfully.");
+    await handleLookup(text);
   };
 
   const handleReset = () => {
@@ -683,11 +703,13 @@ export function UniversalQrScannerDialog({
           <div className="flex items-center gap-2">
             <QrCode className={`size-5 ${theme.headerIcon} shrink-0`} />
             <DialogTitle className="text-base sm:text-xl font-bold text-slate-900">
-              {onSelectFarmer ? "Find a Farmer Profile" : "Scan registered livestock"}
+              {onSelectPreregistration ? "Scan Auction Preregistration" : onSelectFarmer ? "Find a Farmer Profile" : "Scan registered livestock"}
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-            {onSelectFarmer
+            {onSelectPreregistration
+              ? "Scan or upload the farmer?s saved preregistration QR. You can also enter the AP reference in the manual tab."
+              : onSelectFarmer
               ? "Scan the seller's Farmer profile QR, or enter its Farmer ID. SmartLivestock checks the current account record."
               : "Scan or enter a livestock identifier. SmartLivestock checks the current registry record; the QR does not approve a movement."}
           </DialogDescription>

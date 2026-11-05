@@ -737,7 +737,10 @@ def animal_disposition_list_create(request):
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        instance = serializer.save()
+        if instance.intent == "FOR_SALE":
+            notify_role(role_name="AUCTION", notification_type=Notification.NotificationType.GENERAL,
+                title="Auction preregistration submitted", message=f"AP-{instance.pk:06d} is ready for document review.", link="/auction-preregistrations")
         return Response(serializer.data, status=201)
 
     user = request.user
@@ -747,14 +750,47 @@ def animal_disposition_list_create(request):
         records = AnimalDisposition.objects.filter(
             Q(livestock__farmer__user=user)
         ).distinct()
+    elif role_name == "AUCTION":
+        records = AnimalDisposition.objects.filter(intent="FOR_SALE")
     else:
         require_action(user, "inventory", "read_all")
         records = scope_reviewer_queryset(AnimalDisposition.objects.all(), request.user)
 
     records = records.select_related(
         "livestock__livestock_type",
+        "livestock__farmer__user",
         "created_by",
     ).order_by("-created_at")
+
+    if request.query_params.get("paginated") == "1":
+        from django.core.paginator import Paginator
+        records = records.filter(intent="FOR_SALE")
+        search = request.query_params.get("search", "").strip()
+        if search:
+            condition = Q(livestock__tag_number__icontains=search) | Q(livestock__farmer__user__first_name__icontains=search) | Q(livestock__farmer__user__last_name__icontains=search)
+            reference_id = search.upper().removeprefix("AP-")
+            if reference_id.isdigit():
+                condition |= Q(pk=int(reference_id))
+            records = records.filter(condition)
+        state = request.query_params.get("status")
+        if state:
+            records = records.filter(registration_status=state)
+        planned_date = request.query_params.get("target_date")
+        if planned_date:
+            from datetime import date
+            try:
+                records = records.filter(target_date=date.fromisoformat(planned_date))
+            except ValueError:
+                return Response({"error": "Use YYYY-MM-DD for the planned date."}, status=400)
+        try:
+            page_number = max(1, int(request.query_params.get("page", 1)))
+            page_size = min(100, max(10, int(request.query_params.get("page_size", 25))))
+        except ValueError:
+            return Response({"error": "Invalid page number or page size."}, status=400)
+        paginator = Paginator(records, page_size)
+        page = paginator.get_page(page_number)
+        return Response({"count": paginator.count, "page": page.number, "pages": paginator.num_pages,
+            "results": AnimalDispositionSerializer(page.object_list, many=True).data})
 
     serializer = AnimalDispositionSerializer(records, many=True)
     return Response(serializer.data, status=200)

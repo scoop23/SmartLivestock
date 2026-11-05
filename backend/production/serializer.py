@@ -999,6 +999,23 @@ class AnimalDispositionSerializer(serializers.ModelSerializer):
     tag_number = serializers.CharField(source="livestock.tag_number", read_only=True)
     livestock_type_name = serializers.CharField(source="livestock.livestock_type.name", read_only=True)
 
+    reference = serializers.SerializerMethodField()
+    farmer_id = serializers.IntegerField(source="livestock.farmer_id", read_only=True)
+    farmer_name = serializers.CharField(source="livestock.farmer.user.get_full_name", read_only=True)
+    has_document = serializers.SerializerMethodField()
+
+    def get_reference(self, obj):
+        return f"AP-{obj.pk:06d}"
+
+    def get_has_document(self, obj):
+        return bool(obj.supporting_document)
+
+    def validate_supporting_document(self, value):
+        from users.document_security import validate_document
+        if value.size > 5 * 1024 * 1024:
+            raise ValidationError("Upload a file no larger than 5 MB.")
+        return validate_document(value, "Supporting document")
+
     class Meta:
         model = AnimalDisposition
         fields = (
@@ -1010,9 +1027,12 @@ class AnimalDispositionSerializer(serializers.ModelSerializer):
             "target_date",
             "target_destination",
             "notes",
-            "created_at",
+            "created_at", "reference", "farmer_id", "farmer_name", "registration_status",
+            "original_certificate_number", "supporting_document", "has_document",
+            "review_notes", "workflow_history", "sale_transfer",
         )
-        read_only_fields = ("created_at",)
+        read_only_fields = ("created_at", "registration_status", "review_notes", "workflow_history", "sale_transfer")
+        extra_kwargs = {"supporting_document": {"write_only": True}}
 
     def validate_livestock(self, value):
         user = self.context["request"].user
@@ -1022,12 +1042,20 @@ class AnimalDispositionSerializer(serializers.ModelSerializer):
             raise ValidationError("Only approved livestock can be declared for sale or movement.")
         if value.operational_status != "ACTIVE":
             raise ValidationError("Select active livestock.")
+        if self.instance and self.instance.livestock_id != value.pk:
+            raise ValidationError("The preregistered animal cannot be changed.")
         return value
 
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
-        return AnimalDisposition.objects.create(**validated_data)
+        from django.db import transaction
+        with transaction.atomic():
+            animal = validated_data["livestock"]
+            type(animal).objects.select_for_update().get(pk=animal.pk)
+            if validated_data.get("intent") == "FOR_SALE" and AnimalDisposition.objects.filter(livestock=animal, intent="FOR_SALE").exclude(registration_status="COMPLETED").exists():
+                raise ValidationError({"livestock": "This animal already has a sale preregistration. Correct the existing submission."})
+            return AnimalDisposition.objects.create(**validated_data)
 
 
 class BreedingRecordSerializer(serializers.ModelSerializer):

@@ -324,6 +324,18 @@ def review_ownership_transfer(request, pk):
             transfer.new_owner.user.get_full_name().strip() or transfer.new_owner.user.username
             if transfer.new_owner_id else transfer.external_owner_name
         )
+        # Link only arrival-confirmed paperwork belonging to this seller and
+        # animal. Approval of a walk-in sale remains available without a plan.
+        if transfer.livestock_id:
+            for prereg in AnimalDisposition.objects.select_for_update().filter(
+                livestock_id=transfer.livestock_id, livestock__farmer_id=transfer.previous_owner_id,
+                intent="FOR_SALE", registration_status="CHECKED", sale_transfer__isnull=True,
+            ):
+                prereg.registration_status = "COMPLETED"
+                prereg.sale_transfer = transfer
+                prereg.workflow_history = [*(prereg.workflow_history or []), {"from": "CHECKED", "to": "COMPLETED", "by": request.user.get_full_name() or request.user.username, "at": timezone.now().isoformat(), "notes": f"Transfer {transfer.pk} approved"}]
+                prereg.save(update_fields=["registration_status", "sale_transfer", "workflow_history"])
+
         notified_farmers = [transfer.previous_owner] if transfer.previous_owner_id else []
         if transfer.new_owner_id:
             notified_farmers.append(transfer.new_owner)

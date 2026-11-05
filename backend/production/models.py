@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from users.document_security import PrivateRegistrationStorage, document_upload_path
 
 
 # Tracks daily/non-daily production output from livestock.
@@ -604,6 +605,20 @@ class CalvingRecordWorkflowEvent(models.Model):
 
 
 class AnimalDisposition(models.Model):
+    class RegistrationStatus(models.TextChoices):
+        SUBMITTED = "SUBMITTED", "Awaiting document review"
+        NEEDS_CORRECTION = "NEEDS_CORRECTION", "Needs correction"
+        READY = "READY", "Ready for arrival"
+        ARRIVED = "ARRIVED", "Arrival confirmed"
+        CHECKED = "CHECKED", "Physical checks completed"
+        COMPLETED = "COMPLETED", "Sale approved"
+
+    registration_status = models.CharField(max_length=24, choices=RegistrationStatus.choices, default=RegistrationStatus.SUBMITTED)
+    original_certificate_number = models.CharField(max_length=100, blank=True)
+    supporting_document = models.FileField(upload_to=document_upload_path, storage=PrivateRegistrationStorage(), blank=True)
+    review_notes = models.TextField(blank=True)
+    workflow_history = models.JSONField(default=list, blank=True)
+    sale_transfer = models.ForeignKey("livestock.LivestockOwnershipTransfer", null=True, blank=True, on_delete=models.PROTECT, related_name="preregistrations")
     class IntentType(models.TextChoices):
         FOR_SALE = "FOR_SALE", "Intended for Sale"
         FOR_SLAUGHTER = "FOR_SLAUGHTER", "Intended for Slaughter"

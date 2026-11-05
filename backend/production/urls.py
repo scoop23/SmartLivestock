@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import slaughterhouse_views
+from . import preregistration_views
 
 urlpatterns = [
     path("slaughterhouse/records/", slaughterhouse_views.slaughterhouse_records, name="slaughterhouse_records"),
@@ -27,6 +28,9 @@ urlpatterns = [
 
     # Animal Disposition Intent (Sale, Slaughter, Movement)
     path("dispositions/", views.animal_disposition_list_create, name="dispositions_list_create"),
+    path("dispositions/<int:pk>/", preregistration_views.preregistration_detail),
+    path("dispositions/<int:pk>/document/", preregistration_views.preregistration_document),
+    path("dispositions/<int:pk>/certificate/", preregistration_views.preregistration_certificate),
 
     # Breeding & Insemination (Mating, AI, Gestation Tracking)
     path("breeding/", views.breeding_records_list_create, name="breeding_list_create"),
