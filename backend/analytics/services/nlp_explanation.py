@@ -22,7 +22,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "ask-smartlivestock-explanation-v4"
+PROMPT_VERSION = "ask-smartlivestock-explanation-v5"
 GROQ_CHAT_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions"
 MAX_INPUT_BYTES = 12_000
 MAX_OUTPUT_CHARS = 1_200
@@ -142,6 +142,33 @@ def _explanation_payload(result):
         ),
         "coverage_note": coverage_note,
     }
+    context = result.get("analysis_context")
+    if isinstance(context, dict):
+        # Explicitly allow aggregate evidence; never forward arbitrary response
+        # fields or filter identities when adding a new analysis feature.
+        evidence = {key: context[key] for key in (
+            "kind", "historical_comparison_available", "equal_elapsed_days", "limitation",
+            "interpretation", "current_all_priced", "previous_all_priced", "available", "validated", "projected_periods",
+        ) if key in context}
+        metric_fields = {"metric", "current", "previous", "difference", "percent_change", "direction", "livestock_type", "production_type", "unit"}
+        evidence["metrics"] = [{key: value for key, value in row.items() if key in metric_fields} for row in context.get("metrics", [])[:MAX_RESULT_ROWS]]
+        evidence["metrics_truncated"] = len(context.get("metrics", [])) > MAX_RESULT_ROWS
+        evidence["composition"] = [{key: value for key, value in row.items() if key in {"livestock_type", "current_heads", "share_percent"}} for row in context.get("composition", [])[:MAX_RESULT_ROWS]]
+        evidence["composition_truncated"] = len(context.get("composition", [])) > MAX_RESULT_ROWS
+        if isinstance(context.get("projected_path"), dict):
+            evidence["projected_path"] = {key: value for key, value in context["projected_path"].items() if key in metric_fields}
+        payload["supporting_analysis"] = evidence
+        payload["interpretation_constraint"] = (
+            "Lead with a useful finding supported by supporting_analysis. Use the backend-computed directions and differences; "
+            "do not calculate new figures or invent causes. Compare current and previous recorded periods only when "
+            "equal_elapsed_days is true and paired metrics exist. If no paired metrics exist, explain only the current evidence. "
+            "Snapshot composition is not growth. Projected paths are estimates, not observed changes. "
+            "Keep different units and product groups separate. Mention the most relevant limitation briefly. "
+            "Use plain language, avoid phrases such as 'isolated aggregate', and do not discuss rankings unless relevant. "
+            "For sales describe recorded value, event volume and mean price separately; do not assert causation. "
+            "When figures are displayed, use qualitative wording instead of repeating them. "
+            "Respect the supplied limitation, validation, pricing completeness, and truncation flags."
+        )
     if intent == "forecast":
         payload["projection_context"] = {
             key: result.get(key)
@@ -261,8 +288,13 @@ def _validate_explanation(value, *, payload=None):
     # Reject misleading price-completeness caveats even if the provider ignores
     # its instructions. The same evidence is retried before any prose is shown.
     if payload and payload.get("intent") == "sales_summary" and payload.get("all_sale_events_priced"):
-        if re.search(r"\b(?:missing|gaps?|incomplete|lacking|unpriced)\b|excluded from.{0,50}\b(?:sum|value|total)\b", text, re.IGNORECASE):
-            return None
+        previous_incomplete = payload.get("supporting_analysis", {}).get("previous_all_priced") is False
+        for sentence in re.split(r"[.!?]", text):
+            if re.search(r"\b(?:missing|gaps?|incomplete|lacking|unpriced)\b|excluded from.{0,50}\b(?:sum|value|total)\b", sentence, re.IGNORECASE):
+                # The previous period may genuinely have unpriced events even
+                # when the selected period is fully priced. Keep that distinct.
+                if not (previous_incomplete and re.search(r"\b(?:previous|earlier|prior)\b", sentence, re.IGNORECASE)):
+                    return None
     return text
 
 

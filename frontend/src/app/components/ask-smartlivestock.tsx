@@ -41,6 +41,18 @@ type Visualization = {
   label?: string;
   columns: { key: string; label: string }[];
 };
+type SupportingMetric = {
+  metric: string; current: number; previous: number; difference: number;
+  percent_change: number | null; direction: string; unit?: string;
+  livestock_type?: string; production_type?: string;
+};
+type SupportingAnalysis = {
+  kind: string; limitation?: string; equal_elapsed_days?: boolean;
+  previous_period?: { start: string; end: string; label: string };
+  metrics?: SupportingMetric[];
+  composition?: { livestock_type: string; current_heads: number; share_percent: number | null }[];
+  projected_path?: SupportingMetric | null;
+};
 type AskResponse = {
   status: "answered" | "clarification" | "unsupported" | "not_found" | "ambiguous" | "restricted";
   question: string;
@@ -61,6 +73,7 @@ type AskResponse = {
   visualization?: Visualization | null;
   results: ResultRow[];
   coverage_note?: string;
+  analysis_context?: SupportingAnalysis;
   suggestions?: { label: string; question: string }[];
   ai_explanation?: {
     status: "generated" | "unavailable" | "not_applicable";
@@ -171,6 +184,28 @@ function AskHudTooltip({ active, payload, label }: any) {
       </div>
     </div>
   );
+}
+
+function SupportingFigures({ response }: { response: AskResponse }) {
+  const analysis = response.analysis_context;
+  if (!analysis) return null;
+  const metrics = analysis.projected_path ? [analysis.projected_path] : analysis.metrics || [];
+  const format = (value: number | null | undefined) => value == null ? "Not available" : value.toLocaleString("en-PH", { maximumFractionDigits: 2 });
+  const names: Record<string, string> = {
+    approved_sale_events: "Recorded sale events", known_sale_value_php: "Recorded sale value (PHP)",
+    mean_price_per_priced_event_php: "Average price per priced event (PHP)",
+    disease_cases: "Disease reports", affected_heads: "Reported affected heads", deaths: "Recorded deaths", records: "Mortality reports",
+    recorded_quantity: "Recorded quantity", projected_value: "Projected value",
+  };
+  return <details className="rounded-xl border border-emerald-200 bg-white p-4">
+    <summary className="cursor-pointer text-sm font-semibold text-emerald-900">Supporting analysis and comparison figures</summary>
+    <div className="mt-3 space-y-3 text-xs text-slate-600">
+      {analysis.previous_period && <div className="rounded-lg bg-slate-50 p-3"><p><strong>Selected period:</strong> {response.period?.start} to {response.period?.end}</p><p className="mt-1"><strong>Comparison period:</strong> {analysis.previous_period.start} to {analysis.previous_period.end}</p>{analysis.equal_elapsed_days === false && <p className="mt-2 text-amber-800">These periods have different lengths. Compare totals with caution.</p>}</div>}
+      {metrics.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-left text-xs"><thead><tr className="border-b"><th className="p-2">Metric</th><th className="p-2">{analysis.projected_path ? "Last estimate" : "Selected period"}</th><th className="p-2">{analysis.projected_path ? "First estimate" : "Comparison period"}</th><th className="p-2">Difference</th><th className="p-2">Change</th></tr></thead><tbody>{metrics.map((row, index) => <tr key={`${row.metric}-${index}`} className="border-b border-slate-100"><th scope="row" className="p-2 font-medium">{names[row.metric] || row.metric}{row.livestock_type ? ` ? ${row.livestock_type}` : ""}{row.production_type ? ` ? ${row.production_type}` : ""}{row.unit ? ` (${row.unit})` : ""}</th><td className="p-2">{format(row.current)}</td><td className="p-2">{format(row.previous)}</td><td className="p-2">{format(row.difference)}</td><td className="p-2">{row.percent_change == null ? "Not available" : `${format(row.percent_change)}%`}</td></tr>)}</tbody></table></div>}
+      {analysis.composition?.length ? <div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr className="border-b"><th className="p-2">Species</th><th className="p-2">Approved active heads</th><th className="p-2">Share of selected inventory</th></tr></thead><tbody>{analysis.composition.map(row => <tr key={row.livestock_type} className="border-b border-slate-100"><th scope="row" className="p-2 font-medium">{row.livestock_type}</th><td className="p-2">{format(row.current_heads)}</td><td className="p-2">{row.share_percent == null ? "Not available" : `${format(row.share_percent)}%`}</td></tr>)}</tbody></table></div> : null}
+      {analysis.limitation && <p className="leading-relaxed">{analysis.limitation}</p>}
+    </div>
+  </details>;
 }
 
 function ResultVisualization({ response }: { response: AskResponse }) {
@@ -851,6 +886,7 @@ export function AskSmartLivestock({
 
               {/* Telemetry Visualization */}
               <ResultVisualization response={response} />
+              <SupportingFigures response={response} />
 
               {/* Data Coverage Note */}
               {response.coverage_note ? (

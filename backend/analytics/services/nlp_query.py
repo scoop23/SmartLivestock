@@ -1064,6 +1064,18 @@ def _empty_answer(metric, period):
     return f"No matching approved {metric} records were returned for {period}. This does not establish that no activity occurred; record coverage may be incomplete."
 
 
+def _with_insights(response, parsed, user, today, forecast=None):
+    from .nlp_insights import comparison_context
+    try:
+        response["analysis_context"] = comparison_context(
+            parsed["intent"], parsed["parameters"], response["results"], user, today, forecast,
+        )
+    except Exception:
+        # A comparison failure must not hide the primary authorized answer.
+        response["analysis_context"] = {"kind": "unavailable", "limitation": "Supporting comparisons could not be prepared. Use the primary result only."}
+    return response
+
+
 def _population_results(parameters, user, today):
     summary = population_summary(user=user, today=today)
     barangay_id = parameters["barangay_id"]
@@ -1539,7 +1551,7 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
                 + "Sales outside the recorded approved transfers are not measured."
             ),
         )
-        return response
+        return _with_insights(response, parsed, user, today)
 
     if intent == "mortality_rate":
         rows = _mortality_rate_summary(parameters, user, today)
@@ -1618,7 +1630,7 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
             and forecast.get("is_validated", forecast.get("validation_status") == "VALIDATED")
         )
         response["readiness_status"] = forecast.get("readiness_status")
-        return response
+        return _with_insights(response, parsed, user, today, forecast)
 
     if intent == "population_summary":
         rows, chart_type, x_key, y_key = _population_results(parameters, user, today)
@@ -1687,7 +1699,7 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
         visualization["series_key"] = series_key
     if chart_type == "kpi":
         visualization["label"] = metric_label
-    return _result_response(
+    response = _result_response(
         question=question, parsed=parsed, answer=answer, results=rows,
         visualization=visualization,
         coverage_note=(
@@ -1701,3 +1713,4 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
             "Based on the current approved active inventory snapshot. This is not a historical population series."
         ),
     )
+    return _with_insights(response, parsed, user, today)
