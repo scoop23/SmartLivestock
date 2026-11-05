@@ -428,6 +428,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     assigned_barangay_id = serializers.IntegerField(read_only=True)
     assigned_barangay_name = serializers.CharField(source="assigned_barangay.barangay_name", read_only=True, allow_null=True)
     farmer_id = serializers.SerializerMethodField()
+    rsbsa_number = serializers.SerializerMethodField()
     is_nlp_developer = serializers.SerializerMethodField()
     documents = UserDocumentSerializer(many=True, read_only=True)
 
@@ -447,10 +448,11 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "assigned_barangay_name",
             "access_scope",
             "farmer_id",
+            "rsbsa_number",
             "is_nlp_developer",
             "documents",
         )
-        read_only_fields = ("id", "role", "account_status", "barangay", "access_scope", "documents")
+        read_only_fields = ("id", "role", "account_status", "barangay", "access_scope", "documents", "rsbsa_number")
 
     def get_role(self, obj):
         if hasattr(obj, "role") and obj.role:
@@ -484,6 +486,13 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             return obj.farmer_profile.pk
         except Farmer.DoesNotExist:
             return None
+
+    def get_rsbsa_number(self, obj):
+        if self.get_role(obj) != "FARMER":
+            return None
+        if hasattr(obj, "farmer_profile") and obj.farmer_profile.rsbsa_number:
+            return obj.farmer_profile.rsbsa_number
+        return None
 
 
 class UserManagementSerializer(serializers.ModelSerializer):

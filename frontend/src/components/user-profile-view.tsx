@@ -127,29 +127,29 @@ export function UserProfileView() {
 
   // Profile Information State
   const [formData, setFormData] = useState({
-    firstName: user?.firstName || (user?.role === "FARMER" ? "Mark Angelo" : "Municipal"),
-    lastName: user?.lastName || (user?.role === "FARMER" ? "Bathan" : "Officer"),
-    email: user?.email || (user?.role === "FARMER" ? "markangelo.bathan@smartlivestock.ph" : "officer@padregarcia.gov.ph"),
-    phone: "0917-555-8291",
+    firstName: user?.firstName || (isFarmer ? "Mark Angelo" : "Municipal"),
+    lastName: user?.lastName || (isFarmer ? "Bathan" : "Officer"),
+    email: user?.email || (isFarmer ? "markangelo.bathan@smartlivestock.ph" : "officer@padregarcia.gov.ph"),
+    phone: user?.phoneNumber || "0917-555-8291",
     alternatePhone: "0998-444-1280",
-    barangay: "Poblacion",
+    barangay: user?.barangay || user?.assignedBarangayName || "Poblacion",
     sitio: "Sitio Ilaya, Purok 3",
     municipality: "Padre Garcia",
     province: "Batangas",
     zipCode: "4224",
     farmName:
-      user?.role === "FARMER"
+      isFarmer
         ? "Garcia Heritage Cattle & Swine Farm"
         : "Padre Garcia Municipal Agro-Industrial Station",
     farmType:
-      user?.role === "FARMER"
+      isFarmer
         ? "Semi-Commercial Cattle & Dairy"
         : "LGU Agricultural Demonstration Facility",
-    rsbsaId: "RSBSA-04-10-18-00921",
+    rsbsaId: isFarmer ? (user?.rsbsaNumber || "RSBSA-04-10-18-00921") : "",
     cooperative: "Padre Garcia Cattle Raisers Association (PGCRA)",
     department: "Municipal Agriculture Office (MAO)",
     title:
-      user?.role === "FARMER"
+      isFarmer
         ? "Certified Livestock Raiser"
         : user?.role === "SIBAT"
         ? "SIBAT Field Biosecurity Inspector"
@@ -157,6 +157,19 @@ export function UserProfileView() {
         ? "Municipal Livestock Operations Officer"
         : "Municipal Agriculture Officer",
   });
+
+  useEffect(() => {
+    if (!user) return;
+    setFormData((prev) => ({
+      ...prev,
+      firstName: user.firstName || prev.firstName,
+      lastName: user.lastName || prev.lastName,
+      email: user.email || prev.email,
+      phone: user.phoneNumber || prev.phone,
+      barangay: user.barangay || user.assignedBarangayName || prev.barangay,
+      rsbsaId: isFarmer ? (user.rsbsaNumber || prev.rsbsaId || "RSBSA-04-10-18-00921") : "",
+    }));
+  }, [user, isFarmer]);
 
   // Security password fields
   const [passwords, setPasswords] = useState({
@@ -318,12 +331,22 @@ export function UserProfileView() {
 
   const passStrength = getPasswordStrength(passwords.newPass);
 
-  const handleCopyRsbsa = () => {
-    navigator.clipboard.writeText(formData.rsbsaId);
-    setCopiedId(true);
-    toast.success("RSBSA ID copied to clipboard!");
-    setTimeout(() => setCopiedId(false), 2000);
+  const handleCopyCredential = () => {
+    if (isFarmer) {
+      if (!formData.rsbsaId) return;
+      navigator.clipboard.writeText(formData.rsbsaId);
+      setCopiedId(true);
+      toast.success("RSBSA ID copied to clipboard!");
+      setTimeout(() => setCopiedId(false), 2000);
+    } else {
+      const staffIdentifier = user?.username || `PG-STAFF-${user?.id || "2026"}`;
+      navigator.clipboard.writeText(staffIdentifier);
+      setCopiedId(true);
+      toast.success("Account ID copied to clipboard!");
+      setTimeout(() => setCopiedId(false), 2000);
+    }
   };
+  const handleCopyRsbsa = handleCopyCredential;
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -724,7 +747,11 @@ export function UserProfileView() {
       <CardContent className="p-5 sm:p-7 space-y-4">
         <div>
           <h3 className="text-base sm:text-lg font-black text-slate-900">Registration &amp; Accreditation Documents</h3>
-          <p className="text-xs text-slate-500">Review your submitted Government ID and RSBSA files or upload a replacement if MAO requested a correction.</p>
+          <p className="text-xs text-slate-500">
+            {isFarmer
+              ? "Review your submitted Government ID and RSBSA files or upload a replacement if MAO requested a correction."
+              : "Review your submitted Government ID and official verification files or upload a replacement if requested."}
+          </p>
         </div>
         <RegistrationDocumentsPanel variant="profile" />
       </CardContent>
@@ -1057,9 +1084,16 @@ export function UserProfileView() {
           <div className="flex flex-col justify-between items-start lg:items-end gap-5 self-stretch pt-2 lg:pt-0 border-t lg:border-t-0 border-white/15">
             {/* Top Badges */}
             <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-mono font-medium bg-white/10 text-white/90 border border-white/10 backdrop-blur-xs">
-                {formData.rsbsaId || "RSBSA-04-10-18-00921"}
-              </span>
+              {isFarmer && (
+                <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-mono font-medium bg-white/10 text-white/90 border border-white/10 backdrop-blur-xs">
+                  {formData.rsbsaId || "RSBSA-04-10-18-00921"}
+                </span>
+              )}
+              {!isFarmer && user?.username && (
+                <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-mono font-medium bg-white/10 text-white/90 border border-white/10 backdrop-blur-xs">
+                  @{user.username}
+                </span>
+              )}
 
               <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-white text-[#083321] shadow-sm">
                 <span className="size-4 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
@@ -1271,12 +1305,14 @@ export function UserProfileView() {
                         {isFarmer ? "RSBSA Identification No." : "Municipal Credential / ID No."}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-slate-900">{formData.rsbsaId}</span>
+                        <span className="font-mono font-bold text-slate-900">
+                          {isFarmer ? (formData.rsbsaId || "RSBSA-04-10-18-00921") : (user?.username || `PG-STAFF-${user?.id || "2026"}`)}
+                        </span>
                         <button
                           type="button"
-                          onClick={handleCopyRsbsa}
+                          onClick={handleCopyCredential}
                           className="p-1 rounded text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
-                          title="Copy ID"
+                          title={isFarmer ? "Copy RSBSA ID" : "Copy Account ID"}
                         >
                           {copiedId ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
                         </button>
@@ -1725,8 +1761,8 @@ export function UserProfileView() {
             />
           ) : (
             <QrCodePass
-              code={`SL-${user?.role || "OFFICIAL"}:${formData.rsbsaId || user?.username || "PGAMS-2026"}`}
-              qrPayload={`SL-${user?.role || "OFFICIAL"}:${formData.rsbsaId || user?.username || "PGAMS-2026"}`}
+              code={`SL-${user?.role || "OFFICIAL"}:${user?.username || user?.id || "PGAMS-2026"}`}
+              qrPayload={`SL-${user?.role || "OFFICIAL"}:${user?.username || user?.id || "PGAMS-2026"}`}
               title={`${rolePillLabel} Identification`}
               subtitle="Official municipal verification QR code for Padre Garcia MAO livestock management system."
               ownerName={`${formData.firstName} ${formData.lastName}`.trim() || userDisplayName}

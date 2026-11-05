@@ -13,6 +13,7 @@ useState,
 } from "react";
 
 export interface User {
+  id?: number | null;
   username?: string | null;
   firstName: string | null;
   lastName: string | null;
@@ -25,6 +26,7 @@ export interface User {
   assignedBarangayName?: string | null;
   accessScope?: "ASSIGNED_ONLY" | "ALL_BARANGAYS";
   farmerId?: number | null;
+  rsbsaNumber?: string | null;
   isNlpDeveloper?: boolean;
 }
 
@@ -116,6 +118,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         typeof window !== "undefined" ? localStorage.getItem("access") : token;
 
       setUser({
+        id: data.id ?? null,
         username: data.username || null,
         firstName: data.first_name || null,
         lastName: data.last_name || null,
@@ -128,6 +131,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         assignedBarangayName: data.assigned_barangay_name ?? null,
         accessScope: data.access_scope ?? "ASSIGNED_ONLY",
         farmerId: data.farmer_id ?? null,
+        rsbsaNumber: data.rsbsa_number ?? null,
         isNlpDeveloper: data.is_nlp_developer === true,
       });
       setAccessToken(latestToken);
