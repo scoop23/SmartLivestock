@@ -857,7 +857,12 @@ def get_forecast_readiness_diagnostics(
     forecast_blocker = ""
     forecast_next_step = ""
 
-    if usable_observations < 12:
+    reporting_coverage = meta.get("reporting_coverage") or {}
+    if domain in {"disease", "mortality"} and meta.get("status") in {"incomplete_coverage", "coverage_unconfirmed"}:
+        forecast_status = "INSUFFICIENT_DATA"
+        forecast_blocker = meta.get("message") or "Monthly reporting coverage is incomplete."
+        forecast_next_step = "Open Disease & Mortality > Monthly Reporting Coverage and review the missing or stale confirmations across your barangay scope."
+    elif usable_observations < 12:
         forecast_available = False
         forecast_status = "INSUFFICIENT_DATA"
         forecast_blocker = f"There are records for {usable_observations} months. At least 12 months are needed."
@@ -989,6 +994,7 @@ def get_forecast_readiness_diagnostics(
         # Data collection & progress metrics
         "progress": {
             "usable_observations": usable_observations,
+            "older_covered_observations": reporting_coverage.get("older_covered_month_count", 0),
             "required_observations": min_required,
             "observations_progress_pct": observations_progress_pct,
             "quality_threshold": QUALITY_OBSERVATIONS_THRESHOLD,
@@ -1085,6 +1091,7 @@ def get_all_forecast_readiness_diagnostics(
             "validation_status": diag["validation_status"],
             "readiness_status": diag["readiness_status"],
             "usable_observations": diag["progress"]["usable_observations"],
+            "older_covered_observations": diag["progress"].get("older_covered_observations", 0),
             "required_observations": diag["progress"]["required_observations"],
             "observations_progress_pct": diag["progress"]["observations_progress_pct"],
             "valid_cutoffs_count": diag["progress"]["valid_cutoffs_count"],

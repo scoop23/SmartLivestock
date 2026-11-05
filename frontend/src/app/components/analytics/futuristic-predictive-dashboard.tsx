@@ -80,6 +80,7 @@ export interface ReadinessSummaryCard {
   validation_status: "VALIDATED" | "NOT_YET_VALIDATED" | "INSUFFICIENT_DATA";
   readiness_status: string;
   usable_observations: number;
+  older_covered_observations?: number;
   required_observations: number;
   observations_progress_pct: number;
   valid_cutoffs_count: number;
@@ -778,11 +779,18 @@ export function FuturisticPredictiveDashboard() {
                     <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
                       <span>{formatTargetUnit(card.unit)}</span>
                       <span className="font-mono text-emerald-700 font-semibold">
-                        {card.usable_observations} {card.frequency === "WEEKLY" ? "weeks" : "months"} of records
+                        {card.usable_observations} {card.frequency === "WEEKLY" ? "eligible weeks" : "eligible months"}
                       </span>
                     </div>
                   </div>
 
+                  {(card.domain === "disease" || card.domain === "mortality") && !isCardAvailable && (
+                    <div className="mt-2 space-y-1 text-xs text-slate-600">
+                      {!!card.older_covered_observations && <p>{card.older_covered_observations} older covered months exist before the latest gap.</p>}
+                      <p>{card.blocker_summary}</p>
+                      <p className="font-semibold text-emerald-700">Review Disease &amp; Mortality → Monthly Reporting Coverage.</p>
+                    </div>
+                  )}
                   {isSelected && (
                     <div className="absolute -bottom-px left-4 right-4 h-0.5 bg-emerald-600 rounded-full" />
                   )}

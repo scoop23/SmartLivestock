@@ -39,6 +39,7 @@ def complete_week_windows(today):
 def _real_approved(queryset, marker):
     return queryset.filter(status="APPROVED").filter(
         Q(review_remarks__isnull=True) | ~Q(review_remarks__contains=marker)
+        | Q(inspection_details__verificationMode="SYNTHETIC_DEMO")
     )
 
 
@@ -275,7 +276,7 @@ def _associations(disease_rows, mortality_rows):
 
 
 def surveillance_summary(*, user=None, today=None):
-    """Build scoped weekly/daily surveillance summaries from approved real rows."""
+    """Build scoped surveillance from approved reports and explicitly labeled demos."""
     today = today or timezone.localdate()
     disease, mortality, disease_undated, mortality_undated = _load_events(user, today)
     mortality = _deduplicate_identified_deaths(mortality)
@@ -418,7 +419,7 @@ def surveillance_summary(*, user=None, today=None):
         "data_quality": {
             "reporting_completeness": "not measured; zero recorded reports must not be interpreted as zero incidence",
             "case_certainty": "The workflow has approval and clinical-resolution statuses, but no structured confirmed/suspected classification. Disease names are shown as recorded.",
-            "synthetic_records": "Legacy analytics-test disease and mortality rows are excluded. Clearly labeled surveillance-demo records are intentionally included for dashboard demonstration and are not real-world evidence.",
+            "synthetic_records": "Includes explicitly labeled surveillance and analytics demo reports when present. Synthetic reports demonstrate charts and alerts; they are not real-world disease evidence. Other legacy analytics-test rows are excluded.",
             "historical_population": "Cannot be reconstructed reliably from the available current inventory and event history; mortality rate uses a current-inventory estimate.",
             "alert_validation": "Operational week-over-week flags only; no validated epidemiological threshold or predictive accuracy is claimed.",
             "backtesting": "Not established: the database does not preserve immutable approval/revision history or reporting-completeness periods needed for representative leakage-safe alert evaluation.",
