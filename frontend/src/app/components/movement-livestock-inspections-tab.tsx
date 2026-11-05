@@ -11,7 +11,7 @@ import { fetchInspectionDetail, reviewInspection, type InspectionRecord } from "
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Activity, Check, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Clock, Eye, FileCheck2, FileText, MapPin, RefreshCw, RotateCcw, Search, ShieldAlert } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type InspectionStatusFilter = "PENDING" | "APPROVED" | "SUBJECT_TO_REVISION" | "ALL";
