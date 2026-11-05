@@ -17,6 +17,8 @@ if errorlevel 1 goto local
 
 :local
 echo.
+set "DATABASE_URL="
+set "SMARTLIVESTOCK_ENV_FILE=.env.local"
 if not exist "%~dp0backend\.env.local" (
     echo Local mode needs backend\.env.local. Copy backend\.env.example to backend\.env.local,
     echo then set DATABASE_URL to your local PostgreSQL connection string in that ignored file.
@@ -47,15 +49,14 @@ if errorlevel 1 (
 :local_start
 echo The launcher will check that before starting anything.
 pushd "%~dp0backend"
-set "DATABASE_URL="
-set "SMARTLIVESTOCK_ENV_FILE=.env.local"
 if exist ".venv\Scripts\python.exe" (set "DJANGO_PYTHON=.venv\Scripts\python.exe") else (set "DJANGO_PYTHON=python")
-"%DJANGO_PYTHON%" manage.py shell -c "from django.db import connection; host=connection.settings_dict.get('HOST') or ''; print('Database:', connection.vendor, host or '(no host)'); allowed=connection.vendor == 'postgresql' and host.lower() in ('localhost','127.0.0.1','::1'); assert allowed, 'Local mode requires PostgreSQL on localhost'; connection.ensure_connection(); print('Local PostgreSQL connection OK')"
+"%DJANGO_PYTHON%" manage.py shell -c "from django.db import connection; settings=connection.settings_dict; host=settings.get('HOST') or ''; port=settings.get('PORT') or '5432'; endpoint=(host or '(no host)')+':'+str(port); print('Database:', connection.vendor, endpoint); allowed=connection.vendor == 'postgresql' and host.lower() in ('localhost','127.0.0.1','::1'); assert allowed, 'Local mode requires PostgreSQL on localhost'; connection.ensure_connection(); cursor=connection.cursor(); cursor.execute('SHOW server_version'); print('Connected PostgreSQL version:', cursor.fetchone()[0]); cursor.close(); print('Local PostgreSQL connection OK')"
 set "PREFLIGHT_EXIT=%ERRORLEVEL%"
 popd
 if not "%PREFLIGHT_EXIT%"=="0" (
     echo.
-    echo Local mode stopped. No server was started. Set backend\.env.local DATABASE_URL to your local PostgreSQL connection.
+    echo Local mode stopped. No server was started. Check backend\.env.local DATABASE_URL uses your local PostgreSQL host and port.
+    echo Start the PostgreSQL service configured for that port, then try again.
     pause
     goto menu
 )
