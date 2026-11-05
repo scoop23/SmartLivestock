@@ -42,6 +42,8 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from statsmodels.genmod.generalized_linear_model import GLM
+from statsmodels.genmod.families import NegativeBinomial
 
 from .data import prepare_tabular_features
 
@@ -348,6 +350,46 @@ class HoltWintersForecaster:
         return np.array(forecast_res, dtype=float)
 
 
+def forecast_negative_binomial(history, future_dates):
+    """Regularized NB2 count regression with annual seasonality and prior counts.
+
+    Dispersion and coefficients use training history only. Forecasts are expected
+    counts, not simulated outbreaks or a promise of exactly zero cases.
+    """
+    values = history["quantity"].to_numpy(dtype=float)
+    if len(values) < 8 or not np.isfinite(values).all() or (values < 0).any():
+        raise ValueError("Negative Binomial requires at least eight valid monthly counts.")
+    if np.all(values == values[0]):
+        return np.repeat(values[0], len(future_dates))
+
+    def features(month, previous):
+        angle = 2 * np.pi * (pd.Timestamp(month).month - 1) / 12
+        return [1.0, np.sin(angle), np.cos(angle), np.log1p(previous)]
+
+    # Drop the first row: its prior count is unknown, rather than invented zero.
+    x = np.asarray([
+        features(month, previous)
+        for month, previous in zip(history["month"].iloc[1:], values[:-1])
+    ])
+    y = values[1:]
+    mean = float(np.mean(y))
+    if mean == 0:
+        return np.zeros(len(future_dates))
+    # Moment estimate of NB2 overdispersion; keep a near-Poisson lower bound.
+    dispersion = max(0.01, float((np.var(y) - mean) / mean ** 2))
+    fitted = GLM(y, x, family=NegativeBinomial(alpha=dispersion)).fit_regularized(
+        alpha=np.asarray([0.0, 0.1, 0.1, 0.1]), L1_wt=0.0, maxiter=200,
+    )
+    previous = values[-1]
+    predictions = []
+    for month in future_dates:
+        previous = float(fitted.predict(np.asarray([features(month, previous)]))[0])
+        if not np.isfinite(previous) or previous < 0:
+            raise ValueError("Negative Binomial produced an invalid count estimate.")
+        predictions.append(previous)
+    return np.asarray(predictions)
+
+
 def forecast_candidate(
     model_name: str,
     history: pd.DataFrame,
@@ -370,6 +412,8 @@ def forecast_candidate(
         predictions = np.repeat(float(np.mean(values[-3:])), horizon)
     elif model_name == "Seasonal Naive":
         predictions = SeasonalNaiveModel().fit_predict(history, future_dates)
+    elif model_name == "Negative Binomial":
+        predictions = forecast_negative_binomial(history, future_dates)
     elif model_name == "Linear Regression":
         features = prepare_tabular_features(history)
         # Linear regression uses only calendar trend and month seasonality.

@@ -343,6 +343,11 @@ def evaluate_all_models(
             ("Moving Average (3 periods)", "Baseline (Short Moving Average)",
              "Repeats the mean of the latest three eligible monthly observations."),
         )
+    if (domain or "").lower() == "disease":
+        candidate_specs.append((
+            "Negative Binomial", "Count Regression (NB2)",
+            "Estimates monthly counts using the time of year and the previous month's count, including quiet months. Predictions are expected counts, not exact outbreak dates.",
+        ))
     models_results: List[Dict[str, Any]] = [
         {
             "name": name,

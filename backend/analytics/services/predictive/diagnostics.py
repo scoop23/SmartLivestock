@@ -798,9 +798,12 @@ def get_forecast_readiness_diagnostics(
     selected_mae: Optional[float] = None
 
     if df is not None and len(df) >= 8:
+        candidate_names = ["Naive Baseline", "Seasonal Naive", "Linear Regression", "Random Forest", "ARIMA", "Holt-Winters"]
+        if domain == "disease":
+            candidate_names.append("Negative Binomial")
         rolling = evaluate_rolling_origins(
             df,
-            ["Naive Baseline", "Seasonal Naive", "Linear Regression", "Random Forest", "ARIMA", "Holt-Winters"],
+            candidate_names,
             requested_horizon=horizon_months,
             exact_horizon=(domain == "slaughter" or (domain == "production" and target_clean == "MEAT")),
             history_label="eligible production" if domain == "production" else "approved",
