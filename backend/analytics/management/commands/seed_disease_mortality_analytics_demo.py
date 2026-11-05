@@ -13,7 +13,7 @@ from analytics.models import SurveillanceCoverageReport, SurveillanceDemoOwnersh
 from analytics.seed_markers import SEED_MARKER_DISEASE, SEED_MARKER_MORTALITY
 from diseases.models import DiseaseCase, MortalityRecord
 from diseases.serializer import DiseaseCaseSerializer, MortalityRecordSerializer
-from livestock.models import Barangay, Farmer, LivestockInventory, LivestockType
+from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory, LivestockType
 from livestock.reconciliation import reconcile_approved_mortality
 from smartlivestock.seed_safety import assert_safe_seed_database
 from smartlivestock.workflows import validate_review_transition
@@ -25,6 +25,7 @@ OBJECT_MODELS = {
     "user": User,
     "farmer": Farmer,
     "livestock": LivestockInventory,
+    "herd": LivestockBatch,
     "disease": DiseaseCase,
     "mortality": MortalityRecord,
     "coverage": SurveillanceCoverageReport,
@@ -43,10 +44,14 @@ MORTALITY_RECORDS_PER_MONTH = (0, 1, 0, 0, 1, 0, 2, 0, 1, 0, 0, 1, 0, 1, 0, 2, 0
 class Command(BaseCommand):
     help = (
         "Create 24 months of irregular, clearly marked synthetic disease and mortality events "
-        "across every existing barangay, with two inactive demo farmers per barangay."
+        "across every existing barangay, with mixed individual/herd disease reports and two inactive demo farmers per barangay."
     )
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--enrich-disease-heads", action="store_true",
+            help="Give owned synthetic disease reports a repeatable mix of individual and multi-head herd events, without replacing reports.",
+        )
         parser.add_argument(
             "--repair-timestamps", action="store_true",
             help="Repair simulated historical timestamps on explicitly owned demo rows without recreating them.",
@@ -69,6 +74,12 @@ class Command(BaseCommand):
         clean = options["clean"]
         dry_run = options["dry_run"]
         assert_safe_seed_database(clean=clean, dry_run=dry_run)
+        if options["enrich_disease_heads"]:
+            if clean or options["repair_timestamps"]:
+                raise CommandError("Use --enrich-disease-heads separately from --clean and --repair-timestamps.")
+            with transaction.atomic():
+                self._enrich_disease_heads(dry_run=dry_run)
+            return
         if options["repair_timestamps"]:
             if clean:
                 raise CommandError("Choose --repair-timestamps or --clean, not both.")
@@ -107,6 +118,7 @@ class Command(BaseCommand):
                     local_plan["verifier"] = None
                 self.barangay_key = f"barangay-{barangay.pk}:"
                 self._seed(local_plan, months)
+            self._enrich_disease_heads(dry_run=False)
             self.stdout.write(self.style.SUCCESS(f"Completed synthetic analytics seed across {len(barangays)} barangays."))
 
     @staticmethod
@@ -387,9 +399,10 @@ class Command(BaseCommand):
         self._track(key, "user", user)
         return user
 
-    def _create_demo_animal(self, *, key, owner, livestock_type, reviewer, tag):
+    def _create_demo_animal(self, *, key, owner, livestock_type, reviewer, tag, batch=None, recorded_on=None):
         animal = LivestockInventory(
             farmer=owner["farmer"],
+            batch=batch,
             livestock_type=livestock_type,
             entry_type=LivestockInventory.EntryType.INDIVIDUAL,
             quantity=1,
@@ -400,11 +413,13 @@ class Command(BaseCommand):
             operational_status=LivestockInventory.OperationalStatus.ACTIVE,
             created_by=owner["user"],
             reviewed_by=reviewer,
-            reviewed_at=timezone.now(),
+            reviewed_at=demo_time(recorded_on, 7) if recorded_on else timezone.now(),
             review_remarks=f"{SEED_MARKER_DISEASE} Synthetic demo inventory only; not a real animal.",
         )
         animal.full_clean()
         animal.save()
+        if recorded_on:
+            LivestockInventory.objects.filter(pk=animal.pk).update(created_at=demo_time(recorded_on, 6))
         self._track(key, "livestock", animal)
         return animal
 
@@ -509,6 +524,95 @@ class Command(BaseCommand):
         record.review_remarks = approve_remark
         record.inspection_details = details
         record.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_remarks", "inspection_details"])
+
+    def _enrich_disease_heads(self, *, dry_run):
+        """Keep report IDs/dates while varying affected counts on owned demo rows.
+
+        Individual reports stay at one head. Herd events use actual owned demo
+        rosters and the ordinary serializer's ownership/population validation.
+        """
+        self.barangay_key = ""
+        owned = SurveillanceDemoOwnership.objects.filter(identifier__startswith=PREFIX)
+        rows = DiseaseCase.objects.filter(
+            pk__in=owned.filter(object_type="disease").values("object_id"),
+            review_remarks__contains=SEED_MARKER_DISEASE,
+            inspection_details__verificationMode="SYNTHETIC_DEMO",
+            status=DiseaseCase.DiseaseStatus.APPROVED,
+        ).select_related(
+            "livestock__farmer__user", "livestock__livestock_type",
+            "batch__farmer__user", "batch__livestock_type", "reviewed_by",
+        ).order_by("record_date", "pk")
+        identifiers = dict(owned.filter(object_type="disease").values_list("object_id", "identifier"))
+        pattern = (1, 3, 2, 1, 5, 4, 1, 6)
+        counts = {"reports": 0, "individual_reports": 0, "herd_reports": 0, "affected_heads": 0}
+        herds = {}
+        for case in rows:
+            target = case.livestock or case.batch
+            if target is None or case.record_date is None:
+                raise CommandError(f"Owned disease report #{case.pk} has no valid animal/herd or date.")
+            # Event position comes from the stable seed key, not database IDs.
+            event_index = int(identifiers[case.pk].rsplit(":", 1)[1]) - 1
+            month_index = case.record_date.year * 12 + case.record_date.month
+            affected = pattern[(month_index + event_index + target.farmer.barangay_id) % len(pattern)]
+            # Never convert a previously enriched herd back to an individual.
+            if case.batch_id and affected == 1:
+                raise CommandError("Demo pattern changed for an enriched herd; refusing an ambiguous conversion.")
+            counts["reports"] += 1
+            counts["herd_reports" if affected > 1 else "individual_reports"] += 1
+            counts["affected_heads"] += affected
+            if dry_run or affected == 1:
+                continue
+            owner = {"farmer": target.farmer, "user": target.farmer.user}
+            farmer_id = target.farmer_id
+            if farmer_id not in herds:
+                key = f"disease-herd:farmer-{farmer_id}"
+                ledger = owned.filter(identifier=f"{PREFIX}{key}", object_type="herd").first()
+                if ledger:
+                    herd = LivestockBatch.objects.get(pk=ledger.object_id)
+                    if herd.farmer_id != farmer_id or SEED_MARKER_DISEASE not in herd.notes:
+                        raise CommandError("Demo herd ownership mismatch; refusing modification.")
+                    roster_ids = list(herd.animals.values_list("pk", flat=True))
+                    owned_roster_ids = set(owned.filter(object_type="livestock", object_id__in=roster_ids).values_list("object_id", flat=True))
+                    if set(roster_ids) != owned_roster_ids:
+                        raise CommandError("Demo herd contains unowned animals; refusing modification.")
+                else:
+                    code = f"DM-DEMO-H-{farmer_id}"
+                    if LivestockBatch.objects.filter(batch_code=code).exists():
+                        raise CommandError("Demo herd code exists without ownership; refusing reuse.")
+                    herd = LivestockBatch(
+                        farmer=target.farmer, livestock_type=target.livestock_type,
+                        batch_name="Synthetic disease analytics herd", batch_code=code,
+                        created_by=owner["user"], status=LivestockBatch.StatusType.ACTIVE,
+                        notes=f"{SEED_MARKER_DISEASE} Synthetic six-animal herd; simulated historical availability.",
+                    )
+                    herd.full_clean()
+                    herd.save()
+                    submitted = demo_time(case.record_date, 6)
+                    LivestockBatch.objects.filter(pk=herd.pk).update(created_at=submitted, updated_at=submitted)
+                    self._track(key, "herd", herd)
+                    for member in range(1, 7):
+                        self._create_demo_animal(
+                            key=f"{key}:member-{member}", owner=owner,
+                            livestock_type=target.livestock_type, reviewer=case.reviewed_by,
+                            tag=f"DM-H{farmer_id}-{member}", batch=herd, recorded_on=case.record_date,
+                        )
+                herds[farmer_id] = herd
+            herd = herds[farmer_id]
+            if case.batch_id and case.batch_id != herd.pk:
+                raise CommandError("Report points to another herd; refusing modification.")
+            serializer = DiseaseCaseSerializer(
+                instance=case, data={"livestock": None, "batch": herd.pk, "affected_count": affected},
+                partial=True, context={"request": SimpleNamespace(user=owner["user"])},
+            )
+            serializer.is_valid(raise_exception=True)
+            details = dict(case.inspection_details or {})
+            details["demoHeadCountScenario"] = "MIXED_INDIVIDUAL_AND_HERD_V1"
+            # Fixture-only update preserves approval dates, report IDs and
+            # notifications; operational correction workflows remain unchanged.
+            DiseaseCase.objects.filter(pk=case.pk).update(
+                livestock=None, batch=herd, affected_count=affected, inspection_details=details,
+            )
+        self.stdout.write(f"{'Would enrich' if dry_run else 'Enriched'} owned synthetic disease data: {counts}")
 
     def _repair_demo_timestamps(self, *, dry_run):
         """Repair only ledger-owned marked demo events and unmixed owned coverage."""
@@ -634,7 +738,7 @@ class Command(BaseCommand):
                             f"#{related_id} is related but is not owned by this seed. No rows were deleted."
                         )
 
-        for object_type in ("notification", "coverage", "mortality", "disease", "livestock", "farmer", "user"):
+        for object_type in ("notification", "coverage", "mortality", "disease", "livestock", "herd", "farmer", "user"):
             model = OBJECT_MODELS[object_type]
             ids = owned_ids.get(model, set())
             if ids:

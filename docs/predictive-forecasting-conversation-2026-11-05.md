@@ -113,7 +113,7 @@ The local administrator-scoped check evaluated one six-month historical window u
 
 MAE means average absolute error in the target's units. Random Forest was selected because it had the lowest error in this check. Seasonal Naive was the strongest baseline. Neither Seasonal Naive nor Negative Binomial was omitted or automatically selected.
 
-The seed uses an affected count of one per synthetic disease report, which explains why these two targets produced identical demo scores. This does not imply their real-world quantities are interchangeable.
+At the time of this initial comparison, the seed used an affected count of one per synthetic disease report, which explains why these two targets produced identical demo scores. This does not imply their real-world quantities are interchangeable. The subsequent enrichment below corrects this demo limitation.
 
 One historical window provides limited evidence. These results demonstrate the workflow; they do not establish real-world outbreak accuracy or prove Random Forest is universally best.
 
@@ -131,3 +131,26 @@ No full test suite or browser rendering check was performed for this work.
 ## Rule to retain for future seeds
 
 Seed a coherent historical workflow, not just historical event dates. Preserve real timestamps and historical-availability safeguards. Mark simulated timelines, repair only owned demo data, retain confirmed zero months, and report actual validation coverage instead of forcing a preferred method or score.
+
+## Subsequent update: distinguish reports from affected heads
+
+The user requested representative multi-head disease demo reports. The seed now automatically enriches disease fixtures with a deterministic mix of individual reports (one affected head) and herd reports (two to six affected heads). Each demo herd has six separately registered, active synthetic animals. The ordinary disease serializer validates ownership and herd population limits before fixture updates.
+
+Existing owned demo reports can be enriched without recreation:
+
+```powershell
+..\.venv\Scripts\python.exe manage.py seed_disease_mortality_analytics_demo --enrich-disease-heads --dry-run
+..\.venv\Scripts\python.exe manage.py seed_disease_mortality_analytics_demo --enrich-disease-heads
+```
+
+Use the same local/staging environment and seed database acknowledgements described above. The enrichment is transactional and repeatable. Herds and members are added to the ownership ledger and included in scoped cleanup. Existing report IDs, monthly report counts, dates, approval status, coverage confirmations, and quiet months are preserved. Original individually registered animals retain their individual one-head quantities.
+
+Applied local demo totals:
+
+- 468 reports: 172 individual reports and 296 herd reports.
+- 1,358 affected heads across those reports; this is an episode total, not a unique-animal count.
+- 36 synthetic herds, each with six active individual cattle.
+
+Before/after checks confirmed unowned disease, mortality, coverage, inventory, and herd rows were unchanged. All report dates/status and coverage rows were unchanged. Every herd report passed the active-population bound, and a repeat run created no duplicate owned objects.
+
+Backend diagnostics returned distinct histories and forecasts for the two targets. In the administrator-scoped six-month forecast, the first future estimate was 38.4 reports versus 108.8 affected heads. Both still selected Random Forest, with different MAEs (7.36 reports and 23.69 heads) in the single available historical window. These replace the identical-target behavior above; they remain synthetic demonstration results. Django system checks passed; browser rendering and full test suites were not run.
