@@ -493,11 +493,13 @@ def extract_monthly_series(
     ]
 
     reporting_coverage = None
+    history_records = records
     if domain in {"disease", "mortality"}:
         coverage_result = build_confirmed_monthly_series(
             domain, user, records, current_month_start
         )
         records = coverage_result["records"]
+        history_records = coverage_result.get("history_records", records)
         missing_months = coverage_result["missing_months"]
         reporting_coverage = coverage_result["coverage"]
     else:
@@ -567,8 +569,22 @@ def extract_monthly_series(
             "month_label": r["month"].strftime("%b %Y"),
             "actual": float(r["total_quantity"]),
         }
-        for r in records
+        for r in history_records
     ]
+    if reporting_coverage and historical_trend_points:
+        # Keep unknown calendar months visible as gaps, never as zero events.
+        by_month = {point["date"]: point for point in historical_trend_points}
+        historical_trend_points = [
+            by_month.get(month.strftime("%Y-%m-%d"), {
+                "date": month.strftime("%Y-%m-%d"),
+                "month_label": month.strftime("%b %Y"),
+                "actual": None,
+            })
+            for month in pd.date_range(
+                historical_trend_points[0]["date"],
+                historical_trend_points[-1]["date"], freq="MS",
+            )
+        ]
 
     # Explicit Domain Scopes:
     # We explicitly define the geographic and administrative scope of the forecast here.

@@ -488,6 +488,9 @@ def build_confirmed_monthly_series(domain, user, target_monthly_records, current
     }
     return {
         "records": contiguous_records,
+        # Display may include older complete months; model training still uses
+        # only the continuous run ending at the latest completed month.
+        "history_records": [eligible_by_month[month] for month in sorted(eligible_by_month)],
         "missing_months": list(reversed(trailing_missing_months)),
         "coverage": coverage,
     }
