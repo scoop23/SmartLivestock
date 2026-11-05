@@ -391,7 +391,7 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         inspectorPhotoName: inspUrl ? `SIBAT Inspection Photo #${dc.tag_number || dc.id}` : undefined,
         sibatInspection: isSibatDone
           ? {
-              verifiedBy: inspDetails.verifiedBy || dc.reviewed_by_name || "SIBAT Field Officer",
+              verifiedBy: inspDetails.verifiedBy || ((dc.status || "").toUpperCase() === "VERIFIED" ? dc.reviewed_by_name : undefined) || "Not recorded",
               verifiedAt:
                 inspDetails.verifiedAt ||
                 (dc.reviewed_at ? new Date(dc.reviewed_at).toLocaleDateString() : (dc.record_date || "Recently")),
@@ -406,8 +406,8 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
               biosecurityAction: inspDetails.biosecurityAction || "PEN_ISOLATION",
               remarks:
                 inspDetails.remarks ||
-                dc.review_remarks ||
-                "Field inspection completed. Verified symptoms and animal condition on-site.",
+                ((dc.status || "").toUpperCase() === "VERIFIED" ? dc.review_remarks : undefined) ||
+                "Field observation notes not recorded.",
               temperatureCelsius: inspDetails.temperatureCelsius,
             }
           : undefined,
@@ -417,6 +417,7 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
     });
 
     mortalities.forEach((m) => {
+      const inspDetails = (m.inspection_details || {}) as Partial<SibatInspectionData>;
       const pUrl = m.photo_url || m.photo || undefined;
       const inspUrl = m.inspector_photo_url || m.inspector_photo || undefined;
       const isSibatDone = !!(m.reviewed_by_name || m.review_remarks || inspUrl || (m.status || "").toUpperCase() === "VERIFIED");
@@ -449,14 +450,14 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         inspectorPhotoUrl: inspUrl,
         inspectorPhotoName: inspUrl ? `SIBAT Inspection Photo #${m.tag_number || m.id}` : undefined,
         sibatInspection: isSibatDone ? {
-          verifiedBy: m.reviewed_by_name || "SIBAT Field Officer",
+          verifiedBy: inspDetails.verifiedBy || ((m.status || "").toUpperCase() === "VERIFIED" ? m.reviewed_by_name : undefined) || "Not recorded",
           verifiedAt: m.reviewed_at ? new Date(m.reviewed_at).toLocaleDateString() : (m.record_date || "Recently"),
           tagConfirmed: true,
           confirmedCount: m.death_count || 1,
           confirmedSymptoms: [m.cause || "Deceased"],
           severity: "CRITICAL",
           biosecurityAction: "Deep Pit Biosecure Burial",
-          remarks: m.review_remarks || "Post-mortem inspection verified carcass on-site. Safe biosecure disposal completed.",
+          remarks: inspDetails.remarks || ((m.status || "").toUpperCase() === "VERIFIED" ? m.review_remarks : undefined) || "Field observation notes not recorded.",
         } : undefined,
         reviewedBy: m.reviewed_by_name || null,
         reviewedAt: m.reviewed_at || null,

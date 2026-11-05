@@ -408,7 +408,20 @@ function DiseaseMortalityContent() {
       toast.success(`Record successfully ${actionVerb}.`);
     } catch (err) {
       console.error("Failed to review health incident:", err);
-      toast.error("Failed to update health review status.");
+      const response = axios.isAxiosError(err) ? err.response : undefined;
+      const data = response?.data as Record<string, unknown> | undefined;
+      const message = data && typeof data === "object"
+        ? Object.values(data).flat().filter(value => typeof value === "string").join(" ")
+        : "";
+      // Another review (or an earlier successful request) may have changed the
+      // status while this dialog was open. Reload the authoritative queue.
+      await queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
+      if (response?.status === 409) {
+        setHealthReviewDialog({ open: false, record: null });
+      }
+      toast.error("Could not update the review.", {
+        description: message || "Refresh the page and try again.",
+      });
     }
   };
 

@@ -1244,7 +1244,7 @@ function RecordDetailDialogContent({
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black text-sky-900 uppercase flex items-center gap-1.5 tracking-wider">
                   <ShieldCheck className="size-4 text-sky-700" />
-                  SIBAT Field Verification Findings
+                  CBAT Field Verification Findings
                 </span>
                 {record.reviewedAt && (
                   <span className="text-[10px] font-bold text-sky-700 bg-sky-100/80 px-2 py-0.5 rounded-md">
@@ -1259,7 +1259,7 @@ function RecordDetailDialogContent({
 
               {record.reviewedByName && (
                 <div className="flex items-center justify-between text-xs pt-1 border-t border-sky-100">
-                  <span className="text-sky-800 font-medium">Inspecting SIBAT Officer:</span>
+                  <span className="text-sky-800 font-medium">Inspecting CBAT Officer:</span>
                   <span className="font-black text-sky-950">{record.reviewedByName}</span>
                 </div>
               )}

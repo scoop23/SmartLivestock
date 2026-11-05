@@ -174,7 +174,7 @@ export function DiseaseMortalityReviewDialog({
                 <DialogTitle className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 leading-tight mt-1">
                   {isMortality
                     ? "Municipal Mortality Review & Certification"
-                    : "Municipal Disease & Health Outbreak Review"}
+                    : "Municipal Disease & Health Review"}
                 </DialogTitle>
                 <DialogDescription className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">
                   Municipal Agriculture Office (MAO) Final Audit & Verification Center
@@ -437,7 +437,7 @@ export function DiseaseMortalityReviewDialog({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
                   <div className="p-3 bg-white rounded-xl border border-sky-200">
                     <span className="text-[10px] text-slate-400 font-bold uppercase block">
-                      Inspecting SIBAT Officer
+                      Inspecting CBAT Officer
                     </span>
                     <span className="font-black text-sky-950 flex items-center gap-1.5 mt-0.5 text-xs sm:text-sm">
                       <User className="size-4 text-sky-600" />
