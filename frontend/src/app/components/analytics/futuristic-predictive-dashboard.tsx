@@ -823,7 +823,9 @@ export function FuturisticPredictiveDashboard() {
                 <TargetIcon className="size-4 text-emerald-700" />
               </div>
               <CardTitle className="text-base sm:text-lg font-bold text-slate-900">
-                {isAuctionForecast && !isCattlePriceForecast
+                {(currentCard?.domain === "disease" || currentCard?.domain === "mortality") && !targetDetail?.forecast_available
+                  ? `${currentCard?.label} - completed reporting months`
+                  : isAuctionForecast && !isCattlePriceForecast
                   ? `Approved SmartLivestock transfers - estimate for the next ${horizonMonths} ${horizonUnit}`
                   : `${currentCard?.label} - estimate for the next ${horizonMonths} ${horizonUnit}`}
               </CardTitle>
@@ -860,6 +862,11 @@ export function FuturisticPredictiveDashboard() {
         </CardHeader>
 
         <CardContent className="p-4 sm:p-6 space-y-4">
+          {(currentCard?.domain === "disease" || currentCard?.domain === "mortality") && !targetDetail?.forecast_available && chartTimeline.length > 0 && (
+            <p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-slate-700">
+              Completed reporting months are shown below. Months without confirmed complete coverage appear as gaps. A future estimate needs enough consecutive completed months through the latest reporting period.
+            </p>
+          )}
           {isAuctionForecast && isCattlePriceForecast && (
             <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs leading-relaxed text-slate-700">
               <>
@@ -1075,7 +1082,7 @@ export function FuturisticPredictiveDashboard() {
                     strokeWidth={2}
                     dot={{ r: 3.5, fill: "#94a3b8", stroke: "#ffffff", strokeWidth: 1.5 }}
                     activeDot={{ r: 6, fill: "#475569" }}
-                    connectNulls={!isCattlePriceForecast}
+                    connectNulls={!isCattlePriceForecast && currentCard?.domain !== "disease" && currentCard?.domain !== "mortality"}
                   />
 
                   {/* Future Forecast Vibrant Emerald Green Series */}
