@@ -116,7 +116,7 @@ export default function AdminDashboard() {
     wrapText?: boolean;
   }[] = [
       {
-        label: 'Total Livestock',
+        label: 'Approved Active Livestock',
         value: (data.totalLivestock || 0).toLocaleString(),
         change: 'All species',
         icon: <Icon iconNode={cowHead} className="size-5" />,

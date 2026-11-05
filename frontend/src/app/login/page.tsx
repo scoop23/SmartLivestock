@@ -427,7 +427,7 @@ export default function LoginPage() {
             <div className="grid grid-cols-3 gap-2.5">
               <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-0.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-bold text-emerald-200/70">Tagged Heads</span>
+                  <span className="text-[10px] uppercase font-bold text-emerald-200/70">All Active Tagged Heads</span>
                   <TrendingUp className="size-3 text-emerald-400" />
                 </div>
                 <div className="text-base sm:text-lg font-black text-white font-mono tracking-tight">
@@ -436,6 +436,7 @@ export default function LoginPage() {
                 <div className="text-[9px] text-emerald-300 font-semibold">
                   +{telemetry.addedThisWeek.toLocaleString()} this week
                 </div>
+                <p className="text-[9px] leading-relaxed text-emerald-100/70">Includes pending, CBAT verified, and approved records.</p>
               </div>
 
               <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 space-y-0.5">
