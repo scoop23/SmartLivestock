@@ -1,5 +1,7 @@
 "use client";
 
+import InspectionClassificationChart from "../components/inspection-classification-chart";
+import type { InspectionRecord } from "../auction-inspections/auction-analytics";
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,17 +96,6 @@ type Transfer = {
   animal_description?: string;
 };
 
-type Inspection = {
-  id: number;
-  control_number?: string;
-  shipper_name?: string;
-  destination?: string;
-  purpose?: string;
-  status?: string;
-  inspection_date?: string;
-  created_at?: string;
-  items?: Array<{ quantity?: number; livestock_type_name?: string }>;
-};
 
 function getTransferHeads(t: Transfer): number {
   if (t.heads_count) return t.heads_count;
@@ -116,7 +107,10 @@ function getTransferHeads(t: Transfer): number {
 }
 
 export default function AuctionAnalyticsPage() {
-  const [selectedQuarter, setSelectedQuarter] = useState<string>("Q3 2026");
+  const [selectedQuarter, setSelectedQuarter] = useState<string>(() => {
+    const today = new Date();
+    return today.getFullYear() === 2026 ? `Q${Math.floor(today.getMonth() / 3) + 1} 2026` : "ALL";
+  });
 
   // Live queries to Django REST backend endpoints
   const {
@@ -131,19 +125,19 @@ export default function AuctionAnalyticsPage() {
   });
 
   const {
-    data: _inspections = [],
+    data: inspections = [],
+    isError: isInspectionsError,
     isLoading: isLoadingInspections,
     refetch: refetchInspections,
     isFetching: isFetchingInspections,
-  } = useQuery<Inspection[]>({
+  } = useQuery<InspectionRecord[]>({
     queryKey: ["auction-analytics-inspections"],
-    queryFn: async () => (await api.get<Inspection[]>("/inspections/")).data,
+    queryFn: async () => (await api.get<InspectionRecord[]>("/inspections/")).data,
     staleTime: 30_000,
   });
 
   const isFetching = isFetchingTransfers || isFetchingInspections;
   const _isLoading = isLoadingTransfers || isLoadingInspections;
-  void _inspections;
   void _isLoading;
 
   const handleRefresh = () => {
@@ -608,6 +602,8 @@ export default function AuctionAnalyticsPage() {
         </div>
 
         {/* ── 3. Bottom Row: Transaction Status & Recent Activity ───────── */}
+        <InspectionClassificationChart inspections={inspections} period={selectedQuarter} loading={isLoadingInspections} error={isInspectionsError} />
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
           {/* Left: Transaction Status (5 cols) */}
           <div className="lg:col-span-5 rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between space-y-3">
