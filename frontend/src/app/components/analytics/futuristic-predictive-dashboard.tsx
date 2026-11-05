@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import { CattleProfilePrice } from "./cattle-profile-price";
 import { Badge } from "@/components/ui/badge";
@@ -217,6 +218,20 @@ export interface DiagnosticsApiResponse {
   diagnostics: Record<string, TargetDiagnosticDetail>;
 }
 
+type DiseaseBreakdownRow = {
+  name: string;
+  cases: number;
+  affected_heads: number;
+};
+
+type DiseaseBreakdownResponse = {
+  descriptive?: {
+    disease?: {
+      by_type?: DiseaseBreakdownRow[];
+    };
+  };
+};
+
 // ---------------------------------------------------------------------------
 // HELPER FORMATTERS
 // ---------------------------------------------------------------------------
@@ -398,6 +413,7 @@ export function PredictiveLoadingScreen() {
 
 export function FuturisticPredictiveDashboard() {
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const domainParam = searchParams?.get("domain");
   const targetParam = searchParams?.get("target");
   const targetFromParam = targetParam || getTargetFromDomain(domainParam);
@@ -441,10 +457,40 @@ export function FuturisticPredictiveDashboard() {
   const currentCard = summaryCards.find((c) => c.id === selectedTargetId) || summaryCards[0];
   const activeTargetId = currentCard?.id || selectedTargetId;
   const targetDetail: TargetDiagnosticDetail | undefined = data?.diagnostics?.[activeTargetId];
+  const diseaseBreakdownQuery = useQuery({
+    queryKey: [
+      "predictive-disease-breakdown",
+      user?.email,
+      user?.accessScope,
+      user?.assignedBarangayId,
+    ],
+    queryFn: async ({ signal }) => {
+      const { data: dashboard } = await api.get<DiseaseBreakdownResponse>(
+        "analytics/dashboard/",
+        { signal },
+      );
+      return dashboard.descriptive?.disease?.by_type ?? [];
+    },
+    enabled: currentCard?.domain === "disease",
+    staleTime: 60_000,
+  });
   const TargetIcon = getTargetIcon(activeTargetId);
 
   // Chart Data preparation
   const rawChartTimeline = targetDetail?.forecast?.chart_data || [];
+  const diseaseReportsTimeline = data?.diagnostics?.disease_reports?.forecast?.chart_data ?? [];
+  const diseaseHeadsTimeline = data?.diagnostics?.disease_heads?.forecast?.chart_data ?? [];
+  const diseaseSeriesOverlap =
+    diseaseReportsTimeline.length > 0 &&
+    diseaseReportsTimeline.length === diseaseHeadsTimeline.length &&
+    diseaseReportsTimeline.every((point, index) => {
+      const other = diseaseHeadsTimeline[index];
+      return (
+        point.date === other.date &&
+        point.actual === other.actual &&
+        point.forecast === other.forecast
+      );
+    });
   const isAuctionForecast = currentCard?.domain === "auction";
   const isCattlePriceForecast = currentCard?.unit === "PHP_PER_HEAD";
   const isRegisteredCattlePriceForecast = currentCard?.id === "registered_cattle_price";
@@ -1009,7 +1055,7 @@ export function FuturisticPredictiveDashboard() {
             /* Light & Green Futuristic Composed Chart View */
             <div className="h-80 sm:h-96 w-full" role="img" aria-label="Futuristic Forecast Visualization Chart">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartTimeline} margin={{ top: 15, right: 15, left: -10, bottom: 20 }}>
+                <ComposedChart key={activeTargetId} data={chartTimeline} margin={{ top: 15, right: 15, left: -10, bottom: 20 }}>
                   <defs>
                     <linearGradient id="forecastAreaGlowLight" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
@@ -1077,7 +1123,17 @@ export function FuturisticPredictiveDashboard() {
                   <Line
                     type="monotone"
                     dataKey="actual"
-                    name={isCattlePriceForecast ? "Recorded cattle price per head" : isAuctionForecast ? "Approved SmartLivestock transfers" : "Observed Actuals"}
+                    name={
+                      currentCard?.id === "disease_reports"
+                        ? "Approved disease reports"
+                        : currentCard?.id === "disease_heads"
+                        ? "Affected heads in approved reports"
+                        : isCattlePriceForecast
+                        ? "Recorded cattle price per head"
+                        : isAuctionForecast
+                        ? "Approved SmartLivestock transfers"
+                        : "Observed Actuals"
+                    }
                     stroke="#64748b"
                     strokeWidth={2}
                     dot={{ r: 3.5, fill: "#94a3b8", stroke: "#ffffff", strokeWidth: 1.5 }}
@@ -1089,7 +1145,17 @@ export function FuturisticPredictiveDashboard() {
                   <Line
                     type="monotone"
                     dataKey="forecast"
-                    name={isCattlePriceForecast ? "Estimated cattle price per head" : isAuctionForecast ? "Projected SmartLivestock transfers" : "Future Projection"}
+                    name={
+                      currentCard?.id === "disease_reports"
+                        ? "Estimated disease reports"
+                        : currentCard?.id === "disease_heads"
+                        ? "Estimated affected heads"
+                        : isCattlePriceForecast
+                        ? "Estimated cattle price per head"
+                        : isAuctionForecast
+                        ? "Projected SmartLivestock transfers"
+                        : "Future Projection"
+                    }
                     stroke="#059669"
                     strokeWidth={2.5}
                     strokeDasharray="5 3"
@@ -1103,6 +1169,72 @@ export function FuturisticPredictiveDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {currentCard?.domain === "disease" && (
+        <div className="space-y-3">
+          {diseaseSeriesOverlap && (
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-relaxed text-slate-700">
+              <strong className="text-slate-900">Why the two graphs match:</strong> The monthly report counts and affected-head totals are the same in this data, so the lines overlap. Reports count records; affected heads sum the animals listed in those records.
+            </div>
+          )}
+
+          <Card className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/70 p-4 sm:p-5">
+              <CardTitle className="text-sm sm:text-base font-bold text-slate-900">
+                Reports by recorded condition
+              </CardTitle>
+              <CardDescription className="text-xs leading-relaxed text-slate-600">
+                Aggregate counts from approved disease reports in the past 12 months.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-5">
+              {diseaseBreakdownQuery.isPending ? (
+                <div role="status" className="space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : diseaseBreakdownQuery.isError ? (
+                <p className="text-xs text-rose-700">
+                  Could not load the disease breakdown. Try refreshing the page.
+                </p>
+              ) : diseaseBreakdownQuery.data?.length ? (
+                <div className="max-h-80 overflow-auto rounded-lg border border-slate-200">
+                  <Table>
+                    <TableHeader className="bg-slate-50">
+                      <TableRow className="border-slate-200 hover:bg-transparent">
+                        <TableHead className="text-xs font-semibold text-slate-700">Recorded condition</TableHead>
+                        <TableHead className="text-right text-xs font-semibold text-slate-700">Reports</TableHead>
+                        <TableHead className="text-right text-xs font-semibold text-slate-700">Affected heads</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {diseaseBreakdownQuery.data.map((row, index) => (
+                        <TableRow key={`${row.name}-${index}`} className="border-slate-100">
+                          <TableCell className="max-w-[min(60vw,32rem)] truncate text-xs font-medium text-slate-800" title={row.name}>
+                            {row.name || "Unspecified"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs text-slate-700">
+                            {row.cases.toLocaleString("en-PH")}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs text-slate-700">
+                            {row.affected_heads.toLocaleString("en-PH")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">No approved disease reports in the past 12 months.</p>
+              )}
+              <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+                These are recorded report labels, not confirmed diagnoses. Affected-head totals may include repeat reports about the same animal.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* ----------------------------------------------------------------- */}
       {/* D. FORECAST SUMMARY CARDS (4 Executive Metrics - Light & Green)   */}
