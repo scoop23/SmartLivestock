@@ -309,6 +309,27 @@ def _resolve_production_type(text):
     return (found[0], None) if found else (None, None)
 
 
+def _is_single_typo(left, right):
+    """Match one insertion, deletion or substitution in a sufficiently long name."""
+    if min(len(left), len(right)) < 5 or abs(len(left) - len(right)) > 1:
+        return False
+    if len(left) == len(right):
+        return sum(a != b for a, b in zip(left, right)) == 1
+
+    shorter, longer = sorted((left, right), key=len)
+    short_index = long_index = differences = 0
+    while short_index < len(shorter) and long_index < len(longer):
+        if shorter[short_index] == longer[long_index]:
+            short_index += 1
+            long_index += 1
+            continue
+        differences += 1
+        if differences > 1:
+            return False
+        long_index += 1
+    return True
+
+
 def _resolve_barangay(text, barangays):
     matches = [
         barangay for barangay in barangays
@@ -321,6 +342,14 @@ def _resolve_barangay(text, barangays):
     location_match = re.search(r"\b(?:in|within|sa)\s+([a-z][\w-]*)", text)
     if location_match:
         first_word = location_match.group(1)
+        typo_matches = [
+            barangay for barangay in barangays
+            if barangay.get("name")
+            and len(normalize_question(barangay["name"]).split()) == 1
+            and _is_single_typo(first_word, normalize_question(barangay["name"]))
+        ]
+        if len(typo_matches) == 1:
+            return typo_matches[0], None
         non_locations = {
             "the", "this", "that", "last", "past", "previous", "current", "each", "all",
             "cattle", "cow", "carabao", "buffalo", "goat", "sheep", "swine", "pig", "poultry",
@@ -394,6 +423,7 @@ def _has_farmer_count_request(text):
         or bool(re.search(r"\bmagsasakang\b", text))
         or bool(re.search(r"\b(?:does|do)\s+.+\s+(?:have|own|owns)\b", text))
         or bool(re.search(r"\bbelongs?\s+to\b|\bowned\s+by\b|\b(?:ni|kay)\s+", text))
+        or bool(re.search(r"\bmeron\s+(?:si|kay)\s+", text))
     )
 
 
@@ -426,7 +456,7 @@ def _extract_farmer_reference(text, species_names):
         r"\b(?:does|do)\s+(.+?)\s+(?:have|own|owns)\b",
         r"\bbelongs?\s+to\s+(.+)$",
         r"\bowned\s+by\s+(.+)$",
-        r"\b(?:ni|kay|of)\s+(.+)$",
+        r"\b(?:ni|kay|of|meron\s+(?:si|kay))\s+(.+)$",
     )
     for pattern in patterns:
         match = re.search(pattern, text)
@@ -865,16 +895,9 @@ def _candidate_preserves_explicit_filters(question, candidate, *, today, baranga
     if parameters["species"] != expected_species:
         return False
 
-    _, barangay_error = _resolve_barangay(normalized, barangays)
+    expected_barangay, barangay_error = _resolve_barangay(normalized, barangays)
     if barangay_error:
         return False
-    mentioned_barangays = [
-        row for row in barangays
-        if row.get("name") and _contains(normalized, row["name"])
-    ]
-    if len(mentioned_barangays) > 1:
-        return False
-    expected_barangay = mentioned_barangays[0] if mentioned_barangays else None
     if parameters["barangay_id"] != (expected_barangay.get("id") if expected_barangay else None):
         return False
 

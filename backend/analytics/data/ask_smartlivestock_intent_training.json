@@ -446,5 +446,41 @@
   {
     "question": "Ano ang recorded death rate over the last 30 days?",
     "intent": "mortality_rate"
+  },
+  {
+    "question": "Ilan ang baka meron si Elena Ramos?",
+    "intent": "farmer_livestock_count"
+  },
+  {
+    "question": "Ilang baka meron kay Marco Villanueva?",
+    "intent": "farmer_livestock_count"
+  },
+  {
+    "question": "How many cattle does Lina Reyes have?",
+    "intent": "farmer_livestock_count"
+  },
+  {
+    "question": "Ilan ang baka kaya ang mabebenta next week?",
+    "intent": "forecast"
+  },
+  {
+    "question": "Tantyahin kung ilang aprubadong baka ang maibebenta sa susunod na linggo.",
+    "intent": "forecast"
+  },
+  {
+    "question": "Forecast approved cattle sales for the next two weeks.",
+    "intent": "forecast"
+  },
+  {
+    "question": "How many approved cattle were sold last month?",
+    "intent": "sales_summary"
+  },
+  {
+    "question": "Magkano ang approved na benta ng baka last quarter?",
+    "intent": "sales_summary"
+  },
+  {
+    "question": "Ipakita ang kabuuang livestock sales noong nakaraang buwan.",
+    "intent": "sales_summary"
   }
 ]
