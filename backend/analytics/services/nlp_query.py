@@ -1506,8 +1506,12 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
             if row["priced_events"]:
                 sale_value_text = (
                     f"Known recorded sale value totals PHP {row['known_sale_value_php']:,.2f} across "
-                    f"{row['priced_events']:,} priced events; {row['missing_price_events']:,} events have no recorded price, "
-                    "so the value is incomplete."
+                    f"{row['priced_events']:,} priced events. "
+                    + (
+                        f"{row['missing_price_events']:,} events have no recorded price, so the value is incomplete."
+                        if row["missing_price_events"] else
+                        "All included sale events have a recorded price."
+                    )
                 )
             else:
                 sale_value_text = "No sale prices were recorded, so a PHP total cannot be calculated."
@@ -1527,7 +1531,12 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
             visualization={"type": "table", "x_key": "approved_sale_events", "y_key": "known_sale_value_php", "columns": columns},
             coverage_note=(
                 f"Uses approved LivestockOwnershipTransfer records dated in {period_label}. Each transfer event represents one animal. "
-                "Only recorded purchase prices are summed; missing prices are not estimated."
+                + (
+                    "Every included event has a recorded purchase price; the value sum covers all included events. "
+                    if rows and rows[0]["missing_price_events"] == 0 else
+                    "Only recorded purchase prices are summed; missing prices are not estimated. "
+                )
+                + "Sales outside the recorded approved transfers are not measured."
             ),
         )
         return response
@@ -1603,6 +1612,11 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
         )
         response["forecast_status"] = forecast.get("status")
         response["forecast_available"] = available
+        response["forecast_is_validated"] = bool(
+            available
+            and forecast.get("status") != "unvalidated"
+            and forecast.get("is_validated", forecast.get("validation_status") == "VALIDATED")
+        )
         response["readiness_status"] = forecast.get("readiness_status")
         return response
 

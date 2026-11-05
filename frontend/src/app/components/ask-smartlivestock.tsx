@@ -866,7 +866,7 @@ export function AskSmartLivestock({
                   <div className="mb-1 flex flex-wrap items-center justify-between gap-2 border-b border-indigo-100 pb-2">
                     <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-indigo-900">
                       <Sparkles className="size-3.5 text-indigo-600" />
-                      NEURAL COPILOT EXPLANATION
+                      AI EXPLANATION
                     </span>
                     <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-indigo-800">
                       {`ENGINE: ${response.ai_explanation.provider ?? "SMARTLIVESTOCK-AI"} // MODEL: ${response.ai_explanation.model ?? "LLM-ASSIST"}`}
@@ -878,7 +878,7 @@ export function AskSmartLivestock({
                 </aside>
               ) : null}
 
-              {response.ai_explanation?.status === "unavailable" ? (
+              {response.ai_explanation?.status === "unavailable" || response.ai_explanation?.status === "not_applicable" ? (
                 <p className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 font-mono text-xs leading-relaxed text-slate-500" role="status">
                   {response.ai_explanation.message ?? "The optional AI explanation is currently offline. The factual deterministic answer above remains verified."}
                 </p>

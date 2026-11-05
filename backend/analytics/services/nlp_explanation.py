@@ -28,6 +28,8 @@ MAX_INPUT_BYTES = 12_000
 MAX_OUTPUT_CHARS = 1_200
 MAX_RESULT_ROWS = 20
 EXPLAINABLE_INTENTS = {
+    "forecast": {"period", "projected_value"},
+    "population_summary": {"barangay", "livestock_type", "current_heads"},
     "production_trend": {"month", "label", "livestock_type", "quantity", "unit", "records"},
     "production_breakdown": {"production_type", "unit", "quantity", "records", "livestock_type", "barangay"},
     "disease_by_barangay": {"barangay", "disease_cases", "affected_heads"},
@@ -86,7 +88,7 @@ def _explanation_payload(result):
     intent = result.get("intent")
     allowed_keys = EXPLAINABLE_INTENTS.get(intent)
     rows = result.get("results")
-    if not allowed_keys or not isinstance(rows, list) or not rows:
+    if not allowed_keys or not isinstance(rows, list) or (not rows and intent != "forecast"):
         return None
 
     # Do not include the raw question, farmer filters, or arbitrary result keys.
@@ -120,6 +122,18 @@ def _explanation_payload(result):
         # present a subset's maximum or direction as a complete-data finding.
         "rows_truncated": len(rows) > MAX_RESULT_ROWS,
         "interpretation_constraint": (
+            "Explain only the supplied model projections and readiness context. "
+            "These are future estimates, not observed outcomes or guaranteed prices or counts. "
+            "Never create new projections, causes, accuracy claims, or recommendations. "
+            "If unavailable, explain the stated readiness limitation without suggesting an estimate. "
+            "If validation is absent or false, explicitly state that predictive accuracy is not established. "
+            "With an isolated projected period, do not claim an increase or decrease."
+            if intent == "forecast" else
+            "This is a current approved active inventory snapshot, not a time series. "
+            "Describe only the supplied recorded population and any supplied category differences. "
+            "Do not infer growth, decline, historical trends, or reporting completeness. "
+            "If there is only an overall total, explain its scope without inventing a comparison."
+            if intent == "population_summary" else
             "The evidence is an isolated aggregate. No increase, decrease, "
             "ranking, or comparison can be established. Explain insufficient "
             "observations and the supplied coverage limitation only."
@@ -128,7 +142,23 @@ def _explanation_payload(result):
         ),
         "coverage_note": coverage_note,
     }
-    if not safe_rows:
+    if intent == "forecast":
+        payload["projection_context"] = {
+            key: result.get(key)
+            for key in ("forecast_available", "forecast_status", "readiness_status", "forecast_is_validated")
+        }
+    if intent == "sales_summary":
+        all_priced = all(row.get("missing_price_events") == 0 for row in safe_rows)
+        payload["all_sale_events_priced"] = all_priced
+        payload["interpretation_constraint"] += (
+            " Every included sale event has a recorded price. The value sum is complete for these included events. "
+            "Do not suggest missing prices, excluded unpriced sales, or gaps in this value sum. "
+            "The remaining coverage limitation is that only recorded approved transfers are represented; "
+            "this does not establish coverage of every real-world sale."
+            if all_priced else
+            " Some included sale events lack prices, so the known value covers only priced events."
+        )
+    if not safe_rows and intent != "forecast":
         return None
     if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > MAX_INPUT_BYTES:
         return None
@@ -154,6 +184,14 @@ def _request_groq(payload, *, correct_output=False):
     # chat-completions endpoint and waits for a complete response (no streaming).
     # The model comes from Django settings, so local .env.local can select it.
     instruction = SYSTEM_INSTRUCTION
+    if payload.get("intent") == "forecast":
+        instruction += (
+            "\nThe supplied rows are existing backend model outputs. Explain them as projections, "
+            "never as recorded outcomes. Use the words 'projection' or 'estimate', not 'forecast'. "
+            "When unavailable, discuss the supplied readiness limitation only. "
+            "When validation is false or missing, state that predictive accuracy is not established. "
+            "Do not produce additional predictions or claim a trend from an isolated estimate."
+        )
     if correct_output:
         # Retry with the SAME allowlisted evidence, never the raw question or
         # rejected prose. Keep every output check active on the second attempt.
@@ -208,7 +246,7 @@ def _request_groq(payload, *, correct_output=False):
     return choice["message"]["content"]
 
 
-def _validate_explanation(value):
+def _validate_explanation(value, *, payload=None):
     # Provider text is untrusted. Reject malformed/long output and prohibited
     # terms. This is a conservative filter, not proof that every claim is true.
     if not isinstance(value, str):
@@ -220,6 +258,11 @@ def _validate_explanation(value):
         return None
     if _UNSAFE_TEXT.search(text):
         return None
+    # Reject misleading price-completeness caveats even if the provider ignores
+    # its instructions. The same evidence is retried before any prose is shown.
+    if payload and payload.get("intent") == "sales_summary" and payload.get("all_sale_events_priced"):
+        if re.search(r"\b(?:missing|gaps?|incomplete|lacking|unpriced)\b|excluded from.{0,50}\b(?:sum|value|total)\b", text, re.IGNORECASE):
+            return None
     return text
 
 
@@ -228,18 +271,25 @@ def explain_verified_result(result):
     # This function coordinates the steps; it does not query or modify models.
     payload = _explanation_payload(result)
     if payload is None:
-        return {"status": "not_applicable", "text": None}
+        return {
+            "status": "not_applicable", "text": None,
+            "message": (
+                "An AI explanation is not available for this query type yet. The retrieved result is shown above."
+                if result.get("intent") not in EXPLAINABLE_INTENTS else
+                "There are no eligible aggregate results to explain for this question."
+            ),
+        }
 
     reason = _disabled_reason()
     if reason:
         return {"status": "unavailable", "text": None, "message": reason}
 
     try:
-        explanation = _validate_explanation(_request_groq(payload))
+        explanation = _validate_explanation(_request_groq(payload), payload=payload)
         if explanation is None:
             # At most one extra bounded request, only for rejected text. HTTP
             # errors and timeouts go straight to the existing safe fallback.
-            explanation = _validate_explanation(_request_groq(payload, correct_output=True))
+            explanation = _validate_explanation(_request_groq(payload, correct_output=True), payload=payload)
         if explanation is None:
             logger.warning("Ask SmartLivestock explanation rejected: invalid provider output")
             return {
