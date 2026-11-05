@@ -18,6 +18,7 @@ from random import Random
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from analytics.seed_markers import (
@@ -232,51 +233,59 @@ class Command(BaseCommand):
             self.stdout.write("Created 104 consecutive recorded weeks for both price sources. Price by Animal Profile can use these labeled samples automatically in local development when its source has no real approved sales. Example: Brahman, Male, 2 to under 4 years, 350 to under 500 kg. Prices and backtest scores are constructed demo results only.")
         elif scenario == "ideal":
             self.stdout.write(
-                "The ideal auction series has 104 complete weeks. Its synthetic weekly species averages "
-                "match the 2022 reported mix: 1,280 cattle, 500 carabaos, 600 goats, and 120 horses "
-                "(2,500 total heads per week). Each head is one external transfer row; sellers and buyers "
-                "use synthetic identities and different city addresses. It also creates 1-3 registered "
-                "cattle transfers per week for the registered-price target."
+                "The ideal scenario includes 104 complete recorded weeks for livestock sales and cattle price profiles "
+                "(all 7 breeds, both sexes, and seasonal weekly volume variation) along with 36 months of dairy milk "
+                "production logs and slaughter meat inspection yields."
             )
         self.stdout.write(
             "Synthetic cattle transfer prices are generated from recorded weight, age, sex, and breed. "
-            "These made-up relationships demonstrate changing animal mixes; they are not fitted market "
+            "These relationships demonstrate changing animal mixes; they are not fitted market "
             "rates or a real price recommendation."
         )
         self.stdout.write(
-            "All generated records and timestamps are synthetic. The ideal auction counts are calibrated to a "
-            "published average, not dated historical market totals or evidence of forecast accuracy.\n"
-            if not options["prices_only"] else
-            "All generated records and timestamps are synthetic. Prices-only counts provide balanced profile coverage, not published market volumes or evidence of forecast accuracy.\n"
-        )
-        self.stdout.write(
-            f"Remove only this scenario with: python manage.py seed_forecast_quality_demo --scenario {scenario}{' --prices-only' if options['prices_only'] else ''} --clean"
+            f"Remove this scenario at any time with: python manage.py seed_forecast_quality_demo --scenario {scenario} --clean"
         )
 
     @staticmethod
     def _scenario_exists(marker):
-        return (
-            ProductionRecord.objects.filter(notes__contains=marker)
-            .exists()
-            or SlaughterRecord.objects.filter(review_remarks__contains=marker).exists()
-            or LivestockOwnershipTransfer.objects.filter(review_remarks__contains=marker).exists()
-            or LivestockInventory.objects.filter(tag_number__startswith=f"{marker}-").exists()
-        )
+        markers = [marker]
+        if marker in (SEED_MARKER_FORECAST_QUALITY_IDEAL, SEED_MARKER_CATTLE_PRICE_DEMO):
+            markers = [SEED_MARKER_FORECAST_QUALITY_IDEAL, SEED_MARKER_CATTLE_PRICE_DEMO]
+        for m in markers:
+            if (
+                ProductionRecord.objects.filter(notes__contains=m).exists()
+                or SlaughterRecord.objects.filter(review_remarks__contains=m).exists()
+                or LivestockOwnershipTransfer.objects.filter(review_remarks__contains=m).exists()
+                or LivestockInventory.objects.filter(
+                    Q(tag_number__startswith=f"{m}-") | Q(review_remarks__contains=m)
+                ).exists()
+            ):
+                return True
+        return False
 
     def _clean(self, marker):
+        markers = [marker]
+        if marker in (SEED_MARKER_FORECAST_QUALITY_IDEAL, SEED_MARKER_CATTLE_PRICE_DEMO):
+            markers = [SEED_MARKER_FORECAST_QUALITY_IDEAL, SEED_MARKER_CATTLE_PRICE_DEMO]
+        totals = {"production": 0, "slaughter": 0, "transfers": 0, "synthetic_animals": 0}
         with transaction.atomic():
-            milk_meat = ProductionRecord.objects.filter(notes__contains=marker)
-            slaughter = SlaughterRecord.objects.filter(review_remarks__contains=marker)
-            sales = LivestockOwnershipTransfer.objects.filter(review_remarks__contains=marker)
-            animals = LivestockInventory.objects.filter(tag_number__startswith=f"{marker}-")
-            counts = {"production": milk_meat.count(), "slaughter": slaughter.count(),
-                      "transfers": sales.count(), "synthetic_animals": animals.count()}
-            milk_meat.delete()
-            slaughter.delete()
-            sales.delete()
-            animals.delete()
+            for m in markers:
+                milk_meat = ProductionRecord.objects.filter(notes__contains=m)
+                slaughter = SlaughterRecord.objects.filter(review_remarks__contains=m)
+                sales = LivestockOwnershipTransfer.objects.filter(review_remarks__contains=m)
+                animals = LivestockInventory.objects.filter(
+                    Q(tag_number__startswith=f"{m}-") | Q(review_remarks__contains=m)
+                )
+                totals["production"] += milk_meat.count()
+                totals["slaughter"] += slaughter.count()
+                totals["transfers"] += sales.count()
+                totals["synthetic_animals"] += animals.count()
+                milk_meat.delete()
+                slaughter.delete()
+                sales.delete()
+                animals.delete()
         self.stdout.write(self.style.SUCCESS(
-            f"Removed only forecast demo rows owned by {marker}: {counts}. "
+            f"Removed only forecast demo rows owned by {', '.join(markers)}: {totals}. "
             "The reused Farmer, their account, and unrelated livestock or transfer records were not deleted."
         ))
 
@@ -490,12 +499,15 @@ class Command(BaseCommand):
         return rows
 
     def _seed_price_profiles(self, marker, user, sellers, cattle_type, auction_user):
-        """Small, balanced teaching dataset; deliberately NOT market evidence.
+        """Small, balanced teaching dataset with realistic weekly volume variation.
 
         Both sources contain all registration breed choices, both sexes, and
-        four age/weight combinations every week. The alternating,
-        decaying adjustment is an intentionally learnable AR(1) example so the
-        Ridge + ARIMA pipeline can be demonstrated without weakening its gates.
+        four age/weight combinations distributed across weeks. Weekly volumes
+        naturally fluctuate with seasonal demand and stochastic variation rather
+        than a static count, while maintaining complete coverage for rolling
+        training windows. The alternating, decaying adjustment is an intentionally
+        learnable AR(1) example so the Ridge + ARIMA pipeline can be demonstrated
+        without weakening its gates.
         """
         breeds = ("Brahman", "Holstein-Friesian", "Jersey", "Black Angus", "Simmental",
                   "Philippine Native (Batangas)", "Crossbred Dairy")
@@ -504,44 +516,83 @@ class Command(BaseCommand):
         first_week = current_week - timedelta(weeks=AUCTION_WEEKS)
         price_rng = Random(9)
         rng = Random(17)
+        vol_rng = Random(42)
         self._demo_animal_serial = 0
         self._demo_market_animal_serial = 0
         self._demo_market_lot_serial = 0
         cattle_market = next(s for s in MARKET_WEEKLY_HEAD_AVERAGES if s["code"] == "CAT")
+
+        base_profiles = [
+            (breed_index, breed, sex, age, weight)
+            for breed_index, breed in enumerate(breeds)
+            for sex in ("MALE", "FEMALE")
+            for age, weight in combinations
+        ]
+
         count = 0
         for week_index in range(AUCTION_WEEKS):
             day = first_week + timedelta(weeks=week_index, days=4)
             adjustment = 12_000 * ((-0.97) ** week_index)
             animals, transfers = [], []
-            for breed_index, breed in enumerate(breeds):
-                for sex in ("MALE", "FEMALE"):
-                    for age, weight in combinations:
-                        price = (10_000 + weight * 40 + age * 60 + breed_index * 700
-                                 + (1200 if sex == "MALE" else 0) + adjustment + price_rng.uniform(-5, 5))
-                        profile = {
-                            "birth_date": day - timedelta(days=age * 30),
-                            "age_at_transfer": f"{age // 12} years {age % 12} months",
-                            "breed": breed, "sex": sex, "weight_kg": Decimal(weight),
-                            "purchase_price": Decimal(str(price)).quantize(Decimal("0.01")),
-                        }
-                        registered_animals, registered = self._sale_row(
-                            marker=marker, user=auction_user, reviewer=user,
-                            seller=sellers[(week_index + breed_index) % len(sellers)],
-                            cattle_type=cattle_type, day=day, heads=1, price=None,
-                            price_from_traits=True, profiles=[profile],
-                            status=LivestockOwnershipTransfer.Status.APPROVED,
-                            review_time=aware_at(day, 17), note="constructed cattle-profile teaching data",
-                        )
-                        animals.extend(registered_animals)
-                        transfers.extend(registered)
-                        external_profile = {**profile, "purchase_price": profile["purchase_price"] + Decimal("1000")}
-                        transfers.extend(self._external_market_lot_rows(
-                            marker=marker, auction_user=auction_user, reviewer=user,
-                            species=cattle_market, seller_origin=SYNTHETIC_MARKET_ORIGINS[0],
-                            buyer_origin=SYNTHETIC_MARKET_ORIGINS[1], day=day, heads=1,
-                            certificate_number=f"DEMO-PRICE-{week_index:03d}-{breed_index}-{sex}-{age}",
-                            rng=rng, profiles=[external_profile],
-                        ))
+
+            # Seasonal volume curve (annual sine cycle: higher volume in Q4 & early spring, lower mid-year)
+            # combined with bounded stochastic weekly noise to avoid unrealistic constant counts.
+            seasonal = 1.0 + 0.16 * sin(2 * pi * (week_index - 10) / 52)
+            noise_reg = vol_rng.uniform(-0.18, 0.18)
+            noise_ext = vol_rng.uniform(-0.18, 0.18)
+
+            reg_factor = max(0.65, min(1.40, seasonal + noise_reg))
+            ext_factor = max(0.65, min(1.40, seasonal + noise_ext))
+
+            target_reg = int(round(len(base_profiles) * reg_factor))
+            target_ext = int(round(len(base_profiles) * ext_factor))
+
+            sampled_reg = vol_rng.sample(base_profiles, k=min(len(base_profiles), target_reg))
+            if target_reg > len(base_profiles):
+                sampled_reg += vol_rng.choices(base_profiles, k=target_reg - len(base_profiles))
+
+            sampled_ext = vol_rng.sample(base_profiles, k=min(len(base_profiles), target_ext))
+            if target_ext > len(base_profiles):
+                sampled_ext += vol_rng.choices(base_profiles, k=target_ext - len(base_profiles))
+
+            for reg_idx, (breed_index, breed, sex, age, weight) in enumerate(sampled_reg):
+                price = (10_000 + weight * 40 + age * 60 + breed_index * 700
+                         + (1200 if sex == "MALE" else 0) + adjustment + price_rng.uniform(-5, 5))
+                profile = {
+                    "birth_date": day - timedelta(days=age * 30),
+                    "age_at_transfer": f"{age // 12} years {age % 12} months",
+                    "breed": breed, "sex": sex, "weight_kg": Decimal(weight),
+                    "purchase_price": Decimal(str(price)).quantize(Decimal("0.01")),
+                }
+                registered_animals, registered = self._sale_row(
+                    marker=marker, user=auction_user, reviewer=user,
+                    seller=sellers[(week_index + breed_index + reg_idx) % len(sellers)],
+                    cattle_type=cattle_type, day=day, heads=1, price=None,
+                    price_from_traits=True, profiles=[profile],
+                    status=LivestockOwnershipTransfer.Status.APPROVED,
+                    review_time=aware_at(day, 17), note="constructed cattle-profile teaching data",
+                )
+                animals.extend(registered_animals)
+                transfers.extend(registered)
+
+            for ext_idx, (breed_index, breed, sex, age, weight) in enumerate(sampled_ext):
+                price = (10_000 + weight * 40 + age * 60 + breed_index * 700
+                         + (1200 if sex == "MALE" else 0) + adjustment + price_rng.uniform(-5, 5))
+                profile = {
+                    "birth_date": day - timedelta(days=age * 30),
+                    "age_at_transfer": f"{age // 12} years {age % 12} months",
+                    "breed": breed, "sex": sex, "weight_kg": Decimal(weight),
+                    "purchase_price": Decimal(str(price)).quantize(Decimal("0.01")),
+                }
+                external_profile = {**profile, "purchase_price": profile["purchase_price"] + Decimal("1000")}
+                transfers.extend(self._external_market_lot_rows(
+                    marker=marker, auction_user=auction_user, reviewer=user,
+                    species=cattle_market, seller_origin=SYNTHETIC_MARKET_ORIGINS[0],
+                    buyer_origin=SYNTHETIC_MARKET_ORIGINS[1], day=day, heads=1,
+                    certificate_number=f"DEMO-PRICE-{week_index:03d}-EXT-{ext_idx:03d}-{breed_index}-{sex}-{age}",
+                    rng=rng, profiles=[external_profile],
+                ))
+
             self._create_rows(LivestockInventory, animals)
             self._create_rows(LivestockOwnershipTransfer, transfers)
             count += len(transfers)
@@ -607,72 +658,15 @@ class Command(BaseCommand):
         self._create_rows(SlaughterRecord, slaughter_rows)
         self._create_rows(LivestockInventory, dairy_animals)
 
-        today = timezone.localdate()
-        current_week_start = today - timedelta(days=today.weekday())
-        final_week_start = current_week_start - timedelta(weeks=AUCTION_WEEKS)
-        rng = Random(20261104)
-        weekly_market_heads = {
-            species["code"]: weekly_counts_with_average(rng, species["average"], AUCTION_WEEKS)
-            for species in MARKET_WEEKLY_HEAD_AVERAGES
+        # Unified: Seed realistic registered and external cattle sales with price profiles
+        sales_result = self._seed_price_profiles(marker, user, sellers, cattle_type, auction_user)
+
+        return {
+            "milk": len(production_rows),
+            "farmer_meat": len(meat_rows),
+            "slaughter": len(slaughter_rows),
+            "sales": sales_result["sales"],
         }
-        self._demo_market_animal_serial = 0
-        self._demo_market_lot_serial = 0
-        self._demo_animal_serial = 0
-        registered_sales_count = 0
-        # One transfer row represents one head. This intentionally creates
-        # about 260,000 external-market rows for a two-year, 2,500-head/week
-        # synthetic scenario; the reported averages are calibration targets,
-        # not recovered week-by-week market records.
-        sales_count = 0
-        for week_index in range(AUCTION_WEEKS):
-            week_start = final_week_start + timedelta(weeks=week_index)
-            weekly_transfer_rows = []
-            for species in MARKET_WEEKLY_HEAD_AVERAGES:
-                remaining_heads = weekly_market_heads[species["code"]][week_index]
-                lot_index = 0
-                while remaining_heads:
-                    heads = min(remaining_heads, rng.randint(*species["lot_size"]))
-                    lot_index += 1
-                    seller_origin_index = rng.randrange(len(SYNTHETIC_MARKET_ORIGINS))
-                    buyer_origin_index = (
-                        seller_origin_index + rng.randrange(1, len(SYNTHETIC_MARKET_ORIGINS))
-                    ) % len(SYNTHETIC_MARKET_ORIGINS)
-                    sale_day = week_start + timedelta(days=rng.choice((3, 4)))
-                    certificate = f"DEMO-MKT-W{week_index + 1:03d}-{species['code']}-{lot_index:04d}"
-                    weekly_transfer_rows.extend(self._external_market_lot_rows(
-                        marker=marker,
-                        auction_user=auction_user,
-                        reviewer=user,
-                        species=species,
-                        seller_origin=SYNTHETIC_MARKET_ORIGINS[seller_origin_index],
-                        buyer_origin=SYNTHETIC_MARKET_ORIGINS[buyer_origin_index],
-                        day=sale_day,
-                        heads=heads,
-                        certificate_number=certificate,
-                        rng=rng,
-                    ))
-                    remaining_heads -= heads
-            self._create_rows(LivestockOwnershipTransfer, weekly_transfer_rows)
-            sales_count += len(weekly_transfer_rows)
-            registered_animals, registered_transfers = self._sale_row(
-                marker=marker,
-                user=auction_user,
-                seller=sellers[week_index % len(sellers)],
-                cattle_type=cattle_type,
-                day=week_start + timedelta(days=4),
-                heads=1 + (week_index % 3),
-                price=None,
-                price_from_traits=True,
-                status=LivestockOwnershipTransfer.Status.APPROVED,
-                reviewer=user,
-                review_time=aware_at(week_start + timedelta(days=4), 17),
-                note="synthetic registered cattle sale; per-head price uses demo traits",
-            )
-            self._create_rows(LivestockInventory, registered_animals)
-            self._create_rows(LivestockOwnershipTransfer, registered_transfers)
-            registered_sales_count += len(registered_transfers)
-        return {"milk": len(production_rows), "farmer_meat": len(meat_rows),
-                "slaughter": len(slaughter_rows), "sales": sales_count + registered_sales_count}
 
     def _seed_poor(self, marker, user, sellers, cattle_type, auction_user=None):
         auction_user = auction_user or user

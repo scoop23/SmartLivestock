@@ -10,7 +10,8 @@ from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor
 from django.utils import timezone
 from django.conf import settings
-from analytics.seed_markers import SEED_MARKER_CATTLE_PRICE_DEMO
+from django.db.models import Q
+from analytics.seed_markers import SEED_MARKER_CATTLE_PRICE_DEMO, SEED_MARKER_FORECAST_QUALITY_IDEAL
 from analytics.services.predictive.auction_weekly import _filtered_sales
 from .cattle_price_forecast import PriceSale, regression_scores, rounded_scores, week_of, weekly_profile_forecast
 
@@ -68,7 +69,10 @@ def estimate_price(user, profile):
     requested_mode = profile.get("data_mode", "AUTO")
     qs = _filtered_sales("CATTLE", user, profile["source"]).filter(transfer_date__lte=timezone.localdate())
     real_sales = qs.exclude(review_remarks__icontains="AI_SEED").exclude(animal_description__icontains="synthetic")
-    demo_sales = qs.filter(review_remarks__contains=SEED_MARKER_CATTLE_PRICE_DEMO)
+    demo_sales = qs.filter(
+        Q(review_remarks__contains=SEED_MARKER_CATTLE_PRICE_DEMO)
+        | Q(review_remarks__contains=SEED_MARKER_FORECAST_QUALITY_IDEAL)
+    )
     # One normal UI view: in local development only, a missing real source may
     # fall back to labeled sample data. Even one real approved sale takes
     # precedence, so samples never supplement a sparse real training set.

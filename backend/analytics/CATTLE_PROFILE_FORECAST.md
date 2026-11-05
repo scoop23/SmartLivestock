@@ -58,22 +58,22 @@ The UI is under Cattle Price per Head -> Registered/External -> Price by Animal
 Profile on `/analysis/predictive`. It retains recorded history when forecasting
 is unavailable and explains the unmet readiness condition.
 
-## Focused seed demonstration
+## Forecast seed demonstration
 
-The same `seed_forecast_quality_demo` command has an `--prices-only` option:
+The `seed_forecast_quality_demo` command sets up the ideal scenario in one command:
 
 ```powershell
 # Run from backend, against the intended local development database.
 $env:SMARTLIVESTOCK_ENV_FILE = '.env.local'
 $env:SMARTLIVESTOCK_DEMO_ENV = 'development'
 $env:SMARTLIVESTOCK_DEMO_DATABASE_ACK = 'development:smart_livestock'
-.\.venv\Scripts\python.exe manage.py seed_forecast_quality_demo --scenario ideal --prices-only
+.\.venv\Scripts\python.exe manage.py seed_forecast_quality_demo --scenario ideal
 ```
 
-It creates 104 complete recorded weeks, 5,824 registered and 5,824 external
-cattle transfers. Registered transfers have corresponding marked SOLD inventory
-fixtures. It reuses existing Farmer/MAO accounts and writes no production or
-slaughter events in this mode. Running it twice refuses duplicate data.
+It creates 104 complete recorded weeks with realistic seasonal and weekly volume
+fluctuations (averaging ~56 registered and ~56 external cattle transfers per week,
+totaling ~11,700 transfers), along with 36 months of dairy milk and slaughter meat records.
+An optional `--prices-only` flag is also available if you only want the cattle price transfers without milk or slaughter records.
 
 The profile view uses one data view, with the example Male, Brahman, 2 to under
 4 years, 350 to under 500 kg. Both source choices support it. Its default API
