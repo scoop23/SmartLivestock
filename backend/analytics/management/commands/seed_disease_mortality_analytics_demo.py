@@ -38,7 +38,7 @@ MORTALITY_RECORDS_PER_MONTH = (0, 1, 0, 0, 1, 0, 2, 0, 1, 0, 0, 1, 0, 1, 0, 2, 0
 class Command(BaseCommand):
     help = (
         "Create 24 months of irregular, clearly marked synthetic disease and mortality events "
-        "for an existing Farmer account or two inactive demo farmer accounts."
+        "across every existing barangay, with two inactive demo farmers per barangay."
     )
 
     def add_arguments(self, parser):
@@ -54,7 +54,7 @@ class Command(BaseCommand):
         )
         parser.add_argument("--cbat-email", help="Use this active, approved CBAT account for field verification.")
         parser.add_argument("--mao-email", help="Use this active, approved MAO account for review.")
-        parser.add_argument("--farmer-email", help="Use this existing Farmer account and profile for the event records.")
+        parser.add_argument("--farmer-email", help="Use this Farmer in their own barangay; other barangays use inactive demo farmers.")
 
     def handle(self, *args, **options):
         clean = options["clean"]
@@ -70,6 +70,8 @@ class Command(BaseCommand):
                 f"Monthly event range: {months[0].isoformat()} to {months[-1].isoformat()} "
                 f"({MONTHS} complete calendar months)."
             )
+            if not clean:
+                self.stdout.write(f"Scope: all {Barangay.objects.count()} existing barangays; existing coverage confirmations are preserved.")
             self.stdout.write("No database changes were made.")
             return
 
@@ -78,7 +80,19 @@ class Command(BaseCommand):
             if clean:
                 return
             plan = self._build_plan(options)
-            self._seed(plan, months)
+            barangays = list(Barangay.objects.order_by("pk"))
+            if not barangays:
+                raise CommandError("Existing barangays are required; no shared lookup data was created.")
+            for barangay in barangays:
+                local_plan = dict(plan, barangay=barangay)
+                if not plan["farmer_profile"] or plan["farmer_profile"].barangay_id != barangay.pk:
+                    local_plan.update(farmer_user=None, farmer_profile=None)
+                verifier = plan["verifier"]
+                if verifier and verifier.assigned_barangay_id != barangay.pk and verifier.access_scope != "ALL_BARANGAYS":
+                    local_plan["verifier"] = None
+                self.barangay_key = f"barangay-{barangay.pk}:"
+                self._seed(local_plan, months)
+            self.stdout.write(self.style.SUCCESS(f"Completed synthetic analytics seed across {len(barangays)} barangays."))
 
     @staticmethod
     def _completed_months(today):
@@ -111,9 +125,9 @@ class Command(BaseCommand):
             farmer_profile = farmer_user.farmer_profile
             barangay = farmer_profile.barangay
         else:
-            barangay = self._exactly_one(
-                Barangay.objects.filter(barangay_name__iexact="Tangob"), "Tangob barangay"
-            )
+            barangay = Barangay.objects.order_by("pk").first()
+            if barangay is None:
+                raise CommandError("Existing barangays are required.")
         cattle = self._exactly_one(
             LivestockType.objects.filter(name__iexact="Cattle"), "Cattle livestock type"
         )
@@ -152,6 +166,7 @@ class Command(BaseCommand):
         }
 
     def _seed(self, plan, months):
+        identity_suffix = f"-b{plan['barangay'].pk}"
         farmers = []
         if plan["farmer_user"]:
             farmers.append({
@@ -163,22 +178,22 @@ class Command(BaseCommand):
             for suffix in ("a", "b"):
                 user = self._create_demo_user(
                     key=f"farmer-{suffix}",
-                    email=f"demo.analytics.farmer.{suffix}@smartlivestock-demo.invalid",
-                    username=f"demo-analytics-farmer-{suffix}",
+                    email=f"demo.analytics.farmer.{suffix}{identity_suffix}@smartlivestock-demo.invalid",
+                    username=f"demo-analytics-farmer-{suffix}{identity_suffix}",
                     role=plan["roles"][Role.UserRoles.FARMER],
                 )
                 farmer = Farmer.objects.create(
                     user=user,
                     barangay=plan["barangay"],
-                    address=f"DEMO ONLY - synthetic analytics farm {suffix.upper()} in Tangob",
+                    address=f"DEMO ONLY - synthetic analytics farm {suffix.upper()} in {plan['barangay'].barangay_name}",
                 )
                 self._track(f"farmer-{suffix}:profile", "farmer", farmer)
                 farmers.append({"user": user, "farmer": farmer, "mortality_animals": []})
 
         verifier = plan["verifier"] or self._create_demo_user(
             key="cbat-verifier",
-            email="demo.analytics.cbat@smartlivestock-demo.invalid",
-            username="demo-analytics-cbat-verifier",
+            email=f"demo.analytics.cbat{identity_suffix}@smartlivestock-demo.invalid",
+            username=f"demo-analytics-cbat-verifier{identity_suffix}",
             role=plan["roles"][Role.UserRoles.CBAT],
             assigned_barangay=plan["barangay"],
             last_name="CBAT Verifier",
@@ -196,7 +211,7 @@ class Command(BaseCommand):
                     owner=owner,
                     livestock_type=plan["cattle"],
                     reviewer=plan["reviewer"],
-                    tag=f"DM-ANALYTICS-D-{month_end:%Y%m}-{event_index + 1}",
+                    tag=f"DM-B{plan['barangay'].pk}-D-{month_end:%Y%m}-{event_index + 1}",
                 )
                 self._create_approved_disease(
                     key=f"disease:{month_end:%Y-%m}:{event_index + 1}",
@@ -217,7 +232,7 @@ class Command(BaseCommand):
                     owner=owner,
                     livestock_type=plan["cattle"],
                     reviewer=plan["reviewer"],
-                    tag=f"DM-ANALYTICS-M-{month_end:%Y%m}-{event_index + 1}",
+                    tag=f"DM-B{plan['barangay'].pk}-M-{month_end:%Y%m}-{event_index + 1}",
                 )
                 owner["mortality_animals"].append(mortality_animal)
                 self._create_approved_mortality(
@@ -263,6 +278,9 @@ class Command(BaseCommand):
 
     def _seed_coverage_confirmations(self, plan, months):
         """Add reversible synthetic coverage only where no prior attestation exists."""
+        created_count = 0
+        preserved_count = 0
+        skipped_count = 0
         for domain, model, approved_status, marker in (
             (SurveillanceCoverageReport.Domain.DISEASE, DiseaseCase, DiseaseCase.DiseaseStatus.APPROVED, SEED_MARKER_DISEASE),
             (SurveillanceCoverageReport.Domain.MORTALITY, MortalityRecord, MortalityRecord.MortalityRecordStatus.APPROVED, SEED_MARKER_MORTALITY),
@@ -272,6 +290,7 @@ class Command(BaseCommand):
                 if SurveillanceCoverageReport.objects.filter(
                     barangay=plan["barangay"], domain=domain, report_month=month_start,
                 ).exists():
+                    preserved_count += 1
                     continue
 
                 events = model.objects.filter(
@@ -287,10 +306,12 @@ class Command(BaseCommand):
                 ).exists():
                     # Do not create a synthetic attestation over real or other
                     # seed records in the same barangay and month.
+                    skipped_count += 1
                     continue
                 record_count = events.count()
                 approved_count = events.filter(status=approved_status).count()
                 if record_count and approved_count != record_count:
+                    skipped_count += 1
                     continue
                 report = SurveillanceCoverageReport.objects.create(
                     barangay=plan["barangay"],
@@ -304,9 +325,20 @@ class Command(BaseCommand):
                     confirmed_by=plan["reviewer"],
                 )
                 self._track(f"coverage:{domain.lower()}:{month_start:%Y-%m}", "coverage", report)
+                created_count += 1
+        self.stdout.write(
+            f"{plan['barangay'].barangay_name} coverage: {created_count} synthetic confirmations created, "
+            f"{preserved_count} existing confirmations preserved, {skipped_count} months/domains skipped "
+            "because they contain other records or unapproved reports."
+        )
+        if preserved_count or skipped_count:
+            self.stdout.write(self.style.WARNING(
+                "Forecast readiness can still be blocked: review existing confirmations and mixed-record months "
+                "in Monthly Reporting Coverage. This seed does not attest to real reports."
+            ))
 
     def _track_notifications(self, entity_type, record_key):
-        record_marker = SurveillanceDemoOwnership.objects.filter(identifier=f"{PREFIX}{record_key}").first()
+        record_marker = SurveillanceDemoOwnership.objects.filter(identifier=f"{PREFIX}{getattr(self, 'barangay_key', '')}{record_key}").first()
         if record_marker is None:
             return
         for notification in Notification.objects.filter(
@@ -457,7 +489,7 @@ class Command(BaseCommand):
 
     def _track(self, identifier, object_type, obj):
         marker, created = SurveillanceDemoOwnership.objects.get_or_create(
-            identifier=f"{PREFIX}{identifier}",
+            identifier=f"{PREFIX}{getattr(self, 'barangay_key', '')}{identifier}",
             defaults={"object_type": object_type, "object_id": obj.pk},
         )
         if not created and (marker.object_type != object_type or marker.object_id != obj.pk):
