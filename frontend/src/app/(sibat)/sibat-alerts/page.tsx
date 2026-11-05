@@ -849,7 +849,7 @@ function SibatAlertsContent() {
           }}
           onConfirmInspection={handleConfirmInspection}
           isSubmitting={reviewMutation.isPending}
-          readOnly={isCbat || activeRecord.status === "VERIFIED" || activeRecord.status === "APPROVED"}
+          readOnly={isCbat || (activeRecord.status || "").toUpperCase() !== "PENDING"}
         />
       )}
     </div>

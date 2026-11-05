@@ -3,6 +3,7 @@
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Card,CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -69,7 +70,27 @@ function ReportObservationContent() {
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
   const [isDetailsExampleOpen, setIsDetailsExampleOpen] = useState(false);
   const [editingReport, setEditingReport] = useState<FarmerReport | null>(null);
+  const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
+  const [reportToDelete, setReportToDelete] = useState<FarmerReport | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
+
+  const handleDeleteReport = async (report: FarmerReport) => {
+    if (deletingReportId || !["PENDING", "SUBJECT_TO_REVISION"].includes(report.status)) return;
+    setDeletingReportId(report.id);
+    try {
+      const endpoint = report.reportType === "MORTALITY" ? "mortality" : "cases";
+      const id = report.id.replace(/^(DIS|MOR)-/, "");
+      await api.delete(`diseases/${endpoint}/${id}/`);
+      setReportToDelete(null);
+      await Promise.all([refetchDiseases(), refetchMortality()]);
+      toast.success("Report deleted.");
+    } catch (error) {
+      const response = (error as { response?: { data?: { error?: string; detail?: string } } }).response;
+      toast.error(response?.data?.error || response?.data?.detail || "Could not delete this report. Refresh and try again.");
+    } finally {
+      setDeletingReportId(null);
+    }
+  };
 
   const handleOpenReportIllness = (type: ReportType = "DISEASE") => {
     setReportIllnessDefaultType(type);
@@ -224,6 +245,9 @@ function ReportObservationContent() {
   const reportsInHistory = useMemo(() => {
     if (isLoadingInventory || isInventoryError) return [];
     return reports.filter((report) => {
+      // Unfinished declarations still need farmer action even after the
+      // animal's death has been approved through a separate mortality report.
+      if (["PENDING", "SUBJECT_TO_REVISION", "SUBJECT_FOR_REVISION"].includes(report.status)) return false;
       const raw = report.rawItem as {
         livestock?: number | string | null;
         batch?: number | string | null;
@@ -926,6 +950,17 @@ function ReportObservationContent() {
                         )}
                       </div>
 
+                      {["PENDING", "SUBJECT_TO_REVISION"].includes(rep.status) && (
+                        <button
+                          type="button"
+                          disabled={deletingReportId !== null}
+                          onClick={(event) => { event.stopPropagation(); setReportToDelete(rep); }}
+                          className="self-end rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                        >
+                          {deletingReportId === rep.id ? "Deleting..." : "Delete report"}
+                        </button>
+                      )}
+
                       {/* Bottom Row: Status Badge & Details Button */}
                       <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -956,6 +991,26 @@ function ReportObservationContent() {
       </div>
 
       {/* ── MODALS ── */}
+      <AlertDialog open={reportToDelete !== null} onOpenChange={(open) => { if (!open && !deletingReportId) setReportToDelete(null); }}>
+        <AlertDialogContent className="rounded-2xl bg-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this report?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3" asChild>
+              <div>
+                <p>Report <strong>{reportToDelete?.id}</strong> for <strong>{reportToDelete?.cattleTag}</strong> and its saved review feedback will be permanently deleted. It will also be removed from CBAT and MAO review lists.</p>
+                <p className="font-semibold text-rose-700">This cannot be undone.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingReportId !== null}>Keep report</AlertDialogCancel>
+            <Button variant="destructive" disabled={deletingReportId !== null} onClick={() => { if (reportToDelete) void handleDeleteReport(reportToDelete); }}>
+              {deletingReportId ? "Deleting..." : "Delete permanently"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <ReportIllnessDialog
         open={isReportIllnessOpen}
         onOpenChange={setIsReportIllnessOpen}

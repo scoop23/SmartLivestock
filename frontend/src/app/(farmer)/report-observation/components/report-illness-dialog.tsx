@@ -93,7 +93,7 @@ function ReportIllnessDialogContent({
   onSuccess,
 }: ReportIllnessDialogProps) {
   const queryClient = useQueryClient();
-  const { data: inventories = [] } = useUserInventory();
+  const { data: inventories = [] } = useUserInventory({ includeInactive: true });
   const isEditMode = mode === "edit" && !!existingReport;
 
   const reportType = isEditMode && existingReport ? (existingReport.reportType || defaultType) : defaultType;
@@ -177,11 +177,12 @@ function ReportIllnessDialogContent({
       (inventory) =>
         inventory.entryType === "INDIVIDUAL" &&
         inventory.quantity === 1 &&
-        (inventory.status === "VERIFIED" || inventory.status === "APPROVED") &&
+        ((isEditMode && String(inventory.id) === String(existingReport?.inventoryId)) ||
+        ((inventory.status === "VERIFIED" || inventory.status === "APPROVED") &&
         (reportType !== "MORTALITY" ||
-          (inventory.status === "APPROVED" && inventory.operationalStatus === "ACTIVE")),
+          (inventory.status === "APPROVED" && inventory.operationalStatus === "ACTIVE")))),
     ),
-    [inventories, reportType],
+    [inventories, reportType, isEditMode, existingReport?.inventoryId],
   );
   const pendingReportAnimalIds = useMemo(() => {
     const pendingIds = new Set<number>();
@@ -236,7 +237,6 @@ function ReportIllnessDialogContent({
     }),
     [animalSort, selectableAnimals],
   );
-  const editableInventoryOptions = selectableAnimals;
   const effectiveInventoryId = selectedInventoryId || (selectableAnimals[0] ? String(selectableAnimals[0].id) : "");
   const selectedAnimals = useMemo(
     () => selectableAnimals.filter((inventory) => selectedInventoryIds.includes(String(inventory.id))),
@@ -485,7 +485,7 @@ function ReportIllnessDialogContent({
   const isDisease = reportType === "DISEASE";
 
   return (
-    <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain p-0 rounded-3xl border border-slate-200/90 bg-white shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-lg sm:max-h-[90dvh]">
+    <DialogContent className="min-w-0 w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-0 rounded-3xl border border-slate-200/90 bg-white shadow-2xl sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:max-h-[90dvh]">
         {/* Header - Clean white style matching design guide */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-white sticky top-0 z-10">
           <div className="flex items-center gap-3 min-w-0">
@@ -532,41 +532,35 @@ function ReportIllnessDialogContent({
           <div className="px-5 pt-5 sm:px-6 sm:pt-6">
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
               <p className="text-[10px] font-black uppercase tracking-wider text-amber-800">MAO Revision Request</p>
-              <p className="mt-1 text-xs font-medium">“{existingReport.reviewRemarks}”</p>
+              <p className="mt-1 whitespace-normal break-words text-xs font-medium">“{existingReport.reviewRemarks}”</p>
             </div>
           </div>
         )}
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="min-w-0 w-full p-5 sm:p-6 space-y-5">
           {/* Mortality groups affected animals into one incident; disease remains per-animal. */}
-          <div className="space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Icon iconNode={cowHead} className="size-3.5 text-[#2D5A27]" />
-                1. Affected Animals
+                1. Affected Animal/s
               </span>
               {isEditMode && selectedCattle && (
-                <span className="text-[10px] font-bold text-slate-400">
+                <span className="min-w-0 max-w-[45%] break-words text-right text-[10px] font-bold text-slate-400">
                   {selectedCattle.batchCode ? `Herd: ${selectedCattle.batchCode}` : "Individual Animal"}
                 </span>
               )}
             </Label>
 
             {isEditMode && isDisease ? (
-              <Select value={effectiveInventoryId} onValueChange={setSelectedInventoryId}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-[#2D5A27]">
-                  <SelectValue placeholder="Select livestock from your herd..." />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl max-h-56">
-                  {editableInventoryOptions.map((inv) => (
-                    <SelectItem key={inv.id} value={String(inv.id)} className="text-xs font-semibold py-2 cursor-pointer">
-                      #{inv.tagNumber || `TAG-${inv.id}`} • {inv.livestockTypeName || "Livestock"} ({inv.breed || "Standard"}, {inv.sex || "Female"})
-                      {inv.batchCode ? ` • [Herd: ${inv.batchCode}]` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="break-words text-xs font-semibold text-slate-900">
+                  #{selectedCattle?.tagNumber || existingReport?.cattleTag || "Not recorded"}
+                  {selectedCattle && ` ? ${selectedCattle.livestockTypeName || "Livestock"} (${selectedCattle.breed || "Breed not recorded"}, ${selectedCattle.sex || "Sex not recorded"})`}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">The animal is fixed to this report. Update the report details below.</p>
+              </div>
             ) : (
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                 {selectableAnimals.length === 0 ? (
@@ -639,7 +633,7 @@ function ReportIllnessDialogContent({
             <div className="space-y-2.5">
               <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center justify-between">
                 <span>2. Select Observed Signs / Symptoms</span>
-                <span className="text-[10px] font-bold text-slate-400">Tap all that apply</span>
+                <span className="min-w-0 max-w-[45%] break-words text-right text-[10px] font-bold text-slate-400">Tap all that apply</span>
               </Label>
 
               <div className="grid grid-cols-2 gap-2">
@@ -681,7 +675,7 @@ function ReportIllnessDialogContent({
           ) : (
             <div className="space-y-4">
               {!isEditMode && (
-                <div className="space-y-1.5">
+                <div className="min-w-0 space-y-1.5">
                   <Label className="text-xs font-black uppercase tracking-wider text-slate-700">
                     Link an earlier disease report (optional)
                   </Label>
@@ -747,8 +741,8 @@ function ReportIllnessDialogContent({
           )}
 
           {/* Step 3: Date. The number of reported animals comes from the selection above. */}
-          <div className="space-y-1.5">
-            <div className="space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                 <Calendar className="size-3.5 text-[#2D5A27]" />
                 3. Date Noticed / Occurred

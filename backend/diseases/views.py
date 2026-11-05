@@ -1,3 +1,4 @@
+from django.db.models.deletion import ProtectedError
 from smartlivestock.workflows import scope_reviewer_queryset
 import json
 from django.db.models import Q
@@ -419,15 +420,18 @@ def disease_case_detail(request, pk):
             return Response({"error": "Verified or approved health records are locked."}, status=409)
 
     if request.method == "DELETE":
-        if record.status != DiseaseCase.DiseaseStatus.PENDING:
+        if record.status not in {"PENDING", "SUBJECT_TO_REVISION"}:
             return Response(
                 {
                     "error": f"Cannot delete a disease case with status '{record.status}'. "
-                    "Only PENDING records can be deleted."
+                    "Only pending or returned-for-revision records can be deleted."
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
-        record.delete()
+        try:
+            record.delete()
+        except ProtectedError:
+            return Response({"error": "This report has linked records and cannot be deleted. Contact MAO."}, status=409)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     if request.method in ["PUT", "PATCH"]:
@@ -667,11 +671,17 @@ def mortality_record_detail(request, pk):
     role_name = getattr(getattr(user, "role", None), "role_name", None)
 
     if role_name == "FARMER":
-        record = get_object_or_404(
-            MortalityRecord.objects.select_for_update(of=("self",)),
+        # A shared report can cover several animals. Keep that ownership join
+        # inside a subquery so it cannot duplicate the row being retrieved and
+        # locked (DISTINCT on the locking query is unsupported by PostgreSQL).
+        owned_reports = MortalityRecord.objects.filter(
             Q(livestock__farmer__user=user)
             | Q(affected_livestock__farmer__user=user)
-            | Q(batch__farmer__user=user),
+            | Q(batch__farmer__user=user)
+        ).values("pk")
+        record = get_object_or_404(
+            MortalityRecord.objects.select_for_update(of=("self",)),
+            pk__in=owned_reports,
             pk=pk,
         )
     else:
@@ -688,15 +698,18 @@ def mortality_record_detail(request, pk):
             return Response({"error": "Verified or approved health records are locked."}, status=409)
 
     if request.method == "DELETE":
-        if record.status != MortalityRecord.MortalityRecordStatus.PENDING:
+        if record.status not in {"PENDING", "SUBJECT_TO_REVISION"}:
             return Response(
                 {
                     "error": f"Cannot delete a mortality record with status '{record.status}'. "
-                    "Only PENDING records can be deleted."
+                    "Only pending or returned-for-revision records can be deleted."
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
-        record.delete()
+        try:
+            record.delete()
+        except ProtectedError:
+            return Response({"error": "This report has linked records and cannot be deleted. Contact MAO."}, status=409)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     if request.method in ["PUT", "PATCH"]:

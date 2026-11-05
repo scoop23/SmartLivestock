@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Q, Sum
 from django.utils import timezone
 from django.utils.dateformat import format as format_date
@@ -166,10 +167,16 @@ class DiseaseCaseSerializer(serializers.ModelSerializer):
             return value
         user = self.context["request"].user
         # Ownership is authoritative even if the submitting user has no farmer profile.
+        if self.instance and self.instance.livestock_id != value.pk:
+            raise ValidationError("The animal on an existing disease report cannot be changed.")
         if value.farmer.user_id != user.pk:
             raise ValidationError(
                 "You can only report disease cases against your own livestock inventory."
             )
+        # Correcting an existing declaration keeps its historical animal link,
+        # even if that animal has since died or its registration changed.
+        if self.instance and self.instance.livestock_id == value.pk:
+            return value
         if value.status not in (
             LivestockInventory.StatusType.VERIFIED,
             LivestockInventory.StatusType.APPROVED,
@@ -520,35 +527,27 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
         for animal in animals:
             self._validate_animal(animal, user)
 
-        if self.instance is None:
-            animal_ids = [animal.pk for animal in animals]
-            pending_legacy_ids = set(
-                MortalityRecord.objects.filter(
-                    status=MortalityRecord.MortalityRecordStatus.PENDING,
-                    livestock_id__in=animal_ids,
-                ).values_list("livestock_id", flat=True)
-            )
-            pending_affected_ids = set(
-                MortalityRecord.objects.filter(
-                    status=MortalityRecord.MortalityRecordStatus.PENDING,
-                    affected_livestock__pk__in=animal_ids,
-                ).values_list("affected_livestock__pk", flat=True)
-            )
-            pending_ids = pending_legacy_ids | pending_affected_ids
-            if pending_ids:
-                pending_tags = [
-                    animal.tag_number or f"Animal #{animal.pk}"
-                    for animal in animals
-                    if animal.pk in pending_ids
-                ]
-                raise ValidationError(
-                    {
-                        "livestocks": (
-                            f"{', '.join(pending_tags)} already have a pending mortality report. "
-                            "Wait for it to be reviewed before submitting another."
-                        )
-                    }
+        # Check both legacy single-animal and grouped reports, including edits.
+        # Verification does not free an animal for another death declaration.
+        animal_ids = [animal.pk for animal in animals]
+        existing = MortalityRecord.objects.filter(
+            Q(livestock_id__in=animal_ids) | Q(affected_livestock__pk__in=animal_ids),
+        )
+        if self.instance:
+            existing = existing.exclude(pk=self.instance.pk)
+        reported_ids = set(existing.values_list("livestock_id", flat=True))
+        reported_ids.update(existing.values_list("affected_livestock__pk", flat=True))
+        duplicate_tags = [
+            animal.tag_number or f"Animal #{animal.pk}"
+            for animal in animals if animal.pk in reported_ids
+        ]
+        if duplicate_tags:
+            raise ValidationError({
+                "livestocks": (
+                    f"{', '.join(duplicate_tags)} already have a mortality report. "
+                    "Edit or resubmit the existing report instead of creating another."
                 )
+            })
 
         if len({animal.farmer_id for animal in animals}) != 1:
             raise ValidationError({"livestocks": "All animals in one mortality report must belong to the same farmer."})
@@ -586,19 +585,37 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    def _lock_and_check_animals(self, animals):
+        # Serialize concurrent submissions for the same animal before checking
+        # both the legacy FK and grouped-report membership again at save time.
+        ids = sorted(animal.pk for animal in animals)
+        list(LivestockInventory.objects.select_for_update().filter(pk__in=ids).order_by("pk"))
+        reports = MortalityRecord.objects.filter(
+            Q(livestock_id__in=ids) | Q(affected_livestock__pk__in=ids)
+        )
+        if self.instance:
+            reports = reports.exclude(pk=self.instance.pk)
+        if reports.exists():
+            raise ValidationError({"livestocks": "An animal already has a mortality report. Edit or resubmit its existing report."})
+
+    @transaction.atomic
     def create(self, validated_data):
         user = self.context["request"].user
         validated_data["created_by"] = user
         animals = validated_data.pop("livestocks")
+        self._lock_and_check_animals(animals)
         # Keep the first-animal FK as a compatibility anchor; the M2M relation
         # is the complete list and is what approval reconciliation processes.
         record = MortalityRecord.objects.create(livestock=animals[0], **validated_data)
         record.affected_livestock.set(animals)
         return record
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         was_revision = (instance.status == MortalityRecord.MortalityRecordStatus.SUBJECT_TO_REVISION)
         animals = validated_data.pop("livestocks", None)
+        if animals is not None:
+            self._lock_and_check_animals(animals)
         allowed = [
             "batch",
             "death_count",
