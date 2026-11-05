@@ -23,6 +23,7 @@ SelectValue,
 } from "@/components/ui/select";
 import api from "@/lib/axios";
 import axios from "axios";
+import { useParams } from "next/navigation";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
@@ -84,6 +85,8 @@ export default function ProductionSalesTab({
   intentInventories: LivestockInventoryItem[];
   autoOpenIntent?: boolean;
 }) {
+  const route = useParams<{ species?: string }>();
+  const species = route.species || "";
   const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const queryClient = useQueryClient();
   const [submittedRegistration, setSubmittedRegistration] = useState<{ id: number; reference: string } | null>(null);
@@ -116,10 +119,23 @@ export default function ProductionSalesTab({
   }, [isIntentOpen, startIntentTutorial]);
 
   const { data: sales = [], isLoading: isSalesLoading } = useQuery<LiveSaleItem[]>({
-    queryKey: ["live_animal_sales"],
+    queryKey: ["farmer-approved-transfer-sales", species],
+    refetchInterval: 30_000,
     queryFn: async () => {
-      const res = await api.get("production/sales/");
-      return res.data;
+      const { data } = await api.get<Array<{
+        id: number; livestock: number; livestock_tag: string; livestock_type_name: string;
+        transfer_date: string; purchase_price: string | null; municipality: string; province: string; created_at: string;
+      }>>("livestock/ownership-transfers/", { params: { direction: "outgoing", status: "APPROVED", species: species || undefined } });
+      // One transfer event represents one sold animal. Use the official event
+      // directly instead of copying it into the older LiveAnimalSale table.
+      return data.map((transfer): LiveSaleItem => ({
+        id: transfer.id, livestock: transfer.livestock, tag_number: transfer.livestock_tag,
+        livestock_type_name: transfer.livestock_type_name, quantity: 1, sale_method: "OTHER",
+        total_live_weight: null, price_per_head: transfer.purchase_price == null ? null : Number(transfer.purchase_price),
+        price_per_kg: null, total_price: transfer.purchase_price == null ? null : Number(transfer.purchase_price),
+        destination: [transfer.municipality, transfer.province].filter(Boolean).join(", "),
+        sale_date: transfer.transfer_date, purpose: "UNKNOWN", status: "APPROVED", created_at: transfer.created_at,
+      }));
     },
   });
 
@@ -274,11 +290,9 @@ export default function ProductionSalesTab({
                           {sale.tag_number || `Tag #${sale.livestock}`} ({sale.quantity} {sale.quantity === 1 ? "head" : "heads"})
                         </span>
                         <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                          {sale.sale_method}
+                          Approved ownership transfer
                         </span>
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          {sale.purpose}
-                        </span>
+
                       </div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-slate-500">
                         <span className="inline-flex items-center gap-1">

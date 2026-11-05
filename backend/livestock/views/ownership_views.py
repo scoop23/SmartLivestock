@@ -224,6 +224,13 @@ def ownership_transfer_list_create(request):
     records = records.select_related(
         "livestock__livestock_type", "previous_owner__user", "new_owner__user", "reviewed_by"
     )
+    # Sales dashboards request seller-side approved events, not purchases.
+    if role_name(user) == "FARMER" and request.query_params.get("direction") == "outgoing":
+        records = records.filter(previous_owner__user=user)
+    if request.query_params.get("status"):
+        records = records.filter(status=request.query_params["status"])
+    if request.query_params.get("species"):
+        records = records.filter(livestock__livestock_type__name__iexact=request.query_params["species"])
     return Response(LivestockOwnershipTransferSerializer(records, many=True).data)
 
 
