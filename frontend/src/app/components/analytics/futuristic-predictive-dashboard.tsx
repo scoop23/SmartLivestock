@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
+import { CattleProfilePrice } from "./cattle-profile-price";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -69,6 +70,7 @@ export interface ReadinessSummaryCard {
   domain: string;
   target: string;
   unit: string;
+  transfer_source?: "REGISTERED" | "EXTERNAL" | null;
   reporting_type: string;
   frequency?: "MONTHLY" | "WEEKLY";
   observation_label?: string;
@@ -128,6 +130,7 @@ export interface TargetDiagnosticDetail {
   domain: string;
   target: string;
   unit: string;
+  transfer_source?: "REGISTERED" | "EXTERNAL" | null;
   label: string;
   source: string;
   expected_reporting: string;
@@ -298,7 +301,8 @@ function getTargetIcon(id: string) {
   switch (id) {
     case "livestock_sales":
       return ShoppingBag;
-    case "cattle_price":
+    case "registered_cattle_price":
+    case "external_cattle_price":
       return Scale;
     case "slaughter_meat":
       return Scale;
@@ -358,6 +362,39 @@ function getTargetFromDomain(domain: string | null): string {
   return "disease_reports";
 }
 
+export function PredictiveLoadingScreen() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label="Loading forecast information"
+      className="relative grid min-h-[420px] place-items-center overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-6 shadow-xs"
+    >
+      <div className="pointer-events-none absolute -right-12 -top-16 size-64 rounded-full bg-emerald-400/10 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -left-12 size-64 rounded-full bg-teal-400/10 blur-3xl" />
+      <div className="relative w-full max-w-lg text-center">
+        <div className="mx-auto flex size-16 items-center justify-center rounded-2xl border border-emerald-200 bg-white text-emerald-700 shadow-sm">
+          <BarChart3 className="size-7 animate-pulse" />
+        </div>
+        <p className="mt-5 text-xs font-mono font-bold uppercase tracking-[0.18em] text-emerald-800">
+          Forecasts & Trends
+        </p>
+        <h2 className="mt-2 text-xl font-extrabold text-slate-900">Preparing your forecast view</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+          Checking approved records and getting the charts ready.
+        </p>
+        <div className="mx-auto mt-6 flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-white/90 px-4 py-2 text-xs font-semibold text-emerald-800">
+          <RefreshCw className="size-3.5 animate-spin" />
+          Loading forecast information
+        </div>
+        <div className="mx-auto mt-6 h-1.5 max-w-xs overflow-hidden rounded-full bg-emerald-100">
+          <div className="h-full w-2/5 animate-pulse rounded-full bg-emerald-600" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FuturisticPredictiveDashboard() {
   const searchParams = useSearchParams();
   const domainParam = searchParams?.get("domain");
@@ -373,6 +410,7 @@ export function FuturisticPredictiveDashboard() {
   }, [targetFromParam]);
   const [horizonMonths, setHorizonMonths] = useState<number>(6);
   const [viewMode, setViewMode] = useState<"overview" | "backtest" | "models" | "checklist">("overview");
+  const [cattlePriceView, setCattlePriceView] = useState<"trend" | "profile">("trend");
   const [showTableView, setShowTableView] = useState<boolean>(false);
   const [timelinePage, setTimelinePage] = useState(0);
   const [historyWindowMonths, setHistoryWindowMonths] = useState(12);
@@ -393,6 +431,12 @@ export function FuturisticPredictiveDashboard() {
   const summaryCards = (data?.summary_cards || []).filter(
     (card) => card.domain.toLowerCase() !== "production",
   );
+  const registeredCattlePriceCard = summaryCards.find((card) => card.id === "registered_cattle_price");
+  const externalCattlePriceCard = summaryCards.find((card) => card.id === "external_cattle_price");
+  const hasCattlePriceSourceTabs = Boolean(registeredCattlePriceCard && externalCattlePriceCard);
+  const displaySummaryCards = summaryCards.filter(
+    (card) => !(hasCattlePriceSourceTabs && card.id === "external_cattle_price"),
+  );
   const currentCard = summaryCards.find((c) => c.id === selectedTargetId) || summaryCards[0];
   const activeTargetId = currentCard?.id || selectedTargetId;
   const targetDetail: TargetDiagnosticDetail | undefined = data?.diagnostics?.[activeTargetId];
@@ -401,7 +445,11 @@ export function FuturisticPredictiveDashboard() {
   // Chart Data preparation
   const rawChartTimeline = targetDetail?.forecast?.chart_data || [];
   const isAuctionForecast = currentCard?.domain === "auction";
-  const isCattlePriceForecast = currentCard?.id === "cattle_price";
+  const isCattlePriceForecast = currentCard?.unit === "PHP_PER_HEAD";
+  const isRegisteredCattlePriceForecast = currentCard?.id === "registered_cattle_price";
+  const cattlePriceSourceDescription = isRegisteredCattlePriceForecast
+    ? "approved transfers linked to a registered cattle record"
+    : "approved external cattle transfers recorded in SmartLivestock";
   const hasWeeklyHistoryRange = currentCard?.id === "livestock_sales" || isCattlePriceForecast;
   const hasWeeklyHistory = rawChartTimeline.some((point) => !point.is_future && point.actual != null);
   const chartTimeline = useMemo(() => {
@@ -431,7 +479,10 @@ export function FuturisticPredictiveDashboard() {
   );
   const forecastPoints = targetDetail?.forecast?.forecast_points || [];
   const metadata = targetDetail?.forecast?.metadata || {};
-  const horizonUnit = currentCard?.frequency === "WEEKLY" ? "weeks" : "months";
+  const weeklyTargetSelected =
+    currentCard?.frequency === "WEEKLY" ||
+    ["livestock_sales", "registered_cattle_price", "external_cattle_price"].includes(selectedTargetId);
+  const horizonUnit = weeklyTargetSelected ? "weeks" : "months";
   const backtestInfo = targetDetail?.backtesting || targetDetail?.evaluation;
   const candidateModels = backtestInfo?.models || backtestInfo?.model_metrics || {};
   const cutoffTimeline = backtestInfo?.cutoffs || backtestInfo?.cutoff_timeline || [];
@@ -492,6 +543,10 @@ export function FuturisticPredictiveDashboard() {
     );
   }
 
+  if (isPending && !data) {
+    return <PredictiveLoadingScreen />;
+  }
+
   if (!isPending && summaryCards.length === 0) {
     return (
       <Card className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
@@ -541,9 +596,9 @@ export function FuturisticPredictiveDashboard() {
           </div>
 
           {/* Horizon Selector and Refresh Button */}
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className={`flex flex-wrap items-center gap-3 shrink-0 ${isCattlePriceForecast && cattlePriceView === "profile" ? "hidden" : ""}`}>
             <div className="flex items-center gap-1 rounded-xl bg-slate-100 border border-slate-200 p-1 shadow-2xs">
-              <span className="px-2 text-[11px] font-mono text-slate-500 uppercase tracking-wider">Show next:</span>
+              <span className="px-2 text-[11px] font-mono text-slate-500 uppercase tracking-wider">Forecast ahead:</span>
               {[1, 3, 6, 12].map((m) => (
                 <button
                   key={m}
@@ -584,7 +639,89 @@ export function FuturisticPredictiveDashboard() {
           ? Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-24 rounded-2xl bg-white border border-slate-200" />
             ))
-          : summaryCards.map((card) => {
+          : displaySummaryCards.map((card) => {
+              if (card.id === "registered_cattle_price" && externalCattlePriceCard) {
+                const selectedPriceCard = activeTargetId === "external_cattle_price"
+                  ? externalCattlePriceCard
+                  : card;
+                const isSelected = activeTargetId === "registered_cattle_price"
+                  || activeTargetId === "external_cattle_price";
+                const isCardValidated = selectedPriceCard.validation_status === "VALIDATED";
+                const isCardAvailable = selectedPriceCard.forecast_available;
+
+                return (
+                  <div
+                    key="cattle_price"
+                    className={`relative flex flex-col justify-between rounded-2xl p-4 transition-all duration-200 border ${
+                      isSelected
+                        ? "border-2 border-emerald-600 bg-emerald-50/70 shadow-sm"
+                        : "border border-slate-200 bg-white shadow-2xs"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className={`flex size-9 items-center justify-center rounded-xl ${
+                        isSelected ? "bg-emerald-600 text-white shadow-2xs" : "bg-slate-100 text-slate-600"
+                      }`}>
+                        <Scale className="size-4.5" />
+                      </div>
+                      {isCardValidated ? (
+                        <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-mono font-bold">
+                          Checked with past records
+                        </Badge>
+                      ) : isCardAvailable ? (
+                        <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-mono font-bold">
+                          Not checked yet
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-mono">
+                          No estimate yet
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="mt-3">
+                      <div className="text-xs font-mono uppercase text-slate-400 tracking-wider">
+                        {readableDomain(card.domain)} | {readableReportingType(card.reporting_type)}
+                      </div>
+                      <div className="mt-0.5 text-sm font-bold text-slate-900">
+                        Cattle Price per Head
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+                        <span>{formatTargetUnit(card.unit)}</span>
+                        <span className="font-mono font-semibold text-emerald-700">
+                          {selectedPriceCard.usable_observations} weeks of records
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex rounded-lg border border-slate-200 bg-white p-1" role="group" aria-label="Cattle price source">
+                      {[card, externalCattlePriceCard].map((sourceCard) => {
+                        const isSourceSelected = sourceCard.id === activeTargetId;
+                        const sourceLabel = sourceCard.id === "registered_cattle_price" ? "Registered" : "External";
+                        return (
+                          <button
+                            key={sourceCard.id}
+                            type="button"
+                            aria-pressed={isSourceSelected}
+                            onClick={() => {
+                              setSelectedTargetId(sourceCard.id);
+                              setTimelinePage(0);
+                            }}
+                            className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                              isSourceSelected
+                                ? "bg-emerald-700 text-white shadow-2xs"
+                                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                            }`}
+                          >
+                            {sourceLabel}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+
               const Icon = getTargetIcon(card.id);
               const isSelected = card.id === activeTargetId;
               const isCardValidated = card.validation_status === "VALIDATED";
@@ -657,6 +794,19 @@ export function FuturisticPredictiveDashboard() {
       {/* ----------------------------------------------------------------- */}
       {/* C. MAIN FORECAST VISUALIZATION (THE MISSION CONTROL CENTERPIECE)  */}
       {/* ----------------------------------------------------------------- */}
+      {isCattlePriceForecast && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Cattle price view">
+          {([ ["trend", "Weekly Price Trend"], ["profile", "Price by Animal Profile"] ] as const).map(([value, label]) => (
+            <button key={value} type="button" aria-pressed={cattlePriceView === value} onClick={() => setCattlePriceView(value)} className={`rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors ${cattlePriceView === value ? "border-emerald-700 bg-emerald-700 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {isCattlePriceForecast && cattlePriceView === "profile" ? (
+        <CattleProfilePrice key={activeTargetId} source={isRegisteredCattlePriceForecast ? "REGISTERED" : "EXTERNAL"} />
+      ) : (
+      <>
       <Card className="overflow-hidden rounded-2xl border border-emerald-200/90 bg-white shadow-xs">
         <CardHeader className="border-b border-slate-100 bg-slate-50/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -706,10 +856,12 @@ export function FuturisticPredictiveDashboard() {
             <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs leading-relaxed text-slate-700">
               <>
                 <p>
-                  <strong className="text-slate-900">Price basis:</strong> This is the weekly average recorded purchase price per animal from approved cattle transfers. It is not a price per kilogram or a market-wide quote, and it does not adjust for weight, breed, age, or sex.
+                  <strong className="text-slate-900">Price basis:</strong> This is the weekly average recorded purchase price per head from {cattlePriceSourceDescription}. It is not a per-kilogram price and does not adjust for weight, breed, age, or sex.
                 </p>
                 <p className="mt-1">
-                  The estimate uses approved cattle transfers recorded in SmartLivestock and does not represent the full auction market. Seeded transfers are synthetic examples, not actual cattle prices.
+                  {isRegisteredCattlePriceForecast
+                    ? "Includes only transfers linked to a registered cattle record in SmartLivestock."
+                    : "Includes only external cattle transfer records without a linked cattle record; other market activity may be missing."} Seeded transfers are synthetic examples, not actual cattle prices.
                 </p>
               </>
             </div>
@@ -724,25 +876,23 @@ export function FuturisticPredictiveDashboard() {
               </div>
               <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Past records time range">
                 {[3, 6, 12].map((months) => (
-                  <Button
+                  <button
                     key={months}
                     type="button"
-                    variant="outline"
-                    size="sm"
                     aria-pressed={historyWindowMonths === months}
                     disabled={!hasWeeklyHistory}
                     onClick={() => {
                       setHistoryWindowMonths(months);
                       setTimelinePage(0);
                     }}
-                    className={`h-8 border px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${
+                    className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
                       historyWindowMonths === months
-                        ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                        ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800 shadow-2xs font-bold"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                     }`}
                   >
                     {months} months
-                  </Button>
+                  </button>
                 ))}
               </div>
             </div>
@@ -1562,6 +1712,8 @@ export function FuturisticPredictiveDashboard() {
           </Card>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

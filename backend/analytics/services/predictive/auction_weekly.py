@@ -23,6 +23,7 @@ from .models import ARIMAForecaster, HoltWintersForecaster
 
 from livestock.models import LivestockOwnershipTransfer
 from analytics.seed_markers import (
+    SEED_MARKER_CATTLE_PRICE_DEMO,
     SEED_MARKER_AUCTION,
     SEED_MARKER_OWNERSHIP_TRANSFER,
     SEED_MARKER_FORECAST_QUALITY_IDEAL,
@@ -35,6 +36,7 @@ MIN_HISTORY_WEEKS = 12
 MAX_HORIZON_WEEKS = 12
 MAX_BACKTEST_WINDOWS = 8
 SYNTHETIC_TRANSFER_MARKERS = (
+    SEED_MARKER_CATTLE_PRICE_DEMO,
     SEED_MARKER_OWNERSHIP_TRANSFER,
     SEED_MARKER_FORECAST_QUALITY_IDEAL,
     SEED_MARKER_FORECAST_QUALITY_POOR,
@@ -42,11 +44,18 @@ SYNTHETIC_TRANSFER_MARKERS = (
 )
 
 
-def _filtered_sales(target: str, user=None):
+def _filtered_sales(target: str, user=None, transfer_source: Optional[str] = None):
     qs = scope_reviewer_queryset(LivestockOwnershipTransfer.objects.all(), user).filter(
         status=LivestockOwnershipTransfer.Status.APPROVED,
         transfer_date__isnull=False,
     )
+    source = (transfer_source or "").strip().upper()
+    if source == "REGISTERED":
+        qs = qs.filter(livestock__isnull=False)
+    elif source == "EXTERNAL":
+        qs = qs.filter(livestock__isnull=True)
+    elif source:
+        raise ValueError("transfer_source must be REGISTERED, EXTERNAL, or omitted.")
     target = (target or "ALL").upper()
     if target not in {"ALL", "HEADS", "TRANSACTIONS", "SALES", "PHP", "PHP_PER_HEAD", "AVG_PHP_PER_HEAD", "PRICE_PER_HEAD"}:
         qs = qs.filter(
@@ -56,7 +65,9 @@ def _filtered_sales(target: str, user=None):
     return qs
 
 
-def build_weekly_auction_series(target="ALL", unit="HEADS", user=None) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def build_weekly_auction_series(
+    target="ALL", unit="HEADS", user=None, transfer_source: Optional[str] = None
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """Aggregate approved transfer events into Monday-Sunday calendar weeks."""
     unit = (unit or "HEADS").upper()
     if unit in {"SALES", "TRANSACTIONS", "COUNT"}:
@@ -72,7 +83,12 @@ def build_weekly_auction_series(target="ALL", unit="HEADS", user=None) -> Tuple[
     requires_specific_target = unit == "PHP_PER_HEAD" and target_clean in {
         "ALL", "HEADS", "TRANSACTIONS", "SALES", "PHP", "PHP_PER_HEAD", "AVG_PHP_PER_HEAD", "PRICE_PER_HEAD"
     }
-    qs = LivestockOwnershipTransfer.objects.none() if requires_specific_target else _filtered_sales(target, user)
+    transfer_source_clean = (transfer_source or "").strip().upper() or None
+    qs = (
+        LivestockOwnershipTransfer.objects.none()
+        if requires_specific_target
+        else _filtered_sales(target, user, transfer_source_clean)
+    )
     raw_rows = qs.values_list(
         "pk", "transfer_certificate_number", "livestock_id", "transfer_date", "purchase_price",
         "created_at", "reviewed_at", "review_remarks"
@@ -199,10 +215,17 @@ def build_weekly_auction_series(target="ALL", unit="HEADS", user=None) -> Tuple[
         "domain": "auction", "target": target_clean, "unit": unit,
         "frequency": "WEEKLY", "week_boundary": "Monday-Sunday; only complete weeks included",
         "scope": (
-            "Average recorded purchase price per approved transfer for the selected livestock type; this is not a per-kilogram price or a complete market quotation."
+            (
+                "Average recorded purchase price per approved transfer linked to registered livestock inventory; this is not a per-kilogram price."
+                if transfer_source_clean == "REGISTERED" else
+                "Average recorded purchase price per approved external-market transfer; this is not a per-kilogram price or a complete market quotation."
+                if transfer_source_clean == "EXTERNAL" else
+                "Average recorded purchase price per approved transfer for the selected livestock type; this is not a per-kilogram price or a complete market quotation."
+            )
             if unit == "PHP_PER_HEAD" else
             "Approved livestock transfers recorded in SmartLivestock; other market activity may not be included"
         ),
+        "transfer_source": transfer_source_clean,
         "target_requirement_note": (
             "Select one livestock type to estimate an average price per head. Prices across different livestock types are not comparable."
             if requires_specific_target else None
@@ -340,10 +363,13 @@ def _metric_summary(actual: List[float], predicted: List[float]) -> Dict[str, Op
     }
 
 
-def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=None) -> Dict[str, Any]:
+def evaluate_weekly_auction(
+    target="ALL", unit="HEADS", horizon_weeks=6, user=None,
+    transfer_source: Optional[str] = None,
+) -> Dict[str, Any]:
     """Evaluate weekly transfer totals at independent rolling cutoffs."""
     horizon = max(1, min(int(horizon_weeks), MAX_HORIZON_WEEKS))
-    df, meta = build_weekly_auction_series(target, unit, user)
+    df, meta = build_weekly_auction_series(target, unit, user, transfer_source)
     obs_count = int(meta["total_weekly_observations"])
     missing_count = int(meta["missing_week_count"])
     candidate_names = [
@@ -525,7 +551,10 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
         "readiness_details": message,
         "message": message,
         "domain": "auction", "scope": meta["scope"],
-        "target": {"domain": "auction", "target": meta["target"], "unit": meta["unit"], "frequency": "WEEKLY"},
+        "target": {
+            "domain": "auction", "target": meta["target"], "unit": meta["unit"],
+            "frequency": "WEEKLY", "transfer_source": meta.get("transfer_source"),
+        },
         "frequency": "WEEKLY", "available_observations": obs_count,
         "required_observations": MIN_HISTORY_WEEKS,
         "historical_start_date": meta["first_week"], "historical_end_date": meta["last_complete_week"],
@@ -567,11 +596,14 @@ def evaluate_weekly_auction(target="ALL", unit="HEADS", horizon_weeks=6, user=No
     }
 
 
-def generate_weekly_auction_forecast(target="ALL", unit="HEADS", horizon_weeks=6, preferred_model=None, user=None) -> Dict[str, Any]:
+def generate_weekly_auction_forecast(
+    target="ALL", unit="HEADS", horizon_weeks=6, preferred_model=None, user=None,
+    transfer_source: Optional[str] = None,
+) -> Dict[str, Any]:
     """Return next-week projections, retaining the complete weekly actual history."""
-    result = evaluate_weekly_auction(target, unit, horizon_weeks, user)
+    result = evaluate_weekly_auction(target, unit, horizon_weeks, user, transfer_source)
     if not result["forecast_available"]:
-        df, _ = build_weekly_auction_series(target, unit, user)
+        df, _ = build_weekly_auction_series(target, unit, user, transfer_source)
         chart_data = [
             {
                 "date": row.week.date().isoformat(),
@@ -584,7 +616,7 @@ def generate_weekly_auction_forecast(target="ALL", unit="HEADS", horizon_weeks=6
         ]
         result.update({"forecast": [], "chart_data": chart_data})
         return result
-    df, meta = build_weekly_auction_series(target, unit, user)
+    df, meta = build_weekly_auction_series(target, unit, user, transfer_source)
     winner = result["selection"].get("selected_model")
     model_name = preferred_model or winner or "Naive Baseline"
     horizon = result["data"]["horizon_weeks"]

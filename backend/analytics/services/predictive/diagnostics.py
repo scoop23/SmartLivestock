@@ -109,19 +109,33 @@ CORE_DIAGNOSTIC_TARGETS = [
         "description": "Approved ownership transfers (one animal per transfer event), including transfers on all weekdays.",
     },
     {
-        "id": "cattle_price",
+        "id": "registered_cattle_price",
         "domain": "auction",
         "target": "CATTLE",
         "unit": "PHP_PER_HEAD",
-        "label": "Cattle Price per Head",
+        "transfer_source": "REGISTERED",
+        "label": "Registered Cattle Price per Head",
         "commodity_type": "LIVE_ANIMAL_PRICE",
         "reporting_type": "SALE_PRICE_BASED",
-        "description": "Weekly average recorded sale price per cattle transfer; not weight-adjusted or a market-wide quotation.",
+        "description": "Weekly average recorded price per head for approved cattle transfers linked to registered inventory.",
+    },
+    {
+        "id": "external_cattle_price",
+        "domain": "auction",
+        "target": "CATTLE",
+        "unit": "PHP_PER_HEAD",
+        "transfer_source": "EXTERNAL",
+        "label": "External Cattle Price per Head",
+        "commodity_type": "LIVE_ANIMAL_PRICE",
+        "reporting_type": "SALE_PRICE_BASED",
+        "description": "Weekly average recorded price per head for approved external-market cattle transfers.",
     },
 ]
 
 
-def _approval_status_breakdown(domain: str, target: str, unit: str, user=None) -> Dict[str, Any]:
+def _approval_status_breakdown(
+    domain: str, target: str, unit: str, user=None, transfer_source: Optional[str] = None
+) -> Dict[str, Any]:
     """Count target-source rows by their actual workflow status, within reviewer scope."""
     current_month = localdate().replace(day=1)
     domain = (domain or "").lower()
@@ -163,8 +177,16 @@ def _approval_status_breakdown(domain: str, target: str, unit: str, user=None) -
                 Q(livestock__livestock_type__name__icontains=target)
                 | Q(external_livestock_type__icontains=target)
             )
+        source = (transfer_source or "").strip().upper()
+        if source == "REGISTERED":
+            queryset = queryset.filter(livestock__isnull=False)
+            scope_note = "Status of transfers linked to registered livestock records and dated before the current Monday; counts are transfer events."
+        elif source == "EXTERNAL":
+            queryset = queryset.filter(livestock__isnull=True)
+            scope_note = "Status of external-market transfer records dated before the current Monday; counts are transfer events."
+        else:
+            scope_note = "Current workflow status for ownership transfers dated before the current Monday; status totals count transfer events, not distinct animals or market coverage."
         model = LivestockOwnershipTransfer
-        scope_note = "Current workflow status for ownership transfers dated before the current Monday; status totals count transfer events, not distinct animals or market coverage."
     else:
         return {
             "available": False,
@@ -425,11 +447,15 @@ def _build_readiness_checklist(
     return checklist
 
 
-def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks: int) -> Dict[str, Any]:
+def _get_auction_weekly_diagnostics(
+    target: str, unit: str, user, horizon_weeks: int, transfer_source: Optional[str] = None
+) -> Dict[str, Any]:
     """Build auction readiness data using weekly, not monthly, observations."""
-    evaluation = evaluate_weekly_auction(target, unit, horizon_weeks, user)
+    evaluation = evaluate_weekly_auction(target, unit, horizon_weeks, user, transfer_source)
     forecast_result = (
-        generate_weekly_auction_forecast(target, unit, horizon_weeks, user=user)
+        generate_weekly_auction_forecast(
+            target, unit, horizon_weeks, user=user, transfer_source=transfer_source
+        )
         if evaluation.get("forecast_available") else evaluation
     )
     data = evaluation.get("data", {})
@@ -454,6 +480,16 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
             Q(livestock__livestock_type__name__icontains=target_clean)
             | Q(external_livestock_type__icontains=target_clean)
         )
+    source = (transfer_source or "").strip().upper()
+    if source == "REGISTERED":
+        scoped_sales = scoped_sales.filter(livestock__isnull=False)
+    elif source == "EXTERNAL":
+        scoped_sales = scoped_sales.filter(livestock__isnull=True)
+    price_source_label = (
+        "registered cattle" if source == "REGISTERED" else
+        "external cattle" if source == "EXTERNAL" else
+        "cattle"
+    )
     approved_qs = scoped_sales.filter(status=LivestockOwnershipTransfer.Status.APPROVED)
     missing_review_count = approved_qs.filter(reviewed_at__isnull=True).count()
     synthetic_count = approved_qs.filter(review_remarks__contains="AI_SEED").count()
@@ -516,23 +552,28 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
         {**row, "forecast": None, "is_future": False} for row in evaluation.get("historical_trend", [])
     ])
     return {
-        "metric_id": f"auction_{target_clean.lower()}_{unit.lower()}",
-        "domain": "auction", "target": target_clean, "unit": evaluation.get("target", {}).get("unit", unit),
+        "metric_id": f"auction_{target_clean.lower()}_{unit.lower()}" + (f"_{source.lower()}" if source else ""),
+        "domain": "auction", "target": target_clean,
+        "unit": evaluation.get("target", {}).get("unit", unit),
+        "transfer_source": source or None,
         "label": (
-            "Average cattle sale price per head" if unit == "PHP_PER_HEAD" else
+            f"{price_source_label.title()} price per head" if unit == "PHP_PER_HEAD" else
             "Completed transfer events" if unit == "TRANSACTIONS" else
             "Animals transferred" if unit == "HEADS" else
             "Recorded transfer value"
         ),
-        "source": "Approved livestock transfers", "frequency": "WEEKLY",
+        "source": (
+            f"Approved {price_source_label} transfers" if source else
+            "Approved livestock transfers"
+        ), "frequency": "WEEKLY",
         "reporting_type": "SALE_PRICE_BASED" if unit == "PHP_PER_HEAD" else "TRANSFER_EVENT_BASED",
         "expected_reporting": (
-            "Each approved cattle transfer should have a recorded purchase price. A week without priced transfers has no known average."
+            f"Each approved {price_source_label} transfer should have a recorded purchase price. A week without priced transfers has no known average."
             if unit == "PHP_PER_HEAD" else
             "SmartLivestock does not record all market activity. A week without transfers may mean no sale or missing records."
         ),
         "minimum_rule": (
-            f"At least {required_count} complete weekly cattle price averages in a row, with a price on every approved transfer."
+            f"At least {required_count} complete weekly {price_source_label} price averages in a row, with a price on every included approved transfer."
             if unit == "PHP_PER_HEAD" else
             f"At least {required_count} complete weeks of records in a row. Missing weeks are not counted as zero."
         ),
@@ -546,9 +587,9 @@ def _get_auction_weekly_diagnostics(target: str, unit: str, user, horizon_weeks:
         "readiness_details": evaluation.get("readiness_details", message),
         "blocker_summary": message,
         "next_step": (
-            "Keep approved cattle transfer dates and prices complete. Record weight and animal characteristics before using prices to compare market value."
+            f"Keep approved {price_source_label} transfer dates and prices complete. This average does not adjust for weight, breed, age, or sex."
             if unit == "PHP_PER_HEAD" and evaluation.get("forecast_available") else
-            "Continue recording and approving cattle transfers with prices. A week without priced transfers has no known average."
+            f"Continue recording and approving {price_source_label} transfers with prices. A week without priced transfers has no known average."
             if unit == "PHP_PER_HEAD" else
             "Keep weekly transfer records complete and dated. Record daily market activity to compare sales by weekday."
             if evaluation.get("forecast_available") else
@@ -594,6 +635,7 @@ def get_forecast_readiness_diagnostics(
     unit: str = "LITERS",
     user=None,
     horizon_months: int = 6,
+    transfer_source: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Generates a complete, evidence-based diagnostic assessment for a specific municipal forecast target.
@@ -619,9 +661,10 @@ def get_forecast_readiness_diagnostics(
             unit=unit_clean,
             user=user,
             horizon_weeks=horizon_months,
+            transfer_source=transfer_source,
         )
         diagnostic["progress"]["approval_status_breakdown"] = _approval_status_breakdown(
-            domain, target_clean, unit_clean, user
+            domain, target_clean, unit_clean, user, transfer_source
         )
         return diagnostic
 
@@ -1020,6 +1063,7 @@ def get_all_forecast_readiness_diagnostics(
             unit=target_config["unit"],
             user=user,
             horizon_months=horizon_months,
+            transfer_source=target_config.get("transfer_source"),
         )
         diag["config"] = target_config
         diagnostics_by_id[target_config["id"]] = diag
@@ -1031,6 +1075,7 @@ def get_all_forecast_readiness_diagnostics(
             "domain": target_config["domain"],
             "target": target_config["target"],
             "unit": target_config["unit"],
+            "transfer_source": target_config.get("transfer_source"),
             "reporting_type": target_config["reporting_type"],
             "frequency": diag.get("frequency", "MONTHLY"),
             "observation_label": "wk" if diag.get("frequency") == "WEEKLY" else "mo",

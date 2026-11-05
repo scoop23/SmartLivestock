@@ -762,6 +762,12 @@ def predictive_readiness_diagnostics(request):
     domain = request.query_params.get("domain")
     target = request.query_params.get("target") or request.query_params.get("production_type")
     unit = request.query_params.get("unit")
+    transfer_source = (request.query_params.get("transfer_source") or "").strip().upper() or None
+    if transfer_source not in {None, "REGISTERED", "EXTERNAL"}:
+        return Response(
+            {"detail": "transfer_source must be REGISTERED or EXTERNAL."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     parameters = ForecastHorizonSerializer(data=request.query_params)
     parameters.is_valid(raise_exception=True)
     horizon = parameters.validated_data["horizon"]
@@ -781,6 +787,7 @@ def predictive_readiness_diagnostics(request):
                 unit=unit or ("LITERS" if (domain or "production") == "production" else "HEADS"),
                 user=request.user,
                 horizon_months=horizon,
+                transfer_source=transfer_source,
             )
         else:
             res = get_all_forecast_readiness_diagnostics(
@@ -1074,3 +1081,42 @@ def gis_summary(request):
     from .services.gis import get_gis_aggregated_data
 
     return Response(get_gis_aggregated_data(user=request.user))
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def cattle_profile_price(request):
+    from rest_framework import serializers
+    from .services.cattle_price import estimate_price
+    class ProfileSerializer(serializers.Serializer):
+        # Validate both UI controls and direct API requests on the server.
+        source = serializers.ChoiceField(choices=["REGISTERED", "EXTERNAL"])
+        data_mode = serializers.ChoiceField(choices=["AUTO", "REAL", "DEMO"], default="AUTO")
+        sex = serializers.ChoiceField(choices=["MALE", "FEMALE"])
+        breed = serializers.CharField(max_length=50)
+        age_months = serializers.IntegerField(min_value=1, max_value=360, required=False)
+        age_min_months = serializers.IntegerField(min_value=1, max_value=360, required=False)
+        age_max_months = serializers.IntegerField(min_value=1, max_value=360, required=False)
+        weight_kg = serializers.FloatField(min_value=1, max_value=9999, required=False)
+        weight_min_kg = serializers.FloatField(min_value=1, max_value=9999, required=False)
+        weight_max_kg = serializers.FloatField(min_value=1, max_value=9999, required=False)
+        horizon_weeks = serializers.IntegerField(min_value=1, max_value=12, default=6)
+
+        def validate(self, attrs):
+            from math import isfinite
+            for exact, lower, upper in (
+                ("age_months", "age_min_months", "age_max_months"),
+                ("weight_kg", "weight_min_kg", "weight_max_kg"),
+            ):
+                if any(key in attrs and not isfinite(attrs[key]) for key in (exact, lower, upper)):
+                    raise serializers.ValidationError("Age and weight must be finite numbers.")
+                if exact in attrs and (lower in attrs or upper in attrs):
+                    raise serializers.ValidationError("Choose an exact value or a range for each trait.")
+                if (lower in attrs) != (upper in attrs):
+                    raise serializers.ValidationError("Provide both ends of the selected range.")
+                if lower in attrs and attrs[lower] > attrs[upper]:
+                    raise serializers.ValidationError("The minimum must not exceed the maximum.")
+            return attrs
+    payload = ProfileSerializer(data=request.data)
+    payload.is_valid(raise_exception=True)
+    return Response(estimate_price(request.user, payload.validated_data))

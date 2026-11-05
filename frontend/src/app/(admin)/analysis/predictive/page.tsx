@@ -3,7 +3,7 @@
 import { Suspense } from 'react';
 import { PageHeader } from '@/app/components/page-header';
 import { AnalyticsNav } from '@/app/components/analytics/analytics-nav';
-import { FuturisticPredictiveDashboard } from '@/app/components/analytics/futuristic-predictive-dashboard';
+import { FuturisticPredictiveDashboard, PredictiveLoadingScreen } from '@/app/components/analytics/futuristic-predictive-dashboard';
 import { TrendingUp } from 'lucide-react';
 
 export default function PredictiveAnalyticsLandingPage() {
@@ -21,7 +21,7 @@ export default function PredictiveAnalyticsLandingPage() {
         <AnalyticsNav currentSection="predictive" />
 
         <div className="w-full">
-          <Suspense fallback={<div className="h-96 w-full animate-pulse rounded-2xl bg-slate-100" />}>
+          <Suspense fallback={<PredictiveLoadingScreen />}>
             <FuturisticPredictiveDashboard />
           </Suspense>
         </div>
