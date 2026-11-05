@@ -655,13 +655,7 @@ export default function PrescriptiveAnalyticsView() {
             return (
               <Card
                 key={rec.rule}
-                className={`overflow-hidden rounded-2xl border transition-all duration-200 bg-white ${
-                  rec.severity === "HIGH"
-                    ? "border-l-4 border-l-rose-500 border-slate-200/90 shadow-2xs hover:border-rose-400"
-                    : rec.severity === "MEDIUM"
-                    ? "border-l-4 border-l-amber-500 border-slate-200/90 shadow-2xs hover:border-amber-400"
-                    : "border-l-4 border-l-sky-500 border-slate-200/90 shadow-2xs hover:border-sky-400"
-                }`}
+                className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200"
               >
                 <div className="p-4 sm:p-5 space-y-4">
                   {/* Card Header Ribbon */}
@@ -669,16 +663,18 @@ export default function PrescriptiveAnalyticsView() {
                     <div className="space-y-1.5 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {rec.severity === "HIGH" ? (
-                          <Badge className="bg-rose-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs">
-                            <span className="size-1.5 rounded-full bg-white animate-pulse" />
+                          <Badge className="bg-rose-50 text-rose-800 border border-rose-200/90 font-bold text-xs inline-flex items-center gap-1.5 px-2.5 py-0.5 shadow-2xs">
+                            <span className="size-1.5 rounded-full bg-rose-600 shrink-0" />
                             High Priority Directive
                           </Badge>
                         ) : rec.severity === "MEDIUM" ? (
-                          <Badge className="bg-amber-500 text-white font-bold text-xs">
+                          <Badge className="bg-amber-50 text-amber-800 border border-amber-200/90 font-bold text-xs inline-flex items-center gap-1.5 px-2.5 py-0.5 shadow-2xs">
+                            <span className="size-1.5 rounded-full bg-amber-600 shrink-0" />
                             Medium Priority Advisory
                           </Badge>
                         ) : (
-                          <Badge className="bg-sky-600 text-white font-bold text-xs">
+                          <Badge className="bg-slate-100 text-slate-700 border border-slate-200 font-semibold text-xs inline-flex items-center gap-1.5 px-2.5 py-0.5 shadow-2xs">
+                            <span className="size-1.5 rounded-full bg-slate-500 shrink-0" />
                             Informational Notice
                           </Badge>
                         )}
@@ -718,22 +714,22 @@ export default function PrescriptiveAnalyticsView() {
                   </div>
 
                   {/* Recommendation Directive Callout */}
-                  <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="rounded-xl border border-emerald-200/90 bg-[#F4F8F5] p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      <div className="size-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
+                      <div className="size-8 rounded-lg bg-[#1E4D2B] text-white flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
                         <CheckCircle2 className="size-4.5 stroke-[2.5]" />
                       </div>
                       <div className="space-y-0.5">
                         <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">
-                          Recommended Municipal Action Directive:
+                          Municipal Action Directive:
                         </span>
-                        <p className="text-xs sm:text-sm text-emerald-950 leading-relaxed font-semibold">
+                        <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-semibold">
                           {rec.recommendation}
                         </p>
                       </div>
                     </div>
 
-                    <Button asChild size="sm" className="bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold shrink-0 gap-1.5 shadow-2xs cursor-pointer">
+                    <Button asChild size="sm" className="bg-[#1E4D2B] hover:bg-[#163b21] text-white text-xs font-bold shrink-0 gap-1.5 shadow-2xs cursor-pointer rounded-xl h-9 px-4">
                       <Link href={actionLink.href}>
                         <span>{actionLink.label}</span>
                         <ArrowRight className="size-3.5" />
