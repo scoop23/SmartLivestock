@@ -501,7 +501,10 @@ export function NotificationsView({
                           </div>
 
                           {/* Text Block */}
-                          <div className="min-w-0 flex-1">
+                          <div
+                            className="min-w-0 flex-1 cursor-pointer"
+                            onClick={() => handleOpenDetails(notif)}
+                          >
                             <div className="flex flex-wrap items-baseline gap-1.5 leading-snug">
                               {renderFormattedTitle(notif.title, notif.message)}
                             </div>

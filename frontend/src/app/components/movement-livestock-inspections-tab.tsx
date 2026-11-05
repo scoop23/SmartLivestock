@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { reviewInspection, type InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
+import { fetchInspectionDetail, reviewInspection, type InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Activity, Check, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Clock, Eye, FileCheck2, FileText, MapPin, RefreshCw, RotateCcw, Search, ShieldAlert } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -45,6 +46,7 @@ export function MovementLivestockInspectionsTab({
   isError,
 }: MovementLivestockInspectionsTabProps) {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
   const [statusFilter, setStatusFilter] = useState<InspectionStatusFilter>("PENDING");
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -54,23 +56,50 @@ export function MovementLivestockInspectionsTab({
   const [approveConfirmTarget, setApproveConfirmTarget] = useState<InspectionRecord | null>(null);
   const pageSize = 10;
 
-  const deepLinkedInspectionRef = useRef<string | null>(null);
-
   // Deep-linking from notification ?inspectionId=123
   useEffect(() => {
-    if (isLoading || !inspections.length || typeof window === "undefined") return;
-    const inspectionId = new URLSearchParams(window.location.search).get("inspectionId");
-    if (!inspectionId || deepLinkedInspectionRef.current === inspectionId) return;
+    const inspectionId = searchParams.get("inspectionId");
+    if (!inspectionId) return;
 
+    const queryLower = inspectionId.trim().toLowerCase();
+
+    // 1. Try to find in loaded inspections list
     const found = inspections.find(
-      (item) => String(item.id) === inspectionId || item.control_number === inspectionId
+      (item) =>
+        String(item.id) === queryLower ||
+        item.control_number?.toLowerCase() === queryLower ||
+        item.clearance?.control_number?.toLowerCase() === queryLower
     );
+
     if (found) {
-      deepLinkedInspectionRef.current = inspectionId;
       setStatusFilter("ALL");
       setSelectedInspection(found);
+
+      const timer = setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("inspectionId");
+        window.history.replaceState({}, "", url.toString());
+      }, 50);
+
+      return () => clearTimeout(timer);
     }
-  }, [inspections, isLoading]);
+
+    // 2. Direct fetch fallback if not in array
+    if (!isLoading && !found && /^\d+$/.test(inspectionId)) {
+      fetchInspectionDetail(Number(inspectionId))
+        .then((detail) => {
+          if (detail) {
+            setStatusFilter("ALL");
+            setSelectedInspection(detail);
+
+            const url = new URL(window.location.href);
+            url.searchParams.delete("inspectionId");
+            window.history.replaceState({}, "", url.toString());
+          }
+        })
+        .catch(() => {});
+    }
+  }, [inspections, isLoading, searchParams]);
 
   const review = useMutation({
     mutationFn: ({

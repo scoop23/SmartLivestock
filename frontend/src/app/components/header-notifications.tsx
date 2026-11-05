@@ -48,7 +48,8 @@ export type NotificationType =
   | "production"
   | "sibat"
   | "weather"
-  | "general";
+  | "general"
+  | "inspection";
 
 export interface HeaderNotification {
   id: string;
@@ -173,13 +174,17 @@ export const resolveNotificationLink = (
       livestock_batch: (id) => `/livestock-records?tab=herd&batchId=${id}`,
       production_record: (id) => `/production-dashboard?recordId=${id}`,
       program_booking: (id) => `/schedules?bookingId=${id}`,
-      livestock_sale: (id) => `/ownership-transfers?tab=ownership&saleId=${id}`,
+      livestock_sale: (id) => `/ownership-transfers?tab=ownership&transferId=${id}`,
       calving_record: (id) => `/livestock-records?tab=individual&recordId=${id}`,
       disease_case: (id) => `/disease-mortality?tab=disease&recordId=${id}`,
       mortality_record: (id) => `/disease-mortality?tab=mortality&recordId=${id}`,
-      ownership_transfer: (id) => `/ownership-transfers?transferId=${id}`,
+      ownership_transfer: (id) => `/ownership-transfers?tab=ownership&transferId=${id}`,
       census_submission: (id) => `/data-validation?domain=census&recordType=CENSUS&recordId=${id}`,
       inspection: (id) => `/ownership-transfers?tab=inspections&inspectionId=${id}`,
+      movement: (id) => `/ownership-transfers?tab=inspections&inspectionId=${id}`,
+      movement_inspection: (id) => `/ownership-transfers?tab=inspections&inspectionId=${id}`,
+      livestock_inspection: (id) => `/ownership-transfers?tab=inspections&inspectionId=${id}`,
+      inspection_clearance: (id) => `/ownership-transfers?tab=inspections&inspectionId=${id}`,
       slaughter_record: () => `/slaughter-record-review`,
       slaughter_report: () => `/slaughter-record-review`,
     };
@@ -216,19 +221,21 @@ export const resolveNotificationLink = (
     }
 
     // Inspection notifications with inspection ID
-    const inspectionId = notification.message.match(/\bInspection\s*#(\d+)/i)?.[1]
-      ?? notification.title.match(/\bInspection\s*#(\d+)/i)?.[1]
-      ?? notification.link?.match(/[?&]inspectionId=(\d+)/)?.[1];
-    if (inspectionId || /inspection/i.test(notification.title + " " + notification.message)) {
+    const inspectionId = notification.related_entity_id
+      ?? notification.message.match(/\b(?:Inspection|Record)\s*#?([A-Za-z0-9-]+)/i)?.[1]
+      ?? notification.title.match(/\b(?:Inspection|Record)\s*#?([A-Za-z0-9-]+)/i)?.[1]
+      ?? notification.link?.match(/[?&]inspectionId=([A-Za-z0-9-]+)/)?.[1];
+    if (inspectionId || /inspection|movement/i.test(notification.title + " " + notification.message)) {
       return `/ownership-transfers?tab=inspections${inspectionId ? `&inspectionId=${inspectionId}` : ""}`;
     }
 
     // Ownership transfer notices
-    const transferId = notification.message.match(/\bTransfer\s*#(\d+)/i)?.[1]
-      ?? notification.title.match(/\bTransfer\s*#(\d+)/i)?.[1]
-      ?? notification.link?.match(/[?&]transferId=(\d+)/)?.[1];
-    if (transferId || /transfer/i.test(notification.title + " " + notification.message)) {
-      return `/ownership-transfers${transferId ? `?transferId=${transferId}` : ""}`;
+    const transferId = notification.related_entity_id
+      ?? notification.message.match(/\bTransfer(?:\s+certificate)?\s*#?([A-Za-z0-9-]+)/i)?.[1]
+      ?? notification.title.match(/\bTransfer(?:\s+certificate)?\s*#?([A-Za-z0-9-]+)/i)?.[1]
+      ?? notification.link?.match(/[?&](?:transferId|saleId)=([A-Za-z0-9-]+)/)?.[1];
+    if (transferId || /transfer|ownership/i.test(notification.title + " " + notification.message)) {
+      return `/ownership-transfers?tab=ownership${transferId ? `&transferId=${transferId}` : ""}`;
     }
 
     // Slaughterhouse records
@@ -263,7 +270,7 @@ export const resolveNotificationLink = (
           return `/ownership-transfers?tab=inspections${recordId ? `&inspectionId=${recordId}` : ""}`;
         }
         if (recordType === "SALE" || /sale/i.test(notification.title)) {
-          return `/ownership-transfers?tab=ownership${recordId ? `&saleId=${recordId}` : ""}`;
+          return `/ownership-transfers?tab=ownership${recordId ? `&transferId=${recordId}` : ""}`;
         }
         if (recordType === "CALVING" || /calving|birth/i.test(notification.title)) {
           return `/livestock-records?tab=individual${recordId ? `&recordId=${recordId}` : ""}`;
@@ -278,7 +285,7 @@ export const resolveNotificationLink = (
           return `/disease-mortality`;
         }
         if (domain === "transfers" || transferIdParam) {
-          return `/ownership-transfers${transferIdParam ? `?transferId=${transferIdParam}` : ""}`;
+          return `/ownership-transfers?tab=ownership${transferIdParam || recordId ? `&transferId=${transferIdParam || recordId}` : ""}`;
         }
       } catch {
         // Fallback below
@@ -296,7 +303,7 @@ export const resolveNotificationLink = (
       return "/ownership-transfers?tab=inspections";
     }
     if (combinedText.includes("transfer") || combinedText.includes("clearance") || combinedText.includes("ownership")) {
-      return "/ownership-transfers";
+      return "/ownership-transfers?tab=ownership";
     }
     if (combinedText.includes("slaughter")) {
       return "/slaughter-record-review";
@@ -738,7 +745,16 @@ export function HeaderNotifications({
     ) {
       return "View Details";
     }
-    return "View Report";
+    if (
+      link.includes("ownership-transfers") ||
+      title.includes("transfer") ||
+      title.includes("inspection") ||
+      title.includes("clearance") ||
+      notif.type === "inspection"
+    ) {
+      return "View Details";
+    }
+    return "View Details";
   };
 
   const getCardIcon = (notif: HeaderNotification) => {
@@ -957,7 +973,15 @@ export function HeaderNotifications({
               return (
                 <div
                   key={notif.id}
-                  className="p-2.5 rounded-xl border border-transparent bg-white hover:bg-slate-50 transition-colors text-left flex items-start gap-2.5 relative group"
+                  onClick={() => {
+                    if (notif.link) {
+                      handleMarkAsRead(notif.id, notif.link);
+                    }
+                  }}
+                  className={cn(
+                    "p-2.5 rounded-xl border border-transparent bg-white hover:bg-slate-50 transition-colors text-left flex items-start gap-2.5 relative group",
+                    notif.link ? "cursor-pointer" : ""
+                  )}
                 >
                   {/* Left Icon Container */}
                   <div
@@ -981,9 +1005,10 @@ export function HeaderNotifications({
                           <span className="size-2 sm:size-2.5 rounded-full bg-[#10B981] shrink-0" />
                         )}
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
+                              onClick={(e) => e.stopPropagation()}
                               className="text-slate-400 hover:text-slate-600 p-0.5 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
                               aria-label="Notification actions"
                             >
@@ -993,7 +1018,10 @@ export function HeaderNotifications({
                           <DropdownMenuContent align="end" className="rounded-xl p-1 text-xs font-semibold">
                             {!notif.read && (
                               <DropdownMenuItem
-                                onClick={() => handleMarkAsRead(notif.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMarkAsRead(notif.id);
+                                }}
                                 className="cursor-pointer"
                               >
                                 <Check className="size-3.5 mr-1.5" />
@@ -1001,7 +1029,10 @@ export function HeaderNotifications({
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem
-                              onClick={() => handleDeleteNotification(notif.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteNotification(notif.id);
+                              }}
                               className="text-rose-600 focus:text-rose-600 cursor-pointer"
                             >
                               <Trash2 className="size-3.5 mr-1.5" />
@@ -1037,7 +1068,10 @@ export function HeaderNotifications({
 
                         <button
                           type="button"
-                          onClick={() => handleMarkAsRead(notif.id, notif.link)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkAsRead(notif.id, notif.link);
+                          }}
                           className="bg-[#EDF6FD] hover:bg-[#DBEEFF] text-[#0284C7] hover:text-[#0369A1] border border-[#BAE6FD] text-[11px] sm:text-xs font-bold px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl inline-flex items-center gap-1 sm:gap-1.5 transition-colors cursor-pointer"
                         >
                           <span>{actionText}</span>
