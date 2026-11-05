@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DiseaseCaseFollowUp } from "@/components/disease-case-follow-up";
 import {
 Dialog,
 DialogContent,
@@ -193,6 +194,12 @@ export function DiseaseMortalityReviewDialog({
             </div>
           </div>
         </DialogHeader>
+
+        {open && isDisease && recordStatus === "APPROVED" && (
+          <div className="mb-5">
+            <DiseaseCaseFollowUp key={record.id} caseId={record.id} />
+          </div>
+        )}
 
         {/* ══ EPIDEMIOLOGICAL SUSPECTED FMD CALLOUT (MAO Municipal Context) ══ */}
         {isDisease && (isFmdSuspected || hasFmdPattern) && (

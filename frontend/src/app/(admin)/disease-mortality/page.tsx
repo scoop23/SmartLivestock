@@ -204,7 +204,11 @@ function DiseaseMortalityContent() {
   // Auto-open review dialog when navigated with ?recordId=123 from notifications
   useEffect(() => {
     const recordId = searchParams.get("recordId");
-    if (!recordId || isLoading || healthIncidents.length === 0) return;
+    if (!recordId) {
+      deepLinkedRecordRef.current = null;
+      return;
+    }
+    if (isLoading || healthIncidents.length === 0) return;
     if (deepLinkedRecordRef.current === recordId) return;
 
     const cleanTarget = recordId.trim().toLowerCase();
@@ -810,7 +814,15 @@ function DiseaseMortalityContent() {
         <DiseaseMortalityReviewDialog
           record={healthReviewDialog.record}
           open={healthReviewDialog.open}
-          onOpenChange={(open) => setHealthReviewDialog((prev) => ({ ...prev, open }))}
+          onOpenChange={(open) => {
+            setHealthReviewDialog((prev) => ({ ...prev, open }));
+            if (!open && searchParams.has("recordId")) {
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete("recordId");
+              const query = params.toString();
+              router.replace(`/disease-mortality${query ? `?${query}` : ""}`, { scroll: false });
+            }
+          }}
           onConfirmAction={handleConfirmHealthAction}
         />
 
