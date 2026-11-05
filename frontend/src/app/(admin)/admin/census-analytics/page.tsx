@@ -42,7 +42,7 @@ export default function CensusAnalyticsPage() {
             variant="ghost"
             size="icon"
             onClick={() => refetch()}
-            className="w-10 h-10 rounded-xl bg-slate-900/[0.06] hover:bg-slate-900/10 border border-slate-200 text-slate-800 cursor-pointer shrink-0"
+            className="w-10 h-10 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white cursor-pointer shrink-0"
             title="Refresh census analytics"
           >
             <RotateCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />

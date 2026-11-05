@@ -816,11 +816,7 @@ function LivestockRecordsContent() {
         subtitle="Official Municipal Agriculture Office (MAO) livestock registry, herd inspection, and animal tracking"
         variant="admin"
         maxWidthClass="w-full"
-        icon={
-          <div className="size-9 rounded-xl bg-emerald-100 border border-emerald-300/80 flex items-center justify-center text-emerald-800 font-black shadow-2xs">
-            <CowIcon className="size-5" />
-          </div>
-        }
+        icon={<CowIcon className="size-5" />}
         action={
           <div className="flex items-center gap-2">
             <Button

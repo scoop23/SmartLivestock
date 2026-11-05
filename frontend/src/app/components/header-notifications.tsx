@@ -810,7 +810,7 @@ export function HeaderNotifications({
 
   const buttonStyle = {
     admin:
-      "bg-white hover:bg-slate-50 text-slate-800 border-slate-200/90 shadow-xs",
+      "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
     farmer:
       "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs",
     sibat:

@@ -437,11 +437,7 @@ function DiseaseMortalityContent() {
         subtitle="Official Municipal Agriculture Office (MAO) disease surveillance and mortality field declarations"
         variant="admin"
         maxWidthClass="w-full"
-        icon={
-          <div className="size-9 rounded-xl bg-emerald-100 border border-emerald-300/80 flex items-center justify-center text-emerald-800 font-black shadow-2xs">
-            <ShieldCheck className="size-5" />
-          </div>
-        }
+        icon={<ShieldCheck className="size-5" />}
         action={
           <div className="flex items-center gap-2">
             <Button

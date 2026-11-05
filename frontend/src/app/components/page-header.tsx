@@ -31,7 +31,7 @@ interface PageHeaderProps {
 }
 
 const headerClasses: Record<PageHeaderVariant, string> = {
-  admin: "bg-gradient-to-r from-white via-white to-emerald-50/80 text-slate-900 border-b border-emerald-100/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+  admin: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   farmer: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   sibat: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   cbat: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
@@ -49,7 +49,7 @@ const glowClasses: Record<PageHeaderVariant, string> = {
 };
 
 const chipClasses: Record<PageHeaderVariant, string> = {
-  admin: "bg-emerald-50 text-[#1E4D2B] border border-emerald-100",
+  admin: "bg-white/15 text-white [&_svg]:text-white border border-white/20",
   farmer: "bg-white/15 text-white border border-white/20",
   sibat: "bg-white/15 text-white border border-white/20",
   cbat: "bg-white/15 text-white border border-white/20",
@@ -231,7 +231,7 @@ export function PageHeader({
               </p>
             )}
             {action && (
-              <div className={`w-full gap-2 flex items-center justify-end border-t ${variant === "admin" ? "border-slate-200/80" : "border-white/15"} pt-2.5 ${mobileActionsRow ? "flex" : ""}`}>
+              <div className={`w-full gap-2 flex items-center justify-end border-t border-white/15 pt-2.5 ${mobileActionsRow ? "flex" : ""}`}>
                 {action}
               </div>
             )}
