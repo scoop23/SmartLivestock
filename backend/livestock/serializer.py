@@ -993,7 +993,8 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             "external_seller_name", "external_seller_address", "external_livestock_type", "external_livestock_tag_number",
             "origin_municipality", "origin_province",
             "transfer_certificate_number", "original_certificate_number", "transfer_date",
-            "municipality", "province", "animal_description", "sex_at_transfer",
+            "municipality", "province", "animal_description", "breed_at_transfer",
+            "weight_at_transfer_kg", "sex_at_transfer",
             "age_at_transfer", "municipality_brand", "owner_brand", "purchase_price",
             "status", "reviewed_by", "reviewed_at", "review_remarks", "created_at",
         )
@@ -1123,6 +1124,13 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
         transfer_date = attrs.get("transfer_date", self.instance.transfer_date if self.instance else None)
         if transfer_date is None:
             raise serializers.ValidationError({"transfer_date": "Transfer date is required."})
+        if livestock and self.instance is None and transfer_date == timezone.localdate():
+            # A same-day registered transfer can snapshot each animal's own current traits.
+            # Backdated transfers must provide known sale-time values rather than reuse today's inventory data.
+            if "breed_at_transfer" not in attrs:
+                attrs["breed_at_transfer"] = livestock.breed or ""
+            if "weight_at_transfer_kg" not in attrs:
+                attrs["weight_at_transfer_kg"] = livestock.weight
         if livestock and (livestock.entry_type != LivestockInventory.EntryType.INDIVIDUAL or livestock.quantity != 1):
             raise serializers.ValidationError({"livestock": "Transfers currently require one individually registered animal."})
         if livestock and (livestock.status != LivestockInventory.StatusType.APPROVED or livestock.operational_status != LivestockInventory.OperationalStatus.ACTIVE):

@@ -404,6 +404,15 @@ class LivestockOwnershipTransfer(models.Model):
     municipality = models.CharField(max_length=150)
     province = models.CharField(max_length=150)
     animal_description = models.TextField(blank=True)
+    # Sale-time traits are snapshots so later inventory edits do not rewrite price-history features.
+    breed_at_transfer = models.CharField(max_length=50, blank=True, default="")
+    weight_at_transfer_kg = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.00"))],
+        null=True,
+        blank=True,
+    )
     sex_at_transfer = models.CharField(max_length=10, blank=True)
     age_at_transfer = models.CharField(max_length=50, blank=True)
     municipality_brand = models.CharField(max_length=100, blank=True)

@@ -9,11 +9,13 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -46,6 +48,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 type OwnerType = "REGISTERED_FARMER" | "EXTERNAL_INDIVIDUAL" | "COMPANY" | "TRADER" | "OTHER";
+type LivestockTypeOption = { id: number; name: string };
 type FarmerLookup = {
   id: number;
   name: string;
@@ -61,6 +64,8 @@ type FarmerAnimal = {
   livestock_type_name: string;
   sex: string;
   breed: string;
+  weight: string | null;
+  age: string | null;
   ownership_certificate_number: string;
   registration_status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   transfer_eligible: boolean;
@@ -92,6 +97,8 @@ type Transfer = {
   origin_municipality: string;
   origin_province: string;
   animal_description: string;
+  breed_at_transfer: string;
+  weight_at_transfer_kg: string | null;
   sex_at_transfer: string;
   age_at_transfer: string;
   municipality_brand: string;
@@ -100,7 +107,7 @@ type Transfer = {
 };
 
 type OwnershipTransferSubmission = {
-  values: Record<string, FormDataEntryValue>;
+  values: Record<string, FormDataEntryValue | null>;
   transferId?: number;
   animalCount: number;
   buyerName: string;
@@ -127,6 +134,38 @@ function getOwnershipTransferLoadError(error: unknown, fallback: string) {
   return `${fallback} (HTTP ${status}).`;
 }
 
+function TransferFieldLabel({
+  htmlFor,
+  label,
+  help,
+}: {
+  htmlFor: string;
+  label: string;
+  help: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label htmlFor={htmlFor} className="text-xs font-semibold text-slate-700">
+        {label}
+      </Label>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Help: ${label.replace(/\s*\(optional\)$/i, "")}`}
+            className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+          >
+            <Info className="size-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="start" className="max-w-xs leading-relaxed">
+          {help}
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
 export default function AuctionOwnershipTransfersPage() {
   const queryClient = useQueryClient();
   const [farmerSearch, setFarmerSearch] = useState("");
@@ -137,6 +176,7 @@ export default function AuctionOwnershipTransfersPage() {
   const [buyer, setBuyer] = useState<FarmerLookup | null>(null);
   const [farmerAnimals, setFarmerAnimals] = useState<FarmerAnimal[]>([]);
   const [selectedAnimalIds, setSelectedAnimalIds] = useState<number[]>([]);
+  const [isAnimalModalOpen, setIsAnimalModalOpen] = useState(false);
   const [originalCertificates, setOriginalCertificates] = useState<Record<number, string>>({});
   const [lookupError, setLookupError] = useState("");
   const [isSearchingFarmers, setIsSearchingFarmers] = useState(false);
@@ -145,12 +185,48 @@ export default function AuctionOwnershipTransfersPage() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerTarget, setScannerTarget] = useState<"seller" | "buyer">("seller");
   const [ownerType, setOwnerType] = useState<OwnerType>("REGISTERED_FARMER");
+  const [externalLivestockType, setExternalLivestockType] = useState("");
   const [sexAtTransfer, setSexAtTransfer] = useState<string>("");
+  const [ageAtTransfer, setAgeAtTransfer] = useState<string>("");
+  const [breedAtTransfer, setBreedAtTransfer] = useState<string>("");
+  const [weightAtTransfer, setWeightAtTransfer] = useState<string>("");
   const [editing, setEditing] = useState<Transfer | null>(null);
   const [outsideLivestock, setOutsideLivestock] = useState(false);
   const [showUserGuide, setShowUserGuide] = useState(false);
   const [pendingSubmission, setPendingSubmission] = useState<OwnershipTransferSubmission | null>(null);
   const [submissionSuccess, setSubmissionSuccess] = useState("");
+  const selectedAnimalForTransfer = !outsideLivestock && selectedAnimalIds.length === 1
+    ? farmerAnimals.find((animal) => animal.id === selectedAnimalIds[0]) ?? null
+    : null;
+
+  const {
+    data: externalLivestockTypes = [],
+    isLoading: isLoadingExternalLivestockTypes,
+    isError: externalLivestockTypesFailed,
+  } = useQuery({
+    queryKey: ["ownership-transfer-livestock-types"],
+    queryFn: async () => {
+      const { data } = await api.get<LivestockTypeOption[]>("livestock/livestock_types/");
+      return data.filter((type) => !type.name.toLowerCase().includes("swine"));
+    },
+  });
+
+  function autofillAnimalTraits(animal: FarmerAnimal | null) {
+    if (!animal) {
+      setSexAtTransfer("");
+      setAgeAtTransfer("");
+      setBreedAtTransfer("");
+      setWeightAtTransfer("");
+      return;
+    }
+    if (animal.sex) {
+      const upper = animal.sex.toUpperCase();
+      setSexAtTransfer(upper === "MALE" || upper === "FEMALE" ? upper : animal.sex);
+    }
+    setAgeAtTransfer(animal.age || "");
+    setBreedAtTransfer(animal.breed || "");
+    setWeightAtTransfer(animal.weight ? String(animal.weight) : "");
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -180,7 +256,12 @@ export default function AuctionOwnershipTransfersPage() {
       const response = await api.get<FarmerAnimal[]>(`livestock/ownership-transfer-farmers/${seller.id}/livestock/`);
       setFarmerAnimals(response.data);
       const selectedAnimal = response.data.find((animal) => animal.id === selectedAnimalId);
-      setSelectedAnimalIds(selectedAnimal?.transfer_eligible ? [selectedAnimal.id] : []);
+      if (selectedAnimal?.transfer_eligible) {
+        setSelectedAnimalIds([selectedAnimal.id]);
+        if (!editing) autofillAnimalTraits(selectedAnimal);
+      } else {
+        setSelectedAnimalIds([]);
+      }
       setOriginalCertificates(
         Object.fromEntries(
           response.data.map((animal) => [
@@ -191,7 +272,11 @@ export default function AuctionOwnershipTransfersPage() {
           ])
         )
       );
-      if (!response.data.length) setLookupError("This Farmer has no active individual livestock available to review.");
+      if (!response.data.length) {
+        setLookupError("This Farmer has no active individual livestock available to review.");
+      } else if (!selectedAnimalId) {
+        setIsAnimalModalOpen(true);
+      }
     } catch (error) {
       setLookupError(getOwnershipTransferLoadError(error, "Could not load this Farmer's eligible livestock."));
     } finally {
@@ -280,9 +365,10 @@ export default function AuctionOwnershipTransfersPage() {
       if (ownerType === "REGISTERED_FARMER" && !buyer) {
         throw new Error("Find and select the registered buyer first.");
       }
-      const values = { ...submittedValues };
+      const values: Record<string, FormDataEntryValue | null> = { ...submittedValues };
       if (ownerType === "REGISTERED_FARMER" && buyer) values.new_owner_identifier = buyer.username;
       if (!values.purchase_price) delete values.purchase_price;
+      if (!values.weight_at_transfer_kg) values.weight_at_transfer_kg = null;
       if (outsideLivestock) {
         return transferId
           ? api.patch(`livestock/ownership-transfers/${transferId}/`, values)
@@ -322,7 +408,11 @@ export default function AuctionOwnershipTransfersPage() {
       setBuyer(null);
       setBuyerResults([]);
       setOwnerType("REGISTERED_FARMER");
+      setExternalLivestockType("");
       setSexAtTransfer("");
+      setAgeAtTransfer("");
+      setBreedAtTransfer("");
+      setWeightAtTransfer("");
       setEditing(null);
       setOutsideLivestock(false);
     },
@@ -331,7 +421,13 @@ export default function AuctionOwnershipTransfersPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+    if (outsideLivestock && !externalLivestockType.trim()) {
+      toast.error("Choose an animal type before recording this outside livestock transfer.");
+      return;
+    }
+    const values: Record<string, FormDataEntryValue | null> = Object.fromEntries(
+      new FormData(event.currentTarget).entries(),
+    );
     setPendingSubmission({
       values,
       transferId: editing?.id,
@@ -355,7 +451,15 @@ export default function AuctionOwnershipTransfersPage() {
       setOutsideLivestock(true);
       setEditing(transfer);
       setOwnerType(transfer.owner_type);
+      setExternalLivestockType(
+        transfer.external_livestock_type.toLowerCase().includes("swine")
+          ? ""
+          : transfer.external_livestock_type || ""
+      );
       setSexAtTransfer(transfer.sex_at_transfer || "");
+      setAgeAtTransfer(transfer.age_at_transfer || "");
+      setBreedAtTransfer(transfer.breed_at_transfer || "");
+      setWeightAtTransfer(transfer.weight_at_transfer_kg ? String(transfer.weight_at_transfer_kg) : "");
       setIsLoadingAnimals(false);
       if (transfer.owner_type === "REGISTERED_FARMER" && transfer.new_owner) {
         try {
@@ -371,7 +475,11 @@ export default function AuctionOwnershipTransfersPage() {
     try {
       const response = await api.get<FarmerLookup>(`livestock/ownership-transfer-farmers/${transfer.previous_owner}/`);
       setOwnerType(transfer.owner_type);
+      setExternalLivestockType("");
       setSexAtTransfer(transfer.sex_at_transfer || "");
+      setAgeAtTransfer(transfer.age_at_transfer || "");
+      setBreedAtTransfer(transfer.breed_at_transfer || "");
+      setWeightAtTransfer(transfer.weight_at_transfer_kg ? String(transfer.weight_at_transfer_kg) : "");
       setEditing(transfer);
       await loadFarmerAnimals(response.data, transfer.livestock, transfer.original_certificate_number);
       if (transfer.owner_type === "REGISTERED_FARMER" && transfer.new_owner) {
@@ -386,9 +494,16 @@ export default function AuctionOwnershipTransfersPage() {
   }
 
   const toggleAnimal = (animalId: number, checked: boolean) => {
-    setSelectedAnimalIds((current) =>
-      checked ? [...current, animalId] : current.filter((id) => id !== animalId)
-    );
+    setSelectedAnimalIds((current) => {
+      const next = checked ? [...current, animalId] : current.filter((id) => id !== animalId);
+      if (next.length === 1) {
+        const singleAnimal = farmerAnimals.find((a) => a.id === next[0]);
+        if (singleAnimal) autofillAnimalTraits(singleAnimal);
+      } else if (next.length === 0) {
+        autofillAnimalTraits(null);
+      }
+      return next;
+    });
   };
 
   return (
@@ -536,7 +651,13 @@ export default function AuctionOwnershipTransfersPage() {
           </div>
 
           {!outsideLivestock && !editing && !farmer && (
-            <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
+            <div className="space-y-1.5">
+              <TransferFieldLabel
+                htmlFor="farmer-search"
+                label="Find the registered seller"
+                help="Search for the Farmer who sold the animal by name, email, username, RSBSA number, or Farmer ID."
+              />
+              <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                 <Input
@@ -574,6 +695,7 @@ export default function AuctionOwnershipTransfersPage() {
                 <QrCode className="size-4 text-[#0D6843]" />
                 Scan Farmer QR
               </Button>
+              </div>
             </div>
           )}
 
@@ -636,6 +758,8 @@ export default function AuctionOwnershipTransfersPage() {
                       setFarmerAnimals([]);
                       setSelectedAnimalIds([]);
                       setFarmerResults([]);
+                      setIsAnimalModalOpen(false);
+                      autofillAnimalTraits(null);
                     }}
                     className="h-8 text-xs text-slate-600 hover:text-slate-900"
                   >
@@ -644,86 +768,69 @@ export default function AuctionOwnershipTransfersPage() {
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <h3 className="text-xs font-bold text-slate-800">Farmer livestock and sale intent</h3>
-                {farmerAnimals.some((a) => a.transfer_eligible) && (
+              {/* Livestock Selection Summary Card */}
+              <div className="rounded-xl border border-emerald-200/90 bg-white p-3.5 shadow-xs space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-800">Farmer livestock and sale intent</h3>
+                    <p className="text-[11px] text-slate-500">
+                      {isLoadingAnimals
+                        ? "Loading this Farmer's eligible livestock…"
+                        : selectedAnimalIds.length === 0
+                        ? "No livestock selected yet. Choose eligible animals from this farmer."
+                        : `${selectedAnimalIds.length} animal${selectedAnimalIds.length === 1 ? "" : "s"} selected for transfer`}
+                    </p>
+                  </div>
                   <Button
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setSelectedAnimalIds(
-                        farmerAnimals.filter((a) => a.transfer_eligible).map((a) => a.id)
-                      )
-                    }
-                    className="h-7 text-[11px] bg-white border-slate-200 text-slate-700"
+                    onClick={() => setIsAnimalModalOpen(true)}
+                    disabled={isLoadingAnimals || farmerAnimals.length === 0}
+                    className="h-8 text-xs font-bold bg-[#0F4A2F] text-white hover:bg-[#0B3D26] shadow-xs cursor-pointer"
                   >
-                    Select all eligible
+                    {selectedAnimalIds.length === 0 ? "Select livestock" : `Change selection (${selectedAnimalIds.length})`}
                   </Button>
-                )}
-              </div>
-
-              {isLoadingAnimals && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">
-                  Loading this Farmer&apos;s eligible livestock…
                 </div>
-              )}
 
-              {!isLoadingAnimals && farmerAnimals.length > 0 && (
-                <div className="divide-y divide-emerald-100 rounded-xl border border-emerald-200/80 bg-white overflow-hidden shadow-xs">
-                  {farmerAnimals.map((animal) => (
-                    <label
-                      key={animal.id}
-                      className={`flex items-start gap-3 p-3 transition-colors ${
-                        animal.transfer_eligible
-                          ? "cursor-pointer hover:bg-emerald-50/40"
-                          : "cursor-not-allowed bg-slate-50/70 opacity-70"
-                      }`}
-                    >
-                      <Checkbox
-                        checked={selectedAnimalIds.includes(animal.id)}
-                        disabled={!animal.transfer_eligible}
-                        onCheckedChange={(checked) => toggleAnimal(animal.id, checked === true)}
-                        className="mt-0.5 border-emerald-400 data-[state=checked]:bg-[#0F4A2F] data-[state=checked]:border-[#0F4A2F]"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="flex flex-wrap items-center gap-2 font-bold text-xs text-slate-900">
-                          {animal.livestock_type_name} · {animal.tag_number || `#${animal.id}`}
-                          <Badge
-                            variant={animal.transfer_eligible ? "secondary" : "outline"}
-                            className="text-[10px]"
-                          >
+                {isLoadingAnimals && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                    Loading this Farmer&apos;s eligible livestock…
+                  </div>
+                )}
+
+                {!isLoadingAnimals && farmerAnimals.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-500 text-center">
+                    This Farmer has no active individual livestock available to review.
+                  </div>
+                )}
+
+                {!isLoadingAnimals && selectedAnimalIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {selectedAnimalIds.map((id) => {
+                      const animal = farmerAnimals.find((a) => a.id === id);
+                      if (!animal) return null;
+                      return (
+                        <div
+                          key={`selected-chip-${id}`}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-xs text-emerald-950 font-medium"
+                        >
+                          <span>{animal.livestock_type_name} · {animal.tag_number || `#${animal.id}`}</span>
+                          <Badge variant="secondary" className="text-[9px] h-4 px-1 bg-white text-emerald-800 border-emerald-200">
                             {animal.registration_status.replaceAll("_", " ")}
                           </Badge>
-                        </span>
-                        <span className="mt-1 block text-[11px] text-slate-600">
-                          {animal.sex || "Sex not recorded"}
-                          {animal.breed ? ` · ${animal.breed}` : ""} · Ownership certificate:{" "}
-                          {originalCertificates[animal.id] || "Not recorded"}
-                        </span>
-                        {animal.sale_intent && (
-                          <span className="mt-1 block text-[11px] font-medium text-emerald-800">
-                            Sale intent declared
-                            {animal.sale_intent.target_date ? ` for ${animal.sale_intent.target_date}` : ""}
-                            {animal.sale_intent.target_destination ? ` · ${animal.sale_intent.target_destination}` : ""}
-                            {animal.sale_intent.notes ? ` · ${animal.sale_intent.notes}` : ""}
-                          </span>
-                        )}
-                        {!animal.transfer_eligible && (
-                          <span className="mt-1 block text-[11px] text-amber-800">
-                            {animal.registration_status === "REJECTED"
-                              ? "Resolve the rejected registration before recording a transfer."
-                              : "Transfer can be recorded after inventory approval."}
-                          </span>
-                        )}
-                      </span>
-                      {selectedAnimalIds.includes(animal.id) && (
-                        <Badge className="bg-emerald-700 text-white text-[10px]">Selected</Badge>
-                      )}
-                    </label>
-                  ))}
-                </div>
-              )}
+                          <button
+                            type="button"
+                            onClick={() => toggleAnimal(id, false)}
+                            className="text-emerald-700 hover:text-emerald-900 ml-0.5 font-bold text-sm leading-none cursor-pointer"
+                            aria-label={`Remove ${animal.tag_number || `#${animal.id}`}`}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {selectedAnimalIds.length > 0 && (
                 <div className="space-y-2 pt-2 border-t border-emerald-200">
@@ -738,9 +845,11 @@ export default function AuctionOwnershipTransfersPage() {
                         key={`certificate-${id}`}
                         className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:items-center bg-white p-2.5 rounded-xl border border-emerald-200 shadow-xs"
                       >
-                        <Label htmlFor={`original-certificate-${id}`} className="text-xs font-bold text-slate-800">
-                          {animal.livestock_type_name} {animal.tag_number || `#${id}`} certificate
-                        </Label>
+                        <TransferFieldLabel
+                          htmlFor={`original-certificate-${id}`}
+                          label={`${animal.livestock_type_name} ${animal.tag_number || `#${id}`} certificate`}
+                          help="Enter the number from this animal's original ownership certificate, not the new transfer certificate."
+                        />
                         <Input
                           id={`original-certificate-${id}`}
                           value={originalCertificates[id] || ""}
@@ -780,9 +889,11 @@ export default function AuctionOwnershipTransfersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
               {/* Row 1 Left: Buyer type */}
               <div className="space-y-1.5">
-                <Label htmlFor="owner_type" className="text-xs font-semibold text-slate-700">
-                  Buyer type
-                </Label>
+                <TransferFieldLabel
+                  htmlFor="owner_type"
+                  label="Buyer type"
+                  help="Choose Registered SmartLivestock Farmer if the buyer has an approved Farmer account. Choose an external type for a buyer without one."
+                />
                 <Select
                   value={ownerType}
                   onValueChange={(val) => {
@@ -809,9 +920,11 @@ export default function AuctionOwnershipTransfersPage() {
               <div className="space-y-1.5">
                 {ownerType === "REGISTERED_FARMER" ? (
                   <>
-                    <Label htmlFor="buyer-search" className="text-xs font-semibold text-slate-700">
-                      Find the registered buyer
-                    </Label>
+                    <TransferFieldLabel
+                      htmlFor="buyer-search"
+                      label="Find the registered buyer"
+                      help="Search using the buyer's name, email, username, RSBSA number, or Farmer ID, then select the matching approved Farmer."
+                    />
                     {buyer ? (
                       <div className="flex items-center justify-between gap-2 h-10 px-3 bg-white border border-emerald-300 rounded-xl text-xs">
                         <div className="flex items-center gap-2 truncate">
@@ -901,9 +1014,11 @@ export default function AuctionOwnershipTransfersPage() {
                   </>
                 ) : (
                   <div className="space-y-1.5">
-                    <Label htmlFor="external_owner_name" className="text-xs font-semibold text-slate-700">
-                      Buyer / organization name
-                    </Label>
+                    <TransferFieldLabel
+                      htmlFor="external_owner_name"
+                      label="Buyer / organization name"
+                      help="Enter the external buyer's individual or organization name as shown on the transfer certificate."
+                    />
                     <Input
                       id="external_owner_name"
                       name="external_owner_name"
@@ -919,9 +1034,11 @@ export default function AuctionOwnershipTransfersPage() {
 
               {/* Row 2 Left: Paper transfer certificate number */}
               <div className="space-y-1.5">
-                <Label htmlFor="transfer_certificate_number" className="text-xs font-semibold text-slate-700">
-                  Paper transfer certificate number
-                </Label>
+                <TransferFieldLabel
+                  htmlFor="transfer_certificate_number"
+                  label="Paper transfer certificate number"
+                  help="Enter the number printed on the completed transfer certificate. One certificate may cover several animals."
+                />
                 <Input
                   id="transfer_certificate_number"
                   name="transfer_certificate_number"
@@ -937,9 +1054,11 @@ export default function AuctionOwnershipTransfersPage() {
 
               {/* Row 2 Right: Transfer date */}
               <div className="space-y-1.5">
-                <Label htmlFor="transfer_date" className="text-xs font-semibold text-slate-700">
-                  Transfer date
-                </Label>
+                <TransferFieldLabel
+                  htmlFor="transfer_date"
+                  label="Transfer date"
+                  help="Enter the date the ownership transfer actually happened. Future dates are not allowed."
+                />
                 <Input
                   id="transfer_date"
                   name="transfer_date"
@@ -952,9 +1071,11 @@ export default function AuctionOwnershipTransfersPage() {
 
               {/* Row 3 Left: Agreed price (optional) */}
               <div className="space-y-1.5">
-                <Label htmlFor="purchase_price" className="text-xs font-semibold text-slate-700">
-                  Agreed price (optional)
-                </Label>
+                <TransferFieldLabel
+                  htmlFor="purchase_price"
+                  label="Agreed price (optional)"
+                  help="Enter the recorded sale price for this animal in Philippine pesos. Leave blank if the price is unknown or not documented."
+                />
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-xs pointer-events-none">
                     ₱
@@ -974,9 +1095,11 @@ export default function AuctionOwnershipTransfersPage() {
 
               {/* Row 3 Right: Municipality / city */}
               <div className="space-y-1.5">
-                <Label htmlFor="municipality" className="text-xs font-semibold text-slate-700">
-                  Municipality / city
-                </Label>
+                <TransferFieldLabel
+                  htmlFor="municipality"
+                  label="Municipality / city"
+                  help="Enter the municipality or city recorded for this transfer."
+                />
                 <Input
                   id="municipality"
                   name="municipality"
@@ -989,9 +1112,11 @@ export default function AuctionOwnershipTransfersPage() {
 
               {/* Row 4 Left: Province */}
               <div className="space-y-1.5">
-                <Label htmlFor="province" className="text-xs font-semibold text-slate-700">
-                  Province
-                </Label>
+                <TransferFieldLabel
+                  htmlFor="province"
+                  label="Province"
+                  help="Enter the province recorded for this transfer."
+                />
                 <Input
                   id="province"
                   name="province"
@@ -1005,9 +1130,11 @@ export default function AuctionOwnershipTransfersPage() {
               {/* Row 4 Right: Sex & Age in 2 sub-columns */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="sex_at_transfer" className="text-xs font-semibold text-slate-700">
-                    Sex (optional)
-                  </Label>
+                  <TransferFieldLabel
+                    htmlFor="sex_at_transfer"
+                    label="Sex (optional)"
+                    help="Select the animal's sex at the time of transfer. Leave blank if it is not known."
+                  />
                   <Select
                     value={sexAtTransfer}
                     onValueChange={(val) => setSexAtTransfer(val)}
@@ -1023,24 +1150,80 @@ export default function AuctionOwnershipTransfersPage() {
                   <input type="hidden" name="sex_at_transfer" value={sexAtTransfer} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="age_at_transfer" className="text-xs font-semibold text-slate-700">
-                    Age (optional)
-                  </Label>
+                  <TransferFieldLabel
+                    htmlFor="age_at_transfer"
+                    label="Age (optional)"
+                    help="Enter the animal's age at the time of transfer, using the age stated or verified for the sale."
+                  />
                   <Input
                     id="age_at_transfer"
                     name="age_at_transfer"
-                    defaultValue={editing?.age_at_transfer}
+                    value={ageAtTransfer}
+                    onChange={(e) => setAgeAtTransfer(e.target.value)}
                     placeholder="Enter age"
                     className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
+              {(outsideLivestock || selectedAnimalIds.length === 1) ? (
+                <div
+                  key={outsideLivestock ? `external-${editing?.id ?? "new"}` : `animal-${selectedAnimalForTransfer?.id ?? "none"}`}
+                  className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3"
+                >
+                  <div className="space-y-1.5">
+                    <TransferFieldLabel
+                      htmlFor="breed_at_transfer"
+                      label="Breed at transfer (optional)"
+                      help="Enter the animal's breed at the time of sale. For a registered animal, correct the prefilled breed if it differed at transfer."
+                    />
+                    <Input
+                      id="breed_at_transfer"
+                      name="breed_at_transfer"
+                      maxLength={50}
+                      value={breedAtTransfer}
+                      onChange={(e) => setBreedAtTransfer(e.target.value)}
+                      placeholder="e.g. Brahman, Angus, Native"
+                      className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <TransferFieldLabel
+                      htmlFor="weight_at_transfer_kg"
+                      label="Weight at transfer in kg (optional)"
+                      help="Enter the animal's measured weight in kilograms at the time of sale. Leave blank if it was not measured or confirmed."
+                    />
+                    <Input
+                      id="weight_at_transfer_kg"
+                      name="weight_at_transfer_kg"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={weightAtTransfer}
+                      onChange={(e) => setWeightAtTransfer(e.target.value)}
+                      placeholder="Enter measured weight"
+                      className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+                  <p className="col-span-full text-[11px] leading-relaxed text-slate-500">
+                    {outsideLivestock
+                      ? "Enter traits known at the sale; leave a field blank if it was not measured or confirmed."
+                      : "Values start from the selected animal record. Confirm they match the sale; update them if the animal's traits changed."}
+                  </p>
+                </div>
+              ) : selectedAnimalIds.length > 1 ? (
+                <p className="col-span-full rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
+                  For a same-day multi-animal transfer, each record takes its own breed and weight from its linked animal. For a backdated transfer, record animals individually to enter their sale-time traits.
+                </p>
+              ) : null}
+
               {/* Row 5 Left: Description recorded on certificate (optional) */}
               <div className="space-y-1.5">
-                <Label htmlFor="animal_description" className="text-xs font-semibold text-slate-700">
-                  Description recorded on certificate (optional)
-                </Label>
+                <TransferFieldLabel
+                  htmlFor="animal_description"
+                  label="Description recorded on certificate (optional)"
+                  help="Copy any animal description or identifying notes written on the transfer certificate."
+                />
                 <Input
                   id="animal_description"
                   name="animal_description"
@@ -1053,9 +1236,11 @@ export default function AuctionOwnershipTransfersPage() {
               {/* Row 5 Right: Municipality brand & Owner brand in 2 sub-columns */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="municipality_brand" className="text-xs font-semibold text-slate-700">
-                    Municipality brand (optional)
-                  </Label>
+                  <TransferFieldLabel
+                    htmlFor="municipality_brand"
+                    label="Municipality brand (optional)"
+                    help="Enter the municipality's identifying brand or mark if it appears on the animal or transfer certificate. Leave blank if none is recorded."
+                  />
                   <Input
                     id="municipality_brand"
                     name="municipality_brand"
@@ -1065,9 +1250,11 @@ export default function AuctionOwnershipTransfersPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="owner_brand" className="text-xs font-semibold text-slate-700">
-                    Owner brand (optional)
-                  </Label>
+                  <TransferFieldLabel
+                    htmlFor="owner_brand"
+                    label="Owner brand (optional)"
+                    help="Enter the owner's identifying brand or mark if it appears on the animal or transfer certificate. Leave blank if none is recorded."
+                  />
                   <Input
                     id="owner_brand"
                     name="owner_brand"
@@ -1082,9 +1269,11 @@ export default function AuctionOwnershipTransfersPage() {
               {outsideLivestock && (
                 <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 pt-3 border-t border-blue-200/70">
                   <div className="space-y-1.5">
-                    <Label htmlFor="external_seller_name" className="text-xs font-semibold text-slate-700">
-                      Outside seller name
-                    </Label>
+                    <TransferFieldLabel
+                      htmlFor="external_seller_name"
+                      label="Outside seller name"
+                      help="Enter the person or business that sold the animal. Match the name on the certificate when available."
+                    />
                     <Input
                       id="external_seller_name"
                       name="external_seller_name"
@@ -1096,9 +1285,11 @@ export default function AuctionOwnershipTransfersPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="external_seller_address" className="text-xs font-semibold text-slate-700">
-                      Seller address
-                    </Label>
+                    <TransferFieldLabel
+                      htmlFor="external_seller_address"
+                      label="Seller address"
+                      help="Enter the seller's address as shown on the certificate or transaction record."
+                    />
                     <Input
                       id="external_seller_address"
                       name="external_seller_address"
@@ -1109,22 +1300,58 @@ export default function AuctionOwnershipTransfersPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="external_livestock_type" className="text-xs font-semibold text-slate-700">
-                      Animal type
-                    </Label>
-                    <Input
-                      id="external_livestock_type"
-                      name="external_livestock_type"
-                      required
-                      placeholder="e.g. Cattle, Carabao, Goat"
-                      defaultValue={editing?.external_livestock_type}
-                      className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                    <TransferFieldLabel
+                      htmlFor="external_livestock_type"
+                      label="Animal type"
+                      help="Choose the animal's species from the livestock list. Swine is not available for outside transfers."
                     />
+                    <Select
+                      value={externalLivestockType}
+                      onValueChange={setExternalLivestockType}
+                      disabled={
+                        isLoadingExternalLivestockTypes ||
+                        (externalLivestockTypes.length === 0 && !externalLivestockType)
+                      }
+                    >
+                      <SelectTrigger id="external_livestock_type" className="h-10 bg-white border-slate-200 rounded-xl text-xs">
+                        <SelectValue
+                          placeholder={
+                            isLoadingExternalLivestockTypes ? "Loading animal types..." : "Select animal type"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {externalLivestockTypes.map((type) => (
+                          <SelectItem key={type.id} value={type.name}>
+                            {type.name}
+                          </SelectItem>
+                        ))}
+                        {editing?.external_livestock_type &&
+                          !editing.external_livestock_type.toLowerCase().includes("swine") &&
+                          !externalLivestockTypes.some(
+                            (type) => type.name.toLowerCase() === editing.external_livestock_type.toLowerCase()
+                          ) && (
+                            <SelectItem value={editing.external_livestock_type}>
+                              {editing.external_livestock_type} (current record)
+                            </SelectItem>
+                          )}
+                      </SelectContent>
+                    </Select>
+                    <input
+                      type="hidden"
+                      name="external_livestock_type"
+                      value={externalLivestockType}
+                    />
+                    {externalLivestockTypesFailed && (
+                      <p className="text-[11px] text-red-600">Could not load animal types. Please reload and try again.</p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="external_livestock_tag_number" className="text-xs font-semibold text-slate-700">
-                      Seller tag / identifying mark (optional)
-                    </Label>
+                    <TransferFieldLabel
+                      htmlFor="external_livestock_tag_number"
+                      label="Seller tag / identifying mark (optional)"
+                      help="Enter the seller's ear tag, brand, or other identifying mark if known."
+                    />
                     <Input
                       id="external_livestock_tag_number"
                       name="external_livestock_tag_number"
@@ -1134,9 +1361,11 @@ export default function AuctionOwnershipTransfersPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="origin_municipality" className="text-xs font-semibold text-slate-700">
-                      Animal origin municipality
-                    </Label>
+                    <TransferFieldLabel
+                      htmlFor="origin_municipality"
+                      label="Animal origin municipality"
+                      help="Enter the municipality where the animal came from, as recorded for this transfer."
+                    />
                     <Input
                       id="origin_municipality"
                       name="origin_municipality"
@@ -1147,9 +1376,11 @@ export default function AuctionOwnershipTransfersPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="origin_province" className="text-xs font-semibold text-slate-700">
-                      Animal origin province
-                    </Label>
+                    <TransferFieldLabel
+                      htmlFor="origin_province"
+                      label="Animal origin province"
+                      help="Enter the province where the animal came from, as recorded for this transfer."
+                    />
                     <Input
                       id="origin_province"
                       name="origin_province"
@@ -1165,9 +1396,11 @@ export default function AuctionOwnershipTransfersPage() {
               {/* Non-registered buyer address */}
               {ownerType !== "REGISTERED_FARMER" && (
                 <div className="col-span-full space-y-1.5">
-                  <Label htmlFor="external_owner_address" className="text-xs font-semibold text-slate-700">
-                    Buyer address
-                  </Label>
+                  <TransferFieldLabel
+                    htmlFor="external_owner_address"
+                    label="Buyer address"
+                    help="Enter the buyer's complete address as recorded for the transfer."
+                  />
                   <Input
                     id="external_owner_address"
                     name="external_owner_address"
@@ -1282,6 +1515,14 @@ export default function AuctionOwnershipTransfersPage() {
                           Agreed price: ₱{Number(transfer.purchase_price).toLocaleString()}
                         </p>
                       )}
+                      {(transfer.breed_at_transfer || transfer.weight_at_transfer_kg) && (
+                        <p>
+                          At transfer: {transfer.breed_at_transfer || "Breed not recorded"} ·{" "}
+                          {transfer.weight_at_transfer_kg
+                            ? `${Number(transfer.weight_at_transfer_kg).toLocaleString()} kg`
+                            : "Weight not recorded"}
+                        </p>
+                      )}
                     </div>
 
                     {transfer.can_edit && (
@@ -1305,6 +1546,141 @@ export default function AuctionOwnershipTransfersPage() {
           )}
         </div>
       </div>
+
+      {/* Livestock Selection Popup Dialog */}
+      <Dialog open={isAnimalModalOpen} onOpenChange={setIsAnimalModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-2xl">
+          <DialogHeader className="p-4 sm:p-5 pb-3 border-b border-slate-100 shrink-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 pr-8">
+              <div>
+                <DialogTitle className="text-base font-bold text-slate-900">
+                  Farmer livestock and sale intent
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                  Select eligible livestock from {farmer?.name}&apos;s inventory to include in this ownership transfer.
+                </DialogDescription>
+              </div>
+              {farmerAnimals.some((a) => a.transfer_eligible) && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const eligible = farmerAnimals.filter((a) => a.transfer_eligible);
+                      const eligibleIds = eligible.map((a) => a.id);
+                      setSelectedAnimalIds(eligibleIds);
+                      if (eligible.length === 1) {
+                        autofillAnimalTraits(eligible[0]);
+                      }
+                    }}
+                    className="h-7 text-[11px] bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
+                  >
+                    Select all eligible
+                  </Button>
+                  {selectedAnimalIds.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedAnimalIds([]);
+                        autofillAnimalTraits(null);
+                      }}
+                      className="h-7 text-[11px] text-slate-600 hover:text-slate-900"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </DialogHeader>
+
+          <div className="p-4 sm:p-5 overflow-y-auto space-y-2 flex-1">
+            {isLoadingAnimals && (
+              <div className="rounded-xl border border-slate-200 bg-white p-6 text-center text-xs text-slate-500">
+                Loading this Farmer&apos;s eligible livestock…
+              </div>
+            )}
+
+            {!isLoadingAnimals && farmerAnimals.length === 0 && (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-500">
+                This Farmer has no active individual livestock available to review.
+              </div>
+            )}
+
+            {!isLoadingAnimals && farmerAnimals.length > 0 && (
+              <div className="divide-y divide-emerald-100 rounded-xl border border-emerald-200/80 bg-white overflow-hidden shadow-xs">
+                {farmerAnimals.map((animal) => (
+                  <label
+                    key={animal.id}
+                    className={`flex items-start gap-3 p-3 transition-colors ${
+                      animal.transfer_eligible
+                        ? "cursor-pointer hover:bg-emerald-50/40"
+                        : "cursor-not-allowed bg-slate-50/70 opacity-70"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={selectedAnimalIds.includes(animal.id)}
+                      disabled={!animal.transfer_eligible}
+                      onCheckedChange={(checked) => toggleAnimal(animal.id, checked === true)}
+                      className="mt-0.5 border-emerald-400 data-[state=checked]:bg-[#0F4A2F] data-[state=checked]:border-[#0F4A2F]"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2 font-bold text-xs text-slate-900">
+                        {animal.livestock_type_name} · {animal.tag_number || `#${animal.id}`}
+                        <Badge
+                          variant={animal.transfer_eligible ? "secondary" : "outline"}
+                          className="text-[10px]"
+                        >
+                          {animal.registration_status.replaceAll("_", " ")}
+                        </Badge>
+                      </span>
+                      <span className="mt-1 block text-[11px] text-slate-600">
+                        {animal.sex || "Sex not recorded"}
+                        {animal.breed ? ` · ${animal.breed}` : ""}{animal.age ? ` · ${animal.age}` : ""}{animal.weight ? ` · ${animal.weight} kg` : ""} · Ownership certificate:{" "}
+                        {originalCertificates[animal.id] || "Not recorded"}
+                      </span>
+                      {animal.sale_intent && (
+                        <span className="mt-1 block text-[11px] font-medium text-emerald-800">
+                          Sale intent declared
+                          {animal.sale_intent.target_date ? ` for ${animal.sale_intent.target_date}` : ""}
+                          {animal.sale_intent.target_destination ? ` · ${animal.sale_intent.target_destination}` : ""}
+                          {animal.sale_intent.notes ? ` · ${animal.sale_intent.notes}` : ""}
+                        </span>
+                      )}
+                      {!animal.transfer_eligible && (
+                        <span className="mt-1 block text-[11px] text-amber-800">
+                          {animal.registration_status === "REJECTED"
+                            ? "Resolve the rejected registration before recording a transfer."
+                            : "Transfer can be recorded after inventory approval."}
+                        </span>
+                      )}
+                    </span>
+                    {selectedAnimalIds.includes(animal.id) && (
+                      <Badge className="bg-emerald-700 text-white text-[10px]">Selected</Badge>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="p-3 sm:p-4 px-5 border-t border-slate-100 bg-slate-50 flex items-center justify-between sm:justify-between shrink-0">
+            <span className="text-xs text-slate-600 font-medium">
+              {selectedAnimalIds.length} animal{selectedAnimalIds.length === 1 ? "" : "s"} selected
+            </span>
+            <Button
+              type="button"
+              onClick={() => setIsAnimalModalOpen(false)}
+              className="bg-[#0F4A2F] text-white hover:bg-[#0B3D26] text-xs font-bold rounded-xl h-9 px-5 cursor-pointer"
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={pendingSubmission !== null} onOpenChange={(open) => {
         if (!open && !submit.isPending) setPendingSubmission(null);

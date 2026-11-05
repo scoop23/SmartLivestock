@@ -11,6 +11,7 @@ SelectTrigger,
 SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface LivestockBreedFieldProps {
   id: string;
@@ -22,6 +23,7 @@ interface LivestockBreedFieldProps {
   required?: boolean;
   className?: string;
   controlClassName?: string;
+  labelClassName?: string;
   onChange: (breed: string) => void;
 }
 
@@ -36,6 +38,7 @@ export function LivestockBreedField({
   required = false,
   className = "",
   controlClassName = "",
+  labelClassName = "",
   onChange,
 }: LivestockBreedFieldProps) {
   const [customMode, setCustomMode] = useState(false);
@@ -50,7 +53,7 @@ export function LivestockBreedField({
 
   return (
     <div className={`space-y-1.5 ${className}`}>
-      <Label htmlFor={id} className="text-xs font-semibold text-slate-700">{label}</Label>
+      <Label htmlFor={id} className={cn("text-xs font-semibold text-slate-700", labelClassName)}>{label}</Label>
       <Select
         value={isCustom ? "OTHER" : value}
         onValueChange={(selected) => {

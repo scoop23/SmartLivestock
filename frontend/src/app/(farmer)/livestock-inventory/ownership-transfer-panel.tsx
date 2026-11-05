@@ -16,7 +16,8 @@ type Transfer = {
   owner_type: OwnerType; new_owner: number | null; external_owner_name: string; external_owner_address: string;
   previous_owner_name: string; new_owner_name: string; transfer_certificate_number: string;
   original_certificate_number: string; transfer_date: string; municipality: string; province: string;
-  animal_description: string; sex_at_transfer: string; age_at_transfer: string;
+  animal_description: string; breed_at_transfer: string; weight_at_transfer_kg: string | null;
+  sex_at_transfer: string; age_at_transfer: string;
   municipality_brand: string; owner_brand: string; purchase_price: string | null;
   status: string; review_remarks: string; can_edit: boolean;
 };
@@ -46,8 +47,9 @@ export function OwnershipTransferPanel({
   const submit = useMutation({
     mutationFn: async ({ form, transferId }: { form: HTMLFormElement; transferId?: number }) => {
       const values = new FormData(form);
-      const payload = Object.fromEntries(values.entries());
+      const payload: Record<string, FormDataEntryValue | null> = Object.fromEntries(values.entries());
       if (!payload.purchase_price) delete payload.purchase_price;
+      if (payload.weight_at_transfer_kg === "") payload.weight_at_transfer_kg = null;
       return transferId
         ? api.patch(`livestock/ownership-transfers/${transferId}/`, payload)
         : api.post("livestock/ownership-transfers/", { ...payload, livestock: livestockId });
@@ -81,6 +83,7 @@ export function OwnershipTransferPanel({
           <p className="mt-2 text-sm text-slate-600">Transfer date: {transfer.transfer_date} · Certificate: {transfer.transfer_certificate_number}</p>
           <p className="text-sm text-slate-600">Original certificate: {transfer.original_certificate_number} · {transfer.municipality}, {transfer.province}</p>
           {transfer.animal_description ? <p className="text-sm text-slate-600">Animal: {transfer.animal_description} · {transfer.sex_at_transfer || "Sex not recorded"} · {transfer.age_at_transfer || "Age not recorded"}</p> : null}
+          {(transfer.breed_at_transfer || transfer.weight_at_transfer_kg) ? <p className="text-sm text-slate-600">At transfer: {transfer.breed_at_transfer || "Breed not recorded"} · {transfer.weight_at_transfer_kg ? `${Number(transfer.weight_at_transfer_kg).toLocaleString()} kg` : "Weight not recorded"}</p> : null}
           {(transfer.municipality_brand || transfer.owner_brand) ? <p className="text-sm text-slate-600">Brands: {transfer.municipality_brand || "—"} / {transfer.owner_brand || "—"}</p> : null}
           {transfer.purchase_price ? <p className="text-sm text-slate-600">Recorded purchase price: ₱{Number(transfer.purchase_price).toLocaleString()}</p> : null}
           {transfer.review_remarks ? <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Review note: {transfer.review_remarks}</p> : null}
@@ -122,6 +125,8 @@ export function OwnershipTransferPanel({
             <div className="space-y-2"><Label htmlFor="province">Province</Label><Input id="province" name="province" required defaultValue={editing?.province} /></div>
             <div className="space-y-2"><Label htmlFor="sex_at_transfer">Sex (optional)</Label><Input id="sex_at_transfer" name="sex_at_transfer" defaultValue={editing?.sex_at_transfer} /></div>
             <div className="space-y-2"><Label htmlFor="age_at_transfer">Age (optional)</Label><Input id="age_at_transfer" name="age_at_transfer" defaultValue={editing?.age_at_transfer} /></div>
+            <div className="space-y-2"><Label htmlFor="breed_at_transfer">Breed at transfer (optional)</Label><Input id="breed_at_transfer" name="breed_at_transfer" maxLength={50} defaultValue={editing?.breed_at_transfer ?? ""} /></div>
+            <div className="space-y-2"><Label htmlFor="weight_at_transfer_kg">Weight at transfer in kg (optional)</Label><Input id="weight_at_transfer_kg" name="weight_at_transfer_kg" type="number" min="0" step="0.01" defaultValue={editing?.weight_at_transfer_kg ?? ""} /></div>
             <div className="space-y-2"><Label htmlFor="municipality_brand">Municipality brand (optional)</Label><Input id="municipality_brand" name="municipality_brand" defaultValue={editing?.municipality_brand} /></div>
             <div className="space-y-2"><Label htmlFor="owner_brand">Owner brand (optional)</Label><Input id="owner_brand" name="owner_brand" defaultValue={editing?.owner_brand} /></div>
             <div className="space-y-2"><Label htmlFor="purchase_price">Purchase price (optional)</Label><Input id="purchase_price" name="purchase_price" type="number" min="0" step="0.01" defaultValue={editing?.purchase_price || ""} /></div>

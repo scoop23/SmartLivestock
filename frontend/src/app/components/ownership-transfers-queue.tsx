@@ -54,6 +54,7 @@ import {
   Tag,
   X,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -79,6 +80,8 @@ export type Transfer = {
   animal_description: string;
   sex_at_transfer: string;
   age_at_transfer: string;
+  breed_at_transfer?: string;
+  weight_at_transfer_kg?: string | null;
   municipality_brand: string;
   owner_brand: string;
   purchase_price: string | null;
@@ -91,24 +94,29 @@ export type Transfer = {
 
 export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO" }) {
   const client = useQueryClient();
+  const searchParams = useSearchParams();
   const isMao = reviewer === "MAO";
   const [activeReviewTab, setActiveReviewTab] = useState<"ownership" | "inspections">(() => {
     if (typeof window !== "undefined") {
       const tabParam = new URLSearchParams(window.location.search).get("tab");
-      if (tabParam === "inspections") return "inspections";
+      const hasInspectionParam = new URLSearchParams(window.location.search).has("inspectionId");
+      if (tabParam === "inspections" || hasInspectionParam) return "inspections";
     }
     return "ownership";
   });
 
+  // Keep active tab synced with search params (e.g. from notifications)
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const tabParam = new URLSearchParams(window.location.search).get("tab");
-    if (tabParam === "inspections") {
+    const tabParam = searchParams.get("tab");
+    const hasTransferParam = searchParams.has("transferId") || searchParams.has("saleId");
+    const hasInspectionParam = searchParams.has("inspectionId");
+
+    if (tabParam === "inspections" || hasInspectionParam) {
       setActiveReviewTab("inspections");
-    } else if (tabParam === "ownership") {
+    } else if (tabParam === "ownership" || hasTransferParam) {
       setActiveReviewTab("ownership");
     }
-  }, []);
+  }, [searchParams]);
 
   // MAO review default tab: PENDING (focus directly on transfers awaiting MAO approval)
   const [statusFilter, setStatusFilter] = useState<string>("PENDING");
@@ -148,33 +156,60 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
   const inspectionsQuery = useQuery<InspectionRecord[]>({
     queryKey: ["inspections"],
     queryFn: () => fetchInspections(),
-    enabled: isMao && activeReviewTab === "inspections",
+    enabled: isMao && (activeReviewTab === "inspections" || searchParams.has("inspectionId") || searchParams.get("tab") === "inspections"),
   });
 
   // Deep-linking from notification or URL ?transferId=123 or ?saleId=123
   useEffect(() => {
-    if (isLoading || !data.length) return;
-    const searchParamsObj = new URLSearchParams(window.location.search);
-    const transferId = searchParamsObj.get("transferId") || searchParamsObj.get("saleId");
+    const transferId = searchParams.get("transferId") || searchParams.get("saleId");
     if (!transferId) return;
-    const found = data.find((item) => String(item.id) === transferId);
-    if (!found) return;
 
-    // Switch to ALL or match status so the deep-linked row is visible
-    const timer = setTimeout(() => {
+    const queryLower = transferId.trim().toLowerCase();
+
+    // 1. Check loaded dataset
+    const found = data.find(
+      (item) =>
+        String(item.id) === queryLower ||
+        item.transfer_certificate_number?.toLowerCase() === queryLower
+    );
+
+    if (found) {
+      setActiveReviewTab("ownership");
       setStatusFilter("ALL");
       setSelectedTransfer(found);
-      const card = document.getElementById(`ownership-transfer-${transferId}`);
-      card?.scrollIntoView({ behavior: "smooth", block: "center" });
 
-      const url = new URL(window.location.href);
-      url.searchParams.delete("transferId");
-      url.searchParams.delete("saleId");
-      window.history.replaceState({}, "", url.toString());
-    }, 0);
+      const timer = setTimeout(() => {
+        const card = document.getElementById(`ownership-transfer-${found.id}`);
+        card?.scrollIntoView({ behavior: "smooth", block: "center" });
 
-    return () => clearTimeout(timer);
-  }, [data, isLoading]);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("transferId");
+        url.searchParams.delete("saleId");
+        window.history.replaceState({}, "", url.toString());
+      }, 50);
+
+      return () => clearTimeout(timer);
+    }
+
+    // 2. Direct fetch fallback if not in current array (e.g. filtered or loading)
+    if (!isLoading && !found && /^\d+$/.test(transferId)) {
+      api
+        .get<Transfer>(`livestock/ownership-transfers/${transferId}/`)
+        .then((res) => {
+          if (res.data) {
+            setActiveReviewTab("ownership");
+            setStatusFilter("ALL");
+            setSelectedTransfer(res.data);
+
+            const url = new URL(window.location.href);
+            url.searchParams.delete("transferId");
+            url.searchParams.delete("saleId");
+            window.history.replaceState({}, "", url.toString());
+          }
+        })
+        .catch(() => {});
+    }
+  }, [data, isLoading, searchParams]);
 
   // Review Mutation (MAO Approval / Revision)
   const review = useMutation({
@@ -269,6 +304,8 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
       "Ear Tag / ID",
       "Sex",
       "Age",
+      "Breed at Transfer",
+      "Weight at Transfer (kg)",
       "Transfer Date",
       "Sale Price (PHP)",
       "Municipality Brand",
@@ -286,6 +323,8 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
       `"${t.livestock_tag || ""}"`,
       `"${t.sex_at_transfer || ""}"`,
       `"${t.age_at_transfer || ""}"`,
+      `"${t.breed_at_transfer || ""}"`,
+      `"${t.weight_at_transfer_kg || ""}"`,
       `"${t.transfer_date || ""}"`,
       `"${t.purchase_price || ""}"`,
       `"${t.municipality_brand || ""}"`,
@@ -997,7 +1036,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                   <Tag className="size-3.5 text-emerald-700" />
                   <span>Animal Information</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                   <div>
                     <span className="text-slate-500 block text-[11px]">Species</span>
                     <strong className="text-slate-900 font-bold">{selectedTransfer.livestock_type_name}</strong>
@@ -1018,6 +1057,18 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                     <span className="text-slate-500 block text-[11px]">Sale Price</span>
                     <strong className="font-mono text-emerald-700 font-bold">
                       {selectedTransfer.purchase_price ? `₱${Number(selectedTransfer.purchase_price).toLocaleString()}` : "Not recorded"}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Breed at Transfer</span>
+                    <strong className="text-slate-900">{selectedTransfer.breed_at_transfer || "Not recorded"}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Weight at Transfer</span>
+                    <strong className="text-slate-900">
+                      {selectedTransfer.weight_at_transfer_kg
+                        ? `${Number(selectedTransfer.weight_at_transfer_kg).toLocaleString()} kg`
+                        : "Not recorded"}
                     </strong>
                   </div>
                 </div>

@@ -23,6 +23,21 @@ def _auction_farmer_queryset():
     )
 
 
+def _format_animal_age(animal):
+    age = animal.age_as_of(timezone.localdate())
+    if not age:
+        return ""
+    years = age.get("years", 0)
+    months = age.get("months", 0)
+    if years > 0 and months > 0:
+        return f"{years} yr{'s' if years > 1 else ''}, {months} mo{'s' if months > 1 else ''}"
+    if years > 0:
+        return f"{years} year{'s' if years > 1 else ''}"
+    if months > 0:
+        return f"{months} month{'s' if months > 1 else ''}"
+    return "Under 1 month"
+
+
 def _farmer_lookup_data(farmer):
     return {
         "id": farmer.pk,
@@ -104,6 +119,8 @@ def ownership_transfer_farmer_livestock(request, farmer_id):
         "livestock_type_name": animal.livestock_type.name,
         "sex": animal.sex,
         "breed": animal.breed,
+        "weight": str(animal.weight) if animal.weight is not None else None,
+        "age": _format_animal_age(animal),
         "ownership_certificate_number": animal.ownership_certificate_number,
         "registration_status": animal.status,
         "transfer_eligible": animal.status == LivestockInventory.StatusType.APPROVED,
