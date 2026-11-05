@@ -422,6 +422,7 @@ function AdminHerdSplitCard({
 function LivestockRecordsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const showHistory = searchParams.get("history") === "true";
   const queryClient = useQueryClient();
 
   // Tab State: default 'herd' (Herd Registry) or 'individual' (Individual Animals)
@@ -557,11 +558,16 @@ function LivestockRecordsContent() {
 
   // Filter individual animal records
   const individualAnimals = useMemo(() => {
-    return rawInventory.filter((item) => !item.isBatch);
+    return rawInventory.filter((item) => !item.isBatch && item.entryType === "INDIVIDUAL"
+      && (item.operationalStatus || "ACTIVE") === "ACTIVE");
   }, [rawInventory]);
 
   const filteredIndividualAnimals = useMemo(() => {
-    return individualAnimals.filter((item) => {
+    const records = showHistory
+      ? rawInventory.filter((item) => !item.isBatch && item.entryType === "INDIVIDUAL"
+          && (item.operationalStatus || "ACTIVE") !== "ACTIVE")
+      : individualAnimals;
+    return records.filter((item) => {
       const q = debouncedSearch.toLowerCase();
       const matchSearch =
         !q ||
@@ -590,7 +596,7 @@ function LivestockRecordsContent() {
 
       return matchSearch && matchBarangay && matchSpecies && matchStatus;
     });
-  }, [individualAnimals, debouncedSearch, barangayFilter, speciesFilter, statusFilter]);
+  }, [individualAnimals, rawInventory, showHistory, debouncedSearch, barangayFilter, speciesFilter, statusFilter]);
 
   // Paginated Individual Animals
   const paginatedIndividualAnimals = useMemo(() => {
@@ -995,42 +1001,61 @@ function LivestockRecordsContent() {
               }`}
             >
               <Tag className="w-4 h-4" />
-              <span>Individual Animals</span>
+              <span>{showHistory ? "Animal History" : "Individual Animals"}</span>
               <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${activeTab === "individual" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
                 {totalIndividualCount}
               </span>
             </button>
           </div>
 
-          {/* View mode toggle when on herd registry */}
-          {activeTab === "herd" && (
-            <div className="flex items-center bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setViewMode("table")}
-                className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-                  viewMode === "table"
-                    ? "bg-[#1E4D2B] text-white shadow-xs"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-                title="Table View"
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("cards")}
-                className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-                  viewMode === "cards"
-                    ? "bg-[#1E4D2B] text-white shadow-xs"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-                title="Cards View"
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => {
+                setIndividualPage(1);
+                setStatusFilter("ALL");
+                setActiveTab("individual");
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("tab", "individual");
+                if (showHistory) params.delete("history");
+                else params.set("history", "true");
+                router.replace(`/livestock-records?${params.toString()}`, { scroll: false });
+              }}
+            >
+              {showHistory ? "Current animals" : "Animal history"}
+            </Button>
+
+            {/* View mode toggle when on herd registry */}
+            {activeTab === "herd" && (
+              <div className="flex items-center bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("table")}
+                  className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                    viewMode === "table"
+                      ? "bg-[#1E4D2B] text-white shadow-xs"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Table View"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("cards")}
+                  className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                    viewMode === "cards"
+                      ? "bg-[#1E4D2B] text-white shadow-xs"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Cards View"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Filter Toolbar ── */}
@@ -1378,6 +1403,9 @@ function LivestockRecordsContent() {
         {/* ── TAB 2: INDIVIDUAL ANIMALS ── */}
         {activeTab === "individual" && (
           <div className="bg-white/95 backdrop-blur-xs rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <p className="px-4 py-3 text-sm text-slate-600 border-b border-slate-100">
+              {showHistory ? "Sold, deceased, slaughtered, and moved-out animals are preserved here and excluded from current population. A buyer registers acquired livestock for approval before it counts again." : "Current animals only. Inactive livestock is available in Animal history."}
+            </p>
             {isInventoryLoading ? (
               <div className="p-12 text-center">
                 <RefreshCw className="w-7 h-7 mx-auto text-emerald-600 animate-spin mb-3" />
@@ -1442,6 +1470,7 @@ function LivestockRecordsContent() {
                               <span className="text-[11px] text-slate-500 font-medium">
                                 {item.livestockType}
                               </span>
+                              {showHistory && <Badge variant="outline">{item.operationalStatus?.replaceAll("_", " ")}</Badge>}
                             </div>
                           </TableCell>
                           <TableCell className="font-bold text-slate-800 text-xs px-4 py-3.5">
@@ -1470,7 +1499,7 @@ function LivestockRecordsContent() {
                           </TableCell>
                           <TableCell className="px-4 py-3.5 text-right">
                             <div className="inline-flex items-center gap-1.5">
-                              {item.status === "VERIFIED" && item.entryType === "INDIVIDUAL" && (
+                              {!showHistory && item.status === "VERIFIED" && item.entryType === "INDIVIDUAL" && (
                                 <Button
                                   variant="outline"
                                   size="sm"

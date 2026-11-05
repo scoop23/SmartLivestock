@@ -841,7 +841,7 @@ export function useSibatSubmissions() {
     // Every individual animal is a review item, including members of a herd.
     // Legacy aggregate rows remain visible in the registry but cannot be
     // independently verified as animals.
-    .filter((inventory) => inventory.entry_type === "INDIVIDUAL")
+    .filter((inventory) => inventory.entry_type === "INDIVIDUAL" && (inventory.operational_status || "ACTIVE") === "ACTIVE")
     .map(mapInventoryToUnified);
   const calvingUnified = (calvingQuery.data || []).map(mapCalvingToUnified);
 

@@ -78,6 +78,7 @@ type RegistryBatchRecord = BatchApiItem;
 function SibatLivestockRegistryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const showHistory = searchParams.get("history") === "true";
   const batchId = searchParams.get("batchId");
   const focusId = searchParams.get("focusId");
   const reviewId = searchParams.get("reviewId");
@@ -221,10 +222,12 @@ function SibatLivestockRegistryContent() {
       : rawInv && Array.isArray((rawInv as unknown as { results: RawInventoryRecord[] }).results)
         ? (rawInv as unknown as { results: RawInventoryRecord[] }).results
         : [];
-    const individuals = invList
+    const visibleInventory = invList.filter((record) =>
+      ((record.operational_status || "ACTIVE") !== "ACTIVE") === showHistory);
+    const individuals = visibleInventory
       .filter((record) => record.entry_type === "INDIVIDUAL" || !record.entry_type)
       .map(mapInventoryToUnified);
-    const batchInventories = invList
+    const batchInventories = visibleInventory
       .filter((record) => record.entry_type === "BATCH")
       .map(mapInventoryToUnified);
 
@@ -234,17 +237,17 @@ function SibatLivestockRegistryContent() {
       : rawBatches && Array.isArray((rawBatches as unknown as { results: RegistryBatchRecord[] }).results)
         ? (rawBatches as unknown as { results: RegistryBatchRecord[] }).results
         : [];
-    const herds = batchId ? [] : batchList.map(mapBatchToUnified);
+    const herds = batchId || showHistory ? [] : batchList.map(mapBatchToUnified);
 
     const rawCalvings = calvingQuery.data;
-    const calvings = batchId
+    const calvings = batchId || showHistory
       ? []
       : (Array.isArray(rawCalvings) ? rawCalvings : []).map(mapCalvingToUnified);
 
     return [...individuals, ...batchInventories, ...herds, ...calvings].sort((a, b) => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [inventoryQuery.data, batchesQuery.data, calvingQuery.data, batchId]);
+  }, [inventoryQuery.data, batchesQuery.data, calvingQuery.data, batchId, showHistory]);
 
   // Open an inventory review dialog after navigating here from the review queue.
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -523,8 +526,8 @@ function SibatLivestockRegistryContent() {
   return (
     <>
       <PageHeader
-        title="Livestock Records"
-        subtitle="Animals, Herds, and Census records in one place"
+        title={showHistory ? "Animal History" : "Livestock Records"}
+        subtitle={showHistory ? "Sold, deceased, slaughtered, and moved-out animals. Excluded from current population." : "Animals, Herds, and Census records in one place"}
         variant="farmer"
         maxWidthClass="w-full"
         icon={<Icon iconNode={cowHead} className="size-5 text-white" />}
@@ -535,6 +538,11 @@ function SibatLivestockRegistryContent() {
 
       {/* ── TOP NAVIGATION & UNIFIED RECORD TABS ── */}
       <div className="w-full px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-3 sm:space-y-4">
+        <Button variant="outline" asChild>
+          <Link href={showHistory ? "/sibat/livestock-registry" : "/sibat/livestock-registry?history=true"}>
+            {showHistory ? "Current animals" : "Animal history"}
+          </Link>
+        </Button>
         {/* Navigation Breadcrumb / Back Link */}
         <div className="flex items-center justify-between">
           <Link
@@ -1080,6 +1088,7 @@ function SibatLivestockRegistryContent() {
                           {/* Status */}
                           <TableCell className="text-center py-3.5">
                             <SibatStatusBadge status={r.status as UnifiedStatus} />
+                            {showHistory && <span className="block mt-1 text-xs font-semibold text-slate-600">{r.operationalStatus?.replaceAll("_", " ")}</span>}
                           </TableCell>
 
                           {/* Action */}
@@ -1169,6 +1178,7 @@ function SibatLivestockRegistryContent() {
                         )}
                       </div>
                       <SibatStatusBadge status={r.status as UnifiedStatus} />
+                      {showHistory && <span className="text-xs font-semibold text-slate-600">{r.operationalStatus?.replaceAll("_", " ")}</span>}
                     </div>
 
                     <div>

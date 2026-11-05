@@ -107,7 +107,7 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
       <ChartCard title="Livestock by Sex" note="Approved registered heads grouped by recorded sex in the selected reporting area." empty={!rows.length}><Bars data={sumBy(rows, "sex", "quantity")} horizontal unit="heads" /></ChartCard>
       <ChartCard title="Livestock Distribution by Species" note="Share of registered livestock heads. Pie charts suit a small set of categories that make up a whole." empty={!rows.length}><Donut data={sumBy(rows, "species", "quantity")} /></ChartCard>
       <ChartCard title="Historical Inventory Trend" note="The current inventory records do not contain dated historical stock snapshots." empty emptyMessage="No historical inventory trend available." ><p /></ChartCard>
-      <ChartCard title="Livestock by Operational Status" note="Approved heads grouped by their current operational status." empty={!rows.length}><Bars data={sumBy(rows, "operational_status", "quantity")} horizontal unit="heads" /></ChartCard>
+      <ChartCard title="Livestock by Operational Status" note="Approved active heads registered within the selected period. Inactive animals remain in history." empty={!rows.length}><Bars data={sumBy(rows, "operational_status", "quantity")} horizontal unit="heads" /></ChartCard>
     </div></div>;
   }
   if (reportType === "disease_mortality") {

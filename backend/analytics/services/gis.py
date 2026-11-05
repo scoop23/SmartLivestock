@@ -46,6 +46,7 @@ from smartlivestock.workflows import (
     ADMIN,
 )
 from .movement_direction import classify_movement_direction
+from .population import official_inventory
 
 
 # 18 official barangays of Padre Garcia matching frontend/src/data/padre-garcia-barangays.json
@@ -459,11 +460,9 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
             "inspections_count": 0,
         }
 
-    # 4. Aggregate Livestock Inventory (by farmer's barangay)
-    # Municipal territorial biosurveillance includes all registered individual livestock across barangays (325 heads)
-    inventory_qs = scope_reviewer_queryset(LivestockInventory.objects.all(), user).filter(
-        entry_type=LivestockInventory.EntryType.INDIVIDUAL,
-    )
+    # Current territorial population uses the same approved, active animals as
+    # analytics. Sold/deceased/moved-out rows remain available in history.
+    inventory_qs = official_inventory(user)
     
     species_by_barangay = (
         inventory_qs.values("farmer__barangay_id", "livestock_type__name")

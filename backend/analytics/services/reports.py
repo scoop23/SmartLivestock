@@ -71,6 +71,7 @@ def _base(report_type, start, end, filters):
         query = LivestockInventory.objects.filter(
             entry_type=LivestockInventory.EntryType.INDIVIDUAL,
             status=approved,
+            operational_status=LivestockInventory.OperationalStatus.ACTIVE,
             created_at__date__range=(start, end),
         )
         query = _apply_species(query, species, "livestock_type__name")

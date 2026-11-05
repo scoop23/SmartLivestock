@@ -695,7 +695,8 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
     def get_animals(self, obj):
         # Use prefetched in-memory animals without breaking prefetch cache via .order_by()
         animals = sorted(
-            (animal for animal in obj.animals.all() if animal.entry_type == LivestockInventory.EntryType.INDIVIDUAL),
+            (animal for animal in obj.animals.all() if animal.entry_type == LivestockInventory.EntryType.INDIVIDUAL
+             and animal.operational_status == LivestockInventory.OperationalStatus.ACTIVE),
             key=lambda animal: animal.id,
         )
         return BatchChildAnimalSerializer(animals, many=True, context=self.context).data
@@ -703,7 +704,8 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
     def get_review_status(self, obj):
         # Backward-compatible summary only. No endpoint may use this value to
         # approve the herd or change any animal's review state.
-        animals = [animal for animal in obj.animals.all() if animal.entry_type == LivestockInventory.EntryType.INDIVIDUAL]
+        animals = [animal for animal in obj.animals.all() if animal.entry_type == LivestockInventory.EntryType.INDIVIDUAL
+                   and animal.operational_status == LivestockInventory.OperationalStatus.ACTIVE]
         if not animals:
             return "NO_ANIMALS"
         statuses = [a.status for a in animals]
@@ -713,7 +715,9 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
         # Detail responses already prefetch the roster, so this does not issue
         # one query per status. List responses use SQL annotations below.
         return sum(
-            animal.entry_type == LivestockInventory.EntryType.INDIVIDUAL and animal.status in statuses
+            animal.entry_type == LivestockInventory.EntryType.INDIVIDUAL
+            and animal.operational_status == LivestockInventory.OperationalStatus.ACTIVE
+            and animal.status in statuses
             for animal in obj.animals.all()
         )
 

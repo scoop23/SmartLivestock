@@ -13,14 +13,14 @@ def batch_list_annotations(queryset):
     # A herd is only a container. These counts are summaries of its animals;
     # they never authorize a herd-wide review action.
     queryset = queryset.annotate(
-        child_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL")),
+        child_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__operational_status="ACTIVE")),
         active_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__operational_status="ACTIVE")),
         active_average_weight=Avg("animals__weight", filter=Q(animals__entry_type="INDIVIDUAL", animals__operational_status="ACTIVE")),
-        pending_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__status="PENDING")),
-        verified_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__status="VERIFIED")),
-        approved_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__status="APPROVED")),
-        revision_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__status__in=("SUBJECT_TO_REVISION", "SUBJECT_FOR_REVISION"))),
-        rejected_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__status="REJECTED")),
+        pending_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__operational_status="ACTIVE", animals__status="PENDING")),
+        verified_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__operational_status="ACTIVE", animals__status="VERIFIED")),
+        approved_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__operational_status="ACTIVE", animals__status="APPROVED")),
+        revision_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__operational_status="ACTIVE", animals__status__in=("SUBJECT_TO_REVISION", "SUBJECT_FOR_REVISION"))),
+        rejected_animal_count=Count("animals", filter=Q(animals__entry_type="INDIVIDUAL", animals__operational_status="ACTIVE", animals__status="REJECTED")),
     )
     return queryset.annotate(
         list_review_status=Case(
@@ -61,6 +61,7 @@ def filter_livestock_list(queryset, params, *, batch=False):
             matching_animals = LivestockInventory.objects.filter(
                 batch_id=OuterRef("pk"),
                 entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+                operational_status=LivestockInventory.OperationalStatus.ACTIVE,
             )
             if value and value.upper() != "ALL":
                 matching_animals = matching_animals.filter(status=value)
