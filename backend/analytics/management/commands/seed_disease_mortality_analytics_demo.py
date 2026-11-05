@@ -1,7 +1,7 @@
 """Seed irregular synthetic disease and mortality events with monthly coverage."""
 
 from calendar import monthrange
-from datetime import date
+from datetime import date, datetime, time
 from types import SimpleNamespace
 
 from django.core.management.base import BaseCommand, CommandError
@@ -31,6 +31,11 @@ OBJECT_MODELS = {
     "notification": Notification,
 }
 MONTHS = 24
+
+
+def demo_time(day, hour):
+    """Explicit simulated availability, never evidence of real historical review."""
+    return timezone.make_aware(datetime.combine(day, time(hour)), timezone.get_current_timezone())
 DISEASE_CASES_PER_MONTH = (1, 2, 0, 1, 2, 0, 3, 1, 0, 1, 2, 0, 2, 1, 0, 3, 1, 0, 2, 1, 0, 2, 1, 0)
 MORTALITY_RECORDS_PER_MONTH = (0, 1, 0, 0, 1, 0, 2, 0, 1, 0, 0, 1, 0, 1, 0, 2, 0, 1, 0, 1, 0, 1, 0, 0)
 
@@ -42,6 +47,10 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--repair-timestamps", action="store_true",
+            help="Repair simulated historical timestamps on explicitly owned demo rows without recreating them.",
+        )
         parser.add_argument(
             "--clean",
             action="store_true",
@@ -60,6 +69,12 @@ class Command(BaseCommand):
         clean = options["clean"]
         dry_run = options["dry_run"]
         assert_safe_seed_database(clean=clean, dry_run=dry_run)
+        if options["repair_timestamps"]:
+            if clean:
+                raise CommandError("Choose --repair-timestamps or --clean, not both.")
+            with transaction.atomic():
+                self._repair_demo_timestamps(dry_run=dry_run)
+            return
         months = self._completed_months(timezone.localdate())
 
         if dry_run:
@@ -323,7 +338,9 @@ class Command(BaseCommand):
                         else SurveillanceCoverageReport.Status.NO_REPORTS_RECEIVED
                     ),
                     confirmed_by=plan["reviewer"],
+                    confirmed_at=demo_time(month_end, 23),
                 )
+                SurveillanceCoverageReport.objects.filter(pk=report.pk).update(created_at=report.confirmed_at)
                 self._track(f"coverage:{domain.lower()}:{month_start:%Y-%m}", "coverage", report)
                 created_count += 1
         self.stdout.write(
@@ -444,7 +461,12 @@ class Command(BaseCommand):
     def _approve_with_verification(
         *, domain, record, verified_status, approved_status, verifier, reviewer, marker, label,
     ):
-        verify_time = timezone.now()
+        # Synthetic events simulate submission and review on the event date.
+        # QuerySet.update restores auto_now_add without issuing new notifications.
+        submitted_time = demo_time(record.record_date, 8)
+        type(record).objects.filter(pk=record.pk).update(created_at=submitted_time)
+        record.created_at = submitted_time
+        verify_time = demo_time(record.record_date, 14)
         verify_remark = f"{marker} Synthetic CBAT verification for analytics demo; not a field inspection."
         validate_review_transition(
             domain=domain,
@@ -462,10 +484,11 @@ class Command(BaseCommand):
             "verifiedAt": verify_time.isoformat(),
             "remarks": verify_remark,
             "verificationMode": "SYNTHETIC_DEMO",
+            "timelineMode": "SIMULATED_HISTORICAL_AVAILABILITY",
         }
         record.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_remarks", "inspection_details"])
 
-        approve_time = timezone.now()
+        approve_time = demo_time(record.record_date, 17)
         approve_remark = f"{marker} Synthetic MAO-approved analytics demo; {label}."
         validate_review_transition(
             domain=domain,
@@ -486,6 +509,65 @@ class Command(BaseCommand):
         record.review_remarks = approve_remark
         record.inspection_details = details
         record.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_remarks", "inspection_details"])
+
+    def _repair_demo_timestamps(self, *, dry_run):
+        """Repair only ledger-owned marked demo events and unmixed owned coverage."""
+        owned = SurveillanceDemoOwnership.objects.filter(identifier__startswith=PREFIX)
+        counts = {}
+        for kind, model, marker in (
+            ("disease", DiseaseCase, SEED_MARKER_DISEASE),
+            ("mortality", MortalityRecord, SEED_MARKER_MORTALITY),
+        ):
+            rows = model.objects.filter(
+                pk__in=owned.filter(object_type=kind).values("object_id"),
+                review_remarks__contains=marker, status="APPROVED",
+                inspection_details__verificationMode="SYNTHETIC_DEMO",
+            )
+            counts[kind] = rows.count()
+            if not dry_run:
+                for row in rows:
+                    details = dict(row.inspection_details or {})
+                    details.update(
+                        verifiedAt=demo_time(row.record_date, 14).isoformat(),
+                        maoReviewedAt=demo_time(row.record_date, 17).isoformat(),
+                        timelineMode="SIMULATED_HISTORICAL_AVAILABILITY",
+                    )
+                    model.objects.filter(pk=row.pk).update(
+                        created_at=demo_time(row.record_date, 8),
+                        reviewed_at=demo_time(row.record_date, 17),
+                        inspection_details=details,
+                    )
+        counts["coverage"] = 0
+        counts["coverage_skipped_mixed"] = 0
+        for report in SurveillanceCoverageReport.objects.filter(
+            pk__in=owned.filter(object_type="coverage").values("object_id"),
+        ):
+            kind = report.domain.lower()
+            model = OBJECT_MODELS[kind]
+            marker = SEED_MARKER_DISEASE if kind == "disease" else SEED_MARKER_MORTALITY
+            events = model.objects.filter(
+                record_date__year=report.report_month.year,
+                record_date__month=report.report_month.month,
+            ).filter(Q(livestock__farmer__barangay_id=report.barangay_id)
+                     | Q(batch__farmer__barangay_id=report.barangay_id))
+            safe_ids = owned.filter(object_type=kind).values("object_id")
+            if events.exclude(pk__in=safe_ids).exists() or events.exclude(
+                review_remarks__contains=marker, status="APPROVED",
+                inspection_details__verificationMode="SYNTHETIC_DEMO",
+            ).exists():
+                counts["coverage_skipped_mixed"] += 1
+                continue
+            counts["coverage"] += 1
+            if not dry_run:
+                month_end = report.report_month.replace(day=monthrange(
+                    report.report_month.year, report.report_month.month,
+                )[1])
+                confirmed = demo_time(month_end, 23)
+                SurveillanceCoverageReport.objects.filter(pk=report.pk).update(
+                    confirmed_at=confirmed, created_at=confirmed,
+                )
+        self.stdout.write(f"{'Would repair' if dry_run else 'Repaired'} synthetic timestamps: {counts}")
+        self.stdout.write("Simulated demo availability only; this is not evidence of historical field reviews. Unowned records and confirmations are preserved.")
 
     def _track(self, identifier, object_type, obj):
         marker, created = SurveillanceDemoOwnership.objects.get_or_create(

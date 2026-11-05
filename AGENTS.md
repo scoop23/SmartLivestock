@@ -1495,6 +1495,22 @@ Do not commit unless explicitly requested.
 
 ---
 
+# Synthetic Forecast Seed Data
+
+For historical forecasting demos, seed a coherent, explicitly simulated timeline:
+
+- Distinguish the event date from submission/creation, verification, approval, and reporting-coverage confirmation dates. Historical backtests may use only information available before their simulated forecast cutoff.
+- For synthetic historical fixtures, set submission and review timestamps in their intended historical period. Restore `auto_now_add` fields explicitly after insertion when necessary. Keep verification before approval and coverage confirmation after all included submissions/reviews and after the reporting period is complete.
+- Mark synthetic rows and simulated historical availability clearly. These timestamps demonstrate a workflow; they are not evidence of real historical reviews or real-world forecasting accuracy.
+- Never backdate real records, remove availability safeguards, or change counts just to obtain a preferred model or score.
+- Repairs and cleanup must require explicit seed ownership. Use the ownership ledger plus seed markers where available; preserve unowned records and confirmations, and skip mixed real/demo coverage periods.
+- Confirmed complete quiet months may be zero. Missing or unconfirmed reporting remains unknown. Do not fabricate zero observations to make a forecast available.
+- Verify the intended local/staging database with existing seed safeguards, preview repairs, and check that historical evaluation now runs. Report the actual model selected, evaluation-window count, and limitations.
+
+See `docs/predictive-forecasting-conversation-2026-11-05.md` for the disease forecast example and repair details.
+
+---
+
 # Final Rule
 
 Before changing code, understand the feature.
