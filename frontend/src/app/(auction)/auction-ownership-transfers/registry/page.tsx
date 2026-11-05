@@ -45,6 +45,8 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Clock,
   Download,
   Eye,
@@ -123,7 +125,7 @@ export default function AuctionOwnershipTransferRegistryPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [dateFilter, setDateFilter] = useState("Oct 1, 2026 - Oct 27, 2026");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
 
   // 100% Connected to the live Django REST backend endpoint
@@ -225,9 +227,23 @@ export default function AuctionOwnershipTransferRegistryPage() {
   // Pagination
   const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
   const paginatedRecords = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
+    const safePage = Math.min(Math.max(1, currentPage), totalPages);
+    const start = (safePage - 1) * itemsPerPage;
     return filtered.slice(start, start + itemsPerPage);
-  }, [filtered, currentPage, itemsPerPage]);
+  }, [filtered, currentPage, totalPages, itemsPerPage]);
+
+  const paginationRange = useMemo<(number | "ellipsis")[]>(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, "ellipsis", totalPages];
+    }
+    if (currentPage >= totalPages - 3) {
+      return [1, "ellipsis", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", totalPages];
+  }, [currentPage, totalPages]);
 
   // CSV Export
   const handleExportCSV = () => {
@@ -783,12 +799,51 @@ export default function AuctionOwnershipTransferRegistryPage() {
 
           {/* Table Footer with Pagination */}
           <div className="p-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-            <div>
-              Showing {filtered.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to{" "}
-              {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} records
+            <div className="flex items-center gap-3">
+              <span>
+                Showing {filtered.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to{" "}
+                {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} records
+              </span>
+
+              <div className="flex items-center gap-1.5 ml-2">
+                <span className="text-[11px] text-slate-400">Per page:</span>
+                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200/80">
+                  {[10, 25, 50].map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => {
+                        setItemsPerPage(size);
+                        setCurrentPage(1);
+                      }}
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono transition-all cursor-pointer ${
+                        itemsPerPage === size
+                          ? "bg-white text-slate-900 shadow-2xs"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center gap-1">
+              {/* First Page */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage(1)}
+                className="size-7 rounded-lg border-slate-200 bg-white"
+                title="First page"
+              >
+                <ChevronsLeft className="size-3.5" />
+              </Button>
+
+              {/* Previous Page */}
               <Button
                 type="button"
                 variant="outline"
@@ -796,25 +851,41 @@ export default function AuctionOwnershipTransferRegistryPage() {
                 disabled={currentPage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 className="size-7 rounded-lg border-slate-200 bg-white"
+                title="Previous page"
               >
                 <ChevronLeft className="size-3.5" />
               </Button>
 
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  type="button"
-                  onClick={() => setCurrentPage(page)}
-                  className={`size-7 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                    currentPage === page
-                      ? "bg-[#0F4A2F] text-white shadow-xs"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
+              {/* Page Number Pills with Ellipsis */}
+              {paginationRange.map((page, index) => {
+                if (page === "ellipsis") {
+                  return (
+                    <span
+                      key={`ellipsis-${index}`}
+                      className="size-7 flex items-center justify-center text-xs text-slate-400 font-mono select-none"
+                    >
+                      &hellip;
+                    </span>
+                  );
+                }
 
+                return (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`size-7 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                      currentPage === page
+                        ? "bg-[#0F4A2F] text-white shadow-xs"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+
+              {/* Next Page */}
               <Button
                 type="button"
                 variant="outline"
@@ -822,8 +893,22 @@ export default function AuctionOwnershipTransferRegistryPage() {
                 disabled={currentPage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 className="size-7 rounded-lg border-slate-200 bg-white"
+                title="Next page"
               >
                 <ChevronRight className="size-3.5" />
+              </Button>
+
+              {/* Last Page */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="size-7 rounded-lg border-slate-200 bg-white"
+                title="Last page"
+              >
+                <ChevronsRight className="size-3.5" />
               </Button>
             </div>
           </div>
