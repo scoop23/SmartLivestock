@@ -12,18 +12,11 @@ import { useAuth } from '@/contexts/auth-context';
 import api from '@/lib/axios';
 import {
   AlertCircle,
-  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Clock,
-  Cpu,
   FileCheck2,
-  FileSpreadsheet,
-  HelpCircle,
-  Info,
-  Layers,
   Lightbulb,
   ListFilter,
   RefreshCw,
@@ -33,15 +26,19 @@ import {
   Sparkles,
   Table as TableIcon,
   Workflow,
-  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+type RecommendationCategory = 'ALL' | 'DISEASE' | 'MORTALITY' | 'AUCTION' | 'SLAUGHTER' | 'PRICE' | 'DATA_QUALITY' | 'VACCINATION';
 interface RecommendationItem {
   rule: string;
   category: string;
+  category_key?: RecommendationCategory;
+  responsible_role?: string;
+  source?: string;
+  action_link?: string;
   severity: 'LOW' | 'MEDIUM' | 'HIGH';
   title: string;
   reason: string;
@@ -53,13 +50,8 @@ interface RecommendationItem {
 interface PrescriptiveResponse {
   status: 'ready' | 'partial' | 'error';
   rule_readiness: {
-    production: 'ready' | 'unavailable';
     disease: 'ready' | 'unavailable';
     vaccination_records: 'ready' | 'unavailable';
-  };
-  target: {
-    production_type: string;
-    unit: string;
   };
   total_recommendations: number;
   recommendations: RecommendationItem[];
@@ -70,39 +62,38 @@ function PrescriptiveLandingContent() {
   const searchParams = useSearchParams();
   const domainParam = searchParams?.get('domain');
 
-  const initialCat = useMemo<'ALL' | 'PRODUCTION' | 'DISEASE' | 'VACCINATION'>(() => {
+  const initialCat = useMemo<RecommendationCategory>(() => {
     if (!domainParam) return 'ALL';
     const d = domainParam.toLowerCase();
     if (d === 'disease') return 'DISEASE';
+    if (d === 'mortality') return 'MORTALITY';
+    if (d === 'auction') return 'AUCTION';
+    if (d === 'slaughter') return 'SLAUGHTER';
     if (d === 'inventory' || d === 'barangay') return 'VACCINATION';
-    if (d === 'production') return 'PRODUCTION';
     return 'ALL';
   }, [domainParam]);
 
   const [expandedRule, setExpandedRule] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'PRODUCTION' | 'DISEASE' | 'VACCINATION'>(initialCat);
+  const [categorySelection, setCategorySelection] = useState<{ domain: string | null; category: RecommendationCategory } | null>(null);
+  const selectedCategory = categorySelection?.domain === domainParam ? categorySelection.category : initialCat;
+  const setSelectedCategory = (category: RecommendationCategory) => setCategorySelection({ domain: domainParam, category });
 
-  useEffect(() => {
-    if (initialCat) {
-      setSelectedCategory(initialCat);
-    }
-  }, [initialCat]);
   const [showTableView, setShowTableView] = useState(false);
 
-  const { data, isPending: loading, isError, error, refetch, isFetching } = useQuery<PrescriptiveResponse>({
+  const { data, isPending: loading, isError, refetch, isFetching } = useQuery<PrescriptiveResponse>({
     queryKey: ['prescriptive-landing', user?.email, user?.accessScope, user?.assignedBarangayId],
     queryFn: async ({ signal }) => {
-      const res = await api.get<PrescriptiveResponse>('analytics/prescriptive/', { signal });
+      const res = await api.get<PrescriptiveResponse>('analytics/prescriptive/', { signal, timeout: 180_000 });
       return res.data;
     },
     staleTime: 60_000,
   });
 
-  const allRecommendations = data?.recommendations ?? [];
+  const allRecommendations = useMemo(() => data?.recommendations ?? [], [data]);
 
   const filteredRecommendations = useMemo(() => {
     if (selectedCategory === 'ALL') return allRecommendations;
-    return allRecommendations.filter((r) => r.category.toUpperCase() === selectedCategory);
+    return allRecommendations.filter((r) => (r.category_key || (r.rule === 'DISEASE_SURVEILLANCE_PRESSURE' ? 'DISEASE' : r.rule === 'LOW_VACCINATION_COVERAGE' ? 'VACCINATION' : 'DATA_QUALITY')) === selectedCategory);
   }, [allRecommendations, selectedCategory]);
 
   const highPriorityCount = allRecommendations.filter((r) => r.severity === 'HIGH').length;
@@ -116,7 +107,7 @@ function PrescriptiveLandingContent() {
     <>
       <PageHeader
         title="Prescriptive Intelligence"
-        subtitle="Turn empirical evidence into practical administrative decisions and veterinary interventions for Padre Garcia"
+        subtitle="Use recorded evidence and available forecasts to plan staff follow-up and municipal activities."
         variant="admin"
         maxWidthClass="w-full"
         icon={<Lightbulb className="size-5 text-amber-800" />}
@@ -189,45 +180,20 @@ function PrescriptiveLandingContent() {
         {/* ----------------------------------------------------------------- */}
         {/* B. INTERACTIVE RULE CATEGORY SELECTOR (4 Segmented Cards)         */}
         {/* ----------------------------------------------------------------- */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            {
-              id: 'ALL' as const,
-              label: 'All Active Triggers',
-              category: 'Combined',
-              status: `${allRecommendations.length} Triggers`,
-              icon: Sparkles,
-              badge: `${allRecommendations.length} Total`,
-              ready: true,
-            },
-            {
-              id: 'PRODUCTION' as const,
-              label: 'Production Yield Deficits',
-              category: 'Production',
-              status: 'Yield & Feed Deficit',
-              icon: Layers,
-              badge: data?.rule_readiness.production === 'ready' ? 'Active' : 'Awaiting Data',
-              ready: data?.rule_readiness.production === 'ready',
-            },
-            {
-              id: 'DISEASE' as const,
-              label: 'Biosecurity & Outbreaks',
-              category: 'Health',
-              status: 'Quarantine & Alert',
-              icon: ShieldAlert,
-              badge: data?.rule_readiness.disease === 'ready' ? 'Active' : 'Awaiting Data',
-              ready: data?.rule_readiness.disease === 'ready',
-            },
-            {
-              id: 'VACCINATION' as const,
-              label: 'Herd Immunity Targets',
-              category: 'Immunity',
-              status: 'Coverage Target',
-              icon: ShieldCheck,
-              badge: data?.rule_readiness.vaccination_records === 'ready' ? 'Active' : 'Awaiting Data',
-              ready: data?.rule_readiness.vaccination_records === 'ready',
-            },
-          ].map((card) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          {([
+            { id: 'ALL', label: 'All Recommendations', category: 'Combined', icon: Sparkles },
+            { id: 'DISEASE', label: 'Disease Follow-up', category: 'Health reports', icon: ShieldAlert },
+            { id: 'MORTALITY', label: 'Mortality Follow-up', category: 'Recorded deaths', icon: ShieldAlert },
+            { id: 'AUCTION', label: 'Auction Workload', category: 'Recorded sales', icon: Workflow },
+            { id: 'SLAUGHTER', label: 'Slaughter Planning', category: 'Carcass weight', icon: Scale },
+            { id: 'PRICE', label: 'Cattle-price Monitoring', category: 'Recorded prices', icon: Scale },
+            { id: 'DATA_QUALITY', label: 'Forecast Readiness', category: 'Data follow-up', icon: FileCheck2 },
+            { id: 'VACCINATION', label: 'Vaccination Records', category: 'Record coverage', icon: ShieldCheck },
+          ] as const).map(item => {
+            const count = item.id === 'ALL' ? allRecommendations.length : allRecommendations.filter(rec => rec.category_key === item.id).length;
+            return { ...item, status: `${count} recommendations`, badge: `${count} items`, ready: count > 0 };
+          }).map((card) => {
             const isSelected = selectedCategory === card.id;
             const Icon = card.icon;
 
@@ -417,6 +383,7 @@ function PrescriptiveLandingContent() {
           </CardHeader>
 
           <CardContent className="p-4 sm:p-6 space-y-4">
+            <p className="text-xs text-slate-500">Forecast planning evidence is cached for up to five minutes. The first evaluation may take longer while models are checked. Recommendations support staff review and do not perform actions automatically.</p>
             {loading ? (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -437,9 +404,9 @@ function PrescriptiveLandingContent() {
             ) : filteredRecommendations.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
                 <CheckCircle2 className="size-8 text-emerald-600 mb-2" />
-                <h3 className="text-base font-bold text-slate-900">No Action Thresholds Currently Breached</h3>
+                <h3 className="text-base font-bold text-slate-900">No recommendations in this category</h3>
                 <p className="text-xs text-slate-600 max-w-md mt-1">
-                  Current production yields, disease reports, and mortality rates are within normal operational baseline ranges in Padre Garcia.
+                  No recommendations match this category. Available evidence may be limited; this does not establish normal conditions or complete reporting.
                 </p>
               </div>
             ) : showTableView ? (
@@ -451,6 +418,7 @@ function PrescriptiveLandingContent() {
                       <TableHead className="font-mono text-xs text-slate-700">Severity</TableHead>
                       <TableHead className="font-mono text-xs text-slate-700">Category</TableHead>
                       <TableHead className="font-mono text-xs text-slate-700">Recommendation Title</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700">Responsible staff</TableHead>
                       <TableHead className="font-mono text-xs text-slate-700">Action Type</TableHead>
                       <TableHead className="font-mono text-xs text-slate-700 text-right">Evidence Items</TableHead>
                     </TableRow>
@@ -475,6 +443,7 @@ function PrescriptiveLandingContent() {
                         </TableCell>
                         <TableCell className="font-mono text-xs text-slate-600">{rec.category}</TableCell>
                         <TableCell className="font-bold text-xs text-slate-900">{rec.title}</TableCell>
+                        <TableCell className="text-xs text-slate-600">{rec.responsible_role || "MAO"}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[10px] font-mono text-slate-600 border-slate-200">
                             {rec.action_type || 'ADVISORY'}
@@ -530,9 +499,14 @@ function PrescriptiveLandingContent() {
                               {rec.title}
                             </h3>
 
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                              {rec.responsible_role && <span><strong>Responsible:</strong> {rec.responsible_role}</span>}
+                              <Badge variant="outline" className="text-[10px]">{rec.source === 'forecast' ? 'Forecast-based planning' : 'Recorded-data review'}</Badge>
+                            </div>
                             <p className="text-xs sm:text-sm text-slate-700 leading-relaxed pt-0.5">
                               {rec.recommendation}
                             </p>
+                            {rec.action_link && <Link href={rec.action_link} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 hover:underline">View supporting forecast <ArrowRight className="size-3.5" /></Link>}
                           </div>
 
                           <Button

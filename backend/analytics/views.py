@@ -1061,10 +1061,10 @@ def _livestock_milk_forecast_response(request, livestock_id):
 @permission_classes([IsAuthenticated, isMAO | isSibat])
 def prescriptive_recommendations(request):
     """
-    Evaluates transparent, evidence-based prescriptive rules based on forecasts
-    and real municipal observations.
+    Evaluates scoped record-review and forecast-based administrative planning rules.
     """
-    return Response({"detail": "Farmer milk and meat-yield records are private and unavailable for municipal production recommendations."}, status=status.HTTP_403_FORBIDDEN)
+    from .services.predictive.rules import generate_prescriptive_recommendations
+    return Response(generate_prescriptive_recommendations(user=request.user))
 
 
 @api_view(["GET"])

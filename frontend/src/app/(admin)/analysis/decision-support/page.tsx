@@ -9,8 +9,8 @@ export default function DecisionSupportPage() {
   return (
     <>
       <PageHeader
-        title="Decision Support"
-        subtitle="Quantitative rule triggers and evidence-based municipal administrative actions for Padre Garcia"
+        title="Decision Support Workspace"
+        subtitle="Quantitative rule triggers, operations queue, and evidence-based municipal actions for Padre Garcia MAO"
         variant="admin"
         maxWidthClass="w-full"
         icon={<Workflow className="size-5 text-amber-800" />}
