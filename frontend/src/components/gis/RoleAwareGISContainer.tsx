@@ -38,7 +38,7 @@ import { useClientReady } from "@/hooks/use-browser-state";
 
 import { useIsMobile } from '@/components/ui/use-mobile';
 import api from '@/lib/axios';
-import { ArrowLeft, ChevronDown, ChevronUp, Info, Loader2, Radio, ShieldAlert, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, GripVertical, Info, Loader2, Radio, ShieldAlert, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
@@ -123,6 +123,103 @@ export function RoleAwareGISContainer({
   enableCirclingCamera = false,
 }: RoleAwareGISContainerProps) {
   const [isCircling, setIsCircling] = useState<boolean>(Boolean(enableCirclingCamera));
+  // Draggable Orbit Pill Badge state
+  const [orbitPillPos, setOrbitPillPos] = useState<{ x: number; y: number } | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const orbitPillRef = useRef<HTMLDivElement | null>(null);
+  const isPillDraggingRef = useRef<boolean>(false);
+  const pillGrabOffsetRef = useRef<{ grabX: number; grabY: number } | null>(null);
+  const pillDragStartRef = useRef<{ startX: number; startY: number } | null>(null);
+
+  // Keep badge dynamically within container bounds when container resizes (e.g. sidebar collapse / expand)
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        setOrbitPillPos((prev) => {
+          if (!prev) return null;
+          const pillWidth = orbitPillRef.current?.offsetWidth || 260;
+          const pillHeight = orbitPillRef.current?.offsetHeight || 36;
+          const maxX = Math.max(12, width - pillWidth - 12);
+          const maxY = Math.max(12, height - pillHeight - 12);
+          const newX = Math.max(12, Math.min(maxX, prev.x));
+          const newY = Math.max(12, Math.min(maxY, prev.y));
+          if (newX === prev.x && newY === prev.y) return prev;
+          return { x: newX, y: newY };
+        });
+      }
+    });
+    observer.observe(mapContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const handlePillPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    isPillDraggingRef.current = false;
+    const pillRect = orbitPillRef.current?.getBoundingClientRect();
+    if (!pillRect) return;
+
+    // Grab offset relative to pill top-left
+    pillGrabOffsetRef.current = {
+      grabX: e.clientX - pillRect.left,
+      grabY: e.clientY - pillRect.top,
+    };
+    pillDragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handlePillPointerMove = (e: React.PointerEvent) => {
+    if (!pillDragStartRef.current || !pillGrabOffsetRef.current) return;
+    const dx = e.clientX - pillDragStartRef.current.startX;
+    const dy = e.clientY - pillDragStartRef.current.startY;
+    if (Math.hypot(dx, dy) > 4) {
+      isPillDraggingRef.current = true;
+    }
+    if (isPillDraggingRef.current) {
+      const containerRect = mapContainerRef.current?.getBoundingClientRect();
+      if (!containerRect) return;
+
+      const pillWidth = orbitPillRef.current?.offsetWidth || 260;
+      const pillHeight = orbitPillRef.current?.offsetHeight || 36;
+
+      // Desired position relative to map container
+      const targetX = (e.clientX - containerRect.left) - pillGrabOffsetRef.current.grabX;
+      const targetY = (e.clientY - containerRect.top) - pillGrabOffsetRef.current.grabY;
+
+      const maxX = Math.max(12, containerRect.width - pillWidth - 12);
+      const maxY = Math.max(12, containerRect.height - pillHeight - 12);
+
+      const clampedX = Math.max(12, Math.min(maxX, targetX));
+      const clampedY = Math.max(12, Math.min(maxY, targetY));
+
+      setOrbitPillPos({ x: clampedX, y: clampedY });
+    }
+  };
+
+  const handlePillPointerUp = (e: React.PointerEvent) => {
+    if (pillDragStartRef.current) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+      pillDragStartRef.current = null;
+      pillGrabOffsetRef.current = null;
+    }
+  };
+
+  const handlePillClick = (e: React.MouseEvent) => {
+    if (isPillDraggingRef.current) {
+      isPillDraggingRef.current = false;
+      return;
+    }
+    setIsCircling((prev) => !prev);
+  };
+
   const router = useRouter();
   const isMobile = useIsMobile();
 
@@ -514,7 +611,7 @@ export function RoleAwareGISContainer({
       </button>
 
       {/* 1. Full Viewport Interactive GIS Map Container */}
-      <div className="relative w-full h-full flex-1 min-h-0 overflow-hidden">
+      <div ref={mapContainerRef} className="relative w-full h-full flex-1 min-h-0 overflow-hidden">
         <GISMap
           barangaysByName={barangaysByName}
           movements={activeDisplayMovements}
@@ -542,19 +639,41 @@ export function RoleAwareGISContainer({
           onCirclingChange={setIsCircling}
         />
 
-        {/* Floating Circling Orbit Status Indicator (Active in Auction GIS) */}
+        {/* Draggable Floating Circling Orbit Status Indicator (Active in Auction GIS) */}
         {enableCirclingCamera && (
-          <div className="absolute top-[calc(4.75rem+env(safe-area-inset-top,0px))] sm:top-[calc(1.25rem+env(safe-area-inset-top,0px))] left-1/2 -translate-x-1/2 z-[900] pointer-events-auto select-none transition-all duration-300">
-            <button
-              type="button"
-              onClick={() => setIsCircling((prev) => !prev)}
-              title={isCircling ? "Click to pause camera circling" : "Click to resume camera circling"}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold backdrop-blur-md border shadow-lg flex items-center gap-2 cursor-pointer transition-all duration-200 active:scale-95 ${
+          <div
+            ref={orbitPillRef}
+            style={
+              orbitPillPos
+                ? {
+                    position: 'absolute',
+                    left: `${orbitPillPos.x}px`,
+                    top: `${orbitPillPos.y}px`,
+                    transform: 'none',
+                    zIndex: 950,
+                  }
+                : undefined
+            }
+            className={`z-[950] select-none touch-none ${
+              orbitPillPos
+                ? "absolute pointer-events-auto"
+                : "absolute top-[calc(4.75rem+env(safe-area-inset-top,0px))] sm:top-[calc(1.25rem+env(safe-area-inset-top,0px))] left-1/2 -translate-x-1/2 pointer-events-auto"
+            }`}
+          >
+            <div
+              onPointerDown={handlePillPointerDown}
+              onPointerMove={handlePillPointerMove}
+              onPointerUp={handlePillPointerUp}
+              onPointerCancel={handlePillPointerUp}
+              onClick={handlePillClick}
+              title={isCircling ? "Drag to move badge • Click to pause orbit" : "Drag to move badge • Click to resume orbit"}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md border shadow-lg flex items-center gap-2 cursor-grab active:cursor-grabbing transition-colors duration-150 ${
                 isCircling
                   ? "bg-[#072718]/90 text-emerald-300 border-emerald-500/50 shadow-emerald-950/40 hover:bg-[#072718]"
                   : "bg-slate-900/85 text-slate-300 border-slate-700/60 shadow-slate-950/40 hover:bg-slate-900"
               }`}
             >
+              <GripVertical className="size-3.5 text-slate-400/80 -ml-0.5 shrink-0 pointer-events-none" />
               {isCircling ? (
                 <>
                   <span className="size-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
@@ -568,7 +687,7 @@ export function RoleAwareGISContainer({
                   <span className="text-[10px] text-slate-300/80 font-medium hidden sm:inline">• Click ↺ Reset to orbit</span>
                 </>
               )}
-            </button>
+            </div>
           </div>
         )}
 
