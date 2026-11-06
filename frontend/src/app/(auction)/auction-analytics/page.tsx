@@ -360,7 +360,7 @@ export default function AuctionAnalyticsPage() {
         {/* ── 1. Top Row: 4 Main KPI Cards (Compact & Readable) ────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Card 1: Cattle Received */}
-          <div className="rounded-xl sm:rounded-2xl border border-emerald-200/90 bg-white p-3 sm:p-3.5 shadow-2xs hover:border-emerald-300 transition-all flex items-center gap-3">
+          <div className="rounded-xl sm:rounded-2xl border border-emerald-200/90 bg-white p-3 sm:p-3.5 shadow-2xs hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex items-center gap-3">
             <div className="size-11 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
               <CattleIcon className="size-5.5" />
             </div>
@@ -380,7 +380,7 @@ export default function AuctionAnalyticsPage() {
           </div>
 
           {/* Card 2: Total Auctions */}
-          <div className="rounded-xl sm:rounded-2xl border border-sky-200/90 bg-white p-3 sm:p-3.5 shadow-2xs hover:border-sky-300 transition-all flex items-center gap-3">
+          <div className="rounded-xl sm:rounded-2xl border border-sky-200/90 bg-white p-3 sm:p-3.5 shadow-2xs hover:border-sky-300 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex items-center gap-3">
             <div className="size-11 rounded-xl bg-sky-50 border border-sky-100 text-sky-600 flex items-center justify-center shrink-0">
               <Gavel className="size-5.5" />
             </div>
@@ -400,7 +400,7 @@ export default function AuctionAnalyticsPage() {
           </div>
 
           {/* Card 3: Total Buyers */}
-          <div className="rounded-xl sm:rounded-2xl border border-amber-200/90 bg-white p-3 sm:p-3.5 shadow-2xs hover:border-amber-300 transition-all flex items-center gap-3">
+          <div className="rounded-xl sm:rounded-2xl border border-amber-200/90 bg-white p-3 sm:p-3.5 shadow-2xs hover:border-amber-300 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex items-center gap-3">
             <div className="size-11 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center shrink-0">
               <Users className="size-5.5" />
             </div>
@@ -440,7 +440,7 @@ export default function AuctionAnalyticsPage() {
         {/* ── 2. Middle Row: Volume Trends & Destination Donut ─────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
           {/* Left: Auction Volume Trends (7 cols) */}
-          <div className="lg:col-span-7 rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between">
+          <div className="lg:col-span-7 rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <BarChart2 className="size-4.5 text-[#1B5E20]" />
@@ -514,7 +514,7 @@ export default function AuctionAnalyticsPage() {
           </div>
 
           {/* Right: Cattle by Destination Donut (5 cols) */}
-          <div className="lg:col-span-5 rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between">
+          <div className="lg:col-span-5 rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
                 <PieChartIcon className="size-4.5 text-[#1B5E20]" />
@@ -606,7 +606,7 @@ export default function AuctionAnalyticsPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
           {/* Left: Transaction Status (5 cols) */}
-          <div className="lg:col-span-5 rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between space-y-3">
+          <div className="lg:col-span-5 rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-3">
             <div className="flex items-center gap-2">
               <ClipboardCheck className="size-4.5 text-[#1B5E20]" />
               <h3 className="text-sm font-bold text-slate-900">
@@ -651,7 +651,7 @@ export default function AuctionAnalyticsPage() {
           </div>
 
           {/* Right: Recent Auction Activity (7 cols) */}
-          <div className="lg:col-span-7 rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between space-y-2.5">
+          <div className="lg:col-span-7 rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ListFilter className="size-4.5 text-[#1B5E20]" />

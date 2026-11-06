@@ -139,10 +139,10 @@ export default function AuctionInspections() {
             <button
               type="button"
               onClick={() => setMainView("form")}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ease-out cursor-pointer active:scale-95 hover:-translate-y-0.5 ${
                 mainView === "form"
-                  ? "bg-[#0F4A2F] text-white shadow-xs"
-                  : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                  ? "bg-[#0F4A2F] text-white shadow-sm ring-2 ring-[#0F4A2F]/25 -translate-y-0.5"
+                  : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:shadow-2xs"
               }`}
             >
               Record Movement Log
@@ -150,10 +150,10 @@ export default function AuctionInspections() {
             <button
               type="button"
               onClick={() => setMainView("registry")}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ease-out cursor-pointer active:scale-95 hover:-translate-y-0.5 ${
                 mainView === "registry"
-                  ? "bg-[#0F4A2F] text-white shadow-xs"
-                  : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                  ? "bg-[#0F4A2F] text-white shadow-sm ring-2 ring-[#0F4A2F]/25 -translate-y-0.5"
+                  : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:shadow-2xs"
               }`}
             >
               Back to movement logs
@@ -174,6 +174,7 @@ export default function AuctionInspections() {
         </div>
       </div>
 
+      <div key={mainView} className="animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none">
       {mainView === "form" ? (
         <NewInspectionForm
           onSubmitSuccess={handleSuccess}
@@ -357,6 +358,7 @@ export default function AuctionInspections() {
         )}
       </div>
       )}
+      </div>
 
       {/* Inspection Details Dialog */}
       <InspectionDetailsDialog

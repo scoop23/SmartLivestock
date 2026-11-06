@@ -354,7 +354,7 @@ export default function AuctionOwnershipTransferRegistryPage() {
         {/* 2 Visual Analytics Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Left Chart: Transfers by Month (7 cols) */}
-          <div className="lg:col-span-7 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card space-y-4">
+          <div className="lg:col-span-7 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100">
@@ -429,7 +429,7 @@ export default function AuctionOwnershipTransferRegistryPage() {
           </div>
 
           {/* Right Chart: Livestock Types Transferred (5 cols) */}
-          <div className="lg:col-span-5 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card space-y-4">
+          <div className="lg:col-span-5 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-sky-50 text-sky-700 border border-sky-100">

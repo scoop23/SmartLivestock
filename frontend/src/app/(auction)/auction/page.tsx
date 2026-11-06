@@ -155,7 +155,7 @@ export default function AuctionDashboard() {
             <Button
               size="sm"
               onClick={() => router.push("/auction-inspections/new")}
-              className="bg-white hover:bg-emerald-50 text-[#0F5A38] text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
+              className="bg-white hover:bg-emerald-50 text-[#0F5A38] text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer active:scale-95 hover:-translate-y-0.5 transition-all duration-200"
             >
               <Plus className="w-3.5 h-3.5" />
               New Movement Log
@@ -166,7 +166,7 @@ export default function AuctionDashboard() {
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* ═══ Operational Clearance Queue ═══ */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-75 fill-mode-both motion-reduce:animate-none">
           <KpiCard
             size="sm"
             title="Pending Records"

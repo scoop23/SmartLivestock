@@ -650,7 +650,7 @@ export default function AuctionOwnershipTransfersPage() {
             asChild
             variant="outline"
             size="sm"
-            className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-3.5 rounded-xl shadow-xs gap-1.5"
+            className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-3.5 rounded-xl shadow-xs gap-1.5 active:scale-95 hover:-translate-y-0.5 transition-all duration-200"
           >
             <Link href="/auction-ownership-transfers/registry">
               <ArrowLeft className="size-4" />
@@ -663,7 +663,7 @@ export default function AuctionOwnershipTransfersPage() {
             variant="outline"
             size="sm"
             onClick={() => setShowUserGuide(true)}
-            className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-3.5 rounded-xl shadow-xs gap-1.5"
+            className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-9 px-3.5 rounded-xl shadow-xs gap-1.5 active:scale-95 hover:-translate-y-0.5 transition-all duration-200"
           >
             <BookOpen className="size-4 text-slate-600" />
             User Guide
@@ -671,7 +671,7 @@ export default function AuctionOwnershipTransfersPage() {
         </div>
 
         {/* 3-Step Horizontal Workflow Progress Banner */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-xs">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-xs hover:-translate-y-0.5 hover:shadow-sm transition-all duration-200">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             {/* Step 1: Select Animal */}
             <div className="flex items-center gap-3 min-w-0">

@@ -36,7 +36,7 @@ const headerClasses: Record<PageHeaderVariant, string> = {
   sibat: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   cbat: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
   auction: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
-  slaughterhouse: "bg-gradient-to-r from-[#9F1239] to-[#E11D48] text-white shadow-lg",
+  slaughterhouse: "bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg",
 };
 
 const glowClasses: Record<PageHeaderVariant, string> = {
@@ -45,7 +45,7 @@ const glowClasses: Record<PageHeaderVariant, string> = {
   sibat: "bg-emerald-300/20",
   cbat: "bg-emerald-300/20",
   auction: "bg-emerald-300/20",
-  slaughterhouse: "bg-rose-200/25",
+  slaughterhouse: "bg-emerald-300/20",
 };
 
 const chipClasses: Record<PageHeaderVariant, string> = {
@@ -69,7 +69,7 @@ export function PageHeader({
   showNotifications = true,
   wrapSubtitleOnMobile = false,
   mobileActionsRow = false,
-  hideIconOnMobile = false,
+  hideIconOnMobile = true,
   mobileActionsInline = false,
   showBreadcrumbs = true,
   breadcrumbs,

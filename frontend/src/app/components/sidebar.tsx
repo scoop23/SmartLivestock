@@ -27,10 +27,12 @@ import { useAuth } from '@/contexts/auth-context';
 import { cowHead } from '@lucide/lab';
 import {
   Activity,
+  ArrowLeftRight,
   BarChart2,
   BarChart3,
   Beef,
   Bell,
+  CalendarCheck,
   CalendarDays,
   ChevronDown,
   ClipboardCheck,
@@ -61,6 +63,7 @@ import {
   Sparkles,
   Stethoscope,
   TrendingUp,
+  Truck,
   UploadCloud,
   User as UserIcon,
   Users,
@@ -198,9 +201,9 @@ const auctionLinks: SidebarLink[] = [
   { path: '/auction-analytics', label: 'Market Analytics', icon: BarChart3 },
   { path: '/auction-gate', label: 'Gate Check', icon: QrCode },
 
-  { path: '/auction-preregistrations', label: 'Preregistrations', icon: ClipboardCheck },
-  { path: '/auction-ownership-transfers/registry', label: 'Transfer Records', icon: ClipboardCheck },
-  { path: '/auction-inspections', label: 'Intake Logs', icon: ClipboardCheck },
+  { path: '/auction-preregistrations', label: 'Preregistrations', icon: CalendarCheck },
+  { path: '/auction-ownership-transfers/registry', label: 'Transfer Records', icon: ArrowLeftRight },
+  { path: '/auction-inspections', label: 'Intake Logs', icon: Truck },
 
   { path: '/auction-gis', label: 'Movement Map', icon: Map },
   { path: '/auction-announcement', label: 'Announcements', icon: Newspaper },
@@ -209,7 +212,7 @@ const auctionLinks: SidebarLink[] = [
 const slaughterhouseLinks: SidebarLink[] = [
   { path: '/slaughterhouse', label: 'Slaughter Records', icon: LayoutDashboard, exactMatch: true },
   { path: '/slaughterhouse/history', label: 'Slaughter History', icon: History },
-  { path: '/slaughterhouse/announcements', label: 'Activities', icon: Megaphone },
+  { path: '/slaughterhouse/announcements', label: 'Announcements', icon: Megaphone },
 ];
 
 function getLinks(role: SidebarProps['role'], userRole?: string): SidebarLink[] {

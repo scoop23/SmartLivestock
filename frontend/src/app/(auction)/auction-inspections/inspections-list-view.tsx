@@ -227,7 +227,7 @@ function InspectionsListViewContent({
           <Card
             key={record.id}
             onClick={() => onSelectInspection(record)}
-            className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card hover:border-emerald-300 transition-all duration-200 overflow-hidden flex flex-col justify-between cursor-pointer group"
+            className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-holo-card hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99] transition-all duration-200 overflow-hidden flex flex-col justify-between cursor-pointer group"
           >
             <div className="p-5 space-y-4">
               <div className="flex items-start justify-between gap-3">

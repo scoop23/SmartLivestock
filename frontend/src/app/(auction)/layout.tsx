@@ -62,7 +62,15 @@ export default function AuctionLayout({
             />
           </>
         )}
-        {children}
+        <div
+          key={pathname}
+          className={cn(
+            "animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none",
+            isMapPage ? "h-full w-full" : "w-full"
+          )}
+        >
+          {children}
+        </div>
       </main>
 
       <Toaster />

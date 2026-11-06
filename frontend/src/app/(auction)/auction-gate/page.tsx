@@ -419,7 +419,7 @@ export default function AuctionGatePage() {
         {/* ── TOP SECTION: 2-COLUMN WORKSPACE (Matching Mockup) ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           {/* ═══════════ LEFT COLUMN: SCAN LIVESTOCK QR ═══════════ */}
-          <Card className="lg:col-span-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 sm:p-6 shadow-2xs hover:border-emerald-300 transition-all flex flex-col justify-between">
+          <Card className="lg:col-span-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 sm:p-6 shadow-2xs hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 flex flex-col justify-between">
             <CardContent className="p-0 space-y-4 flex-1 flex flex-col justify-between">
               {/* Header */}
               <div className="flex items-start gap-3">
@@ -462,7 +462,7 @@ export default function AuctionGatePage() {
                 <Button
                   type="button"
                   onClick={() => setScannerOpen(true)}
-                  className="w-full sm:flex-1 h-10 px-4 rounded-xl text-xs font-bold bg-[#1E4D2B] hover:bg-[#163b21] text-white shadow-xs gap-2 cursor-pointer transition-all"
+                  className="w-full sm:flex-1 h-10 px-4 rounded-xl text-xs font-bold bg-[#1E4D2B] hover:bg-[#163b21] text-white shadow-xs gap-2 cursor-pointer active:scale-95 hover:-translate-y-0.5 transition-all duration-150"
                 >
                   <Scan className="size-4" />
                   <span>Start Scanning</span>
@@ -482,7 +482,7 @@ export default function AuctionGatePage() {
           </Card>
 
           {/* ═══════════ RIGHT COLUMN: MANUAL / WALK-IN GATE INTAKE ═══════════ */}
-          <Card className="lg:col-span-7 rounded-2xl sm:rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 sm:p-6 shadow-2xs hover:border-emerald-300 transition-all">
+          <Card className="lg:col-span-7 rounded-2xl sm:rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 sm:p-6 shadow-2xs hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
             <CardContent className="p-0 space-y-4">
               {/* Header */}
               <div className="flex items-start gap-3">
@@ -657,7 +657,7 @@ export default function AuctionGatePage() {
                   <Button
                     type="submit"
                     disabled={saving || !selectedFarmer}
-                    className="w-full sm:w-auto h-10 px-6 rounded-xl text-xs font-bold bg-[#1E4D2B] hover:bg-[#163b21] text-white shadow-xs gap-2 cursor-pointer transition-all"
+                    className="w-full sm:w-auto h-10 px-6 rounded-xl text-xs font-bold bg-[#1E4D2B] hover:bg-[#163b21] text-white shadow-xs gap-2 cursor-pointer active:scale-95 hover:-translate-y-0.5 transition-all duration-150"
                   >
                     {saving ? (
                       <RefreshCw className="size-4 animate-spin" />

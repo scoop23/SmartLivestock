@@ -18,7 +18,7 @@ export default function AuctionPreregistrationsPage() {
   return <>
     <PageHeader variant="auction" title="Auction Preregistrations" subtitle="Review farmer paperwork before arrival and prepare animals for the sale-recording step." />
     <main className="space-y-6 p-4 sm:p-6 lg:p-8">
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-2.5 sm:p-3.5 shadow-2xs">
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-2.5 sm:p-3.5 shadow-2xs hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Step 1 */}
           <div className="flex flex-1 items-center gap-3.5 rounded-xl border border-[#BEE1C6] bg-[#EAF5EC] p-3.5">
