@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 import { useQuery,useQueryClient } from "@tanstack/react-query";
 import {
-CheckCircle2,
+AlertCircle,
+    CheckCircle2,
 ClipboardCheck,
 Clock,
 LayoutGrid,
@@ -16,6 +17,7 @@ Map,
 Plus,
 QrCode,
 RotateCcw,
+  Save,
 Search,
 Send,
 TableIcon,
@@ -30,6 +32,7 @@ fetchInspections,
 } from "./auction-analytics";
 import { InspectionDetailsDialog } from "./inspection-details-dialog";
 import { InspectionsListView } from "./inspections-list-view";
+import { NewInspectionForm } from "./movement-log-form";
 
 export default function AuctionInspections() {
   const router = useRouter();
@@ -38,6 +41,8 @@ export default function AuctionInspections() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const [mainView, setMainView] = useState<"form" | "registry">("form");
+  const [draftStatus, setDraftStatus] = useState<"checking" | "prompt" | "ready" | "saving" | "saved" | "error">("saved");
 
   // Modal states
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -128,7 +133,55 @@ export default function AuctionInspections() {
         maxWidthClass="w-full"
       />
 
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="w-full px-4 sm:px-6 lg:px-8 pt-4 pb-1">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200/90 pb-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMainView("form")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                mainView === "form"
+                  ? "bg-[#0F4A2F] text-white shadow-xs"
+                  : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              Record Movement Log
+            </button>
+            <button
+              type="button"
+              onClick={() => setMainView("registry")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                mainView === "registry"
+                  ? "bg-[#0F4A2F] text-white shadow-xs"
+                  : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              Back to movement logs
+            </button>
+          </div>
+
+          {mainView === "form" && (
+            <div aria-live="polite" className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-2xs">
+              {draftStatus === "saving" ? (
+                <><Save className="size-3.5 animate-pulse text-amber-600" /> Saving draft…</>
+              ) : draftStatus === "error" ? (
+                <><AlertCircle className="size-3.5 text-rose-600" /> Local draft error</>
+              ) : (
+                <><Save className="size-3.5 text-emerald-600" /> Draft saved locally</>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {mainView === "form" ? (
+        <NewInspectionForm
+          onSubmitSuccess={handleSuccess}
+          onCancel={() => setMainView("registry")}
+          onDraftStatusChange={setDraftStatus}
+        />
+      ) : (
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-4 space-y-6">
         {/* Header Actions & Mode Switcher */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -193,7 +246,7 @@ export default function AuctionInspections() {
 
             <Button
               size="sm"
-              onClick={() => router.push("/auction-inspections/new")}
+              onClick={() => setMainView("form")}
               className="bg-[#0F5A38] hover:bg-[#0c482d] text-white text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
@@ -303,6 +356,7 @@ export default function AuctionInspections() {
           />
         )}
       </div>
+      )}
 
       {/* Inspection Details Dialog */}
       <InspectionDetailsDialog
