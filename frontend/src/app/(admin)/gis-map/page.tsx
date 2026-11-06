@@ -11,5 +11,5 @@
 import { RoleAwareGISContainer } from '@/components/gis/RoleAwareGISContainer';
 
 export default function GISMapPage() {
-  return <RoleAwareGISContainer backRoute="/admin" backLabel="Back to Admin" />;
+  return <RoleAwareGISContainer backRoute="/admin" backLabel="Back to Admin" enableCirclingCamera={true} />;
 }
