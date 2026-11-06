@@ -30,19 +30,30 @@ import { httpError } from "@/lib/http-error";
 import api from "@/lib/axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { cowHead } from "@lucide/lab";
 import {
   ArrowLeft,
   ArrowLeftRight,
   ArrowRight,
   BookOpen,
   Calendar,
+  Check,
   CheckCircle2,
+  ChevronDown,
   Clock,
+  Database,
+  Eye,
   FileCheck,
   FileText,
+  Icon,
   Info,
+  Pencil,
   QrCode,
+  Save,
   Search,
+  Truck,
+  User,
+  X,
 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -134,6 +145,57 @@ function getOwnershipTransferLoadError(error: unknown, fallback: string) {
   return `${fallback} (HTTP ${status}).`;
 }
 
+
+const CowHeadIcon = ({ className }: { className?: string }) => (
+  <Icon iconNode={cowHead} className={className} />
+);
+
+function formatTransferDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "Not specified";
+  const parts = dateStr.split("-");
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+  }
+  return dateStr;
+}
+
+function renderTransferStatus(status: string) {
+  const norm = (status || "").toUpperCase();
+  if (norm === "APPROVED" || norm === "COMPLETED") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+        <Check className="size-3 text-emerald-600" />
+        <span>Approved</span>
+      </span>
+    );
+  }
+  if (norm.includes("PENDING") || norm === "SUBMITTED" || norm === "FOR_REVIEW") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
+        <Clock className="size-3 text-amber-600" />
+        <span>Pending MAO Review</span>
+      </span>
+    );
+  }
+  if (norm.includes("REJECT") || norm.includes("RETURN")) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700">
+        <X className="size-3 text-rose-600" />
+        <span>Returned / Rejected</span>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+      <span>{status.replaceAll("_", " ")}</span>
+    </span>
+  );
+}
+
 function TransferFieldLabel({
   htmlFor,
   label,
@@ -193,6 +255,8 @@ export default function AuctionOwnershipTransfersPage() {
   const [editing, setEditing] = useState<Transfer | null>(null);
   const [outsideLivestock, setOutsideLivestock] = useState(false);
   const [showUserGuide, setShowUserGuide] = useState(false);
+  const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
+  const [viewTransfer, setViewTransfer] = useState<Transfer | null>(null);
   const [pendingSubmission, setPendingSubmission] = useState<OwnershipTransferSubmission | null>(null);
   const [submissionSuccess, setSubmissionSuccess] = useState("");
   const selectedAnimalForTransfer = !outsideLivestock && selectedAnimalIds.length === 1
@@ -606,889 +670,944 @@ export default function AuctionOwnershipTransfersPage() {
           </Button>
         </div>
 
-        {/* Emerald Callout Card */}
-        <div className="rounded-2xl border border-[#D4F1E1] bg-[#F0FAF4] p-4 flex items-center gap-3.5 shadow-xs">
-          <div className="shrink-0 rounded-xl bg-[#E3F6EC] text-[#0F5A38] p-2.5 flex items-center justify-center">
-            <ArrowLeftRight className="size-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-bold text-slate-900 leading-tight">
-              {editing ? "Correct a returned transfer" : "Record a completed sale"}
-            </h2>
-            <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-              Choose a registered SmartLivestock animal or record an outside animal with its seller and origin. Outside animals stay out of local farmer inventory.
-            </p>
+        {/* 3-Step Horizontal Workflow Progress Banner */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-xs">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Step 1: Select Animal */}
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-1 bg-[#0F4A2F] rounded-full hidden sm:block shrink-0" />
+              <div className="size-8 rounded-full bg-[#0F4A2F] text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-xs">
+                1
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-slate-900 leading-tight">Select Animal</h2>
+                <p className="text-xs text-slate-500 leading-tight mt-0.5">
+                  Choose the seller and animal to transfer.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex-1 h-px bg-slate-200 mx-2 hidden md:block" />
+
+            {/* Step 2: Transfer Details */}
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                className={`size-8 rounded-full font-bold text-sm flex items-center justify-center shrink-0 transition-colors ${
+                  (farmer && selectedAnimalIds.length > 0) || outsideLivestock
+                    ? "bg-[#EAF5EC] border border-emerald-300 text-[#0F4A2F]"
+                    : "bg-white border-2 border-slate-200 text-slate-600"
+                }`}
+              >
+                2
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-slate-900 leading-tight">Transfer Details</h2>
+                <p className="text-xs text-slate-500 leading-tight mt-0.5">
+                  Enter buyer, certificate, and sale information.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex-1 h-px bg-slate-200 mx-2 hidden md:block" />
+
+            {/* Step 3: Review & Submit */}
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="size-8 rounded-full bg-white border-2 border-slate-200 text-slate-600 font-bold text-sm flex items-center justify-center shrink-0">
+                3
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-slate-900 leading-tight">Review &amp; Submit</h2>
+                <p className="text-xs text-slate-500 leading-tight mt-0.5">
+                  Confirm details and submit to MAO.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Segmented Tab Pills */}
-        {!editing && (
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setOutsideLivestock(false);
-                  setFarmer(null);
-                  setFarmerAnimals([]);
-                  setSelectedAnimalIds([]);
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
-                  !outsideLivestock
-                    ? "bg-[#0F4A2F] text-white hover:bg-[#0B3D26]"
-                    : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                Registered SmartLivestock animal
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setOutsideLivestock(true);
-                  setFarmer(null);
-                  setFarmerAnimals([]);
-                  setSelectedAnimalIds([]);
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
-                  outsideLivestock
-                    ? "bg-[#0F4A2F] text-white hover:bg-[#0B3D26]"
-                    : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                Outside livestock
-              </button>
-            </div>
-            <p className="text-xs text-slate-500 font-normal">
-              Outside livestock is recorded for the market transaction only and is not added to a Padre Garcia Farmer&apos;s inventory.
-            </p>
-          </div>
-        )}
-
-        {/* Step 1 Card: Light emerald background */}
-        <div className="rounded-2xl border border-emerald-200/90 bg-[#F0FAF4] p-5 shadow-xs space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="shrink-0 rounded-xl bg-[#10B981] text-white p-2 flex items-center justify-center">
-              <FileCheck className="size-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 leading-tight">
-                1. Find the registered seller
-              </h2>
-              <p className="text-xs text-slate-600 mt-0.5">
-                {outsideLivestock
-                  ? "Outside livestock mode active: Seller and origin details will be specified below."
-                  : "Search and select the farmer who sold the animal."}
-              </p>
-            </div>
-          </div>
-
-          {!outsideLivestock && !editing && !farmer && (
-            <div className="space-y-1.5">
-              <TransferFieldLabel
-                htmlFor="farmer-search"
-                label="Find the registered seller"
-                help="Search for the Farmer who sold the animal by name, email, username, RSBSA number, or Farmer ID."
-              />
-              <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
-                <Input
-                  id="farmer-search"
-                  value={farmerSearch}
-                  onChange={(e) => setFarmerSearch(e.target.value)}
-                  placeholder="Farmer name, email, username, RSBSA, or Farmer ID"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void searchFarmers();
-                    }
-                  }}
-                  className="pl-10 h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400 focus-visible:ring-emerald-500"
-                />
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void searchFarmers()}
-                disabled={isSearchingFarmers || !farmerSearch.trim()}
-                className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-10 px-4 rounded-xl shadow-xs shrink-0 gap-1.5"
-              >
-                <Search className="size-4" />
-                {isSearchingFarmers ? "Searching…" : "Find Farmer"}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  setScannerTarget("seller");
-                  setIsScannerOpen(true);
-                }}
-                className="bg-[#E3F6EC] hover:bg-[#D4F1E1] border border-[#BCE8D3] text-[#0D6843] font-bold text-xs h-10 px-4 rounded-xl shadow-xs shrink-0 gap-1.5"
-              >
-                <QrCode className="size-4 text-[#0D6843]" />
-                Scan Farmer QR
-              </Button>
-              </div>
-            </div>
-          )}
-
-          {lookupError && (
-            <Alert variant="destructive" className="rounded-xl">
-              <AlertDescription>{lookupError}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Seller Search Results */}
-          {!outsideLivestock && farmerResults.length > 0 && (
-            <div className="space-y-2 pt-1">
-              <h3 className="text-xs font-bold text-slate-700">Select the seller</h3>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {farmerResults.map((result) => (
-                  <button
-                    key={result.id}
-                    type="button"
-                    onClick={() => void loadFarmerAnimals(result)}
-                    className="h-auto text-left p-3 rounded-xl border border-emerald-200 bg-white hover:bg-emerald-50/50 transition-colors shadow-xs"
-                  >
-                    <span className="block font-bold text-xs text-slate-900">
-                      {result.name}{" "}
-                      <span className="font-normal text-slate-500">· Farmer ID {result.id}</span>
-                    </span>
-                    <span className="mt-1 block text-[11px] text-slate-600">
-                      {result.username} · {result.email || "No email"} · {result.barangay}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Selected Seller & Animals Checklist */}
-          {!outsideLivestock && farmer && (
-            <div className="space-y-3 pt-1">
-              <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-emerald-200/90 bg-white p-3.5 shadow-xs">
-                <div className="space-y-0.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-bold text-xs text-slate-900">Seller: {farmer.name}</h3>
-                    <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-800 border-emerald-200">
-                      Farmer ID {farmer.id}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    {farmer.username} · {farmer.email || "No email"} · {farmer.barangay}
-                  </p>
-                  {farmer.rsbsa_number && (
-                    <p className="text-[11px] text-slate-500">RSBSA: {farmer.rsbsa_number}</p>
-                  )}
+        {/* Main 2-Column Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* LEFT COLUMN: Cards 1 and 2 (lg:col-span-5) */}
+          <div className="lg:col-span-5 space-y-5">
+            {/* 1. Animal Source Card */}
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-[#EAF5EC] text-[#1E4D2B] flex items-center justify-center shrink-0 shadow-2xs">
+                  <CowHeadIcon className="size-5" />
                 </div>
-                {!editing && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setFarmer(null);
-                      setFarmerAnimals([]);
-                      setSelectedAnimalIds([]);
-                      setFarmerResults([]);
-                      setIsAnimalModalOpen(false);
-                      autofillAnimalTraits(null);
-                    }}
-                    className="h-8 text-xs text-slate-600 hover:text-slate-900"
-                  >
-                    Choose another Farmer
-                  </Button>
-                )}
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 leading-tight">1. Animal Source</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Select the source of the animal for this transfer.</p>
+                </div>
               </div>
 
-              {/* Livestock Selection Summary Card */}
-              <div className="rounded-xl border border-emerald-200/90 bg-white p-3.5 shadow-xs space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-800">Farmer livestock and sale intent</h3>
-                    <p className="text-[11px] text-slate-500">
-                      {isLoadingAnimals
-                        ? "Loading this Farmer's eligible livestock…"
-                        : selectedAnimalIds.length === 0
-                        ? "No livestock selected yet. Choose eligible animals from this farmer."
-                        : `${selectedAnimalIds.length} animal${selectedAnimalIds.length === 1 ? "" : "s"} selected for transfer`}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Option A: Registered Animal */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOutsideLivestock(false);
+                    setFarmer(null);
+                    setFarmerAnimals([]);
+                    setSelectedAnimalIds([]);
+                  }}
+                  className={`relative flex flex-col justify-between p-3.5 rounded-2xl text-left transition-all cursor-pointer ${
+                    !outsideLivestock
+                      ? "border-2 border-emerald-600 bg-[#EAF5EC]/60 shadow-xs ring-1 ring-emerald-500/20"
+                      : "border border-slate-200 bg-white hover:bg-slate-50"
+                  }`}
+                >
+                  {!outsideLivestock && (
+                    <div className="absolute top-2.5 right-2.5 size-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
+                      <Check className="size-3 stroke-[3]" />
+                    </div>
+                  )}
+                  <Database className={`size-6 ${!outsideLivestock ? "text-[#1E4D2B]" : "text-slate-500"}`} />
+                  <div className="mt-3">
+                    <p className="font-bold text-xs sm:text-sm text-slate-900">Registered Animal</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
+                      Existing in SmartLivestock (Padre Garcia inventory).
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    onClick={() => setIsAnimalModalOpen(true)}
-                    disabled={isLoadingAnimals || farmerAnimals.length === 0}
-                    className="h-8 text-xs font-bold bg-[#0F4A2F] text-white hover:bg-[#0B3D26] shadow-xs cursor-pointer"
-                  >
-                    {selectedAnimalIds.length === 0 ? "Select livestock" : `Change selection (${selectedAnimalIds.length})`}
-                  </Button>
-                </div>
+                </button>
 
-                {isLoadingAnimals && (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-                    Loading this Farmer&apos;s eligible livestock…
-                  </div>
-                )}
-
-                {!isLoadingAnimals && farmerAnimals.length === 0 && (
-                  <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-500 text-center">
-                    This Farmer has no active individual livestock available to review.
-                  </div>
-                )}
-
-                {!isLoadingAnimals && selectedAnimalIds.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {selectedAnimalIds.map((id) => {
-                      const animal = farmerAnimals.find((a) => a.id === id);
-                      if (!animal) return null;
-                      return (
-                        <div
-                          key={`selected-chip-${id}`}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-xs text-emerald-950 font-medium"
-                        >
-                          <span>{animal.livestock_type_name} · {animal.tag_number || `#${animal.id}`}</span>
-                          <Badge variant="secondary" className="text-[9px] h-4 px-1 bg-white text-emerald-800 border-emerald-200">
-                            {animal.registration_status.replaceAll("_", " ")}
-                          </Badge>
-                          <button
-                            type="button"
-                            onClick={() => toggleAnimal(id, false)}
-                            className="text-emerald-700 hover:text-emerald-900 ml-0.5 font-bold text-sm leading-none cursor-pointer"
-                            aria-label={`Remove ${animal.tag_number || `#${animal.id}`}`}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {selectedAnimalIds.length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-emerald-200">
-                  <p className="text-xs font-semibold text-slate-700">
-                    {selectedAnimalIds.length} animal{selectedAnimalIds.length === 1 ? "" : "s"} selected. Confirm each original ownership certificate number:
-                  </p>
-                  {selectedAnimalIds.map((id) => {
-                    const animal = farmerAnimals.find((item) => item.id === id);
-                    if (!animal) return null;
-                    return (
-                      <div
-                        key={`certificate-${id}`}
-                        className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:items-center bg-white p-2.5 rounded-xl border border-emerald-200 shadow-xs"
-                      >
-                        <TransferFieldLabel
-                          htmlFor={`original-certificate-${id}`}
-                          label={`${animal.livestock_type_name} ${animal.tag_number || `#${id}`} certificate`}
-                          help="Enter the number from this animal's original ownership certificate, not the new transfer certificate."
-                        />
-                        <Input
-                          id={`original-certificate-${id}`}
-                          value={originalCertificates[id] || ""}
-                          onChange={(e) =>
-                            setOriginalCertificates((cur) => ({ ...cur, [id]: e.target.value }))
-                          }
-                          placeholder="Original ownership certificate number"
-                          required
-                          className="h-9 bg-white border-slate-200 rounded-lg text-xs"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Step 2 Card: Light blue background with exact 2-column input grid */}
-        <div className="rounded-2xl border border-blue-200/90 bg-[#F2F8FE] p-5 shadow-xs space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="shrink-0 rounded-xl bg-[#3B82F6] text-white p-2 flex items-center justify-center">
-              <FileText className="size-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 leading-tight">
-                2. Transfer details
-              </h2>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Enter the certificate information and market details.
-              </p>
-            </div>
-          </div>
-
-          <form key={editing?.id ?? "new-transfer"} onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-              {/* Row 1 Left: Buyer type */}
-              <div className="space-y-1.5">
-                <TransferFieldLabel
-                  htmlFor="owner_type"
-                  label="Buyer type"
-                  help="Choose Registered SmartLivestock Farmer if the buyer has an approved Farmer account. Choose an external type for a buyer without one."
-                />
-                <Select
-                  value={ownerType}
-                  onValueChange={(val) => {
-                    setOwnerType(val as OwnerType);
-                    setBuyer(null);
-                    setBuyerResults([]);
+                {/* Option B: Outside Livestock */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOutsideLivestock(true);
+                    setFarmer(null);
+                    setFarmerAnimals([]);
+                    setSelectedAnimalIds([]);
                   }}
+                  className={`relative flex flex-col justify-between p-3.5 rounded-2xl text-left transition-all cursor-pointer ${
+                    outsideLivestock
+                      ? "border-2 border-emerald-600 bg-[#EAF5EC]/60 shadow-xs ring-1 ring-emerald-500/20"
+                      : "border border-slate-200 bg-white hover:bg-slate-50"
+                  }`}
                 >
-                  <SelectTrigger id="owner_type" className="h-10 bg-white border-slate-200 rounded-xl text-xs">
-                    <SelectValue placeholder="Choose buyer type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="REGISTERED_FARMER">Registered SmartLivestock Farmer</SelectItem>
-                    <SelectItem value="EXTERNAL_INDIVIDUAL">External individual</SelectItem>
-                    <SelectItem value="COMPANY">Company</SelectItem>
-                    <SelectItem value="TRADER">Trader</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-                <input type="hidden" name="owner_type" value={ownerType} />
+                  {outsideLivestock && (
+                    <div className="absolute top-2.5 right-2.5 size-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
+                      <Check className="size-3 stroke-[3]" />
+                    </div>
+                  )}
+                  <Truck className={`size-6 ${outsideLivestock ? "text-[#1E4D2B]" : "text-slate-500"}`} />
+                  <div className="mt-3">
+                    <p className="font-bold text-xs sm:text-sm text-slate-900">Outside Livestock</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                      Market transaction only (not added to local inventory).
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Seller & Animal Card */}
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-[#EAF5EC] text-[#1E4D2B] flex items-center justify-center shrink-0 shadow-2xs">
+                  <User className="size-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 leading-tight">2. Seller &amp; Animal</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Verify the seller and select the animal to transfer.</p>
+                </div>
               </div>
 
-              {/* Row 1 Right: Find the registered buyer (or buyer name) */}
+              {/* Seller section */}
               <div className="space-y-1.5">
-                {ownerType === "REGISTERED_FARMER" ? (
-                  <>
-                    <TransferFieldLabel
-                      htmlFor="buyer-search"
-                      label="Find the registered buyer"
-                      help="Search using the buyer's name, email, username, RSBSA number, or Farmer ID, then select the matching approved Farmer."
-                    />
-                    {buyer ? (
-                      <div className="flex items-center justify-between gap-2 h-10 px-3 bg-white border border-emerald-300 rounded-xl text-xs">
-                        <div className="flex items-center gap-2 truncate">
-                          <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-                          <span className="font-bold text-slate-900">{buyer.name}</span>
-                          <span className="text-slate-500 font-normal">· {buyer.barangay}</span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setBuyer(null)}
-                          className="h-7 text-xs text-slate-500 hover:text-red-600"
-                        >
-                          Change
-                        </Button>
+                <p className="text-xs font-semibold text-slate-700">
+                  {outsideLivestock ? "Seller (Outside Seller)" : "Seller (Registered Farmer)"}
+                </p>
+
+                {!outsideLivestock && farmer && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+                        <User className="size-4" />
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
-                          <Input
-                            id="buyer-search"
-                            value={buyerSearch}
-                            onChange={(e) => setBuyerSearch(e.target.value)}
-                            placeholder="Buyer name, email, username, RSBSA, or Farmer ID"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                void searchBuyers();
-                              }
-                            }}
-                            className="pl-9 h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400 focus-visible:ring-blue-500"
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => void searchBuyers()}
-                          disabled={isSearchingBuyers || !buyerSearch.trim()}
-                          className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs h-10 px-3 rounded-xl shadow-xs shrink-0 gap-1.5"
-                        >
-                          <Search className="size-3.5" />
-                          Find Farmer
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => {
-                            setScannerTarget("buyer");
-                            setIsScannerOpen(true);
-                          }}
-                          className="bg-[#E3F6EC] hover:bg-[#D4F1E1] border border-[#BCE8D3] text-[#0D6843] font-bold text-xs h-10 px-3 rounded-xl shadow-xs shrink-0 gap-1.5"
-                        >
-                          <QrCode className="size-3.5 text-[#0D6843]" />
-                          Scan Farmer QR
-                        </Button>
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-xs sm:text-sm text-slate-900">{farmer.name}</p>
+                        <p className="truncate text-[11px] text-slate-500">
+                          RSBSA: {farmer.rsbsa_number || "Not recorded"} · Farmer ID: FG-{String(farmer.id).padStart(6, "0")}
+                        </p>
                       </div>
+                    </div>
+                    {!editing && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setFarmer(null);
+                          setFarmerAnimals([]);
+                          setSelectedAnimalIds([]);
+                          setFarmerResults([]);
+                          setIsAnimalModalOpen(false);
+                          autofillAnimalTraits(null);
+                        }}
+                        className="h-8 rounded-xl border-emerald-600 px-3 text-xs font-bold text-emerald-800 hover:bg-emerald-50 gap-1.5 shadow-2xs shrink-0"
+                      >
+                        <Pencil className="size-3.5" />
+                        <span>Change</span>
+                      </Button>
                     )}
-                    {buyerResults.length > 0 && (
-                      <div className="mt-2 grid gap-1.5 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl p-2 shadow-md">
-                        {buyerResults.map((result) => (
+                  </div>
+                )}
+
+                {!outsideLivestock && !farmer && (
+                  <div className="space-y-2">
+                    <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                        <Input
+                          value={farmerSearch}
+                          onChange={(e) => setFarmerSearch(e.target.value)}
+                          placeholder="Farmer name, email, username, or RSBSA..."
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void searchFarmers();
+                            }
+                          }}
+                          className="pl-9 h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400 focus-visible:ring-emerald-500"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void searchFarmers()}
+                        disabled={isSearchingFarmers || !farmerSearch.trim()}
+                        className="h-10 px-3.5 rounded-xl border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 gap-1.5 shrink-0"
+                      >
+                        <Search className="size-3.5" />
+                        <span>{isSearchingFarmers ? "Searching…" : "Find"}</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setScannerTarget("seller");
+                          setIsScannerOpen(true);
+                        }}
+                        className="h-10 px-3.5 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-800 hover:bg-emerald-100 gap-1.5 shrink-0"
+                      >
+                        <QrCode className="size-3.5 text-emerald-700" />
+                        <span>Scan QR</span>
+                      </Button>
+                    </div>
+                    {lookupError && (
+                      <Alert variant="destructive" className="rounded-xl py-2 text-xs">
+                        <AlertDescription>{lookupError}</AlertDescription>
+                      </Alert>
+                    )}
+                    {farmerResults.length > 0 && (
+                      <div className="grid gap-1.5 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xs">
+                        {farmerResults.map((result) => (
                           <button
                             key={result.id}
                             type="button"
-                            onClick={() => {
-                              setBuyer(result);
-                              setBuyerResults([]);
-                              setBuyerSearch("");
-                            }}
-                            className="text-left p-2 rounded-lg hover:bg-blue-50 transition-colors text-xs flex items-center justify-between"
+                            onClick={() => void loadFarmerAnimals(result)}
+                            className="flex items-center justify-between rounded-lg p-2 text-left text-xs hover:bg-emerald-50/60 transition-colors"
                           >
                             <div>
-                              <p className="font-bold text-slate-900">
-                                {result.name}{" "}
-                                <span className="font-normal text-slate-500">· ID {result.id}</span>
-                              </p>
-                              <p className="text-[11px] text-slate-500">
-                                {result.username} · {result.barangay}
-                              </p>
+                              <p className="font-bold text-slate-900">{result.name} <span className="font-normal text-slate-500">· ID {result.id}</span></p>
+                              <p className="text-[11px] text-slate-500">{result.barangay} · {result.username}</p>
                             </div>
-                            <span className="text-[11px] font-bold text-blue-600">Select</span>
+                            <span className="text-[11px] font-bold text-emerald-700">Select</span>
                           </button>
                         ))}
                       </div>
                     )}
-                    <input type="hidden" name="new_owner_identifier" value={buyer?.username || ""} />
-                  </>
-                ) : (
-                  <div className="space-y-1.5">
-                    <TransferFieldLabel
-                      htmlFor="external_owner_name"
-                      label="Buyer / organization name"
-                      help="Enter the external buyer's individual or organization name as shown on the transfer certificate."
-                    />
-                    <Input
-                      id="external_owner_name"
-                      name="external_owner_name"
-                      required
-                      maxLength={255}
-                      defaultValue={editing?.external_owner_name}
-                      placeholder="Enter buyer or organization name"
-                      className="h-10 bg-white border-slate-200 rounded-xl text-xs"
-                    />
+                  </div>
+                )}
+
+                {outsideLivestock && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                    Outside seller and origin details are entered directly under Transfer Details.
                   </div>
                 )}
               </div>
 
-              {/* Row 2 Left: Paper transfer certificate number */}
+              {/* Animal to transfer section */}
               <div className="space-y-1.5">
-                <TransferFieldLabel
-                  htmlFor="transfer_certificate_number"
-                  label="Paper transfer certificate number"
-                  help="Enter the number printed on the completed transfer certificate. One certificate may cover several animals."
-                />
-                <Input
-                  id="transfer_certificate_number"
-                  name="transfer_certificate_number"
-                  required
-                  defaultValue={editing?.transfer_certificate_number}
-                  placeholder="Enter certificate number"
-                  className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
-                />
-                <p className="text-[11px] text-slate-500">
-                  Enter the number printed on the completed paper certificate. SmartLivestock stores a digital record separately.
-                </p>
-              </div>
+                <p className="text-xs font-semibold text-slate-700">Animal to Transfer</p>
 
-              {/* Row 2 Right: Transfer date */}
-              <div className="space-y-1.5">
-                <TransferFieldLabel
-                  htmlFor="transfer_date"
-                  label="Transfer date"
-                  help="Enter the date the ownership transfer actually happened. Future dates are not allowed."
-                />
-                <Input
-                  id="transfer_date"
-                  name="transfer_date"
-                  type="date"
-                  required
-                  defaultValue={editing?.transfer_date ?? getLocalDateInputValue()}
-                  className="h-10 bg-white border-slate-200 rounded-xl text-xs"
-                />
-              </div>
-
-              {/* Row 3 Left: Agreed price (optional) */}
-              <div className="space-y-1.5">
-                <TransferFieldLabel
-                  htmlFor="purchase_price"
-                  label="Agreed price (optional)"
-                  help="Enter the recorded sale price for this animal in Philippine pesos. Leave blank if the price is unknown or not documented."
-                />
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-xs pointer-events-none">
-                    ₱
-                  </span>
-                  <Input
-                    id="purchase_price"
-                    name="purchase_price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    defaultValue={editing?.purchase_price ?? ""}
-                    placeholder="Enter agreed price"
-                    className="pl-8 h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
-                  />
-                </div>
-              </div>
-
-              {/* Row 3 Right: Municipality / city */}
-              <div className="space-y-1.5">
-                <TransferFieldLabel
-                  htmlFor="municipality"
-                  label="Municipality / city"
-                  help="Enter the municipality or city recorded for this transfer."
-                />
-                <Input
-                  id="municipality"
-                  name="municipality"
-                  required
-                  defaultValue={editing?.municipality ?? "Padre Garcia"}
-                  placeholder="Enter municipality or city"
-                  className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
-                />
-              </div>
-
-              {/* Row 4 Left: Province */}
-              <div className="space-y-1.5">
-                <TransferFieldLabel
-                  htmlFor="province"
-                  label="Province"
-                  help="Enter the province recorded for this transfer."
-                />
-                <Input
-                  id="province"
-                  name="province"
-                  required
-                  defaultValue={editing?.province ?? "Batangas"}
-                  placeholder="Enter province"
-                  className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
-                />
-              </div>
-
-              {/* Row 4 Right: Sex & Age in 2 sub-columns */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <TransferFieldLabel
-                    htmlFor="sex_at_transfer"
-                    label="Sex (optional)"
-                    help="Select the animal's sex at the time of transfer. Leave blank if it is not known."
-                  />
-                  <Select
-                    value={sexAtTransfer}
-                    onValueChange={(val) => setSexAtTransfer(val)}
-                  >
-                    <SelectTrigger id="sex_at_transfer" className="h-10 bg-white border-slate-200 rounded-xl text-xs">
-                      <SelectValue placeholder="Select sex" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MALE">Male</SelectItem>
-                      <SelectItem value="FEMALE">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <input type="hidden" name="sex_at_transfer" value={sexAtTransfer} />
-                </div>
-                <div className="space-y-1.5">
-                  <TransferFieldLabel
-                    htmlFor="age_at_transfer"
-                    label="Age (optional)"
-                    help="Enter the animal's age at the time of transfer, using the age stated or verified for the sale."
-                  />
-                  <Input
-                    id="age_at_transfer"
-                    name="age_at_transfer"
-                    value={ageAtTransfer}
-                    onChange={(e) => setAgeAtTransfer(e.target.value)}
-                    placeholder="Enter age"
-                    className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
-                  />
-                </div>
-              </div>
-
-              {(outsideLivestock || selectedAnimalIds.length === 1) ? (
-                <div
-                  key={outsideLivestock ? `external-${editing?.id ?? "new"}` : `animal-${selectedAnimalForTransfer?.id ?? "none"}`}
-                  className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3"
-                >
-                  <div className="space-y-1.5">
-                    <TransferFieldLabel
-                      htmlFor="breed_at_transfer"
-                      label="Breed at transfer (optional)"
-                      help="Enter the animal's breed at the time of sale. For a registered animal, correct the prefilled breed if it differed at transfer."
-                    />
-                    <Input
-                      id="breed_at_transfer"
-                      name="breed_at_transfer"
-                      maxLength={50}
-                      value={breedAtTransfer}
-                      onChange={(e) => setBreedAtTransfer(e.target.value)}
-                      placeholder="e.g. Brahman, Angus, Native"
-                      className="h-10 bg-white border-slate-200 rounded-xl text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <TransferFieldLabel
-                      htmlFor="weight_at_transfer_kg"
-                      label="Weight at transfer in kg (optional)"
-                      help="Enter the animal's measured weight in kilograms at the time of sale. Leave blank if it was not measured or confirmed."
-                    />
-                    <Input
-                      id="weight_at_transfer_kg"
-                      name="weight_at_transfer_kg"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={weightAtTransfer}
-                      onChange={(e) => setWeightAtTransfer(e.target.value)}
-                      placeholder="Enter measured weight"
-                      className="h-10 bg-white border-slate-200 rounded-xl text-xs"
-                    />
-                  </div>
-                  <p className="col-span-full text-[11px] leading-relaxed text-slate-500">
-                    {outsideLivestock
-                      ? "Enter traits known at the sale; leave a field blank if it was not measured or confirmed."
-                      : "Values start from the selected animal record. Confirm they match the sale; update them if the animal's traits changed."}
-                  </p>
-                </div>
-              ) : selectedAnimalIds.length > 1 ? (
-                <p className="col-span-full rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
-                  For a same-day multi-animal transfer, each record takes its own breed and weight from its linked animal. For a backdated transfer, record animals individually to enter their sale-time traits.
-                </p>
-              ) : null}
-
-              {/* Row 5 Left: Description recorded on certificate (optional) */}
-              <div className="space-y-1.5">
-                <TransferFieldLabel
-                  htmlFor="animal_description"
-                  label="Description recorded on certificate (optional)"
-                  help="Copy any animal description or identifying notes written on the transfer certificate."
-                />
-                <Input
-                  id="animal_description"
-                  name="animal_description"
-                  defaultValue={editing?.animal_description}
-                  placeholder="Enter description from certificate"
-                  className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
-                />
-              </div>
-
-              {/* Row 5 Right: Municipality brand & Owner brand in 2 sub-columns */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <TransferFieldLabel
-                    htmlFor="municipality_brand"
-                    label="Municipality brand (optional)"
-                    help="Enter the municipality's identifying brand or mark if it appears on the animal or transfer certificate. Leave blank if none is recorded."
-                  />
-                  <Input
-                    id="municipality_brand"
-                    name="municipality_brand"
-                    defaultValue={editing?.municipality_brand}
-                    placeholder="Enter municipality brand"
-                    className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <TransferFieldLabel
-                    htmlFor="owner_brand"
-                    label="Owner brand (optional)"
-                    help="Enter the owner's identifying brand or mark if it appears on the animal or transfer certificate. Leave blank if none is recorded."
-                  />
-                  <Input
-                    id="owner_brand"
-                    name="owner_brand"
-                    defaultValue={editing?.owner_brand}
-                    placeholder="Enter owner brand"
-                    className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
-                  />
-                </div>
-              </div>
-
-              {/* Outside livestock extra fields */}
-              {outsideLivestock && (
-                <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 pt-3 border-t border-blue-200/70">
-                  <div className="space-y-1.5">
-                    <TransferFieldLabel
-                      htmlFor="external_seller_name"
-                      label="Outside seller name"
-                      help="Enter the person or business that sold the animal. Match the name on the certificate when available."
-                    />
-                    <Input
-                      id="external_seller_name"
-                      name="external_seller_name"
-                      required
-                      maxLength={255}
-                      defaultValue={editing?.external_seller_name}
-                      placeholder="Enter seller name"
-                      className="h-10 bg-white border-slate-200 rounded-xl text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <TransferFieldLabel
-                      htmlFor="external_seller_address"
-                      label="Seller address"
-                      help="Enter the seller's address as shown on the certificate or transaction record."
-                    />
-                    <Input
-                      id="external_seller_address"
-                      name="external_seller_address"
-                      required
-                      defaultValue={editing?.external_seller_address}
-                      placeholder="Enter seller address"
-                      className="h-10 bg-white border-slate-200 rounded-xl text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <TransferFieldLabel
-                      htmlFor="external_livestock_type"
-                      label="Animal type"
-                      help="Choose the animal's species from the livestock list. Swine is not available for outside transfers."
-                    />
-                    <Select
-                      value={externalLivestockType}
-                      onValueChange={setExternalLivestockType}
-                      disabled={
-                        isLoadingExternalLivestockTypes ||
-                        (externalLivestockTypes.length === 0 && !externalLivestockType)
-                      }
+                {!outsideLivestock && selectedAnimalIds.length > 0 && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-[#EAF5EC]/40 p-3 shadow-2xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#D7EEDD] text-[#1E4D2B]">
+                        <CowHeadIcon className="size-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-xs sm:text-sm text-slate-900">
+                          {selectedAnimalForTransfer?.livestock_type_name || "Cattle"} – {selectedAnimalForTransfer?.tag_number || `#${selectedAnimalIds[0]}`}
+                        </p>
+                        <p className="truncate text-[11px] text-slate-600">
+                          Breed: {selectedAnimalForTransfer?.breed || "Not recorded"} | Sex: {selectedAnimalForTransfer?.sex || "Not recorded"} | Age: {selectedAnimalForTransfer?.age || "Not recorded"}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsAnimalModalOpen(true)}
+                      className="h-8 rounded-xl border-emerald-600 px-3 text-xs font-bold text-emerald-800 hover:bg-emerald-50 gap-1.5 shadow-2xs shrink-0"
                     >
-                      <SelectTrigger id="external_livestock_type" className="h-10 bg-white border-slate-200 rounded-xl text-xs">
-                        <SelectValue
-                          placeholder={
-                            isLoadingExternalLivestockTypes ? "Loading animal types..." : "Select animal type"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {externalLivestockTypes.map((type) => (
-                          <SelectItem key={type.id} value={type.name}>
-                            {type.name}
-                          </SelectItem>
-                        ))}
-                        {editing?.external_livestock_type &&
-                          !editing.external_livestock_type.toLowerCase().includes("swine") &&
-                          !externalLivestockTypes.some(
-                            (type) => type.name.toLowerCase() === editing.external_livestock_type.toLowerCase()
-                          ) && (
-                            <SelectItem value={editing.external_livestock_type}>
-                              {editing.external_livestock_type} (current record)
-                            </SelectItem>
-                          )}
-                      </SelectContent>
-                    </Select>
-                    <input
-                      type="hidden"
-                      name="external_livestock_type"
-                      value={externalLivestockType}
-                    />
-                    {externalLivestockTypesFailed && (
-                      <p className="text-[11px] text-red-600">Could not load animal types. Please reload and try again.</p>
+                      <Pencil className="size-3.5" />
+                      <span>Change</span>
+                    </Button>
+                  </div>
+                )}
+
+                {!outsideLivestock && selectedAnimalIds.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-4 text-center">
+                    {farmer ? (
+                      <>
+                        <p className="text-xs text-slate-600 mb-2">No animal selected from {farmer.name}&apos;s inventory yet.</p>
+                        <Button
+                          type="button"
+                          onClick={() => setIsAnimalModalOpen(true)}
+                          disabled={isLoadingAnimals || farmerAnimals.length === 0}
+                          className="h-8 px-4 rounded-xl bg-[#0F4A2F] text-white hover:bg-[#0B3D26] text-xs font-bold shadow-xs"
+                        >
+                          {isLoadingAnimals ? "Loading animals…" : "Select Animal"}
+                        </Button>
+                      </>
+                    ) : (
+                      <p className="text-xs text-slate-500">Select a registered seller above first to choose their animals.</p>
                     )}
                   </div>
-                  <div className="space-y-1.5">
-                    <TransferFieldLabel
-                      htmlFor="external_livestock_tag_number"
-                      label="Seller tag / identifying mark (optional)"
-                      help="Enter the seller's ear tag, brand, or other identifying mark if known."
-                    />
-                    <Input
-                      id="external_livestock_tag_number"
-                      name="external_livestock_tag_number"
-                      defaultValue={editing?.external_livestock_tag_number}
-                      placeholder="e.g. Ear tag, Brand"
-                      className="h-10 bg-white border-slate-200 rounded-xl text-xs"
-                    />
+                )}
+
+                {outsideLivestock && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                    Outside animal species and details are specified in Transfer Details below.
                   </div>
-                  <div className="space-y-1.5">
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: 3. Transfer Details (lg:col-span-7) */}
+          <div className="lg:col-span-7">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-[#EAF5EC] text-[#1E4D2B] flex items-center justify-center shrink-0 shadow-2xs">
+                  <FileText className="size-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 leading-tight">3. Transfer Details</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Enter the buyer, certificate, and sale information.</p>
+                </div>
+              </div>
+
+              <form key={editing?.id ?? "new-transfer"} onSubmit={handleSubmit} className="space-y-4 pt-1">
+                {/* Row 1: Buyer Type & Find Registered Buyer */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+                  <div className="sm:col-span-5 space-y-1.5">
                     <TransferFieldLabel
-                      htmlFor="origin_municipality"
-                      label="Animal origin municipality"
-                      help="Enter the municipality where the animal came from, as recorded for this transfer."
+                      htmlFor="owner_type"
+                      label="Buyer Type *"
+                      help="Choose Registered SmartLivestock Farmer if the buyer has an approved Farmer account. Choose an external type for an unregistered buyer."
                     />
-                    <Input
-                      id="origin_municipality"
-                      name="origin_municipality"
-                      required
-                      defaultValue={editing?.origin_municipality}
-                      placeholder="Enter origin municipality"
-                      className="h-10 bg-white border-slate-200 rounded-xl text-xs"
-                    />
+                    <Select
+                      value={ownerType}
+                      onValueChange={(val) => {
+                        setOwnerType(val as OwnerType);
+                        setBuyer(null);
+                        setBuyerResults([]);
+                      }}
+                    >
+                      <SelectTrigger id="owner_type" className="h-10 bg-white border-slate-200 rounded-xl text-xs">
+                        <SelectValue placeholder="Choose buyer type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="REGISTERED_FARMER">Registered SmartLivestock Farmer</SelectItem>
+                        <SelectItem value="EXTERNAL_INDIVIDUAL">External individual</SelectItem>
+                        <SelectItem value="COMPANY">Company</SelectItem>
+                        <SelectItem value="TRADER">Trader</SelectItem>
+                        <SelectItem value="OTHER">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <input type="hidden" name="owner_type" value={ownerType} />
                   </div>
-                  <div className="space-y-1.5">
-                    <TransferFieldLabel
-                      htmlFor="origin_province"
-                      label="Animal origin province"
-                      help="Enter the province where the animal came from, as recorded for this transfer."
-                    />
-                    <Input
-                      id="origin_province"
-                      name="origin_province"
-                      required
-                      defaultValue={editing?.origin_province}
-                      placeholder="Enter origin province"
-                      className="h-10 bg-white border-slate-200 rounded-xl text-xs"
-                    />
+
+                  <div className="sm:col-span-7 space-y-1.5">
+                    {ownerType === "REGISTERED_FARMER" ? (
+                      <>
+                        <TransferFieldLabel
+                          htmlFor="buyer-search"
+                          label="Find the Registered Buyer *"
+                          help="Search using the buyer's name, email, username, RSBSA number, or Farmer ID, then select the matching approved Farmer."
+                        />
+                        {buyer ? (
+                          <div className="flex items-center justify-between gap-2 h-10 px-3 bg-white border border-emerald-300 rounded-xl text-xs">
+                            <div className="flex items-center gap-2 truncate">
+                              <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                              <span className="font-bold text-slate-900">{buyer.name}</span>
+                              <span className="text-slate-500 font-normal">· {buyer.barangay}</span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setBuyer(null)}
+                              className="h-7 text-xs text-slate-500 hover:text-red-600"
+                            >
+                              Change
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="relative flex-1">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+                              <Input
+                                id="buyer-search"
+                                value={buyerSearch}
+                                onChange={(e) => setBuyerSearch(e.target.value)}
+                                placeholder="Buyer name, email, username, or RSBSA..."
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    void searchBuyers();
+                                  }
+                                }}
+                                className="pl-9 h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400 focus-visible:ring-emerald-500"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => void searchBuyers()}
+                              disabled={isSearchingBuyers || !buyerSearch.trim()}
+                              className="h-10 px-3 rounded-xl border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 gap-1.5 shrink-0"
+                            >
+                              <Search className="size-3.5" />
+                              <span>Find</span>
+                            </Button>
+                            <Button
+                              type="button"
+                              onClick={() => {
+                                setScannerTarget("buyer");
+                                setIsScannerOpen(true);
+                              }}
+                              className="h-10 px-3 rounded-xl border border-emerald-200 bg-[#EAF5EC] text-xs font-bold text-[#1E4D2B] hover:bg-emerald-100 gap-1.5 shrink-0"
+                            >
+                              <QrCode className="size-3.5 text-[#1E4D2B]" />
+                              <span>Scan QR</span>
+                            </Button>
+                          </div>
+                        )}
+                        {buyerResults.length > 0 && (
+                          <div className="mt-2 grid gap-1.5 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl p-2 shadow-md">
+                            {buyerResults.map((result) => (
+                              <button
+                                key={result.id}
+                                type="button"
+                                onClick={() => {
+                                  setBuyer(result);
+                                  setBuyerResults([]);
+                                  setBuyerSearch("");
+                                }}
+                                className="text-left p-2 rounded-lg hover:bg-emerald-50 transition-colors text-xs flex items-center justify-between"
+                              >
+                                <div>
+                                  <p className="font-bold text-slate-900">
+                                    {result.name}{" "}
+                                    <span className="font-normal text-slate-500">· ID {result.id}</span>
+                                  </p>
+                                  <p className="text-[11px] text-slate-500">
+                                    {result.username} · {result.barangay}
+                                  </p>
+                                </div>
+                                <span className="text-[11px] font-bold text-emerald-700">Select</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <input type="hidden" name="new_owner_identifier" value={buyer?.username || ""} />
+                      </>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <TransferFieldLabel
+                          htmlFor="external_owner_name"
+                          label="Buyer / Organization Name *"
+                          help="Enter the external buyer's individual or organization name as shown on the transfer certificate."
+                        />
+                        <Input
+                          id="external_owner_name"
+                          name="external_owner_name"
+                          required
+                          maxLength={255}
+                          defaultValue={editing?.external_owner_name}
+                          placeholder="Enter buyer or organization name"
+                          className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
 
-              {/* Non-registered buyer address */}
-              {ownerType !== "REGISTERED_FARMER" && (
-                <div className="col-span-full space-y-1.5">
-                  <TransferFieldLabel
-                    htmlFor="external_owner_address"
-                    label="Buyer address"
-                    help="Enter the buyer's complete address as recorded for the transfer."
-                  />
-                  <Input
-                    id="external_owner_address"
-                    name="external_owner_address"
-                    required
-                    defaultValue={editing?.external_owner_address}
-                    placeholder="Enter complete buyer address"
-                    className="h-10 bg-white border-slate-200 rounded-xl text-xs"
-                  />
+                {/* Row 2: Certificate No, Transfer Date, Agreed Price */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div className="space-y-1.5">
+                    <TransferFieldLabel
+                      htmlFor="transfer_certificate_number"
+                      label="Paper Transfer Certificate No. *"
+                      help="Enter the number printed on the completed transfer certificate."
+                    />
+                    <Input
+                      id="transfer_certificate_number"
+                      name="transfer_certificate_number"
+                      required
+                      defaultValue={editing?.transfer_certificate_number}
+                      placeholder="e.g., AUC-2026-027"
+                      className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <TransferFieldLabel
+                      htmlFor="transfer_date"
+                      label="Transfer Date *"
+                      help="Enter the date the ownership transfer actually happened. Future dates are not allowed."
+                    />
+                    <div className="relative">
+                      <Calendar className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                      <Input
+                        id="transfer_date"
+                        name="transfer_date"
+                        type="date"
+                        required
+                        defaultValue={editing?.transfer_date ?? getLocalDateInputValue()}
+                        className="h-10 pl-9 bg-white border-slate-200 rounded-xl text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <TransferFieldLabel
+                      htmlFor="purchase_price"
+                      label="Agreed Price (Optional)"
+                      help="Enter the recorded sale price in Philippine pesos."
+                    />
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                        ₱
+                      </span>
+                      <Input
+                        id="purchase_price"
+                        name="purchase_price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        defaultValue={editing?.purchase_price ?? ""}
+                        placeholder="Enter agreed price"
+                        className="h-10 pl-7 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {/* Bottom Right Submit Button */}
-            <div className="flex justify-end pt-2">
-              <Button
-                type="submit"
-                disabled={
-                  (!outsideLivestock && (!farmer || !selectedAnimalIds.length)) ||
-                  (ownerType === "REGISTERED_FARMER" && !buyer) ||
-                  submit.isPending ||
-                  isLoadingAnimals
-                }
-                className="bg-[#0F5A3B] hover:bg-[#0B482E] text-white font-bold text-xs h-10 px-5 rounded-xl shadow-xs gap-2"
-              >
-                <FileText className="size-4" />
-                {submit.isPending
-                  ? "Saving…"
-                  : editing
-                  ? "Correct and resubmit"
-                  : outsideLivestock
-                  ? "Record outside animal transfer"
-                  : `Record animals`}
-              </Button>
+                {/* Row 3: Additional Details (Optional) Accordion */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdditionalDetails(!showAdditionalDetails)}
+                    className="w-full flex items-center justify-between rounded-xl border border-emerald-200/80 bg-[#EAF5EC]/60 px-4 py-3 text-left transition-colors hover:bg-[#EAF5EC]"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <ChevronDown
+                        className={`size-4 text-[#1E4D2B] transition-transform ${showAdditionalDetails ? "rotate-180" : ""}`}
+                      />
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">Additional Details (Optional)</p>
+                        <p className="text-[11px] text-slate-600">
+                          Add other information from the certificate (e.g., municipality, brand, etc.).
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-[#1E4D2B]">
+                      {showAdditionalDetails ? "Hide" : "Show"}
+                    </span>
+                  </button>
+
+                  {/* Expandable Additional Details content */}
+                  {showAdditionalDetails && (
+                    <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <TransferFieldLabel
+                            htmlFor="municipality"
+                            label="Municipality / city"
+                            help="Enter the municipality or city recorded for this transfer."
+                          />
+                          <Input
+                            id="municipality"
+                            name="municipality"
+                            required
+                            defaultValue={editing?.municipality ?? "Padre Garcia"}
+                            placeholder="Enter municipality or city"
+                            className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <TransferFieldLabel
+                            htmlFor="province"
+                            label="Province"
+                            help="Enter the province recorded for this transfer."
+                          />
+                          <Input
+                            id="province"
+                            name="province"
+                            required
+                            defaultValue={editing?.province ?? "Batangas"}
+                            placeholder="Enter province"
+                            className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <TransferFieldLabel
+                            htmlFor="sex_at_transfer"
+                            label="Sex (optional)"
+                            help="Select the animal's sex at the time of transfer."
+                          />
+                          <Select
+                            value={sexAtTransfer}
+                            onValueChange={(val) => setSexAtTransfer(val)}
+                          >
+                            <SelectTrigger id="sex_at_transfer" className="h-10 bg-white border-slate-200 rounded-xl text-xs">
+                              <SelectValue placeholder="Select sex" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="MALE">Male</SelectItem>
+                              <SelectItem value="FEMALE">Female</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <input type="hidden" name="sex_at_transfer" value={sexAtTransfer} />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <TransferFieldLabel
+                            htmlFor="age_at_transfer"
+                            label="Age (optional)"
+                            help="Enter the animal's age at the time of transfer."
+                          />
+                          <Input
+                            id="age_at_transfer"
+                            name="age_at_transfer"
+                            value={ageAtTransfer}
+                            onChange={(e) => setAgeAtTransfer(e.target.value)}
+                            placeholder="Enter age"
+                            className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <TransferFieldLabel
+                            htmlFor="breed_at_transfer"
+                            label="Breed at transfer (optional)"
+                            help="Enter the animal's breed at the time of sale."
+                          />
+                          <Input
+                            id="breed_at_transfer"
+                            name="breed_at_transfer"
+                            maxLength={50}
+                            value={breedAtTransfer}
+                            onChange={(e) => setBreedAtTransfer(e.target.value)}
+                            placeholder="e.g. Brahman, Angus, Native"
+                            className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <TransferFieldLabel
+                            htmlFor="weight_at_transfer_kg"
+                            label="Weight at transfer in kg (optional)"
+                            help="Enter the animal's measured weight in kilograms."
+                          />
+                          <Input
+                            id="weight_at_transfer_kg"
+                            name="weight_at_transfer_kg"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={weightAtTransfer}
+                            onChange={(e) => setWeightAtTransfer(e.target.value)}
+                            placeholder="Enter measured weight"
+                            className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <TransferFieldLabel
+                            htmlFor="animal_description"
+                            label="Description recorded on certificate (optional)"
+                            help="Copy any animal description or identifying notes written on the transfer certificate."
+                          />
+                          <Input
+                            id="animal_description"
+                            name="animal_description"
+                            defaultValue={editing?.animal_description}
+                            placeholder="Enter description from certificate"
+                            className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <TransferFieldLabel
+                            htmlFor="municipality_brand"
+                            label="Municipality brand (optional)"
+                            help="Enter the municipality's identifying brand or mark."
+                          />
+                          <Input
+                            id="municipality_brand"
+                            name="municipality_brand"
+                            defaultValue={editing?.municipality_brand}
+                            placeholder="Enter municipality brand"
+                            className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <TransferFieldLabel
+                            htmlFor="owner_brand"
+                            label="Owner brand (optional)"
+                            help="Enter the owner's identifying brand or mark."
+                          />
+                          <Input
+                            id="owner_brand"
+                            name="owner_brand"
+                            defaultValue={editing?.owner_brand}
+                            placeholder="Enter owner brand"
+                            className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
+                          />
+                        </div>
+
+                        {/* Non-registered buyer address */}
+                        {ownerType !== "REGISTERED_FARMER" && (
+                          <div className="space-y-1.5 sm:col-span-2">
+                            <TransferFieldLabel
+                              htmlFor="external_owner_address"
+                              label="Buyer address"
+                              help="Enter the buyer's complete address as recorded for the transfer."
+                            />
+                            <Input
+                              id="external_owner_address"
+                              name="external_owner_address"
+                              required
+                              defaultValue={editing?.external_owner_address}
+                              placeholder="Enter complete buyer address"
+                              className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                            />
+                          </div>
+                        )}
+
+                        {/* Outside Livestock Fields */}
+                        {outsideLivestock && (
+                          <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
+                            <div className="space-y-1.5">
+                              <TransferFieldLabel
+                                htmlFor="external_seller_name"
+                                label="Outside seller name *"
+                                help="Enter the person or business that sold the animal."
+                              />
+                              <Input
+                                id="external_seller_name"
+                                name="external_seller_name"
+                                required
+                                maxLength={255}
+                                defaultValue={editing?.external_seller_name}
+                                placeholder="Enter seller name"
+                                className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <TransferFieldLabel
+                                htmlFor="external_seller_address"
+                                label="Seller address *"
+                                help="Enter the seller's address."
+                              />
+                              <Input
+                                id="external_seller_address"
+                                name="external_seller_address"
+                                required
+                                defaultValue={editing?.external_seller_address}
+                                placeholder="Enter seller address"
+                                className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <TransferFieldLabel
+                                htmlFor="external_livestock_type"
+                                label="Animal type *"
+                                help="Choose the animal's species from the livestock list."
+                              />
+                              <Select
+                                value={externalLivestockType}
+                                onValueChange={setExternalLivestockType}
+                                disabled={isLoadingExternalLivestockTypes || (externalLivestockTypes.length === 0 && !externalLivestockType)}
+                              >
+                                <SelectTrigger id="external_livestock_type" className="h-10 bg-white border-slate-200 rounded-xl text-xs">
+                                  <SelectValue placeholder={isLoadingExternalLivestockTypes ? "Loading animal types..." : "Select animal type"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {externalLivestockTypes.map((type) => (
+                                    <SelectItem key={type.id} value={type.name}>
+                                      {type.name}
+                                    </SelectItem>
+                                  ))}
+                                  {editing?.external_livestock_type &&
+                                    !editing.external_livestock_type.toLowerCase().includes("swine") &&
+                                    !externalLivestockTypes.some(
+                                      (type) => type.name.toLowerCase() === editing.external_livestock_type.toLowerCase()
+                                    ) && (
+                                      <SelectItem value={editing.external_livestock_type}>
+                                        {editing.external_livestock_type} (current record)
+                                      </SelectItem>
+                                    )}
+                                </SelectContent>
+                              </Select>
+                              <input type="hidden" name="external_livestock_type" value={externalLivestockType} />
+                            </div>
+                            <div className="space-y-1.5">
+                              <TransferFieldLabel
+                                htmlFor="external_livestock_tag_number"
+                                label="Seller tag / identifying mark (optional)"
+                                help="Enter the seller's ear tag, brand, or other identifying mark."
+                              />
+                              <Input
+                                id="external_livestock_tag_number"
+                                name="external_livestock_tag_number"
+                                defaultValue={editing?.external_livestock_tag_number}
+                                placeholder="e.g. Ear tag, Brand"
+                                className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <TransferFieldLabel
+                                htmlFor="origin_municipality"
+                                label="Animal origin municipality *"
+                                help="Enter the municipality where the animal came from."
+                              />
+                              <Input
+                                id="origin_municipality"
+                                name="origin_municipality"
+                                required
+                                defaultValue={editing?.origin_municipality}
+                                placeholder="Enter origin municipality"
+                                className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <TransferFieldLabel
+                                htmlFor="origin_province"
+                                label="Animal origin province *"
+                                help="Enter the province where the animal came from."
+                              />
+                              <Input
+                                id="origin_province"
+                                name="origin_province"
+                                required
+                                defaultValue={editing?.origin_province}
+                                placeholder="Enter origin province"
+                                className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Original Certificate Numbers for selected animals */}
+                        {!outsideLivestock && selectedAnimalIds.length > 0 && (
+                          <div className="sm:col-span-2 space-y-2 pt-3 border-t border-slate-200">
+                            <p className="text-xs font-semibold text-slate-700">
+                              Confirm original ownership certificate number:
+                            </p>
+                            {selectedAnimalIds.map((id) => {
+                              const animal = farmerAnimals.find((item) => item.id === id);
+                              if (!animal) return null;
+                              return (
+                                <div
+                                  key={`certificate-${id}`}
+                                  className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:items-center bg-white p-2.5 rounded-xl border border-emerald-200 shadow-2xs"
+                                >
+                                  <TransferFieldLabel
+                                    htmlFor={`original-certificate-${id}`}
+                                    label={`${animal.livestock_type_name} ${animal.tag_number || `#${id}`} certificate`}
+                                    help="Enter the original ownership certificate number."
+                                  />
+                                  <Input
+                                    id={`original-certificate-${id}`}
+                                    value={originalCertificates[id] || ""}
+                                    onChange={(e) =>
+                                      setOriginalCertificates((cur) => ({ ...cur, [id]: e.target.value }))
+                                    }
+                                    placeholder="Original certificate number"
+                                    required
+                                    className="h-9 bg-white border-slate-200 rounded-lg text-xs"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom Action Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => toast.info("Draft preserved in current session.")}
+                    className="h-10 rounded-xl border-slate-300 bg-white px-5 text-xs font-semibold text-slate-700 hover:bg-slate-50 gap-2 shadow-2xs"
+                  >
+                    <Save className="size-4 text-slate-500" />
+                    <span>Save as Draft</span>
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      (!outsideLivestock && (!farmer || !selectedAnimalIds.length)) ||
+                      (ownerType === "REGISTERED_FARMER" && !buyer) ||
+                      submit.isPending ||
+                      isLoadingAnimals
+                    }
+                    className="h-10 rounded-xl bg-[#0F4A2F] px-6 text-xs font-bold text-white hover:bg-[#0B3D26] shadow-sm gap-2 transition-colors disabled:opacity-50"
+                  >
+                    <span>{submit.isPending ? "Submitting…" : "Review & Submit"}</span>
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </div>
+              </form>
             </div>
-          </form>
+          </div>
         </div>
 
-        {/* Bottom Card: Records entered by your account */}
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-4">
+        {/* Bottom Card: Recent Transfer Records (Entered by Your Account) */}
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="shrink-0 rounded-xl bg-[#E3F6EC] text-[#0F5A38] p-2 flex items-center justify-center">
+              <div className="size-10 rounded-xl bg-[#EAF5EC] text-[#1E4D2B] flex items-center justify-center shrink-0 shadow-2xs">
                 <FileText className="size-5" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-900 leading-tight">
-                  Records entered by your account
+                <h2 className="text-base font-bold text-slate-900 leading-tight">
+                  Recent Transfer Records (Entered by Your Account)
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  List of ownership transfers you have encoded.
+                  Latest ownership transfers you have encoded.
                 </p>
               </div>
             </div>
             <Link
               href="/auction-ownership-transfers/registry"
-              className="text-xs font-bold text-[#0F5A38] hover:text-[#0c482d] flex items-center gap-1 group transition-colors"
+              className="text-xs font-bold text-[#0F4A2F] hover:text-[#0B3D26] flex items-center gap-1 group transition-colors"
             >
               <span>View All Records</span>
               <ArrowRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -1517,67 +1636,137 @@ export default function AuctionOwnershipTransfersPage() {
           )}
 
           {!isLoading && !isError && transfers.length > 0 && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {transfers.slice(0, 6).map((transfer) => (
-                <Card
-                  key={transfer.id}
-                  className="rounded-xl border border-slate-200/90 bg-white shadow-xs overflow-hidden"
-                >
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="font-bold text-xs text-slate-900">
-                          {transfer.livestock_type_name} ·{" "}
+            <div className="overflow-hidden rounded-xl border border-slate-200/90 shadow-2xs">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead className="bg-[#EAF5EC]">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 text-xs font-bold tracking-tight text-[#1E4D2B]">Animal</th>
+                      <th scope="col" className="px-4 py-3 text-xs font-bold tracking-tight text-[#1E4D2B]">Seller</th>
+                      <th scope="col" className="px-4 py-3 text-xs font-bold tracking-tight text-[#1E4D2B]">Buyer</th>
+                      <th scope="col" className="px-4 py-3 text-xs font-bold tracking-tight text-[#1E4D2B]">Certificate No.</th>
+                      <th scope="col" className="px-4 py-3 text-xs font-bold tracking-tight text-[#1E4D2B]">Transfer Date</th>
+                      <th scope="col" className="px-4 py-3 text-xs font-bold tracking-tight text-[#1E4D2B]">Agreed Price</th>
+                      <th scope="col" className="px-4 py-3 text-xs font-bold tracking-tight text-[#1E4D2B]">Status</th>
+                      <th scope="col" className="px-4 py-3 text-xs font-bold tracking-tight text-[#1E4D2B]">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {transfers.slice(0, 10).map((transfer) => (
+                      <tr key={transfer.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-xs text-slate-900">
+                          {transfer.livestock_type_name} –{" "}
                           {transfer.livestock_tag ||
                             (transfer.livestock ? `#${transfer.livestock}` : "Outside livestock")}
-                        </h3>
-                        <p className="text-xs text-slate-600 mt-0.5">
-                          {transfer.previous_owner_name} → {transfer.new_owner_name}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className="text-[10px]">
-                        {transfer.status.replaceAll("_", " ")}
-                      </Badge>
-                    </div>
-
-                    <div className="text-[11px] text-slate-500 space-y-0.5 pt-1 border-t border-slate-100">
-                      <p>Certificate: {transfer.transfer_certificate_number} · Date: {transfer.transfer_date}</p>
-                      {transfer.purchase_price && (
-                        <p className="font-semibold text-emerald-800">
-                          Agreed price: ₱{Number(transfer.purchase_price).toLocaleString()}
-                        </p>
-                      )}
-                      {(transfer.breed_at_transfer || transfer.weight_at_transfer_kg) && (
-                        <p>
-                          At transfer: {transfer.breed_at_transfer || "Breed not recorded"} ·{" "}
-                          {transfer.weight_at_transfer_kg
-                            ? `${Number(transfer.weight_at_transfer_kg).toLocaleString()} kg`
-                            : "Weight not recorded"}
-                        </p>
-                      )}
-                    </div>
-
-                    {transfer.can_edit && (
-                      <div className="pt-1">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={isLoadingAnimals}
-                          onClick={() => void correctReturnedTransfer(transfer)}
-                          className="h-8 text-xs border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
-                        >
-                          Correct and resubmit
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-800">
+                          {transfer.previous_owner_name}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-800">
+                          {transfer.new_owner_name}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-800">
+                          {transfer.transfer_certificate_number}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-700">
+                          {formatTransferDate(transfer.transfer_date)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-xs text-emerald-800">
+                          {transfer.purchase_price ? `₱${Number(transfer.purchase_price).toLocaleString()}` : "—"}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          {renderTransferStatus(transfer.status)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setViewTransfer(transfer)}
+                            className="h-7 rounded-xl border-[#1E4D2B] bg-white px-2.5 text-xs font-bold text-[#1E4D2B] shadow-2xs transition-colors hover:bg-[#EAF5EC] hover:text-[#163b21] gap-1"
+                          >
+                            <Eye className="size-3.5" />
+                            <span>View</span>
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Transfer Detail View Dialog */}
+      <Dialog open={viewTransfer !== null} onOpenChange={(open) => { if (!open) setViewTransfer(null); }}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900">
+              Transfer Record Details
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Certificate: {viewTransfer?.transfer_certificate_number}
+            </DialogDescription>
+          </DialogHeader>
+          {viewTransfer && (
+            <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-xs text-slate-700">
+              <div className="flex justify-between border-b border-slate-200 pb-2">
+                <span className="font-semibold text-slate-500">Animal:</span>
+                <span className="font-bold text-slate-900">
+                  {viewTransfer.livestock_type_name} ({viewTransfer.livestock_tag || `#${viewTransfer.livestock || "Outside"}`})
+                </span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200 pb-2">
+                <span className="font-semibold text-slate-500">Seller:</span>
+                <span className="font-medium text-slate-900">{viewTransfer.previous_owner_name}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200 pb-2">
+                <span className="font-semibold text-slate-500">Buyer:</span>
+                <span className="font-medium text-slate-900">{viewTransfer.new_owner_name}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200 pb-2">
+                <span className="font-semibold text-slate-500">Transfer Date:</span>
+                <span>{formatTransferDate(viewTransfer.transfer_date)}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200 pb-2">
+                <span className="font-semibold text-slate-500">Agreed Price:</span>
+                <span className="font-bold text-emerald-800">
+                  {viewTransfer.purchase_price ? `₱${Number(viewTransfer.purchase_price).toLocaleString()}` : "Not recorded"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center pt-1">
+                <span className="font-semibold text-slate-500">Status:</span>
+                <span>{renderTransferStatus(viewTransfer.status)}</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex items-center justify-between sm:justify-between pt-2">
+            {viewTransfer?.can_edit ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const t = viewTransfer;
+                  setViewTransfer(null);
+                  void correctReturnedTransfer(t);
+                }}
+                className="h-8 text-xs border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 rounded-xl"
+              >
+                Correct and resubmit
+              </Button>
+            ) : <span />}
+            <Button
+              type="button"
+              onClick={() => setViewTransfer(null)}
+              className="h-8 text-xs rounded-xl bg-[#0F4A2F] text-white hover:bg-[#0B3D26] px-4"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Livestock Selection Popup Dialog */}
       <Dialog open={isAnimalModalOpen} onOpenChange={setIsAnimalModalOpen}>
