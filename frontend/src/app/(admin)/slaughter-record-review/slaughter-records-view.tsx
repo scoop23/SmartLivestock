@@ -1202,17 +1202,6 @@ export function SlaughterRecordsView({
                 </div>
               </div>
 
-              {/* Condemnation details if present */}
-              {(selectedRecord.condemnedHeads ?? 0) > 0 && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs text-red-900">
-                  <p className="font-bold">Meat Condemnation Declared:</p>
-                  <p className="mt-0.5">
-                    {selectedRecord.condemnedHeads} head(s) condemned ({selectedRecord.condemnedKg ?? 0} kg)
-                    {selectedRecord.condemnationReason ? ` • Reason: ${selectedRecord.condemnationReason}` : ""}
-                  </p>
-                </div>
-              )}
-
               {/* Review remarks textarea */}
               <div className="space-y-1.5">
                 <label htmlFor="review-remarks" className="text-xs font-semibold text-gray-700">

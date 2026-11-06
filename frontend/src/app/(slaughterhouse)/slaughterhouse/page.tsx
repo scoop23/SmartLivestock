@@ -29,7 +29,6 @@ import {
   RefreshCw,
   Scale,
   Scissors,
-  ShieldAlert,
   ShieldCheck,
   Upload,
 } from "lucide-react";
@@ -56,15 +55,12 @@ type LivestockType = { id: number; name: string };
 const EMPTY_RECORDS: SlaughterRecord[] = [];
 
 function exportRecords(records: SlaughterRecord[]) {
-  const headers = ["record_date", "livestock_type", "heads", "kilograms", "condemned_heads", "condemned_kg", "condemnation_reason", "status"];
+  const headers = ["record_date", "livestock_type", "heads", "kilograms", "status"];
   const lines = records.map((row) => [
     row.record_date,
     row.livestock_type_name,
     row.quantity,
     row.carcass_weight ?? "",
-    row.condemned_heads ?? 0,
-    row.condemned_weight_kg ?? "",
-    row.condemnation_reason ?? "",
     row.status,
   ].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","));
   const url = URL.createObjectURL(new Blob([[headers.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" }));
@@ -95,10 +91,6 @@ export default function SlaughterhousePage() {
     quantity: "",
     carcass_weight: "",
     record_date: new Date().toISOString().slice(0, 10),
-    condemned_heads: "0",
-    condemned_weight_kg: "",
-    condemnation_reason: "",
-    condemnation_type: "NONE",
   });
 
   // Live real-time clock updating every second
@@ -150,7 +142,7 @@ export default function SlaughterhousePage() {
   const filteredRecords = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
     if (!term) return records;
-    return records.filter((record) => [record.record_date, record.livestock_type_name, record.status, record.created_by_name, record.condemnation_reason ?? ""]
+    return records.filter((record) => [record.record_date, record.livestock_type_name, record.status, record.created_by_name]
       .some((value) => value.toLocaleLowerCase().includes(term)));
   }, [records, search]);
   const pageSize = 10;
@@ -182,10 +174,6 @@ export default function SlaughterhousePage() {
       quantity: "",
       carcass_weight: "",
       record_date: new Date().toISOString().slice(0, 10),
-      condemned_heads: "0",
-      condemned_weight_kg: "",
-      condemnation_reason: "",
-      condemnation_type: "NONE",
     });
   };
 
@@ -196,10 +184,6 @@ export default function SlaughterhousePage() {
       quantity: String(record.quantity),
       carcass_weight: record.carcass_weight ?? "",
       record_date: record.record_date,
-      condemned_heads: String(record.condemned_heads ?? 0),
-      condemned_weight_kg: record.condemned_weight_kg ?? "",
-      condemnation_reason: record.condemnation_reason ?? "",
-      condemnation_type: record.condemnation_type ?? "NONE",
     });
     setRecordDialog(true);
   };
@@ -213,10 +197,6 @@ export default function SlaughterhousePage() {
         quantity: Number(form.quantity),
         carcass_weight: form.carcass_weight ? form.carcass_weight : null,
         record_date: form.record_date,
-        condemned_heads: Number(form.condemned_heads || 0),
-        condemned_weight_kg: form.condemned_weight_kg ? form.condemned_weight_kg : "0.00",
-        condemnation_reason: form.condemnation_reason.trim(),
-        condemnation_type: form.condemnation_type,
       };
       if (editingId) await api.patch(`/production/slaughterhouse/records/${editingId}/`, payload);
       else await api.post("/production/slaughterhouse/records/", payload);
@@ -263,7 +243,7 @@ export default function SlaughterhousePage() {
     <>
       <PageHeader
         title="Slaughterhouse Records & Diagnostics"
-        subtitle="Daily livestock throughput, carcass yields, and meat inspection condemnation logs"
+        subtitle="Daily slaughter records, livestock throughput, and carcass weights"
         variant="slaughterhouse"
         icon={<Scissors className="size-5" />}
         maxWidthClass="w-full"
@@ -515,7 +495,7 @@ export default function SlaughterhousePage() {
                     setSearch(e.target.value);
                     setPage(1);
                   }}
-                  placeholder="Date, species, status, or condemnation..."
+                  placeholder="Date, species, status, or submitter..."
                   className="h-10 rounded-xl border-slate-200 bg-white"
                 />
               </div>
@@ -537,17 +517,12 @@ export default function SlaughterhousePage() {
                         <TableHead>Livestock Type</TableHead>
                         <TableHead className="text-right">Heads</TableHead>
                         <TableHead className="text-right">Carcass Weight</TableHead>
-                        <TableHead>Meat Condemnation Findings</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {displayedRecords.map((row) => {
-                        const hasCondemnation =
-                          (row.condemned_heads ?? 0) > 0 ||
-                          Boolean(row.condemnation_reason && row.condemnation_reason.trim());
-
                         return (
                           <TableRow key={row.id}>
                             <TableCell className="font-medium">{row.record_date}</TableCell>
@@ -560,22 +535,6 @@ export default function SlaughterhousePage() {
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground">Not recorded</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {hasCondemnation ? (
-                                <div className="flex items-center gap-1.5 text-xs text-red-600 font-medium">
-                                  <AlertTriangle className="size-3.5 shrink-0" />
-                                  <span>
-                                    {(row.condemned_heads ?? 0) > 0 ? `${row.condemned_heads} hd ` : ""}
-                                    {row.condemnation_reason ? `(${row.condemnation_reason})` : "Condemned"}
-                                  </span>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1 text-xs text-emerald-600">
-                                  <ShieldCheck className="size-3.5" />
-                                  <span>Clean pass</span>
-                                </div>
                               )}
                             </TableCell>
                             <TableCell>
@@ -620,15 +579,6 @@ export default function SlaughterhousePage() {
                           </p>
                         </div>
                       </div>
-                      {((row.condemned_heads ?? 0) > 0 || row.condemnation_reason) && (
-                        <div className="mt-2.5 flex items-center gap-1.5 rounded-md bg-red-50 p-2 text-xs text-red-700">
-                          <AlertTriangle className="size-3.5" />
-                          <span>
-                            Condemned: {(row.condemned_heads ?? 0) > 0 ? `${row.condemned_heads} hd ` : ""}
-                            {row.condemnation_reason ? `(${row.condemnation_reason})` : ""}
-                          </span>
-                        </div>
-                      )}
                       {row.status === "SUBJECT_TO_REVISION" && row.review_remarks ? (
                         <p className="mt-3 text-sm text-amber-800">MAO remarks: {row.review_remarks}</p>
                       ) : null}
@@ -724,7 +674,7 @@ export default function SlaughterhousePage() {
       </div>
 
       {/* =================================================================== */}
-      {/* RECORD ENTRY / EDIT DIALOG WITH CARCASS WEIGHT & CONDEMNATIONS      */}
+      {/* DAILY SLAUGHTER RECORD ENTRY / EDIT DIALOG      */}
       {/* =================================================================== */}
       <Dialog
         open={recordDialog}
@@ -739,7 +689,7 @@ export default function SlaughterhousePage() {
               {editingId ? "Edit daily slaughter record" : "Add daily slaughter record"}
             </DialogTitle>
             <DialogDescription>
-              Record throughput, dressed carcass weights, and post-mortem meat inspection condemnation findings.
+              Record the date, livestock type, heads slaughtered, and dressed carcass weight.
             </DialogDescription>
           </DialogHeader>
 
@@ -800,80 +750,6 @@ export default function SlaughterhousePage() {
                   placeholder="e.g. 3050.00"
                 />
                 <p className="text-[11px] text-muted-foreground">Total dressed meat yield</p>
-              </div>
-            </div>
-
-            {/* Condemnation Logs Section */}
-            <div className="rounded-xl border border-red-200/80 bg-red-50/50 p-3.5 space-y-3">
-              <div className="flex items-center gap-2 text-rose-900 font-semibold text-sm">
-                <ShieldAlert className="size-4 text-red-600" />
-                <span>Post-Mortem Meat Condemnation Findings</span>
-              </div>
-              <p className="text-xs text-rose-950/70">
-                Record any carcasses or organs condemned during official municipal abattoir veterinary inspection.
-              </p>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="condemned-heads" className="text-xs">
-                    Condemned Heads
-                  </Label>
-                  <Input
-                    id="condemned-heads"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={form.condemned_heads}
-                    onChange={(e) => setForm({ ...form, condemned_heads: e.target.value })}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="condemned-weight" className="text-xs">
-                    Condemned Weight (kg)
-                  </Label>
-                  <Input
-                    id="condemned-weight"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.condemned_weight_kg}
-                    onChange={(e) => setForm({ ...form, condemned_weight_kg: e.target.value })}
-                    placeholder="e.g. 25.50"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="condemnation-reason" className="text-xs">
-                  Condemnation Reason / Pathology Finding
-                </Label>
-                <Input
-                  id="condemnation-reason"
-                  type="text"
-                  value={form.condemnation_reason}
-                  onChange={(e) => setForm({ ...form, condemnation_reason: e.target.value })}
-                  placeholder="e.g. Liver Fluke (Fascioliasis), Pneumonia, Abscess, Emaciation"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="condemnation-type" className="text-xs">
-                  Condemnation Classification
-                </Label>
-                <Select
-                  value={form.condemnation_type}
-                  onValueChange={(val) => setForm({ ...form, condemnation_type: val })}
-                >
-                  <SelectTrigger id="condemnation-type" className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="NONE">None / Full Pass</SelectItem>
-                    <SelectItem value="PARTIAL">Partial (Organ / Visceral Condemnation)</SelectItem>
-                    <SelectItem value="TOTAL">Total (Whole Carcass Condemnation)</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 

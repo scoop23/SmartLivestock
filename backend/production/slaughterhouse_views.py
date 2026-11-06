@@ -133,6 +133,23 @@ class SlaughterRecordInputSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
+        # Daily-only forms omit retired inspection fields. Preserve historical
+        # metadata when correcting totals instead of replacing it with defaults.
+        match = re.search(r"<!--CONDEMNATION:(.*?)-->", instance.review_remarks or "")
+        if match:
+            try:
+                previous = json.loads(match.group(1))
+            except (ValueError, TypeError):
+                previous = {}
+            if isinstance(previous, dict):
+                for field, key in (
+                    ("condemned_heads", "heads"),
+                    ("condemned_weight_kg", "weight_kg"),
+                    ("condemnation_reason", "reason"),
+                    ("condemnation_type", "type"),
+                ):
+                    if key in previous:
+                        validated_data.setdefault(field, previous[key])
         self._pack_remarks(validated_data, instance.review_remarks)
         return super().update(instance, validated_data)
 

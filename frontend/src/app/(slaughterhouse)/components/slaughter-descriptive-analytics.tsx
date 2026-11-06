@@ -7,17 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Activity,
-  AlertTriangle,
   BarChart3,
   Calendar,
-  CheckCircle2,
   Cpu,
   Flame,
   LineChart as LineChartIcon,
   RefreshCw,
   Scale,
   Scissors,
-  ShieldAlert,
   ShieldCheck,
   Table as TableIcon,
   TrendingUp,
@@ -111,7 +108,7 @@ export function SlaughterDescriptiveAnalytics({
   isLoading = false,
   onRefresh,
 }: SlaughterDescriptiveAnalyticsProps) {
-  const [selectedDomain, setSelectedDomain] = useState<"throughput" | "species" | "yields" | "condemnations">("throughput");
+  const [selectedDomain, setSelectedDomain] = useState<"throughput" | "species" | "yields">("throughput");
   const [showTableView, setShowTableView] = useState(false);
 
   // ---------------------------------------------------------------------------
@@ -126,62 +123,41 @@ export function SlaughterDescriptiveAnalytics({
     let totalHeads = 0;
     let totalCarcassKg = 0;
     let weighedHeads = 0;
-    let totalCondemnedHeads = 0;
-    let totalCondemnedKg = 0;
 
     // Species Breakdown
-    const speciesMap: Record<string, { heads: number; carcassKg: number; weighedHeads: number; condemnedHeads: number }> = {};
+    const speciesMap: Record<string, { heads: number; carcassKg: number; weighedHeads: number }> = {};
 
     // Daily Breakdown
-    const dailyMap: Record<string, { heads: number; carcassKg: number; condemnedHeads: number }> = {};
-
-    // Condemnation Findings Breakdown
-    const condemnationReasonMap: Record<string, { heads: number; weightKg: number }> = {};
+    const dailyMap: Record<string, { heads: number; carcassKg: number }> = {};
 
     workingSet.forEach((rec) => {
       const heads = rec.quantity || 0;
       const kg = rec.carcass_weight ? parseFloat(rec.carcass_weight) || 0 : 0;
-      const cHeads = rec.condemned_heads || 0;
-      const cKg = rec.condemned_weight_kg ? parseFloat(rec.condemned_weight_kg) || 0 : 0;
-      const reason = (rec.condemnation_reason || "").trim() || "Unspecified inspection finding";
 
       totalHeads += heads;
       totalCarcassKg += kg;
       if (kg > 0) weighedHeads += heads;
 
-      totalCondemnedHeads += cHeads;
-      totalCondemnedKg += cKg;
-
-      if (cHeads > 0 || cKg > 0) {
-        if (!condemnationReasonMap[reason]) {
-          condemnationReasonMap[reason] = { heads: 0, weightKg: 0 };
-        }
-        condemnationReasonMap[reason].heads += cHeads;
-        condemnationReasonMap[reason].weightKg += cKg;
-      }
 
       // Group by species
       const sName = rec.livestock_type_name || "Unknown";
       if (!speciesMap[sName]) {
-        speciesMap[sName] = { heads: 0, carcassKg: 0, weighedHeads: 0, condemnedHeads: 0 };
+        speciesMap[sName] = { heads: 0, carcassKg: 0, weighedHeads: 0 };
       }
       speciesMap[sName].heads += heads;
       speciesMap[sName].carcassKg += kg;
       if (kg > 0) speciesMap[sName].weighedHeads += heads;
-      speciesMap[sName].condemnedHeads += cHeads;
 
       // Group by date
       const dKey = rec.record_date || "Unknown";
       if (!dailyMap[dKey]) {
-        dailyMap[dKey] = { heads: 0, carcassKg: 0, condemnedHeads: 0 };
+        dailyMap[dKey] = { heads: 0, carcassKg: 0 };
       }
       dailyMap[dKey].heads += heads;
       dailyMap[dKey].carcassKg += kg;
-      dailyMap[dKey].condemnedHeads += cHeads;
     });
 
     const averageYieldPerHead = weighedHeads > 0 ? Math.round(totalCarcassKg / weighedHeads) : 0;
-    const condemnationRate = totalHeads > 0 ? Number(((totalCondemnedHeads / totalHeads) * 100).toFixed(2)) : 0;
 
     // Sort timeline (most recent 14 recorded dates)
     const timeline = Object.entries(dailyMap)
@@ -192,7 +168,6 @@ export function SlaughterDescriptiveAnalytics({
         fullDate: date,
         heads: d.heads,
         carcassKg: Math.round(d.carcassKg),
-        condemnedHeads: d.condemnedHeads,
       }));
 
     // Species array
@@ -201,14 +176,6 @@ export function SlaughterDescriptiveAnalytics({
       heads: d.heads,
       carcassKg: Math.round(d.carcassKg),
       averageKgPerHead: d.weighedHeads > 0 ? Math.round(d.carcassKg / d.weighedHeads) : 0,
-      condemnedHeads: d.condemnedHeads,
-    }));
-
-    // Condemnation findings list
-    const condemnationList = Object.entries(condemnationReasonMap).map(([reason, val]) => ({
-      reason,
-      heads: val.heads,
-      weightKg: Math.round(val.weightKg * 10) / 10,
     }));
 
     return {
@@ -216,12 +183,8 @@ export function SlaughterDescriptiveAnalytics({
       totalCarcassKg: Math.round(totalCarcassKg),
       weighedHeads,
       averageYieldPerHead,
-      totalCondemnedHeads,
-      totalCondemnedKg: Math.round(totalCondemnedKg * 10) / 10,
-      condemnationRate,
       timeline,
       speciesData,
-      condemnationList,
     };
   }, [records]);
 
@@ -255,7 +218,7 @@ export function SlaughterDescriptiveAnalytics({
               </span>
             </div>
             <h2 className="text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
-              Slaughter Throughput, Carcass Weights & Condemnations
+              Daily Slaughter Throughput & Carcass Weights
             </h2>
             <p className="text-xs text-slate-600 font-mono">
               Padre Garcia Municipal Slaughterhouse · Live meat inspection & post-mortem yield diagnostics
@@ -300,7 +263,7 @@ export function SlaughterDescriptiveAnalytics({
         {/* =================================================================== */}
         {/* KPI MICRO-CAPSULES (CLEAN LIGHT HUD CARDS)                          */}
         {/* =================================================================== */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {/* Card 1: Carcass Weights (Total Biomass) */}
           <div className="group relative overflow-hidden rounded-xl border border-rose-200/80 bg-white/95 p-3.5 shadow-xs transition-all hover:border-rose-400 hover:shadow-md">
             <div className="flex items-center justify-between text-slate-600">
@@ -365,28 +328,7 @@ export function SlaughterDescriptiveAnalytics({
             </div>
           </div>
 
-          {/* Card 4: Condemnation Rate & Logs */}
-          <div className="group relative overflow-hidden rounded-xl border border-red-200/80 bg-white/95 p-3.5 shadow-xs transition-all hover:border-red-400 hover:shadow-md">
-            <div className="flex items-center justify-between text-slate-600">
-              <span className="font-mono text-[10px] font-bold tracking-wider text-red-700 uppercase">
-                Condemnation Rate
-              </span>
-              <div className="rounded-lg bg-red-50 p-1.5 text-red-600">
-                <ShieldAlert className="size-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-1.5">
-              <span className="font-mono text-2xl font-black text-slate-950">
-                {metrics.condemnationRate}%
-              </span>
-              <span className="font-mono text-xs font-bold text-red-600">
-                ({metrics.totalCondemnedHeads} hd)
-              </span>
-            </div>
-            <div className="mt-1 font-mono text-[10px] text-slate-600">
-              {metrics.totalCondemnedKg > 0 ? `${metrics.totalCondemnedKg} kg rejected` : "Food safety inspection findings"}
-            </div>
-          </div>
+
         </div>
 
         {/* =================================================================== */}
@@ -432,18 +374,6 @@ export function SlaughterDescriptiveAnalytics({
             Carcass Weight Benchmarks
           </button>
 
-          <button
-            type="button"
-            onClick={() => setSelectedDomain("condemnations")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-all ${
-              selectedDomain === "condemnations"
-                ? "bg-rose-600 text-white shadow-xs"
-                : "text-slate-600 hover:bg-white hover:text-slate-900"
-            }`}
-          >
-            <ShieldAlert className="size-3.5" />
-            Condemnation Logs ({metrics.totalCondemnedHeads})
-          </button>
         </div>
 
         {/* =================================================================== */}
@@ -652,53 +582,7 @@ export function SlaughterDescriptiveAnalytics({
               </div>
             )}
 
-            {/* DOMAIN 4: CONDEMNATION SURVEILLANCE & LOGS */}
-            {selectedDomain === "condemnations" && (
-              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs space-y-4">
-                <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-                  <div>
-                    <h3 className="font-mono text-sm font-bold text-slate-900 flex items-center gap-2">
-                      <ShieldAlert className="size-4 text-red-600" />
-                      Post-Mortem & Ante-Mortem Meat Condemnation Log Registry
-                    </h3>
-                    <p className="text-xs text-slate-500 font-mono">
-                      Inspection findings, organ/carcass rejections, and municipal food safety enforcement
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="border-red-300 bg-red-50 text-red-800 font-mono text-xs">
-                    {metrics.totalCondemnedHeads} Heads · {metrics.totalCondemnedKg} kg condemned
-                  </Badge>
-                </div>
 
-                {metrics.condemnationList.length > 0 ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {metrics.condemnationList.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="rounded-lg border border-red-200 bg-red-50/50 p-3.5 space-y-2 font-mono text-xs"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                            <AlertTriangle className="size-3.5 text-amber-600" />
-                            {item.reason}
-                          </span>
-                          <span className="text-red-700 font-black">{item.heads} heads</span>
-                        </div>
-                        <div className="flex justify-between text-slate-600 text-[11px]">
-                          <span>Rejected biomass:</span>
-                          <span className="text-slate-950 font-bold">{item.weightKg} kg</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-6 text-center font-mono text-xs text-emerald-800">
-                    <CheckCircle2 className="mx-auto size-6 mb-2 text-emerald-600" />
-                    No condemned carcasses or organs recorded in filtered batch. Clean food safety inspection pass.
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         ) : (
           /* =================================================================== */
@@ -713,7 +597,6 @@ export function SlaughterDescriptiveAnalytics({
                   <TableHead className="text-right text-slate-700 font-bold">Heads</TableHead>
                   <TableHead className="text-right text-slate-700 font-bold">Carcass (kg)</TableHead>
                   <TableHead className="text-right text-slate-700 font-bold">Avg (kg/hd)</TableHead>
-                  <TableHead className="text-slate-700 font-bold">Condemnation Log</TableHead>
                   <TableHead className="text-slate-700 font-bold">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -721,8 +604,6 @@ export function SlaughterDescriptiveAnalytics({
                 {records.slice(0, 15).map((row) => {
                   const kg = row.carcass_weight ? parseFloat(row.carcass_weight) : null;
                   const avg = kg && row.quantity > 0 ? (kg / row.quantity).toFixed(1) : null;
-                  const cHeads = row.condemned_heads || 0;
-                  const cReason = row.condemnation_reason;
 
                   return (
                     <TableRow key={row.id} className="border-slate-100 hover:bg-rose-50/30">
@@ -733,18 +614,6 @@ export function SlaughterDescriptiveAnalytics({
                         {kg ? `${kg.toLocaleString()} kg` : "—"}
                       </TableCell>
                       <TableCell className="text-right text-sky-700">{avg ? `${avg} kg` : "—"}</TableCell>
-                      <TableCell>
-                        {cHeads > 0 || cReason ? (
-                          <div className="flex items-center gap-1.5 text-red-600 font-medium">
-                            <AlertTriangle className="size-3" />
-                            <span>
-                              {cHeads > 0 ? `${cHeads} hd` : ""} {cReason ? `(${cReason})` : ""}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">None</span>
-                        )}
-                      </TableCell>
                       <TableCell>
                         <Badge
                           variant="outline"
