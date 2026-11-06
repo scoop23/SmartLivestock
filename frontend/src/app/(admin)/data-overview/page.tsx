@@ -25,8 +25,9 @@ SlaughterRecord
 // Modular Components
 import { fetchInspections } from "@/app/(auction)/auction-inspections/auction-analytics";
 import { ValidationLoadingScreen, useSeamlessLoadingState } from "@/components/validation-loading-screen";
+import { cowHead } from "@lucide/lab";
 import api from "@/lib/axios";
-import { Activity,Boxes,Database,FileSpreadsheet,Layers } from "lucide-react";
+import { Activity,BarChart3,Boxes,Database,FileSpreadsheet,Icon,Layers,ShieldCheck } from "lucide-react";
 import { DataOverviewCards } from "./data-overview-cards";
 import { DataOverviewDetailModal } from "./data-overview-detail-modal";
 import { DataOverviewKpis } from "./data-overview-kpis";
@@ -1212,29 +1213,83 @@ export default function DataOverviewPage() {
           isLoading={isDataLoading}
         />
 
-        <p className="text-xs text-slate-500">KPIs show municipal totals. Filters apply to the records and barangay matrix below. Inventory records include historical exits; current heads include only approved, active animals.</p>
+        {/* 4 Strategic Primary Tabs with Interactive Animations */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-100 fill-mode-both motion-reduce:animate-none">
+          <button
+            type="button"
+            onClick={() => setActiveTab("overall")}
+            className={`group px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ease-out active:scale-95 cursor-pointer flex items-center gap-2 shrink-0 select-none ${
+              activeTab === "overall"
+                ? "bg-[#0F4A2F] text-white shadow-sm ring-2 ring-[#0F4A2F]/25 -translate-y-0.5"
+                : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:-translate-y-0.5 hover:shadow-2xs"
+            }`}
+          >
+            <BarChart3 className="size-4 transition-transform duration-300 group-hover:scale-110 group-active:scale-90" />
+            <span>Municipal Overview</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("livestock")}
+            className={`group px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ease-out active:scale-95 cursor-pointer flex items-center gap-2 shrink-0 select-none ${
+              activeTab === "livestock"
+                ? "bg-[#0F4A2F] text-white shadow-sm ring-2 ring-[#0F4A2F]/25 -translate-y-0.5"
+                : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:-translate-y-0.5 hover:shadow-2xs"
+            }`}
+          >
+            <Icon iconNode={cowHead} className="size-4 transition-transform duration-300 group-hover:scale-110 group-active:scale-90" />
+            <span>Livestock</span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all duration-200 group-hover:scale-105 ${
+              activeTab === "livestock" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+            }`}>
+              {counts.livestock}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("sales")}
+            className={`group px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ease-out active:scale-95 cursor-pointer flex items-center gap-2 shrink-0 select-none ${
+              activeTab === "sales" || activeTab === "production" || activeTab === "slaughter"
+                ? "bg-[#0F4A2F] text-white shadow-sm ring-2 ring-[#0F4A2F]/25 -translate-y-0.5"
+                : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:-translate-y-0.5 hover:shadow-2xs"
+            }`}
+          >
+            <Boxes className="size-4 transition-transform duration-300 group-hover:scale-110 group-active:scale-90" />
+            <span>Production</span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all duration-200 group-hover:scale-105 ${
+              activeTab === "sales" || activeTab === "production" || activeTab === "slaughter"
+                ? "bg-white/20 text-white"
+                : "bg-slate-100 text-slate-600"
+            }`}>
+              {counts.sales + counts.slaughter + counts.production}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("disease")}
+            className={`group px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ease-out active:scale-95 cursor-pointer flex items-center gap-2 shrink-0 select-none ${
+              activeTab === "disease" || activeTab === "mortality" || activeTab === "census"
+                ? "bg-[#0F4A2F] text-white shadow-sm ring-2 ring-[#0F4A2F]/25 -translate-y-0.5"
+                : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:-translate-y-0.5 hover:shadow-2xs"
+            }`}
+          >
+            <ShieldCheck className="size-4 transition-transform duration-300 group-hover:scale-110 group-active:scale-90" />
+            <span>Reports</span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all duration-200 group-hover:scale-105 ${
+              activeTab === "disease" || activeTab === "mortality" || activeTab === "census"
+                ? "bg-white/20 text-white"
+                : "bg-slate-100 text-slate-600"
+            }`}>
+              {counts.disease + counts.mortality + counts.census}
+            </span>
+          </button>
+        </div>
 
-        {/* Toolbar & Filter Suite */}
-        <DataOverviewToolbar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          filterBarangay={filterBarangay}
-          onBarangayChange={setFilterBarangay}
-          filterSpecie={filterSpecie}
-          onSpecieChange={setFilterSpecie}
-          filterStatus={filterStatus}
-          onStatusChange={setFilterStatus}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onExportCsv={handleExportCsv}
-          onResetFilters={handleResetFilters}
-          counts={counts}
-        />
-
-        {/* Main Content Area */}
-        {activeTab === "overall" ? (
+        {/* Main Content Area with Smooth Enter Animation */}
+        <div
+          key={activeTab === "overall" ? "overall-view" : activeTab}
+          className="space-y-4 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none"
+        >
+          {activeTab === "overall" ? (
           <DataOverviewOverallView
             barangaySummaries={barangayMasterSummaries.filter(
               (b) =>
@@ -1255,29 +1310,54 @@ export default function DataOverviewPage() {
             }}
             onSelectRecord={handleSelectRecord}
           />
-        ) : activeTab === "sales" ? (
-          <ProductionTradeRecords
-            salesRecords={filteredData as SalesRecord[]}
-            viewMode={viewMode}
-            onSelectSalesRecord={(record, domain) => handleSelectRecord(record, domain)}
-            onResetFilters={handleResetFilters}
-            search={searchQuery}
-            statusFilter={filterStatus}
-          />
-        ) : viewMode === "table" ? (
-          <DataOverviewTable key={activeTab}
-            activeTab={activeTab}
-            items={filteredData}
-            onSelectRecord={handleSelectRecord}
-            onResetFilters={handleResetFilters}
-          />
         ) : (
-          <DataOverviewCards key={activeTab}
-            activeTab={activeTab}
-            items={filteredData}
-            onSelectRecord={handleSelectRecord}
-          />
+          <>
+            <DataOverviewToolbar
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              filterBarangay={filterBarangay}
+              onBarangayChange={setFilterBarangay}
+              filterSpecie={filterSpecie}
+              onSpecieChange={setFilterSpecie}
+              filterStatus={filterStatus}
+              onStatusChange={setFilterStatus}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onExportCsv={handleExportCsv}
+              onResetFilters={handleResetFilters}
+              counts={counts}
+            />
+
+            {activeTab === "sales" ? (
+              <ProductionTradeRecords
+                salesRecords={filteredData as SalesRecord[]}
+                viewMode={viewMode}
+                onSelectSalesRecord={(record, domain) => handleSelectRecord(record, domain)}
+                onResetFilters={handleResetFilters}
+                search={searchQuery}
+                statusFilter={filterStatus}
+              />
+            ) : viewMode === "table" ? (
+              <DataOverviewTable
+                key={activeTab}
+                activeTab={activeTab}
+                items={filteredData}
+                onSelectRecord={handleSelectRecord}
+                onResetFilters={handleResetFilters}
+              />
+            ) : (
+              <DataOverviewCards
+                key={activeTab}
+                activeTab={activeTab}
+                items={filteredData}
+                onSelectRecord={handleSelectRecord}
+              />
+            )}
+          </>
         )}
+        </div>
             </div>
           </div>
         )}

@@ -3,40 +3,44 @@
 import type { OverviewRecord } from "./data-overview-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card,CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-Table,
-TableBody,
-TableCell,
-TableHead,
-TableHeader,
-TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { cowHead } from "@lucide/lab";
 import {
-Activity,
-AlertTriangle,
-ArrowUpRight,
-Boxes,
-Building2,
-CheckCircle2,
-ChevronRight,
-ExternalLink,
-Eye,
-Icon,
-Layers,
-MapPin,
-Milk,
-Scale,
-ShieldCheck,
-Users
+  Activity,
+  AlertTriangle,
+  ArrowUpRight,
+  BookOpen,
+  Boxes,
+  Building2,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Eye,
+  Icon,
+  Info,
+  Layers,
+  MapPin,
+  Milk,
+  Scale,
+  ShieldCheck,
+  Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import {
-ActivityFeedItem,
-BarangaySummary,
-BatchRecord,
-DataTab,
+  ActivityFeedItem,
+  BarangaySummary,
+  BatchRecord,
+  DataTab,
 } from "./data-overview-types";
 
 interface DataOverviewOverallViewProps {
@@ -57,14 +61,58 @@ export function DataOverviewOverallView({
   activityFeed,
   batchList = [],
   totalBatches,
-  isLoading = false,
   onSelectBarangay,
   onNavigateTab,
   onSelectRecord,
 }: DataOverviewOverallViewProps) {
+  const router = useRouter();
   const [focusMode, setFocusMode] = useState<FocusMode>("combined");
+  const [page, setPage] = useState(1);
+  const pageSize = 5;
+
+  // Sorting
   const [sortField, setSortField] = useState<keyof BarangaySummary>("totalLivestock");
   const [sortAsc, setSortAsc] = useState(false);
+
+  const handleSort = (field: keyof BarangaySummary) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+    }
+  };
+
+  const sortedSummaries = useMemo(() => {
+    return [...barangaySummaries].sort((a, b) => {
+      const aVal = a[sortField];
+      const bVal = b[sortField];
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortAsc ? aVal - bVal : bVal - aVal;
+      }
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return 0;
+    });
+  }, [barangaySummaries, sortField, sortAsc]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedSummaries.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedSummaries = sortedSummaries.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  // Totals calculations
+  const totalHeads = barangaySummaries.reduce((sum, b) => sum + b.totalLivestock, 0);
+  const totalCattle = barangaySummaries.reduce((sum, b) => sum + b.cattleCount, 0);
+  const totalBatchesCount =
+    totalBatches ??
+    batchList.length ??
+    barangaySummaries.reduce((sum, b) => sum + (b.batchCount || 0), 0);
+  const totalMeat = barangaySummaries.reduce((sum, b) => sum + b.monthlyMeatKg, 0);
+  const totalIncidents = barangaySummaries.reduce((sum, b) => sum + b.activeIncidents, 0);
+  const totalFarmers = barangaySummaries.reduce((sum, b) => sum + b.registeredFarmers, 0);
 
   const handleActivityClick = (act: ActivityFeedItem) => {
     if (act.domain && act.domain !== "overall") {
@@ -85,120 +133,89 @@ export function DataOverviewOverallView({
     }
   };
 
-  const handleSort = (field: keyof BarangaySummary) => {
-    if (sortField === field) {
-      setSortAsc(!sortAsc);
-    } else {
-      setSortField(field);
-    }
-  };
-
-  const sortedSummaries = [...barangaySummaries].sort((a, b) => {
-    const aVal = a[sortField];
-    const bVal = b[sortField];
-    if (typeof aVal === "number" && typeof bVal === "number") {
-      return sortAsc ? aVal - bVal : bVal - aVal;
-    }
-    if (typeof aVal === "string" && typeof bVal === "string") {
-      return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-    }
-    return 0;
-  });
-
-  // Calculate totals
-  const totalHeads = barangaySummaries.reduce((sum, b) => sum + b.totalLivestock, 0);
-  const totalCattle = barangaySummaries.reduce((sum, b) => sum + b.cattleCount, 0);
-  const totalCarabao = barangaySummaries.reduce((sum, b) => sum + b.carabaoCount, 0);
-  const totalSwine = barangaySummaries.reduce((sum, b) => sum + b.swineCount, 0);
-  const totalGoats = barangaySummaries.reduce((sum, b) => sum + b.goatCount, 0);
-  const totalMeat = barangaySummaries.reduce((sum, b) => sum + b.monthlyMeatKg, 0);
-  const totalIncidents = barangaySummaries.reduce((sum, b) => sum + b.activeIncidents, 0);
-  const totalFarmers = barangaySummaries.reduce((sum, b) => sum + b.registeredFarmers, 0);
-
-  const totalBatchesCount =
-    totalBatches ??
-    batchList.length ??
-    barangaySummaries.reduce((sum, b) => sum + (b.batchCount || 0), 0);
-  const totalBatchAnimals = batchList.reduce((sum, b) => sum + (b.totalAnimals || 0), 0);
-
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-4">
       {/* ── Sub-View Mode Selector ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 pb-0.5">
-        <div className="w-full md:w-auto overflow-x-auto no-scrollbar -mx-1 px-1 py-0.5">
-          <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 shadow-2xs w-max md:w-auto">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-0.5 animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
+        <div className="w-full md:w-auto overflow-x-auto no-scrollbar py-0.5">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-50/90 rounded-full border border-slate-200/90 shadow-2xs w-max md:w-auto">
+            {/* 1. Full Overview */}
             <button
               type="button"
               onClick={() => setFocusMode("combined")}
-              className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 border ${
+              className={`group px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 ease-out flex items-center gap-2 cursor-pointer shrink-0 border active:scale-95 select-none hover:-translate-y-0.5 hover:shadow-2xs ${
                 focusMode === "combined"
-                  ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs font-black ring-2 ring-[#2D5A27]/20"
-                  : "bg-white/80 text-slate-700 border-slate-200/70 hover:bg-white hover:text-slate-900"
+                  ? "bg-[#0F4A2F] text-white border-[#0F4A2F] shadow-sm font-black ring-2 ring-[#0F4A2F]/20 scale-[1.02]"
+                  : "bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
               }`}
             >
-              <span className="text-sm shrink-0">📊</span>
+              <span className="text-sm shrink-0 transition-transform duration-200 group-hover:scale-120">📊</span>
               <span>Full Overview</span>
             </button>
 
+            {/* 2. Barangay Matrix */}
             <button
               type="button"
               onClick={() => setFocusMode("matrix")}
-              className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 border ${
+              className={`group px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 ease-out flex items-center gap-2 cursor-pointer shrink-0 border active:scale-95 select-none hover:-translate-y-0.5 hover:shadow-2xs ${
                 focusMode === "matrix"
-                  ? "bg-emerald-700 text-white border-emerald-700 shadow-xs font-black ring-2 ring-emerald-700/20"
-                  : "bg-white/80 text-slate-700 border-slate-200/70 hover:bg-white hover:text-slate-900"
+                  ? "bg-[#0F4A2F] text-white border-[#0F4A2F] shadow-sm font-black ring-2 ring-[#0F4A2F]/20 scale-[1.02]"
+                  : "bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
               }`}
             >
-              <span className="text-sm shrink-0">🗺️</span>
+              <span className="text-sm shrink-0 transition-transform duration-200 group-hover:scale-120">🗺️</span>
               <span>Barangay Matrix</span>
-              <Badge
-                variant="secondary"
-                className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full border-0 transition-colors ${
+              <span
+                className={`text-[11px] font-bold px-2 py-0.5 rounded-full transition-all duration-200 group-hover:scale-105 ${
                   focusMode === "matrix"
-                    ? "bg-white/25 text-white font-black"
-                    : "bg-slate-200/80 text-slate-700"
+                    ? "bg-white/25 text-white"
+                    : "bg-slate-100 text-slate-600"
                 }`}
               >
                 {barangaySummaries.length}
-              </Badge>
+              </span>
             </button>
 
+            {/* 3. Herds */}
             <button
               type="button"
               onClick={() => setFocusMode("batches")}
-              className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 border ${
+              className={`group px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 ease-out flex items-center gap-2 cursor-pointer shrink-0 border active:scale-95 select-none hover:-translate-y-0.5 hover:shadow-2xs ${
                 focusMode === "batches"
-                  ? "bg-[#2D5A27] text-white border-[#2D5A27] shadow-xs font-black ring-2 ring-[#2D5A27]/20"
-                  : "bg-white/80 text-slate-700 border-slate-200/70 hover:bg-white hover:text-slate-900"
+                  ? "bg-[#0F4A2F] text-white border-[#0F4A2F] shadow-sm font-black ring-2 ring-[#0F4A2F]/20 scale-[1.02]"
+                  : "bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
               }`}
             >
-              <span className="text-sm shrink-0">📦</span>
+              <span className="text-sm shrink-0 transition-transform duration-200 group-hover:scale-120">📦</span>
               <span>Herds</span>
-              <Badge
-                variant="secondary"
-                className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full border-0 transition-colors ${
+              <span
+                className={`text-[11px] font-bold px-2 py-0.5 rounded-full transition-all duration-200 group-hover:scale-105 ${
                   focusMode === "batches"
-                    ? "bg-white/25 text-white font-black"
+                    ? "bg-white/25 text-white"
                     : "bg-emerald-100 text-emerald-800"
                 }`}
               >
                 {totalBatchesCount}
-              </Badge>
+              </span>
             </button>
 
+            {/* 4. Live Surveillance */}
             <button
               type="button"
               onClick={() => setFocusMode("activity")}
-              className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 border ${
+              className={`group px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 ease-out flex items-center gap-2 cursor-pointer shrink-0 border active:scale-95 select-none hover:-translate-y-0.5 hover:shadow-2xs ${
                 focusMode === "activity"
-                  ? "bg-rose-700 text-white border-rose-700 shadow-xs font-black ring-2 ring-rose-700/20"
-                  : "bg-white/80 text-slate-700 border-slate-200/70 hover:bg-white hover:text-slate-900"
+                  ? "bg-[#990024] text-white border-[#990024] shadow-sm font-black ring-2 ring-rose-700/25 scale-[1.02]"
+                  : "bg-white text-rose-800 border-slate-200/90 hover:bg-rose-50 hover:text-rose-900 hover:border-rose-300"
               }`}
             >
-              <span className="text-sm shrink-0">⚡</span>
+              <span className="text-sm shrink-0 transition-transform duration-200 group-hover:scale-120">⚡</span>
               <span>Live Surveillance</span>
               {totalIncidents > 0 && (
-                <span className="size-2 rounded-full bg-rose-400 animate-ping" />
+                <span className="relative flex size-2">
+                  <span className="size-full rounded-full bg-rose-400 animate-ping absolute opacity-75" />
+                  <span className="size-full rounded-full bg-rose-500 relative inline-flex" />
+                </span>
               )}
             </button>
           </div>
@@ -210,187 +227,57 @@ export function DataOverviewOverallView({
         </div>
       </div>
 
-      {/* ── Specie & Herd Breakdown Grid (Visible in Combined, Matrix, and Batches) ── */}
-      {focusMode !== "activity" && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
-          {/* 1. Cattle Breakdown */}
-          <Card
-            onClick={() => onNavigateTab("livestock")}
-            className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-all cursor-pointer group hover:border-emerald-300"
-          >
-            <CardContent className="p-3 sm:p-3.5 flex flex-col justify-between h-full">
-              <div className="flex items-center justify-between gap-2">
-                <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 group-hover:bg-emerald-200 transition-colors">
-                  <Icon iconNode={cowHead} className="size-3.5" />
-                </div>
-                <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-extrabold px-1.5 py-0.2">
-                  {Math.round((totalCattle / (totalHeads || 1)) * 100)}% of total
-                </Badge>
-              </div>
-              <div className="mt-2">
-                <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight group-hover:text-emerald-700 transition-colors">
-                  {totalCattle.toLocaleString()}
-                </p>
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 flex items-center justify-between">
-                  <span>Cattle (Bovine)</span>
-                  <ChevronRight className="size-3 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 2. Carabao Breakdown */}
-          <Card
-            onClick={() => onNavigateTab("livestock")}
-            className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-all cursor-pointer group hover:border-blue-300"
-          >
-            <CardContent className="p-3 sm:p-3.5 flex flex-col justify-between h-full">
-              <div className="flex items-center justify-between gap-2">
-                <div className="p-1.5 rounded-lg bg-blue-100 text-blue-800 group-hover:bg-blue-200 transition-colors">
-                  <Layers className="size-3.5" />
-                </div>
-                <Badge className="bg-blue-50 text-blue-800 border-blue-200 text-[10px] font-extrabold px-1.5 py-0.2">
-                  {Math.round((totalCarabao / (totalHeads || 1)) * 100)}% of total
-                </Badge>
-              </div>
-              <div className="mt-2">
-                <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight group-hover:text-blue-700 transition-colors">
-                  {totalCarabao.toLocaleString()}
-                </p>
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 flex items-center justify-between">
-                  <span>Carabao (Bubaline)</span>
-                  <ChevronRight className="size-3 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 3. Swine Breakdown */}
-          <Card
-            onClick={() => onNavigateTab("livestock")}
-            className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-all cursor-pointer group hover:border-amber-300"
-          >
-            <CardContent className="p-3 sm:p-3.5 flex flex-col justify-between h-full">
-              <div className="flex items-center justify-between gap-2">
-                <div className="p-1.5 rounded-lg bg-amber-100 text-amber-800 group-hover:bg-amber-200 transition-colors">
-                  <Scale className="size-3.5" />
-                </div>
-                <Badge className="bg-amber-50 text-amber-800 border-amber-200 text-[10px] font-extrabold px-1.5 py-0.2">
-                  {Math.round((totalSwine / (totalHeads || 1)) * 100)}% of total
-                </Badge>
-              </div>
-              <div className="mt-2">
-                <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight group-hover:text-amber-700 transition-colors">
-                  {totalSwine.toLocaleString()}
-                </p>
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 flex items-center justify-between">
-                  <span>Swine (Porcine)</span>
-                  <ChevronRight className="size-3 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 4. Goat & Small Ruminants */}
-          <Card
-            onClick={() => onNavigateTab("livestock")}
-            className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs hover:shadow-xs transition-all cursor-pointer group hover:border-emerald-300"
-          >
-            <CardContent className="p-3 sm:p-3.5 flex flex-col justify-between h-full">
-              <div className="flex items-center justify-between gap-2">
-                <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 group-hover:bg-emerald-200 transition-colors">
-                  <Users className="size-3.5" />
-                </div>
-                <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-extrabold px-1.5 py-0.2">
-                  {Math.round((totalGoats / (totalHeads || 1)) * 100)}% of total
-                </Badge>
-              </div>
-              <div className="mt-2">
-                <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight group-hover:text-emerald-700 transition-colors">
-                  {totalGoats.toLocaleString()}
-                </p>
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 flex items-center justify-between">
-                  <span>Goat & Sheep</span>
-                  <ChevronRight className="size-3 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 5. Herds & Pens */}
-          <Card
-            onClick={() => onNavigateTab("batches")}
-            className="rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/40 to-white shadow-2xs hover:shadow-xs transition-all cursor-pointer group hover:border-emerald-300"
-          >
-            <CardContent className="p-3 sm:p-3.5 flex flex-col justify-between h-full">
-              <div className="flex items-center justify-between gap-2">
-                <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 group-hover:bg-emerald-200 transition-colors">
-                  <Boxes className="size-3.5 text-[#2D5A27]" />
-                </div>
-                <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-extrabold px-1.5 py-0.2 group-hover:bg-emerald-100 transition-colors">
-                  {totalBatchAnimals > 0 ? `${totalBatchAnimals} heads` : "Active"}
-                </Badge>
-              </div>
-              <div className="mt-2">
-                <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight group-hover:text-emerald-700 transition-colors">
-                  {totalBatchesCount.toLocaleString()}
-                </p>
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 flex items-center justify-between">
-                  <span>Herds</span>
-                  <ChevronRight className="size-3 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* ── SECTION A: Barangay Master Matrix (Rendered in 'combined' or 'matrix' mode) ── */}
+      {/* ── SECTION A: Combined (Full Overview) or Focused Matrix Mode ── */}
       {(focusMode === "combined" || focusMode === "matrix") && (
+        <div key={`mode-${focusMode}`} className="animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none">
         <div
           className={
             focusMode === "combined"
-              ? "grid grid-cols-1 xl:grid-cols-12 gap-3.5 items-start"
-              : "w-full"
+              ? "grid grid-cols-1 xl:grid-cols-12 gap-5 items-start"
+              : "w-full space-y-4"
           }
         >
-          {/* Main Matrix Table */}
+          {/* Main Matrix Table Column */}
           <div
             className={
               focusMode === "combined"
-                ? "xl:col-span-8 space-y-3"
-                : "w-full space-y-3"
+                ? "xl:col-span-8 space-y-4"
+                : "w-full space-y-4"
             }
           >
-            <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
-              {/* Header */}
-              <div className="p-3.5 sm:p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gradient-to-r from-slate-50/80 to-white">
-                <div>
-                  <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-1.5">
-                    <MapPin className="w-4 h-4 text-[#2D5A27]" />
-                    Padre Garcia 18-Barangay Master Data Matrix
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Consolidated livestock headcount, herds, dairy yields, and active surveillance across all sectors.
-                  </p>
+            {/* Barangay Master Data Matrix Card */}
+            <div className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs hover:shadow-xs transition-shadow duration-300 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150 fill-mode-both motion-reduce:animate-none">
+              {/* Card Header */}
+              <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-full bg-[#EAF5EC] border border-[#BEE1C6] flex items-center justify-center text-[#0F4A2F] shrink-0 transition-transform duration-300 hover:scale-110">
+                    <MapPin className="size-4.5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 leading-tight">
+                      Barangay Master Data Matrix
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Consolidated livestock headcount, herds, dairy yields, and active surveillance across all sectors.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <Badge className="bg-emerald-100 text-emerald-900 border-0 text-[10px] font-bold px-2 py-0.5">
-                    {barangaySummaries.length} Sectors Synchronized
-                  </Badge>
-                  {focusMode === "combined" && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setFocusMode("matrix")}
-                      className="h-7 px-2 text-xs font-bold text-slate-600 hover:text-slate-900 gap-1"
-                      title="Focus on Matrix"
-                    >
-                      <Eye className="size-3" />
-                      <span className="hidden sm:inline">Focus View</span>
-                    </Button>
-                  )}
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#EAF5EC] text-[#0F4A2F] border border-[#BEE1C6] hover:bg-[#d9eedd] transition-colors">
+                    <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>✓ {barangaySummaries.length} Sectors Synchronized</span>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push("/gis")}
+                    className="h-8 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs gap-1.5 active:scale-95 transition-all duration-150 cursor-pointer"
+                  >
+                    <BookOpen className="size-3.5" />
+                    <span>View Map</span>
+                  </Button>
                 </div>
               </div>
 
@@ -398,133 +285,90 @@ export function DataOverviewOverallView({
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-slate-50/70 border-b border-slate-200/60 hover:bg-slate-50/70">
+                    <TableRow className="bg-[#EAF5EC] border-b border-[#BEE1C6]/80 hover:bg-[#EAF5EC]">
                       <TableHead
-                        className="px-3.5 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider cursor-pointer hover:text-slate-900"
+                        className="pl-4 py-2.5 text-[11px] font-black text-[#0F4A2F] uppercase tracking-wider cursor-pointer hover:underline select-none"
                         onClick={() => handleSort("barangay")}
                       >
-                        Barangay Sector
+                        BARANGAY SECTOR
                       </TableHead>
                       <TableHead
-                        className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
+                        className="px-3 py-2.5 text-[11px] font-black text-[#0F4A2F] uppercase tracking-wider text-center cursor-pointer hover:underline select-none"
                         onClick={() => handleSort("totalLivestock")}
                       >
-                        Total Heads
+                        TOTAL HEADS
                       </TableHead>
                       <TableHead
-                        className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
+                        className="px-3 py-2.5 text-[11px] font-black text-[#0F4A2F] uppercase tracking-wider text-center cursor-pointer hover:underline select-none"
                         onClick={() => handleSort("cattleCount")}
                       >
-                        Cattle
+                        CATTLE
                       </TableHead>
-                      <TableHead className="text-right text-xs">Other Species</TableHead>
+                      <TableHead className="px-3 py-2.5 text-[11px] font-black text-[#0F4A2F] uppercase tracking-wider text-center select-none">
+                        OTHER SPECIES
+                      </TableHead>
                       <TableHead
-                        className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
+                        className="px-3 py-2.5 text-[11px] font-black text-[#0F4A2F] uppercase tracking-wider text-center cursor-pointer hover:underline select-none"
                         onClick={() => handleSort("batchCount")}
                       >
-                        Batches
+                        BATCHES
                       </TableHead>
-                      <TableHead
-                        className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
-                        onClick={() => handleSort("monthlyMilkLiters")}
-                      >
-                        Farmer Milk Logs
+                      <TableHead className="px-3 py-2.5 text-[11px] font-black text-[#0F4A2F] uppercase tracking-wider text-center select-none">
+                        FARMER MILK LOGS
                       </TableHead>
-                      <TableHead
-                        className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
-                        onClick={() => handleSort("activeIncidents")}
-                      >
-                        Pending Reports
-                      </TableHead>
-                      <TableHead
-                        className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-right cursor-pointer hover:text-slate-900"
-                        onClick={() => handleSort("registeredFarmers")}
-                      >
-                        Raisers
-                      </TableHead>
-                      <TableHead className="px-3 py-2.5 text-[11px] font-black text-slate-600 uppercase tracking-wider text-center">
-                        Action
+                      <TableHead className="pr-4 py-2.5 text-[11px] font-black text-[#0F4A2F] uppercase tracking-wider text-center select-none">
+                        ACTIONS
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-slate-100">
-                    {sortedSummaries.map((b) => (
+                    {paginatedSummaries.map((b) => (
                       <TableRow
                         key={b.barangay}
-                        className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
-                        onClick={() => onSelectBarangay(b.barangay)}
+                        className="group hover:bg-emerald-50/40 transition-colors duration-200 cursor-default"
                       >
-                        <TableCell className="px-3.5 py-2 font-bold text-xs text-slate-900 flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-[#2D5A27] shrink-0" />
-                          <span>Brgy. {b.barangay}</span>
-                          {b.activeIncidents > 0 && (
-                            <span
-                              className="size-1.5 rounded-full bg-rose-500 shrink-0 animate-ping"
-                              title="Disease report awaiting review"
-                            />
-                          )}
+                        <TableCell className="pl-4 py-3 font-bold text-xs text-slate-900">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="size-4 text-emerald-600 shrink-0 group-hover:scale-125 transition-transform duration-200" />
+                            <span className="group-hover:text-emerald-950 transition-colors">Brgy. {b.barangay}</span>
+                          </div>
                         </TableCell>
 
-                        <TableCell className="px-3 py-2 text-right font-black text-xs text-slate-900">
+                        <TableCell className="px-3 py-3 text-center font-bold text-xs text-slate-900">
                           {b.totalLivestock.toLocaleString()}
                         </TableCell>
 
-                        <TableCell className="px-3 py-2 text-right font-semibold text-xs text-emerald-800">
+                        <TableCell className="px-3 py-3 text-center font-bold text-xs text-slate-900">
                           {b.cattleCount.toLocaleString()}
                         </TableCell>
-                        <TableCell className="text-right text-xs">{(b.totalLivestock - b.cattleCount).toLocaleString()}</TableCell>
 
-                        {/* Batches in Sector */}
-                        <TableCell className="px-3 py-2 text-right">
-                          {(b.batchCount || 0) > 0 ? (
-                            <Badge
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onSelectBarangay(b.barangay);
-                                onNavigateTab("batches");
-                              }}
-                              className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] font-bold px-1.5 py-0.2 hover:bg-emerald-100 cursor-pointer transition-colors"
-                              title="View herds in this sector"
-                            >
-                              {b.batchCount} {b.batchCount === 1 ? "batch" : "batches"}
-                            </Badge>
-                          ) : (
-                            <span className="text-slate-400 text-xs font-semibold">0</span>
-                          )}
+                        <TableCell className="px-3 py-3 text-center text-xs text-slate-600 font-semibold">
+                          {Math.max(0, b.totalLivestock - b.cattleCount).toLocaleString()}
                         </TableCell>
 
-                        <TableCell className="px-3 py-2 text-right font-semibold text-xs text-sky-800">
-                          {b.monthlyMilkLiters == null ? "Private to farmer accounts" : `${b.monthlyMilkLiters.toLocaleString()} L`}
+                        <TableCell className="px-3 py-3 text-center">
+                          <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#EAF5EC] text-[#0F4A2F] group-hover:bg-[#d9eedd] transition-colors">
+                            {b.batchCount || 0} batches
+                          </span>
                         </TableCell>
 
-                        <TableCell className="px-3 py-2 text-right">
-                          {b.activeIncidents > 0 ? (
-                            <Badge className="bg-rose-100 text-rose-800 border-rose-200 text-[10px] font-bold px-1.5 py-0.2">
-                              {b.activeIncidents} Pending
-                            </Badge>
-                          ) : (
-                            <span className="text-slate-400 text-xs font-semibold">0</span>
-                          )}
+                        <TableCell className="px-3 py-3 text-center text-xs font-semibold text-[#1E6091]">
+                          Private to farmer accounts
                         </TableCell>
 
-                        <TableCell className="px-3 py-2 text-right font-semibold text-xs text-slate-700">
-                          {b.registeredFarmers}
-                        </TableCell>
-
-                        <TableCell className="px-3 py-2 text-center">
+                        <TableCell className="pr-4 py-3 text-center">
                           <Button
+                            type="button"
+                            variant="outline"
                             size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                            onClick={() => {
                               onSelectBarangay(b.barangay);
                               onNavigateTab("livestock");
                             }}
-                            className="h-7 px-2 text-xs font-bold text-[#2D5A27] hover:bg-emerald-50 rounded-lg gap-0.5"
+                            className="h-7 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 shadow-2xs gap-1.5 active:scale-95 transition-all duration-150 cursor-pointer"
                           >
-                            <span>Explore</span>
-                            <ChevronRight className="w-3 h-3" />
+                            <Eye className="size-3.5 text-slate-500 group-hover:text-slate-700" />
+                            <span>View</span>
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -533,237 +377,366 @@ export function DataOverviewOverallView({
                 </Table>
               </div>
 
-              {/* Matrix Footer Grand Totals */}
-              <div className="p-3 bg-slate-50/90 border-t border-slate-200/70 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-                <div className="font-extrabold text-slate-700 uppercase tracking-wider text-[11px]">
-                  Municipality Grand Totals:
+              {/* Matrix Footer with Pagination */}
+              <div className="p-3.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+                <p className="text-xs text-slate-500 font-medium">
+                  Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, sortedSummaries.length)} of {sortedSummaries.length} barangays
+                </p>
+
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="size-7 p-0 rounded-lg border-slate-200 active:scale-90 transition-transform duration-150 disabled:opacity-40 cursor-pointer"
+                  >
+                    <ChevronLeft className="size-3.5" />
+                  </Button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalPages ||
+                      (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setPage(pageNum)}
+                          className={`size-7 rounded-lg text-xs font-bold transition-all duration-150 active:scale-90 cursor-pointer ${
+                            currentPage === pageNum
+                              ? "bg-[#0F4A2F] text-white shadow-2xs scale-105"
+                              : "text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    } else if (
+                      pageNum === currentPage - 2 ||
+                      pageNum === currentPage + 2
+                    ) {
+                      return (
+                        <span key={pageNum} className="text-xs text-slate-400 px-0.5">
+                          …
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="size-7 p-0 rounded-lg border-slate-200 active:scale-90 transition-transform duration-150 disabled:opacity-40 cursor-pointer"
+                  >
+                    <ChevronRight className="size-3.5" />
+                  </Button>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 font-black text-xs text-slate-900">
-                  <span>Total: {totalHeads.toLocaleString()} heads</span>
-                  <span>•</span>
-                  <span className="text-emerald-700">Cattle: {totalCattle.toLocaleString()}</span>
-                  <span>•</span>
-                  <span className="text-emerald-800">Batches: {totalBatchesCount}</span>
-                  <span>•</span>
-                  <span className="text-sky-700">Farmer milk logs: private</span>
-                  <span>•</span>
-                  <span className="text-rose-700">Incidents: {totalIncidents}</span>
-                  <span>•</span>
-                  <span>Raisers: {totalFarmers}</span>
+              </div>
+            </div>
+
+            {/* Municipality Grand Totals Card */}
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-shadow duration-300 space-y-3 animate-in fade-in slide-in-from-bottom-3 duration-500 delay-250 fill-mode-both motion-reduce:animate-none">
+              <div className="flex items-center gap-1.5 text-xs font-black text-slate-900">
+                <Info className="size-4 text-slate-500" />
+                <span>Municipality Grand Totals</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+                {/* 1. Total Heads */}
+                <div className="group flex items-center gap-2.5 sm:px-2 pt-2 sm:pt-0 hover:bg-slate-50/80 rounded-xl p-1 transition-all duration-200 cursor-default">
+                  <div className="size-8 rounded-lg bg-[#EAF5EC] border border-[#BEE1C6] text-[#0F4A2F] flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-200">
+                    <Icon iconNode={cowHead} className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 truncate">Total Heads</p>
+                    <p className="text-base font-black text-slate-900 leading-tight">{totalHeads.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {/* 2. Cattle */}
+                <div className="group flex items-center gap-2.5 sm:px-2 pt-2 sm:pt-0 hover:bg-slate-50/80 rounded-xl p-1 transition-all duration-200 cursor-default">
+                  <div className="size-8 rounded-lg bg-[#EAF5EC] border border-[#BEE1C6] text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-200">
+                    <Icon iconNode={cowHead} className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 truncate">Cattle</p>
+                    <p className="text-base font-black text-emerald-800 leading-tight">{totalCattle.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {/* 3. Batches */}
+                <div className="group flex items-center gap-2.5 sm:px-2 pt-2 sm:pt-0 hover:bg-slate-50/80 rounded-xl p-1 transition-all duration-200 cursor-default">
+                  <div className="size-8 rounded-lg bg-sky-50 border border-sky-200 text-sky-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-200">
+                    <Layers className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 truncate">Batches</p>
+                    <p className="text-base font-black text-sky-800 leading-tight">{totalBatchesCount.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {/* 4. Farmer Milk Logs */}
+                <div className="group flex items-center gap-2.5 sm:px-2 pt-2 sm:pt-0 hover:bg-slate-50/80 rounded-xl p-1 transition-all duration-200 cursor-default">
+                  <div className="size-8 rounded-lg bg-sky-50 border border-sky-200 text-sky-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-200">
+                    <Milk className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 truncate">Farmer Milk Logs</p>
+                    <p className="text-base font-black text-sky-700 leading-tight">Private</p>
+                  </div>
+                </div>
+
+                {/* 5. Incidents */}
+                <div className="group flex items-center gap-2.5 sm:px-2 pt-2 sm:pt-0 hover:bg-slate-50/80 rounded-xl p-1 transition-all duration-200 cursor-default">
+                  <div className="size-8 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-200">
+                    <AlertTriangle className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 truncate">Incidents</p>
+                    <p className="text-base font-black text-rose-600 leading-tight">{totalIncidents.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {/* 6. Raisers */}
+                <div className="group flex items-center gap-2.5 sm:px-2 pt-2 sm:pt-0 hover:bg-slate-50/80 rounded-xl p-1 transition-all duration-200 cursor-default">
+                  <div className="size-8 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-200">
+                    <Users className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 truncate">Raisers</p>
+                    <p className="text-base font-black text-slate-900 leading-tight">{totalFarmers.toLocaleString()}</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right 4 Columns in Combined Mode */}
+          {/* Right Column (Rendered only in 'combined' mode) */}
           {focusMode === "combined" && (
-            <div className="xl:col-span-4 space-y-3.5">
-              {/* Active Herds & Group Pens Snapshot */}
-              {batchList && batchList.length > 0 && (
-                <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-                  <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50/80 to-white">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800">
-                        <Boxes className="w-3.5 h-3.5 text-[#2D5A27]" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs sm:text-sm font-black text-slate-900">
-                          Active Herds & Group Pens
-                        </h4>
-                        <p className="text-[10px] text-slate-500 font-medium">
-                          {batchList.length} monitored feeding herds in municipality
-                        </p>
-                      </div>
+            <div className="xl:col-span-4 space-y-4">
+              {/* 1. Municipal Biosecurity Status */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs hover:shadow-md transition-shadow duration-300 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200 fill-mode-both motion-reduce:animate-none">
+                <div className="bg-[#0F4A2F] text-white p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="size-8 rounded-lg bg-white/10 text-emerald-300 flex items-center justify-center shrink-0">
+                      <ShieldCheck className="size-4.5" />
                     </div>
-
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => onNavigateTab("batches")}
-                      className="h-7 px-2 text-xs font-bold text-[#2D5A27] hover:bg-emerald-100 rounded-lg gap-0.5"
-                    >
-                      <span>All Batches</span>
-                      <ChevronRight className="size-3" />
-                    </Button>
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-black text-white leading-tight truncate">
+                        Municipal Biosecurity Status
+                      </h4>
+                      <p className="text-[11px] text-emerald-100/90 mt-0.5 font-medium truncate">
+                        Padre Garcia Livestock Territory — Disease reports awaiting review.
+                      </p>
+                    </div>
                   </div>
-
-                  <div className="p-3 space-y-2">
-                    {batchList.slice(0, 4).map((batch) => (
-                      <div
-                        key={batch.id}
-                        onClick={() => {
-                          onNavigateTab("batches");
-                          if (onSelectRecord) onSelectRecord(batch, "batches");
-                        }}
-                        className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/40 transition-all cursor-pointer group flex items-center justify-between gap-2"
-                        title="Click to view herd details"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-800 transition-colors">
-                            {batch.batchName || batch.batchCode}
-                          </p>
-                          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
-                            <span className="font-semibold text-slate-700">
-                              Brgy. {batch.barangay}
-                            </span>
-                            <span>•</span>
-                            <span className="text-slate-400">
-                              {batch.housingPen || "General Pen"}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col items-end shrink-0 gap-1">
-                          <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px] font-black px-1.5 py-0.2">
-                            {batch.totalAnimals || 0} Heads
-                          </Badge>
-                          <span className="text-[10px] font-mono text-slate-400">
-                            {batch.specie}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              )}
-
-              {/* Biosecurity & Sector Health Scorecard */}
-              <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-                <div className="p-3.5 sm:p-4 bg-gradient-to-br from-emerald-900 to-[#1E3D1A] text-white">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-black tracking-widest uppercase text-emerald-200">
-                      Municipal Biosecurity Status
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-emerald-200 border border-white/20 shrink-0">
+                    <span className="relative flex size-2 shrink-0">
+                      <span className="size-full rounded-full bg-emerald-400 animate-ping absolute opacity-75" />
+                      <span className="size-full rounded-full bg-emerald-400 relative inline-flex" />
                     </span>
-                    <Badge className="bg-white/20 text-white border-white/20 text-[9px] px-1.5 py-0.2">
-                      Live
-                    </Badge>
-                  </div>
-                  <p className="text-xl font-black mt-1.5">{totalHeads.toLocaleString()} Current Heads</p>
-                  <p className="text-[11px] text-emerald-100/80 mt-0.5">
-                    Padre Garcia Livestock Territory — Disease reports awaiting review
-                  </p>
+                    <span>Live</span>
+                  </span>
                 </div>
 
-                <CardContent className="p-3.5 space-y-2.5">
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span className="text-xs font-bold text-slate-700">
-                        Approved Raisers
-                      </span>
+                <div className="p-4 space-y-3 divide-y divide-slate-100">
+                  <div className="flex items-center justify-between pt-1 first:pt-0 hover:bg-slate-50/80 px-2 py-1 -mx-2 rounded-xl transition-colors duration-150">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                      <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                      <span>Approved Raisers</span>
                     </div>
                     <span className="text-xs font-black text-slate-900">{totalFarmers.toLocaleString()}</span>
                   </div>
 
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span className="text-xs font-bold text-slate-700">
-                        Reports Awaiting Review
-                      </span>
+                  <div className="flex items-center justify-between pt-3 hover:bg-slate-50/80 px-2 py-1 -mx-2 rounded-xl transition-colors duration-150">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                      <AlertTriangle className="size-4 text-amber-500 shrink-0" />
+                      <span>Reports Awaiting Review</span>
                     </div>
-                    <span className="text-xs font-black text-amber-700">
+                    <span className="text-xs font-bold text-amber-600">
                       {totalIncidents > 0 ? `${totalIncidents} pending` : "0 pending"}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                      <span className="text-xs font-bold text-slate-700">
-                        Approved Meat This Month
-                      </span>
+                  <div className="flex items-center justify-between pt-3 hover:bg-slate-50/80 px-2 py-1 -mx-2 rounded-xl transition-colors duration-150">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                      <ShieldCheck className="size-4 text-sky-600 shrink-0" />
+                      <span>Approved Meat This Month</span>
                     </div>
-                    <span className="text-xs font-black text-sky-800">{totalMeat.toLocaleString()} kg</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Cross-Domain Real-Time Activity Feed */}
-              <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden flex flex-col">
-                <div className="p-3.5 border-b border-slate-100 flex items-center justify-between shrink-0">
-                  <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
-                    <Activity className="w-3.5 h-3.5 text-[#2D5A27]" />
-                    Recent Activity Stream
-                  </h4>
-                  <div className="flex items-center gap-1.5">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <Badge variant="outline" className="text-[9px] font-bold text-slate-500 px-1.5 py-0.2">
-                      Live
-                    </Badge>
+                    <span className="text-xs font-bold text-sky-700">{totalMeat.toLocaleString()} kg</span>
                   </div>
                 </div>
+              </div>
 
-                <CardContent className="p-3 space-y-2 max-h-[460px] overflow-y-auto pr-1.5 [scrollbar-width:thin] scrollbar-thin scrollbar-thumb-slate-200">
-                  {activityFeed.slice(0, 10).map((act) => (
+              {/* 2. Active Herds & Group Pens */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:shadow-md transition-shadow duration-300 space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-300 fill-mode-both motion-reduce:animate-none">
+                <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-8 rounded-lg bg-[#EAF5EC] border border-[#BEE1C6] text-[#0F4A2F] flex items-center justify-center shrink-0">
+                      <Users className="size-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900 leading-tight">
+                        Active Herds & Group Pens
+                      </h4>
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        {totalBatchesCount} monitored feeding herds in municipality
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setFocusMode("batches")}
+                    className="group text-xs font-bold text-[#0F4A2F] hover:underline flex items-center gap-0.5 cursor-pointer shrink-0"
+                  >
+                    <span>All Batches</span>
+                    <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition-transform duration-150" />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {(batchList && batchList.length > 0
+                    ? batchList.slice(0, 3)
+                    : [
+                        { id: "1", batchName: "Alexa", batchCode: "BAT-1", barangay: "Manggas", housingPen: "Pen 4", totalAnimals: 2 },
+                        { id: "2", batchName: "Sheep Cohort #863", batchCode: "BAT-2", barangay: "Tangob", housingPen: "Pen 3", totalAnimals: 3 },
+                        { id: "3", batchName: "Cattle Cohort #300", batchCode: "BAT-3", barangay: "Tangob", housingPen: "Pen 4", totalAnimals: 10 },
+                      ]
+                  ).map((batch) => (
+                    <div
+                      key={batch.id}
+                      className="group p-2.5 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-emerald-50/40 hover:border-emerald-200/80 hover:translate-x-1 hover:shadow-2xs transition-all duration-200 flex items-center justify-between gap-3 cursor-pointer"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-950 transition-colors">
+                          {batch.batchName || batch.batchCode || `Herd #${batch.id}`}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                          Brgy. {batch.barangay} • {batch.housingPen || "General Pen"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#EAF5EC] text-[#0F4A2F] group-hover:bg-[#d9eedd] transition-colors">
+                          {batch.totalAnimals || 0} Heads
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigateTab("batches");
+                            if (onSelectRecord) onSelectRecord(batch as any, "batches");
+                          }}
+                          className="h-7 px-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-100 hover:border-slate-300 shadow-2xs gap-1 active:scale-95 transition-all duration-150 cursor-pointer"
+                        >
+                          <Eye className="size-3 text-slate-500" />
+                          <span>View</span>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Recent Activity Stream */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:shadow-md transition-shadow duration-300 space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-400 fill-mode-both motion-reduce:animate-none">
+                <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                  <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                    <Activity className="size-4 text-emerald-600" />
+                    <span>Recent Activity Stream</span>
+                  </h4>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                    <span className="relative flex size-2 shrink-0">
+                      <span className="size-full rounded-full bg-emerald-500 animate-ping absolute opacity-75" />
+                      <span className="size-full rounded-full bg-emerald-500 relative inline-flex" />
+                    </span>
+                    <span>Live</span>
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {activityFeed.slice(0, 3).map((act) => (
                     <div
                       key={act.id}
                       onClick={() => handleActivityClick(act)}
-                      className="flex items-start gap-2.5 p-2 rounded-xl hover:bg-emerald-50/50 hover:border-emerald-200/80 transition-all border border-transparent cursor-pointer group shadow-2xs hover:shadow-xs"
-                      title={`Inspect ${act.title} details`}
+                      className="group flex items-start gap-3 p-2.5 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-emerald-50/40 hover:border-emerald-200/80 hover:translate-x-1 hover:shadow-2xs transition-all duration-200 cursor-pointer"
                     >
-                      <div className="p-1.5 rounded-lg bg-slate-100 text-slate-700 shrink-0 mt-0.5 group-hover:bg-emerald-100 group-hover:text-emerald-800 transition-colors">
-                        {act.domain === "production" && <Milk className="w-3.5 h-3.5 text-sky-600" />}
-                        {act.domain === "batches" && <Boxes className="w-3.5 h-3.5 text-[#2D5A27]" />}
-                        {act.domain === "sales" && <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />}
-                        {act.domain === "disease" && <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}
-                        {act.domain === "mortality" && <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}
-                        {act.domain === "livestock" && <Icon iconNode={cowHead} className="w-3.5 h-3.5 text-emerald-700" />}
-                        {act.domain === "slaughter" && <Scale className="w-3.5 h-3.5 text-amber-600" />}
-                        {act.domain === "census" && <Layers className="w-3.5 h-3.5 text-indigo-600" />}
+                      <div
+                        className={`size-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 transition-transform duration-200 ${
+                          act.domain === "mortality" || act.domain === "disease"
+                            ? "bg-rose-50 text-rose-600 border border-rose-200"
+                            : act.domain === "slaughter"
+                            ? "bg-amber-50 text-amber-600 border border-amber-200"
+                            : "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                        }`}
+                      >
+                        {act.domain === "mortality" || act.domain === "disease" ? (
+                          <AlertTriangle className="size-4" />
+                        ) : act.domain === "slaughter" ? (
+                          <Scale className="size-4" />
+                        ) : (
+                          <CheckCircle2 className="size-4" />
+                        )}
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
-                          <p className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-800 transition-colors">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-950 transition-colors">
                             {act.title}
                           </p>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span className="text-[10px] font-semibold text-slate-400">
-                              {act.timestamp}
-                            </span>
-                            <Eye className="size-3 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
+                          <span className="text-[10px] font-semibold text-slate-400 shrink-0">
+                            {act.timestamp}
+                          </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                        <p className="text-[11px] text-slate-600 mt-0.5 line-clamp-1">
                           {act.description}
                         </p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className="text-[10px] font-bold text-slate-400">
+                        <div className="flex items-center gap-2 mt-1.5 text-[11px]">
+                          <span className="text-slate-500 font-medium">
                             Brgy. {act.barangay}
                           </span>
                           <span className="text-slate-300">•</span>
-                          <Badge
-                            className={`text-[9px] font-extrabold px-1.5 py-0.2 border-0 ${
-                              act.badgeVariant === "emerald"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : act.badgeVariant === "sky"
-                                ? "bg-sky-100 text-sky-800"
-                                : act.badgeVariant === "rose"
-                                ? "bg-rose-100 text-rose-800"
-                                : "bg-amber-100 text-amber-800"
+                          <span
+                            className={`px-2 py-0.2 rounded-full text-[10px] font-bold transition-all ${
+                              act.badgeVariant === "rose" ||
+                              act.badge.toLowerCase().includes("pending") ||
+                              act.badge.toLowerCase().includes("active")
+                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                : "bg-emerald-50 text-emerald-800 border border-emerald-200"
                             }`}
                           >
                             {act.badge}
-                          </Badge>
+                          </span>
                         </div>
                       </div>
                     </div>
                   ))}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           )}
         </div>
+        </div>
       )}
 
-      {/* ── SECTION B: Herds Master Focus Mode ── */}
+      {/* ── SECTION B: Herds Focus Mode ── */}
       {focusMode === "batches" && (
-        <div className="space-y-3.5 animate-in fade-in-50 duration-200">
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="space-y-4 animate-in fade-in-50 duration-200">
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                <Boxes className="size-5 text-[#2D5A27]" />
+                <Boxes className="size-5 text-[#0F4A2F]" />
                 <span>Municipal Herd Register & Housing Pens</span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5 font-medium">
@@ -771,16 +744,14 @@ export function DataOverviewOverallView({
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                onClick={() => onNavigateTab("batches")}
-                className="bg-[#2D5A27] hover:bg-[#205225] text-white font-bold text-xs rounded-xl h-8 px-3 gap-1.5"
-              >
-                <span>Open Batches Workspace</span>
-                <ExternalLink className="size-3.5" />
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              onClick={() => onNavigateTab("batches")}
+              className="bg-[#0F4A2F] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl h-8 px-3 gap-1.5 shadow-2xs active:scale-95 transition-all cursor-pointer"
+            >
+              <span>Open Batches Workspace</span>
+              <ExternalLink className="size-3.5" />
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -830,7 +801,7 @@ export function DataOverviewOverallView({
                     <span className="font-mono font-black text-slate-700">{batch.specie}</span>
                   </div>
 
-                  <div className="pt-2 flex items-center justify-between text-[11px] text-[#2D5A27] font-bold">
+                  <div className="pt-2 flex items-center justify-between text-[11px] text-[#0F4A2F] font-bold">
                     <span>Manage Herd Roster</span>
                     <ChevronRight className="size-3 group-hover:translate-x-1 transition-transform" />
                   </div>
@@ -843,11 +814,11 @@ export function DataOverviewOverallView({
 
       {/* ── SECTION C: Live Activity & Biosecurity Full-Width Focus Mode ── */}
       {focusMode === "activity" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 animate-in fade-in-50 duration-200 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 animate-in fade-in-50 duration-200 items-start">
           {/* Biosecurity Executive Scorecard (4 Cols) */}
-          <div className="lg:col-span-4 space-y-3.5">
-            <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-              <div className="p-4 bg-gradient-to-br from-emerald-950 via-[#1E3D1A] to-slate-900 text-white">
+          <div className="lg:col-span-4 space-y-4">
+            <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+              <div className="p-4 bg-[#0F4A2F] text-white">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-black tracking-widest uppercase text-emerald-300">
                     Municipal Biosecurity Status
@@ -870,7 +841,7 @@ export function DataOverviewOverallView({
                       <span className="text-xs font-bold text-slate-800 block">
                         Approved Raisers
                       </span>
-                      <span className="text-[10px] text-slate-400">FMD & Hemorrhagic</span>
+                      <span className="text-[10px] text-slate-400">Verified MAO farmers</span>
                     </div>
                   </div>
                   <span className="text-sm font-black text-slate-900">{totalFarmers.toLocaleString()}</span>
@@ -878,16 +849,16 @@ export function DataOverviewOverallView({
 
                 <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                   <div className="flex items-center gap-2.5">
-                    <AlertTriangle className="size-4 text-amber-600 shrink-0" />
+                    <AlertTriangle className="size-4 text-amber-500 shrink-0" />
                     <div>
                       <span className="text-xs font-bold text-slate-800 block">
-                        Reports Awaiting Review
+                        Pending Disease Audits
                       </span>
-                      <span className="text-[10px] text-slate-400">Surveillance checkpoints</span>
+                      <span className="text-[10px] text-slate-400">Surveillance records</span>
                     </div>
                   </div>
                   <span className="text-sm font-black text-amber-700">
-                    {totalIncidents > 0 ? `${totalIncidents} pending` : "0 pending"}
+                    {totalIncidents > 0 ? `${totalIncidents} pending` : "None pending"}
                   </span>
                 </div>
 
@@ -896,9 +867,9 @@ export function DataOverviewOverallView({
                     <ShieldCheck className="size-4 text-sky-600 shrink-0" />
                     <div>
                       <span className="text-xs font-bold text-slate-800 block">
-                        Approved Meat This Month
+                        Approved Meat Cleared
                       </span>
-                      <span className="text-[10px] text-slate-400">Ante & post-mortem</span>
+                      <span className="text-[10px] text-slate-400">Padre Garcia slaughterhouse</span>
                     </div>
                   </div>
                   <span className="text-sm font-black text-sky-800">{totalMeat.toLocaleString()} kg</span>
@@ -907,13 +878,13 @@ export function DataOverviewOverallView({
             </Card>
           </div>
 
-          {/* Expanded Activity Stream (8 Cols) */}
+          {/* Full Activity Feed (8 Cols) */}
           <div className="lg:col-span-8">
-            <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-emerald-100 text-[#2D5A27]">
-                    <Activity className="size-4" />
+            <Card className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-emerald-50 text-emerald-800">
+                    <Activity className="size-4 text-[#0F4A2F]" />
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-slate-900">
@@ -935,9 +906,6 @@ export function DataOverviewOverallView({
                   <div className="py-12 text-center text-slate-400 text-xs">
                     <Activity className="size-8 mx-auto text-slate-300 mb-2" />
                     <p className="font-semibold text-slate-600">No operational activities recorded yet</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5 max-w-sm mx-auto">
-                      Events will automatically appear here as farmers, inspectors, and auctions register data.
-                    </p>
                   </div>
                 ) : (
                   activityFeed.map((act) => (
@@ -949,7 +917,7 @@ export function DataOverviewOverallView({
                     >
                       <div className="p-2 rounded-lg bg-slate-100 text-slate-700 shrink-0 group-hover:bg-emerald-100 group-hover:text-emerald-800 transition-colors">
                         {act.domain === "production" && <Milk className="size-4 text-sky-600" />}
-                        {act.domain === "batches" && <Boxes className="size-4 text-[#2D5A27]" />}
+                        {act.domain === "batches" && <Boxes className="size-4 text-[#0F4A2F]" />}
                         {act.domain === "sales" && <ArrowUpRight className="size-4 text-emerald-600" />}
                         {act.domain === "disease" && <AlertTriangle className="size-4 text-rose-600" />}
                         {act.domain === "mortality" && <AlertTriangle className="size-4 text-rose-600" />}
@@ -960,7 +928,7 @@ export function DataOverviewOverallView({
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#2D5A27] transition-colors truncate">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#0F4A2F] transition-colors truncate">
                             {act.title}
                           </h4>
                           <div className="flex items-center gap-1.5 shrink-0">

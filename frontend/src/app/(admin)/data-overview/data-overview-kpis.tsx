@@ -1,11 +1,7 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { KpiCard } from "@/components/ui/kpi-card";
 import { cowHead } from "@lucide/lab";
-import { AlertTriangle,Boxes,Icon,Maximize2,Minimize2,ShieldCheck,TrendingUp,Users } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, Icon, Layers, ShieldCheck, TrendingUp, Users } from "lucide-react";
 
 interface DataOverviewKpisProps {
   totalLivestock: number;
@@ -20,6 +16,12 @@ interface DataOverviewKpisProps {
   isLoading?: boolean;
 }
 
+const getValueFontSize = (val: string) => {
+  if (val.length >= 12) return "text-sm sm:text-base xl:text-[15px] 2xl:text-lg";
+  if (val.length >= 9) return "text-base sm:text-lg xl:text-base 2xl:text-xl";
+  return "text-xl sm:text-2xl";
+};
+
 export function DataOverviewKpis({
   totalLivestock,
   totalBatches = 0,
@@ -29,258 +31,116 @@ export function DataOverviewKpis({
   totalTransferValue,
   activeIncidents,
   totalFarmers,
-  /* totalSlaughterKg reserved */
   isLoading = false,
 }: DataOverviewKpisProps) {
-  const [isCompact, setIsCompact] = useState(false);
-
-  if (isCompact) {
-    return (
-      <div className="bg-white/95 backdrop-blur-sm border border-slate-200/90 rounded-2xl p-2.5 sm:p-3 shadow-xs space-y-2.5 transition-all animate-in fade-in-50 duration-200">
-        {/* Header row: Status Title & Expand Button */}
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2D5A27]"></span>
-            </span>
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-800">
-              Municipal Data Ledger
-            </span>
-            <Badge
-              variant="outline"
-              className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-50 border-emerald-200 py-0 px-1.5 hidden xs:inline-flex"
-            >
-              Live Pulse
-            </Badge>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsCompact(false)}
-            className="h-7 px-2.5 text-xs font-bold text-[#2D5A27] hover:text-[#1E3D1A] hover:bg-emerald-50 rounded-lg gap-1.5 cursor-pointer border border-emerald-200/80 shadow-2xs"
-            title="Expand to Full KPI Cards"
-          >
-            <Maximize2 className="size-3 text-[#2D5A27]" />
-            <span>Expand Cards</span>
-          </Button>
-        </div>
-
-        {/* Responsive Grid of Mobile-Friendly Stat Capsules */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
-          {/* 1. Livestock */}
-          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/70 hover:bg-emerald-50 transition-colors shadow-2xs">
-            <div className="p-1.5 rounded-lg bg-emerald-700 text-white shrink-0 shadow-2xs">
-              <Icon iconNode={cowHead} className="size-3.5" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[9px] uppercase font-extrabold text-emerald-800/80 block leading-tight truncate">
-                Livestock
-              </span>
-              <p className="text-xs sm:text-sm font-black text-emerald-950 leading-tight tabular-nums truncate">
-                {totalLivestock.toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          {/* 2. Batches */}
-          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/70 hover:bg-emerald-50 transition-colors shadow-2xs">
-            <div className="p-1.5 rounded-lg bg-[#2D5A27] text-white shrink-0 shadow-2xs">
-              <Boxes className="size-3.5" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[9px] uppercase font-extrabold text-emerald-800/80 block leading-tight truncate">
-                Batches
-              </span>
-              <p className="text-xs sm:text-sm font-black text-emerald-950 leading-tight tabular-nums truncate">
-                {totalBatches}{" "}
-                <span className="text-[10px] font-bold text-[#2D5A27] hidden sm:inline">
-                  Herds
-                </span>
-              </p>
-            </div>
-          </div>
-
-          {/* 3. Vaccination coverage */}
-          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-teal-50/80 border border-teal-200/70 hover:bg-teal-50 transition-colors shadow-2xs">
-            <div className="p-1.5 rounded-lg bg-teal-700 text-white shrink-0 shadow-2xs">
-              <ShieldCheck className="size-3.5" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[9px] uppercase font-extrabold text-teal-800/80 block leading-tight truncate">
-                Vaccination
-              </span>
-              <p className="text-xs sm:text-sm font-black text-teal-950 leading-tight tabular-nums truncate">
-                {vaccinationCoveragePct}%
-              </p>
-            </div>
-          </div>
-
-          {/* 4. Trade */}
-          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/70 hover:bg-amber-50 transition-colors shadow-2xs">
-            <div className="p-1.5 rounded-lg bg-amber-700 text-white shrink-0 shadow-2xs">
-              <TrendingUp className="size-3.5" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[9px] uppercase font-extrabold text-amber-800/80 block leading-tight truncate">
-                Transfers
-              </span>
-              <p className="text-xs sm:text-sm font-black text-amber-950 leading-tight tabular-nums truncate">
-                {totalTransferValue == null ? "Not recorded" : `₱${totalTransferValue.toLocaleString()}`}
-              </p>
-            </div>
-          </div>
-
-          {/* 5. Biosecurity */}
-          <div
-            className={`flex items-center gap-2 p-2 sm:p-2.5 rounded-xl border transition-colors shadow-2xs ${
-              activeIncidents > 0
-                ? "bg-rose-50/80 border-rose-300 text-rose-900"
-                : "bg-emerald-50/80 border-emerald-200/70 text-emerald-950"
-            }`}
-          >
-            <div
-              className={`p-1.5 rounded-lg text-white shrink-0 shadow-2xs ${
-                activeIncidents > 0 ? "bg-rose-600" : "bg-[#2D5A27]"
-              }`}
-            >
-              <AlertTriangle className="size-3.5" />
-            </div>
-            <div className="min-w-0">
-              <span
-                className={`text-[9px] uppercase font-extrabold block leading-tight truncate ${
-                  activeIncidents > 0 ? "text-rose-700" : "text-emerald-800/80"
-                }`}
-              >
-                Health
-              </span>
-              <p
-                className={`text-xs sm:text-sm font-black leading-tight truncate ${
-                  activeIncidents > 0 ? "text-rose-900" : "text-emerald-950"
-                }`}
-              >
-                {activeIncidents > 0 ? `${activeIncidents} Alerts` : "None Pending"}
-              </p>
-            </div>
-          </div>
-
-          {/* 6. Raisers */}
-          <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/90 hover:bg-slate-100/70 transition-colors shadow-2xs">
-            <div className="p-1.5 rounded-lg bg-slate-700 text-white shrink-0 shadow-2xs">
-              <Users className="size-3.5" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-tight truncate">
-                Raisers
-              </span>
-              <p className="text-xs sm:text-sm font-black text-slate-900 leading-tight tabular-nums truncate">
-                {totalFarmers.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const cards = [
+    {
+      id: "livestock",
+      title: "Total Livestock Heads",
+      value: totalLivestock.toLocaleString(),
+      subtitle: "Registered, active inventory",
+      icon: <Icon iconNode={cowHead} className="size-5" />,
+      iconBg: "bg-[#EAF5EC]",
+      iconColor: "text-[#0F4A2F]",
+      iconBorder: "border-[#BEE1C6]",
+      barColor: "bg-emerald-600",
+    },
+    {
+      id: "herds",
+      title: "Herds",
+      value: totalBatches.toLocaleString(),
+      subtitle: "Housing pens & lots",
+      icon: <Layers className="size-5" />,
+      iconBg: "bg-[#EFF6FF]",
+      iconColor: "text-[#1E40AF]",
+      iconBorder: "border-[#BFDBFE]",
+      barColor: "bg-[#1E3A8A]",
+    },
+    {
+      id: "vaccination",
+      title: "Vaccination Coverage",
+      value: `${vaccinationCoveragePct}%`,
+      subtitle: `${vaccinatedHeads.toLocaleString()} of ${totalHeads.toLocaleString()} current heads vaccinated`,
+      icon: <ShieldCheck className="size-5" />,
+      iconBg: "bg-[#ECFDF5]",
+      iconColor: "text-[#047857]",
+      iconBorder: "border-[#A7F3D0]",
+      barColor: "bg-emerald-600",
+    },
+    {
+      id: "sales",
+      title: "Approved Sales Value",
+      value: totalTransferValue == null ? "Not recorded" : `₱${totalTransferValue.toLocaleString()}`,
+      subtitle: "Recorded approved sales",
+      icon: <TrendingUp className="size-5" />,
+      iconBg: "bg-[#FFFBEB]",
+      iconColor: "text-[#D97706]",
+      iconBorder: "border-[#FDE68A]",
+      barColor: "bg-amber-500",
+    },
+    {
+      id: "diseases",
+      title: "Disease Reports",
+      value: activeIncidents.toLocaleString(),
+      subtitle: "Awaiting review",
+      icon: <AlertTriangle className="size-5" />,
+      iconBg: "bg-[#FFF1F2]",
+      iconColor: "text-[#E11D48]",
+      iconBorder: "border-[#FECDD3]",
+      barColor: "bg-rose-600",
+    },
+    {
+      id: "farmers",
+      title: "Registered Raisers",
+      value: totalFarmers.toLocaleString(),
+      subtitle: "Verified MAO farmers",
+      icon: <Users className="size-5" />,
+      iconBg: "bg-[#F0F9FF]",
+      iconColor: "text-[#0284C7]",
+      iconBorder: "border-[#BAE6FD]",
+      barColor: "bg-sky-500",
+    },
+  ];
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between px-1">
-        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-          <span>Municipal Operational Metrics</span>
-          <Badge
-            variant="outline"
-            className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border-emerald-200 py-0"
-          >
-            Live Sync
-          </Badge>
-        </span>
-
-        {/* Compact Toggle Button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsCompact(true)}
-          className="h-7 px-2.5 text-xs font-bold text-[#2D5A27] hover:text-[#1E3D1A] hover:bg-emerald-50 rounded-lg gap-1.5 cursor-pointer border border-emerald-200/80 shadow-2xs"
-          title="Switch to compact metric capsules"
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      {cards.map((card, idx) => (
+        <div
+          key={card.id}
+          style={{ animationDelay: `${idx * 60}ms` }}
+          className="group rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-2xs flex flex-col justify-between hover:shadow-md hover:-translate-y-1 transition-all duration-300 ease-out min-h-[118px] overflow-hidden cursor-default animate-in fade-in slide-in-from-bottom-3 fill-mode-both motion-reduce:animate-none motion-reduce:transform-none"
         >
-          <Minimize2 className="size-3 text-[#2D5A27]" />
-          <span>Compact View</span>
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3">
-        {/* 1. Total Registered Livestock */}
-        <KpiCard
-          title="Total Livestock Heads"
-          value={totalLivestock.toLocaleString()}
-          icon={<Icon iconNode={cowHead} className="size-5" />}
-          description="Approved, active inventory"
-          badge="Live Count"
-          variant="emerald"
-          isLoading={isLoading}
-        />
-
-        {/* 2. Active Herds */}
-        <KpiCard
-          title="Herds"
-          value={totalBatches.toLocaleString()}
-          icon={<Boxes className="size-5" />}
-          description="Housing pens & lots"
-          badge="Herd Master"
-          variant="default"
-          isLoading={isLoading}
-        />
-
-        {/* 3. Current inventory vaccination coverage */}
-        <KpiCard
-          title="Vaccination Coverage"
-          value={`${vaccinationCoveragePct}%`}
-          icon={<ShieldCheck className="size-5" />}
-          description={`${vaccinatedHeads.toLocaleString()} of ${totalHeads.toLocaleString()} current heads have vaccination recorded`}
-          badge="Current Inventory"
-          variant="emerald"
-          isLoading={isLoading}
-        />
-
-        {/* 4. Auction & Market Value */}
-        <KpiCard
-          title="Approved Sales Value"
-          value={totalTransferValue == null ? "Not recorded" : `₱${totalTransferValue.toLocaleString()}`}
-          icon={<TrendingUp className="size-5" />}
-          description="Recorded approved sales, all dates"
-          badge="Active Market"
-          variant="amber"
-          isLoading={isLoading}
-        />
-
-        {/* 5. Active Biosecurity Alerts */}
-        <KpiCard
-          title="Disease Reports Awaiting Review"
-          value={activeIncidents}
-          icon={<AlertTriangle className="size-5" />}
-          description={
-            activeIncidents > 0
-              ? `${activeIncidents} awaiting review`
-              : "No reports awaiting review"
-          }
-          badge={activeIncidents > 0 ? "Needs Monitoring" : "None Pending"}
-          variant={activeIncidents > 0 ? "rose" : "emerald"}
-          isLoading={isLoading}
-        />
-
-        {/* 6. Registered Raisers */}
-        <KpiCard
-          title="Registered Raisers"
-          value={totalFarmers.toLocaleString()}
-          icon={<Users className="size-5" />}
-          description="Verified MAO farmers"
-          badge="Padre Garcia"
-          variant="default"
-          isLoading={isLoading}
-        />
-      </div>
+          <div className="flex items-start gap-2.5 sm:gap-3 min-w-0">
+            <div
+              className={`size-9 sm:size-10 rounded-xl flex items-center justify-center shrink-0 border ${card.iconBg} ${card.iconColor} ${card.iconBorder} group-hover:scale-110 group-hover:rotate-2 transition-transform duration-300 ease-out`}
+            >
+              {card.icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-xs font-semibold text-slate-600 leading-tight truncate group-hover:text-slate-900 transition-colors"
+                title={card.title}
+              >
+                {card.title}
+              </p>
+              <p
+                className={`${getValueFontSize(card.value)} font-black text-slate-900 tracking-tight mt-1 leading-tight truncate transition-colors`}
+                title={card.value}
+              >
+                {isLoading ? "—" : card.value}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 space-y-1.5">
+            <p className="text-[11px] text-slate-500 font-medium truncate" title={card.subtitle}>
+              {card.subtitle}
+            </p>
+            <div
+              className={`h-1 w-10 group-hover:w-16 rounded-full ${card.barColor} transition-all duration-300 ease-out`}
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

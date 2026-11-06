@@ -212,109 +212,13 @@ export function DataOverviewToolbar({
     (filterStatus !== "all" ? 1 : 0) +
     (searchQuery.trim() !== "" ? 1 : 0);
 
-  const handlePillarClick = (pillar: DomainPillar) => {
-    // If the active tab is already in this pillar, stay on it. Otherwise switch to default tab of this pillar
-    const isAlreadyInPillar = pillar.tabs.some((t) => t.id === activeTab);
-    if (!isAlreadyInPillar) {
-      onTabChange(pillar.defaultTab);
-    }
-  };
-
   return (
     <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xs border border-slate-200/90 transition-all overflow-hidden w-full max-w-full min-w-0">
-      {/* ── Top Row: 4 Domain Pillars Navigation & Quick Actions ── */}
-      <div className="p-3 sm:p-3.5 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-gradient-to-r from-slate-50/60 via-white to-slate-50/40 w-full max-w-full min-w-0">
-        {/* Domain Pillars (Primary Hierarchy) - Vertical full-width on Mobile, Horizontal on Desktop */}
-        <div className="w-full xl:w-auto">
-          <div className="grid grid-cols-1 sm:flex sm:flex-wrap lg:flex-nowrap sm:items-center gap-2 w-full">
-            {DOMAIN_PILLARS.map((pillar) => {
-              const isPillarActive = currentPillar.id === pillar.id;
-
-              // Sum counts for pillar tabs
-              const pillarCount = pillar.tabs.reduce(
-                (acc, t) => acc + (t.id === "overall" ? 0 : counts[t.id] || 0),
-                0
-              );
-
-              return (
-                <button
-                  key={pillar.id}
-                  type="button"
-                  onClick={() => handlePillarClick(pillar)}
-                  className={`flex items-center justify-between sm:justify-start gap-2.5 px-3.5 sm:px-4 py-2.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer w-full sm:w-auto border select-none ${
-                    isPillarActive
-                      ? pillar.activeColorClass
-                      : "bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm shrink-0">{pillar.emoji}</span>
-                    <span>{pillar.label}</span>
-                  </div>
-                  {pillarCount > 0 && (
-                    <span
-                      className={`text-[11px] font-black px-2 py-0.5 rounded-full font-mono transition-colors ${
-                        isPillarActive
-                          ? "bg-white/25 text-white"
-                          : "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      {pillarCount}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Action Controls: View Switcher & Export */}
-        <div className="flex items-center justify-between xl:justify-end gap-2 shrink-0 w-full xl:w-auto pt-1 xl:pt-0 border-t xl:border-t-0 border-slate-100">
-          {/* Table / Card View Toggle */}
-          {activeTab !== "overall" && (
-            <div className="flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200/80 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => onViewModeChange("table")}
-                className={`p-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === "table"
-                    ? "bg-white text-slate-900 shadow-2xs ring-1 ring-slate-200/60"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-                title="Table View"
-              >
-                <List className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onViewModeChange("cards")}
-                className={`p-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === "cards"
-                    ? "bg-white text-slate-900 shadow-2xs ring-1 ring-slate-200/60"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-                title="Card Grid View"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-
-          {/* Export CSV Button */}
-          <Button
-            onClick={onExportCsv}
-            className="bg-[#2D5A27] hover:bg-[#23461f] text-white font-bold px-3.5 py-1.5 h-8.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer text-xs shrink-0 active:scale-98 ml-auto xl:ml-0"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Sub-Navigation Pill Strip (Secondary Hierarchy) ── */}
-      {currentPillar.tabs.length > 1 && (
-        <div className="w-full px-3 sm:px-4 py-2.5 sm:py-2 bg-slate-50/70 border-b border-slate-100">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+      {/* ── Sub-Navigation Pill Strip & Action Controls ── */}
+      <div className="p-3 sm:p-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-slate-50/60 via-white to-slate-50/40 w-full max-w-full min-w-0">
+        {/* Sub-Navigation Pills (Secondary Hierarchy) */}
+        {currentPillar.tabs.length > 1 ? (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
             <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 shrink-0 flex items-center gap-1">
               <span>{currentPillar.shortLabel} Views:</span>
               <ChevronRight className="size-3 text-slate-400" />
@@ -330,19 +234,19 @@ export function DataOverviewToolbar({
                     key={tab.id}
                     type="button"
                     onClick={() => onTabChange(tab.id)}
-                    className={`flex items-center justify-between sm:justify-start gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer border select-none w-full sm:w-auto ${
+                    className={`group flex items-center justify-between sm:justify-start gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all duration-200 ease-out cursor-pointer border select-none w-full sm:w-auto active:scale-95 hover:-translate-y-0.5 hover:shadow-2xs ${
                       isTabActive
-                        ? `${tab.activeColorClass} border-transparent font-black shadow-xs`
-                        : "bg-white text-slate-600 border-slate-200/70 hover:text-slate-900 hover:bg-slate-50"
+                        ? `${tab.activeColorClass} border-transparent font-black shadow-xs scale-[1.02]`
+                        : "bg-white text-slate-600 border-slate-200/70 hover:text-slate-900 hover:bg-slate-50 hover:border-slate-300"
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs sm:text-sm">{tab.emoji}</span>
+                      <span className="text-xs sm:text-sm transition-transform duration-200 group-hover:scale-125">{tab.emoji}</span>
                       <span>{tab.label}</span>
                     </div>
                     <Badge
                       variant="secondary"
-                      className={`text-[10px] font-mono px-1.5 py-0.1 ml-0.5 border-0 ${
+                      className={`text-[10px] font-mono px-1.5 py-0.1 ml-0.5 border-0 transition-transform duration-200 group-hover:scale-105 ${
                         isTabActive
                           ? "bg-white/25 text-white font-black"
                           : "bg-slate-200/70 text-slate-700"
@@ -355,8 +259,52 @@ export function DataOverviewToolbar({
               })}
             </div>
           </div>
+        ) : (
+          <div />
+        )}
+
+        {/* Action Controls: View Switcher & Export */}
+        <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 w-full sm:w-auto ml-auto">
+          {/* Table / Card View Toggle */}
+          {activeTab !== "overall" && (
+            <div className="flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200/80 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => onViewModeChange("table")}
+                className={`p-1.5 rounded-md text-xs font-bold transition-all duration-200 active:scale-90 cursor-pointer ${
+                  viewMode === "table"
+                    ? "bg-white text-slate-900 shadow-2xs ring-1 ring-slate-200/60"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+                title="Table View"
+              >
+                <List className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onViewModeChange("cards")}
+                className={`p-1.5 rounded-md text-xs font-bold transition-all duration-200 active:scale-90 cursor-pointer ${
+                  viewMode === "cards"
+                    ? "bg-white text-slate-900 shadow-2xs ring-1 ring-slate-200/60"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+                title="Card Grid View"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Export CSV Button */}
+          <Button
+            onClick={onExportCsv}
+            className="group bg-[#0F4A2F] hover:bg-[#0B3D26] text-white font-bold px-3.5 py-1.5 h-8.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xs cursor-pointer text-xs shrink-0 active:scale-95 ml-auto sm:ml-0"
+          >
+            <Download className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-y-0.5" />
+            <span>Export CSV</span>
+          </Button>
         </div>
-      )}
+      </div>
 
       {/* ── Search & Filter Control Bar ── */}
       <div className="p-3 sm:p-3.5 space-y-2.5">
