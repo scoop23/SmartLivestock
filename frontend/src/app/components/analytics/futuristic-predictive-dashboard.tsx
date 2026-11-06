@@ -1399,7 +1399,7 @@ export function FuturisticPredictiveDashboard() {
                 </Badge>
               ) : (
                 <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-xs font-bold font-mono">
-                  Not enough past records
+                  Past checks incomplete
                 </Badge>
               )}
             </div>
@@ -1412,9 +1412,9 @@ export function FuturisticPredictiveDashboard() {
           {/* Observations Progress Gauge */}
           <div className="min-w-[220px] rounded-xl bg-white border border-slate-200 p-3 shrink-0 shadow-2xs">
             <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="text-slate-500 font-mono">Past records:</span>
+              <span className="text-slate-500 font-mono">History for initial estimate:</span>
               <span className="font-mono font-bold text-emerald-800">
-              {currentCard?.usable_observations} / {currentCard?.required_observations} {currentCard?.frequency === "WEEKLY" ? "weeks" : "months"}
+              {currentCard?.usable_observations} {currentCard?.frequency === "WEEKLY" ? "weeks" : "months"}
               </span>
             </div>
             <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -1428,7 +1428,7 @@ export function FuturisticPredictiveDashboard() {
               />
             </div>
             <div className="text-[10px] text-slate-500 mt-1.5 text-right font-mono">
-              {currentCard?.milestone_label}
+              Minimum: {currentCard?.required_observations} {currentCard?.frequency === "WEEKLY" ? "weeks" : "months"}. Past accuracy checks are assessed separately.
             </div>
           </div>
         </div>
