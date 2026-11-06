@@ -35,6 +35,12 @@ import { hasPossibleFmdSigns } from "@/lib/fmd-signs";
 
 function getIncidentStatusPill(incident: ValidationIncidentItem) {
   const pill = getStatusPill(incident.status);
+  if (
+    (incident.type === "disease" || incident.type === "mortality") &&
+    (incident.status || "PENDING").toUpperCase() === "PENDING"
+  ) {
+    return { ...pill, label: "Awaiting CBAT", shortLabel: "Awaiting CBAT" };
+  }
   if (incident.type === "inspection" && (incident.status || "PENDING").toUpperCase() === "PENDING") {
     return { ...pill, label: "Awaiting MAO", shortLabel: "Awaiting MAO", bg: "bg-indigo-50 text-indigo-700 border-indigo-200", dot: "bg-indigo-500 animate-pulse" };
   }
@@ -296,7 +302,7 @@ export function IncidentsTable({
                         </Badge>
                         {(inc.status === "VERIFIED" || statusPill.label.includes("Verified")) && inc.reviewedBy && (
                           <span className="block text-[8px] text-sky-700 font-bold tracking-tight mt-0.5">
-                            By {inc.reviewedBy}
+                            By {(inc.type === "disease" || inc.type === "mortality") ? "CBAT Officer" : inc.reviewedBy}
                           </span>
                         )}
                       </TableCell>

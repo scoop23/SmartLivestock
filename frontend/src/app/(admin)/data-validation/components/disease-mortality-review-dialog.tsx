@@ -97,11 +97,14 @@ export function DiseaseMortalityReviewDialog({
     recordStatus === "SUBJECT_TO_REVISION"
       ? "SIBAT requested a farmer revision. MAO review will unlock after the farmer resubmits and SIBAT verifies the updated declaration."
       : recordStatus === "PENDING"
-        ? "This declaration is awaiting SIBAT field verification. MAO review will unlock after it is verified."
+        ? "This declaration is awaiting CBAT field verification. MAO review will unlock after it is verified."
         : recordStatus === "APPROVED"
           ? "This declaration has already received MAO approval."
           : "MAO review is available only after SIBAT verifies the declaration.";
-  const statusPill = getStatusPill(record.status);
+  const baseStatusPill = getStatusPill(record.status);
+  const statusPill = (record.status || "PENDING").toUpperCase() === "PENDING"
+    ? { ...baseStatusPill, label: "Awaiting CBAT", shortLabel: "Awaiting CBAT" }
+    : baseStatusPill;
 
   const isFmdSuspected =
     isDisease &&
@@ -612,9 +615,9 @@ export function DiseaseMortalityReviewDialog({
               <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-3.5">
                 <Clock className="size-6 text-amber-600 shrink-0" />
                 <div>
-                  <p className="font-black text-sm">Awaiting SIBAT On-Farm Field Inspection</p>
+                  <p className="font-black text-sm">Awaiting CBAT On-Farm Field Inspection</p>
                   <p className="text-xs text-amber-700 mt-0.5">
-                    This report has been submitted by the farmer but has not yet been physically verified on-site by a SIBAT field officer.
+                    This report has been submitted by the farmer but has not yet been physically verified on-site by a CBAT field officer.
                   </p>
                 </div>
               </div>
