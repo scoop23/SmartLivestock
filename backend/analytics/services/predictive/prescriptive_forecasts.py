@@ -59,7 +59,7 @@ def forecast_recommendations(user):
         readiness[target["id"]] = {"available": available, "validation_status": validation}
         common = {
             "responsible_role": target["owner"], "target_id": target["id"],
-            "action_link": "/analysis/predictive", "source": "forecast",
+            "action_link": f"/analysis/predictive?domain={target['domain']}", "source": "forecast",
         }
         if not available:
             recommendations.append({

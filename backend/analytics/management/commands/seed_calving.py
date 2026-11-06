@@ -20,8 +20,9 @@ import numpy as np
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from production.models import CalvingRecord
-from livestock.models import LivestockInventory
+from production.models import CalvingRecord, ProductionRecord, SlaughterRecord, LiveAnimalSale
+from livestock.models import LivestockInventory, LivestockOwnershipTransfer
+from diseases.models import DiseaseCase, MortalityRecord
 from users.models import User
 from analytics.seed_markers import SEED_MARKER_CALVING
 
@@ -62,8 +63,26 @@ class Command(BaseCommand):
             return
 
         offspring_ids = list(seed_qs.exclude(offspring_inventory__isnull=True).values_list("offspring_inventory_id", flat=True))
-        if offspring_ids:
-            LivestockInventory.objects.filter(pk__in=offspring_ids).delete()
+        synthetic_calves = LivestockInventory.objects.filter(
+            pk__in=offspring_ids
+        ) | LivestockInventory.objects.filter(tag_number__startswith="CALF-TEST-")
+        synthetic_calf_ids = list(synthetic_calves.values_list("pk", flat=True))
+
+        if synthetic_calf_ids:
+            # Safely unlink nullable protected foreign keys pointing to synthetic offspring
+            ProductionRecord.objects.filter(livestock_id__in=synthetic_calf_ids).update(livestock=None)
+            SlaughterRecord.objects.filter(livestock_id__in=synthetic_calf_ids).update(livestock=None)
+            LiveAnimalSale.objects.filter(livestock_id__in=synthetic_calf_ids).update(livestock=None)
+            DiseaseCase.objects.filter(livestock_id__in=synthetic_calf_ids).update(livestock=None)
+            MortalityRecord.objects.filter(livestock_id__in=synthetic_calf_ids).update(livestock=None)
+            LivestockOwnershipTransfer.objects.filter(livestock_id__in=synthetic_calf_ids).update(livestock=None)
+
+            # Unlink CalvingRecord offspring pointers before deleting the inventory rows
+            seed_qs.update(offspring_inventory=None)
+
+            # Delete the synthetic offspring inventory rows
+            LivestockInventory.objects.filter(pk__in=synthetic_calf_ids).delete()
+
         deleted_count, _ = seed_qs.delete()
         self.stdout.write(
             self.style.SUCCESS(

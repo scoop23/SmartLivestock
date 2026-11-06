@@ -92,6 +92,7 @@ def generate_prescriptive_recommendations(user=None) -> Dict[str, Any]:
         recommendation["category_key"] = "DISEASE" if recommendation["rule"] == "DISEASE_SURVEILLANCE_PRESSURE" else "VACCINATION"
         recommendation["source"] = "record_review"
         recommendation["responsible_role"] = "MAO / CBAT"
+        recommendation["action_link"] = "/disease-mortality" if recommendation["rule"] == "DISEASE_SURVEILLANCE_PRESSURE" else "/gis-map"
     from .prescriptive_forecasts import forecast_recommendations
     planning, forecast_readiness = forecast_recommendations(user)
     recommendations.extend(planning)

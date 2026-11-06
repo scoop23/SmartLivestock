@@ -79,39 +79,71 @@ export interface PrescriptiveResponse {
   recommendations: RecommendationItem[];
 }
 
-function getSmartActionLink(rec: RecommendationItem): { href: string; label: string } {
-  if (rec.action_link) {
-    if (rec.action_link.includes("predictive")) {
-      return { href: rec.action_link, label: "View Predictive Forecast" };
-    }
-    return { href: rec.action_link, label: "Open Supporting View" };
-  }
-
+function getSmartActionLink(rec: RecommendationItem): { href: string; label: string; badge: string } {
+  const rule = (rec.rule || "").toUpperCase();
   const cat = (rec.category_key || rec.category || "").toUpperCase();
-  const rule = rec.rule.toUpperCase();
+  const source = (rec.source || "").toLowerCase();
 
-  if (cat.includes("DISEASE") || rule.includes("DISEASE")) {
-    return { href: "/disease-mortality", label: "Review Health Incidents" };
+  if (rec.action_link && rec.action_link.length > 1) {
+    const link = rec.action_link;
+    if (link.includes("predictive")) {
+      if (link.includes("domain=auction") || cat.includes("PRICE") || cat.includes("AUCTION")) {
+        return { href: link, label: "View Auction Forecasts", badge: "/analysis/predictive?domain=auction" };
+      }
+      if (link.includes("domain=slaughter") || cat.includes("SLAUGHTER")) {
+        return { href: link, label: "View Slaughter Forecasts", badge: "/analysis/predictive?domain=slaughter" };
+      }
+      if (link.includes("domain=disease") || cat.includes("DISEASE")) {
+        return { href: link, label: "View Disease Forecasts", badge: "/analysis/predictive?domain=disease" };
+      }
+      if (link.includes("domain=mortality") || cat.includes("MORTALITY")) {
+        return { href: link, label: "View Mortality Forecasts", badge: "/analysis/predictive?domain=mortality" };
+      }
+      return { href: link, label: "Inspect Predictive Forecast", badge: link };
+    }
+    if (link.includes("disease")) {
+      return { href: link, label: "Open Disease & Mortality", badge: "/disease-mortality" };
+    }
+    if (link.includes("gis")) {
+      return { href: link, label: "Open Barangay GIS Map", badge: "/gis-map" };
+    }
+    return { href: link, label: "Open Assigned Module", badge: link };
   }
-  if (cat.includes("MORTALITY") || rule.includes("MORTALITY")) {
-    return { href: "/disease-mortality", label: "Review Mortality Records" };
+
+  if (rule.includes("DISEASE") || cat.includes("DISEASE")) {
+    if (source === "forecast") {
+      return { href: "/analysis/predictive?domain=disease", label: "Open Disease Forecast Model", badge: "/analysis/predictive?domain=disease" };
+    }
+    return { href: "/disease-mortality", label: "Review Health Incidents", badge: "/disease-mortality" };
   }
-  if (cat.includes("AUCTION") || rule.includes("AUCTION") || rule.includes("SALES")) {
-    return { href: "/auction-ownership-transfers/registry", label: "Inspect Transfer Registry" };
+  if (rule.includes("MORTALITY") || cat.includes("MORTALITY")) {
+    if (source === "forecast") {
+      return { href: "/analysis/predictive?domain=mortality", label: "Open Mortality Forecast Model", badge: "/analysis/predictive?domain=mortality" };
+    }
+    return { href: "/disease-mortality", label: "Review Mortality Records", badge: "/disease-mortality" };
+  }
+  if (rule.includes("VACCINATION") || cat.includes("VACCINATION")) {
+    return { href: "/gis-map", label: "Open Barangay Coverage Map", badge: "/gis-map" };
   }
   if (cat.includes("PRICE") || rule.includes("PRICE")) {
-    return { href: "/analysis/predictive?domain=auction", label: "Check Price Forecast" };
+    return { href: "/analysis/predictive?domain=auction", label: "Check Price Forecast", badge: "/analysis/predictive?domain=auction" };
+  }
+  if (cat.includes("AUCTION") || rule.includes("AUCTION") || rule.includes("SALES")) {
+    if (source === "forecast") {
+      return { href: "/analysis/predictive?domain=auction", label: "Inspect Auction Sales Forecast", badge: "/analysis/predictive?domain=auction" };
+    }
+    return { href: "/ownership-transfers/registry", label: "Inspect Transfer Registry", badge: "/ownership-transfers/registry" };
   }
   if (cat.includes("SLAUGHTER") || rule.includes("SLAUGHTER")) {
-    return { href: "/analysis/predictive?domain=slaughter", label: "Inspect Slaughter Forecast" };
-  }
-  if (cat.includes("VACCINATION") || rule.includes("VACCINATION")) {
-    return { href: "/gis", label: "Check Barangay Coverage Map" };
+    if (source === "forecast") {
+      return { href: "/analysis/predictive?domain=slaughter", label: "Open Slaughter Demand Forecast", badge: "/analysis/predictive?domain=slaughter" };
+    }
+    return { href: "/slaughter-record-review", label: "Inspect Slaughter Records", badge: "/slaughter-record-review" };
   }
   if (cat.includes("DATA") || rule.includes("QUALITY") || rule.includes("READINESS")) {
-    return { href: "/data-validation", label: "Review Pending Submissions" };
+    return { href: "/data-validation", label: "Review Pending Submissions", badge: "/data-validation" };
   }
-  return { href: "/analysis/surveillance-health", label: "Surveillance & Health Overview" };
+  return { href: "/analysis/surveillance-health", label: "Surveillance & Health Overview", badge: "/analysis/surveillance-health" };
 }
 
 export default function PrescriptiveAnalyticsView() {
@@ -631,11 +663,16 @@ export default function PrescriptiveAnalyticsView() {
                         {Object.keys(rec.evidence || {}).length}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button asChild size="sm" variant="ghost" className="h-7 px-2.5 text-xs text-emerald-800 hover:text-emerald-900 font-bold gap-1 cursor-pointer">
-                          <Link href={actionLink.href}>
-                            Action <ArrowRight className="size-3" />
-                          </Link>
-                        </Button>
+                        <div className="flex flex-col items-end gap-1">
+                          <Button asChild size="sm" className="h-7 px-2.5 text-xs bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold gap-1 cursor-pointer rounded-lg shadow-2xs active:scale-95 transition-all">
+                            <Link href={actionLink.href}>
+                              {actionLink.label} <ArrowRight className="size-3" />
+                            </Link>
+                          </Button>
+                          <span className="text-[10px] font-mono text-slate-400">
+                            {actionLink.badge}
+                          </span>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -729,12 +766,17 @@ export default function PrescriptiveAnalyticsView() {
                       </div>
                     </div>
 
-                    <Button asChild size="sm" className="bg-[#1E4D2B] hover:bg-[#163b21] text-white text-xs font-bold shrink-0 gap-1.5 shadow-2xs cursor-pointer rounded-xl h-9 px-4">
-                      <Link href={actionLink.href}>
-                        <span>{actionLink.label}</span>
-                        <ArrowRight className="size-3.5" />
-                      </Link>
-                    </Button>
+                    <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
+                      <Button asChild size="sm" className="bg-[#1E4D2B] hover:bg-[#163b21] text-white text-xs font-bold shrink-0 gap-1.5 shadow-2xs cursor-pointer rounded-xl h-9 px-4 active:scale-95 transition-all">
+                        <Link href={actionLink.href}>
+                          <span>{actionLink.label}</span>
+                          <ArrowRight className="size-3.5" />
+                        </Link>
+                      </Button>
+                      <span className="text-[10px] font-mono text-emerald-800 bg-white/80 border border-emerald-200/80 px-2 py-0.5 rounded-md font-semibold">
+                        Route: {actionLink.badge}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Quick Evidence Chips (Always Visible) */}

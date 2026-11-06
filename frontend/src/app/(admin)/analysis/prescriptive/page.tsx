@@ -47,6 +47,89 @@ interface RecommendationItem {
   action_type: string;
 }
 
+
+interface RecommendationRoute {
+  href: string;
+  label: string;
+  badge: string;
+}
+
+function getRecommendationRoute(rec: RecommendationItem): RecommendationRoute {
+  const rule = (rec.rule || "").toUpperCase();
+  const cat = (rec.category_key || rec.category || "").toUpperCase();
+  const source = (rec.source || "").toLowerCase();
+
+  // If backend provided a specific action link with query params, enhance its label
+  if (rec.action_link && rec.action_link.length > 1) {
+    const link = rec.action_link;
+    if (link.includes("predictive")) {
+      if (link.includes("domain=auction") || cat.includes("PRICE") || cat.includes("AUCTION")) {
+        return { href: link, label: "View Auction Forecasts", badge: "/analysis/predictive?domain=auction" };
+      }
+      if (link.includes("domain=slaughter") || cat.includes("SLAUGHTER")) {
+        return { href: link, label: "View Slaughter Forecasts", badge: "/analysis/predictive?domain=slaughter" };
+      }
+      if (link.includes("domain=disease") || cat.includes("DISEASE")) {
+        return { href: link, label: "View Disease Forecasts", badge: "/analysis/predictive?domain=disease" };
+      }
+      if (link.includes("domain=mortality") || cat.includes("MORTALITY")) {
+        return { href: link, label: "View Mortality Forecasts", badge: "/analysis/predictive?domain=mortality" };
+      }
+      return { href: link, label: "Inspect Predictive Forecast", badge: link };
+    }
+    if (link.includes("disease")) {
+      return { href: link, label: "Open Disease & Mortality", badge: "/disease-mortality" };
+    }
+    if (link.includes("gis")) {
+      return { href: link, label: "Open Barangay GIS Map", badge: "/gis-map" };
+    }
+    return { href: link, label: "Open Assigned Module", badge: link };
+  }
+
+  // Domain & Rule Pattern Matching
+  if (rule.includes("DISEASE") || cat.includes("DISEASE")) {
+    if (source === "forecast") {
+      return { href: "/analysis/predictive?domain=disease", label: "Open Disease Forecast Model", badge: "/analysis/predictive?domain=disease" };
+    }
+    return { href: "/disease-mortality", label: "Review Disease Reports & Cases", badge: "/disease-mortality" };
+  }
+
+  if (rule.includes("MORTALITY") || cat.includes("MORTALITY")) {
+    if (source === "forecast") {
+      return { href: "/analysis/predictive?domain=mortality", label: "Open Mortality Forecast Model", badge: "/analysis/predictive?domain=mortality" };
+    }
+    return { href: "/disease-mortality", label: "Review Mortality Registry", badge: "/disease-mortality" };
+  }
+
+  if (rule.includes("VACCINATION") || cat.includes("VACCINATION")) {
+    return { href: "/gis-map", label: "Open Barangay Vaccination Map", badge: "/gis-map" };
+  }
+
+  if (cat.includes("PRICE") || rule.includes("PRICE")) {
+    return { href: "/analysis/predictive?domain=auction", label: "Check Auction Price Models", badge: "/analysis/predictive?domain=auction" };
+  }
+
+  if (cat.includes("AUCTION") || rule.includes("AUCTION") || rule.includes("SALES")) {
+    if (source === "forecast") {
+      return { href: "/analysis/predictive?domain=auction", label: "Inspect Auction Sales Forecast", badge: "/analysis/predictive?domain=auction" };
+    }
+    return { href: "/ownership-transfers/registry", label: "Inspect Transfer Registry", badge: "/ownership-transfers/registry" };
+  }
+
+  if (cat.includes("SLAUGHTER") || rule.includes("SLAUGHTER")) {
+    if (source === "forecast") {
+      return { href: "/analysis/predictive?domain=slaughter", label: "Open Slaughter Demand Forecast", badge: "/analysis/predictive?domain=slaughter" };
+    }
+    return { href: "/slaughter-record-review", label: "Review Slaughter Records", badge: "/slaughter-record-review" };
+  }
+
+  if (cat.includes("DATA_QUALITY") || rule.includes("READINESS") || rule.includes("BASELINE")) {
+    return { href: "/data-validation", label: "Audit Validation Submissions", badge: "/data-validation" };
+  }
+
+  return { href: "/analysis/surveillance-health", label: "Inspect Health Telemetry", badge: "/analysis/surveillance-health" };
+}
+
 interface PrescriptiveResponse {
   status: 'ready' | 'partial' | 'error';
   rule_readiness: {
@@ -421,6 +504,7 @@ function PrescriptiveLandingContent() {
                       <TableHead className="font-mono text-xs text-slate-700">Responsible staff</TableHead>
                       <TableHead className="font-mono text-xs text-slate-700">Action Type</TableHead>
                       <TableHead className="font-mono text-xs text-slate-700 text-right">Evidence Items</TableHead>
+                      <TableHead className="font-mono text-xs text-slate-700 text-right">Route & Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -451,6 +535,28 @@ function PrescriptiveLandingContent() {
                         </TableCell>
                         <TableCell className="font-mono text-xs text-right font-bold text-amber-800">
                           {Object.keys(rec.evidence).length} points
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {(() => {
+                            const routeInfo = getRecommendationRoute(rec);
+                            return (
+                              <div className="flex flex-col items-end gap-1">
+                                <Button
+                                  asChild
+                                  size="sm"
+                                  className="bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold text-xs h-7.5 px-3 rounded-lg shadow-2xs gap-1 shrink-0 active:scale-95 transition-all"
+                                >
+                                  <Link href={routeInfo.href}>
+                                    <span>{routeInfo.label}</span>
+                                    <ArrowRight className="size-3" />
+                                  </Link>
+                                </Button>
+                                <code className="text-[10px] font-mono text-slate-400">
+                                  {routeInfo.badge}
+                                </code>
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -506,7 +612,29 @@ function PrescriptiveLandingContent() {
                             <p className="text-xs sm:text-sm text-slate-700 leading-relaxed pt-0.5">
                               {rec.recommendation}
                             </p>
-                            {rec.action_link && <Link href={rec.action_link} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 hover:underline">View supporting forecast <ArrowRight className="size-3.5" /></Link>}
+                            {(() => {
+                              const routeInfo = getRecommendationRoute(rec);
+                              return (
+                                <div className="mt-3 pt-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200/80 p-2.5 sm:px-3 sm:py-2">
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-700 min-w-0">
+                                    <span className="font-bold text-emerald-950 shrink-0">Action Route:</span>
+                                    <code className="px-2 py-0.5 rounded-md bg-white border border-emerald-200 font-mono text-[11px] text-emerald-900 font-bold truncate">
+                                      {routeInfo.badge}
+                                    </code>
+                                  </div>
+                                  <Button
+                                    asChild
+                                    size="sm"
+                                    className="bg-[#0F5A38] hover:bg-[#0c482d] text-white font-bold text-xs h-8 px-3.5 rounded-xl shadow-xs gap-1.5 shrink-0 active:scale-95 hover:-translate-y-0.5 transition-all duration-150"
+                                  >
+                                    <Link href={routeInfo.href}>
+                                      <span>{routeInfo.label}</span>
+                                      <ArrowRight className="size-3.5" />
+                                    </Link>
+                                  </Button>
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           <Button
