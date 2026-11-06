@@ -15,6 +15,8 @@ import {
   AlertTriangle,
   Building,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   History,
   Scale,
@@ -103,6 +105,21 @@ export default function SlaughterhouseHistoryPage() {
       ? rows.filter((row) => row.record_date.slice(5, 7) === month)
       : rows;
   }, [recordsQuery.data, year, month]);
+
+  // Pagination for records table
+  const pageSize = 10;
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [year, month, livestockType]);
+
+  const totalPages = Math.max(1, Math.ceil(records.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return records.slice(start, start + pageSize);
+  }, [records, currentPage, pageSize]);
 
   // Pending or returned rows remain visible for tracking, but official totals
   // include approved records only, matching the MAO reporting boundary.
@@ -210,20 +227,82 @@ export default function SlaughterhouseHistoryPage() {
                 <div className="hidden overflow-x-auto rounded-xl border border-slate-200/90 bg-white md:block">
                   <Table className="min-w-[700px]">
                     <TableHeader className="bg-slate-50/80"><TableRow><TableHead>Date</TableHead><TableHead>Livestock Type</TableHead><TableHead className="text-right">Heads</TableHead><TableHead className="text-right">Kilograms</TableHead><TableHead>Status</TableHead><TableHead>Submitted by</TableHead></TableRow></TableHeader>
-                    <TableBody>{records.map((row) => <TableRow key={row.id}>
+                    <TableBody>{paginatedRecords.map((row) => <TableRow key={row.id}>
                       <TableCell>{row.record_date}</TableCell><TableCell className="font-semibold text-slate-900">{row.livestock_type_name || typesById.get(row.livestock_type) || "Unspecified"}</TableCell>
                       <TableCell className="text-right tabular-nums font-bold">{row.quantity}</TableCell><TableCell className="text-right tabular-nums">{row.carcass_weight ? `${Number(row.carcass_weight).toLocaleString()} kg` : "Not recorded"}</TableCell>
                       <TableCell><StatusBadge status={row.status} /></TableCell><TableCell className="text-slate-600">{row.created_by_name}</TableCell>
                     </TableRow>)}</TableBody>
                   </Table>
                 </div>
-                <div className="space-y-3 md:hidden">{records.map((row) => <div key={row.id} className="rounded-2xl border border-slate-200/90 bg-white p-4.5 shadow-xs">
+                <div className="space-y-3 md:hidden">{paginatedRecords.map((row) => <div key={row.id} className="rounded-2xl border border-slate-200/90 bg-white p-4.5 shadow-xs">
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{row.livestock_type_name || typesById.get(row.livestock_type) || "Unspecified"}</p><p className="mt-1 text-sm text-slate-500">{row.record_date}</p></div><StatusBadge status={row.status} /></div>
                     <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-sm"><div><p className="text-xs text-slate-500">Heads</p><p className="font-medium text-slate-900">{row.quantity}</p></div><div><p className="text-xs text-slate-500">Kilograms</p><p className="font-medium text-slate-900">{row.carcass_weight ? `${Number(row.carcass_weight).toLocaleString()} kg` : "Not recorded"}</p></div></div>
                     {row.review_remarks ? <p className="text-sm text-amber-800">MAO remarks: {row.review_remarks}</p> : null}
                   </div>
                 </div>)}</div>
+
+                {/* Pagination Controls */}
+                {records.length > pageSize && (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 pt-4 mt-2">
+                    <p className="text-xs text-slate-500 font-medium">
+                      Showing <span className="font-bold text-slate-800">{(currentPage - 1) * pageSize + 1}</span>–
+                      <span className="font-bold text-slate-800">{Math.min(currentPage * pageSize, records.length)}</span> of{" "}
+                      <span className="font-bold text-slate-800">{records.length}</span> records
+                    </p>
+                    <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2.5 text-xs font-bold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 active:scale-95 transition-all"
+                        disabled={currentPage <= 1}
+                        onClick={() => setPage((value) => Math.max(1, value - 1))}
+                      >
+                        <ChevronLeft className="size-3.5 mr-1" />
+                        <span>Previous</span>
+                      </Button>
+                      <div className="flex items-center gap-1 px-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                          .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                          .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                            if (idx > 0 && typeof arr[idx - 1] === "number" && (p as number) - (arr[idx - 1] as number) > 1) {
+                              acc.push("...");
+                            }
+                            acc.push(p);
+                            return acc;
+                          }, [])
+                          .map((p, idx) =>
+                            typeof p === "string" ? (
+                              <span key={`ellipsis-${idx}`} className="px-1 text-xs text-slate-400">...</span>
+                            ) : (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => setPage(p)}
+                                className={`size-8 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 ${
+                                  currentPage === p
+                                    ? "bg-[#0F4A2F] text-white shadow-xs font-black"
+                                    : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                                }`}
+                              >
+                                {p}
+                              </button>
+                            )
+                          )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2.5 text-xs font-bold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 active:scale-95 transition-all"
+                        disabled={currentPage >= totalPages}
+                        onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+                      >
+                        <span>Next</span>
+                        <ChevronRight className="size-3.5 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </>
             ) : !recordsQuery.isError ? (
               <div className="rounded-2xl border border-dashed border-slate-200 py-12 text-center"><History className="mx-auto size-8 text-slate-400" /><p className="mt-3 font-semibold text-slate-800">No records for this period</p><p className="mt-1 text-sm text-slate-500">Try another month or year. New records appear here after submission.</p></div>
