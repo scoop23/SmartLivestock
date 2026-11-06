@@ -1332,9 +1332,6 @@ export default function DataOverviewPage() {
 
             {activeTab === "sales" ? (
               <ProductionTradeRecords
-                salesRecords={filteredData as SalesRecord[]}
-                viewMode={viewMode}
-                onSelectSalesRecord={(record, domain) => handleSelectRecord(record, domain)}
                 onResetFilters={handleResetFilters}
                 search={searchQuery}
                 statusFilter={filterStatus}

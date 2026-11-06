@@ -1,6 +1,5 @@
 "use client";
 
-import type { OverviewRecord } from "./data-overview-types";
 import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
 import { fetchInspections,type InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
 import { Alert,AlertDescription } from "@/components/ui/alert";
@@ -13,9 +12,6 @@ import api from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useMemo,useState } from "react";
-import { DataOverviewCards } from "./data-overview-cards";
-import { DataOverviewTable } from "./data-overview-table";
-import type { DataTab,SalesRecord } from "./data-overview-types";
 
 type OwnershipTransfer = {
   id: number;
@@ -104,24 +100,17 @@ function NoRecordsState({
   );
 }
 
-// These official records are shown alongside trade records, but fetched from their own APIs.
-// That keeps ownership changes and movement clearances distinct from ordinary sales entries.
+// Ownership transfers and movement clearances use separate APIs and review histories.
 export function ProductionTradeRecords({
-  salesRecords,
-  viewMode,
-  onSelectSalesRecord,
   onResetFilters,
   search,
   statusFilter,
 }: {
-  salesRecords: SalesRecord[];
-  viewMode: "table" | "cards";
-  onSelectSalesRecord: (record: OverviewRecord, domain: DataTab) => void;
   onResetFilters: () => void;
   search: string;
   statusFilter: string;
 }) {
-  const [activeRecordView, setActiveRecordView] = useState<"sales" | "ownership" | "movement">("sales");
+  const [activeRecordView, setActiveRecordView] = useState<"ownership" | "movement">("movement");
   const filterKey = `${search}\u0000${statusFilter}`;
   const [ownershipPageState, setOwnershipPageState] = useState({ filterKey, page: 1 });
   const [movementPageState, setMovementPageState] = useState({ filterKey, page: 1 });
@@ -180,11 +169,7 @@ export function ProductionTradeRecords({
     return movements.slice(start, start + RECORDS_PER_PAGE);
   }, [movements, safeMovementPage]);
 
-  // The Auction & Trade badge summarizes all record types inside this grouped view.
-  const allTradeRecordsCount = salesRecords.length + transfers.length + movements.length;
-
   const recordViews = [
-    { id: "sales", label: "Auction & Trade", count: allTradeRecordsCount },
     { id: "ownership", label: "Live Sales", count: transfers.length },
     { id: "movement", label: "Movement Logs", count: movements.length },
   ] as const;
@@ -200,8 +185,6 @@ export function ProductionTradeRecords({
         className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${activeRecordView === view.id ? "border-[#184860] bg-[#184860] text-white" : "border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`}
       >{view.label}<span className={`rounded-full px-2 py-0.5 text-xs ${activeRecordView === view.id ? "bg-white/20" : "bg-slate-100"}`}>{view.count}</span></button>)}
     </div>
-
-    {activeRecordView === "sales" ? viewMode === "table" ? <DataOverviewTable activeTab="sales" items={salesRecords} onSelectRecord={onSelectSalesRecord} onResetFilters={onResetFilters} /> : <DataOverviewCards activeTab="sales" items={salesRecords} onSelectRecord={onSelectSalesRecord} /> : null}
 
     {activeRecordView === "ownership" ? <div className="space-y-4">
         {transfersQuery.isError ? <Alert variant="destructive"><AlertDescription>Could not load ownership transfer records.</AlertDescription></Alert> : null}
