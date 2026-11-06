@@ -13,7 +13,32 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import axios from "axios";
-import { AlertCircle,ArrowLeft,CheckCircle2,Loader2,Plus,QrCode,Save,Search,Trash2 } from "lucide-react";
+import { cowHead } from "@lucide/lab";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Calendar,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  Icon,
+  Info,
+  Loader2,
+  MapPin,
+  Pencil,
+  Plus,
+  QrCode,
+  Save,
+  Search,
+  Send,
+  Trash2,
+  Truck,
+} from "lucide-react";
+import { toast } from "sonner";
+
+const CowHeadIcon = ({ className }: { className?: string }) => (
+  <Icon iconNode={cowHead} className={className} />
+);
 import { useRouter } from "next/navigation";
 import { useEffect,useMemo,useRef,useState } from "react";
 import { createInspection,InspectionRecord,lookupRegisteredLivestock,RegisteredAnimalOption,RegisteredShipperOption,searchRegisteredShippers,updateInspection } from "./auction-analytics";
@@ -22,6 +47,9 @@ import { MovementLivestockQrDialog } from "./movement-livestock-qr-dialog";
 interface NewInspectionFormProps {
   onSubmitSuccess: () => void;
   inspectionToEdit?: InspectionRecord | null;
+  onCancel?: () => void;
+  inspectionCount?: number;
+  onDraftStatusChange?: (status: "checking" | "prompt" | "ready" | "saving" | "saved" | "error") => void;
 }
 
 interface LivestockTypeOption {
@@ -67,6 +95,9 @@ const createInitialItems = (livestockType = 0): MovementItemDraft[] => [{
 export function NewInspectionForm({
   onSubmitSuccess,
   inspectionToEdit,
+  onCancel,
+  inspectionCount,
+  onDraftStatusChange,
 }: NewInspectionFormProps) {
   // Form state represents one inspection and its many livestock lines. Browser
   // drafts are recovery only; create/update APIs persist the actual movement.
@@ -133,6 +164,12 @@ export function NewInspectionForm({
     )
   ), [shipperName, shipperId, shipperAddress, origin, destination, purpose,
     plateNumber, handlerLicense, items, speciesOptions]);
+
+  useEffect(() => {
+    if (onDraftStatusChange) {
+      onDraftStatusChange(draftStatus);
+    }
+  }, [draftStatus, onDraftStatusChange]);
 
   useEffect(() => {
     if (inspectionToEdit) return;
@@ -334,7 +371,8 @@ export function NewInspectionForm({
   const cancelForm = () => {
     if (hasMeaningfulData && !window.confirm("Discard this movement log? Its local draft will be cleared.")) return;
     clearLocalDraft(draftKey);
-    router.push("/auction-inspections");
+    if (onCancel) onCancel();
+    else router.push("/auction-inspections");
   };
 
   const handleAddItem = () => {
@@ -431,6 +469,74 @@ export function NewInspectionForm({
     }
   };
 
+  // Line item builder state for adding/editing a line matching mockup
+  const [editingLineIndex, setEditingLineIndex] = useState<number | null>(null);
+  const [lineSpecies, setLineSpecies] = useState<number>(0);
+  const [lineQuantity, setLineQuantity] = useState<number>(1);
+  const [lineSex, setLineSex] = useState<"MALE" | "FEMALE" | "MIXED">("MALE");
+  const [lineClassification, setLineClassification] = useState<"SLAUGHTER" | "BREEDER" | "FATTENING" | "OTHER">("SLAUGHTER");
+  const [lineRemarks, setLineRemarks] = useState<string>("");
+
+  useEffect(() => {
+    if (speciesOptions.length > 0 && !lineSpecies) {
+      setLineSpecies(speciesOptions[0].id);
+    }
+  }, [speciesOptions, lineSpecies]);
+
+  const handleStartAddLine = () => {
+    setEditingLineIndex(null);
+    setLineSpecies(speciesOptions[0]?.id || 0);
+    setLineQuantity(1);
+    setLineSex("MALE");
+    setLineClassification("SLAUGHTER");
+    setLineRemarks("");
+  };
+
+  const handleEditLine = (index: number) => {
+    const item = items[index];
+    if (!item) return;
+    setEditingLineIndex(index);
+    setLineSpecies(item.livestock_type);
+    setLineQuantity(item.quantity);
+    setLineSex(item.sex);
+    setLineClassification(item.classification);
+    setLineRemarks(item.remarks || "");
+  };
+
+  const handleSaveLine = () => {
+    const effectiveSpecies = lineSpecies || speciesOptions[0]?.id || 0;
+    if (editingLineIndex !== null) {
+      setItems((prev) => {
+        const next = [...prev];
+        next[editingLineIndex] = {
+          ...next[editingLineIndex],
+          livestock_type: effectiveSpecies,
+          quantity: lineQuantity,
+          sex: lineSex,
+          classification: lineClassification,
+          remarks: lineRemarks.trim(),
+        };
+        return next;
+      });
+      toast.success(`Livestock line #${editingLineIndex + 1} updated.`);
+      setEditingLineIndex(null);
+    } else {
+      setItems((prev) => [
+        ...prev,
+        {
+          livestock_type: effectiveSpecies,
+          quantity: lineQuantity,
+          sex: lineSex,
+          classification: lineClassification,
+          remarks: lineRemarks.trim(),
+        },
+      ]);
+      toast.success("Livestock line added to list.");
+    }
+    setLineQuantity(1);
+    setLineRemarks("");
+  };
+
   if (submitted) {
     return (
       <main className="mx-auto flex min-h-[60vh] w-full max-w-3xl items-center justify-center px-4 py-10 sm:px-6">
@@ -474,311 +580,538 @@ export function NewInspectionForm({
   }
 
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      <div className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
-        <Button type="button" variant="ghost" onClick={cancelForm} className="-ml-3 min-h-10 gap-2 px-3 text-slate-600">
-          <ArrowLeft className="size-4" /> Back to movement logs
-        </Button>
-        {!inspectionToEdit && (
-          <div aria-live="polite" className="flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
-            {draftStatus === "saving" ? <><Save className="size-3.5 animate-pulse" /> Saving draft…</> : draftStatus === "error" ? <><AlertCircle className="size-3.5 text-rose-600" /> Local draft could not be saved</> : <><Save className="size-3.5 text-emerald-600" /> Draft saved locally</>}
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-5 space-y-5">
+      {/* Draft Auto-save Indicator (Fallback if parent does not render it) */}
+      {!inspectionToEdit && !onDraftStatusChange && (
+        <div className="flex justify-end -mb-2">
+          <div aria-live="polite" className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-2xs">
+            {draftStatus === "saving" ? (
+              <><Save className="size-3.5 animate-pulse text-amber-600" /> Saving draft…</>
+            ) : draftStatus === "error" ? (
+              <><AlertCircle className="size-3.5 text-rose-600" /> Local draft error</>
+            ) : (
+              <><Save className="size-3.5 text-emerald-600" /> Draft saved locally</>
+            )}
           </div>
-        )}
+        </div>
+      )}
+
+      {/* 3-Step Horizontal Progress Banner */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-2.5 sm:p-3 shadow-2xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Step 1: Movement Information */}
+          <div className="flex flex-1 items-center gap-3.5 rounded-xl border border-[#BEE1C6] bg-[#EAF5EC] p-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#0F4A2F] text-sm font-bold text-white shadow-xs">
+              1
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-slate-900">Movement Information</h2>
+              <p className="text-xs text-slate-600 leading-tight">
+                Enter shipper and movement details.
+              </p>
+            </div>
+          </div>
+
+          <ChevronRight className="size-5 shrink-0 text-slate-400 hidden md:block" aria-hidden="true" />
+
+          {/* Step 2: Livestock Details */}
+          <div className="flex flex-1 items-center gap-3.5 rounded-xl p-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#D7EEDD] text-sm font-bold text-[#0F4A2F]">
+              2
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-slate-900">Livestock Details</h2>
+              <p className="text-xs text-slate-600 leading-tight">
+                Add and review livestock to be moved.
+              </p>
+            </div>
+          </div>
+
+          <ChevronRight className="size-5 shrink-0 text-slate-400 hidden md:block" aria-hidden="true" />
+
+          {/* Step 3: Review & Submit */}
+          <div className="flex flex-1 items-center gap-3.5 rounded-xl p-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#D7EEDD] text-sm font-bold text-[#0F4A2F]">
+              3
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-slate-900">Review &amp; Submit</h2>
+              <p className="text-xs text-slate-600 leading-tight">
+                Confirm details and submit to MAO.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {!inspectionToEdit && <div className="mb-6 flex flex-wrap items-center gap-2 text-xs font-bold">
-        <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-emerald-900">Draft</span><span className="text-slate-300">→</span><span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">Submitted to MAO</span><span className="text-slate-300">→</span><span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-600">MAO Review</span>
-      </div>}
-
       <form onSubmit={handleSubmit} className="space-y-5">
-          {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
+        {errorMsg && (
+          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
-          {/* Shipper & Transit details */}
-          <section className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 sm:p-6 shadow-holo-card">
-            <h2 className="mb-4 text-sm font-black text-slate-900">1. Shipper and movement information</h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-slate-500">Shipper Name *</label>
-                <Input
-                  placeholder="e.g. Juan Dela Cruz"
-                  value={shipperName}
-                  onChange={(e) => {
-                    setShipperName(e.target.value);
-                    setShipperId(null);
-                    setShipperOptions([]);
-                    setSelectedAnimals([]);
-                    setItems((previous) => previous.map((item) => ({ ...item, inventory: null })));
-                  }}
-                  required
-                  className="h-10 rounded-xl bg-slate-50"
-                />
-                {shipperId ? (
-                  <p className="text-[10px] text-emerald-800 font-semibold">
-                    Linked to registered farmer #{shipperId}
-                    <button type="button" className="ml-2 underline" onClick={() => {
-                      setShipperId(null); setSelectedAnimals([]);
+        {/* 2-Column Main Form Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* LEFT CARD: 1. Shipper & Movement Information (lg:col-span-5) */}
+          <div className="lg:col-span-5 rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-xl bg-[#EAF5EC] text-[#1E4D2B] flex items-center justify-center shrink-0 shadow-2xs">
+                <Truck className="size-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 leading-tight">1. Shipper &amp; Movement Information</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Enter the shipper&apos;s details and movement information.</p>
+              </div>
+            </div>
+
+            <div className="space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Shipper Name <span className="text-rose-500">*</span></label>
+                  <Input
+                    placeholder="Juan Dela Cruz"
+                    value={shipperName}
+                    onChange={(e) => {
+                      setShipperName(e.target.value);
+                      setShipperId(null);
+                      setShipperOptions([]);
+                      setSelectedAnimals([]);
                       setItems((previous) => previous.map((item) => ({ ...item, inventory: null })));
-                    }}>Use unregistered shipper</button>
-                  </p>
-                ) : shipperOptions.length > 0 && (
-                  <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-white">
-                    {shipperOptions.map((shipper) => (
-                      <button key={shipper.id} type="button" onClick={() => selectShipper(shipper)}
-                        className="block w-full px-3 py-2 text-left text-xs hover:bg-emerald-50">
-                        {shipper.name} — {shipper.address}
+                    }}
+                    required
+                    className="h-10 rounded-xl bg-white border-slate-200 text-xs text-slate-800"
+                  />
+                  {shipperId ? (
+                    <p className="text-[10px] text-emerald-800 font-semibold">
+                      Linked to registered farmer #{shipperId}
+                      <button
+                        type="button"
+                        className="ml-2 underline text-rose-600"
+                        onClick={() => {
+                          setShipperId(null);
+                          setSelectedAnimals([]);
+                          setItems((previous) => previous.map((item) => ({ ...item, inventory: null })));
+                        }}
+                      >
+                        Unlink
                       </button>
-                    ))}
-                  </div>
-                )}
+                    </p>
+                  ) : shipperOptions.length > 0 && (
+                    <div className="max-h-32 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xs p-1">
+                      {shipperOptions.map((shipper) => (
+                        <button
+                          key={shipper.id}
+                          type="button"
+                          onClick={() => selectShipper(shipper)}
+                          className="block w-full rounded-lg px-2.5 py-1.5 text-left text-xs hover:bg-emerald-50 transition-colors"
+                        >
+                          <span className="font-bold text-slate-900">{shipper.name}</span>
+                          <span className="block text-[11px] text-slate-500">{shipper.address}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Purpose <span className="text-rose-500">*</span></label>
+                  <select
+                    value={purpose}
+                    onChange={(e) => setPurpose(e.target.value as "SLAUGHTER" | "BREEDING" | "FATTENING" | "OTHER")}
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F4A2F]"
+                  >
+                    <option value="SLAUGHTER">Slaughter (Katayan)</option>
+                    <option value="BREEDING">Breeding (Palahi)</option>
+                    <option value="FATTENING">Fattening (Papatabain)</option>
+                    <option value="OTHER">Other Purpose</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-slate-500">Destination *</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Destination <span className="text-rose-500">*</span></label>
                 <Input
-                  placeholder="e.g. Batangas City Slaughterhouse"
+                  placeholder="Batangas City Slaughterhouse"
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                   required
-                  className="h-10 rounded-xl bg-slate-50"
+                  className="h-10 rounded-xl bg-white border-slate-200 text-xs text-slate-800"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-slate-500">Purpose *</label>
-                <select
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value as "SLAUGHTER" | "BREEDING" | "FATTENING" | "OTHER")}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold"
-                >
-                  <option value="SLAUGHTER">Slaughter (Katayan)</option>
-                  <option value="BREEDING">Breeding (Palahi)</option>
-                  <option value="FATTENING">Fattening (Papatabain)</option>
-                  <option value="OTHER">Other Purpose</option>
-                </select>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Inspection Date <span className="text-rose-500">*</span></label>
+                <div className="relative">
+                  <Calendar className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                  <Input
+                    type="date"
+                    value={inspectionDate}
+                    onChange={(e) => setInspectionDate(e.target.value)}
+                    required
+                    className="h-10 pl-9 rounded-xl bg-white border-slate-200 text-xs text-slate-800"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-slate-500">Inspection Date *</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Movement Origin <span className="text-rose-500">*</span></label>
+                  <Input
+                    value={origin}
+                    onChange={(e) => setOrigin(e.target.value)}
+                    required
+                    placeholder="Tanauan, Batangas"
+                    className="h-10 rounded-xl bg-white border-slate-200 text-xs text-slate-800"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Vehicle Plate Number</label>
+                  <Input
+                    placeholder="NDB-8421"
+                    value={plateNumber}
+                    onChange={(e) => setPlateNumber(e.target.value)}
+                    className="h-10 rounded-xl bg-white border-slate-200 text-xs text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Shipper Address</label>
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                  <Input
+                    placeholder="Purok 2, Brgy. Manggas, Padre Garcia"
+                    value={shipperAddress}
+                    onChange={(e) => setShipperAddress(e.target.value)}
+                    className="h-10 pl-9 rounded-xl bg-white border-slate-200 text-xs text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Handler License No.</label>
                 <Input
-                  type="date"
-                  value={inspectionDate}
-                  onChange={(e) => setInspectionDate(e.target.value)}
-                  required
-                  className="h-10 rounded-xl bg-slate-50"
-                />
-              </div>
-
-              <div className="space-y-1 sm:col-span-2 lg:col-span-3">
-                <label className="text-[10px] font-bold uppercase text-slate-500">Shipper Address</label>
-                <Input
-                  placeholder="e.g. Purok 2, Brgy. Manggas, Padre Garcia"
-                  value={shipperAddress}
-                  onChange={(e) => setShipperAddress(e.target.value)}
-                  className="h-10 rounded-xl bg-slate-50"
-                />
-              </div>
-
-              <div className="space-y-1 sm:col-span-2 lg:col-span-3">
-                <label className="text-[10px] font-bold uppercase text-slate-500">Movement Origin *</label>
-                <Input value={origin} onChange={(e) => setOrigin(e.target.value)} required
-                  placeholder="e.g. Tanauan, Batangas" className="h-10 rounded-xl bg-slate-50" />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-slate-500">Vehicle Plate Number</label>
-                <Input
-                  placeholder="e.g. NDB-8421"
-                  value={plateNumber}
-                  onChange={(e) => setPlateNumber(e.target.value)}
-                  className="h-10 rounded-xl bg-slate-50"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-slate-500">Handler License No.</label>
-                <Input
-                  placeholder="e.g. LHL-2026-4412"
+                  placeholder="LHL-2026-4412"
                   value={handlerLicense}
                   onChange={(e) => setHandlerLicense(e.target.value)}
-                  className="h-10 rounded-xl bg-slate-50"
+                  className="h-10 rounded-xl bg-white border-slate-200 text-xs text-slate-800"
                 />
               </div>
             </div>
-          </section>
+          </div>
 
-          {/* Livestock items breakdown */}
-          <section className="space-y-4 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 sm:p-6 shadow-holo-card">
+          {/* RIGHT CARD: 2. Livestock to be Moved (lg:col-span-7) */}
+          <div className="lg:col-span-7 rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
-              <div><h2 className="text-sm font-black text-slate-900">2. Livestock ({items.length} line{items.length === 1 ? "" : "s"})</h2><p className="mt-1 text-xs text-slate-500">Each line is either linked to registered livestock or encoded for this movement only.</p></div>
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-[#EAF5EC] text-[#1E4D2B] flex items-center justify-center shrink-0 shadow-2xs">
+                  <CowHeadIcon className="size-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 leading-tight">2. Livestock to be Moved</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Add each livestock line for this movement.</p>
+                </div>
+              </div>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={handleAddItem}
-                className="rounded-xl text-xs font-bold gap-1 text-[#0F5A38] border-emerald-200 hover:bg-emerald-50 cursor-pointer"
+                onClick={handleStartAddLine}
+                className="h-8 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-800 gap-1.5 shadow-2xs"
               >
-                <Plus className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Add External Livestock</span><span className="sm:hidden">Add External</span>
+                <Plus className="size-3.5" />
+                <span>Add Livestock Line</span>
               </Button>
             </div>
 
-            <div className="space-y-3">
-              {items.map((item, idx) => (
-                <div key={idx} className={`min-w-0 rounded-2xl border p-3.5 space-y-3 ${item.inventory ? "border-emerald-200 bg-emerald-50/50" : "border-amber-200 bg-amber-50/40"}`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-slate-700">Item #{idx + 1} · {item.inventory ? "Registered livestock" : "External / unregistered"}</span>
-                    {items.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(idx)}
-                        className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> Remove
-                      </button>
-                    )}
-                  </div>
+            {/* Table of added livestock lines */}
+            <div className="overflow-hidden rounded-xl border border-slate-200/90 shadow-2xs">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[540px] text-left text-xs">
+                  <thead className="bg-[#EAF5EC]">
+                    <tr>
+                      <th scope="col" className="px-3.5 py-2.5 font-bold text-[#1E4D2B]">#</th>
+                      <th scope="col" className="px-3.5 py-2.5 font-bold text-[#1E4D2B]">LIVESTOCK</th>
+                      <th scope="col" className="px-3.5 py-2.5 font-bold text-[#1E4D2B]">HEAD COUNT</th>
+                      <th scope="col" className="px-3.5 py-2.5 font-bold text-[#1E4D2B]">SEX</th>
+                      <th scope="col" className="px-3.5 py-2.5 font-bold text-[#1E4D2B]">CLASS</th>
+                      <th scope="col" className="px-3.5 py-2.5 font-bold text-[#1E4D2B] text-center">ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {items.map((item, idx) => {
+                      const speciesName = speciesOptions.find((opt) => opt.id === item.livestock_type)?.name || "Cattle";
+                      const sexLabel = item.sex === "MALE" ? "Male" : item.sex === "FEMALE" ? "Female" : "Mixed";
+                      const classLabel =
+                        item.classification === "SLAUGHTER"
+                          ? "Slaughter"
+                          : item.classification === "BREEDER"
+                          ? "Breeder"
+                          : item.classification === "FATTENING"
+                          ? "Fattening"
+                          : "Other";
 
-                  {shipperId && selectedAnimals.length > 0 && (
-                    <div>
-                      <label className="text-[9px] font-bold text-slate-400 uppercase">Registered Animal (optional)</label>
-                      <select value={item.inventory || ""} onChange={(e) => selectAnimal(idx, e.target.value ? Number(e.target.value) : null)}
-                        className="w-full h-9 px-2 rounded-lg border border-slate-200 bg-white text-xs">
-                        <option value="">Batch or unregistered livestock</option>
-                        {selectedAnimals.map((animal) => (
-                          <option key={animal.id} value={animal.id}>
-                            {animal.tag_number} — {animal.livestock_type_name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
-                    <label className="text-[10px] font-bold text-slate-600 uppercase">Registered livestock lookup</label>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Input value={lookupCodes[idx] || ""} onChange={(event) => setLookupCodes((previous) => { const next = [...previous]; next[idx] = event.target.value; return next; })}
-                        onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void handleLivestockLookup(idx); } }}
-                        placeholder="Search by tag or inventory ID" className="h-10 min-w-0 flex-1 rounded-lg text-xs" />
-                      <div className="flex gap-2">
-                      <Button type="button" variant="outline" disabled={!lookupCodes[idx]?.trim() || lookupIndex !== null}
-                        onClick={() => void handleLivestockLookup(idx)} className="h-10 flex-1 rounded-lg gap-1 text-xs sm:flex-none">
-                        {lookupIndex === idx ? <Loader2 className="size-3.5 animate-spin" /> : <Search className="size-3.5" />} Search
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => { setQrItemIndex(idx); setIsQrOpen(true); }} className="h-10 flex-1 rounded-lg gap-1 text-xs sm:flex-none"><QrCode className="size-3.5" /> Scan QR</Button>
-                      </div>
-                    </div>
-                    {lookupResult?.index === idx && <LivestockIdentityResult record={lookupResult.animal} error={lookupAddError} onAdd={() => {
-                      const failure = addRegisteredAnimal(lookupResult.animal, idx);
+                      return (
+                        <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="px-3.5 py-3 font-bold text-slate-700">{idx + 1}</td>
+                          <td className="px-3.5 py-3 font-semibold text-slate-900">
+                            {speciesName}
+                            {item.inventory && (
+                              <span className="ml-1.5 text-[10px] text-emerald-700 font-normal">
+                                (#{selectedAnimals.find((a) => a.id === item.inventory)?.tag_number || item.inventory})
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3.5 py-3 text-slate-800">{item.quantity}</td>
+                          <td className="px-3.5 py-3 text-slate-800">{sexLabel}</td>
+                          <td className="px-3.5 py-3 text-slate-800">{classLabel}</td>
+                          <td className="px-3.5 py-3 text-center">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleEditLine(idx)}
+                                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                                title="Edit line"
+                              >
+                                <Pencil className="size-3.5" />
+                              </button>
+                              {items.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItem(idx)}
+                                  className="p-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                                  title="Remove line"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Yellow notice callout */}
+            <div className="rounded-xl border border-amber-200/80 bg-amber-50/70 p-3 text-xs text-amber-900 flex items-start gap-2.5">
+              <Info className="size-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="leading-relaxed">
+                External livestock is recorded for this movement only and will not automatically be added to the livestock registry.
+              </p>
+            </div>
+
+            {/* Add / Edit Livestock Line subcard */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3.5 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-900">
+                  {editingLineIndex !== null ? `Edit Livestock Line #${editingLineIndex + 1}` : "Add Livestock Line"}
+                </h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setQrItemIndex(editingLineIndex ?? (items.length - 1));
+                    setIsQrOpen(true);
+                  }}
+                  className="h-7 text-[11px] font-semibold rounded-lg border-emerald-200 bg-[#EAF5EC] text-[#0F4A2F] hover:bg-emerald-100 gap-1"
+                >
+                  <QrCode className="size-3" />
+                  <span>Scan Animal QR</span>
+                </Button>
+              </div>
+
+              {/* Grid 4 columns: Species, Head Count, Sex, Class */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-slate-600">Species <span className="text-rose-500">*</span></label>
+                  <select
+                    value={lineSpecies}
+                    onChange={(e) => setLineSpecies(Number(e.target.value))}
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800"
+                  >
+                    {speciesOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-slate-600">Head Count <span className="text-rose-500">*</span></label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={lineQuantity}
+                    onChange={(e) => setLineQuantity(Math.max(1, Number(e.target.value) || 1))}
+                    className="h-9 rounded-lg bg-white border-slate-200 text-xs font-bold text-slate-800"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-slate-600">Sex <span className="text-rose-500">*</span></label>
+                  <select
+                    value={lineSex}
+                    onChange={(e) => setLineSex(e.target.value as "MALE" | "FEMALE" | "MIXED")}
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800"
+                  >
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                    <option value="MIXED">Mixed</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-slate-600">Class <span className="text-rose-500">*</span></label>
+                  <select
+                    value={lineClassification}
+                    onChange={(e) => setLineClassification(e.target.value as "SLAUGHTER" | "BREEDER" | "FATTENING" | "OTHER")}
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800"
+                  >
+                    <option value="SLAUGHTER">Slaughter</option>
+                    <option value="BREEDER">Breeder</option>
+                    <option value="FATTENING">Fattening</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-slate-600">Line Notes / Ear Tags (Optional)</label>
+                <Input
+                  placeholder="e.g., ear tag number, other remarks"
+                  value={lineRemarks}
+                  onChange={(e) => setLineRemarks(e.target.value)}
+                  className="h-9 rounded-lg bg-white border-slate-200 text-xs text-slate-800 placeholder:text-slate-400"
+                />
+              </div>
+
+              {/* Registered animal lookup (if needed) */}
+              <div className="flex flex-col gap-2 pt-1 border-t border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-slate-400" />
+                    <Input
+                      value={lookupCodes[editingLineIndex ?? 0] || ""}
+                      onChange={(event) =>
+                        setLookupCodes((previous) => {
+                          const next = [...previous];
+                          next[editingLineIndex ?? 0] = event.target.value;
+                          return next;
+                        })
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void handleLivestockLookup(editingLineIndex ?? 0);
+                        }
+                      }}
+                      placeholder="Optional: Link registered animal by tag or ID..."
+                      className="h-8 pl-8 rounded-lg text-[11px]"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!lookupCodes[editingLineIndex ?? 0]?.trim() || lookupIndex !== null}
+                    onClick={() => void handleLivestockLookup(editingLineIndex ?? 0)}
+                    className="h-8 text-[11px] px-2.5 rounded-lg"
+                  >
+                    {lookupIndex === (editingLineIndex ?? 0) ? <Loader2 className="size-3 animate-spin" /> : "Link"}
+                  </Button>
+                </div>
+                {lookupResult?.index === (editingLineIndex ?? 0) && (
+                  <LivestockIdentityResult
+                    record={lookupResult.animal}
+                    error={lookupAddError}
+                    onAdd={() => {
+                      const failure = addRegisteredAnimal(lookupResult.animal, editingLineIndex ?? 0);
                       if (failure) setLookupAddError(failure);
                       else {
                         setLookupResult(null);
                         setLookupAddError("");
-                        setLookupCodes((previous) => { const next = [...previous]; next[idx] = ""; return next; });
+                        setLookupCodes((previous) => {
+                          const next = [...previous];
+                          next[editingLineIndex ?? 0] = "";
+                          return next;
+                        });
                       }
-                    }} />}
-                    {item.inventory && <p className="text-xs font-semibold text-emerald-800">Linked to registered animal {selectedAnimals.find((animal) => animal.id === item.inventory)?.tag_number || `#${item.inventory}`}. The database remains authoritative.</p>}
-                    {!item.inventory && <p className="text-xs leading-5 text-amber-900">External livestock is recorded for this movement only and will not automatically be added to the livestock registry.</p>}
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    <div>
-                      <label className="text-[9px] font-bold text-slate-400 uppercase">Species</label>
-                      <select
-                        value={item.livestock_type}
-                        onChange={(e) => handleUpdateItem(idx, "livestock_type", Number(e.target.value))}
-                        disabled={!!item.inventory}
-                        className="w-full h-9 px-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold"
-                      >
-                        {speciesOptions.map((opt) => (
-                          <option key={opt.id} value={opt.id}>
-                            {opt.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-[9px] font-bold text-slate-400 uppercase">Head Count</label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => handleUpdateItem(idx, "quantity", Number(e.target.value))}
-                        disabled={!!item.inventory}
-                        className="h-9 rounded-lg bg-white text-xs font-bold"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[9px] font-bold text-slate-400 uppercase">Sex</label>
-                      <select
-                        value={item.sex}
-                        onChange={(e) => handleUpdateItem(idx, "sex", e.target.value)}
-                        className="w-full h-9 px-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold"
-                      >
-                        <option value="MALE">Male</option>
-                        <option value="FEMALE">Female</option>
-                        <option value="MIXED">Mixed</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-[9px] font-bold text-slate-400 uppercase">Class</label>
-                      <select
-                        value={item.classification}
-                        onChange={(e) => handleUpdateItem(idx, "classification", e.target.value)}
-                        className="w-full h-9 px-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold"
-                      >
-                        <option value="SLAUGHTER">Slaughter</option>
-                        <option value="BREEDER">Breeder</option>
-                        <option value="FATTENING">Fattening</option>
-                        <option value="OTHER">Other</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <Input
-                    placeholder="Optional line notes / ear tags"
-                    value={item.remarks}
-                    onChange={(e) => handleUpdateItem(idx, "remarks", e.target.value)}
-                    className="h-8 rounded-lg bg-white text-xs"
+                    }}
                   />
-                </div>
-              ))}
-            </div>
-          </section>
+                )}
+              </div>
 
-          <div className="flex flex-col-reverse gap-3 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-5 shadow-holo-card sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs leading-5 text-slate-500">Submitting sends this record to MAO. Auction staff do not approve movement records.</p>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+              <div className="flex justify-end pt-2">
+                <Button
+                  type="button"
+                  onClick={handleSaveLine}
+                  className="h-9 rounded-xl bg-[#0F4A2F] text-white hover:bg-[#0B3D26] px-5 text-xs font-bold gap-1.5 shadow-2xs"
+                >
+                  <Plus className="size-3.5" />
+                  <span>{editingLineIndex !== null ? "Update Line" : "Add to List"}</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Bar: Notice + Action Buttons */}
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-2 text-xs text-slate-600">
+            <Info className="size-4 text-slate-400 shrink-0" />
+            <span>Submitting sends this movement record to MAO for review. Auction staff do not approve movement records.</span>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
             <Button
               type="button"
               variant="outline"
-              onClick={cancelForm}
-              disabled={isSubmitting}
-              className="min-h-11 rounded-xl cursor-pointer w-full sm:w-auto"
+              onClick={() => {
+                if (draftRef.current) {
+                  try {
+                    window.localStorage.setItem(draftKey, JSON.stringify(draftRef.current));
+                    toast.success("Draft saved locally.");
+                  } catch {
+                    toast.error("Could not save draft locally.");
+                  }
+                }
+              }}
+              className="h-10 rounded-xl border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold px-5 gap-2 shadow-2xs"
             >
-              Cancel
+              <Save className="size-4 text-slate-500" />
+              <span>Save as Draft</span>
             </Button>
+
             <Button
               type="submit"
               disabled={isSubmitting || speciesOptions.length === 0}
-              className="min-h-11 bg-[#0F5A38] hover:bg-[#0c482d] text-white rounded-xl font-bold cursor-pointer w-full sm:w-auto gap-1.5"
+              className="h-10 rounded-xl bg-[#0F4A2F] hover:bg-[#0B3D26] text-white text-xs font-bold px-6 gap-2 shadow-sm transition-colors disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>Submitting…</span>
                 </>
               ) : (
-                inspectionToEdit ? "Save Corrections" : "Submit to MAO"
+                <>
+                  <Send className="size-4" />
+                  <span>Submit to MAO</span>
+                </>
               )}
             </Button>
-            </div>
           </div>
+        </div>
       </form>
+
       <Dialog open={showSubmitConfirmation} onOpenChange={(open) => {
         if (!isSubmitting) setShowSubmitConfirmation(open);
       }}>
