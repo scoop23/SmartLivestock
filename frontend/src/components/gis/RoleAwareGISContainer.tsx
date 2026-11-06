@@ -114,12 +114,15 @@ const DEFAULT_SUMMARY: MunicipalSummary = {
 interface RoleAwareGISContainerProps {
   backRoute?: string;
   backLabel?: string;
+  enableCirclingCamera?: boolean;
 }
 
 export function RoleAwareGISContainer({
   backRoute = '/admin',
   backLabel = 'Back',
+  enableCirclingCamera = false,
 }: RoleAwareGISContainerProps) {
+  const [isCircling, setIsCircling] = useState<boolean>(Boolean(enableCirclingCamera));
   const router = useRouter();
   const isMobile = useIsMobile();
 
@@ -444,8 +447,13 @@ export function RoleAwareGISContainer({
 
   const handleResetBounds = useCallback(() => {
     setResetTrigger((prev) => prev + 1);
+    setSelectedBarangay(null);
+    setSelectedMovement(null);
+    if (enableCirclingCamera) {
+      setIsCircling(true);
+    }
     toast.info('Map viewport refit to Padre Garcia boundary', { duration: 1500 });
-  }, []);
+  }, [enableCirclingCamera, setSelectedBarangay]);
 
   const handleTogglePlay = useCallback(() => {
     setIsPlaying((prev) => !prev);
@@ -529,7 +537,40 @@ export function RoleAwareGISContainer({
           showAdjacentDiseaseAlerts={showAdjacentDiseaseAlerts}
           showAdjacentOutbreakColor={showAdjacentOutbreakColor}
           showAdjacentOutbreakDots={showAdjacentOutbreakDots}
+          enableCirclingCamera={enableCirclingCamera}
+          isCircling={isCircling}
+          onCirclingChange={setIsCircling}
         />
+
+        {/* Floating Circling Orbit Status Indicator (Active in Auction GIS) */}
+        {enableCirclingCamera && (
+          <div className="absolute top-[calc(4.75rem+env(safe-area-inset-top,0px))] sm:top-[calc(1.25rem+env(safe-area-inset-top,0px))] left-1/2 -translate-x-1/2 z-[900] pointer-events-auto select-none transition-all duration-300">
+            <button
+              type="button"
+              onClick={() => setIsCircling((prev) => !prev)}
+              title={isCircling ? "Click to pause camera circling" : "Click to resume camera circling"}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold backdrop-blur-md border shadow-lg flex items-center gap-2 cursor-pointer transition-all duration-200 active:scale-95 ${
+                isCircling
+                  ? "bg-[#072718]/90 text-emerald-300 border-emerald-500/50 shadow-emerald-950/40 hover:bg-[#072718]"
+                  : "bg-slate-900/85 text-slate-300 border-slate-700/60 shadow-slate-950/40 hover:bg-slate-900"
+              }`}
+            >
+              {isCircling ? (
+                <>
+                  <span className="size-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  <span className="font-extrabold text-white">Cinematic Orbit Active</span>
+                  <span className="text-[10px] text-emerald-300/80 font-medium hidden sm:inline">• Drag map to pause</span>
+                </>
+              ) : (
+                <>
+                  <span className="size-2 rounded-full bg-amber-400 shrink-0" />
+                  <span className="font-bold text-amber-200">Manual Control</span>
+                  <span className="text-[10px] text-slate-300/80 font-medium hidden sm:inline">• Click ↺ Reset to orbit</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Proactive Neighboring Disease Alert with Map Toggle (Farmer & CBAT) */}
         {showAdjacentDiseaseAlerts &&
