@@ -476,8 +476,8 @@ export default function AuctionPreregistrations({
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {rows.map(row => {
-                    const fileCount = (row.has_document ? 1 : 0) + (row.original_certificate_number ? 1 : 0);
-                    const fileLabel = fileCount === 0 ? "0 files" : fileCount === 1 ? "1 file" : `${fileCount} files`;
+                    const fileCount = row.has_document ? 1 : 0;
+                    const fileLabel = fileCount === 1 ? "1 file" : "0 files";
 
                     return (
                       <tr

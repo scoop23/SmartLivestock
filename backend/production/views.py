@@ -732,8 +732,84 @@ def animal_disposition_list_create(request):
     """
     if request.method == "POST":
         require_action(request.user, "inventory", "create")
+
+        # Support declaring multiple livestock in a single submission
+        raw_ids = []
+        if hasattr(request.data, "getlist"):
+            raw_ids = request.data.getlist("livestock_ids")
+        if not raw_ids and "livestock_ids" in request.data:
+            val = request.data["livestock_ids"]
+            if isinstance(val, (list, tuple)):
+                raw_ids = val
+            elif isinstance(val, str):
+                raw_ids = [x.strip() for x in val.split(",") if x.strip()]
+
+        parsed_ids = []
+        for item in raw_ids:
+            if isinstance(item, str) and "," in item:
+                parsed_ids.extend([int(x.strip()) for x in item.split(",") if x.strip().isdigit()])
+            elif str(item).isdigit():
+                parsed_ids.append(int(item))
+
+        unique_ids = list(dict.fromkeys(parsed_ids))
+
+        if len(unique_ids) > 1:
+            from django.http import QueryDict
+            instances = []
+            with transaction.atomic():
+                for animal_id in unique_ids:
+                    if isinstance(request.data, QueryDict):
+                        item_data = request.data.copy()
+                    else:
+                        item_data = dict(request.data)
+                    item_data["livestock"] = animal_id
+                    if "supporting_document" in request.FILES:
+                        doc = request.FILES["supporting_document"]
+                        if hasattr(doc, "seek"):
+                            doc.seek(0)
+                        item_data["supporting_document"] = doc
+
+                    serializer = AnimalDispositionSerializer(
+                        data=item_data,
+                        context={"request": request},
+                    )
+                    serializer.is_valid(raise_exception=True)
+                    inst = serializer.save()
+                    instances.append(inst)
+
+            if instances and instances[0].intent == "FOR_SALE":
+                refs = [f"AP-{i.pk:06d}" for i in instances]
+                ref_summary = ", ".join(refs[:3]) + ("..." if len(refs) > 3 else "")
+                notify_role(
+                    role_name="AUCTION",
+                    notification_type=Notification.NotificationType.GENERAL,
+                    title="Auction preregistrations submitted",
+                    message=f"{len(instances)} animals preregistered ({ref_summary}) are ready for review.",
+                    link="/auction-preregistrations",
+                )
+
+            serialized_list = AnimalDispositionSerializer(instances, many=True, context={"request": request}).data
+            response_data = serialized_list[0].copy()
+            response_data["count"] = len(instances)
+            response_data["results"] = serialized_list
+            response_data["references"] = [f"AP-{i.pk:06d}" for i in instances]
+            return Response(response_data, status=201)
+
+        # Single animal declaration (or fallback)
+        if len(unique_ids) == 1:
+            from django.http import QueryDict
+            if isinstance(request.data, QueryDict):
+                single_data = request.data.copy()
+            else:
+                single_data = dict(request.data)
+            single_data["livestock"] = unique_ids[0]
+            if "supporting_document" in request.FILES:
+                single_data["supporting_document"] = request.FILES["supporting_document"]
+        else:
+            single_data = request.data
+
         serializer = AnimalDispositionSerializer(
-            data=request.data,
+            data=single_data,
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)

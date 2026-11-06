@@ -91,14 +91,28 @@ function useLocalStorageAsset(key: string) {
   );
 }
 
-function LivestockPicture({ item, selected }: { item: LivestockInventoryItem; selected: boolean }) {
+export function LivestockPicture({
+  item,
+  selected = false,
+  className,
+}: {
+  item: LivestockInventoryItem;
+  selected?: boolean;
+  className?: string;
+}) {
   const localPhoto = useLocalStorageAsset(`livestock_photo_${item.id}`);
   const localAvatar = useLocalStorageAsset(`livestock_avatar_${item.id}`);
   const photoUrl = item.photoUrl || localPhoto;
   const avatar = getAvatarById(item.avatarKey || localAvatar, item.livestockTypeName);
 
   return (
-    <span className={cn("relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border", selected ? "border-emerald-700 ring-2 ring-emerald-700/20" : "border-slate-200")}>
+    <span
+      className={cn(
+        "relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border",
+        selected ? "border-emerald-700 ring-2 ring-emerald-700/20" : "border-slate-200",
+        className
+      )}
+    >
       {photoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- Livestock photos may require the signed-in browser session.
         <img src={photoUrl} alt={`${item.tagNumber || item.livestockTypeName} livestock`} className="size-full object-cover" />

@@ -1054,7 +1054,8 @@ class AnimalDispositionSerializer(serializers.ModelSerializer):
             animal = validated_data["livestock"]
             type(animal).objects.select_for_update().get(pk=animal.pk)
             if validated_data.get("intent") == "FOR_SALE" and AnimalDisposition.objects.filter(livestock=animal, intent="FOR_SALE").exclude(registration_status="COMPLETED").exists():
-                raise ValidationError({"livestock": "This animal already has a sale preregistration. Correct the existing submission."})
+                animal_label = animal.tag_number or f"#{animal.pk}"
+                raise ValidationError({"livestock": f"Animal {animal_label} already has an active sale preregistration. Correct the existing submission."})
             return AnimalDisposition.objects.create(**validated_data)
 
 

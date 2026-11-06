@@ -8,6 +8,7 @@ import {
 Dialog,
 DialogContent,
 DialogDescription,
+DialogFooter,
 DialogHeader,
 DialogTitle,
 } from "@/components/ui/dialog";
@@ -29,21 +30,29 @@ import Link from "next/link";
 import {
 BadgeDollarSign,
 Calendar,
+Check,
+ChevronDown,
 Compass,
 MapPin,
 PhilippinePeso,
+Plus,
+Search,
 Sparkles,
 ShoppingBag,
-Truck
+Truck,
+X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { getAutomaticTutorialsEnabled, startGuidedTutorial } from "@/lib/tutorial-preferences";
 import { useAutomaticTutorialsEnabled } from "@/hooks/use-automatic-tutorials-enabled";
 import { toast } from "sonner";
-import type { LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
-import { LivestockPickerField } from "./select-livestock-dialog";
+import { formatLivestockAge } from "@/lib/livestock-age";
+import { type LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
+import { LivestockPicture } from "./select-livestock-dialog";
 
 export interface LiveSaleItem {
   id: number;
@@ -78,6 +87,236 @@ export interface DispositionItem {
   created_at: string;
 }
 
+interface MultiLivestockDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  items: LivestockInventoryItem[];
+  selectedIds: string[];
+  onSelectionChange: (ids: string[]) => void;
+  activeDispositions?: DispositionItem[];
+  title?: string;
+  description?: string;
+}
+
+function MultiLivestockDialog({
+  open,
+  onOpenChange,
+  items,
+  selectedIds,
+  onSelectionChange,
+  activeDispositions = [],
+  title = "Select Livestock for Intent Declaration",
+  description = "Choose one or multiple active animals to include in this plan.",
+}: MultiLivestockDialogProps) {
+  const [query, setQuery] = useState("");
+  const [localSelected, setLocalSelected] = useState<string[]>(selectedIds);
+
+  useEffect(() => {
+    if (open) {
+      setLocalSelected(selectedIds);
+      setQuery("");
+    }
+  }, [open, selectedIds]);
+
+  const activeDispositionMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const d of activeDispositions) {
+      map.set(d.livestock, d.intent);
+    }
+    return map;
+  }, [activeDispositions]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((item) =>
+      [
+        item.tagNumber,
+        item.batchCode,
+        item.batchName,
+        item.livestockTypeName,
+        item.breed,
+        item.sex,
+        item.id,
+      ]
+        .filter(Boolean)
+        .some((val) => String(val).toLowerCase().includes(q))
+    );
+  }, [items, query]);
+
+  const eligibleFiltered = useMemo(() => {
+    return filtered.filter((item) => !activeDispositionMap.has(Number(item.id)));
+  }, [filtered, activeDispositionMap]);
+
+  const toggleItem = (id: string, disabled?: boolean) => {
+    if (disabled) return;
+    setLocalSelected((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    const allEligibleIds = eligibleFiltered.map((item) => item.id);
+    setLocalSelected((prev) => Array.from(new Set([...prev, ...allEligibleIds])));
+  };
+
+  const handleClearAll = () => {
+    setLocalSelected([]);
+  };
+
+  const handleApply = () => {
+    onSelectionChange(localSelected);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-2xl bg-white">
+        <DialogHeader className="p-4 sm:p-5 pb-3 border-b border-slate-100 shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <DialogTitle className="text-base font-bold text-slate-900">
+                {title}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                {description}
+              </DialogDescription>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSelectAll}
+                disabled={eligibleFiltered.length === 0}
+                className="h-7 text-[11px] bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium px-2.5 rounded-lg disabled:opacity-50"
+              >
+                Select all eligible ({eligibleFiltered.length})
+              </Button>
+              {localSelected.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearAll}
+                  className="h-7 text-[11px] text-slate-600 hover:text-slate-900 px-2"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="relative mt-3">
+            <Search className="absolute left-3 top-2.5 size-4 text-slate-400" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search tag number, breed, or animal ID..."
+              className="pl-9 h-9 text-xs rounded-xl border-slate-200 bg-slate-50/70"
+            />
+          </div>
+        </DialogHeader>
+
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-2 flex-1">
+          {items.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-xs text-slate-500">
+              No active approved livestock is available for sale or movement planning.
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-xs text-slate-500">
+              No livestock matches your search &quot;{query}&quot;.
+            </div>
+          ) : (
+            <div className="divide-y divide-emerald-100 rounded-xl border border-emerald-200/80 bg-white overflow-hidden shadow-xs">
+              {filtered.map((item) => {
+                const isSelected = localSelected.includes(item.id);
+                const currentIntent = activeDispositionMap.get(Number(item.id));
+                const isAlreadyDeclared = Boolean(currentIntent);
+                return (
+                  <label
+                    key={item.id}
+                    className={`flex items-start gap-3 p-3 transition-colors ${
+                      isAlreadyDeclared
+                        ? "cursor-not-allowed bg-slate-50/80 opacity-60"
+                        : isSelected
+                        ? "cursor-pointer bg-emerald-50/60"
+                        : "cursor-pointer hover:bg-slate-50/70"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      disabled={isAlreadyDeclared}
+                      onCheckedChange={() => toggleItem(item.id, isAlreadyDeclared)}
+                      className="mt-1 border-emerald-500 data-[state=checked]:bg-[#0F4A2F] data-[state=checked]:border-[#0F4A2F] disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <LivestockPicture
+                      item={item}
+                      selected={false}
+                      className="size-11 rounded-xl text-xl"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2 font-bold text-xs text-slate-900">
+                        {item.tagNumber || `Animal #${item.id}`}
+                        <span className="text-[11px] font-semibold text-slate-500">
+                          ({item.livestockTypeName})
+                        </span>
+                        {currentIntent && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-amber-50 text-amber-800 border-amber-300 font-medium"
+                          >
+                            Already declared ({currentIntent.replace("FOR_", "").toLowerCase()})
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="mt-1 block text-[11px] text-slate-600">
+                        {item.breed || "Breed not specified"} · {item.sex || "Sex not specified"}
+                        {item.age && formatLivestockAge(item.age) !== "Unknown" ? ` · ${formatLivestockAge(item.age)}` : ""}
+                        {item.weight ? ` · ${item.weight} kg` : ""}
+                      </span>
+                    </span>
+                    {isSelected && !isAlreadyDeclared && (
+                      <Badge className="bg-emerald-700 text-white text-[10px] shrink-0">
+                        Selected
+                      </Badge>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="p-3 sm:p-4 px-5 border-t border-slate-100 bg-slate-50 flex items-center justify-between sm:justify-between shrink-0">
+          <span className="text-xs text-slate-600 font-medium">
+            {localSelected.length} animal{localSelected.length === 1 ? "" : "s"} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="h-8 text-xs rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleApply}
+              className="h-8 text-xs font-bold rounded-xl bg-[#0F4A2F] hover:bg-[#0B3D26] text-white px-4"
+            >
+              Apply Selection ({localSelected.length})
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ProductionSalesTab({
   intentInventories,
   autoOpenIntent = false,
@@ -89,10 +328,11 @@ export default function ProductionSalesTab({
   const species = route.species || "";
   const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const queryClient = useQueryClient();
-  const [submittedRegistration, setSubmittedRegistration] = useState<{ id: number; reference: string } | null>(null);
+  const [submittedRegistration, setSubmittedRegistration] = useState<{ id: number; reference: string; references?: string[]; count?: number } | null>(null);
   const [isIntentOpen, setIsIntentOpen] = useState(autoOpenIntent);
   // Intent form state
-  const [intentLivestockId, setIntentLivestockId] = useState("");
+  const [selectedAnimalIds, setSelectedAnimalIds] = useState<string[]>([]);
+  const [isAnimalSelectorOpen, setIsAnimalSelectorOpen] = useState(false);
   const [intentType, setIntentType] = useState<"FOR_SALE" | "FOR_SLAUGHTER" | "FOR_MOVEMENT">("FOR_SALE");
   const [targetDate, setTargetDate] = useState("");
   const [targetDestination, setTargetDestination] = useState("");
@@ -102,7 +342,7 @@ export default function ProductionSalesTab({
 
   const startIntentTutorial = useCallback(() => {
     const steps: DriveStep[] = [
-      { element: '[data-tour="intent-record-livestock"]', popover: { title: "Choose the livestock", description: "Select the active animal or herd this plan is about.", side: "bottom", align: "center" } },
+      { element: '[data-tour="intent-record-livestock"]', popover: { title: "Choose the livestock", description: "Select one or multiple active animals or herds this plan is about.", side: "bottom", align: "center" } },
       { element: '[data-tour="intent-record-type"]', popover: { title: "Choose your plan", description: "Declare whether the livestock is intended for sale, slaughter, or movement.", side: "bottom", align: "center" } },
       { element: '[data-tour="intent-record-date"]', popover: { title: "Choose a target date", description: "Add an optional date for the planned sale, slaughter, or movement.", side: "bottom", align: "center" } },
       { element: '[data-tour="intent-record-destination"]', popover: { title: "Add a destination", description: "Add the intended buyer, market, slaughterhouse, or receiving location when known.", side: "bottom", align: "center" } },
@@ -148,18 +388,44 @@ export default function ProductionSalesTab({
   });
 
   const recordIntentMutation = useMutation({
-    mutationFn: async (payload: Record<string, unknown>) => {
+    mutationFn: async (payload: {
+      livestock_ids: string[];
+      intent: string;
+      target_date: string | null;
+      target_destination: string;
+      notes: string;
+      original_certificate_number: string;
+    }) => {
       const body = new FormData();
-      Object.entries(payload).forEach(([key, value]) => { if (value != null && value !== "") body.append(key, String(value)); });
+      body.append("livestock_ids", payload.livestock_ids.join(","));
+      body.append("livestock", payload.livestock_ids[0]);
+      body.append("intent", payload.intent);
+      if (payload.target_date) body.append("target_date", payload.target_date);
+      if (payload.target_destination) body.append("target_destination", payload.target_destination);
+      if (payload.notes) body.append("notes", payload.notes);
+      if (payload.original_certificate_number) body.append("original_certificate_number", payload.original_certificate_number);
       if (intentDocument && intentType === "FOR_SALE") body.append("supporting_document", intentDocument);
       const res = await api.post("production/dispositions/", body);
       return res.data;
     },
-    onSuccess: (data: { id: number; reference: string }) => {
-      if (intentType === "FOR_SALE") setSubmittedRegistration(data);
-      toast.success(intentType === "FOR_SALE" ? "Auction preregistration submitted. Keep your AP reference below." : "Animal intent declared.");
+    onSuccess: (data: { id: number; reference: string; references?: string[]; count?: number }) => {
+      const count = data.count || selectedAnimalIds.length || 1;
+      if (intentType === "FOR_SALE") {
+        setSubmittedRegistration(data);
+        toast.success(
+          count > 1
+            ? `${count} auction preregistrations submitted. Keep your AP references below.`
+            : "Auction preregistration submitted. Keep your AP reference below."
+        );
+      } else {
+        toast.success(
+          count > 1
+            ? `${count} animals declared for ${intentType === "FOR_SLAUGHTER" ? "slaughter" : "movement"}.`
+            : "Animal intent declared."
+        );
+      }
       setIsIntentOpen(false);
-      setIntentLivestockId("");
+      setSelectedAnimalIds([]);
       setTargetDate("");
       setTargetDestination("");
       setIntentNotes("");
@@ -177,13 +443,13 @@ export default function ProductionSalesTab({
 
   const handleIntentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!intentLivestockId) {
-      toast.error("Please select an animal.");
+    if (selectedAnimalIds.length === 0) {
+      toast.error("Please select at least one animal.");
       return;
     }
 
     recordIntentMutation.mutate({
-      livestock: Number(intentLivestockId),
+      livestock_ids: selectedAnimalIds,
       intent: intentType,
       target_date: targetDate || null,
       target_destination: targetDestination.trim(),
@@ -381,22 +647,71 @@ export default function ProductionSalesTab({
 
       <Dialog open={submittedRegistration !== null} onOpenChange={open => { if (!open) setSubmittedRegistration(null); }}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-2xl bg-white sm:max-w-lg">
-          <DialogHeader><DialogTitle>Preregistration submitted</DialogTitle><DialogDescription>Save this QR and show it to Auction staff at the market. Staff can scan it to open this preregistration for review.</DialogDescription></DialogHeader>
-          {submittedRegistration && <QrCodePass code={submittedRegistration.reference} qrPayload={submittedRegistration.reference} title="Auction preregistration" subtitle="Save this QR for your market visit." status="SUBMITTED" compact />}
+          <DialogHeader>
+            <DialogTitle>
+              {submittedRegistration && (submittedRegistration.count ?? 1) > 1
+                ? `${submittedRegistration.count} Preregistrations submitted`
+                : "Preregistration submitted"}
+            </DialogTitle>
+            <DialogDescription>
+              Save your QR and show it to Auction staff at the market. Staff can scan it to open your preregistration for review.
+            </DialogDescription>
+          </DialogHeader>
+          {submittedRegistration && (
+            <div className="space-y-4">
+              <QrCodePass
+                code={submittedRegistration.reference}
+                qrPayload={submittedRegistration.reference}
+                title="Auction preregistration"
+                subtitle="Save this QR for your market visit."
+                status="SUBMITTED"
+                compact
+              />
+              {submittedRegistration.references && submittedRegistration.references.length > 1 && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs space-y-1.5">
+                  <p className="font-bold text-emerald-950">
+                    Generated AP References ({submittedRegistration.references.length} heads):
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {submittedRegistration.references.map((ref) => (
+                      <span
+                        key={ref}
+                        className="inline-block rounded-md border border-emerald-300 bg-white px-2 py-0.5 font-mono text-xs font-bold text-emerald-800 shadow-2xs"
+                      >
+                        {ref}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <Button variant="outline" onClick={() => setSubmittedRegistration(null)}>Done</Button>
         </DialogContent>
       </Dialog>
 
+      {/* Multi-Livestock Selection Dialog */}
+      <MultiLivestockDialog
+        open={isAnimalSelectorOpen}
+        onOpenChange={setIsAnimalSelectorOpen}
+        items={intentInventories}
+        selectedIds={selectedAnimalIds}
+        onSelectionChange={setSelectedAnimalIds}
+        activeDispositions={dispositions}
+        title="Choose Livestock for Intent Declaration"
+        description="Select one or multiple active animals or herds from your approved inventory."
+      />
+
       {/* Declare Intent Dialog */}
       <Dialog open={isIntentOpen} onOpenChange={setIsIntentOpen}>
-        <DialogContent className="sm:max-w-md p-6 rounded-2xl">
+        <DialogContent className="sm:max-w-lg p-6 rounded-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="flex-row items-start justify-between gap-3">
             <div className="space-y-1.5">
             <DialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <Compass className="size-5 text-emerald-700" /> Declare Commercial Intent
             </DialogTitle>
             <DialogDescription>
-              Tell Auction or your reviewer what you plan to do. This declaration does not mark the animal sold or change its inventory status.
+              Tell Auction or your reviewer what you plan to do. You can declare one or multiple animals in a single plan.
             </DialogDescription>
             </div>
             {tutorialsEnabled && (
@@ -407,19 +722,84 @@ export default function ProductionSalesTab({
           </DialogHeader>
 
           <form onSubmit={handleIntentSubmit} className="space-y-4 mt-2">
-            <div data-tour="intent-record-livestock">
-            <LivestockPickerField
-              id="intent-animal"
-              label="Select Livestock *"
-              placeholder="Choose livestock"
-              items={intentInventories}
-              selectedId={intentLivestockId}
-              onSelect={(item) => setIntentLivestockId(item.id)}
-              warnOnActiveDisease
-              dialogTitle="Choose Livestock for Sale or Movement"
-              dialogDescription="Choose an active approved animal or herd for this commercial intent."
-              emptyStateText="No active approved livestock is available for sale or movement planning."
-            />
+            {/* Multi-Livestock Selection Field */}
+            <div data-tour="intent-record-livestock" className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-800">
+                  Select Livestock *
+                </Label>
+                <span className="text-[11px] font-semibold text-slate-500">
+                  {selectedAnimalIds.length} {selectedAnimalIds.length === 1 ? "animal" : "animals"} selected
+                </span>
+              </div>
+
+              {selectedAnimalIds.length === 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsAnimalSelectorOpen(true)}
+                  className="w-full justify-between h-auto py-3 px-3.5 rounded-xl border-dashed border-slate-300 bg-slate-50/70 hover:bg-white hover:border-emerald-500 transition-all text-left"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <Plus className="size-4" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Choose livestock</p>
+                      <p className="text-[11px] text-slate-500">Select one or multiple animals for this declaration</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-slate-500">
+                    Browse herd
+                  </Badge>
+                </Button>
+              ) : (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                      <Check className="size-3.5 text-emerald-700" />
+                      {selectedAnimalIds.length} {selectedAnimalIds.length === 1 ? "head" : "heads"} selected
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsAnimalSelectorOpen(true)}
+                      className="h-7 text-[11px] rounded-lg border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-50 font-semibold px-2.5"
+                    >
+                      Change / Add more
+                    </Button>
+                  </div>
+
+                  {/* Selected animal chips */}
+                  <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
+                    {selectedAnimalIds.map((id) => {
+                      const animal = intentInventories.find((item) => item.id === id);
+                      const label = animal
+                        ? (animal.tagNumber || `Animal #${animal.id}`)
+                        : `#${id}`;
+                      const sub = animal ? `${animal.livestockTypeName}${animal.breed ? ` · ${animal.breed}` : ""}` : "";
+                      return (
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-2 py-1 text-xs font-medium text-slate-800 shadow-2xs"
+                        >
+                          <span className="font-bold text-emerald-900">{label}</span>
+                          {sub && <span className="text-[10px] text-slate-500">({sub})</span>}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedAnimalIds((prev) => prev.filter((item) => item !== id))}
+                            className="rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                            title="Remove animal"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div data-tour="intent-record-type" className="space-y-1.5">
@@ -489,7 +869,11 @@ export default function ProductionSalesTab({
                 disabled={recordIntentMutation.isPending}
                 className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold"
               >
-                {recordIntentMutation.isPending ? "Saving..." : "Save Declaration"}
+                {recordIntentMutation.isPending
+                  ? "Saving..."
+                  : selectedAnimalIds.length > 1
+                  ? `Save ${selectedAnimalIds.length} Declarations`
+                  : "Save Declaration"}
               </Button>
             </div>
           </form>
