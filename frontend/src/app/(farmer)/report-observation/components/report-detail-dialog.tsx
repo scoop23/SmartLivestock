@@ -69,9 +69,9 @@ export default function ReportDetailDialog({
     const isMortalityReport = report?.reportType === "MORTALITY";
     const steps: DriveStep[] = [
       { element: '[data-tour="report-detail-header"]', popover: { title: "Report reference", description: "This heading identifies whether the record is a disease or mortality report. The reference number helps you and staff find the same case.", side: "bottom", align: "start" } },
-      { element: '[data-tour="report-detail-progress"]', popover: { title: "Review progress", description: "Follow the workflow from farmer submission through SIBAT field review and MAO review. The status shows the current stage.", side: "bottom", align: "center" } },
+      { element: '[data-tour="report-detail-progress"]', popover: { title: "Review progress", description: "Follow the workflow from farmer submission through CBAT field review and MAO review. The status shows the current stage.", side: "bottom", align: "center" } },
       { element: '[data-tour="report-detail-history"]', popover: { title: "Case history", description: "This section shows the affected headcount, barangay when available, report date, and overall review status or revision feedback.", side: "bottom", align: "start" } },
-      { element: '[data-tour="report-detail-official-notes"]', popover: { title: "Field and municipal notes", description: "CBAT / SIBAT findings and MAO remarks appear separately here. A pending message means that review step has not been completed yet.", side: "top", align: "center" } },
+      { element: '[data-tour="report-detail-official-notes"]', popover: { title: "Field and municipal notes", description: "CBAT findings and MAO remarks appear separately here. A pending message means that review step has not been completed yet.", side: "top", align: "center" } },
       { element: '[data-tour="report-detail-summary"]', popover: { title: "Animal and case summary", description: "Check the livestock type, breed, tag, affected count, and date connected to this report.", side: "top", align: "start" } },
       { element: '[data-tour="report-detail-concern"]', popover: { title: isMortalityReport ? "Reported cause" : "Reported symptoms", description: "These are the concern reported by the farmer. They are observations and do not by themselves confirm a diagnosis.", side: "top", align: "start" } },
       { element: '[data-tour="report-detail-observations"]', popover: { title: "Farmer observations", description: "Read the farmer’s description and context for the incident.", side: "top", align: "start" } },
@@ -124,7 +124,7 @@ export default function ReportDetailDialog({
         return {
           bg: "bg-sky-50 text-sky-800 border-sky-200",
           icon: <ShieldCheck className="size-4 text-sky-700" />,
-          title: "Verified by SIBAT Inspector",
+          title: "Verified by CBAT Inspector",
           stage: 2,
         };
       case "SUBJECT_TO_REVISION":
@@ -140,7 +140,7 @@ export default function ReportDetailDialog({
         return {
           bg: "bg-amber-50 text-amber-900 border-amber-200",
           icon: <Clock className="size-4 text-amber-700" />,
-          title: "Pending SIBAT Field Check",
+          title: "Pending CBAT Field Check",
           stage: 1,
         };
     }
@@ -175,7 +175,7 @@ export default function ReportDetailDialog({
   const cbatVerifiedBy =
     report.inspectionDetails?.verifiedBy ||
     (isVerified ? report.reviewedByName : null) ||
-    "CBAT / SIBAT Field Officer";
+    "CBAT Field Officer";
 
   const cbatVerifiedAt =
     report.inspectionDetails?.verifiedAt ||
@@ -376,7 +376,7 @@ export default function ReportDetailDialog({
                 ? "Field review complete · MAO certification pending"
                 : report.status === "SUBJECT_TO_REVISION" ||
                   report.status === "SUBJECT_FOR_REVISION"
-                ? "Needs revision · SIBAT feedback required"
+                ? "Needs revision · CBAT feedback required"
                 : "Report submitted · Pending field review"}
             </div>
           </div>
@@ -535,7 +535,7 @@ export default function ReportDetailDialog({
                           Noted from CBAT
                         </span>
                         <span className="text-[10px] text-sky-800 font-bold bg-sky-100 px-2 py-0.5 rounded-md border border-sky-200">
-                          SIBAT Field Verification
+                          CBAT Field Verification
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 font-medium mt-0.5">
@@ -569,7 +569,7 @@ export default function ReportDetailDialog({
                   <p className="whitespace-pre-wrap font-medium text-slate-800">
                     {cbatRemarks ||
                       (isPending
-                        ? "A CBAT / SIBAT officer is assigned to conduct an on-site physical examination to verify clinical signs and confirm animal identity."
+                        ? "A CBAT officer is assigned to conduct an on-site physical examination to verify clinical signs and confirm animal identity."
                         : isApproved
                         ? "On-farm physical examination confirmed the animal's identity and clinical condition prior to MAO approval."
                         : "No specific inspector remarks entered.")}

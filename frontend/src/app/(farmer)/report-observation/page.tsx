@@ -586,7 +586,7 @@ function ReportObservationContent() {
       variant: "rose",
     },
     {
-      label: "Waiting for SIBAT",
+      label: "Waiting for CBAT",
       value: pendingVerification,
       sub: "Pending field inspection",
       icon: <Clock className="size-4.5" />,
@@ -835,7 +835,7 @@ function ReportObservationContent() {
                     VERIFIED: {
                       badgeClass: "bg-sky-100 text-sky-800 border-0",
                       icon: <ShieldCheck className="size-3 text-sky-600" />,
-                      label: "SIBAT Verified",
+                      label: "CBAT Verified",
                     },
                     SUBJECT_TO_REVISION: {
                       badgeClass: "bg-rose-100 text-rose-800 border-0",
@@ -855,7 +855,7 @@ function ReportObservationContent() {
                     PENDING: {
                       badgeClass: "bg-amber-50 text-amber-800 border border-amber-200",
                       icon: <Clock className="size-3 text-amber-600" />,
-                      label: "Pending SIBAT Visit",
+                      label: "Pending CBAT Visit",
                     },
                   }[rep.status] || {
                     badgeClass: "bg-slate-100 text-slate-700 border-0",

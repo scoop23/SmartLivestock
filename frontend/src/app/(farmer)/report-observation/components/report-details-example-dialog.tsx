@@ -41,9 +41,9 @@ export default function ReportDetailsExampleDialog({
           <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4">
             <div className="flex items-center gap-2 text-sm font-extrabold text-slate-900">
               <ShieldCheck className="size-4 text-sky-700" /> Review progress
-              <Badge variant="outline" className="ml-auto border-amber-300 bg-amber-50 text-amber-900">Pending SIBAT visit</Badge>
+              <Badge variant="outline" className="ml-auto border-amber-300 bg-amber-50 text-amber-900">Pending CBAT visit</Badge>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-slate-600">This status means the farmer submitted the report and it is waiting for field verification. SIBAT verification and MAO approval are separate review steps.</p>
+            <p className="mt-2 text-xs leading-relaxed text-slate-600">This status means the farmer submitted the report and it is waiting for field verification. CBAT verification and MAO approval are separate review steps.</p>
           </div>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -52,7 +52,7 @@ export default function ReportDetailsExampleDialog({
               <ExampleField label="Reference" value="DIS-EXAMPLE" explanation="The report identifier used when staff open or discuss this case." />
               <ExampleField label="Animal" value="CATTLE-EXAMPLE-01 · Cattle" explanation="The livestock tag and type connected to the report." />
               <ExampleField label="Reported" value="Oct 23, 2026 · 1 head" explanation="When the report was recorded and how many animals are affected." />
-              <ExampleField label="Status" value="Pending SIBAT visit" explanation="The current review stage. A pending report is not yet verified or approved." />
+              <ExampleField label="Status" value="Pending CBAT visit" explanation="The current review stage. A pending report is not yet verified or approved." />
             </div>
           </section>
 
@@ -63,7 +63,7 @@ export default function ReportDetailsExampleDialog({
           </section>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <ExampleField label="CBAT / SIBAT field notes" value="Awaiting field visit" explanation="Staff findings, confirmed signs, and any field instructions appear here after inspection." />
+            <ExampleField label="CBAT field notes" value="Awaiting field visit" explanation="Staff findings, confirmed signs, and any field instructions appear here after inspection." />
             <ExampleField label="MAO review" value="Awaiting field verification" explanation="Municipal review remarks and approval details appear here when MAO has reviewed the case." />
           </div>
 
