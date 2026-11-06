@@ -996,38 +996,6 @@ function LivestockRecordsContent() {
           </Card>
         </div>
 
-        {/* ── High-Tech Herds Callout Banner (Matching Data Validation) ── */}
-        <div className="bg-gradient-to-r from-[#1E4D2B] via-emerald-900 to-[#163b21] text-white p-4 rounded-2xl shadow-sm border border-emerald-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="size-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0 shadow-inner">
-              <Layers className="size-5 text-emerald-300" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-black uppercase tracking-wider text-emerald-300">
-                  Municipal Livestock Registry
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 font-mono">
-                  {kpis.totalHerds} Herds • {kpis.totalAnimals} Animals
-                </span>
-              </div>
-              <p className="text-xs text-emerald-100/90 font-medium mt-0.5">
-                Inspect registered herds and drill down into individual ear tag biometrics, vaccination history, and pen housing.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              onClick={() => handleTabChange(activeTab === "herd" ? "individual" : "herd")}
-              className="bg-white text-[#1E4D2B] hover:bg-emerald-50 font-bold text-xs rounded-xl shadow-xs gap-1.5 h-9"
-            >
-              <span>Switch to {activeTab === "herd" ? "Individual Animals" : "Herd Registry"}</span>
-              <ChevronRight className="size-4" />
-            </Button>
-          </div>
-        </div>
-
         {/* ── Top Navigation Tabs (Herd Registry & Individual Animals ONLY, no add button) ── */}
         <div className="flex items-center justify-between border-b border-slate-200/90 pb-2">
           <div className="flex items-center gap-2 sm:gap-3">
