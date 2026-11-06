@@ -44,6 +44,9 @@ interface Giro3DBarangayViewProps {
   showMovementOverlay?: boolean;
   movementDisplayMode?: Movement3DDisplayMode;
   isTimelineActive?: boolean;
+  enableCirclingCamera?: boolean;
+  isCircling?: boolean;
+  onCirclingChange?: (circling: boolean) => void;
 }
 
 interface AnimatedPulse {
@@ -277,12 +280,21 @@ export function Giro3DBarangayView({
   showMovementOverlay = false,
   movementDisplayMode = 'both',
   isTimelineActive = false,
+  enableCirclingCamera = false,
+  isCircling = false,
+  onCirclingChange,
 }: Giro3DBarangayViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<Instance | null>(null);
   const collectionRef = useRef<FeatureCollection | null>(null);
   const sceneExtentRef = useRef<Extent | null>(null);
   const controlsRef = useRef<MapControls | null>(null);
+  useEffect(() => {
+    if (controlsRef.current && enableCirclingCamera) {
+      controlsRef.current.autoRotate = Boolean(isCircling);
+    }
+  }, [isCircling, enableCirclingCamera]);
+
   const featuresByNameRef = useRef(new Map<string, Feature<Geometry>>());
   const threeModuleRef = useRef<typeof import('three') | null>(null);
   const movementGroupRef = useRef<import('three').Group | null>(null);
@@ -711,8 +723,16 @@ export function Giro3DBarangayView({
         controls.maxPolarAngle = Math.PI / 2.15;
         controls.maxDistance = 6_000_000;
         controls.target.copy(center);
+        if (enableCirclingCamera) {
+          controls.autoRotate = Boolean(isCircling);
+          controls.autoRotateSpeed = 0.75;
+          controls.addEventListener('start', () => {
+            onCirclingChange?.(false);
+          });
+        }
         controls.update();
         controls.saveState();
+        controlsRef.current = controls;
         instance.view.setControls(controls);
 
         // Convert each 3D top-face anchor into canvas pixels; CSS labels then render above the WebGL canvas.

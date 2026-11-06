@@ -189,6 +189,86 @@ function MapResizeHandler() {
   return null;
 }
 
+interface CirclingCameraOrbitProps {
+  enabled: boolean;
+  isCircling: boolean;
+  onCirclingChange?: (circling: boolean) => void;
+  center: [number, number];
+}
+
+function CirclingCameraOrbit({
+  enabled,
+  isCircling,
+  onCirclingChange,
+  center,
+}: CirclingCameraOrbitProps) {
+  const map = useMap();
+  const angleRef = useRef<number>(0);
+  const lastTimeRef = useRef<number | null>(null);
+  const isCirclingRef = useRef<boolean>(isCircling);
+  isCirclingRef.current = isCircling;
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const stopCircling = () => {
+      if (isCirclingRef.current) {
+        onCirclingChange?.(false);
+      }
+    };
+
+    map.on('dragstart', stopCircling);
+    map.on('zoomstart', stopCircling);
+
+    const container = map.getContainer();
+    container.addEventListener('mousedown', stopCircling);
+    container.addEventListener('touchstart', stopCircling, { passive: true });
+    container.addEventListener('wheel', stopCircling, { passive: true });
+
+    return () => {
+      map.off('dragstart', stopCircling);
+      map.off('zoomstart', stopCircling);
+      container.removeEventListener('mousedown', stopCircling);
+      container.removeEventListener('touchstart', stopCircling);
+      container.removeEventListener('wheel', stopCircling);
+    };
+  }, [enabled, map, onCirclingChange]);
+
+  useEffect(() => {
+    if (!enabled || !isCircling) return;
+
+    let animId: number;
+    // Radius of circular orbit around Padre Garcia municipal center (~550m lat, ~650m lng)
+    const radiusLat = 0.005;
+    const radiusLng = 0.006;
+    // Smooth cinematic rotation: one full revolution every ~60 seconds
+    const angularSpeed = (2 * Math.PI) / 60;
+
+    const tick = (time: number) => {
+      if (lastTimeRef.current !== null) {
+        const dt = Math.min((time - lastTimeRef.current) / 1000, 0.1);
+        angleRef.current += angularSpeed * dt;
+
+        const currentLat = center[0] + radiusLat * Math.sin(angleRef.current);
+        const currentLng = center[1] + radiusLng * Math.cos(angleRef.current);
+
+        map.setView([currentLat, currentLng], map.getZoom(), { animate: false });
+      }
+      lastTimeRef.current = time;
+      animId = requestAnimationFrame(tick);
+    };
+
+    animId = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(animId);
+      lastTimeRef.current = null;
+    };
+  }, [enabled, isCircling, center, map]);
+
+  return null;
+}
+
+
 // Calculate a subtle curved arc between origin and destination to prevent overlapping routes
 function computeCurvedArc(
   from: [number, number],
@@ -350,6 +430,9 @@ interface GISMapProps {
   showAdjacentDiseaseAlerts?: boolean;
   showAdjacentOutbreakColor?: boolean;
   showAdjacentOutbreakDots?: boolean;
+  enableCirclingCamera?: boolean;
+  isCircling?: boolean;
+  onCirclingChange?: (circling: boolean) => void;
 }
 
 export function GISMap({
@@ -374,6 +457,9 @@ export function GISMap({
   showAdjacentDiseaseAlerts = true,
   showAdjacentOutbreakColor = true,
   showAdjacentOutbreakDots = true,
+  enableCirclingCamera = false,
+  isCircling = false,
+  onCirclingChange,
 }: GISMapProps) {
   const centerPosition: [number, number] = [13.8741, 121.2529];
   const [leafletLib, setLeafletLib] = useState<typeof import('leaflet') | null>(null);
@@ -1451,6 +1537,9 @@ export function GISMap({
           showMovementOverlay={showMovementOverlay}
           movementDisplayMode={movementDisplayMode}
           isTimelineActive={isTimelineActive}
+          enableCirclingCamera={enableCirclingCamera}
+          isCircling={isCircling}
+          onCirclingChange={onCirclingChange}
         />
       ) : (
       <div className="w-full h-full">
@@ -1462,6 +1551,14 @@ export function GISMap({
         >
           <FitBounds resetTrigger={resetTrigger} userScope={userScope} selectedBarangay={selectedBarangay} />
           <MapResizeHandler />
+          {enableCirclingCamera && (
+            <CirclingCameraOrbit
+              enabled={enableCirclingCamera}
+              isCircling={Boolean(isCircling)}
+              onCirclingChange={onCirclingChange}
+              center={centerPosition}
+            />
+          )}
 
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
