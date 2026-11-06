@@ -1691,7 +1691,7 @@ export default function LivestockDetailPage() {
                 <TabsTrigger
                   value="growth"
                   onClick={(e) => handleSelectProfileTab("growth", e)}
-                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all duration-200 active:scale-95 text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <TrendingUp className="size-3.5 shrink-0 text-emerald-600" />
                   <span>Growth &amp; Weight</span>
@@ -1701,7 +1701,7 @@ export default function LivestockDetailPage() {
                   <TabsTrigger
                     value="production"
                     onClick={(e) => handleSelectProfileTab("production", e)}
-                    className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                    className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all duration-200 active:scale-95 text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                   >
                     <Milk className="size-3.5 shrink-0 text-sky-600" />
                     <span>Production</span>
@@ -1712,7 +1712,7 @@ export default function LivestockDetailPage() {
                   <TabsTrigger
                     value="milk-prediction"
                     onClick={(e) => handleSelectProfileTab("milk-prediction", e)}
-                    className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                    className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all duration-200 active:scale-95 text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                   >
                     <Milk className="size-3.5 shrink-0 text-amber-500" />
                     <span>Milk Prediction</span>
@@ -1722,7 +1722,7 @@ export default function LivestockDetailPage() {
                 <TabsTrigger
                   value="calving"
                   onClick={(e) => handleSelectProfileTab("calving", e)}
-                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all duration-200 active:scale-95 text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Baby className="size-3.5 shrink-0 text-pink-600" />
                   <span>{terms.eventName} &amp; Offspring</span>
@@ -1734,7 +1734,7 @@ export default function LivestockDetailPage() {
                 <TabsTrigger
                   value="breeding"
                   onClick={(e) => handleSelectProfileTab("breeding", e)}
-                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all duration-200 active:scale-95 text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <CalendarClock className="size-3.5 shrink-0 text-indigo-600" />
                   <span>Breeding</span>
@@ -1748,7 +1748,7 @@ export default function LivestockDetailPage() {
                 <TabsTrigger
                   value="feeding"
                   onClick={(e) => handleSelectProfileTab("feeding", e)}
-                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all duration-200 active:scale-95 text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Wheat className="size-3.5 shrink-0 text-amber-600" />
                   <span>Feeding</span>
@@ -1762,7 +1762,7 @@ export default function LivestockDetailPage() {
                 <TabsTrigger
                   value="health"
                   onClick={(e) => handleSelectProfileTab("health", e)}
-                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all duration-200 active:scale-95 text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Stethoscope className="size-3.5 shrink-0 text-rose-600" />
                   <span>Health &amp; Vaccines</span>
@@ -1771,7 +1771,7 @@ export default function LivestockDetailPage() {
                 <TabsTrigger
                   value="treatments"
                   onClick={(e) => handleSelectProfileTab("treatments", e)}
-                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all duration-200 active:scale-95 text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Pill className="size-3.5 shrink-0 text-teal-600" />
                   <span>Treatments</span>
@@ -1786,7 +1786,7 @@ export default function LivestockDetailPage() {
                   value="pedigree"
                   data-tour="profile-pedigree-tab-desktop"
                   onClick={(e) => handleSelectProfileTab("pedigree", e)}
-                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all duration-200 active:scale-95 text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Heart className="size-3.5 shrink-0 text-purple-600" />
                   <span>Pedigree &amp; Lineage</span>
@@ -1795,7 +1795,7 @@ export default function LivestockDetailPage() {
                 <TabsTrigger
                   value="ownership"
                   onClick={(e) => handleSelectProfileTab("ownership", e)}
-                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
+                  className="flex-1 h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 xl:px-3.5 py-1.5 text-xs font-bold transition-all duration-200 active:scale-95 text-slate-600 hover:text-slate-900 hover:bg-white/50 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/60"
                 >
                   <Layers className="size-3.5 shrink-0 text-slate-600" />
                   <span>Ownership History</span>
@@ -1837,7 +1837,7 @@ export default function LivestockDetailPage() {
             </div>
 
           {/* ── TAB 1: GROWTH & WEIGHT LOGS ───────────────────────────────── */}
-          <TabsContent value="growth" className="space-y-6">
+          <TabsContent value="growth" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Chart Card */}
               <Card className="lg:col-span-2 rounded-3xl border-slate-200 shadow-sm bg-white p-5 space-y-4">
@@ -2077,7 +2077,7 @@ export default function LivestockDetailPage() {
 
           {/* ── TAB 2: PRODUCTION & YIELD ─────────────────────────────────── */}
           {canProduceMilk && (
-          <TabsContent value="production" className="space-y-6">
+          <TabsContent value="production" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none">
             <Card className="rounded-3xl border-slate-200 shadow-sm bg-white p-6 space-y-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
@@ -2185,13 +2185,13 @@ export default function LivestockDetailPage() {
           )}
 
           {canShowMilkPredictionTab && (
-            <TabsContent value="milk-prediction" className="space-y-6">
+            <TabsContent value="milk-prediction" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none">
               <LivestockMilkForecastTab livestockId={Number(activeItem.id)} />
             </TabsContent>
           )}
 
           {/* ── TAB 3: CALVING & OFFSPRING ─────────────────────────────────── */}
-          <TabsContent value="calving" className="space-y-6">
+          <TabsContent value="calving" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none">
             <Card className="rounded-3xl border-slate-200 shadow-sm bg-white p-6 space-y-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
@@ -2311,7 +2311,7 @@ export default function LivestockDetailPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="breeding" className="space-y-6">
+          <TabsContent value="breeding" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none">
             <Card className="rounded-3xl border-indigo-100 bg-white p-5 shadow-sm space-y-4">
               <div className="flex items-center gap-3">
                 <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><CalendarClock className="size-5" /></div>
@@ -2341,7 +2341,7 @@ export default function LivestockDetailPage() {
           </TabsContent>
 
           {/* ── TAB: FEEDING & RATIONS ──────────────────────────────────── */}
-          <TabsContent value="feeding" className="space-y-6">
+          <TabsContent value="feeding" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none">
             <Card className="rounded-3xl border-amber-100 bg-white p-6 shadow-sm space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -2417,7 +2417,7 @@ export default function LivestockDetailPage() {
           </TabsContent>
 
           {/* ── TAB 4: HEALTH & VACCINES ──────────────────────────────────── */}
-          <TabsContent value="health" className="space-y-6">
+          <TabsContent value="health" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none">
             <Card className="rounded-3xl border-slate-200 shadow-sm bg-white p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -2506,7 +2506,7 @@ export default function LivestockDetailPage() {
           </TabsContent>
 
           {/* ── TAB: CLINICAL TREATMENTS & MEDICATIONS ──────────────────────── */}
-          <TabsContent value="treatments" className="space-y-6">
+          <TabsContent value="treatments" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none">
             <Card className="rounded-3xl border-slate-200 shadow-sm bg-white p-6 space-y-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
                 <div className="flex items-center gap-3">
@@ -2672,7 +2672,7 @@ export default function LivestockDetailPage() {
           </TabsContent>
 
           {/* ── TAB 5: PEDIGREE & LINEAGE ─────────────────────────────────── */}
-          <TabsContent value="pedigree" className="space-y-6">
+          <TabsContent value="pedigree" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none">
             <Card className="rounded-3xl border-slate-200 shadow-sm bg-white p-6 space-y-4">
               <div>
                 <CardTitle className="text-base font-black text-slate-900">
@@ -2723,7 +2723,7 @@ export default function LivestockDetailPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="ownership" className="space-y-6">
+          <TabsContent value="ownership" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300 fill-mode-both motion-reduce:animate-none">
             <Card className="rounded-3xl border-slate-200 shadow-sm bg-white p-5 sm:p-6">
               <OwnershipTransferPanel
                 livestockId={Number(activeItem.id)}

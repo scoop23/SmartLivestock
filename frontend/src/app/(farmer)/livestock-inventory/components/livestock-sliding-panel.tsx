@@ -218,7 +218,7 @@ export function LivestockSlidingPanel({
                 onSelectTab(tab.id);
                 if (snapState === "collapsed") setSnapState("half");
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all duration-200 active:scale-95 cursor-pointer ${
                 isActive
                   ? "bg-emerald-700 text-white shadow-xs"
                   : "bg-white text-slate-700 border border-slate-200/90 hover:bg-slate-100/80 active:bg-slate-200/80"
