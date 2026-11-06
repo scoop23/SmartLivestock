@@ -1,7 +1,6 @@
 "use client";
 
 import { PageHeader } from "@/app/components/page-header";
-import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { QrCodePass } from "@/components/qr-code-pass";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,7 +31,6 @@ TableHeader,
 TableRow,
 } from "@/components/ui/table";
 import api from "@/lib/axios";
-import { localCalendarDateToday } from "@/lib/livestock-age";
 import { livestockBatchQrPayload } from "@/lib/livestock-identity";
 import { useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
@@ -464,7 +462,6 @@ export default function BatchOverviewPage() {
   const [genderFilter, setGenderFilter] = useState<string>("ALL");
 
   // Dialog States
-  const [isAddIndividualOpen, setIsAddIndividualOpen] = useState(false);
   const [isHerdQrOpen, setIsHerdQrOpen] = useState(false);
   const [isGalleryManagerOpen, setIsGalleryManagerOpen] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
@@ -545,17 +542,7 @@ export default function BatchOverviewPage() {
     }
   };
 
-  // Form for adding individual to batch
-  const [isSavingAnimal, setIsSavingAnimal] = useState(false);
   const [isSavingWeight, setIsSavingWeight] = useState(false);
-  const [newAnimalData, setNewAnimalData] = useState({
-    tagNumber: "",
-    breed: "",
-    sex: "FEMALE",
-    weight: "",
-    birthDate: "",
-    lastVaccinationDate: "",
-  });
 
   // Mapped Persisted Herds with Multi-Photo Aggregation
   const batches: EnrichedBatch[] = useMemo(() => {
@@ -676,10 +663,6 @@ export default function BatchOverviewPage() {
     setAnimalCurrentPage(1);
     setIsHerdDetailsOpen(true);
   };
-
-  const canAddAnimalsToCurrentBatch = Boolean(
-    currentBatch && (currentBatch.status === "ACTIVE" || currentBatch.activeCount === 0),
-  );
 
   const handleDeleteEmptyHerd = async () => {
     if (!currentBatch) return;
@@ -887,66 +870,6 @@ export default function BatchOverviewPage() {
     }
   };
 
-  const handleAddIndividual = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentBatch) return;
-
-    if (!newAnimalData.tagNumber.trim()) {
-      toast.error("Ear Tag Number is required.");
-      return;
-    }
-    if (!newAnimalData.breed.trim()) {
-      toast.error("Breed is required.");
-      return;
-    }
-
-    setIsSavingAnimal(true);
-    try {
-      await api.post(`livestock/batches/${currentBatch.id}/animals/`, {
-        animals: [
-          {
-            tag_number: newAnimalData.tagNumber.trim().toUpperCase(),
-            breed: newAnimalData.breed.trim(),
-            sex: newAnimalData.sex,
-            weight: newAnimalData.weight || null,
-            birth_date: newAnimalData.birthDate || null,
-            last_vaccination_date: newAnimalData.lastVaccinationDate || null,
-          },
-        ],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: INVENTORY_QUERY_KEYS.batches,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: INVENTORY_QUERY_KEYS.inventory,
-      });
-      toast.success(
-        `Animal (${newAnimalData.tagNumber.trim().toUpperCase()}) added to herd ${currentBatch.batchName || currentBatch.batchCode}.`
-      );
-      setIsAddIndividualOpen(false);
-      setNewAnimalData({
-        tagNumber: "",
-        breed: "",
-        sex: "FEMALE",
-        weight: "",
-        birthDate: "",
-        lastVaccinationDate: "",
-      });
-    } catch (error: unknown) {
-      const response = isAxiosError<BatchActionErrorResponse>(error)
-        ? error.response?.data
-        : undefined;
-      toast.error(
-        response?.error ||
-          response?.detail ||
-          response?.animals?.[0] ||
-          response?.tag_number?.[0] ||
-          "Could not add animal to this herd."
-      );
-    } finally {
-      setIsSavingAnimal(false);
-    }
-  };
 
   return (
     <>
@@ -1540,17 +1463,6 @@ export default function BatchOverviewPage() {
                         </Button>
                       )}
 
-                      {backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
-                        <Button
-                          type="button"
-                          onClick={() => setIsAddIndividualOpen(true)}
-                          disabled={!canAddAnimalsToCurrentBatch}
-                          className="col-span-2 sm:col-span-1 h-9 sm:h-8.5 gap-1.5 rounded-lg bg-emerald-700 px-3.5 text-xs font-bold text-white hover:bg-emerald-800 shadow-2xs disabled:bg-slate-300 w-full sm:w-auto"
-                        >
-                          <Plus className="size-3.5 stroke-[3]" />
-                          {currentBatch.status === "ACTIVE" ? "Add Animal" : "Reopen & Add Animal"}
-                        </Button>
-                      )}
                       {currentBatch.activeCount === 0 && backendBatches.some((batch) => String(batch.id) === currentBatch.id) && (
                         <Button
                           type="button"
@@ -1564,9 +1476,11 @@ export default function BatchOverviewPage() {
                     </div>
                   </div>
 
-                  {currentBatch.status !== "ACTIVE" && currentBatch.activeCount === 0 && (
+                  {currentBatch.activeCount === 0 && (
                     <div className="mx-3 mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                      This herd has no active heads. Adding an animal will reopen it.
+                      {currentBatch.status === "ACTIVE"
+                        ? "This herd has no active heads. Use Manage Herd on an active animal in your inventory to assign or move it here."
+                        : "This herd is closed and has no active heads. It cannot receive animals. Use an active herd or create a new herd for future animals."}
                     </div>
                   )}
 
@@ -2379,164 +2293,6 @@ export default function BatchOverviewPage() {
               {isSavingWeight ? "Saving..." : "Save Weight"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── DIALOG: ADD ANIMAL TO BATCH ───────────────────────────────────── */}
-      <Dialog open={isAddIndividualOpen} onOpenChange={setIsAddIndividualOpen}>
-        <DialogContent className="w-[calc(100vw-1.5rem)] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-xl bg-white p-3.5 sm:p-4.5 shadow-xl sm:max-h-[90dvh] sm:max-w-sm">
-          <form onSubmit={handleAddIndividual} className="space-y-3">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-1.5 text-base sm:text-lg font-bold text-slate-950">
-                <Plus className="size-4.5 text-emerald-700" />
-                <span>Add Animal to Herd</span>
-              </DialogTitle>
-              <DialogDescription className="text-xs font-medium leading-relaxed text-slate-600">
-                Add an individual animal to herd{" "}
-                <strong className="text-slate-950">{currentBatch?.batchName || "this herd"}</strong>.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="grid grid-cols-1 gap-2.5 py-1 text-xs sm:grid-cols-2">
-              {/* Tag Number */}
-              <div className="space-y-1 sm:col-span-2">
-                <Label
-                  htmlFor="new-herd-animal-tag"
-                  className="text-xs font-bold text-slate-800"
-                >
-                  Ear Tag Number <span className="text-rose-600">*</span>
-                </Label>
-                <Input
-                  id="new-herd-animal-tag"
-                  value={newAnimalData.tagNumber}
-                  onChange={(e) =>
-                    setNewAnimalData({ ...newAnimalData, tagNumber: e.target.value })
-                  }
-                  placeholder="e.g. TAG-001"
-                  className="h-8.5 rounded-lg border border-slate-300 text-xs font-bold uppercase"
-                  required
-                />
-              </div>
-
-              {/* Sex */}
-              <div className="space-y-1">
-                <Label
-                  htmlFor="new-herd-animal-sex"
-                  className="text-xs font-bold text-slate-800"
-                >
-                  Sex <span className="text-rose-600">*</span>
-                </Label>
-                <Select
-                  value={newAnimalData.sex}
-                  onValueChange={(sex) => setNewAnimalData({ ...newAnimalData, sex })}
-                >
-                  <SelectTrigger
-                    id="new-herd-animal-sex"
-                    className="h-8.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-900"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FEMALE">Female</SelectItem>
-                    <SelectItem value="MALE">Male</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Breed */}
-              <LivestockBreedField
-                id="batch-animal-breed"
-                species={currentBatch?.species}
-                value={newAnimalData.breed}
-                onChange={(breed) => setNewAnimalData({ ...newAnimalData, breed })}
-                required
-                className="text-xs font-semibold"
-              />
-
-              {/* Weight */}
-              <div className="space-y-1">
-                <Label
-                  htmlFor="new-herd-animal-weight-optional"
-                  className="text-xs font-semibold text-slate-700"
-                >
-                  Weight in kg (optional)
-                </Label>
-                <Input
-                  id="new-herd-animal-weight-optional"
-                  type="number"
-                  min="0.1"
-                  step="0.1"
-                  value={newAnimalData.weight}
-                  onChange={(e) =>
-                    setNewAnimalData({ ...newAnimalData, weight: e.target.value })
-                  }
-                  placeholder="e.g. 65"
-                  className="h-8.5 rounded-lg border border-slate-300 text-xs font-medium"
-                />
-              </div>
-
-              {/* Birth Date */}
-              <div className="space-y-1">
-                <Label
-                  htmlFor="new-herd-animal-birth-date"
-                  className="text-xs font-semibold text-slate-700"
-                >
-                  Birth Date (optional)
-                </Label>
-                <Input
-                  id="new-herd-animal-birth-date"
-                  type="date"
-                  max={localCalendarDateToday()}
-                  value={newAnimalData.birthDate}
-                  onChange={(e) =>
-                    setNewAnimalData({ ...newAnimalData, birthDate: e.target.value })
-                  }
-                  className="h-8.5 w-full rounded-lg border border-slate-300 text-xs font-medium"
-                />
-              </div>
-
-              {/* Vaccination Date */}
-              <div className="space-y-1 sm:col-span-2">
-                <Label
-                  htmlFor="new-herd-animal-vaccination-date"
-                  className="text-xs font-semibold text-slate-700"
-                >
-                  Last Vaccination Date (optional)
-                </Label>
-                <Input
-                  id="new-herd-animal-vaccination-date"
-                  type="date"
-                  max={localCalendarDateToday()}
-                  value={newAnimalData.lastVaccinationDate}
-                  onChange={(e) =>
-                    setNewAnimalData({
-                      ...newAnimalData,
-                      lastVaccinationDate: e.target.value,
-                    })
-                  }
-                  className="h-8.5 w-full rounded-lg border border-slate-300 text-xs font-medium"
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="gap-2 pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsAddIndividualOpen(false)}
-                className="h-8.5 flex-1 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSavingAnimal}
-                className="h-8.5 flex-1 rounded-lg bg-emerald-700 text-xs font-bold text-white hover:bg-emerald-800 shadow-2xs"
-              >
-                {isSavingAnimal ? "Saving..." : "Save Animal"}
-              </Button>
-            </DialogFooter>
-          </form>
         </DialogContent>
       </Dialog>
 
