@@ -191,6 +191,13 @@ export interface RawMortalityRecord {
   barangay_name?: string;
   barangay_id?: number;
   cause: string;
+  cause_classification?: {
+    category: string;
+    label: string;
+    note: string;
+    reviewer_name: string;
+    reviewed_at: string;
+  } | null;
   source_disease_case?: number | null;
   source_disease_name?: string | null;
   death_count: number;

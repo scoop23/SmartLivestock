@@ -393,7 +393,8 @@ function DiseaseMortalityContent() {
   const handleConfirmHealthAction = async (
     action: "APPROVED" | "SUBJECT_TO_REVISION",
     remarks: string,
-    recordId: string
+    recordId: string,
+    classification?: { cause_category: string; classification_note: string }
   ) => {
     try {
       if (recordId.startsWith("dis-")) {
@@ -401,15 +402,17 @@ function DiseaseMortalityContent() {
         await api.post(`diseases/cases/${cleanId}/review/`, { status: action, remarks });
       } else if (recordId.startsWith("mor-")) {
         const cleanId = recordId.replace("mor-", "");
-        await api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks });
+        await api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks, ...classification });
       }
 
       await queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
       await queryClient.invalidateQueries({ queryKey: ["notifications"] });
 
       setHealthReviewDialog({ open: false, record: null });
+      await queryClient.invalidateQueries({ queryKey: ["mortality-cause-classification"] });
       const actionVerb = action === "APPROVED" ? "approved & certified" : "returned for revision";
       toast.success(`Record successfully ${actionVerb}.`);
+      return true;
     } catch (err) {
       console.error("Failed to review health incident:", err);
       const response = axios.isAxiosError(err) ? err.response : undefined;
@@ -426,6 +429,7 @@ function DiseaseMortalityContent() {
       toast.error("Could not update the review.", {
         description: message || "Refresh the page and try again.",
       });
+      return false;
     }
   };
 

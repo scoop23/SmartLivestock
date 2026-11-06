@@ -366,6 +366,21 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
     )
     affected_animals = serializers.SerializerMethodField()
 
+    cause_classification = serializers.SerializerMethodField()
+
+    def get_cause_classification(self, obj):
+        reviews = list(obj.cause_classification_reviews.all())
+        if not reviews:
+            return None
+        latest = max(reviews, key=lambda review: (review.reviewed_at, review.pk))
+        return {
+            "category": latest.category,
+            "label": latest.get_category_display(),
+            "note": latest.note,
+            "reviewer_name": latest.reviewer.get_full_name() or latest.reviewer.username,
+            "reviewed_at": latest.reviewed_at.isoformat(),
+        }
+
     class Meta:
         model = MortalityRecord
         fields = (
@@ -382,6 +397,7 @@ class MortalityRecordSerializer(serializers.ModelSerializer):
             "affected_animals",
             "death_count",
             "cause",
+            "cause_classification",
             "source_disease_case",
             "source_disease_name",
             "record_date",

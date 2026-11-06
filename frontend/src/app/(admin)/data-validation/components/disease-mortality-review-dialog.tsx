@@ -44,8 +44,9 @@ interface DiseaseMortalityReviewDialogProps {
   onConfirmAction: (
     action: "APPROVED" | "SUBJECT_TO_REVISION",
     remarks: string,
-    recordId: string
-  ) => void;
+    recordId: string,
+    classification?: { cause_category: string; classification_note: string }
+  ) => Promise<boolean>;
 }
 
 const BIOSECURITY_LABELS: Record<string, string> = {
@@ -78,13 +79,20 @@ const MAO_REVISION_PRESETS = [
   "Incomplete carcass disposal documentation; returned for compliance.",
 ];
 
-export function DiseaseMortalityReviewDialog({
+export function DiseaseMortalityReviewDialog(props: DiseaseMortalityReviewDialogProps) {
+  return <DiseaseMortalityReviewDialogContent key={`${props.record?.id ?? "none"}:${props.open}`} {...props} />;
+}
+
+function DiseaseMortalityReviewDialogContent({
   record,
   open,
   onOpenChange,
   onConfirmAction,
 }: DiseaseMortalityReviewDialogProps) {
   const [remarks, setRemarks] = useState("");
+  const [causeCategory, setCauseCategory] = useState("");
+  const [classificationNote, setClassificationNote] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!record) return null;
 
@@ -121,13 +129,26 @@ export function DiseaseMortalityReviewDialog({
     ? BIOSECURITY_LABELS[record.sibatInspection.biosecurityAction] || record.sibatInspection.biosecurityAction
     : "Not recorded";
 
-  const handleAction = (status: "APPROVED" | "SUBJECT_TO_REVISION") => {
-    onConfirmAction(status, remarks.trim(), record.id);
-    onOpenChange(false);
+  const handleAction = async (status: "APPROVED" | "SUBJECT_TO_REVISION") => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const saved = await onConfirmAction(
+        status,
+        remarks.trim(),
+        record.id,
+        isMortality && status === "APPROVED" && causeCategory
+          ? { cause_category: causeCategory, classification_note: classificationNote.trim() }
+          : undefined,
+      );
+      if (saved) onOpenChange(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => !isSubmitting && onOpenChange(next)}>
       <DialogContent className="w-full max-w-[98vw] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl xl:max-w-7xl rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] p-4 sm:p-7 md:p-9 bg-white border border-slate-100 shadow-2xl max-h-[94vh] overflow-y-auto">
         {/* ══ POPUP HEADER ══ */}
         <DialogHeader className="mb-3 sm:mb-4">
@@ -643,6 +664,14 @@ export function DiseaseMortalityReviewDialog({
                 Review the SIBAT on-farm clinical findings on the left, attach official veterinarian remarks, and issue the final municipal certification or quarantine directives.
               </p>
 
+              {isMortality && record.causeClassification && (
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-950">
+                  <p className="font-bold">Cause category: {record.causeClassification.label}</p>
+                  <p className="mt-1">Classified by {record.causeClassification.reviewer_name}</p>
+                  {record.causeClassification.note && <p className="mt-1">{record.causeClassification.note}</p>}
+                </div>
+              )}
+
               {!canMaoReview ? (
                 <div
                   role="status"
@@ -663,6 +692,48 @@ export function DiseaseMortalityReviewDialog({
                       className="bg-white border-emerald-200 rounded-2xl text-xs sm:text-sm font-medium resize-none h-28 sm:h-32 p-3.5 focus-visible:ring-2 focus-visible:ring-[#2D5A27]"
                     />
                   </div>
+
+                  {isMortality && (
+                    <div className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
+                      <div className="space-y-1.5">
+                        <label htmlFor="mortality-review-category" className="block text-xs font-bold text-slate-800">
+                          Mortality cause category (optional)
+                        </label>
+                        <select
+                          id="mortality-review-category"
+                          value={causeCategory}
+                          onChange={(event) => setCauseCategory(event.target.value)}
+                          className="w-full rounded-lg border border-indigo-200 bg-white p-2 text-sm text-slate-900"
+                        >
+                          <option value="">Leave unclassified</option>
+                          <option value="SUSPECTED_INFECTIOUS">Suspected infectious</option>
+                          <option value="INJURY_ACCIDENT">Injury or accident</option>
+                          <option value="REPRODUCTIVE_PERINATAL">Reproductive or perinatal</option>
+                          <option value="OTHER_REPORTED_CAUSE">Other reported cause</option>
+                          <option value="UNDETERMINED">Undetermined</option>
+                        </select>
+                        <p className="text-xs leading-relaxed text-slate-600">
+                          Your chosen category is saved with approval and becomes a staff-confirmed training label.
+                          Use Undetermined when the cause cannot be established. This category does not replace the reported cause.
+                        </p>
+                      </div>
+                      {causeCategory && (
+                        <div className="space-y-1.5">
+                          <label htmlFor="mortality-classification-note" className="block text-xs font-bold text-slate-800">
+                            Classification note (optional)
+                          </label>
+                          <Textarea
+                            id="mortality-classification-note"
+                            value={classificationNote}
+                            onChange={(event) => setClassificationNote(event.target.value)}
+                            maxLength={1000}
+                            placeholder="Evidence or reason for the chosen category"
+                            className="bg-white text-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Quick Presets */}
                   <div className="space-y-2 pt-1">
@@ -695,11 +766,11 @@ export function DiseaseMortalityReviewDialog({
               <Button
                 type="button"
                 onClick={() => handleAction("APPROVED")}
-                disabled={!canMaoReview}
+                disabled={!canMaoReview || isSubmitting}
                 className="w-full py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider shadow-lg hover:shadow-xl transition-all gap-2 cursor-pointer"
               >
                 <ShieldCheck className="size-5 text-emerald-200" />
-                <span>Certify & Issue MAO Approval</span>
+                <span>{isSubmitting ? "Saving review…" : "Certify & Issue MAO Approval"}</span>
               </Button>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -707,7 +778,7 @@ export function DiseaseMortalityReviewDialog({
                   type="button"
                   variant="outline"
                   onClick={() => handleAction("SUBJECT_TO_REVISION")}
-                  disabled={!canMaoReview || !remarks.trim()}
+                  disabled={!canMaoReview || !remarks.trim() || isSubmitting}
                   className="py-5 bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 rounded-2xl font-black uppercase text-xs tracking-wider gap-1.5 cursor-pointer"
                 >
                   <RotateCcw className="size-4 text-amber-700" />
@@ -718,6 +789,7 @@ export function DiseaseMortalityReviewDialog({
                   type="button"
                   variant="ghost"
                   onClick={() => onOpenChange(false)}
+                  disabled={isSubmitting}
                   className="py-5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black uppercase text-xs tracking-wider cursor-pointer"
                 >
                   Close

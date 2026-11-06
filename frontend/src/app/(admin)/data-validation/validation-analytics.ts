@@ -132,6 +132,7 @@ export interface ValidationIncidentItem {
   createdAt?: string;
   status: "PENDING" | "VERIFIED" | "APPROVED" | "SUBJECT_TO_REVISION" | "REJECTED";
   reviewRemarks: string | null;
+  causeClassification?: RawMortalityRecord["cause_classification"];
   headCount?: number;
   saleValue?: number | null;
   buyer?: string;
@@ -434,7 +435,7 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         type: "mortality",
         farmerName: m.farmer_name || "Registered Farmer",
         barangayName: m.barangay_name || "Padre Garcia",
-        details: `Mortality cause: ${m.cause || "Unspecified"}. Death count: ${m.death_count || 1} head(s). Target: ${targetIdentifier}`,
+        details: `Mortality cause: ${m.cause || "Unspecified"}. Death count: ${m.death_count || 1} head(s). Target: ${targetIdentifier}${m.cause_classification ? `. Cause category: ${m.cause_classification.label}` : ""}`,
         date: m.record_date || (m.created_at ? m.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)),
         eventDate: m.record_date || null,
         createdAt: m.created_at || m.record_date,
@@ -445,6 +446,7 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         livestockBreed: m.breed || (m.batch_code ? "Herd / Batch" : undefined),
         livestockType: m.livestock_type_name || "Livestock",
         conditionName: m.cause || "Mortality Record",
+        causeClassification: m.cause_classification,
         photoUrl: pUrl,
         photoName: pUrl ? `Mortality Evidence #${m.tag_number || m.id}` : undefined,
         inspectorPhotoUrl: inspUrl,

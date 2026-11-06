@@ -969,7 +969,8 @@ function AdminDataValidationContent() {
   const handleConfirmHealthAction = async (
     action: "APPROVED" | "SUBJECT_TO_REVISION",
     remarks: string,
-    recordId: string
+    recordId: string,
+    classification?: { cause_category: string; classification_note: string }
   ) => {
     try {
       if (recordId.startsWith("dis-")) {
@@ -977,7 +978,7 @@ function AdminDataValidationContent() {
         await api.post(`diseases/cases/${cleanId}/review/`, { status: action, remarks });
       } else if (recordId.startsWith("mor-")) {
         const cleanId = recordId.replace("mor-", "");
-        await api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks });
+        await api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks, ...classification });
       }
       setLocalIncidentOverrides((prev) => ({
         ...prev,
@@ -985,10 +986,12 @@ function AdminDataValidationContent() {
       }));
       queryClient.invalidateQueries({ queryKey: ["admin-incident-records"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await queryClient.invalidateQueries({ queryKey: ["mortality-cause-classification"] });
       const actionVerb = action === "APPROVED" ? "certified & approved" : "returned for revision";
       toast.success(`Health declaration ${recordId} ${actionVerb}.`, {
         description: remarks ? `Remarks: "${remarks}"` : "Official MAO audit trail recorded.",
       });
+      return true;
     } catch (err) {
       console.error("Failed to review health incident:", err);
       const responseData = axios.isAxiosError(err)
@@ -997,6 +1000,7 @@ function AdminDataValidationContent() {
       toast.error("Failed to update health review status.", {
         description: responseData?.remarks || responseData?.error || responseData?.status || "Please refresh the record and try again.",
       });
+      return false;
     }
   };
 

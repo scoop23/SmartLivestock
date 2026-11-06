@@ -8,13 +8,13 @@ from django.db import transaction
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.exceptions import PermissionDenied
 from smartlivestock.workflows import FIELD_REVIEWERS, require_action, validate_review_transition
 
 from users.models import User, Notification
 from users.notification_views import create_notification, health_notification_recipients, notify_review_revision, notify_role
-from .models import DiseaseCase, MortalityRecord
+from .models import DiseaseCase, MortalityRecord, MortalityCauseClassificationReview
 from .serializer import (
     DiseaseCaseSerializer,
     MortalityRecordSerializer,
@@ -651,7 +651,7 @@ def mortality_record_list_create(request):
         "batch__livestock_type",
         "created_by",
         "reviewed_by__role",
-    ).prefetch_related("affected_livestock__livestock_type").distinct().order_by("-record_date", "-created_at")
+    ).prefetch_related("affected_livestock__livestock_type", "cause_classification_reviews__reviewer").distinct().order_by("-record_date", "-created_at")
 
     serializer = MortalityRecordSerializer(records, many=True, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -688,7 +688,7 @@ def mortality_record_detail(request, pk):
         require_action(user, "mortality", "read_all")
         record = get_object_or_404(
             scope_reviewer_queryset(MortalityRecord.objects.all(), request.user)
-            .prefetch_related("affected_livestock__livestock_type"),
+            .prefetch_related("affected_livestock__livestock_type", "cause_classification_reviews__reviewer"),
             pk=pk,
         )
 
@@ -754,7 +754,7 @@ def review_mortality_record(request, pk):
     record = get_object_or_404(
         scope_reviewer_queryset(
             MortalityRecord.objects.select_for_update(of=("self",)), request.user
-        ).prefetch_related("affected_livestock__livestock_type"),
+        ).prefetch_related("affected_livestock__livestock_type", "cause_classification_reviews__reviewer"),
         pk=pk,
     )
     new_status = request.data.get("status")
@@ -807,6 +807,21 @@ def review_mortality_record(request, pk):
     else:
         raise PermissionDenied("You do not have permission to review mortality records.")
 
+    classification = None
+    if "cause_category" in request.data:
+        if role_name not in {"MAO", "ADMIN"} or new_status != MortalityRecord.MortalityRecordStatus.APPROVED:
+            raise PermissionDenied("Cause classifications can be saved only with MAO/Admin approval.")
+        if "AI_SEED" in (record.review_remarks or ""):
+            return Response({"cause_category": "Synthetic reports cannot receive training labels."}, status=400)
+
+        class ClassificationInput(serializers.Serializer):
+            cause_category = serializers.ChoiceField(choices=MortalityCauseClassificationReview.Category.choices)
+            classification_note = serializers.CharField(max_length=1000, required=False, allow_blank=True, default="")
+
+        classification_input = ClassificationInput(data=request.data)
+        classification_input.is_valid(raise_exception=True)
+        classification = classification_input.validated_data
+
     validate_review_transition(domain="mortality", role=role_name, current=record.status, target=new_status, remarks=remarks)
 
     if "inspector_photo" in request.FILES:
@@ -844,6 +859,15 @@ def review_mortality_record(request, pk):
     record.save()
     if new_status == MortalityRecord.MortalityRecordStatus.APPROVED:
         record = reconcile_approved_mortality(record)
+        if classification is not None:
+            MortalityCauseClassificationReview.objects.create(
+                mortality_record=record,
+                category=classification["cause_category"],
+                note=classification["classification_note"],
+                reviewer=user,
+            )
+            # Do not serialize an empty audit list prefetched before approval.
+            getattr(record, "_prefetched_objects_cache", {}).pop("cause_classification_reviews", None)
 
     _notify_mortality_record_review(record, new_status, remarks, user, role_name)
 
