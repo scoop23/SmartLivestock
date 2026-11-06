@@ -72,6 +72,11 @@ import {
   IndividualAnimalReviewModal,
   AnimalReviewDetail,
 } from "./individual-animal-review-dialog";
+import {
+  ValidationLoadingScreen,
+  useSeamlessLoadingState,
+} from "@/components/validation-loading-screen";
+import LivestockRecordsLoading from "./loading";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -556,6 +561,17 @@ function LivestockRecordsContent() {
     staleTime: 60 * 1000,
   });
 
+  // Seamless Loading Screen State for initial mount
+  const isInitialDataLoading =
+    (isBatchLoading && !batchPageData) ||
+    (isInventoryLoading && rawInventory.length === 0) ||
+    (references.isLoading && !references.data);
+
+  const { keepLoadingScreenMounted, showContent } = useSeamlessLoadingState(
+    isInitialDataLoading,
+    { exitDurationMs: 400, contentDelayMs: 150 }
+  );
+
   // Filter individual animal records
   const individualAnimals = useMemo(() => {
     return rawInventory.filter((item) => !item.isBatch && item.entryType === "INDIVIDUAL"
@@ -852,7 +868,51 @@ function LivestockRecordsContent() {
           className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(rgba(16,185,129,0.14)_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_80%_60%_at_50%_30%,#000_40%,transparent_100%)] opacity-70"
         />
 
-        {/* ── 4 Futuristic KPI Summary Cards (matching Data Validation aesthetics) ── */}
+        {(isInitialDataLoading || keepLoadingScreenMounted) && (
+          <div className={`w-full ${showContent ? "absolute inset-0 z-30 pointer-events-none" : ""}`}>
+            <ValidationLoadingScreen
+              isLoading={isInitialDataLoading}
+              title="Synchronizing Municipal Livestock Registry"
+              subtitle="Retrieving official herd records, individual ear tag biometrics, barangay directories, and field verification ledgers..."
+              badgeLabel="Livestock Registry Sync"
+              authorityText="Municipal Agriculture Office • Padre Garcia, Batangas"
+              items={[
+                {
+                  id: "batches",
+                  label: "Herd Batches Registry",
+                  sublabel: "Registered herd groups & biometric profiles",
+                  icon: <Layers className="size-4 shrink-0 text-emerald-700" />,
+                  loaded: !isBatchLoading && batchPageData !== undefined,
+                },
+                {
+                  id: "individual",
+                  label: "Individual Ear Tag Records",
+                  sublabel: "Individual identification, breed & status",
+                  icon: <Tag className="size-4 shrink-0 text-sky-700" />,
+                  loaded: !isInventoryLoading && rawInventory.length > 0,
+                },
+                {
+                  id: "references",
+                  label: "Reference Metadata",
+                  sublabel: "17 Padre Garcia barangays & species options",
+                  icon: <MapPin className="size-4 shrink-0 text-purple-700" />,
+                  loaded: !references.isLoading && references.data !== undefined,
+                },
+                {
+                  id: "verification",
+                  label: "Field Verification Ledger",
+                  sublabel: "CBAT / SIBAT inspector audit trail",
+                  icon: <ShieldCheck className="size-4 shrink-0 text-amber-700" />,
+                  loaded: !herdOverviewQuery.isLoading && herdOverviewQuery.data !== undefined,
+                },
+              ]}
+            />
+          </div>
+        )}
+
+        {showContent && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both ease-out motion-reduce:animate-none">
+            {/* ── 4 Futuristic KPI Summary Cards (matching Data Validation aesthetics) ── */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {/* Total Herds */}
           <Card className="rounded-2xl border-slate-200/90 bg-white/95 backdrop-blur-xs shadow-2xs hover:border-emerald-300 transition-all">
@@ -1577,6 +1637,8 @@ function LivestockRecordsContent() {
             )}
           </div>
         )}
+          </div>
+        )}
 
         {/* ── HERD DRILLDOWN INSPECTION DIALOG ── */}
         <Dialog open={isDrilldownOpen} onOpenChange={setIsDrilldownOpen}>
@@ -1903,16 +1965,7 @@ function LivestockRecordsContent() {
 // ── DEFAULT EXPORT WITH SUSPENSE BOUNDARY ───────────────────────────────────
 export default function LivestockRecordsPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#F8FAF9] p-8 flex items-center justify-center">
-          <div className="flex items-center gap-2 text-slate-500 text-sm font-bold">
-            <RefreshCw className="w-5 h-5 animate-spin text-emerald-600" />
-            <span>Loading Livestock Records...</span>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<LivestockRecordsLoading />}>
       <LivestockRecordsContent />
     </Suspense>
   );
