@@ -32,6 +32,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { cowHead } from "@lucide/lab";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowLeftRight,
   ArrowRight,
@@ -51,11 +52,12 @@ import {
   QrCode,
   Save,
   Search,
+  Sparkles,
   Truck,
   User,
   X,
 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 type OwnerType = "REGISTERED_FARMER" | "EXTERNAL_INDIVIDUAL" | "COMPANY" | "TRADER" | "OTHER";
@@ -259,9 +261,34 @@ export default function AuctionOwnershipTransfersPage() {
   const [viewTransfer, setViewTransfer] = useState<Transfer | null>(null);
   const [pendingSubmission, setPendingSubmission] = useState<OwnershipTransferSubmission | null>(null);
   const [submissionSuccess, setSubmissionSuccess] = useState("");
+  const sellerAnimalRef = useRef<HTMLDivElement>(null);
+  const [isPreregistrationHighlighted, setIsPreregistrationHighlighted] = useState(false);
+  const [showOutsideConfirmModal, setShowOutsideConfirmModal] = useState(false);
   const selectedAnimalForTransfer = !outsideLivestock && selectedAnimalIds.length === 1
     ? farmerAnimals.find((animal) => animal.id === selectedAnimalIds[0]) ?? null
     : null;
+
+  function handleSelectOutsideLivestock() {
+    if (outsideLivestock) return;
+    const hasSelectedData = Boolean(
+      farmer || selectedAnimalIds.length > 0 || preregistrationReference
+    );
+    if (hasSelectedData) {
+      setShowOutsideConfirmModal(true);
+      return;
+    }
+    confirmSwitchToOutside();
+  }
+
+  function confirmSwitchToOutside() {
+    setOutsideLivestock(true);
+    setFarmer(null);
+    setFarmerAnimals([]);
+    setSelectedAnimalIds([]);
+    setPreregistrationReference("");
+    setIsPreregistrationHighlighted(false);
+    setShowOutsideConfirmModal(false);
+  }
 
   const {
     data: externalLivestockTypes = [],
@@ -310,6 +337,7 @@ export default function AuctionOwnershipTransfersPage() {
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("preregistration");
     if (!id || !/^\d+$/.test(id)) return;
+    setIsPreregistrationHighlighted(true);
     let cancelled = false;
     void (async () => {
       try {
@@ -324,6 +352,11 @@ export default function AuctionOwnershipTransfersPage() {
         setOutsideLivestock(false);
         setPreregistrationReference(registration.reference);
         await loadFarmerAnimals(seller, registration.livestock, registration.original_certificate_number, true);
+        if (!cancelled) {
+          setTimeout(() => {
+            sellerAnimalRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 400);
+        }
       } catch {
         if (!cancelled) setLookupError("Could not load the preregistration. Return to Auction Preregistrations and try again.");
       }
@@ -746,6 +779,7 @@ export default function AuctionOwnershipTransfersPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (!outsideLivestock) return;
                     setOutsideLivestock(false);
                     setFarmer(null);
                     setFarmerAnimals([]);
@@ -774,12 +808,7 @@ export default function AuctionOwnershipTransfersPage() {
                 {/* Option B: Outside Livestock */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setOutsideLivestock(true);
-                    setFarmer(null);
-                    setFarmerAnimals([]);
-                    setSelectedAnimalIds([]);
-                  }}
+                  onClick={handleSelectOutsideLivestock}
                   className={`relative flex flex-col justify-between p-3.5 rounded-2xl text-left transition-all cursor-pointer ${
                     outsideLivestock
                       ? "border-2 border-emerald-600 bg-[#EAF5EC]/60 shadow-xs ring-1 ring-emerald-500/20"
@@ -803,7 +832,35 @@ export default function AuctionOwnershipTransfersPage() {
             </div>
 
             {/* 2. Seller & Animal Card */}
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-4">
+            <div
+              ref={sellerAnimalRef}
+              className={`rounded-2xl border p-5 shadow-xs space-y-4 transition-all duration-500 ${
+                isPreregistrationHighlighted
+                  ? "border-emerald-500 ring-4 ring-emerald-500/20 bg-gradient-to-b from-emerald-50/20 via-white to-white shadow-md"
+                  : "border-slate-200/90 bg-white"
+              }`}
+            >
+              {preregistrationReference && (
+                <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs text-emerald-900 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-300">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="size-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                      <Sparkles className="size-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-emerald-950 truncate">
+                        Pre-registered Livestock Loaded
+                      </p>
+                      <p className="text-[11px] text-emerald-700 truncate">
+                        Reference: <span className="font-mono font-bold">{preregistrationReference}</span> · Verified at auction arrival
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 border-none text-[10px] font-bold shrink-0">
+                    Auto-filled
+                  </Badge>
+                </div>
+              )}
+
               <div className="flex items-center gap-3">
                 <div className="size-10 rounded-xl bg-[#EAF5EC] text-[#1E4D2B] flex items-center justify-center shrink-0 shadow-2xs">
                   <User className="size-5" />
@@ -1898,6 +1955,80 @@ export default function AuctionOwnershipTransfersPage() {
               className="bg-[#0F4A2F] text-white hover:bg-[#0B3D26] text-xs font-bold rounded-xl h-9 px-5 cursor-pointer"
             >
               Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Switch to Outside Livestock Confirmation Dialog */}
+      <Dialog open={showOutsideConfirmModal} onOpenChange={setShowOutsideConfirmModal}>
+        <DialogContent className="max-w-md rounded-2xl p-6">
+          <div className="flex items-start gap-3.5">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+              <AlertTriangle className="size-6 stroke-[2.2]" />
+            </div>
+            <div className="space-y-1">
+              <DialogTitle className="text-base font-bold text-slate-900">
+                Switch to Outside Livestock?
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                You currently have a registered seller and livestock selected.
+              </DialogDescription>
+            </div>
+          </div>
+
+          <div className="my-2 space-y-2 rounded-xl border border-amber-200/80 bg-amber-50/60 p-3.5 text-xs text-slate-700">
+            <p className="font-semibold text-amber-950">
+              Switching will clear your current seller and animal selection:
+            </p>
+            <div className="space-y-1.5 pl-1">
+              {farmer && (
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <span className="font-semibold text-slate-500">Seller:</span>
+                  <span className="font-bold text-slate-900">{farmer.name}</span>
+                  <span className="text-slate-400">({farmer.barangay || "Registered Farmer"})</span>
+                </div>
+              )}
+              {selectedAnimalForTransfer ? (
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <span className="font-semibold text-slate-500">Animal:</span>
+                  <span className="font-bold text-slate-900">
+                    {selectedAnimalForTransfer.livestock_type_name} ({selectedAnimalForTransfer.tag_number || `#${selectedAnimalForTransfer.id}`})
+                  </span>
+                </div>
+              ) : selectedAnimalIds.length > 0 ? (
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <span className="font-semibold text-slate-500">Selected:</span>
+                  <span className="font-bold text-slate-900">{selectedAnimalIds.length} animal(s)</span>
+                </div>
+              ) : null}
+              {preregistrationReference && (
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <span className="font-semibold text-slate-500">Preregistration:</span>
+                  <span className="font-mono font-bold text-emerald-800">{preregistrationReference}</span>
+                </div>
+              )}
+            </div>
+            <p className="text-[11px] text-amber-900/80 pt-1.5 border-t border-amber-200/60">
+              Outside livestock transactions are recorded for market clearance only and will not be linked to SmartLivestock local inventory.
+            </p>
+          </div>
+
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowOutsideConfirmModal(false)}
+              className="rounded-xl border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 h-9"
+            >
+              Cancel, Keep Selection
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmSwitchToOutside}
+              className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold h-9 shadow-xs"
+            >
+              Yes, Switch to Outside
             </Button>
           </DialogFooter>
         </DialogContent>
