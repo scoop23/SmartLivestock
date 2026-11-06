@@ -285,7 +285,7 @@ export default function SlaughterhousePage() {
       />
 
       {/* Abattoir active status banner */}
-      <div className="bg-gradient-to-r from-rose-900 via-rose-800 to-rose-900 text-white shadow-xs border-b border-rose-950/30">
+      <div className="bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg border-b border-emerald-900/10">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="p-1.5 rounded-lg bg-white/20 shrink-0">
@@ -295,7 +295,7 @@ export default function SlaughterhousePage() {
               <p className="text-xs font-black">
                 Municipal Abattoir Operations Active — Padre Garcia Slaughterhouse
               </p>
-              <p className="text-[10px] text-rose-100 font-semibold">
+              <p className="text-[10px] text-emerald-100 font-semibold">
                 Daily carcass throughput, meat inspection findings, and dressing yield logs. Submissions stay pending until MAO inspection review.
               </p>
             </div>
@@ -306,7 +306,7 @@ export default function SlaughterhousePage() {
               size="sm"
               variant="outline"
               onClick={() => setPdfDialogOpen(true)}
-              className="bg-rose-950/60 hover:bg-rose-950 text-white border border-rose-400/30 text-xs font-bold rounded-xl shadow-xs gap-1.5 cursor-pointer"
+              className="bg-emerald-950/60 hover:bg-emerald-950 text-white border border-emerald-400/30 text-xs font-bold rounded-xl shadow-xs gap-1.5 cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               Monthly PDF Report
@@ -319,7 +319,7 @@ export default function SlaughterhousePage() {
                 setValidation(null);
                 setImportSummary(null);
               }}
-              className="bg-rose-950/60 hover:bg-rose-950 text-white border border-rose-400/30 text-xs font-bold rounded-xl shadow-xs gap-1.5 cursor-pointer"
+              className="bg-emerald-950/60 hover:bg-emerald-950 text-white border border-emerald-400/30 text-xs font-bold rounded-xl shadow-xs gap-1.5 cursor-pointer"
             >
               <Upload className="w-3.5 h-3.5" />
               Import CSV/XLSX
@@ -327,7 +327,7 @@ export default function SlaughterhousePage() {
             <Button
               size="sm"
               onClick={() => setRecordDialog(true)}
-              className="bg-white hover:bg-rose-50 text-rose-900 text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
+              className="bg-white hover:bg-emerald-50 text-emerald-900 text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               Add Daily Record
