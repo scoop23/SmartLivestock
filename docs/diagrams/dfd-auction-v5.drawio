@@ -1,0 +1,492 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" agent="Codex">
+  <diagram id="farmer-dfd" name="Auction DFD - Level 1 (v5)">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3700" pageHeight="2500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" style="" />
+        <mxCell id="1" parent="0" style="" />
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-583" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;" value="AUCTION OFFICE STAFF" vertex="1">
+          <mxGeometry height="117" width="420" x="1639.12" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-584" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;" value="MAO / ADMIN" vertex="1">
+          <mxGeometry height="135" width="390" x="3137.62" y="1021.5" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-585" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=42;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="1.0" vertex="1">
+          <mxGeometry height="138" width="450" x="1578.38" y="333" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-586" parent="2qVcB9-ud4cyJH0vrgVH-585" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=30;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Authenticate staff" vertex="1">
+          <mxGeometry height="96" width="450" y="42" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-587" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=42;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="2.0" vertex="1">
+          <mxGeometry height="168" width="450" x="687.375" y="1021.5" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-588" parent="2qVcB9-ud4cyJH0vrgVH-587" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=30;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Verify gate entries" vertex="1">
+          <mxGeometry height="126" width="450" y="42" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-589" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=42;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="3.0" vertex="1">
+          <mxGeometry height="168" width="465" x="1497.38" y="1021.5" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-590" parent="2qVcB9-ud4cyJH0vrgVH-589" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=30;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Record ownership transfers" vertex="1">
+          <mxGeometry height="126" width="465" y="42" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-591" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=42;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="4.0" vertex="1">
+          <mxGeometry height="168" width="450" x="2206.12" y="1021.5" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-592" parent="2qVcB9-ud4cyJH0vrgVH-591" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=30;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Record livestock movements" vertex="1">
+          <mxGeometry height="126" width="450" y="42" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-593" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=42;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="5.0" vertex="1">
+          <mxGeometry height="168" width="465" x="1497.38" y="1699.88" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-594" parent="2qVcB9-ud4cyJH0vrgVH-593" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=30;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Review transfers and clearances" vertex="1">
+          <mxGeometry height="126" width="465" y="42" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-595" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=42;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="6.0" vertex="1">
+          <mxGeometry height="168" width="450" x="2206.12" y="2145.38" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-596" parent="2qVcB9-ud4cyJH0vrgVH-595" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=30;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Generate auction reports" vertex="1">
+          <mxGeometry height="126" width="450" y="42" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-597" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;" value="D1" vertex="1">
+          <mxGeometry height="69" width="54" x="2378.25" y="616.5" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-598" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;align=center;verticalAlign=middle;" value="Accounts and permissions" vertex="1">
+          <mxGeometry height="69" width="375" x="2432.25" y="616.5" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-599" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;" value="D2" vertex="1">
+          <mxGeometry height="69" width="54" x="121.5" y="1335.38" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-600" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;align=center;verticalAlign=middle;" value="Farmer and animal registry" vertex="1">
+          <mxGeometry height="69" width="367.5" x="175.5" y="1335.38" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-601" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;" value="D3" vertex="1">
+          <mxGeometry height="69" width="54" x="740.025" y="1598.62" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-602" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;align=center;verticalAlign=middle;" value="Gate verifications" vertex="1">
+          <mxGeometry height="69" width="367.5" x="794.025" y="1598.62" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-603" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;" value="D4" vertex="1">
+          <mxGeometry height="69" width="54" x="738" y="2023.88" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-604" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;align=center;verticalAlign=middle;" value="Ownership transfers" vertex="1">
+          <mxGeometry height="69" width="367.5" x="792" y="2023.88" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-605" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;" value="D5" vertex="1">
+          <mxGeometry height="69" width="54" x="2236.5" y="1335.38" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-606" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;align=center;verticalAlign=middle;" value="Movement clearances" vertex="1">
+          <mxGeometry height="69" width="435" x="2290.5" y="1335.38" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-607" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-583" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=267;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-585" value="Login credentials">
+          <mxGeometry relative="1" x="0.6629" y="7" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1859.62" y="288" />
+              <mxPoint x="1814.62" y="288" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-608" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-597" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;entryX=1;entryY=0.3;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=296;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-585" value="Account permissions">
+          <mxGeometry relative="1" x="-0.464" y="-6" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="2081.25" y="632.025" />
+              <mxPoint x="2081.25" y="364.05" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-609" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-585" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.3;exitY=0;entryX=0.3;entryY=1;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=210;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-583" value="Access result">
+          <mxGeometry relative="1" x="-0.6774" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1653.75" y="333" />
+              <mxPoint x="1653.75" y="276.75" />
+              <mxPoint x="1733.62" y="276.75" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-610" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-583" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.027;exitY=1.029;entryX=0.7;entryY=0;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=453;exitDx=0;exitDy=0;exitPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-587" value="Animal and certificate details">
+          <mxGeometry relative="1" x="0.9129" y="9" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1647.68" y="231.75" />
+              <mxPoint x="1631.25" y="231.75" />
+              <mxPoint x="1631.25" y="220.5" />
+              <mxPoint x="1119.38" y="220.5" />
+              <mxPoint x="1119.38" y="844.875" />
+              <mxPoint x="916.875" y="844.875" />
+              <mxPoint x="916.875" y="934.875" />
+              <mxPoint x="923.625" y="934.875" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-611" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-600" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=1;exitY=0.3;entryX=0;entryY=0.3;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=367;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-587" value="Owner and animal records">
+          <mxGeometry relative="1" x="0.2906" y="45" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="534.375" y="1350.9" />
+              <mxPoint x="534.375" y="1059.3" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-612" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-587" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0;exitY=0.7;entryX=1;entryY=0.7;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=310;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-600" value="Registered livestock">
+          <mxGeometry relative="1" x="0.4264" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="601.875" y="1109.7" />
+              <mxPoint x="601.875" y="1371.6" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-613" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-587" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=296;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-602" value="Verified gate entry">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-36.525" as="offset" />
+            <Array as="points">
+              <mxPoint x="923.625" y="1237.5" />
+              <mxPoint x="916.875" y="1237.5" />
+              <mxPoint x="916.875" y="1497.38" />
+              <mxPoint x="973.463" y="1497.38" />
+              <mxPoint x="973.463" y="1508.62" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-614" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-587" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.3;exitY=0;entryX=-0.002;entryY=0.56;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=367;entryDx=0;entryDy=0;entryPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-583" value="Gate verification result">
+          <mxGeometry relative="1" x="-0.8092" y="25" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="781.875" y="1021.5" />
+              <mxPoint x="781.875" y="828" />
+              <mxPoint x="1091.25" y="828" />
+              <mxPoint x="1091.25" y="259.875" />
+              <mxPoint x="1428.75" y="259.875" />
+              <mxPoint x="1428.75" y="139.163" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-615" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-583" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.798;exitY=1.014;entryX=0.7;entryY=0;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=424;exitDx=0;exitDy=0;exitPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-589" value="Transfer certificate details">
+          <mxGeometry relative="1" x="0.7218" y="25" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1890" y="299.25" />
+              <mxPoint x="1996.88" y="299.25" />
+              <mxPoint x="1996.88" y="580.5" />
+              <mxPoint x="1929.38" y="580.5" />
+              <mxPoint x="1929.38" y="799.875" />
+              <mxPoint x="1749.38" y="799.875" />
+              <mxPoint x="1749.38" y="934.875" />
+              <mxPoint x="1741.5" y="934.875" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-616" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-600" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.632;exitY=0.022;entryX=0;entryY=0.3;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=367;exitDx=0;exitDy=0;exitPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-589" value="Animal ownership records">
+          <mxGeometry relative="1" x="0.7176" y="-15" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="337.05" y="1227.38" />
+              <mxPoint x="1096.88" y="1227.38" />
+              <mxPoint x="1096.88" y="1069.88" />
+              <mxPoint x="1407.38" y="1069.88" />
+              <mxPoint x="1407.38" y="1059.3" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-617" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-589" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=253;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-604" value="Pending transfer">
+          <mxGeometry relative="1" x="-0.0217" as="geometry">
+            <mxPoint y="-34.275" as="offset" />
+            <Array as="points">
+              <mxPoint x="1741.5" y="1227.38" />
+              <mxPoint x="1119.38" y="1227.38" />
+              <mxPoint x="1119.38" y="1722.38" />
+              <mxPoint x="984.375" y="1722.38" />
+              <mxPoint x="984.375" y="1924.88" />
+              <mxPoint x="973.463" y="1924.88" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-618" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-589" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.3;exitY=0;entryX=0;entryY=0.25;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=396;entryDx=0;entryDy=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-583" value="Transfer submission status">
+          <mxGeometry relative="1" x="0.0841" y="35" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1591.88" y="1021.5" />
+              <mxPoint x="1591.88" y="799.875" />
+              <mxPoint x="1389.38" y="799.875" />
+              <mxPoint x="1389.38" y="111.938" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-619" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-583" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;entryX=0.7;entryY=0;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=396;exitX=0.999;exitY=0.12;exitDx=0;exitDy=0;exitPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-591" value="Livestock movement details">
+          <mxGeometry relative="1" x="0.9442" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="2058.75" y="100.575" />
+              <mxPoint x="2058.75" y="934.875" />
+              <mxPoint x="2442.38" y="934.875" />
+            </Array>
+            <mxPoint x="2445" y="249" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-620" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-600" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.847;exitY=-0.043;entryX=0;entryY=0.3;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=281;exitDx=0;exitDy=0;exitPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-591" value="Eligible livestock">
+          <mxGeometry relative="1" x="0.0223" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="396.338" y="1255.5" />
+              <mxPoint x="1867.5" y="1255.5" />
+              <mxPoint x="1867.5" y="1069.88" />
+              <mxPoint x="2116.12" y="1069.88" />
+              <mxPoint x="2116.12" y="1059.3" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-621" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-591" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=396;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-606" value="Pending movement clearance">
+          <mxGeometry relative="1" x="0.548" y="51" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="2442.38" y="1249.88" />
+              <mxPoint x="2507.4" y="1249.88" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-622" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-606" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.3;exitY=0;entryX=0.3;entryY=1;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=253;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-591" value="Revision remarks">
+          <mxGeometry relative="1" x="-0.5542" y="23" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="2376.9" y="1249.88" />
+              <mxPoint x="2307.38" y="1249.88" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-623" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-591" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.23;exitY=-0.006;entryX=1;entryY=0.25;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=396;entryDx=0;entryDy=0;exitDx=0;exitDy=0;exitPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-583" value="Movement submission status">
+          <mxGeometry relative="1" x="0.0925" as="geometry">
+            <mxPoint y="52.5" as="offset" />
+            <Array as="points">
+              <mxPoint x="2283.75" y="111.938" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-624" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-604" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=1;exitY=0.3;entryX=0;entryY=0.3;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=367;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-593" value="Pending transfer details">
+          <mxGeometry relative="1" x="-0.0006" as="geometry">
+            <mxPoint y="-59.4" as="offset" />
+            <Array as="points">
+              <mxPoint x="1395" y="2039.4" />
+              <mxPoint x="1395" y="1737.68" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-625" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-605" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0;exitY=0.25;entryX=0.658;entryY=0.002;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=382;entryDx=0;entryDy=0;entryPerimeter=0;exitDx=0;exitDy=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-593" value="Pending clearance details">
+          <mxGeometry relative="1" x="0.3754" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="2236.5" y="1350.9" />
+              <mxPoint x="1957.5" y="1350.9" />
+              <mxPoint x="1957.5" y="1446.75" />
+              <mxPoint x="1726.88" y="1446.75" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-626" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-593" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.75;exitY=1;entryX=0;entryY=0.7;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=281;exitDx=0;exitDy=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-584" value="Records for review">
+          <mxGeometry relative="1" x="0.7566" y="5" as="geometry">
+            <mxPoint x="-1.5" as="offset" />
+            <Array as="points">
+              <mxPoint x="1758.94" y="1874.25" />
+              <mxPoint x="1929.38" y="1874.25" />
+              <mxPoint x="1929.38" y="1227.38" />
+              <mxPoint x="2626.88" y="1227.38" />
+              <mxPoint x="2626.88" y="1092.38" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-627" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-584" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0;exitY=0.3;entryX=1;entryY=0.3;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=410;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-593" value="Review decision and remarks">
+          <mxGeometry relative="1" x="-0.728" y="-9" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="2722.5" y="1051.88" />
+              <mxPoint x="2722.5" y="1176.75" />
+              <mxPoint x="1890" y="1176.75" />
+              <mxPoint x="1890" y="1737.68" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-628" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-594" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.114;exitY=0.992;entryX=1;entryY=0.7;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=339;exitDx=0;exitDy=0;exitPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-604" value="Transfer review result">
+          <mxGeometry relative="1" x="-0.0887" y="-10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1537.09" y="1874.25" />
+              <mxPoint x="1141.88" y="1874.25" />
+              <mxPoint x="1141.88" y="2060.1" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-629" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-593" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=1;exitY=0.7;entryX=0;entryY=0.75;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=353;entryDx=0;entryDy=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-605" value="Clearance review result">
+          <mxGeometry relative="1" x="0.105" as="geometry">
+            <mxPoint y="-350.25" as="offset" />
+            <Array as="points">
+              <mxPoint x="2199.38" y="1788.07" />
+              <mxPoint x="2199.38" y="1374.19" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-630" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0;exitY=0.7;entryX=0.845;entryY=1.022;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=281;entryDx=0;entryDy=0;entryPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" value="Sold animal status">
+          <mxGeometry relative="1" x="-0.0103" as="geometry">
+            <mxPoint x="5.85" y="-48" as="offset" />
+            <Array as="points">
+              <mxPoint x="1497.38" y="1792.12" />
+              <mxPoint x="534.375" y="1792.12" />
+              <mxPoint x="534.375" y="1460.25" />
+              <mxPoint x="395.775" y="1460.25" />
+            </Array>
+            <mxPoint x="1996.5" y="2387.08" as="sourcePoint" />
+            <mxPoint x="527.737" y="1854" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-631" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-583" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.55;exitY=1;entryX=0.7;entryY=0;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=396;exitDx=0;exitDy=0;exitPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-595" value="Report request and filters">
+          <mxGeometry relative="1" x="0.7343" y="5" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1811.25" y="177.75" />
+              <mxPoint x="1811.25" y="231.75" />
+              <mxPoint x="2036.25" y="231.75" />
+              <mxPoint x="2036.25" y="2059.88" />
+              <mxPoint x="2442.38" y="2059.88" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-632" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-602" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=1;exitY=0.3;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=310;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-595" value="Verified gate totals">
+          <mxGeometry relative="1" x="0.0011" as="geometry">
+            <mxPoint x="-6" y="-48" as="offset" />
+            <Array as="points">
+              <mxPoint x="1091.25" y="1614.15" />
+              <mxPoint x="1091.25" y="2172.38" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-633" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-604" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.75;exitY=1;entryX=0.164;entryY=1.019;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=410;exitDx=0;exitDy=0;entryDx=0;entryDy=0;entryPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-596" value="Transfer records and status">
+          <mxGeometry relative="1" x="-0.1642" y="-10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="990" y="2075.62" />
+              <mxPoint x="990" y="2189.25" />
+              <mxPoint x="2116.12" y="2189.25" />
+              <mxPoint x="2116.12" y="2335.5" />
+              <mxPoint x="2261.48" y="2335.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-634" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-606" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.3;exitY=1;entryX=0.313;entryY=-0.012;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=396;entryDx=0;entryDy=0;entryPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-595" value="Movement clearance records">
+          <mxGeometry relative="1" x="0.4564" y="5" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="2376.9" y="1474.88" />
+              <mxPoint x="2311.76" y="1474.88" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-635" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-595" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;entryX=1;entryY=0.5;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=353;entryDx=0;entryDy=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-583" value="Auction summary reports">
+          <mxGeometry relative="1" x="-0.743" y="20" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="2227.5" y="2088" />
+              <mxPoint x="1980" y="2088" />
+              <mxPoint x="1980" y="133.875" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-637" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;" value="FARMER" vertex="1">
+          <mxGeometry height="135" width="375" x="90" y="616.5" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-638" parent="1" style="shape=swimlane;rounded=1;arcSize=18;startSize=42;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" value="7.0" vertex="1">
+          <mxGeometry height="162" width="540" x="1456.88" y="616.5" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-639" parent="2qVcB9-ud4cyJH0vrgVH-638" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=30;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="Review auction preregistrations" vertex="1">
+          <mxGeometry height="120" width="540" y="42" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-640" parent="1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;fontStyle=1;align=center;verticalAlign=middle;" value="D6" vertex="1">
+          <mxGeometry height="69" width="54" x="550.125" y="727.875" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-641" parent="1" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=2.25;fontColor=#111827;fontSize=26;align=center;verticalAlign=middle;" value="Auction preregistrations" vertex="1">
+          <mxGeometry height="69" width="367.5" x="604.125" y="727.875" as="geometry" />
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-642" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-637" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=1;exitY=0.3;entryX=0;entryY=0.3;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=424;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-638" value="Animal details and documents">
+          <mxGeometry relative="1" x="-0.1742" y="5" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="461.25" y="646.875" />
+              <mxPoint x="466.875" y="646.875" />
+              <mxPoint x="466.875" y="642.375" />
+              <mxPoint x="1366.88" y="642.375" />
+              <mxPoint x="1366.88" y="652.95" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-643" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-638" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0;exitY=0.7;entryX=1;entryY=0.7;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=439;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-637" value="Preregistration review result">
+          <mxGeometry relative="1" x="0.1854" y="2" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1366.88" y="701.55" />
+              <mxPoint x="1366.88" y="709.875" />
+              <mxPoint x="1012.5" y="709.875" />
+              <mxPoint x="1012.5" y="670.5" />
+              <mxPoint x="466.875" y="670.5" />
+              <mxPoint x="466.875" y="687.375" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-644" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-583" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.874;exitY=0.997;entryX=0.7;entryY=0;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=439;exitDx=0;exitDy=0;exitPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-638" value="Arrival and inspection checks">
+          <mxGeometry relative="1" x="0.5832" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1914.41" y="267.75" />
+              <mxPoint x="1957.5" y="267.75" />
+              <mxPoint x="1957.5" y="507.375" />
+              <mxPoint x="1740.38" y="507.375" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-645" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-638" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.3;exitY=0;entryX=0.119;entryY=1.02;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=324;entryDx=0;entryDy=0;entryPerimeter=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-583" value="Preregistration queue">
+          <mxGeometry relative="1" x="-0.575" y="25" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1578.38" y="526.5" />
+              <mxPoint x="1569.38" y="526.5" />
+              <mxPoint x="1569.38" y="507.375" />
+              <mxPoint x="1501.88" y="507.375" />
+              <mxPoint x="1501.88" y="267.75" />
+              <mxPoint x="1676.59" y="267.75" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-646" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-641" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=1;exitY=0.3;entryX=0;entryY=0.25;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=396;entryDx=0;entryDy=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-639" value="Submitted preregistrations">
+          <mxGeometry relative="1" x="-0.7" y="5" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1141.88" y="743.4" />
+              <mxPoint x="1141.88" y="693" />
+              <mxPoint x="1366.88" y="693" />
+              <mxPoint x="1366.88" y="670.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-647" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-639" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;entryX=1;entryY=0.7;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=382;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-641" value="Arrival and review status">
+          <mxGeometry relative="1" x="-0.2157" y="17" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1366.88" y="726.75" />
+              <mxPoint x="1366.88" y="764.1" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="2qVcB9-ud4cyJH0vrgVH-648" edge="1" parent="1" source="2qVcB9-ud4cyJH0vrgVH-641" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.875;exitX=0.75;exitY=1;fontSize=26;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=367;exitDx=0;exitDy=0;exitPerimeter=0;entryPerimeter=0;curved=0;rounded=0;" target="2qVcB9-ud4cyJH0vrgVH-589" value="Selected preregistration">
+          <mxGeometry relative="1" x="0.5055" y="20" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="799.425" y="805.5" />
+              <mxPoint x="987.3" y="805.5" />
+              <mxPoint x="987.3" y="895.5" />
+              <mxPoint x="1141.88" y="895.5" />
+              <mxPoint x="1141.88" y="1041.75" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

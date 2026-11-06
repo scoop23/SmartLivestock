@@ -1,0 +1,260 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" version="24.7.17" type="device">
+  <diagram id="slaughterhouse-level1" name="Slaughterhouse DFD (Level 1)">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3700" pageHeight="2700" math="0" shadow="0" background="#ffffff">
+      <root>
+        <mxCell id="0" style="" />
+        <mxCell id="1" parent="0" style="" />
+        <mxCell id="l1_title" value="SmartLivestock - Slaughterhouse Operations DFD (Gane &amp; Sarson)" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=24;fontStyle=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="200.0" y="40.0" width="3300.0" height="76.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_subtitle" value="Level 1 | Slaughter totals, corrections, municipal review, analytics and reports" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#475569;fontSize=24;fontStyle=0;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="200.0" y="116.0" width="3300.0" height="52.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_admin" value="&lt;b&gt;SLAUGHTERHOUSE STAFF&lt;/b&gt;" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1580.0" y="210.0" width="560.0" height="156.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p1" value="1.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=56.0;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="1520.0" y="450.0" width="600.0" height="184.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p1_body" value="Authenticate staff and authorize access" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="l1_p1">
+          <mxGeometry x="0.0" y="56.0" width="600.0" height="128.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p2" value="2.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=56.0;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="1400.0" y="730.0" width="720.0" height="216.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p2_body" value="Record slaughter totals" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="l1_p2">
+          <mxGeometry x="0.0" y="56.0" width="720.0" height="160.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p3" value="3.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=56.0;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="640.0" y="1130.0" width="600.0" height="224.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p3_body" value="Correct or remove own unapproved records" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="l1_p3">
+          <mxGeometry x="0.0" y="56.0" width="600.0" height="168.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p4" value="4.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=56.0;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="1440.0" y="1130.0" width="620.0" height="224.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p4_body" value="Review slaughter submissions" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="l1_p4">
+          <mxGeometry x="0.0" y="56.0" width="620.0" height="168.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p5" value="5.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=56.0;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="2140.0" y="1130.0" width="600.0" height="224.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p5_body" value="View history and analytics" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="l1_p5">
+          <mxGeometry x="0.0" y="56.0" width="600.0" height="168.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p6" value="6.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=56.0;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="1440.0" y="1800.0" width="620.0" height="224.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_p6_body" value="Generate daily and monthly reports" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="l1_p6">
+          <mxGeometry x="0.0" y="56.0" width="620.0" height="168.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d1_tag" value="&lt;b&gt;D1&lt;/b&gt;" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="2280.0" y="730.0" width="72.0" height="92.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d1" value="User Accounts and Roles" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="2352.0" y="730.0" width="500.0" height="92.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d2_tag" value="&lt;b&gt;D2&lt;/b&gt;" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="660.0" y="840.0" width="72.0" height="92.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d2" value="Species and Barangay References" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="732.0" y="840.0" width="490.0" height="92.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d3_tag" value="&lt;b&gt;D3&lt;/b&gt;" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="640.0" y="1440.0" width="72.0" height="92.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_d3" value="Slaughter Records and Review Metadata" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="712.0" y="1440.0" width="660.0" height="92.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_e1" value="Credentials" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_admin" target="l1_p1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1780.0" y="390.0" />
+              <mxPoint x="1780.0" y="420.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e2" value="Access result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_p1" target="l1_admin">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1940.0" y="420.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e3" value="Account lookup" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_p1" target="l1_d1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2180.0" y="542.0" />
+              <mxPoint x="2180.0" y="680.0" />
+              <mxPoint x="2352.0" y="680.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e4" value="Account permissions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_d1" target="l1_p1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2240.0" y="780.0" />
+              <mxPoint x="2240.0" y="640.0" />
+              <mxPoint x="2120.0" y="640.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e5" value="Slaughter details" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_admin" target="l1_p2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1360.0" y="310.0" />
+              <mxPoint x="1360.0" y="690.0" />
+              <mxPoint x="1760.0" y="690.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e10" value="Species / barangay options" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_d2" target="l1_p2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1300.0" y="860.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e12" value="Record corrections" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_admin" target="l1_p3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1300.0" y="320.0" />
+              <mxPoint x="1300.0" y="1080.0" />
+              <mxPoint x="940.0" y="1080.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e15" value="Own pending / returned records" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_d3" target="l1_p3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="800.0" y="1400.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e16" value="Correction or deletion" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_p3" target="l1_d3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1100.0" y="1400.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e19" value="Submitted slaughter records" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_d3" target="l1_p4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1400.0" y="1490.0" />
+              <mxPoint x="1400.0" y="1400.0" />
+              <mxPoint x="1750.0" y="1400.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e20" value="Decision and review metadata" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_p4" target="l1_d3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1750.0" y="1380.0" />
+              <mxPoint x="1000.0" y="1380.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e22" value="Review queue / result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_p4" target="l1_ops_staff">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2100.0" y="1300.0" />
+              <mxPoint x="2100.0" y="1040.0" />
+              <mxPoint x="3000.0" y="1040.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e24" value="Visible records / approved totals" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_d3" target="l1_p5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1400.0" y="1600.0" />
+              <mxPoint x="2100.0" y="1600.0" />
+              <mxPoint x="2100.0" y="1240.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e25" value="History and charts" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_p5" target="l1_admin">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2860.0" y="1240.0" />
+              <mxPoint x="2860.0" y="400.0" />
+              <mxPoint x="2200.0" y="400.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e26" value="Report period / filters" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_admin" target="l1_p6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="3620.0" y="320.0" />
+              <mxPoint x="3620.0" y="1710.0" />
+              <mxPoint x="1750.0" y="1710.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e27" value="Report records and status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_d3" target="l1_p6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1400.0" y="1660.0" />
+              <mxPoint x="1750.0" y="1660.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e29" value="PDF / CSV report" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_p6" target="l1_admin">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2100.0" y="1880.0" />
+              <mxPoint x="2100.0" y="1640.0" />
+              <mxPoint x="2940.0" y="1640.0" />
+              <mxPoint x="2940.0" y="400.0" />
+              <mxPoint x="2200.0" y="400.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_e30" value="Approval or revision decision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_ops_staff" target="l1_p4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="3000.0" y="1000.0" />
+              <mxPoint x="2080.0" y="1000.0" />
+              <mxPoint x="2080.0" y="1230.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l1_scope_note" value="&lt;b&gt;Scope and role boundary&lt;/b&gt;&lt;br&gt;Staff record aggregate facility totals. MAO/Admin approve or return submissions. Staff correct only their own pending or returned records. Corrections reset the record to pending. Official report totals use approved records; history and CSV use visible records. Aggregate facility records do not change individual livestock inventory. Farmer-linked slaughter reconciliation is a separate workflow." style="shape=note;whiteSpace=wrap;html=1;size=18;fillColor=#fff8db;strokeColor=#c9a227;fontColor=#3f3b2b;fontSize=24;align=left;verticalAlign=middle;spacing=16.0;" vertex="1" parent="1">
+          <mxGeometry x="100.0" y="2340.0" width="3500.0" height="190.0" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_ops_staff" value="&lt;b&gt;MAO / ADMIN&lt;/b&gt;" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="3060.0" y="910.0" width="520.0" height="180.0" as="geometry" />
+        </mxCell>
+        <mxCell id="slaughter_save" value="Pending slaughter record" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_p2" target="l1_d3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1380.0" y="890.0" />
+              <mxPoint x="1380.0" y="1400.0" />
+              <mxPoint x="1200.0" y="1400.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="slaughter_saved" value="Submission result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_p2" target="l1_admin">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2180.0" y="780.0" />
+              <mxPoint x="2180.0" y="450.0" />
+              <mxPoint x="2100.0" y="450.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="slaughter_history_filters" value="Date / species filters" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;fontColor=#0f172a;fontSize=24;labelBackgroundColor=#ffffff;curved=0;rounded=0;labelWidth=320;whiteSpace=wrap;" edge="1" parent="1" source="l1_admin" target="l1_p5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2980.0" y="300.0" />
+              <mxPoint x="2980.0" y="1100.0" />
+              <mxPoint x="2440.0" y="1100.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

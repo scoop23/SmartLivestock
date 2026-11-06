@@ -1,0 +1,595 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" version="24.7.17" type="device">
+  <diagram id="auction-level1" name="Auction DFD (Level 1)">
+    <mxGraphModel grid="1" gridSize="10" page="1" pageWidth="3500" pageHeight="2600" background="#ffffff" dx="1850" dy="1350" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="SmartLivestock — Auction Core Operations Level 1 DFD (Gane &amp; Sarson)" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=20;fontStyle=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="180" y="36.0" width="3100" height="38" />
+        </mxCell>
+        <mxCell id="staff" value="AUCTION OFFICE STAFF" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="1602.0" y="189.0" width="280" height="78" />
+        </mxCell>
+        <mxCell id="mao" value="MAO / ADMIN" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="2934.0" y="1017.0" width="260" height="90" />
+        </mxCell>
+        <mxCell id="p1" value="1.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="1548.0" y="405.0" width="300" height="92" />
+        </mxCell>
+        <mxCell id="p1body" value="Authenticate auction staff and authorize access" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="p1">
+          <mxGeometry as="geometry" x="0" y="28" width="300" height="64" />
+        </mxCell>
+        <mxCell id="p2" value="2.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="756.0" y="1017.0" width="300" height="112" />
+        </mxCell>
+        <mxCell id="p2body" value="Register gate cattle and verify QR / certificate entries" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="p2">
+          <mxGeometry as="geometry" x="0" y="28" width="300" height="84" />
+        </mxCell>
+        <mxCell id="p3" value="3.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="1476.0" y="1017.0" width="310" height="112" />
+        </mxCell>
+        <mxCell id="p3body" value="Encode livestock ownership transfer certificates" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="p3">
+          <mxGeometry as="geometry" x="0" y="28" width="310" height="84" />
+        </mxCell>
+        <mxCell id="p4" value="4.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="2106.0" y="1017.0" width="300" height="112" />
+        </mxCell>
+        <mxCell id="p4body" value="Record livestock movement forms and corrections" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="p4">
+          <mxGeometry as="geometry" x="0" y="28" width="300" height="84" />
+        </mxCell>
+        <mxCell id="p5" value="5.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="1476.0" y="1620.0" width="310" height="112" />
+        </mxCell>
+        <mxCell id="p5body" value="Review transfers and movement clearances" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="p5">
+          <mxGeometry as="geometry" x="0" y="28" width="310" height="84" />
+        </mxCell>
+        <mxCell id="p6" value="6.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="2106.0" y="2016.0" width="300" height="112" />
+        </mxCell>
+        <mxCell id="p6body" value="Compile auction dashboard and reports" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="p6">
+          <mxGeometry as="geometry" x="0" y="28" width="300" height="84" />
+        </mxCell>
+        <mxCell id="d1tag" value="D1" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="2232.0" y="657.0" width="36" height="46" />
+        </mxCell>
+        <mxCell id="d1" value="User accounts and role permissions" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="2296.8" y="657.0" width="250" height="46" />
+        </mxCell>
+        <mxCell id="d2tag" value="D2" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="225.0" y="1296.0" width="36" height="46" />
+        </mxCell>
+        <mxCell id="d2" value="Farmer and livestock registry" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="289.8" y="1296.0" width="245" height="46" />
+        </mxCell>
+        <mxCell id="d3tag" value="D3" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="774.0" y="1530.0" width="36" height="46" />
+        </mxCell>
+        <mxCell id="d3" value="Livestock gate verifications" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="838.8000000000001" y="1530.0" width="245" height="46" />
+        </mxCell>
+        <mxCell id="d4tag" value="D4" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="774.0" y="1908.0" width="36" height="46" />
+        </mxCell>
+        <mxCell id="d4" value="Ownership transfers and review metadata" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="838.8000000000001" y="1908.0" width="245" height="46" />
+        </mxCell>
+        <mxCell id="d5tag" value="D5" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="2106.0" y="1296.0" width="36" height="46" />
+        </mxCell>
+        <mxCell id="d5" value="Inspections, items and clearances" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="2170.8" y="1296.0" width="290" height="46" />
+        </mxCell>
+        <mxCell id="f0" value="Login credentials" source="staff" target="p1" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1798.0" y="347.0" />
+              <mxPoint x="1800.0" y="347.0" />
+              <mxPoint x="1800.0" y="340.0" />
+              <mxPoint x="1760.0" y="340.0" />
+              <mxPoint x="1760.0" y="320.0" />
+              <mxPoint x="1758.0" y="320.0" />
+              <mxPoint x="1758.0" y="325.0" />
+            </Array>
+            <mxPoint as="offset" x="-11.0" y="-32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f1" value="Account and permission data" source="d1" target="p1" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0;exitY=0.3;entryX=1;entryY=0.3;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="2216.8" y="670.8" />
+              <mxPoint x="1920.0" y="670.8" />
+              <mxPoint x="1920.0" y="440.0" />
+              <mxPoint x="1928.0" y="440.0" />
+              <mxPoint x="1928.0" y="432.6" />
+            </Array>
+            <mxPoint as="offset" x="104.69999999999982" y="-230.79999999999995" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f2" value="Authorized session / access result" source="p1" target="staff" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.3;exitY=0;entryX=0.3;entryY=1;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1638.0" y="325.0" />
+              <mxPoint x="1640.0" y="325.0" />
+              <mxPoint x="1640.0" y="340.0" />
+              <mxPoint x="1686.0" y="340.0" />
+              <mxPoint x="1686.0" y="347.0" />
+            </Array>
+            <mxPoint as="offset" x="7.0" y="32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f3" value="Owner details, cattle details, QR / certificate data" source="staff" target="p2" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1798.0" y="347.0" />
+              <mxPoint x="1800.0" y="347.0" />
+              <mxPoint x="1800.0" y="340.0" />
+              <mxPoint x="1140.0" y="340.0" />
+              <mxPoint x="1140.0" y="860.0" />
+              <mxPoint x="960.0" y="860.0" />
+              <mxPoint x="960.0" y="940.0" />
+              <mxPoint x="966.0" y="940.0" />
+              <mxPoint x="966.0" y="937.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f4" value="Registered owner and animal details" source="d2" target="p2" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=1;exitY=0.3;entryX=0;entryY=0.3;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="614.8" y="1309.8" />
+              <mxPoint x="620.0" y="1309.8" />
+              <mxPoint x="620.0" y="1060.0" />
+              <mxPoint x="676.0" y="1060.0" />
+              <mxPoint x="676.0" y="1050.6" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-42.799999999999955" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f5" value="Gate-registered livestock" source="p2" target="d2" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0;exitY=0.7;entryX=1;entryY=0.7;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="676.0" y="1095.4" />
+              <mxPoint x="680.0" y="1095.4" />
+              <mxPoint x="680.0" y="1100.0" />
+              <mxPoint x="620.0" y="1100.0" />
+              <mxPoint x="620.0" y="1320.0" />
+              <mxPoint x="614.8" y="1320.0" />
+              <mxPoint x="614.8" y="1328.2" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="29.59999999999991" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f6" value="Verified animal, certificate and gate session" source="p2" target="d3" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="966.0" y="1209.0" />
+              <mxPoint x="960.0" y="1209.0" />
+              <mxPoint x="960.0" y="1440.0" />
+              <mxPoint x="1010.3000000000001" y="1440.0" />
+              <mxPoint x="1010.3000000000001" y="1450.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-24.34999999999991" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f7" value="Registration result and verified gate count" source="p2" target="staff" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.3;exitY=0;entryX=0.3;entryY=1;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="846.0" y="937.0" />
+              <mxPoint x="840.0" y="937.0" />
+              <mxPoint x="840.0" y="860.0" />
+              <mxPoint x="1140.0" y="860.0" />
+              <mxPoint x="1140.0" y="340.0" />
+              <mxPoint x="1686.0" y="340.0" />
+              <mxPoint x="1686.0" y="347.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-30.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f8" value="Seller, buyer, animal and certificate details" source="staff" target="p3" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1798.0" y="347.0" />
+              <mxPoint x="1800.0" y="347.0" />
+              <mxPoint x="1800.0" y="340.0" />
+              <mxPoint x="1920.0" y="340.0" />
+              <mxPoint x="1920.0" y="560.0" />
+              <mxPoint x="1860.0" y="560.0" />
+              <mxPoint x="1860.0" y="820.0" />
+              <mxPoint x="1700.0" y="820.0" />
+              <mxPoint x="1700.0" y="940.0" />
+              <mxPoint x="1693.0" y="940.0" />
+              <mxPoint x="1693.0" y="937.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-22.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f9" value="Animal ownership and registry details" source="d2" target="p3" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=1;exitY=0.3;entryX=0;entryY=0.3;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="614.8" y="1309.8" />
+              <mxPoint x="620.0" y="1309.8" />
+              <mxPoint x="620.0" y="1200.0" />
+              <mxPoint x="1120.0" y="1200.0" />
+              <mxPoint x="1120.0" y="1060.0" />
+              <mxPoint x="1396.0" y="1060.0" />
+              <mxPoint x="1396.0" y="1050.6" />
+            </Array>
+            <mxPoint as="offset" x="10.799999999999955" y="-32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f10" value="Pending ownership transfer" source="p3" target="d4" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1693.0" y="1209.0" />
+              <mxPoint x="1700.0" y="1209.0" />
+              <mxPoint x="1700.0" y="1200.0" />
+              <mxPoint x="1140.0" y="1200.0" />
+              <mxPoint x="1140.0" y="1640.0" />
+              <mxPoint x="1020.0" y="1640.0" />
+              <mxPoint x="1020.0" y="1820.0" />
+              <mxPoint x="1010.3000000000001" y="1820.0" />
+              <mxPoint x="1010.3000000000001" y="1828.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-22.84999999999991" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f11" value="Transfer record and submission status" source="p3" target="staff" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.3;exitY=0;entryX=0.3;entryY=1;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1569.0" y="937.0" />
+              <mxPoint x="1560.0" y="937.0" />
+              <mxPoint x="1560.0" y="820.0" />
+              <mxPoint x="1380.0" y="820.0" />
+              <mxPoint x="1380.0" y="340.0" />
+              <mxPoint x="1686.0" y="340.0" />
+              <mxPoint x="1686.0" y="347.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-31.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f12" value="Shipper, route, purpose and animal item details" source="staff" target="p4" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1798.0" y="347.0" />
+              <mxPoint x="1800.0" y="347.0" />
+              <mxPoint x="1800.0" y="340.0" />
+              <mxPoint x="1920.0" y="340.0" />
+              <mxPoint x="1920.0" y="940.0" />
+              <mxPoint x="2316.0" y="940.0" />
+              <mxPoint x="2316.0" y="937.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-31.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f13" value="Eligible livestock details" source="d2" target="p4" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=1;exitY=0.3;entryX=0;entryY=0.3;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="614.8" y="1309.8" />
+              <mxPoint x="620.0" y="1309.8" />
+              <mxPoint x="620.0" y="1200.0" />
+              <mxPoint x="1860.0" y="1200.0" />
+              <mxPoint x="1860.0" y="1060.0" />
+              <mxPoint x="2026.0" y="1060.0" />
+              <mxPoint x="2026.0" y="1050.6" />
+            </Array>
+            <mxPoint as="offset" x="-0.20000000000004547" y="-32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f14" value="Movement form, items and pending clearance" source="p4" target="d5" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="2316.0" y="1209.0" />
+              <mxPoint x="2320.0" y="1209.0" />
+              <mxPoint x="2320.0" y="1220.0" />
+              <mxPoint x="2373.8" y="1220.0" />
+              <mxPoint x="2373.8" y="1216.0" />
+            </Array>
+            <mxPoint as="offset" x="1.400000000000091" y="-32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f15" value="Returned form and review remarks" source="d5" target="p4" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.3;exitY=0;entryX=0.3;entryY=1;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="2257.8" y="1216.0" />
+              <mxPoint x="2260.0" y="1216.0" />
+              <mxPoint x="2260.0" y="1220.0" />
+              <mxPoint x="2200.0" y="1220.0" />
+              <mxPoint x="2200.0" y="1200.0" />
+              <mxPoint x="2196.0" y="1200.0" />
+              <mxPoint x="2196.0" y="1209.0" />
+            </Array>
+            <mxPoint as="offset" x="3.400000000000091" y="32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f16" value="Movement record, clearance status and correction remarks" source="p4" target="staff" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.3;exitY=0;entryX=0.3;entryY=1;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="2196.0" y="937.0" />
+              <mxPoint x="2200.0" y="937.0" />
+              <mxPoint x="2200.0" y="940.0" />
+              <mxPoint x="1920.0" y="940.0" />
+              <mxPoint x="1920.0" y="340.0" />
+              <mxPoint x="1686.0" y="340.0" />
+              <mxPoint x="1686.0" y="347.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="35.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f17" value="Pending transfers and certificate details" source="d4" target="p5" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=1;exitY=0.3;entryX=0;entryY=0.3;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1163.8000000000002" y="1921.8" />
+              <mxPoint x="1160.0" y="1921.8" />
+              <mxPoint x="1160.0" y="1660.0" />
+              <mxPoint x="1396.0" y="1660.0" />
+              <mxPoint x="1396.0" y="1653.6" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-39.59999999999991" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f18" value="Submitted movement forms and clearance details" source="d5" target="p5" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0;exitY=0.3;entryX=1;entryY=0.3;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="2090.8" y="1309.8" />
+              <mxPoint x="1860.0" y="1309.8" />
+              <mxPoint x="1860.0" y="1660.0" />
+              <mxPoint x="1866.0" y="1660.0" />
+              <mxPoint x="1866.0" y="1653.6" />
+            </Array>
+            <mxPoint as="offset" x="130.0" y="284.3000000000002" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f19" value="Review records and supporting details" source="p5" target="mao" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=1;exitY=0.7;entryX=0;entryY=0.7;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1866.0" y="1698.4" />
+              <mxPoint x="1860.0" y="1698.4" />
+              <mxPoint x="1860.0" y="1200.0" />
+              <mxPoint x="2480.0" y="1200.0" />
+              <mxPoint x="2480.0" y="1080.0" />
+              <mxPoint x="2854.0" y="1080.0" />
+            </Array>
+            <mxPoint as="offset" x="-69.19999999999982" y="-32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f20" value="Approval / revision decision and remarks" source="mao" target="p5" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0;exitY=0.3;entryX=1;entryY=0.3;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="2854.0" y="1044.0" />
+              <mxPoint x="2860.0" y="1044.0" />
+              <mxPoint x="2860.0" y="1040.0" />
+              <mxPoint x="2480.0" y="1040.0" />
+              <mxPoint x="2480.0" y="1200.0" />
+              <mxPoint x="1860.0" y="1200.0" />
+              <mxPoint x="1860.0" y="1660.0" />
+              <mxPoint x="1866.0" y="1660.0" />
+              <mxPoint x="1866.0" y="1653.6" />
+            </Array>
+            <mxPoint as="offset" x="-228.80000000000018" y="32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f21" value="Transfer decision and reviewer metadata" source="p5" target="d4" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0;exitY=0.7;entryX=1;entryY=0.7;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1396.0" y="1698.4" />
+              <mxPoint x="1400.0" y="1698.4" />
+              <mxPoint x="1400.0" y="1700.0" />
+              <mxPoint x="1160.0" y="1700.0" />
+              <mxPoint x="1160.0" y="1940.0" />
+              <mxPoint x="1163.8000000000002" y="1940.0" />
+              <mxPoint x="1163.8000000000002" y="1940.2" />
+            </Array>
+            <mxPoint as="offset" x="-0.7999999999997272" y="32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f22" value="Clearance decision and reviewer metadata" source="p5" target="d5" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=1;exitY=0.7;entryX=0;entryY=0.7;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1866.0" y="1698.4" />
+              <mxPoint x="2100.0" y="1698.4" />
+              <mxPoint x="2100.0" y="1320.0" />
+              <mxPoint x="2090.8" y="1320.0" />
+              <mxPoint x="2090.8" y="1328.2" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-233.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f23" value="Approved sale status (seller animal marked SOLD)" source="p5" target="d2" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0;exitY=0.7;entryX=1;entryY=0.7;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1396.0" y="1698.4" />
+              <mxPoint x="1400.0" y="1698.4" />
+              <mxPoint x="1400.0" y="1700.0" />
+              <mxPoint x="620.0" y="1700.0" />
+              <mxPoint x="620.0" y="1320.0" />
+              <mxPoint x="614.8" y="1320.0" />
+              <mxPoint x="614.8" y="1328.2" />
+            </Array>
+            <mxPoint as="offset" x="3.900000000000091" y="-32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f24" value="Reporting filters and report request" source="staff" target="p6" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1798.0" y="347.0" />
+              <mxPoint x="1800.0" y="347.0" />
+              <mxPoint x="1800.0" y="340.0" />
+              <mxPoint x="1920.0" y="340.0" />
+              <mxPoint x="1920.0" y="1940.0" />
+              <mxPoint x="2316.0" y="1940.0" />
+              <mxPoint x="2316.0" y="1936.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="32.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f25" value="Gate verification totals" source="d3" target="p6" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=1;exitY=0.3;entryX=0;entryY=0.3;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1163.8000000000002" y="1543.8" />
+              <mxPoint x="1160.0" y="1543.8" />
+              <mxPoint x="1160.0" y="2040.0" />
+              <mxPoint x="2026.0" y="2040.0" />
+              <mxPoint x="2026.0" y="2049.6" />
+            </Array>
+            <mxPoint as="offset" x="-4.0" y="-32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f26" value="Transfer records and review status" source="d4" target="p6" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=1;exitY=0.3;entryX=0;entryY=0.3;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1163.8000000000002" y="1921.8" />
+              <mxPoint x="1160.0" y="1921.8" />
+              <mxPoint x="1160.0" y="2040.0" />
+              <mxPoint x="2026.0" y="2040.0" />
+              <mxPoint x="2026.0" y="2049.6" />
+            </Array>
+            <mxPoint as="offset" x="5.0" y="32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f27" value="Movement and clearance records" source="d5" target="p6" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.3;exitY=1;entryX=0.3;entryY=0;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="2257.8" y="1422.0" />
+              <mxPoint x="2260.0" y="1422.0" />
+              <mxPoint x="2260.0" y="1420.0" />
+              <mxPoint x="2200.0" y="1420.0" />
+              <mxPoint x="2200.0" y="1940.0" />
+              <mxPoint x="2196.0" y="1940.0" />
+              <mxPoint x="2196.0" y="1936.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-63.90000000000009" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f28" value="Auction metrics, record summaries and reports" source="p6" target="staff" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.3;exitY=0;entryX=0.3;entryY=1;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="2196.0" y="1936.0" />
+              <mxPoint x="2200.0" y="1936.0" />
+              <mxPoint x="2200.0" y="1940.0" />
+              <mxPoint x="1920.0" y="1940.0" />
+              <mxPoint x="1920.0" y="340.0" />
+              <mxPoint x="1686.0" y="340.0" />
+              <mxPoint x="1686.0" y="347.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-49.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="note" value="Scope: auction core operations and shared MAO/Admin review. Farmers submit preregistrations; staff encode paper certificates and outside-trader details. Approval marks local seller inventory SOLD; it does not automatically reassign ownership. Stores are logical model groups. GIS, announcements and scheduling are excluded." style="shape=note;whiteSpace=wrap;html=1;size=18;fillColor=#fff8db;strokeColor=#c9a227;fontColor=#3f3b2b;fontSize=11;align=left;verticalAlign=middle;spacing=8;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="180" y="2322.0" width="3100" height="95" />
+        </mxCell>
+        <mxCell id="farmer" value="FARMER" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="225.0" y="657.0" width="250" height="90" />
+        </mxCell>
+        <mxCell id="p7" value="7.0" style="shape=swimlane;rounded=1;arcSize=18;startSize=28;horizontal=1;container=1;collapsible=0;rules=none;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;html=1;swimlaneFillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="1440.0" y="657.0" width="360" height="108" />
+        </mxCell>
+        <mxCell id="p7body" value="Review preregistration paperwork and confirm arrival" style="text;html=1;strokeColor=none;fillColor=none;fontColor=#111827;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="p7">
+          <mxGeometry as="geometry" x="0" y="28" width="360" height="80" />
+        </mxCell>
+        <mxCell id="d6tag" value="D6" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="774.0" y="756.0" width="36" height="46" />
+        </mxCell>
+        <mxCell id="d6" value="Auction preregistrations / animal dispositions" style="shape=partialRectangle;top=1;bottom=1;left=0;right=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#111827;strokeWidth=1.5;fontColor=#111827;fontSize=11;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry as="geometry" x="838.8000000000001" y="756.0" width="245" height="46" />
+        </mxCell>
+        <mxCell id="pr1" value="Animal details and supporting documents" source="farmer" target="p7" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=1;exitY=0.3;entryX=0;entryY=0.3;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="555.0" y="684.0" />
+              <mxPoint x="560.0" y="684.0" />
+              <mxPoint x="560.0" y="680.0" />
+              <mxPoint x="1360.0" y="680.0" />
+              <mxPoint x="1360.0" y="689.4" />
+            </Array>
+            <mxPoint as="offset" x="-0.20000000000004547" y="-32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pr2" value="Preregistration status / revision remarks" source="p7" target="farmer" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0;exitY=0.7;entryX=1;entryY=0.7;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1360.0" y="732.6" />
+              <mxPoint x="1360.0" y="740.0" />
+              <mxPoint x="1140.0" y="740.0" />
+              <mxPoint x="1140.0" y="700.0" />
+              <mxPoint x="560.0" y="700.0" />
+              <mxPoint x="560.0" y="720.0" />
+              <mxPoint x="555.0" y="720.0" />
+            </Array>
+            <mxPoint as="offset" x="168.79999999999995" y="8.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pr3" value="Paperwork review, arrival checks and inspection reference" source="staff" target="p7" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.7;exitY=1;entryX=0.7;entryY=0;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1798.0" y="347.0" />
+              <mxPoint x="1800.0" y="347.0" />
+              <mxPoint x="1800.0" y="340.0" />
+              <mxPoint x="1920.0" y="340.0" />
+              <mxPoint x="1920.0" y="560.0" />
+              <mxPoint x="1700.0" y="560.0" />
+              <mxPoint x="1700.0" y="580.0" />
+              <mxPoint x="1692.0" y="580.0" />
+              <mxPoint x="1692.0" y="577.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="41.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pr4" value="Preregistration queue and review result" source="p7" target="staff" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0.3;exitY=0;entryX=0.3;entryY=1;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1548.0" y="577.0" />
+              <mxPoint x="1540.0" y="577.0" />
+              <mxPoint x="1540.0" y="560.0" />
+              <mxPoint x="1480.0" y="560.0" />
+              <mxPoint x="1480.0" y="340.0" />
+              <mxPoint x="1686.0" y="340.0" />
+              <mxPoint x="1686.0" y="347.0" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-81.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pr5" value="Submitted preregistration details" source="d6" target="p7" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=1;exitY=0.3;entryX=0;entryY=0.3;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1163.8000000000002" y="769.8" />
+              <mxPoint x="1160.0" y="769.8" />
+              <mxPoint x="1160.0" y="680.0" />
+              <mxPoint x="1360.0" y="680.0" />
+              <mxPoint x="1360.0" y="689.4" />
+            </Array>
+            <mxPoint as="offset" x="2.1000000000001364" y="-32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pr6" value="Review status, remarks and arrival confirmation" source="p7" target="d6" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=0;exitY=0.7;entryX=1;entryY=0.7;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1360.0" y="732.6" />
+              <mxPoint x="1360.0" y="740.0" />
+              <mxPoint x="1160.0" y="740.0" />
+              <mxPoint x="1160.0" y="780.0" />
+              <mxPoint x="1163.8000000000002" y="780.0" />
+              <mxPoint x="1163.8000000000002" y="788.2" />
+            </Array>
+            <mxPoint as="offset" x="2.300000000000182" y="32.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pr7" value="Selected preregistration / seller and animal reference" source="d6" target="p3" parent="1" edge="1" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=1.25;exitX=1;exitY=0.3;entryX=0;entryY=0.3;fontSize=11;fontColor=#0f172a;labelBackgroundColor=#ffffff;whiteSpace=wrap;labelWidth=220;">
+          <mxGeometry as="geometry" relative="1" x="0" y="0">
+            <Array as="points">
+              <mxPoint x="1163.8000000000002" y="769.8" />
+              <mxPoint x="1160.0" y="769.8" />
+              <mxPoint x="1160.0" y="1060.0" />
+              <mxPoint x="1396.0" y="1060.0" />
+              <mxPoint x="1396.0" y="1050.6" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-61.90000000000009" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="subtitle" value="Level 1 | Auction portal: preregistration, gate checks, transfers, movement records, review and analytics" style="text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;fontColor=#475569;fontSize=12;fontStyle=0;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="180" y="104.4" width="3100" height="26" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
