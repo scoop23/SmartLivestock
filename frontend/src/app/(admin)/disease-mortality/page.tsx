@@ -578,18 +578,6 @@ function DiseaseMortalityContent() {
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <button
               type="button"
-              onClick={() => handleTabChange("followups")}
-              className={"flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all " + (
-                activeTab === "followups"
-                  ? "border-[#1E4D2B] bg-[#1E4D2B] text-white shadow-sm"
-                  : "border-slate-200 bg-white/80 text-slate-700 hover:bg-white hover:text-slate-950"
-              )}
-            >
-              <Activity className="size-4" />
-              <span>Follow-ups</span>
-            </button>
-            <button
-              type="button"
               onClick={() => handleTabChange("all")}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
                 activeTab === "all"
@@ -647,6 +635,18 @@ function DiseaseMortalityContent() {
             >
               <ShieldCheck className="w-4 h-4" />
               <span>Reporting Coverage</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange("followups")}
+              className={"flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all " + (
+                activeTab === "followups"
+                  ? "border-[#1E4D2B] bg-[#1E4D2B] text-white shadow-sm"
+                  : "border-slate-200 bg-white/80 text-slate-700 hover:bg-white hover:text-slate-950"
+              )}
+            >
+              <Activity className="size-4" />
+              <span>Follow-ups</span>
             </button>
           </div>
 
