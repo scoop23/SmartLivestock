@@ -3,6 +3,7 @@
 import type { BatchApiItem } from "@/app/(farmer)/livestock-inventory/livestock-inventory";
 import type { OverviewRecord } from "./data-overview-types";
 import { PageHeader } from "@/app/components/page-header";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { useMemo,useState } from "react";
 import { toast } from "sonner";
@@ -91,6 +92,7 @@ export default function DataOverviewPage() {
   const [filterBarangay, setFilterBarangay] = useState("all");
   const [filterSpecie, setFilterSpecie] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [showLivestockHistory, setShowLivestockHistory] = useState(false);
 
   // Record Detail Modal
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -906,7 +908,11 @@ export default function DataOverviewPage() {
     let raw: OverviewRecord[] = [];
     switch (activeTab) {
       case "livestock":
-        raw = livestockList;
+        raw = livestockList.filter(item =>
+          showLivestockHistory
+            ? (item.operationalStatus || "ACTIVE") !== "ACTIVE"
+            : (item.operationalStatus || "ACTIVE") === "ACTIVE"
+        );
         break;
       case "batches":
         raw = batchList;
@@ -960,6 +966,7 @@ export default function DataOverviewPage() {
     });
   }, [
     activeTab,
+    showLivestockHistory,
     livestockList,
     batchList,
     productionList,
@@ -1312,6 +1319,12 @@ export default function DataOverviewPage() {
           />
         ) : (
           <>
+            {activeTab === "livestock" && (
+              <div className="mb-3 flex gap-2" role="group" aria-label="Animal record history">
+                <Button variant={showLivestockHistory ? "outline" : "default"} onClick={() => setShowLivestockHistory(false)} aria-pressed={!showLivestockHistory}>Current animals</Button>
+                <Button variant={showLivestockHistory ? "default" : "outline"} onClick={() => setShowLivestockHistory(true)} aria-pressed={showLivestockHistory}>History</Button>
+              </div>
+            )}
             <DataOverviewToolbar
               activeTab={activeTab}
               onTabChange={setActiveTab}

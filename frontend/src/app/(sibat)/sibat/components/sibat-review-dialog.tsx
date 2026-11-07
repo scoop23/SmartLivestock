@@ -399,7 +399,7 @@ function SibatReviewDialogContent({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white text-slate-900 border border-slate-200/90 shadow-2xl w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] min-w-0 sm:w-full sm:max-w-4xl max-h-[96dvh] sm:max-h-[92vh] overflow-x-hidden overflow-y-auto p-3 sm:p-5 rounded-2xl sm:rounded-3xl gap-3 sm:gap-3.5 break-words">
+      <DialogContent className="grid-cols-1 bg-white text-slate-900 border border-slate-200/90 shadow-2xl w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] min-w-0 sm:w-full sm:max-w-4xl max-h-[96dvh] sm:max-h-[92vh] overflow-x-hidden overflow-y-auto p-3 sm:p-5 rounded-2xl sm:rounded-3xl gap-3 sm:gap-3.5 break-words [&>*]:min-w-0 [&>*]:max-w-full">
         {/* Validation Success Animation Overlay */}
         {isSuccessAnimated && (
           <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AlertTriangle,Archive,ArrowLeft,CalendarDays,CheckCircle2,CircleDollarSign,Search,ShieldCheck,Skull,Truck } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMemo,useState } from "react";
 import type { LivestockInventoryItem,OperationalStatus } from "../livestock-inventory";
 import { useUserInventory } from "../livestock-inventory";
@@ -233,6 +234,16 @@ function HistoryDetails({ animal, healthReviews }: { animal: LivestockInventoryI
       confirmedCount: review.confirmedCount,
     })),
   ].sort((a, b) => (a.date ? new Date(a.date).getTime() : 0) - (b.date ? new Date(b.date).getTime() : 0));
+  const reportGroups = Array.from(timeline.reduce((groups, event) => {
+    const match = event.key.match(/^(Disease|Mortality)-(\d+)-/);
+    const key = match ? `${match[1]}-${match[2]}` : "registration";
+    const title = match ? `${match[1]} report ${match[1] === "Disease" ? "DIS" : "MOR"}-${match[2]}` : "Livestock registration";
+    const group = groups.get(key) ?? { key, title, label: event.reportLabel, events: [] as HistoryTimelineItem[] };
+    group.events.push(event);
+    groups.set(key, group);
+    return groups;
+  }, new Map<string, { key: string; title: string; label?: string; events: HistoryTimelineItem[] }>()).values());
+  const healthReportCount = reportGroups.filter(group => group.key !== "registration").length;
 
   return (
     <div className="space-y-5">
@@ -261,12 +272,21 @@ function HistoryDetails({ animal, healthReviews }: { animal: LivestockInventoryI
         )}
       </section>
       <section>
-        <p className="text-sm font-bold text-slate-800">Linked health reports and SIBAT / MAO review history</p>
+        <p className="text-sm font-bold text-slate-800">Linked health reports ({healthReportCount}) and review history</p>
+        <p className="mt-1 text-xs text-slate-500">Each report groups its field verification and MAO review below.</p>
         {timeline.length === 0 ? (
           <p className="mt-3 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">No livestock registration or health review details were retained.</p>
         ) : (
-          <ol className="relative mt-4 space-y-3 before:absolute before:bottom-3 before:left-[15px] before:top-3 before:w-0.5 before:bg-slate-200">
-            {timeline.map((event) => {
+          <div className="mt-4 space-y-4">
+          {reportGroups.map(group => (
+          <section key={group.key} className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
+            <div className="mb-3 border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-950">{group.title}</h3>
+              {group.label && <p className="mt-1 text-sm text-slate-700">{group.label}</p>}
+              <p className="mt-1 text-xs text-slate-500">{group.events.length} review {group.events.length === 1 ? "entry" : "entries"}</p>
+            </div>
+          <ol className="relative space-y-3 before:absolute before:bottom-3 before:left-[15px] before:top-3 before:w-0.5 before:bg-slate-200">
+            {group.events.map((event) => {
               const isWarning = /pending|revision|rejected/i.test(event.status);
               const isMao = /mao|approved/i.test(`${event.role} ${event.status}`);
               const Marker = isWarning ? AlertTriangle : isMao ? CheckCircle2 : ShieldCheck;
@@ -292,7 +312,6 @@ function HistoryDetails({ animal, healthReviews }: { animal: LivestockInventoryI
                         {event.status}
                       </Badge>
                     </div>
-                    {event.reportLabel && <p className="mt-1 text-sm font-medium text-slate-800">{event.reportLabel}</p>}
                     <p className="mt-1 text-xs text-slate-700">
                       {event.reviewer}{event.date ? ` · ${new Date(event.date).toLocaleString()}` : ""}
                     </p>
@@ -311,6 +330,9 @@ function HistoryDetails({ animal, healthReviews }: { animal: LivestockInventoryI
               );
             })}
           </ol>
+          </section>
+          ))}
+          </div>
         )}
       </section>
       <Button asChild variant="outline" className="rounded-lg">
@@ -321,6 +343,8 @@ function HistoryDetails({ animal, healthReviews }: { animal: LivestockInventoryI
 }
 
 export default function LivestockHistoryPage() {
+  const searchParams = useSearchParams();
+  const fromReports = searchParams.get("from") === "report-observation";
   // includeInactive asks the existing owner-scoped inventory API to include sold,
   // deceased, slaughtered, and moved records alongside active livestock.
   const { data: allAnimals = [], isLoading, isError, refetch, isFetching } = useUserInventory({ includeInactive: true });
@@ -382,7 +406,7 @@ export default function LivestockHistoryPage() {
       <main className="w-full space-y-5 p-4 sm:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button asChild variant="outline" size="sm" className="rounded-lg">
-            <Link href="/livestock-inventory"><ArrowLeft className="mr-2 size-4" />Back to livestock</Link>
+            <Link href={fromReports ? "/report-observation" : "/livestock-inventory"}><ArrowLeft className="mr-2 size-4" />{fromReports ? "Back to reports" : "Back to livestock"}</Link>
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
             {isFetching ? "Refreshing…" : "Refresh"}

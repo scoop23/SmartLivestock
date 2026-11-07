@@ -404,7 +404,7 @@ function SidebarNav({
                 <div
                   className={cn(
                     "group relative flex items-center justify-between px-3.5 py-2.5 rounded-2xl font-semibold transition-all duration-200 cursor-pointer select-none",
-                    role === "sibat" ? "min-h-14 py-3 text-base" : "py-2.5 text-sm",
+                    "py-2.5 text-sm",
                     isActive && !isDropdownOpen
                       ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs scale-[1.01]"
                       : "text-emerald-100/75 hover:bg-white/10 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
@@ -451,7 +451,7 @@ function SidebarNav({
                             tabIndex={isDropdownOpen ? 0 : -1}
                             className={cn(
                               "flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200",
-                              role === "sibat" ? "py-2.5 text-sm" : "py-2 text-xs",
+                              "py-2 text-xs",
                               isSubActive
                                 ? "bg-emerald-500/25 text-white font-bold border border-emerald-400/30 shadow-xs scale-[1.01]"
                                 : "text-emerald-100/70 hover:bg-white/10 hover:text-white hover:translate-x-1"
@@ -491,7 +491,7 @@ function SidebarNav({
               className={cn(
                 "group relative flex items-center rounded-2xl font-semibold transition-all duration-200 select-none",
                 collapsed ? "justify-center gap-0 px-0 py-3" : "gap-3 px-3.5 py-2.5",
-                role === "sibat" ? "min-h-14 py-3 text-base" : "py-2.5 text-sm",
+                "py-2.5 text-sm",
                 isActive
                   ? "bg-white/15 text-white font-bold backdrop-blur-xs ring-1 ring-white/20 shadow-xs scale-[1.01]"
                   : "text-emerald-100/75 hover:bg-white/10 hover:text-white hover:scale-[1.01] active:scale-[0.99]"

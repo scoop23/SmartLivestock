@@ -640,7 +640,7 @@ function ReportObservationContent() {
           <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
             <p>{reportsInHistory.length} report{reportsInHistory.length === 1 ? " is" : "s are"} linked only to deceased livestock. Their review details are available in Livestock History.</p>
             <Button asChild variant="outline" size="sm" className="shrink-0 border-amber-300 bg-white">
-              <Link href="/livestock-inventory/history">Open Livestock History</Link>
+              <Link href="/livestock-inventory/history?from=report-observation">Open Livestock History</Link>
             </Button>
           </div>
         )}

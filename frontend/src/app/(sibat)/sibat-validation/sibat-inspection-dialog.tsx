@@ -902,7 +902,7 @@ function SibatInspectionDialogContent({
                   <Badge className="border border-amber-200 bg-amber-100 text-amber-900 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0">Pending On-Farm Visit</Badge>
                 </div>
                 <DialogTitle className="mt-0.5 text-base sm:text-xl md:text-2xl font-extrabold leading-tight text-white break-words">
-                  {isMortality ? "SIBAT Mortality Verification" : "SIBAT Disease Verification"}
+                  {isMortality ? "CBAT Mortality Verification" : "CBAT Disease Verification"}
                 </DialogTitle>
                 <p className="mt-0.5 text-xs text-blue-100 leading-snug sm:text-sm">
                   {isMortality
@@ -985,13 +985,13 @@ function SibatInspectionDialogContent({
                         ? "Certified Mortality Record (MAO Approved)"
                         : "Certified Health Record (MAO Approved)"
                       : isVerified
-                        ? "SIBAT Field Inspection (Under MAO Review)"
+                        ? "CBAT Field Inspection (Under MAO Review)"
                         : `Field Inspection Record (${record.status})`
                     : isMortality
-                      ? "Step 2: SIBAT Mortality Verification"
+                      ? "Step 2: CBAT Mortality Verification"
                       : isDisease
-                        ? "Step 2: SIBAT On-Farm Health Examination"
-                        : `Step 2: SIBAT Field Inspection (${record.reportType})`}
+                        ? "Step 2: CBAT On-Farm Health Examination"
+                        : `Step 2: CBAT Field Inspection (${record.reportType})`}
                 </DialogTitle>
                 <p className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5 leading-snug">
                   {isReadOnly

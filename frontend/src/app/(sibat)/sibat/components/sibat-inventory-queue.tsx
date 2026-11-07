@@ -45,7 +45,7 @@ const STATUS_TABS: Array<{
 }> = [
   { value: "all", label: "All Animals", emoji: "📋" },
   { value: "pending", label: "Waiting for field check", emoji: "⏳" },
-  { value: "verified", label: "Checked by SIBAT · Sent to MAO", emoji: "✨" },
+  { value: "verified", label: "Checked by CBAT · Sent to MAO", emoji: "✨" },
   { value: "approved", label: "Approved by MAO", emoji: "✅" },
   { value: "needs_correction", label: "Needs correction", emoji: "🔄" },
 ];

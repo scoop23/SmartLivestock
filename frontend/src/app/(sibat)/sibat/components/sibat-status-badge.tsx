@@ -29,7 +29,7 @@ export default function SibatStatusBadge({
           </Badge>
           {showSubtitle && (
             <span className="text-[10px] text-amber-700 font-medium">
-              No SIBAT review decision has been recorded yet.
+              No CBAT review decision has been recorded yet.
             </span>
           )}
         </div>
@@ -56,7 +56,7 @@ export default function SibatStatusBadge({
                 strokeWidth="2.5"
               />
             </svg>
-            Checked by SIBAT
+            Checked by CBAT
           </Badge>
           {showSubtitle && (
             <span className="text-[10px] text-sky-700 font-medium">

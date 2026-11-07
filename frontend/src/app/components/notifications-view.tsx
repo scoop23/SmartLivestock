@@ -358,7 +358,7 @@ export function NotificationsView({
 
           <Button type="button" variant="outline" size="sm" disabled={pushBusy}
             onClick={togglePushNotifications} aria-label={pushEnabled ? "Disable push notifications" : "Enable push notifications"}
-            className="shrink-0 rounded-lg">
+            className="ml-auto shrink-0 rounded-lg">
             <Bell className="mr-1.5 size-4" />
             <span className="hidden sm:inline">{pushBusy ? "Updating…" : pushEnabled ? "Disable push" : "Enable push"}</span>
           </Button>

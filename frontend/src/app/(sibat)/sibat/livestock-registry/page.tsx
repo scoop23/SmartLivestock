@@ -76,6 +76,11 @@ type RegistryBatchRecord = BatchApiItem;
  * Unified view for Animals (All & Individual), Herds, and Quarterly Census records.
  */
 function SibatLivestockRegistryContent() {
+  const [isEnteringRegistry, setIsEnteringRegistry] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsEnteringRegistry(false), 700);
+    return () => window.clearTimeout(timer);
+  }, []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const showHistory = searchParams.get("history") === "true";
@@ -444,7 +449,7 @@ function SibatLivestockRegistryContent() {
 
 
   const isLoading = inventoryQuery.isLoading || (!batchId && batchesQuery.isLoading);
-  const isInitialLoading = isLoading && registryRecords.length === 0;
+  const isInitialLoading = isEnteringRegistry || (isLoading && registryRecords.length === 0);
   const keepLoadingScreenMounted = useLoadingScreenTransition(isInitialLoading);
   const failedSources = [
     ...(inventoryQuery.isError ? ["individual livestock"] : []),
@@ -490,7 +495,7 @@ function SibatLivestockRegistryContent() {
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           <ValidationLoadingScreen
             isLoading={isInitialLoading}
-            title="Loading Livestock Records"
+            title="Preparing Livestock Validation"
             subtitle="Synchronizing individual livestock registrations, herd submissions, and barangay records..."
             badgeLabel="Livestock Records Sync"
             authorityText="SIBAT Field Validation · Padre Garcia, Batangas"
@@ -498,14 +503,14 @@ function SibatLivestockRegistryContent() {
               {
                 id: "individual",
                 label: "Individual Livestock",
-                sublabel: "Cattle, carabao, and horse registration records",
+                sublabel: "Animal identification and registration records",
                 icon: <Tag className="size-4 text-emerald-700" />,
                 loaded: !inventoryQuery.isLoading,
               },
               {
                 id: "herds",
                 label: "Herd Submissions",
-                sublabel: "Swine, goat, and poultry batch records",
+                sublabel: "Herd rosters and field verification records",
                 icon: <Layers className="size-4 text-sky-600" />,
                 loaded: batchId ? true : !batchesQuery.isLoading,
               },
