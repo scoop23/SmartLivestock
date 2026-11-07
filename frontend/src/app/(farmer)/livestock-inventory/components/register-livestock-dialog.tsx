@@ -96,7 +96,7 @@ function InfoTooltip({ text }: { text: string }) {
 export interface BatchAnimalFormRow {
   id: string;
   tagNumber: string;
-  ownershipCertificateNumber: string;
+  ownershipCertificateNumber?: string;
   breed: string;
   sex: "Female" | "Male" | "Castrated" | "";
   weight: string;
@@ -542,6 +542,7 @@ function RegisterLivestockDialogContent({
           next.push({
             id: String(Date.now() + i),
             tagNumber,
+            ownershipCertificateNumber: "",
             breed: "",
             sex: "",
             weight: "",
