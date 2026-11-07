@@ -166,6 +166,7 @@ export interface CreateBatchPayload {
   notes?: string;
   animals?: Array<{
     tag_number: string;
+    ownership_certificate_number?: string | null;
     breed: string;
     sex: string;
     weight?: number | null;

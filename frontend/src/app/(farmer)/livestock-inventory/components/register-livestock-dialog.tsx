@@ -96,6 +96,7 @@ function InfoTooltip({ text }: { text: string }) {
 export interface BatchAnimalFormRow {
   id: string;
   tagNumber: string;
+  ownershipCertificateNumber: string;
   breed: string;
   sex: "Female" | "Male" | "Castrated" | "";
   weight: string;
@@ -574,6 +575,7 @@ function RegisterLivestockDialogContent({
       tagNumber: ownerTagPrefix
         ? nextSequentialLivestockTag(ownerTagPrefix, usedTags)
         : "",
+      ownershipCertificateNumber: "",
       breed: "",
       sex: "",
       weight: "",
@@ -763,6 +765,7 @@ function RegisterLivestockDialogContent({
           target_weight: avgWeight ? Math.round(avgWeight * 1.3) : null,
           animals: batchAnimals.map((a) => ({
             tag_number: a.tagNumber.trim(),
+            ownership_certificate_number: a.ownershipCertificateNumber?.trim() || "",
             breed: (a.breed?.trim() && a.breed !== "Others") ? a.breed.trim() : mainBreed,
             sex: a.sex,
             weight: a.weight ? parseFloat(a.weight) : null,
@@ -1093,22 +1096,6 @@ function RegisterLivestockDialogContent({
                 </div>
               )}
 
-              {/* Discard / Start Fresh Action */}
-              {hasDraft && currentStep === 1 && (
-                <div className="flex items-center justify-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleStartFresh}
-                    className="h-8 px-2.5 rounded-xl text-rose-700 hover:bg-rose-50 text-xs font-bold gap-1.5 cursor-pointer border border-rose-200/80 hover:border-rose-300 shadow-2xs transition-colors"
-                  >
-                    <Trash2 className="size-3.5 text-rose-600" />
-                    <span>Discard / Start Fresh</span>
-                  </Button>
-                </div>
-              )}
-
               {/* ──────────────────────────────────────────────────────────
                   STEP 1: SELECT LIVESTOCK SPECIES & TAG IDENTIFIER (WITH PHOTO)
               ────────────────────────────────────────────────────────── */}
@@ -1212,6 +1199,8 @@ function RegisterLivestockDialogContent({
                     </div>
                   </div>
 
+                  {formData.entryType === "INDIVIDUAL" && (
+                    <>
                   {/* Ear Tag / Identification Name */}
                   <div className="space-y-1.5 pt-1">
                     <div className="flex items-center justify-between">
@@ -1343,8 +1332,11 @@ function RegisterLivestockDialogContent({
                       )}
                     </div>
                   )}
+                    </>
+                  )}
 
                   {/* Certificate of Ownership of Large Cattle (COLC) # (Optional) */}
+                  {formData.entryType === "INDIVIDUAL" && (
                   <div className="pt-3 border-t border-slate-200/80 space-y-1.5 animate-in fade-in-50 duration-200">
                     <div className="flex items-center justify-between">
                       <Label
@@ -1375,9 +1367,12 @@ function RegisterLivestockDialogContent({
                       Official paper certificate serial number issued by Padre Garcia Municipal Agriculture Office or Treasury.
                     </p>
                   </div>
+                  )}
 
                   {/* Animal Photo & Visual Avatar (Optional) - Merged into Step 1 */}
-                  <div className="pt-4 border-t border-slate-200/80 space-y-3.5">
+                  <div className={formData.entryType === "INDIVIDUAL" ? "pt-4 border-t border-slate-200/80 space-y-3.5" : "space-y-2"}>
+                    {formData.entryType === "INDIVIDUAL" && (
+                      <>
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="flex items-center gap-2">
@@ -1516,6 +1511,8 @@ function RegisterLivestockDialogContent({
                       </div>
                     </div>
 
+                      </>
+                    )}
 
 
                     {/* Herd Gallery Photos for Batch (Optional) */}
@@ -1920,6 +1917,23 @@ function RegisterLivestockDialogContent({
                                           className="h-10 text-xs font-mono font-bold rounded-xl bg-white"
                                           required
                                         />
+                                      </div>
+
+                                      {/* COLC */}
+                                      <div className="space-y-1">
+                                        <Label className="text-xs font-bold text-slate-600">
+                                          Certificate of Ownership (COLC) # <span className="font-normal text-slate-400">(Optional)</span>
+                                        </Label>
+                                        <Input
+                                          value={animal.ownershipCertificateNumber || ""}
+                                          onChange={(e) => updateBatchAnimalField(idx, "ownershipCertificateNumber", e.target.value.toUpperCase())}
+                                          placeholder="e.g. COLC-2026-0001"
+                                          maxLength={100}
+                                          className="h-10 text-xs font-mono font-bold rounded-xl bg-white"
+                                        />
+                                        <p className="text-[10px] text-slate-500">
+                                          Paper certificate number issued for this animal, if available.
+                                        </p>
                                       </div>
 
                                       {/* Breed */}

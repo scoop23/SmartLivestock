@@ -501,6 +501,7 @@ class BatchChildAnimalSerializer(serializers.ModelSerializer):
         Nested `animals` array of LivestockBatchSerializer for batch rosters and individual inspection.
     """
     photo = LivestockPhotoField(read_only=True)
+    ownership_certificate_number = serializers.CharField(read_only=True)
     photo_url = serializers.SerializerMethodField(read_only=True)
     reviewed_by_role = serializers.CharField(source="reviewed_by.role.role_name", read_only=True, allow_null=True)
     reviewed_by_name = serializers.SerializerMethodField(read_only=True)
@@ -518,6 +519,7 @@ class BatchChildAnimalSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "tag_number",
+            "ownership_certificate_number",
             "breed",
             "sex",
             "birth_date",

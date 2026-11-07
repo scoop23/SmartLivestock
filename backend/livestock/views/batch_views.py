@@ -37,8 +37,9 @@ from smartlivestock.workflows import (
 
 
 def _validate_roster_tags(animals_data, user):
-    """Validate existing and within-request ear tags before creating any roster rows."""
+    """Validate roster ear tags and optional COLC numbers before creating rows."""
     seen_tags = set()
+    seen_certificates = set()
     for index, animal in enumerate(animals_data):
         if not isinstance(animal, dict):
             raise ValidationError({"animals": f"Animal row {index + 1} must be an object."})
@@ -54,6 +55,24 @@ def _validate_roster_tags(animals_data, user):
             validate_livestock_tag(tag, user)
         except ValidationError as error:
             raise ValidationError({"animals": f"Row {index + 1}: {error.detail['tag_number'][0]}"}) from error
+
+        certificate = str(animal.get("ownership_certificate_number") or "").strip()
+        animal["ownership_certificate_number"] = certificate
+        if certificate:
+            if len(certificate) > 100:
+                raise ValidationError({
+                    "animals": f"COLC number for animal row {index + 1} must be 100 characters or fewer."
+                })
+            normalized_certificate = certificate.casefold()
+            if normalized_certificate in seen_certificates:
+                raise ValidationError({
+                    "animals": f"COLC number {certificate} appears more than once in this submission."
+                })
+            seen_certificates.add(normalized_certificate)
+            if LivestockInventory.objects.filter(ownership_certificate_number__iexact=certificate).exists():
+                raise ValidationError({
+                    "animals": f"COLC number {certificate} is already registered to another animal."
+                })
 
 
 @api_view(["GET", "POST"])
@@ -147,6 +166,8 @@ def batch_list_create(request):
             # If animals roster is supplied, create individual LivestockInventory items
             if animals_data and isinstance(animals_data, list):
                 for animal in animals_data:
+                    certificate_number = animal.get("ownership_certificate_number", "")
+                    certificate_recorded_at = timezone.now() if certificate_number else None
                     created_animal = LivestockInventory.objects.create(
                         batch=batch,
                         farmer=batch.farmer,
@@ -154,6 +175,9 @@ def batch_list_create(request):
                         entry_type=LivestockInventory.EntryType.INDIVIDUAL,
                         quantity=1,
                         tag_number=animal.get("tag_number", ""),
+                        ownership_certificate_number=certificate_number,
+                        ownership_certificate_recorded_by=user if certificate_number else None,
+                        ownership_certificate_recorded_at=certificate_recorded_at,
                         breed=animal.get("breed", ""),
                         sex=animal.get("sex", "UNKNOWN"),
                         birth_date=animal.get("birth_date") or None,
@@ -491,7 +515,7 @@ def batch_detail(request, pk):
 def batch_add_animals(request, pk):
     """
     POST /api/livestock/batches/<id>/animals/ -> Add one or more animals to this batch
-    Payload: { "animals": [ { tag_number, breed, sex, weight, avatar_key, last_vaccination_date }, ... ] }
+    Payload: { "animals": [ { tag_number, ownership_certificate_number, breed, sex, weight, avatar_key, last_vaccination_date }, ... ] }
     """
     user = request.user
     user_role = role_name(user)
@@ -550,6 +574,8 @@ def batch_add_animals(request, pk):
     created_animals = []
     with transaction.atomic():
         for animal in animals_data:
+            certificate_number = animal.get("ownership_certificate_number", "")
+            certificate_recorded_at = timezone.now() if certificate_number else None
             created = LivestockInventory.objects.create(
                 batch=batch,
                 farmer=batch.farmer,
@@ -557,6 +583,9 @@ def batch_add_animals(request, pk):
                 entry_type=LivestockInventory.EntryType.INDIVIDUAL,
                 quantity=1,
                 tag_number=animal.get("tag_number", ""),
+                ownership_certificate_number=certificate_number,
+                ownership_certificate_recorded_by=user if certificate_number else None,
+                ownership_certificate_recorded_at=certificate_recorded_at,
                 breed=animal.get("breed", ""),
                 sex=animal.get("sex", "UNKNOWN"),
                 birth_date=animal.get("birth_date") or None,
