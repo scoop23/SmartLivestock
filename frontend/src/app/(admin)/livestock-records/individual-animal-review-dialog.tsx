@@ -346,7 +346,7 @@ function IndividualAnimalReviewModalContent({
             {animal?.status === "VERIFIED" && (
               <Badge className="bg-sky-500 text-white font-bold text-[10px] gap-1 px-2 py-0.5 shadow-2xs">
                 <ShieldCheck className="size-3" />
-                {animal.reviewed_by_role ? `${animal.reviewed_by_role} Verified` : "Field Verified"}
+                CBAT Verified
               </Badge>
             )}
             {animal?.status === "PENDING" && (
@@ -542,8 +542,8 @@ function IndividualAnimalReviewModalContent({
             </button>
           </div>
 
-          {/* Quick Review Mode Toggle */}
-          <Button
+          {/* Approved records retain their review history without decision controls. */}
+          {animal?.status === "VERIFIED" && <Button
             size="sm"
             onClick={() => setIsReviewOpen(!isReviewOpen)}
             className={`h-7 px-2.5 rounded-xl text-xs font-bold gap-1 shadow-2xs transition-all ${
@@ -554,7 +554,7 @@ function IndividualAnimalReviewModalContent({
           >
             <ShieldCheck className="size-3.5" />
             <span>{isReviewOpen ? "Hide Review Console" : "Open Review Console"}</span>
-          </Button>
+          </Button>}
         </div>
 
         {/* ── MODAL SCROLLABLE BODY ── */}
@@ -1001,7 +1001,7 @@ function IndividualAnimalReviewModalContent({
               )}
 
               {/* ── 4. MAO REVIEW ACTION CONSOLE (Always accessible or toggleable) ── */}
-              {isReviewOpen && (
+              {animal.status === "VERIFIED" && isReviewOpen && (
                 <div className="p-4 rounded-2xl border-2 border-emerald-600/70 bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/50 shadow-md space-y-3">
                   <div className="flex items-center justify-between pb-1 border-b border-emerald-200">
                     <div className="flex items-center gap-2">

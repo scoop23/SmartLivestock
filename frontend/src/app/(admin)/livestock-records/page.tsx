@@ -785,7 +785,7 @@ function LivestockRecordsContent() {
     }
     if (s === "VERIFIED") {
       const role = reviewerRole?.trim().toUpperCase();
-      const label = role === "CBAT" || role === "SIBAT" ? `${role} Verified` : "Field Verified";
+      const label = !role || role === "CBAT" || role === "SIBAT" ? "CBAT Verified" : "Field Verified";
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-300">
           <ShieldCheck className="w-3 h-3 text-sky-600" />
