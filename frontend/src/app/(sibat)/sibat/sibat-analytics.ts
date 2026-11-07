@@ -880,10 +880,12 @@ export function useReviewSubmission() {
       item,
       status,
       remarks,
+      inspectionPhoto,
     }: {
       item: UnifiedSubmissionItem;
       status: "VERIFIED" | "SUBJECT_TO_REVISION" | "REJECTED";
       remarks: string;
+      inspectionPhoto?: File | null;
     }) => {
       if (item.sourceType === "BATCH" || item.id.startsWith("batch-")) {
         throw new Error("Herds are grouping containers. Review their individual animals instead.");
@@ -896,10 +898,11 @@ export function useReviewSubmission() {
         endpoint = `production/calving/${item.rawId}/review/`;
       }
 
-      const response = await api.post(endpoint, {
-        status,
-        remarks,
-      });
+      const payload = new FormData();
+      payload.append("status", status);
+      payload.append("remarks", remarks);
+      if (inspectionPhoto && item.sourceType === "INVENTORY" && status === "VERIFIED") payload.append("inspection_photo", inspectionPhoto);
+      const response = await api.post(endpoint, payload);
       return response.data;
     },
     onSuccess: () => {

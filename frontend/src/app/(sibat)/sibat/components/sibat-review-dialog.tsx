@@ -47,6 +47,7 @@ import {
   Sprout,
   Tag,
   User,
+  Upload,
   X,
 } from "lucide-react";
 import Image from "next/image";
@@ -199,6 +200,10 @@ function SibatReviewDialogContent({
   hideFooterClose = false,
 }: SibatReviewDialogProps) {
   const [remarks, setRemarks] = useState(submission?.reviewRemarks || "");
+  const [inspectionUpload, setInspectionUpload] = useState<{ submissionId: string; file: File } | null>(null);
+  const inspectionInputRef = useRef<HTMLInputElement>(null);
+  const inspectionPhoto = inspectionUpload?.submissionId === submission?.id ? inspectionUpload?.file : null;
+  const setInspectionPhoto = (file: File | null) => setInspectionUpload(file && submission ? { submissionId: submission.id, file } : null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSuccessAnimated, setIsSuccessAnimated] = useState(false);
 
@@ -354,6 +359,7 @@ function SibatReviewDialogContent({
         item: submission,
         status: newStatus,
         remarks: remarks.trim(),
+        inspectionPhoto: newStatus === "VERIFIED" ? inspectionPhoto : null,
       },
       {
         onSuccess: () => {
@@ -393,7 +399,7 @@ function SibatReviewDialogContent({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white text-slate-900 border border-slate-200/90 shadow-2xl w-[calc(100vw-1rem)] sm:w-full sm:max-w-4xl max-h-[96dvh] sm:max-h-[92vh] overflow-y-auto p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl gap-3 sm:gap-3.5">
+      <DialogContent className="bg-white text-slate-900 border border-slate-200/90 shadow-2xl w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] min-w-0 sm:w-full sm:max-w-4xl max-h-[96dvh] sm:max-h-[92vh] overflow-x-hidden overflow-y-auto p-3 sm:p-5 rounded-2xl sm:rounded-3xl gap-3 sm:gap-3.5 break-words">
         {/* Validation Success Animation Overlay */}
         {isSuccessAnimated && (
           <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
@@ -470,9 +476,9 @@ function SibatReviewDialogContent({
 
         {/* ═══ Top Stepper / Progress Bar ═══ */}
         {!isFarmerProduction ? <div className="rounded-2xl border border-slate-200/80 bg-white p-2.5 sm:p-3.5">
-          <div className="relative grid grid-cols-4 gap-1">
+          <div className="relative grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-1">
             {/* Connecting lines between centers of circles */}
-            <div className="absolute top-3.5 left-[12.5%] right-[12.5%] h-[2px] -translate-y-1/2 flex pointer-events-none">
+            <div className="absolute top-3.5 left-[12.5%] right-[12.5%] h-[2px] -translate-y-1/2 hidden sm:flex pointer-events-none">
               {/* Line 1 -> 2: solid forest green */}
               <div className="h-full flex-1 bg-[#1b4332]" />
               {/* Line 2 -> 3: solid if verified/approved, else dashed gray */}
@@ -594,7 +600,7 @@ function SibatReviewDialogContent({
         )}
 
         {/* ═══ Main 2-Column Grid ═══ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4 items-start">
+        <div className="grid min-w-0 grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 items-start [&>*]:min-w-0">
           {/* LEFT COLUMN: Record details */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 flex flex-col justify-between">
             <div>
@@ -896,6 +902,26 @@ function SibatReviewDialogContent({
                 </div>
               </div>
 
+              {submission.sourceType === "INVENTORY" && isPending && (
+                <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
+                  <Label htmlFor="inventory-inspection-photo" className="text-xs font-bold">CBAT inspection photo (optional)</Label>
+                  <input ref={inspectionInputRef} id="inventory-inspection-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={reviewMutation.isPending} className="hidden" onChange={event => {
+                    const file = event.target.files?.[0] ?? null;
+                    if (file && (file.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(file.type))) {
+                      toast.error("Choose a JPEG, PNG, or WebP image up to 5 MB.");
+                      event.target.value = "";
+                      setInspectionPhoto(null);
+                      return;
+                    }
+                    setInspectionPhoto(file);
+                  }} />
+                  <Button type="button" variant="outline" disabled={reviewMutation.isPending} onClick={() => inspectionInputRef.current?.click()} className="min-h-11 w-full gap-2 rounded-lg border-emerald-300 bg-white text-xs font-semibold text-emerald-900 hover:bg-emerald-100 sm:w-auto">
+                    <Upload className="size-4 shrink-0" />{inspectionPhoto ? "Change photo" : "Choose photo"}
+                  </Button>
+                  <p className="text-xs text-slate-600">Attach a field photo showing the animal and its ear tag. This is saved with verification for MAO review.</p>
+                  {inspectionPhoto && <p className="break-all text-xs font-semibold text-emerald-800">Selected: {inspectionPhoto.name}</p>}
+                </div>
+              )}
               {/* Remarks Textarea */}
               {!isFarmerProduction && <div>
                 <Label className="text-[11px] sm:text-xs font-bold text-slate-800 flex items-center justify-between mb-1">

@@ -349,6 +349,12 @@ def review_inventory(request, pk):
     )
 
     reviewed_at = timezone.now()
+    inspection_photo = request.FILES.get("inspection_photo")
+    if inspection_photo:
+        from livestock.serializer import validate_livestock_photo_upload
+        if new_status != "VERIFIED":
+            raise serializers.ValidationError({"inspection_photo": "Inspection photos belong to field verification."})
+        inspection_photo = serializers.ImageField(validators=[validate_livestock_photo_upload]).run_validation(inspection_photo)
     if new_status == "APPROVED" and inventory.ownership_certificate_number:
         check = request.data.get("certificate_check")
         if check is not None:
@@ -375,6 +381,7 @@ def review_inventory(request, pk):
     inventory.save()
     LivestockInventoryReviewHistory.objects.create(
         inventory=inventory,
+        inspection_photo=inspection_photo,
         reviewer=request.user,
         reviewer_role=user_role,
         status=new_status,

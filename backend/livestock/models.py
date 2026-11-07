@@ -386,6 +386,7 @@ class LivestockInventoryReviewHistory(models.Model):
     remarks = models.TextField(blank=True, default="")
     reviewed_at = models.DateTimeField()
     is_backfilled = models.BooleanField(default=False)
+    inspection_photo = models.ImageField(upload_to="livestock/inspection_photos/", blank=True, null=True)
 
     class Meta:
         ordering = ["reviewed_at", "pk"]

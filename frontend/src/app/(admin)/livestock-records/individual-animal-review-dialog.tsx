@@ -96,6 +96,7 @@ export interface AnimalReviewDetail {
     remarks: string;
     reviewed_at: string;
     is_backfilled?: boolean;
+    inspection_photo?: string | null;
   }>;
   herd_membership_history?: Array<{
     id: number;
@@ -317,6 +318,7 @@ function IndividualAnimalReviewModalContent({
     animal?.photo_url || animal?.photo,
     animal?.left_side_photo_url || animal?.left_side_photo,
     animal?.right_side_photo_url || animal?.right_side_photo,
+    ...(animal?.review_history?.map(review => review.inspection_photo) ?? []),
   ].filter(Boolean) as string[];
 
   const avatar = getDefaultAvatarForSpecies(animal?.livestock_type_name || "Cattle");
@@ -991,7 +993,7 @@ function IndividualAnimalReviewModalContent({
                             </span>
                           </div>
                           <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold bg-black/60 text-white backdrop-blur-md">
-                            {i === 0 ? "Portrait" : i === 1 ? "Left Profile" : "Right Profile"}
+                            {animal?.review_history?.some(review => review.inspection_photo === url) ? "CBAT inspection" : i === 0 ? "Portrait" : i === 1 ? "Left Profile" : "Right Profile"}
                           </span>
                         </div>
                       ))}
