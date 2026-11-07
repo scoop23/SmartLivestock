@@ -2,7 +2,7 @@
 
 import type { LivestockBatchItem, CreateInventoryPayload } from "../livestock-inventory";
 import { httpError } from "@/lib/http-error";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -128,6 +128,7 @@ const initialFormData = {
   isCustomTag: false,
   customTagName: "",
   ownershipCertificateNumber: "",
+  purchaseTransferId: "",
   batchId: "",
   batchName: "",
   housingPen: "",
@@ -257,6 +258,14 @@ function RegisterLivestockDialogContent({
     };
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [certificateFile, setCertificateFile] = useState<File | null>(null);
+  const purchasesQuery = useQuery({
+    queryKey: ["unregistered-purchases", user?.email], enabled: open,
+    queryFn: async () => {
+      const response = await api.get<{id: number; transfer_certificate_number: string; livestock_tag: string}[]>("livestock/ownership-transfers/", {params: {direction: "incoming", status: "APPROVED", unregistered: "true"}});
+      return response.data;
+    },
+  });
   const [batchPhotoFiles, setBatchPhotoFiles] = useState<File[]>([]);
   const [batchPhotoDataUrls, setBatchPhotoDataUrls] = useState<string[]>(() => {
     if (initialDraft?.batchPhotoDataUrls && Array.isArray(initialDraft.batchPhotoDataUrls)) {
@@ -384,6 +393,7 @@ function RegisterLivestockDialogContent({
       });
       setBatchAnimals([]);
       setPhotoFile(null);
+      setCertificateFile(null);
       setBatchPhotoFiles([]);
       setBatchPhotoDataUrls([]);
       setFormError("");
@@ -439,6 +449,7 @@ function RegisterLivestockDialogContent({
 
   const handleRemovePhoto = () => {
     setPhotoFile(null);
+    setCertificateFile(null);
     setFormData((prev) => ({ ...prev, photoDataUrl: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
     toast.info("Photo removed. Preset avatar will be used.");
@@ -506,6 +517,7 @@ function RegisterLivestockDialogContent({
 
   const handleSelectAvatar = (avatarId: string) => {
     setPhotoFile(null);
+    setCertificateFile(null);
     setFormData((prev) => ({
       ...prev,
       avatarKey: avatarId,
@@ -689,7 +701,7 @@ function RegisterLivestockDialogContent({
           : resolveBreed(formData.livestockType, formData.breed);
 
         let response;
-        if (photoFile) {
+        if (photoFile || certificateFile) {
           const body = new FormData();
           body.append("livestock_type", String(typeId));
           body.append("entry_type", "INDIVIDUAL");
@@ -705,18 +717,20 @@ function RegisterLivestockDialogContent({
           if (formData.lastVaccinationDate) body.append("last_vaccination_date", formData.lastVaccinationDate);
           if (batchId !== null) body.append("batch", String(batchId));
           if (formData.avatarKey) body.append("avatar_key", formData.avatarKey);
-          body.append("photo", photoFile);
+          if (photoFile) body.append("photo", photoFile);
+          if (certificateFile) body.append("certificate_photo", certificateFile);
+          if (formData.purchaseTransferId) body.append("purchase_transfer_id", formData.purchaseTransferId);
 
           response = await api.post("/livestock/inventory/", body, {
             headers: { "Content-Type": "multipart/form-data" },
           });
         } else {
-          const payload: CreateInventoryPayload & { batch?: number | null; avatar_key?: string } = {
+          const payload: CreateInventoryPayload & { batch?: number | null; avatar_key?: string; purchase_transfer_id?: number } = {
             livestock_type: typeId,
             entry_type: "INDIVIDUAL",
             quantity: 1,
             tag_number: formData.tagNumber.trim(),
-            ownership_certificate_number: formData.ownershipCertificateNumber?.trim() || null,
+            ownership_certificate_number: formData.ownershipCertificateNumber?.trim() || "",
             breed: finalBreed,
             sex: formData.sex,
             birth_date: formData.birthDate || null,
@@ -725,6 +739,7 @@ function RegisterLivestockDialogContent({
             batch: batchId,
           };
           if (formData.avatarKey) payload.avatar_key = formData.avatarKey;
+          if (formData.purchaseTransferId) payload.purchase_transfer_id = Number(formData.purchaseTransferId);
 
           response = await api.post("/livestock/inventory/", payload);
         }
@@ -827,6 +842,7 @@ function RegisterLivestockDialogContent({
       setCurrentStep(1);
       setIsReviewConfirmed(false);
       setPhotoFile(null);
+      setCertificateFile(null);
 
       try {
         localStorage.removeItem(draftStorageKey);
@@ -998,6 +1014,7 @@ function RegisterLivestockDialogContent({
       setFormError("");
       setFormData(initialFormData);
       setPhotoFile(null);
+      setCertificateFile(null);
       setBatchPhotoFiles([]);
       setBatchPhotoDataUrls([]);
       resetBatchAnimalsToPreset();
@@ -1352,6 +1369,15 @@ function RegisterLivestockDialogContent({
                         Optional
                       </Badge>
                     </div>
+                    <label className="block text-xs font-semibold">Registering a purchased animal?
+                      <select aria-label="Approved purchase" className="mt-1 h-10 w-full rounded-lg border bg-white px-2" value={formData.purchaseTransferId} onChange={e => setFormData({...formData, purchaseTransferId: e.target.value})}>
+                        <option value="">Not linked to a recorded purchase</option>
+                        {purchasesQuery.data?.map(p => <option key={p.id} value={p.id}>{p.transfer_certificate_number} ? {p.livestock_tag}</option>)}
+                      </select>
+                    </label>
+                    {purchasesQuery.isError && <p className="text-xs text-rose-700">Could not load your purchases. Reopen this form to retry before registering a purchased animal.</p>}
+                    <p className="text-xs text-slate-500">Choose your approved purchase and enter the renewed certificate below. Your application adds to active population only after approval.</p>
+                    <label className="block text-xs font-semibold">Certificate image (optional)<input type="file" accept="image/jpeg,image/png,image/webp" className="mt-1 block w-full" onChange={e => setCertificateFile(e.target.files?.[0] ?? null)} /></label>
                     <Input
                       id="ownershipCertificateNumber"
                       placeholder="e.g. COLC-2026-0001 or PG-2024-1234"

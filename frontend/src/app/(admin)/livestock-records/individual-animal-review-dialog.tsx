@@ -68,6 +68,8 @@ export interface AnimalReviewDetail {
   age_classification?: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
   tag_number?: string;
   ownership_certificate_number?: string;
+  certificate_photo?: string | null;
+  certificate_verification?: {status?: string; issuing_office?: string; register_reference?: string; verified_at?: string};
   breed?: string;
   sex?: string;
   weight?: number | string | null;
@@ -159,6 +161,9 @@ function IndividualAnimalReviewModalContent({
 
   // Decision Console State
   const [remarks, setRemarks] = useState("");
+  const [issuingOffice, setIssuingOffice] = useState("");
+  const [registerReference, setRegisterReference] = useState("");
+  const [confirmedIssuer, setConfirmedIssuer] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(defaultToReviewMode);
   const [enlargedPhoto, setEnlargedPhoto] = useState<string | null>(null);
 
@@ -193,10 +198,14 @@ function IndividualAnimalReviewModalContent({
       const res = await api.post(`livestock/inventory/${animalId}/review/`, {
         status,
         remarks: reviewRemarks,
+        ...(status === "APPROVED" && animal?.ownership_certificate_number && confirmedIssuer ? {
+          certificate_check: {issuing_office: issuingOffice, register_reference: registerReference, confirmed_with_issuer: confirmedIssuer},
+        } : {}),
       });
       return res.data;
     },
     onSuccess: (_, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ["population-balance"] });
       toast.success(
         variables.status === "APPROVED"
           ? "Animal record officially approved and recorded in municipal registry!"
@@ -810,7 +819,7 @@ function IndividualAnimalReviewModalContent({
                       <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                         <span className="text-[10px] font-black text-slate-400 uppercase block">COLO Certificate</span>
                         <span className="text-xs font-mono font-bold text-slate-900 block mt-1 truncate">
-                          {animal?.ownership_certificate_number || "COLO-On File"}
+                          {animal?.ownership_certificate_number || "No number recorded"}
                         </span>
                         <span className="text-[10px] text-slate-500">Official Title</span>
                       </div>
@@ -1037,6 +1046,15 @@ function IndividualAnimalReviewModalContent({
                     </div>
                   </div>
 
+                  {animal?.ownership_certificate_number && <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-sm font-semibold">Ownership certificate verification</p>
+                    <p className="text-xs">Certificate {animal.ownership_certificate_number}. Check the paper against the issuing office's register. A matching number or uploaded image alone does not prove authenticity.</p>
+                    {animal.certificate_photo && <a className="text-sm text-emerald-800 underline" href={animal.certificate_photo} target="_blank" rel="noreferrer">View submitted certificate</a>}
+                    {animal.certificate_verification?.status === "VERIFIED" && <p className="text-xs text-emerald-800">Verified against {animal.certificate_verification.issuing_office}, reference {animal.certificate_verification.register_reference}.</p>}
+                    <label className="block text-xs">Issuing office<input className="mt-1 h-9 w-full rounded border bg-white px-2" value={issuingOffice} onChange={e => setIssuingOffice(e.target.value)} /></label>
+                    <label className="block text-xs">Issuing register or confirmation reference<input className="mt-1 h-9 w-full rounded border bg-white px-2" value={registerReference} onChange={e => setRegisterReference(e.target.value)} /></label>
+                    <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={confirmedIssuer} onChange={e => setConfirmedIssuer(e.target.checked)} />I confirmed the owner, animal, and certificate details with the issuing record.</label>
+                  </div>}
                   {/* Remarks Textarea */}
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold text-slate-700 flex items-center justify-between">

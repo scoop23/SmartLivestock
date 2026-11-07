@@ -43,7 +43,8 @@ interface ValidationReviewDialogProps {
   onConfirmAction: (
     action: "APPROVED" | "SUBJECT_TO_REVISION",
     remarks: string,
-    itemIds: (string | number)[]
+    itemIds: (string | number)[],
+    certificateCheck?: {issuing_office: string; register_reference: string; confirmed_with_issuer: boolean}
   ) => void;
 }
 
@@ -74,6 +75,9 @@ function ValidationReviewDialogContent({
   const [remarks, setRemarks] = useState(items.length === 1 ? items[0].currentRemarks || "" : "");
   const [presetCategory, setPresetCategory] = useState<"approval" | "revision">("approval");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [issuingOffice, setIssuingOffice] = useState("");
+  const [registerReference, setRegisterReference] = useState("");
+  const [issuerConfirmed, setIssuerConfirmed] = useState(false);
 
 
 
@@ -86,7 +90,7 @@ function ValidationReviewDialogContent({
   const handleAction = async (status: "APPROVED" | "SUBJECT_TO_REVISION") => {
     setIsSubmitting(true);
     try {
-      await onConfirmAction(status, remarks.trim(), items.map((i) => i.id));
+      await onConfirmAction(status, remarks.trim(), items.map((i) => i.id), status === "APPROVED" && issuerConfirmed ? {issuing_office: issuingOffice, register_reference: registerReference, confirmed_with_issuer: true} : undefined);
       onOpenChange(false);
     } finally {
       setIsSubmitting(false);
@@ -259,6 +263,12 @@ function ValidationReviewDialogContent({
             </div>
           )}
 
+          {items.some(item => item.domain === "inventory") && <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm font-semibold">Ownership certificate check</p><p className="text-xs">For records presenting a certificate, confirm its owner and animal details against the issuing register before approval. For a group, check every certificate; enter a reference covering the selected documents.</p>
+            <label className="block text-xs">Issuing office<input className="mt-1 h-9 w-full rounded border bg-white px-2" value={issuingOffice} onChange={e => setIssuingOffice(e.target.value)} /></label>
+            <label className="block text-xs">Register or confirmation reference<input className="mt-1 h-9 w-full rounded border bg-white px-2" value={registerReference} onChange={e => setRegisterReference(e.target.value)} /></label>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={issuerConfirmed} onChange={e => setIssuerConfirmed(e.target.checked)} />I checked the presented certificate details with the issuing record.</label>
+          </div>}
           {/* Official Remarks Textarea */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">

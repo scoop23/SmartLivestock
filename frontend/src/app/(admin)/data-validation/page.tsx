@@ -818,7 +818,8 @@ function AdminDataValidationContent() {
   const handleConfirmAction = async (
     action: "APPROVED" | "SUBJECT_TO_REVISION",
     remarks: string,
-    itemIds: (string | number)[]
+    itemIds: (string | number)[],
+    certificateCheck?: {issuing_office: string; register_reference: string; confirmed_with_issuer: boolean}
   ) => {
     try {
       if (activeDomain === "census") {
@@ -852,6 +853,7 @@ function AdminDataValidationContent() {
         queryClient.invalidateQueries({ queryKey: ["inventory"] });
         queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
         queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
+        queryClient.invalidateQueries({ queryKey: ["population-balance"] });
         queryClient.invalidateQueries({ queryKey: ["production_records"] });
         queryClient.invalidateQueries({ queryKey: ["admin-production-records"] });
         queryClient.invalidateQueries({ queryKey: ["production-records"] });
@@ -875,7 +877,7 @@ function AdminDataValidationContent() {
 
         await Promise.all(
           processableIds.map((id) => {
-            return api.post(`livestock/inventory/${id}/review/`, { status: action, remarks });
+            return api.post(`livestock/inventory/${id}/review/`, { status: action, remarks, certificate_check: certificateCheck });
           })
         );
         setLocalInventoryOverrides((prev) => {
@@ -886,6 +888,7 @@ function AdminDataValidationContent() {
           return next;
         });
         queryClient.invalidateQueries({ queryKey: ["admin-inventory-records"] });
+        queryClient.invalidateQueries({ queryKey: ["population-balance"] });
         queryClient.invalidateQueries({ queryKey: ["inventory"] });
         queryClient.invalidateQueries({ queryKey: ["livestock-batches"] });
         queryClient.invalidateQueries({ queryKey: ["sibat-inventory-records"] });
