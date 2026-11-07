@@ -227,6 +227,10 @@ def ownership_transfer_list_create(request):
     # Sales dashboards request seller-side approved events, not purchases.
     if role_name(user) == "FARMER" and request.query_params.get("direction") == "outgoing":
         records = records.filter(previous_owner__user=user)
+    if role_name(user) == "FARMER" and request.query_params.get("direction") == "incoming":
+        records = records.filter(new_owner__user=user)
+        if request.query_params.get("unregistered") == "true":
+            records = records.filter(buyer_registration__isnull=True)
     if request.query_params.get("status"):
         records = records.filter(status=request.query_params["status"])
     if request.query_params.get("species"):

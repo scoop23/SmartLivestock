@@ -33,7 +33,7 @@ def livestock_tag_prefix_for_user(user):
     return re.sub(r"[^A-Z0-9]+", "-", ascii_name.upper()).strip("-")
 
 
-def validate_livestock_tag(tag_number, user, *, exclude_pk=None):
+def validate_livestock_tag(tag_number, user, *, exclude_pk=None, previous_sold_id=None):
     """Enforce the owner's NAME-001 tag pattern or a valid custom tag, and reject reused identities."""
     normalized_tag = (tag_number or "").strip()
     if not normalized_tag:
@@ -51,6 +51,17 @@ def validate_livestock_tag(tag_number, user, *, exclude_pk=None):
     existing_animals = LivestockInventory.objects.filter(tag_number__iexact=normalized_tag)
     if exclude_pk is not None:
         existing_animals = existing_animals.exclude(pk=exclude_pk)
+    if previous_sold_id is not None:
+        # Renewed ownership can form a chain of SOLD registrations with the
+        # same physical tag. Exclude only this purchase's traced ancestors.
+        visited = set()
+        while previous_sold_id and previous_sold_id not in visited:
+            visited.add(previous_sold_id)
+            previous = LivestockInventory.objects.filter(pk=previous_sold_id, operational_status="SOLD").select_related("purchase_transfer").first()
+            if previous is None:
+                break
+            existing_animals = existing_animals.exclude(pk=previous.pk)
+            previous_sold_id = previous.purchase_transfer.livestock_id if previous.purchase_transfer_id else None
     if existing_animals.exists():
         raise serializers.ValidationError(
             {"tag_number": "This ear tag is already in use. Please enter a different ear tag."}
@@ -274,6 +285,10 @@ class LivestockInventorySerializer(serializers.Serializer):
     ownership_certificate_number = serializers.CharField(
         max_length=100, required=False, allow_blank=True, default=""
     )
+    purchase_transfer_id = serializers.IntegerField(required=False, write_only=True, min_value=1)
+    certificate_verification = serializers.JSONField(read_only=True)
+    certificate_photo = LivestockPhotoField(required=False, allow_null=True)
+    purchase_transfer = serializers.IntegerField(source="purchase_transfer_id", read_only=True, allow_null=True)
     breed = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
     sex = serializers.CharField(max_length=10, required=False, allow_blank=True, default="")
     weight = serializers.DecimalField(
@@ -367,6 +382,25 @@ class LivestockInventorySerializer(serializers.Serializer):
         # Ear tags identify animals across review states, so pending and approved
         # records both reserve the tag instead of allowing a duplicate identity.
         entry_type = attrs.get("entry_type", self.instance.entry_type if self.instance else "INDIVIDUAL")
+        transfer_id = attrs.pop("purchase_transfer_id", None)
+        linked = None
+        if transfer_id:
+            if self.instance:
+                raise serializers.ValidationError({"purchase_transfer_id": "Link the purchase when creating the buyer registration."})
+            linked = LivestockOwnershipTransfer.objects.select_for_update(of=("self",)).filter(
+                pk=transfer_id, new_owner=farmer, status="APPROVED",
+            ).select_related("livestock").first()
+            if linked is None or hasattr(linked, "buyer_registration"):
+                raise serializers.ValidationError({"purchase_transfer_id": "No unused approved purchase belongs to this farmer."})
+            if linked.livestock and linked.livestock.operational_status != "SOLD":
+                raise serializers.ValidationError({"purchase_transfer_id": "The seller's animal must already be marked sold."})
+            if linked.livestock and attrs.get("livestock_type") != linked.livestock.livestock_type:
+                raise serializers.ValidationError({"livestock_type": "The species must match the purchased animal."})
+            if not str(attrs.get("ownership_certificate_number", "")).strip():
+                raise serializers.ValidationError({"ownership_certificate_number": "Enter the renewed certificate number for this purchase."})
+            if linked.livestock and attrs["ownership_certificate_number"].strip().casefold() == linked.livestock.ownership_certificate_number.casefold():
+                raise serializers.ValidationError({"ownership_certificate_number": "Use the renewed certificate, not the seller's previous certificate."})
+            attrs["purchase_transfer"] = linked
         if not self.instance or "tag_number" in attrs:
             tag_number = attrs.get("tag_number", "").strip()
             attrs["tag_number"] = tag_number
@@ -376,6 +410,7 @@ class LivestockInventorySerializer(serializers.Serializer):
                 tag_number,
                 user,
                 exclude_pk=self.instance.pk if self.instance else None,
+                previous_sold_id=linked.livestock_id if linked else None,
             )
 
         if "ownership_certificate_number" in attrs:
@@ -445,6 +480,7 @@ class LivestockInventorySerializer(serializers.Serializer):
             "birth_date",
             "tag_number",
             "ownership_certificate_number",
+            "certificate_photo",
             "breed",
             "sex",
             "weight",

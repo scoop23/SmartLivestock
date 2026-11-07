@@ -9,7 +9,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, serializers
 
 from livestock.models import (
     Barangay,
@@ -349,6 +349,25 @@ def review_inventory(request, pk):
     )
 
     reviewed_at = timezone.now()
+    if new_status == "APPROVED" and inventory.ownership_certificate_number:
+        check = request.data.get("certificate_check")
+        if check is not None:
+            class CertificateCheck(serializers.Serializer):
+                issuing_office = serializers.CharField(max_length=200)
+                register_reference = serializers.CharField(max_length=200)
+                confirmed_with_issuer = serializers.BooleanField()
+            evidence = CertificateCheck(data=check)
+            evidence.is_valid(raise_exception=True)
+            if not evidence.validated_data["confirmed_with_issuer"]:
+                raise serializers.ValidationError({"certificate_check": "Confirm the certificate with the issuing office's register before approval."})
+            inventory.certificate_verification = {
+                **evidence.validated_data, "status": "VERIFIED",
+                "certificate_number": inventory.ownership_certificate_number,
+                "verified_by": user.pk, "verified_at": reviewed_at.isoformat(),
+            }
+        verified = inventory.certificate_verification or {}
+        if verified.get("status") != "VERIFIED" or verified.get("certificate_number") != inventory.ownership_certificate_number:
+            raise serializers.ValidationError({"certificate_check": "Record the issuing office and register reference after checking the paper certificate with its issuer."})
     inventory.status = new_status
     inventory.reviewed_by = request.user
     inventory.review_remarks = remarks

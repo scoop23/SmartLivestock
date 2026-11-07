@@ -34,7 +34,7 @@ def reconcile_approved_calving(calving):
 
     dam = LivestockInventory.objects.select_for_update().get(pk=calving.dam_id)
     _require_active(dam, "Calving")
-    calf = LivestockInventory.objects.create(
+    calf = LivestockInventory(
         farmer=dam.farmer,
         livestock_type=dam.livestock_type,
         entry_type=LivestockInventory.EntryType.INDIVIDUAL,
@@ -51,6 +51,8 @@ def reconcile_approved_calving(calving):
         review_remarks=calving.review_remarks,
         created_by=calving.created_by,
     )
+    calf._population_addition_kind = "births"
+    calf.save()
     calving.offspring_inventory = calf
     calving.inventory_reconciled_at = timezone.now()
     calving.save(update_fields=["offspring_inventory", "inventory_reconciled_at"])
@@ -94,10 +96,10 @@ def reconcile_approved_sale(sale):
             raise ValidationError(
                 {"quantity": "Only a complete active batch can be reconciled until exact animals are selected."}
             )
-        LivestockInventory.objects.filter(pk__in=[animal.pk for animal in active_animals]).update(
-            operational_status=LivestockInventory.OperationalStatus.SOLD,
-            operational_status_changed_at=changed_at,
-        )
+        for animal in active_animals:
+            animal.operational_status = LivestockInventory.OperationalStatus.SOLD
+            animal.operational_status_changed_at = changed_at
+            animal.save(update_fields=["operational_status", "operational_status_changed_at"])
         batch.status = LivestockBatch.StatusType.SOLD
         batch.save(update_fields=["status"])
     else:
@@ -140,10 +142,10 @@ def reconcile_approved_mortality(record):
         _require_active(inventory, "Mortality")
 
     changed_at = timezone.now()
-    LivestockInventory.objects.filter(pk__in=animal_ids).update(
-        operational_status=LivestockInventory.OperationalStatus.DECEASED,
-        operational_status_changed_at=changed_at,
-    )
+    for animal in inventories:
+        animal.operational_status = LivestockInventory.OperationalStatus.DECEASED
+        animal.operational_status_changed_at = changed_at
+        animal.save(update_fields=["operational_status", "operational_status_changed_at"])
     record.inventory_reconciled_at = changed_at
     record.save(update_fields=["inventory_reconciled_at"])
     return record

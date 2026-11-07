@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from phonenumber_field.modelfields import PhoneNumberField  # type: ignore
 
@@ -200,6 +200,12 @@ class LivestockInventory(models.Model):
         related_name="recorded_livestock_ownership_certificates",
     )
     ownership_certificate_recorded_at = models.DateTimeField(null=True, blank=True)
+    certificate_verification = models.JSONField(default=dict, blank=True)
+    certificate_photo = models.ImageField(upload_to="ownership_certificates/%Y/%m/", null=True, blank=True)
+    purchase_transfer = models.OneToOneField(
+        "LivestockOwnershipTransfer", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="buyer_registration",
+    )
     breed = models.CharField(max_length=50, blank=True)
     sex = models.CharField(max_length=10, blank=True)
     weight = models.DecimalField(
@@ -310,9 +316,44 @@ class LivestockInventory(models.Model):
         if self.batch_id and (self.farmer_id != self.batch.farmer_id or self.livestock_type_id != self.batch.livestock_type_id):
             raise ValidationError({"batch": "Animal ownership and species must match its herd."})
 
+    def save(self, *args, **kwargs):
+        from .population_changes import snapshot, record_change
+        with transaction.atomic():
+            previous = type(self).objects.select_for_update().filter(pk=self.pk).first() if self.pk else None
+            before = snapshot(previous)
+            fields = kwargs.get("update_fields")
+            if previous and ((self.ownership_certificate_number != previous.ownership_certificate_number
+                              and (fields is None or "ownership_certificate_number" in fields))
+                             or (str(self.certificate_photo) != str(previous.certificate_photo)
+                                 and (fields is None or "certificate_photo" in fields))):
+                self.certificate_verification = {}
+                if fields is not None:
+                    kwargs["update_fields"] = set(fields) | {"certificate_verification"}
+            super().save(*args, **kwargs)
+            # Read saved fields: update_fields can deliberately omit in-memory changes.
+            record_change(before, snapshot(type(self).objects.get(pk=self.pk)), self)
+
     def __str__(self):
         tag = f" [{self.tag_number}]" if self.tag_number else ""
         return f"{self.farmer} - {self.livestock_type}{tag} ({self.quantity})"
+
+
+class PopulationTracking(models.Model):
+    started_at = models.DateTimeField(default=timezone.now)
+
+
+class RegisteredPopulationChange(models.Model):
+    """Changes to active registered heads, recorded at the actual system operation."""
+    animal_id_reference = models.PositiveBigIntegerField()
+    barangay = models.ForeignKey(Barangay, on_delete=models.PROTECT)
+    livestock_type = models.ForeignKey(LivestockType, on_delete=models.PROTECT)
+    kind = models.CharField(max_length=20)
+    delta = models.SmallIntegerField()
+    recorded_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["barangay", "livestock_type", "recorded_at"])]
+        constraints = [models.CheckConstraint(condition=models.Q(delta__in=[-1, 1]), name="population_change_one_head")]
 
 
 class LivestockGateVerification(models.Model):
