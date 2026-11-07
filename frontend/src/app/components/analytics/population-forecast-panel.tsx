@@ -1,179 +1,94 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Area, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PopulationForecastChart } from "./population-forecast-chart";
 
-interface PopulationForecast {
-  forecast_available: boolean;
-  message: string;
-  usable_quarters: number;
-  required_quarters: number;
-  latest_required_quarter: string;
-  as_of: string;
-  model?: string;
-  options: {
-    barangays: { id: number; name: string }[];
-    species: { id: number; name: string }[];
-  };
-  history: { quarter: string; heads: number | null }[];
-  forecast: { quarter: string; heads: number; lower: number; upper: number }[];
-  coverage_gaps: { quarter: string; missing_barangays: string[] }[];
-  evaluation: {
-    status: string;
-    valid_origins: number;
-    required_origins?: number;
-    models: { name: string; mae_heads: number }[];
-  };
-  method_note: string;
-  range_note: string;
-  limitations: string;
+const components = ["registrations", "births", "sales", "deaths", "removals"] as const;
+type Kind = typeof components[number];
+type Assumptions = Record<Kind, string>;
+interface PopulationBalance {
+  current_heads: number; as_of: string; tracking_started_at: string;
+  mode: "AUTOMATIC" | "SCENARIO"; training_through: string | null; history_note: string;
+  usable_months: number; required_months: number; forecast_available: boolean;
+  message: string; method_note: string; limitations: string; model?: string;
+  options: { barangays: {id: number; name: string}[]; species: {id: number; name: string}[] };
+  evaluation: {status: string; valid_origins: number; models: {name: string; component_mae_heads: number}[]};
+  forecast: ({date: string; period_start: string; lead_months: number; opening: number; heads: number} & Record<Kind, number>)[];
+  history: ({date: string; month: string; heads: number | null} & Record<Kind, number>)[];
 }
 
-export function PopulationForecastPanel() {
+export function usePopulationForecast(horizon: number, barangay = "all", species = "all", assumptions?: Assumptions) {
   const { user } = useAuth();
-  const id = useId();
+  return useQuery({
+    queryKey: ["population-balance", user?.email, user?.accessScope, user?.assignedBarangayId, horizon, barangay, species, assumptions],
+    enabled: user?.role === "MAO" || user?.role === "ADMIN",
+    queryFn: async () => {
+      const params: Record<string, string | number> = {horizon};
+      if (barangay !== "all") params.barangay_id = barangay;
+      if (species !== "all") params.species_id = species;
+      if (assumptions) for (const kind of components) params[`expected_${kind}`] = assumptions[kind];
+      return (await api.get<PopulationBalance>("analytics/predictive/population/", {params})).data;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function PopulationForecastPanel({horizon = 6}: {horizon?: number}) {
   const [barangay, setBarangay] = useState("all");
   const [species, setSpecies] = useState("all");
-  const [horizon, setHorizon] = useState("4");
-  const allowed = user?.role === "MAO" || user?.role === "ADMIN";
-  const query = useQuery({
-    queryKey: ["population-forecast", user?.email, user?.role, user?.accessScope, user?.assignedBarangayId, barangay, species, horizon],
-    enabled: allowed,
-    placeholderData: keepPreviousData,
-    queryFn: async () => (await api.get<PopulationForecast>("analytics/predictive/population/", {
-      params: {
-        barangay_id: barangay === "all" ? undefined : barangay,
-        species_id: species === "all" ? undefined : species,
-        horizon,
-      },
-    })).data,
-  });
+  const [draft, setDraft] = useState<Assumptions>({registrations: "", births: "", sales: "", deaths: "", removals: ""});
+  const [assumptions, setAssumptions] = useState<Assumptions>();
+  const query = usePopulationForecast(horizon, barangay, species, assumptions);
   const data = query.data;
-  const timeline = useMemo(() => {
-    if (!data) return [];
-    const rows: { quarter: string; actual: number | null; estimate: number | null; range: [number, number] | null }[] =
-      data.history.map((row, index) => ({
-        quarter: row.quarter,
-        actual: row.heads,
-        estimate: data.forecast_available && index === data.history.length - 1 ? row.heads : null,
-        range: data.forecast_available && index === data.history.length - 1 && row.heads !== null
-          ? [row.heads, row.heads] : null,
-      }));
-    return rows.concat(data.forecast.map((row) => ({
-      quarter: row.quarter, actual: null, estimate: row.heads, range: [row.lower, row.upper] as [number, number],
-    })));
-  }, [data]);
-
-  if (!allowed) return null;
-
-  const selectClass = "mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900";
-  return (
-    <Card className="rounded-2xl border-emerald-200 bg-white shadow-xs">
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle>Livestock population forecast</CardTitle>
-          <Button variant="outline" size="sm" onClick={() => void query.refetch()} disabled={query.isFetching}>
-            {query.isFetching ? "Refreshing…" : "Refresh"}
-          </Button>
+  const timeline: {date: string; actual: number | null; forecast: number | null}[] = data ? [
+    ...data.history.map(row => ({date: row.date, actual: row.heads, forecast: null})),
+    {date: data.as_of, actual: data.current_heads, forecast: data.forecast_available ? data.current_heads : null},
+    ...data.forecast.map(row => ({date: row.date, actual: null, forecast: row.heads})),
+  ] : [];
+  const [formError, setFormError] = useState("");
+  const labels: Record<Kind, string> = {registrations: "Registrations", births: "Births", sales: "Sales", deaths: "Deaths", removals: "Other removals"};
+  const reset = () => {setAssumptions(undefined); setDraft({registrations: "", births: "", sales: "", deaths: "", removals: ""}); setFormError("");};
+  return <Card className="rounded-2xl border-emerald-200 bg-white">
+    <CardHeader><div className="flex flex-wrap justify-between gap-3"><CardTitle>Active Registered Livestock Population</CardTitle><Button variant="outline" onClick={() => void query.refetch()} disabled={query.isFetching}>Refresh</Button></div>
+      <p className="text-sm text-slate-600">Current registered heads + registrations + births − sales − deaths − other removals.</p>
+    </CardHeader>
+    <CardContent className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="text-sm font-semibold">Barangay<select aria-label="Population barangay" className="mt-1 h-10 w-full rounded-lg border px-3" value={barangay} onChange={e => {setBarangay(e.target.value); reset();}}><option value="all">All barangays</option>{data?.options.barangays.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+        <label className="text-sm font-semibold">Species<select aria-label="Population species" className="mt-1 h-10 w-full rounded-lg border px-3" value={species} onChange={e => {setSpecies(e.target.value); reset();}}><option value="all">All species</option>{data?.options.species.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+      </div>
+      {query.isPending ? <p>Loading registered population…</p> : query.isError ? <p role="alert" className="text-rose-700">Could not load population information. Refresh to retry.</p> : data && <>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-sm">Current approved, active registered animals</p><p className="text-3xl font-bold text-emerald-900">{data.current_heads.toLocaleString()} heads</p><p className="text-xs text-slate-600">As of {data.as_of}. Change tracking began {data.tracking_started_at}; {data.usable_months} complete months available.</p></div>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-slate-50 p-3">
+          <p className="text-sm font-semibold">{data.mode === "AUTOMATIC" ? "Automatic monthly forecast" : "Monthly planning scenario"}</p>
+          {data.mode === "SCENARIO" && <Button variant="outline" size="sm" onClick={reset}>Return to automatic forecast</Button>}
+          <p className="w-full text-xs text-slate-600">{data.mode === "AUTOMATIC" ? `The system estimates future changes from completed monthly records, then calculates the population ${horizon} month${horizon === 1 ? "" : "s"} ahead. No manual counts are required.` : "Uses your entered counts instead of forecasts learned from history."}</p>
         </div>
-        <CardDescription>Quarterly population estimates from approved census records, by species and barangay.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div>
-            <label htmlFor={`${id}-barangay`} className="text-sm font-semibold">Barangay</label>
-            <select id={`${id}-barangay`} className={selectClass} value={barangay} onChange={(event) => setBarangay(event.target.value)}>
-              <option value="all">All barangays</option>
-              {data?.options.barangays.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor={`${id}-species`} className="text-sm font-semibold">Species</label>
-            <select id={`${id}-species`} className={selectClass} value={species} onChange={(event) => setSpecies(event.target.value)}>
-              <option value="all">All species</option>
-              {data?.options.species.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor={`${id}-horizon`} className="text-sm font-semibold">Forecast period</label>
-            <select id={`${id}-horizon`} className={selectClass} value={horizon} onChange={(event) => setHorizon(event.target.value)}>
-              {[1, 2, 3, 4].map((value) => <option key={value} value={value}>Next {value} quarter{value > 1 ? "s" : ""}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {query.isError ? (
-          <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-            Could not load population forecasts. Use Refresh to try again.
-          </div>
-        ) : query.isPending || query.isPlaceholderData ? (
-          <Skeleton className="h-64 w-full rounded-xl" aria-label="Loading population forecast" />
-        ) : data ? (
-          <>
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 text-sm">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <Badge variant="outline">{data.forecast_available ? "Forecast available" : "More census history needed"}</Badge>
-                <span>{data.usable_quarters}/{data.required_quarters} consecutive quarters</span>
-                <span className="text-slate-500">Through {data.latest_required_quarter}</span>
-              </div>
-              <p>{data.message}</p>
-              <p className="mt-2 text-xs text-slate-600">{data.method_note}</p>
-            </div>
-
-            {data.history.some((row) => row.heads !== null) ? (
-              <div className="h-72 w-full" role="img" aria-label="Recorded quarterly census population and available future estimates in heads">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={timeline} margin={{ top: 10, right: 15, bottom: 10, left: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="quarter" tick={{ fontSize: 11 }} minTickGap={25} />
-                    <YAxis allowDecimals={false} domain={[0, "auto"]} tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Legend />
-                    <Area dataKey="range" name="Planning range (heads)" fill="#a7f3d0" stroke="none" connectNulls={false} />
-                    <Line dataKey="actual" name="Approved census (heads)" stroke="#334155" strokeWidth={2} connectNulls={false} />
-                    <Line dataKey="estimate" name="Forecast (heads)" stroke="#059669" strokeWidth={2} strokeDasharray="5 5" connectNulls={false} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            ) : <p className="text-sm text-slate-500">No complete approved census observations are available for this selection.</p>}
-
-            {data.forecast_available ? (
-              <div className="space-y-3">
-                <p className="text-sm"><strong>Method:</strong> {data.model}. {data.evaluation.status === "BACKTESTED"
-                  ? `Compared over ${data.evaluation.valid_origins} historical forecast origins.`
-                  : `Not yet validated: only ${data.evaluation.valid_origins} usable historical forecast origins; at least 3 are required for model selection.`}</p>
-                {data.evaluation.models.length > 0 ? <p className="text-xs text-slate-600">
-                  Historical mean absolute error: {data.evaluation.models.map((model) => `${model.name}: ${model.mae_heads.toLocaleString()} heads`).join("; ")}
-                </p> : null}
-                <Table>
-                  <TableHeader><TableRow><TableHead>Quarter</TableHead><TableHead>Estimated heads</TableHead><TableHead>Planning range</TableHead></TableRow></TableHeader>
-                  <TableBody>{data.forecast.map((row) => <TableRow key={row.quarter}>
-                    <TableCell>{row.quarter}</TableCell><TableCell>{row.heads.toLocaleString()}</TableCell>
-                    <TableCell>{row.lower.toLocaleString()}–{row.upper.toLocaleString()}</TableCell>
-                  </TableRow>)}</TableBody>
-                </Table>
-                <p className="text-xs text-slate-600">{data.range_note}</p>
-              </div>
-            ) : null}
-
-            {data.coverage_gaps.length > 0 ? <details className="rounded-lg border border-slate-200 p-3 text-sm">
-              <summary className="cursor-pointer font-semibold">Missing census observations ({data.coverage_gaps.length} quarters)</summary>
-              <ul className="mt-3 space-y-2 text-xs text-slate-600">{data.coverage_gaps.map((gap) => <li key={gap.quarter}>
-                <strong>{gap.quarter}:</strong> {gap.missing_barangays.join(", ") || "No barangays available in this scope"}
-              </li>)}</ul>
-            </details> : null}
-            <p className="text-xs text-slate-500">{data.limitations}</p>
-          </>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
+        <p className="text-sm">{data.message}</p>
+        <p className="text-xs text-slate-600">{data.method_note}</p>
+        <details className="rounded-xl border p-4"><summary className="cursor-pointer font-semibold">Explore your own monthly assumptions</summary>
+          <p className="my-3 text-sm text-slate-600">Enter expected counts for each future month. The same counts repeat for all {horizon} months. This is a planning scenario, not a validated prediction. Enter zero explicitly where appropriate.</p>
+          <form onSubmit={e => {e.preventDefault(); if (components.some(k => !/^\d+$/.test(draft[k]) || Number(draft[k]) > 10000000)) {setFormError("Enter a whole number from 0 to 10,000,000 for every component."); return;} setFormError(""); setAssumptions({...draft});}}>
+            <div className="grid gap-3 sm:grid-cols-5">{components.map(kind => <label key={kind} className="text-xs font-semibold">{labels[kind]}<input required type="number" min="0" max="10000000" step="1" className="mt-1 h-10 w-full rounded-lg border px-2" value={draft[kind]} onChange={e => setDraft({...draft, [kind]: e.target.value})}/></label>)}</div>
+            {formError && <p role="alert" className="mt-2 text-sm text-rose-700">{formError}</p>}
+            <div className="mt-3 flex gap-2"><Button type="submit" disabled={query.isFetching}>Calculate scenario</Button><Button type="button" variant="outline" onClick={reset}>Use recorded history</Button></div>
+          </form>
+        </details>
+        {data.forecast_available && <>
+          <p className="text-sm"><strong>Method:</strong> {data.model}. {data.evaluation.status === "USER_ASSUMPTIONS" ? "Uses your entered assumptions." : data.evaluation.status === "BACKTESTED" ? `Compared over ${data.evaluation.valid_origins} historical forecast windows.` : "Not yet validated against enough historical windows."}</p>
+          <PopulationForecastChart timeline={timeline} asOf={data.as_of} horizon={horizon} method={data.model ?? "Not selected"} scenario={data.mode === "SCENARIO"} />
+          <p className="text-xs text-slate-500">Forecasts run from {data.as_of} in successive one-month periods.{data.training_through ? ` Completed training history ends ${data.training_through}.` : ""} {data.history_note}</p>
+          <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left"><th className="p-2">Through</th><th className="p-2">Opening</th>{components.map(k => <th className="p-2" key={k}>{k === "births" || k === "registrations" ? "+ " : "− "}{labels[k]}</th>)}<th className="p-2">Closing heads</th></tr></thead><tbody>{data.forecast.map(row => <tr className="border-b" key={row.date}><td className="p-2">{row.date}</td><td className="p-2">{row.opening.toLocaleString()}</td>{components.map(k => <td className="p-2" key={k}>{row[k].toLocaleString()}</td>)}<td className="p-2 font-bold text-emerald-800">{row.heads.toLocaleString()}</td></tr>)}</tbody></table></div>
+        </>}
+        {data.evaluation.models.length > 0 && <p className="text-xs text-slate-600">Average error per monthly component: {data.evaluation.models.map(m => `${m.name}: ${m.component_mae_heads} heads`).join("; ")}. These are component errors, not measured closing-population accuracy.</p>}
+        {data.history.length > 0 && <details className="rounded-xl border p-4"><summary className="cursor-pointer font-semibold">Recorded monthly changes</summary><div className="overflow-x-auto"><table className="mt-3 w-full text-sm"><thead><tr><th>Month</th>{components.map(k => <th key={k}>{labels[k]}</th>)}</tr></thead><tbody>{data.history.map(row => <tr key={row.month}><td>{row.month}</td>{components.map(k => <td className="text-center" key={k}>{row[k]}</td>)}</tr>)}</tbody></table></div></details>}
+        <p className="text-xs text-slate-500">{data.limitations}</p>
+      </>}
+    </CardContent>
+  </Card>;
 }

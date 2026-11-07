@@ -5,6 +5,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
+import { PopulationForecastPanel, usePopulationForecast } from "./population-forecast-panel";
 import { CattleProfilePrice } from "./cattle-profile-price";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -412,6 +413,8 @@ export function FuturisticPredictiveDashboard() {
     }
   }, [targetFromParam]);
   const [horizonMonths, setHorizonMonths] = useState<number>(6);
+  const [populationSelected, setPopulationSelected] = useState(false);
+  const populationQuery = usePopulationForecast(horizonMonths);
   const [viewMode, setViewMode] = useState<"overview" | "backtest" | "models" | "checklist">("overview");
   const [cattlePriceView, setCattlePriceView] = useState<"trend" | "profile">("trend");
   const [showTableView, setShowTableView] = useState<boolean>(false);
@@ -486,7 +489,7 @@ export function FuturisticPredictiveDashboard() {
   const weeklyTargetSelected =
     currentCard?.frequency === "WEEKLY" ||
     ["livestock_sales", "registered_cattle_price", "external_cattle_price"].includes(activeTargetId);
-  const horizonUnit = weeklyTargetSelected ? "weeks" : "months";
+  const horizonUnit = !populationSelected && weeklyTargetSelected ? "weeks" : "months";
 
   const historyOptions: Array<{ label: string; value: number | "all" }> = useMemo(() => {
     if (weeklyTargetSelected) {
@@ -585,7 +588,7 @@ export function FuturisticPredictiveDashboard() {
             </div>
           </div>
           <Button
-            onClick={() => void refetch()}
+            onClick={() => { void refetch(); void populationQuery.refetch(); }}
             disabled={isFetching}
             className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs h-9 cursor-pointer"
           >
@@ -650,7 +653,7 @@ export function FuturisticPredictiveDashboard() {
           </div>
 
           {/* Horizon Selector and Refresh Button */}
-          <div className={`flex flex-wrap items-center gap-3 shrink-0 ${isCattlePriceForecast && cattlePriceView === "profile" ? "hidden" : ""}`}>
+          <div className={`flex flex-wrap items-center gap-3 shrink-0 ${!populationSelected && isCattlePriceForecast && cattlePriceView === "profile" ? "hidden" : ""}`}>
             <div className="flex items-center gap-1 rounded-xl bg-slate-100 border border-slate-200 p-1 shadow-2xs">
               <span className="px-2 text-[11px] font-mono text-slate-500 uppercase tracking-wider">Forecast ahead:</span>
               {[1, 3, 6, 12].map((m) => (
@@ -688,7 +691,12 @@ export function FuturisticPredictiveDashboard() {
       {/* ----------------------------------------------------------------- */}
       {/* B. FORECAST TARGET SELECTOR (Light Emerald Segmented Cards)       */}
       {/* ----------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" onClickCapture={(event) => { if (!(event.target as HTMLElement).closest("[data-population-card]")) setPopulationSelected(false); }}>
+        {(user?.role === "MAO" || user?.role === "ADMIN") && <button type="button" data-population-card aria-pressed={populationSelected} onClick={() => setPopulationSelected(true)} className={`rounded-2xl border p-4 text-left transition-colors ${populationSelected ? "border-2 border-emerald-600 bg-emerald-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
+          <div className="mb-4 flex justify-between gap-3"><span className="rounded-xl bg-emerald-50 p-2 text-emerald-700"><TrendingUp className="size-5" /></span><span className="text-xs text-slate-500">{populationQuery.isError ? "Could not load" : populationQuery.isPending ? "Loading?" : populationQuery.data?.forecast_available ? "Balance estimate available" : "Current count available"}</span></div>
+          <p className="text-xs uppercase tracking-wide text-slate-500">Population ? Registered records</p><p className="mt-1 font-bold">Active Registered Livestock Population</p>
+          <p className="mt-2 text-sm text-emerald-800">{populationQuery.data ? `${populationQuery.data.current_heads.toLocaleString()} active heads` : "Approved, active individual animals"}</p><p className="mt-2 text-xs text-slate-500">Registrations + births ? sales ? deaths ? other removals</p>
+        </button>}
         {isPending
           ? Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-24 rounded-2xl bg-white border border-slate-200" />
@@ -698,8 +706,8 @@ export function FuturisticPredictiveDashboard() {
                 const selectedPriceCard = activeTargetId === "external_cattle_price"
                   ? externalCattlePriceCard
                   : card;
-                const isSelected = activeTargetId === "registered_cattle_price"
-                  || activeTargetId === "external_cattle_price";
+                const isSelected = !populationSelected && (activeTargetId === "registered_cattle_price"
+                  || activeTargetId === "external_cattle_price");
                 const isCardValidated = selectedPriceCard.validation_status === "VALIDATED";
                 const isCardAvailable = selectedPriceCard.forecast_available;
 
@@ -777,7 +785,7 @@ export function FuturisticPredictiveDashboard() {
               }
 
               const Icon = getTargetIcon(card.id);
-              const isSelected = card.id === activeTargetId;
+              const isSelected = !populationSelected && card.id === activeTargetId;
               const isCardValidated = card.validation_status === "VALIDATED";
               const isCardAvailable = card.forecast_available;
 
@@ -852,6 +860,8 @@ export function FuturisticPredictiveDashboard() {
             })}
       </div>
 
+      {populationSelected && <PopulationForecastPanel horizon={horizonMonths} />}
+      <div className={populationSelected ? "hidden" : "space-y-6"}>
       {/* ----------------------------------------------------------------- */}
       {/* C. MAIN FORECAST VISUALIZATION (THE MISSION CONTROL CENTERPIECE)  */}
       {/* ----------------------------------------------------------------- */}
@@ -1868,6 +1878,7 @@ export function FuturisticPredictiveDashboard() {
       </div>
       </>
       )}
+      </div>
     </div>
   );
 }

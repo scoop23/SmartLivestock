@@ -19,7 +19,18 @@ logger = logging.getLogger(__name__)
 class PopulationForecastParameters(serializers.Serializer):
     barangay_id = serializers.IntegerField(min_value=1, required=False)
     species_id = serializers.IntegerField(min_value=1, required=False)
-    horizon = serializers.IntegerField(min_value=1, max_value=4, default=4)
+    horizon = serializers.IntegerField(min_value=1, max_value=12, default=6)
+    expected_registrations = serializers.IntegerField(min_value=0, max_value=10000000, required=False)
+    expected_births = serializers.IntegerField(min_value=0, max_value=10000000, required=False)
+    expected_sales = serializers.IntegerField(min_value=0, max_value=10000000, required=False)
+    expected_deaths = serializers.IntegerField(min_value=0, max_value=10000000, required=False)
+    expected_removals = serializers.IntegerField(min_value=0, max_value=10000000, required=False)
+
+    def validate(self, attrs):
+        fields = [f"expected_{kind}" for kind in ("registrations", "births", "sales", "deaths", "removals")]
+        if any(field in attrs for field in fields) and not all(field in attrs for field in fields):
+            raise serializers.ValidationError("Supply all five monthly assumptions, including explicit zeros.")
+        return attrs
 
 
 @api_view(["GET"])
