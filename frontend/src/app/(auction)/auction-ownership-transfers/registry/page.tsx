@@ -1,7 +1,6 @@
 "use client";
 
-import { HeaderNotifications } from "@/app/components/header-notifications";
-import { AuctionTelemetryBanner } from "@/app/components/auction-telemetry-banner";
+import { PageHeader } from "@/app/components/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -285,69 +284,49 @@ export default function AuctionOwnershipTransferRegistryPage() {
 
   return (
     <div className="min-h-screen bg-transparent pb-16">
-      {/* Top Banner Header: Dark Forest Green with Cattle Watermark */}
-      <div className="relative overflow-hidden bg-[#073827] text-white">
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-20 mix-blend-overlay pointer-events-none"
-          style={{ backgroundImage: `url('/images/species-cattle.jpg')` }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#073827] via-[#0A4530]/95 to-[#073827]/85 pointer-events-none" />
-
-        <div className="relative w-full px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                Ownership Transfer Records
-              </h1>
-              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                BACKEND CONNECTED
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-emerald-100/90 font-normal">
-              Review live transfer certificates entered by your Auction account and their MAO review status.
-            </p>
+      <PageHeader
+        title={
+          <div className="flex items-center gap-2">
+            <span>Ownership Transfer Records</span>
+            <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              BACKEND CONNECTED
+            </span>
           </div>
-
-          <div className="flex items-center gap-3 shrink-0">
+        }
+        subtitle="Review live transfer certificates entered by your Auction account and their MAO review status."
+        variant="auction"
+        maxWidthClass="w-full"
+        breadcrumbs={[
+          { label: "SmartLivestock", href: "/auction" },
+          { label: "Transfer Records", active: true },
+        ]}
+        action={
+          <div className="flex items-center gap-2 sm:gap-2.5">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => void refetch()}
-              className="size-10 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white cursor-pointer transition-all shadow-xs"
+              className="size-9 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white cursor-pointer transition-all shadow-xs"
               title="Refresh live backend records"
             >
               <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
             </Button>
-            <HeaderNotifications variant="auction" />
+            <Button
+              asChild
+              className="bg-white hover:bg-emerald-50 text-[#0F4A2F] font-bold text-xs h-9 px-3.5 rounded-xl shadow-xs gap-1.5 active:scale-95 transition-all"
+            >
+              <Link href="/auction-ownership-transfers">
+                <Plus className="size-4" />
+                New Transfer
+              </Link>
+            </Button>
           </div>
-        </div>
-      </div>
-      <AuctionTelemetryBanner />
+        }
+      />
 
       {/* Main Full-Width Container */}
       <div className="w-full px-4 sm:px-6 lg:px-8 py-5 space-y-5">
-        {/* Breadcrumb line & Action Button */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-            <Link href="/auction" className="hover:text-slate-800 transition-colors">
-              SmartLivestock
-            </Link>
-            <span className="text-slate-400">/</span>
-            <span className="text-slate-900 font-bold">Transfer Records</span>
-          </div>
-
-          <Button
-            asChild
-            className="bg-[#0F4A2F] hover:bg-[#0B3D26] text-white font-bold text-xs h-9 px-4 rounded-xl shadow-xs gap-1.5 active:scale-95 transition-all"
-          >
-            <Link href="/auction-ownership-transfers">
-              <Plus className="size-4" />
-              New Transfer
-            </Link>
-          </Button>
-        </div>
-
         {/* 4 Futuristic KPI Cards (Connected directly to Django REST backend) */}
         <OwnershipTransferKpis records={rawData} isLoading={isLoading} />
 

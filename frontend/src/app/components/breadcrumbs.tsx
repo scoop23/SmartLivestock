@@ -121,6 +121,10 @@ function formatSegmentLabel(
     return "History";
   }
 
+  if (segment === "registry" && parentPath.endsWith("/auction-ownership-transfers")) {
+    return "Transfer Records";
+  }
+
   if (ROUTE_LABELS[segment]) {
     return ROUTE_LABELS[segment];
   }

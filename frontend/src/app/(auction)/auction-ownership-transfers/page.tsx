@@ -23,8 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { HeaderNotifications } from "@/app/components/header-notifications";
-import { AuctionTelemetryBanner } from "@/app/components/auction-telemetry-banner";
+import { PageHeader } from "@/app/components/page-header";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 import { httpError } from "@/lib/http-error";
 import api from "@/lib/axios";
@@ -632,30 +631,17 @@ export default function AuctionOwnershipTransfersPage() {
 
   return (
     <div className="min-h-screen bg-transparent pb-16">
-      {/* Top Banner Header: Dark Forest Green with Cattle Watermark */}
-      <div className="relative overflow-hidden bg-[#073827] text-white">
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-20 mix-blend-overlay pointer-events-none"
-          style={{ backgroundImage: `url('/images/species-cattle.jpg')` }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#073827] via-[#0A4530]/95 to-[#073827]/85 pointer-events-none" />
-
-        <div className="relative w-full px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Record Ownership Transfer
-            </h1>
-            <p className="text-xs sm:text-sm text-emerald-100/90 font-normal">
-              Record a completed certificate for registered livestock or an outside animal brought to the market.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <HeaderNotifications variant="auction" />
-          </div>
-        </div>
-      </div>
-      <AuctionTelemetryBanner />
+      <PageHeader
+        title="Record Ownership Transfer"
+        subtitle="Record a completed certificate for registered livestock or an outside animal brought to the market."
+        variant="auction"
+        maxWidthClass="w-full"
+        breadcrumbs={[
+          { label: "SmartLivestock", href: "/auction" },
+          { label: "Transfer Records", href: "/auction-ownership-transfers/registry" },
+          { label: "Record Transfer", active: true },
+        ]}
+      />
       {preregistrationReference && <div className="mx-4 mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950 sm:mx-6 lg:mx-8">
         <strong>Loaded from {preregistrationReference}.</strong> Farmer, animal, recorded animal traits, and original certificate number are filled in. Add the actual buyer, final sale price, sale date, and issued transfer certificate details.
         <Link href="/auction-preregistrations" className="ml-2 font-semibold underline">Back to preregistrations</Link>
@@ -664,19 +650,6 @@ export default function AuctionOwnershipTransfersPage() {
 
       {/* Main Container */}
       <div id="auction-transfer-form-start" className="w-full px-4 sm:px-6 lg:px-8 py-5 space-y-5">
-        {/* Breadcrumb line */}
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-          <Link href="/auction" className="hover:text-slate-800 transition-colors">
-            SmartLivestock
-          </Link>
-          <span className="text-slate-400">/</span>
-          <Link href="/auction-ownership-transfers/registry" className="hover:text-slate-800 transition-colors">
-            Transfer Records
-          </Link>
-          <span className="text-slate-400">/</span>
-          <span className="text-slate-900 font-bold">Record Transfer</span>
-        </div>
-
         {/* Action Buttons Row */}
         <div className="flex items-center justify-between gap-2">
           <Button
