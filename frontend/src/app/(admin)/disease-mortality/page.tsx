@@ -44,6 +44,8 @@ import { useAdminBarangays } from "../admin/admin-charts";
 // Components from data-validation
 import { BulkActionDock } from "../data-validation/components/bulk-action-dock";
 import { DiseaseMortalityReviewDialog } from "../data-validation/components/disease-mortality-review-dialog";
+import { FollowUpsTab } from "./follow-ups-tab";
+import { DiseaseFollowUpDetailDialog } from "./follow-up-detail-dialog";
 import { IncidentsTable } from "../data-validation/components/incidents-table";
 import { ValidationPagination } from "../data-validation/components/validation-pagination";
 import {
@@ -91,7 +93,9 @@ function DiseaseMortalityContent() {
   const queryClient = useQueryClient();
 
   // Tab State: 'disease', 'mortality', 'all', or 'coverage'
-  const initialTab = searchParams.get("tab") === "mortality"
+  const initialTab = searchParams.get("tab") === "followups"
+    ? "followups"
+    : searchParams.get("tab") === "mortality"
     ? "mortality"
     : searchParams.get("tab") === "all"
     ? "all"
@@ -99,9 +103,9 @@ function DiseaseMortalityContent() {
     ? "coverage"
     : "disease";
 
-  const [activeTab, setActiveTab] = useState<"disease" | "mortality" | "all" | "coverage">(initialTab);
+  const [activeTab, setActiveTab] = useState<"disease" | "mortality" | "all" | "coverage" | "followups">(initialTab);
 
-  const handleTabChange = (tab: "disease" | "mortality" | "all" | "coverage") => {
+  const handleTabChange = (tab: "disease" | "mortality" | "all" | "coverage" | "followups") => {
     setActiveTab(tab);
     const params = new URLSearchParams(window.location.search);
     params.set("tab", tab);
@@ -177,6 +181,11 @@ function DiseaseMortalityContent() {
     open: false,
     record: null,
   });
+  const [followUpDialog, setFollowUpDialog] = useState<{
+    open: boolean;
+    record: ValidationIncidentItem | null;
+    followUpId: string | null;
+  }>({ open: false, record: null, followUpId: null });
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewTargetItems, setReviewTargetItems] = useState<ReviewTargetItem[]>([]);
 
@@ -204,12 +213,14 @@ function DiseaseMortalityContent() {
   // Auto-open review dialog when navigated with ?recordId=123 from notifications
   useEffect(() => {
     const recordId = searchParams.get("recordId");
+    const followUpId = searchParams.get("followUpId");
     if (!recordId) {
       deepLinkedRecordRef.current = null;
       return;
     }
     if (isLoading || healthIncidents.length === 0) return;
-    if (deepLinkedRecordRef.current === recordId) return;
+    const deepLinkKey = `${recordId}:${followUpId || "review"}`;
+    if (deepLinkedRecordRef.current === deepLinkKey) return;
 
     const cleanTarget = recordId.trim().toLowerCase();
     const found = healthIncidents.find((inc) => {
@@ -226,13 +237,17 @@ function DiseaseMortalityContent() {
       );
     });
     if (found) {
-      deepLinkedRecordRef.current = recordId;
+      deepLinkedRecordRef.current = deepLinkKey;
       if (found.type === "disease" && activeTab !== "disease") {
         setActiveTab("disease");
       } else if (found.type === "mortality" && activeTab !== "mortality") {
         setActiveTab("mortality");
       }
-      setHealthReviewDialog({ open: true, record: found });
+      if (followUpId && found.type === "disease") {
+        setFollowUpDialog({ open: true, record: found, followUpId });
+      } else {
+        setHealthReviewDialog({ open: true, record: found });
+      }
     }
   }, [searchParams, healthIncidents, isLoading, activeTab]);
 
@@ -563,6 +578,18 @@ function DiseaseMortalityContent() {
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <button
               type="button"
+              onClick={() => handleTabChange("followups")}
+              className={"flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all " + (
+                activeTab === "followups"
+                  ? "border-[#1E4D2B] bg-[#1E4D2B] text-white shadow-sm"
+                  : "border-slate-200 bg-white/80 text-slate-700 hover:bg-white hover:text-slate-950"
+              )}
+            >
+              <Activity className="size-4" />
+              <span>Follow-ups</span>
+            </button>
+            <button
+              type="button"
               onClick={() => handleTabChange("all")}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
                 activeTab === "all"
@@ -623,7 +650,7 @@ function DiseaseMortalityContent() {
             </button>
           </div>
 
-          {selectedIds.length > 0 && activeTab !== "coverage" && (
+          {selectedIds.length > 0 && activeTab !== "coverage" && activeTab !== "followups" && (
             <div className="hidden sm:flex items-center gap-2">
               <span className="text-xs font-bold text-slate-700">
                 {selectedIds.length} selected
@@ -648,7 +675,9 @@ function DiseaseMortalityContent() {
           )}
         </div>
 
-        {activeTab === "coverage" ? (
+        {activeTab === "followups" ? (
+          <FollowUpsTab records={healthIncidents} />
+        ) : activeTab === "coverage" ? (
           <div className="pt-2">
             <SurveillanceCoveragePanel />
           </div>
@@ -794,7 +823,7 @@ function DiseaseMortalityContent() {
         )}
 
         {/* ── FLOATING MOBILE BULK ACTION DOCK ── */}
-        {activeTab !== "coverage" && (
+        {activeTab !== "coverage" && activeTab !== "followups" && (
           <BulkActionDock
             count={selectedIds.length}
             onValidate={openReviewBatch}
@@ -824,6 +853,22 @@ function DiseaseMortalityContent() {
             }
           }}
           onConfirmAction={handleConfirmHealthAction}
+        />
+
+        <DiseaseFollowUpDetailDialog
+          record={followUpDialog.record}
+          followUpId={followUpDialog.followUpId}
+          open={followUpDialog.open}
+          onOpenChange={(open) => {
+            setFollowUpDialog((prev) => ({ ...prev, open }));
+            if (!open && searchParams.has("followUpId")) {
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete("recordId");
+              params.delete("followUpId");
+              const query = params.toString();
+              router.replace(`/disease-mortality${query ? `?${query}` : ""}`, { scroll: false });
+            }
+          }}
         />
 
         {/* ── RECORD DETAIL DIALOG ── */}

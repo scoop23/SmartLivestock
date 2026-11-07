@@ -100,10 +100,11 @@ def disease_case_follow_ups(request, pk):
         if person.pk == request.user.pk:
             continue
         recipient_role = role_name(person)
+        follow_up_query = f"&followUpId={event.pk}" if farmer_update else ""
         link = (
             f"/report-observation?reportId=DIS-{case.pk}" if recipient_role == "FARMER"
-            else f"/sibat-alerts?recordType=DISEASE&recordId={case.pk}" if recipient_role in {"SIBAT", "CBAT"}
-            else f"/disease-mortality?tab=disease&recordId={case.pk}"
+            else f"/sibat-alerts?recordType=DISEASE&recordId={case.pk}{follow_up_query}" if recipient_role in {"SIBAT", "CBAT"}
+            else f"/disease-mortality?tab=disease&recordId={case.pk}{follow_up_query}"
         )
         create_notification(
             person, notification_type=Notification.NotificationType.DISEASE,

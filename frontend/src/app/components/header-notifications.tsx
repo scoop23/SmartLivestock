@@ -169,6 +169,17 @@ export const resolveNotificationLink = (
 ) => {
   const effectiveVariant = getEffectiveRole(variant, userRole, currentPath);
   if (effectiveVariant === "admin") {
+    if (
+      notification.related_entity_type === "disease_case" &&
+      /farmer follow-up/i.test(notification.title)
+    ) {
+      const caseId = notification.related_entity_id ?? notification.title.match(/\bDIS-(\d+)\b/i)?.[1];
+      if (caseId != null) {
+        const followUpId = notification.link?.match(/[?&]followUpId=(\d+)/)?.[1] ?? "latest";
+        return `/disease-mortality?tab=disease&recordId=${caseId}&followUpId=${followUpId}`;
+      }
+    }
+
     const adminRoutes: Record<string, (id: number) => string> = {
       livestock_inventory: (id) => `/livestock-records?tab=individual&recordId=${id}`,
       livestock_batch: (id) => `/livestock-records?tab=herd&batchId=${id}`,
