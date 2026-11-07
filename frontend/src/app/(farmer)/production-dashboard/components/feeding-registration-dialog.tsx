@@ -49,6 +49,7 @@ interface FeedingRegistrationDialogProps {
   onOpenChange: (open: boolean) => void;
   inventories: LivestockInventoryItem[];
   batches?: BatchItem[];
+  initialLivestockId?: string | null;
   onSubmit: (payload: FeedingPayload) => void;
   isSubmitting: boolean;
 }
@@ -58,11 +59,12 @@ export default function FeedingRegistrationDialog({
   onOpenChange,
   inventories,
   batches = [],
+  initialLivestockId = null,
   onSubmit,
   isSubmitting,
 }: FeedingRegistrationDialogProps) {
   const [targetType, setTargetType] = useState<"INDIVIDUAL" | "BATCH">("INDIVIDUAL");
-  const [livestockId, setLivestockId] = useState<string>("");
+  const [livestockId, setLivestockId] = useState<string>(initialLivestockId || "");
   const [batchId, setBatchId] = useState<string>("");
   const [feedingDate, setFeedingDate] = useState(localCalendarDateToday());
   const [feedType, setFeedType] = useState<FeedingPayload["feed_type"]>("FORAGE");
@@ -75,7 +77,7 @@ export default function FeedingRegistrationDialog({
 
   useEffect(() => {
     if (!open) {
-      setLivestockId("");
+      setLivestockId(initialLivestockId || "");
       setBatchId("");
       setFeedingDate(localCalendarDateToday());
       setFeedType("FORAGE");
@@ -86,7 +88,7 @@ export default function FeedingRegistrationDialog({
       setNotes("");
       setErrorMsg("");
     }
-  }, [open]);
+  }, [initialLivestockId, open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

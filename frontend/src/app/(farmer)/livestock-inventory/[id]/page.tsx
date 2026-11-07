@@ -2376,6 +2376,23 @@ export default function LivestockDetailPage() {
                   <p className="text-xs text-slate-500 max-w-md mx-auto">
                     No individual feeding logs have been recorded for this animal yet. Herd and batch feeding entries can be managed from the Production Dashboard.
                   </p>
+                  {activeItem.status === "APPROVED"
+                    && activeItem.operationalStatus === "ACTIVE"
+                    && activeItem.quantity > 0 && (
+                    <Link
+                      href={`/production-dashboard/${encodeURIComponent(activeItem.livestockTypeName)}?activity=feedings&mode=record&livestock=${encodeURIComponent(activeItem.id)}`}
+                      className="mt-2 inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-amber-600 px-3.5 text-xs font-bold text-white transition-colors hover:bg-amber-700"
+                    >
+                      <Wheat className="size-3.5" /> Log Feed
+                    </Link>
+                  )}
+                  {(activeItem.status !== "APPROVED"
+                    || activeItem.operationalStatus !== "ACTIVE"
+                    || activeItem.quantity <= 0) && (
+                    <p className="text-[11px] text-slate-500">
+                      Feed logging is available for approved, active livestock.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-2xs">

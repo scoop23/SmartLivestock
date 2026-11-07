@@ -96,6 +96,7 @@ interface ProductionDashboardViewProps {
   initialActivity?: string | null;
   initialMode?: "record" | "history" | null;
   initialEligibleSpecies?: string[];
+  initialFeedingLivestockId?: string | null;
   onReturnToChooser?: () => void;
 }
 
@@ -114,6 +115,7 @@ export default function ProductionDashboardView({
   initialActivity = null,
   initialMode = null,
   initialEligibleSpecies = [],
+  initialFeedingLivestockId = null,
   onReturnToChooser,
 }: ProductionDashboardViewProps) {
   const queryClient = useQueryClient();
@@ -1279,6 +1281,7 @@ export default function ProductionDashboardView({
           approvedInventories={focusedActivity ? activityInventories : approvedInventories}
           selectedSpecies={selectedSpecies}
           autoOpen={Boolean(["feedings", "feeding"].includes(focusedActivity ?? "") && focusedMode === "record")}
+          initialLivestockId={initialFeedingLivestockId}
         />
       )}
 

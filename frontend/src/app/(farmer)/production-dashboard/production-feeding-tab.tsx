@@ -96,6 +96,7 @@ interface ProductionFeedingTabProps {
   userBatches?: BatchItem[];
   selectedSpecies?: string | null;
   autoOpen?: boolean;
+  initialLivestockId?: string | null;
 }
 
 export default function ProductionFeedingTab({
@@ -103,6 +104,7 @@ export default function ProductionFeedingTab({
   userBatches = [],
   selectedSpecies,
   autoOpen = false,
+  initialLivestockId = null,
 }: ProductionFeedingTabProps) {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(autoOpen);
@@ -526,6 +528,7 @@ export default function ProductionFeedingTab({
         onOpenChange={setIsDialogOpen}
         inventories={approvedInventories}
         batches={allBatches}
+        initialLivestockId={initialLivestockId}
         onSubmit={(payload) => createMutation.mutate(payload)}
         isSubmitting={createMutation.isPending}
       />

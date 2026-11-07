@@ -102,6 +102,7 @@ export default function SpeciesProductionPage() {
             initialActivity={activity}
             initialMode={activityMode}
             initialEligibleSpecies={searchParams.getAll("eligibleSpecies")}
+            initialFeedingLivestockId={searchParams.get("livestock")}
           />
         )}
       </div>
