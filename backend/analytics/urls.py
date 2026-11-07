@@ -1,8 +1,10 @@
 from django.urls import path
 
 from . import views
+from .population_views import population_forecast_view
 
 urlpatterns = [
+    path("predictive/population/", population_forecast_view, name="population-forecast"),
     path("predictive/cattle-profile-price/", views.cattle_profile_price, name="cattle-profile-price"),
     path("reports/preview/", views.reports_preview, name="reports-preview"),
     path("reports/export/", views.reports_export, name="reports-export"),
