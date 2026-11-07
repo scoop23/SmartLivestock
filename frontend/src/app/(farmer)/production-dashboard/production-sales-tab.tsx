@@ -24,14 +24,13 @@ SelectValue,
 } from "@/components/ui/select";
 import api from "@/lib/axios";
 import axios from "axios";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useMutation,useQuery,useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
 BadgeDollarSign,
 Calendar,
 Check,
-ChevronDown,
 Compass,
 MapPin,
 PhilippinePeso,
@@ -53,6 +52,8 @@ import { toast } from "sonner";
 import { formatLivestockAge } from "@/lib/livestock-age";
 import { type LivestockInventoryItem } from "../livestock-inventory/livestock-inventory";
 import { LivestockPicture } from "./select-livestock-dialog";
+import MarketPriceReference from "../components/market-price-reference";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export interface LiveSaleItem {
   id: number;
@@ -326,6 +327,28 @@ export default function ProductionSalesTab({
 }) {
   const route = useParams<{ species?: string }>();
   const species = route.species || "";
+  const searchParams = useSearchParams();
+  const requestedMarket = searchParams.get("market") === "1";
+  const showMarketTabs = species.trim().toLowerCase() === "cattle" && !autoOpenIntent;
+  const [salesView, setSalesView] = useState<"sales" | "market">(requestedMarket ? "market" : "sales");
+  useEffect(() => {
+    setSalesView(requestedMarket ? "market" : "sales");
+    if (!requestedMarket) return;
+    const frame = window.requestAnimationFrame(() => {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      document.getElementById("market-price-reference")?.scrollIntoView({block: "start", behavior: reduceMotion ? "auto" : "smooth"});
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [requestedMarket]);
+  const selectSalesView = (value: string) => {
+    if (value !== "sales" && value !== "market") return;
+    setSalesView(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "market") params.set("market", "1");
+    else params.delete("market");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${value === "market" ? "#market-price-reference" : ""}`);
+  };
   const tutorialsEnabled = useAutomaticTutorialsEnabled();
   const queryClient = useQueryClient();
   const [submittedRegistration, setSubmittedRegistration] = useState<{ id: number; reference: string; references?: string[]; count?: number } | null>(null);
@@ -468,6 +491,17 @@ export default function ProductionSalesTab({
 
   return (
     <div className="space-y-6">
+      <Tabs id="market-price-reference" value={showMarketTabs ? salesView : "sales"} onValueChange={selectSalesView} className="scroll-mt-24 gap-0">
+        {showMarketTabs && <TabsList aria-label="Cattle sales and market prices" className="relative grid h-auto w-full max-w-xl grid-cols-2 rounded-xl border border-slate-200 bg-slate-100 p-1">
+          <span aria-hidden="true" className={`pointer-events-none absolute inset-y-1 left-1 rounded-lg bg-emerald-700 shadow-sm transition-transform duration-300 ease-out motion-reduce:transition-none ${salesView === "market" ? "translate-x-full" : "translate-x-0"}`} style={{width: "calc((100% - 0.5rem) / 2)"}} />
+          <TabsTrigger value="sales" className="relative z-10 h-10 rounded-lg px-2 text-xs font-semibold text-slate-600 transition-colors duration-200 data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:text-white data-[state=active]:shadow-none motion-reduce:transition-none sm:px-4 sm:text-sm"><ShoppingBag className="size-4" />Your sales records</TabsTrigger>
+          <TabsTrigger value="market" className="relative z-10 h-10 rounded-lg px-2 text-xs font-semibold text-slate-600 transition-colors duration-200 data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:text-white data-[state=active]:shadow-none motion-reduce:transition-none sm:px-4 sm:text-sm"><BadgeDollarSign className="size-4" />Market prices</TabsTrigger>
+        </TabsList>}
+        {showMarketTabs && <TabsContent value="market" className="mt-0 pt-5 data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
+          <MarketPriceReference />
+        </TabsContent>}
+        <TabsContent value="sales" aria-label="Your sales records" className="mt-0 space-y-6 pt-5 data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:slide-in-from-bottom-2 duration-300 motion-reduce:animate-none">
+      <div><h2 className="text-lg font-bold text-slate-900">Your sales records</h2><p className="mt-1 text-xs text-slate-500">Your own completed sales and declarations.</p></div>
       {/* Top Sales & Commercial KPIs */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <KpiCard
@@ -644,6 +678,8 @@ export default function ProductionSalesTab({
       </div>
 
       <AuctionPreregistrations />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={submittedRegistration !== null} onOpenChange={open => { if (!open) setSubmittedRegistration(null); }}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-2xl bg-white sm:max-w-lg">

@@ -35,11 +35,12 @@ export default function SpeciesProductionPage() {
     if (activity === "feedings" || activity === "feeding") return `${sName} Feeding & Ration Logs`;
     if (activity === "weights") return `${sName} Weight & Growth Records`;
     if (activity === "treatments") return `${sName} Clinical Treatment Records`;
-    if (activity === "sales" || activity === "intent") return `${sName} Sale Intent Declarations`;
+    if (activity === "sales" || activity === "intent") return activityMode === "history" ? `${sName} Sales History` : `${sName} Sale Intent Declarations`;
     return `${sName} Production Logs`;
-  }, [activity, species]);
+  }, [activity, species, activityMode]);
 
   const activitySubtitle = useMemo(() => {
+    if (activity === "sales" && activityMode === "history") return "Review your own sales and use recorded market prices as a reference.";
     if (activity === "meat") return "Recorded meat output, yields in kilograms, and review status.";
     if (activity === "milk") return "Daily milking session logs, yield in liters, and review status.";
     if (activity === "eggs") return "Daily egg harvest logs and flock efficiency.";
@@ -48,7 +49,7 @@ export default function SpeciesProductionPage() {
     if (activity === "feedings" || activity === "feeding") return "Daily feed intake, ration mix, and feed expenditure records.";
     if (activity === "treatments") return "Medications, vaccines, dewormers, and veterinary care logs.";
     return "Production records, animal births, and weight history";
-  }, [activity]);
+  }, [activity, activityMode]);
 
   const { data: inventories = [], isLoading } = useUserInventory();
 
@@ -91,7 +92,7 @@ export default function SpeciesProductionPage() {
       />
 
       <div className="p-4 md:p-8 w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
-        {!isLoading && approvedInventories.length === 0 ? (
+        {!isLoading && approvedInventories.length === 0 && !(species.toLowerCase() === "cattle" && activity === "sales" && activityMode === "history") ? (
           <EnterpriseEmptyState />
         ) : (
           <ProductionDashboardView

@@ -2,8 +2,10 @@ from django.urls import path
 
 from . import views
 from .population_views import population_forecast_view
+from .market_views import farmer_market_prices
 
 urlpatterns = [
+    path("market-prices/", farmer_market_prices, name="farmer-market-prices"),
     path("predictive/population/", population_forecast_view, name="population-forecast"),
     path("predictive/cattle-profile-price/", views.cattle_profile_price, name="cattle-profile-price"),
     path("reports/preview/", views.reports_preview, name="reports-preview"),

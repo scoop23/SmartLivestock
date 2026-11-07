@@ -33,6 +33,7 @@ import FarmerActivityFeed from "./farmer-activity-feed";
 import { useFarmerDashboardAnalytics } from "./farmer-analytics";
 import FarmerCharts from "./farmer-charts";
 import FarmerStats from "./farmer-stats";
+import { FarmerMarketPriceCard } from "../components/market-price-reference";
 
 export default function FarmerDashboard() {
   const tutorialsEnabled = useAutomaticTutorialsEnabled();
@@ -476,6 +477,10 @@ export default function FarmerDashboard() {
         </div>
       </div>
 
+      <section aria-label="Latest auction cattle prices" className="px-4 pt-4 sm:px-6 md:px-8">
+        <FarmerMarketPriceCard />
+      </section>
+
       {/* Ambient Blueprint Viewport Container */}
       <div className="relative min-h-screen">
         {(isLoading || keepLoadingScreenMounted) && (
@@ -637,6 +642,7 @@ export default function FarmerDashboard() {
                   barangayName={user?.barangay || user?.assignedBarangayName}
                 />
               </div>
+
 
               {/* Programs and Visits */}
               <div data-tour="programs-visits" className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-250 fill-mode-both">
