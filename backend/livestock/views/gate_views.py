@@ -27,6 +27,11 @@ class GateRegistrationSerializer(serializers.Serializer):
             raise serializers.ValidationError("Choose an approved Farmer account.")
         return farmer
 
+    def validate_livestock_type(self, livestock_type):
+        if any(name in livestock_type.name.lower() for name in ("swine", "pig", "hog", "baboy")):
+            raise serializers.ValidationError("Swine are not accepted for auction gate registration.")
+        return livestock_type
+
     def validate_ownership_certificate_number(self, value):
         number = value.strip()
         if not number:

@@ -258,10 +258,11 @@ export function NewInspectionForm({
       try {
         const res = await api.get<LivestockTypeOption[]>("/livestock/livestock_types/");
         if (Array.isArray(res.data) && res.data.length > 0) {
-          setSpeciesOptions(res.data);
+          const allowedTypes = res.data.filter(type => !/swine|pig|hog|baboy/i.test(type.name));
+          setSpeciesOptions(allowedTypes);
           if (!inspectionToEdit) {
             setItems((prev) => prev.map((it) => ({
-              ...it, livestock_type: it.livestock_type || res.data[0].id,
+              ...it, livestock_type: it.livestock_type || allowedTypes[0]?.id || 0,
             })));
           }
         }

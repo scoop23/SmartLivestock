@@ -422,6 +422,7 @@ export default function BatchOverviewPage() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const livestockTypeReturn = searchParams?.get("livestockType");
+  const animalProfileReturnUrl = `/livestock-inventory/batches${livestockTypeReturn ? `?livestockType=${encodeURIComponent(livestockTypeReturn)}` : ""}`;
   const livestockReturnUrl = livestockTypeReturn
     ? `/livestock-inventory?livestockType=${encodeURIComponent(livestockTypeReturn)}`
     : "/livestock-inventory";
@@ -1787,7 +1788,7 @@ export default function BatchOverviewPage() {
                                     <div className="min-w-0">
                                       {hasInventoryRecord ? (
                                         <Link
-                                          href={`/livestock-inventory/${animal.id}`}
+                                          href={`/livestock-inventory/${animal.id}?returnTo=${encodeURIComponent(animalProfileReturnUrl)}`}
                                           className="flex items-center gap-1.5 text-sm font-bold text-emerald-800 hover:text-emerald-950 hover:underline"
                                         >
                                           <Tag className="size-3.5 text-emerald-600 shrink-0" />
@@ -1888,7 +1889,7 @@ export default function BatchOverviewPage() {
                                     )}
 
                                     {hasInventoryRecord ? (
-                                      <Link href={`/livestock-inventory/${animal.id}`} className="flex-1">
+                                      <Link href={`/livestock-inventory/${animal.id}?returnTo=${encodeURIComponent(animalProfileReturnUrl)}`} className="flex-1">
                                         <Button
                                           variant="ghost"
                                           className="h-8 w-full rounded-lg bg-slate-100 text-xs font-bold text-slate-900 hover:bg-slate-200"
@@ -1963,7 +1964,7 @@ export default function BatchOverviewPage() {
                                     onClick={(event) => {
                                       const target = event.target as HTMLElement;
                                       if (hasInventoryRecord && !target.closest("a, button")) {
-                                        router.push(`/livestock-inventory/${animal.id}`);
+                                        router.push(`/livestock-inventory/${animal.id}?returnTo=${encodeURIComponent(animalProfileReturnUrl)}`);
                                       }
                                     }}
                                     className={`transition-colors hover:bg-emerald-50/40 ${
@@ -1975,7 +1976,7 @@ export default function BatchOverviewPage() {
                                     <TableCell className="py-2 text-xs font-bold text-slate-950">
                                       {hasInventoryRecord ? (
                                         <Link
-                                          href={`/livestock-inventory/${animal.id}`}
+                                          href={`/livestock-inventory/${animal.id}?returnTo=${encodeURIComponent(animalProfileReturnUrl)}`}
                                           className="flex items-center gap-1.5 text-emerald-800 hover:text-emerald-950 hover:underline"
                                         >
                                           <Tag className="size-3 text-emerald-600" />
@@ -2083,7 +2084,7 @@ export default function BatchOverviewPage() {
 
                                         {hasInventoryRecord && (
                                           <Link
-                                            href={`/livestock-inventory/${animal.id}`}
+                                            href={`/livestock-inventory/${animal.id}?returnTo=${encodeURIComponent(animalProfileReturnUrl)}`}
                                             onClick={(event) => event.stopPropagation()}
                                           >
                                             <Button

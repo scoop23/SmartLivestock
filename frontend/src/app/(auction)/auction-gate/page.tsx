@@ -154,7 +154,6 @@ export default function AuctionGatePage() {
     { id: 1, name: "Cattle" },
     { id: 2, name: "Carabao" },
     { id: 3, name: "Goat" },
-    { id: 4, name: "Swine" },
   ]);
   const [selectedTypeId, setSelectedTypeId] = useState("1");
   const [selectedSex, setSelectedSex] = useState("Male");
@@ -175,8 +174,9 @@ export default function AuctionGatePage() {
       .get<TypeOption[]>("livestock/livestock_types/")
       .then((response) => {
         if (response.data && response.data.length > 0) {
-          setTypes(response.data);
-          setSelectedTypeId(String(response.data[0].id));
+          const allowedTypes = response.data.filter(type => !/swine|pig|hog|baboy/i.test(type.name));
+          setTypes(allowedTypes);
+          setSelectedTypeId(allowedTypes[0] ? String(allowedTypes[0].id) : "");
         }
       })
       .catch(() => {

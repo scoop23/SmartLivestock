@@ -165,7 +165,7 @@ class LivestockInventoryReviewHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LivestockInventoryReviewHistory
-        fields = ("id", "reviewer_name", "reviewer_role", "status", "remarks", "reviewed_at", "is_backfilled")
+        fields = ("id", "reviewer_name", "reviewer_role", "status", "remarks", "reviewed_at", "is_backfilled", "inspection_photo")
         read_only_fields = fields
 
     def get_reviewer_name(self, obj):
@@ -375,6 +375,9 @@ class LivestockInventorySerializer(serializers.Serializer):
 
     def validate(self, attrs):
         user = self.context["request"].user
+        livestock_type = attrs.get("livestock_type")
+        if not self.instance and livestock_type and any(name in livestock_type.name.lower() for name in ("swine", "pig", "hog", "baboy")):
+            raise serializers.ValidationError({"livestock_type": "Swine registration is not available."})
         farmer = getattr(user, "farmer_profile", None) or (self.instance and self.instance.farmer)
         if farmer is None:
             raise serializers.ValidationError("A farmer profile is required.")
@@ -611,6 +614,11 @@ class LivestockBatchSerializer(serializers.ModelSerializer):
     Used in:
         Herd grouping views. Individual animal review uses LivestockInventorySerializer.
     """
+    def validate_livestock_type(self, livestock_type):
+        if not self.instance and any(name in livestock_type.name.lower() for name in ("swine", "pig", "hog", "baboy")):
+            raise serializers.ValidationError("Swine registration is not available.")
+        return livestock_type
+
     photo = LivestockPhotoField(required=False, allow_null=True)
     farmer = serializers.PrimaryKeyRelatedField(read_only=True)
     farmer_name = serializers.SerializerMethodField(read_only=True)

@@ -41,6 +41,8 @@ class LivestockInspectionItemSerializer(serializers.ModelSerializer):
 
         inventory = attrs.get("inventory")
         livestock_type = attrs.get("livestock_type")
+        if livestock_type and any(name in livestock_type.name.lower() for name in ("swine", "pig", "hog", "baboy")):
+            raise serializers.ValidationError({"livestock_type": "Swine are not accepted in livestock movements."})
         if inventory:
             if livestock_type and inventory.livestock_type_id != livestock_type.id:
                 raise serializers.ValidationError(

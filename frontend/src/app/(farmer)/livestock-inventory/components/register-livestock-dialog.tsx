@@ -1164,7 +1164,7 @@ function RegisterLivestockDialogContent({
                       <InfoTooltip text="Select the animal species category (e.g. Cattle, Swine, Sheep, Carabao, Goat, Poultry)." />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      {Object.entries(livestockTypes).map(([name]) => {
+                      {Object.entries(livestockTypes).filter(([name]) => !/swine|pig|hog|baboy/i.test(name)).map(([name]) => {
                         const isSelected = formData.livestockType === name;
                         const preset = getSpeciesPreset(name);
                         return (

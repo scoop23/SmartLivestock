@@ -309,7 +309,7 @@ function LivestockInfographicHeroContent({
             size="sm"
             className="rounded-xl bg-white/10 hover:bg-white/20 text-white border-white/20 font-bold text-xs gap-1.5 cursor-pointer"
           >
-            <QrCode className="size-3.5 text-emerald-300" /> ID Passport
+            <QrCode className="size-3.5 text-emerald-300" /> QR
           </Button>
 
           <Button
