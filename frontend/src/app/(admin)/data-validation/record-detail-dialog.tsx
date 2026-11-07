@@ -228,6 +228,33 @@ function RecordDetailDialogContent({
   const canMaoReview = record.kind !== "production" && (isVerified || (isAuctionRecord && isPending));
   const isApproved = statusNorm === "APPROVED";
   const isRejected = statusNorm === "SUBJECT_TO_REVISION" || statusNorm === "SUBJECT_FOR_REVISION" || statusNorm === "REJECTED" || statusNorm === "FLAGGED";
+  const fieldOfficerName = record.kind === "incident"
+    ? record.sibatInspection?.verifiedBy
+    : "reviewedByRole" in record && ["CBAT", "SIBAT"].includes((record.reviewedByRole || "").toUpperCase())
+      ? record.reviewedByName
+      : null;
+  const fieldReviewDate = record.kind === "incident"
+    ? record.sibatInspection?.verifiedAt || record.reviewedAt
+    : record.reviewedAt;
+  const fieldReviewRemarks = record.kind === "incident"
+    ? record.sibatInspection?.remarks
+    : record.reviewRemarks;
+  const fieldOfficerRole = record.kind === "incident"
+    ? record.sibatInspection?.verifiedRole?.toUpperCase()
+    : "reviewedByRole" in record
+      ? record.reviewedByRole?.toUpperCase()
+      : undefined;
+  const fieldAuditTitle = fieldOfficerRole === "SIBAT"
+    ? "SIBAT Field Verification Findings"
+    : "CBAT Field Verification Findings";
+  const fieldOfficerLabel = fieldOfficerRole
+    ? `Inspecting ${fieldOfficerRole} Officer:`
+    : "Inspecting CBAT Officer:";
+  const showFieldAudit = !isAuctionRecord && (
+    record.kind === "incident"
+      ? Boolean(record.sibatInspection || isVerified)
+      : Boolean(fieldOfficerName || isVerified)
+  );
 
 
   const handleSaveEdits = async () => {
@@ -1239,16 +1266,16 @@ function RecordDetailDialogContent({
           )}
 
           {/* ── SIBAT FIELD AUDIT REPORT ── */}
-          {!isAuctionRecord && (record.reviewedByName || isVerified) && (
+          {showFieldAudit && (
             <div className="p-4 bg-sky-50/80 border border-sky-200/80 rounded-2xl space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black text-sky-900 uppercase flex items-center gap-1.5 tracking-wider">
                   <ShieldCheck className="size-4 text-sky-700" />
-                  CBAT Field Verification Findings
+                  {fieldAuditTitle}
                 </span>
-                {record.reviewedAt && (
+                {fieldReviewDate && (
                   <span className="text-[10px] font-bold text-sky-700 bg-sky-100/80 px-2 py-0.5 rounded-md">
-                    Inspected: {new Date(record.reviewedAt).toLocaleDateString("en-US", {
+                    Inspected: {new Date(fieldReviewDate).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -1257,19 +1284,19 @@ function RecordDetailDialogContent({
                 )}
               </div>
 
-              {record.reviewedByName && (
+              {(fieldOfficerName || record.kind === "incident") && (
                 <div className="flex items-center justify-between text-xs pt-1 border-t border-sky-100">
-                  <span className="text-sky-800 font-medium">Inspecting CBAT Officer:</span>
-                  <span className="font-black text-sky-950">{record.reviewedByName}</span>
+                  <span className="text-sky-800 font-medium">{fieldOfficerLabel}</span>
+                  <span className="font-black text-sky-950">{fieldOfficerName || "Not recorded"}</span>
                 </div>
               )}
 
-              {record.reviewRemarks && (
+              {fieldReviewRemarks && (
                 <div className="text-xs text-sky-950 bg-white/90 p-3 rounded-xl border border-sky-100/80">
                   <span className="text-[9px] font-black text-sky-800 uppercase block mb-1">
                     Officer Observation Notes
                   </span>
-                  <p className="italic leading-relaxed">&ldquo;{record.reviewRemarks}&rdquo;</p>
+                  <p className="italic leading-relaxed">&ldquo;{fieldReviewRemarks}&rdquo;</p>
                 </div>
               )}
             </div>

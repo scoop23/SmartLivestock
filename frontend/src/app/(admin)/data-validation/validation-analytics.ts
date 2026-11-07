@@ -109,6 +109,8 @@ export type IncidentType = "disease" | "mortality" | "slaughter" | "birth" | "sa
 export interface SibatInspectionData {
   verifiedBy: string;
   verifiedAt: string;
+  verifiedRole?: string;
+  maoReviewedBy?: string;
   tagConfirmed: boolean;
   confirmedCount: number;
   confirmedSymptoms: string[];
@@ -117,6 +119,26 @@ export interface SibatInspectionData {
   biosecurityAction: string;
   remarks: string;
   temperatureCelsius?: number;
+}
+
+function getInspectionOfficerName(
+  storedName: string | undefined,
+  reviewedByName: string | null | undefined,
+  status: string | null | undefined,
+  maoReviewedBy?: string,
+): string {
+  const name = storedName?.trim();
+  if (name && name.toLowerCase() !== "signed-in sibat account") return name;
+
+  // Field reviewers can also return a record for revision. MAO review stores
+  // maoReviewedBy, so do not mistake the later MAO reviewer for the inspector.
+  const currentStatus = (status || "").toUpperCase();
+  const isFieldReviewStatus = ["VERIFIED", "SUBJECT_TO_REVISION", "SUBJECT_FOR_REVISION", "FLAGGED"]
+    .includes(currentStatus);
+  if (isFieldReviewStatus && !maoReviewedBy) {
+    return reviewedByName || "Not recorded";
+  }
+  return "Not recorded";
 }
 
 export interface ValidationIncidentItem {
@@ -392,10 +414,11 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         inspectorPhotoName: inspUrl ? `SIBAT Inspection Photo #${dc.tag_number || dc.id}` : undefined,
         sibatInspection: isSibatDone
           ? {
-              verifiedBy: inspDetails.verifiedBy || ((dc.status || "").toUpperCase() === "VERIFIED" ? dc.reviewed_by_name : undefined) || "Not recorded",
+              verifiedBy: getInspectionOfficerName(inspDetails.verifiedBy, dc.reviewed_by_name, dc.status, inspDetails.maoReviewedBy),
               verifiedAt:
                 inspDetails.verifiedAt ||
                 (dc.reviewed_at ? new Date(dc.reviewed_at).toLocaleDateString() : (dc.record_date || "Recently")),
+              verifiedRole: inspDetails.verifiedRole,
               tagConfirmed: inspDetails.tagConfirmed ?? true,
               confirmedCount: inspDetails.confirmedCount ?? (dc.affected_count || 1),
               confirmedSymptoms:
@@ -452,8 +475,9 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         inspectorPhotoUrl: inspUrl,
         inspectorPhotoName: inspUrl ? `SIBAT Inspection Photo #${m.tag_number || m.id}` : undefined,
         sibatInspection: isSibatDone ? {
-          verifiedBy: inspDetails.verifiedBy || ((m.status || "").toUpperCase() === "VERIFIED" ? m.reviewed_by_name : undefined) || "Not recorded",
-          verifiedAt: m.reviewed_at ? new Date(m.reviewed_at).toLocaleDateString() : (m.record_date || "Recently"),
+          verifiedBy: getInspectionOfficerName(inspDetails.verifiedBy, m.reviewed_by_name, m.status, inspDetails.maoReviewedBy),
+          verifiedAt: inspDetails.verifiedAt || (m.reviewed_at ? new Date(m.reviewed_at).toLocaleDateString() : (m.record_date || "Recently")),
+          verifiedRole: inspDetails.verifiedRole,
           tagConfirmed: true,
           confirmedCount: m.death_count || 1,
           confirmedSymptoms: [m.cause || "Deceased"],

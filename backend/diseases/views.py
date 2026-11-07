@@ -557,12 +557,17 @@ def review_disease_case(request, pk):
     record.reviewed_by = user
     record.review_remarks = remarks
     if inspection_details is not None:
+        inspection_details = dict(inspection_details)
+        if role_name in FIELD_REVIEWERS:
+            inspection_details["verifiedBy"] = user.get_full_name().strip() or user.username
+            inspection_details["verifiedRole"] = role_name
         record.inspection_details = inspection_details
     elif role_name in {"MAO", "ADMIN"}:
         current_insp = dict(record.inspection_details or {})
         if prev_remarks and not current_insp.get("remarks"):
             current_insp["remarks"] = prev_remarks
-        if prev_reviewer and not current_insp.get("verifiedBy"):
+        stored_inspector = str(current_insp.get("verifiedBy") or "").strip().lower()
+        if prev_reviewer and stored_inspector in {"", "signed-in sibat account", "not recorded"}:
             current_insp["verifiedBy"] = (
                 f"{prev_reviewer.first_name} {prev_reviewer.last_name}".strip()
                 or prev_reviewer.username
@@ -834,12 +839,17 @@ def review_mortality_record(request, pk):
     record.reviewed_by = user
     record.review_remarks = remarks
     if inspection_details is not None:
+        inspection_details = dict(inspection_details)
+        if role_name in FIELD_REVIEWERS:
+            inspection_details["verifiedBy"] = user.get_full_name().strip() or user.username
+            inspection_details["verifiedRole"] = role_name
         record.inspection_details = inspection_details
     elif role_name in {"MAO", "ADMIN"}:
         current_insp = dict(record.inspection_details or {})
         if prev_remarks and not current_insp.get("remarks"):
             current_insp["remarks"] = prev_remarks
-        if prev_reviewer and not current_insp.get("verifiedBy"):
+        stored_inspector = str(current_insp.get("verifiedBy") or "").strip().lower()
+        if prev_reviewer and stored_inspector in {"", "signed-in sibat account", "not recorded"}:
             current_insp["verifiedBy"] = (
                 f"{prev_reviewer.first_name} {prev_reviewer.last_name}".strip()
                 or prev_reviewer.username

@@ -488,6 +488,10 @@ function SibatInspectionDialogContent({
   readOnly = false,
 }: SibatInspectionDialogProps) {
   const { user } = useAuth();
+  const inspectorName = [user?.firstName, user?.lastName]
+    .map((name) => name?.trim())
+    .filter((name): name is string => Boolean(name))
+    .join(" ") || user?.username || user?.email || "Inspector name unavailable";
   const [tagConfirmed, setTagConfirmed] = useState<boolean>(record?.inspection?.tagConfirmed ?? false);
   const [countConfirmed, setCountConfirmed] = useState<boolean>(record?.inspection?.countConfirmed ?? false);
   const [confirmedSymptoms, setConfirmedSymptoms] = useState<string[]>(record?.inspection?.confirmedSymptoms ?? []);
@@ -788,7 +792,7 @@ function SibatInspectionDialogContent({
     }
 
     const inspectionData: SibatInspectionData = {
-      verifiedBy: "Signed-in SIBAT account",
+      verifiedBy: inspectorName,
       verifiedAt: nowIso,
       tagConfirmed,
       countConfirmed,
