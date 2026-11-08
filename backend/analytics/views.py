@@ -1099,6 +1099,8 @@ def cattle_profile_price(request):
     class ProfileSerializer(serializers.Serializer):
         # Validate both UI controls and direct API requests on the server.
         source = serializers.ChoiceField(choices=["REGISTERED", "EXTERNAL"])
+        species = serializers.CharField(max_length=100, default="Cattle")
+        unit = serializers.ChoiceField(choices=["PHP_PER_HEAD"], default="PHP_PER_HEAD")
         data_mode = serializers.ChoiceField(choices=["AUTO", "REAL", "DEMO"], default="AUTO")
         sex = serializers.ChoiceField(choices=["MALE", "FEMALE"])
         breed = serializers.CharField(max_length=50)
@@ -1128,3 +1130,15 @@ def cattle_profile_price(request):
     payload = ProfileSerializer(data=request.data)
     payload.is_valid(raise_exception=True)
     return Response(estimate_price(request.user, payload.validated_data))
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, isMAO | isSibat])
+def livestock_price_species(request):
+    from .services.cattle_price import price_species_readiness
+    class Parameters(serializers.Serializer):
+        source = serializers.ChoiceField(choices=["REGISTERED", "EXTERNAL"], default="REGISTERED")
+        data_mode = serializers.ChoiceField(choices=["AUTO", "REAL", "DEMO"], default="AUTO")
+    parameters = Parameters(data=request.query_params)
+    parameters.is_valid(raise_exception=True)
+    return Response(price_species_readiness(request.user, **parameters.validated_data))

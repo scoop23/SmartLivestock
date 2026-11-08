@@ -1,4 +1,4 @@
-"""Scoped cattle prices, with explicitly separate real-sales and seed-demo modes."""
+"""Scoped livestock prices, with explicitly separate real-sales and seed-demo modes."""
 import re
 from collections import defaultdict
 from datetime import timedelta
@@ -9,11 +9,11 @@ from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor
 from django.utils import timezone
-from django.conf import settings
 from django.db.models import Q
-from analytics.seed_markers import SEED_MARKER_CATTLE_PRICE_DEMO, SEED_MARKER_FORECAST_QUALITY_IDEAL
+from django.db.models.functions import Trim
 from analytics.services.predictive.auction_weekly import _filtered_sales
-from .cattle_price_forecast import PriceSale, regression_scores, rounded_scores, week_of, weekly_profile_forecast
+from livestock.models import LivestockType
+from .cattle_price_forecast import MIN_SALES, MIN_WEEKS, PriceSale, regression_scores, rounded_scores, week_of, weekly_profile_forecast
 
 
 def profile_bounds(profile):
@@ -63,35 +63,34 @@ def price_history(rows, profile):
     return history, comparable
 
 
-def estimate_price(user, profile):
-    # The same scoped source feeds the historical chart, point estimate, and
-    # hybrid forecast. Transfer snapshots preserve traits as recorded at sale.
-    requested_mode = profile.get("data_mode", "AUTO")
-    qs = _filtered_sales("CATTLE", user, profile["source"]).filter(transfer_date__lte=timezone.localdate())
-    real_sales = qs.exclude(review_remarks__icontains="AI_SEED").exclude(animal_description__icontains="synthetic")
-    demo_sales = qs.filter(
-        Q(review_remarks__contains=SEED_MARKER_CATTLE_PRICE_DEMO)
-        | Q(review_remarks__contains=SEED_MARKER_FORECAST_QUALITY_IDEAL)
+PRICE_FIELDS = ("transfer_date", "purchase_price", "sex_at_transfer", "age_at_transfer", "breed_at_transfer", "weight_at_transfer_kg", "created_at", "reviewed_at")
+
+
+def _species_sales(user, source, species):
+    # Exact case-insensitive species matching avoids pooling unrelated animals.
+    field = "livestock__livestock_type__name" if source == "REGISTERED" else "external_livestock_type"
+    return _filtered_sales("ALL", user, source).annotate(_price_species=Trim(field)).filter(
+        _price_species__iexact=species.strip(), transfer_date__lte=timezone.localdate()
     )
-    # One normal UI view: in local development only, a missing real source may
-    # fall back to labeled sample data. Even one real approved sale takes
-    # precedence, so samples never supplement a sparse real training set.
-    is_demo = requested_mode == "DEMO" or (
-        requested_mode == "AUTO" and settings.DEBUG
-        and not real_sales.exists() and demo_sales.exists()
-    )
-    if is_demo:
-        # Explicit demo requests read ONLY this owned seed. Never mix synthetic
-        # rows into the real model or present their scores as market accuracy.
-        qs = demo_sales
-    else:
-        qs = real_sales
-    profile = {**profile, "data_mode": "DEMO" if is_demo else "REAL"}
-    qs = qs.order_by("transfer_date", "pk")
+
+
+def _real_sales(qs):
+    return qs.exclude(review_remarks__icontains="AI_SEED").exclude(animal_description__icontains="synthetic")
+
+
+def _demo_sales(qs):
+    return qs.filter(Q(review_remarks__icontains="AI_SEED") | Q(animal_description__icontains="synthetic"))
+
+
+def _uses_demo(mode, has_real, has_demo):
+    return mode == "DEMO" or (mode == "AUTO" and not has_real and has_demo)
+
+
+def _extract_price_sales(records):
     rows = []
     forecast_sales = []
     blocked_weeks = set()
-    for r in qs.values("transfer_date", "purchase_price", "sex_at_transfer", "age_at_transfer", "breed_at_transfer", "weight_at_transfer_kg", "created_at", "reviewed_at"):
+    for r in records:
         age = re.fullmatch(r"(?:(\d+)\s*(?:years?|yrs?|y)\s*)?(?:(\d+)\s*(?:months?|mos?|m))?", r["age_at_transfer"].strip(), re.I)
         if not age or not age.group(0) or r["purchase_price"] is None or r["purchase_price"] <= 0 or r["weight_at_transfer_kg"] is None or r["weight_at_transfer_kg"] <= 0 or not r["breed_at_transfer"].strip():
             blocked_weeks.add(week_of(r["transfer_date"]))
@@ -111,13 +110,87 @@ def estimate_price(user, profile):
         available = (timezone.localdate(max(r["created_at"], r["reviewed_at"]))
                      if r["created_at"] and r["reviewed_at"] else None)
         forecast_sales.append(PriceSale(r["transfer_date"], traits, price, available))
+    return rows, forecast_sales, blocked_weeks
+
+
+def _training_readiness(sales, blocked_weeks):
+    origin = week_of(timezone.localdate())
+    groups = defaultdict(list)
+    for sale in sales:
+        if sale.day < origin:
+            groups[week_of(sale.day)].append(sale)
+    weeks, count = 0, 0
+    week = origin - timedelta(weeks=1)
+    while weeks < 104:
+        group = groups.get(week, [])
+        if not group or week in blocked_weeks or any(s.available is None or s.available >= origin for s in group):
+            break
+        weeks += 1
+        count += len(group)
+        week -= timedelta(weeks=1)
+    return {"recent_complete_weeks": weeks, "recent_complete_sales": count}
+
+
+def price_species_readiness(user, source, data_mode="AUTO"):
+    """Expose all configured species, plus observed external species, without fitting models."""
+    qs = _filtered_sales("ALL", user, source).filter(transfer_date__lte=timezone.localdate())
+    rows = qs.values(*PRICE_FIELDS, "livestock__livestock_type__name", "external_livestock_type", "review_remarks", "animal_description")
+    # Keep the standard farmer livestock categories visible even before a type
+    # or a sale has been entered; this catalog does not create database rows.
+    names = {name.casefold(): name for name in ("Cattle", "Carabao", "Goat", "Sheep", "Swine", "Poultry")}
+    names.update({name.strip().casefold(): name.strip() for name in LivestockType.objects.values_list("name", flat=True) if name.strip()})
+    groups = defaultdict(list)
+    for row in rows:
+        name = row["livestock__livestock_type__name"] if source == "REGISTERED" else row["external_livestock_type"]
+        if not name or not name.strip():
+            continue
+        key = name.strip().casefold()
+        names.setdefault(key, name.strip())
+        groups[key].append(row)
+    options = []
+    for key, name in sorted(names.items(), key=lambda item: item[0]):
+        real, demo = [], []
+        for row in groups[key]:
+            synthetic = "ai_seed" in (row["review_remarks"] or "").lower() or "synthetic" in (row["animal_description"] or "").lower()
+            (demo if synthetic else real).append(row)
+        is_demo = _uses_demo(data_mode, bool(real), bool(demo))
+        complete, sales, blocked = _extract_price_sales(demo if is_demo else real)
+        readiness = _training_readiness(sales, blocked)
+        enough = readiness["recent_complete_weeks"] >= MIN_WEEKS and readiness["recent_complete_sales"] >= MIN_SALES
+        options.append({"name": name, "data_mode": "DEMO" if is_demo else "REAL", "is_demo": is_demo, "complete_sales": len(complete), **readiness,
+                        "status": "PROFILE_REQUIRED" if enough else "INSUFFICIENT_DATA"})
+    return {"source": source, "requested_data_mode": data_mode, "unit": "PHP_PER_HEAD", "species": options,
+            "required_sales": MIN_SALES, "required_weeks": MIN_WEEKS,
+            "message": "Counts use the selected approved-sales dataset. Automatic mode uses recorded real sales when present, otherwise demo sales. Demo and real sales are evaluated separately. A supported animal profile and valid historical model checks are also required."}
+
+
+def estimate_price(user, profile):
+    # The same scoped source feeds the historical chart, point estimate, and
+    # hybrid forecast. Transfer snapshots preserve traits as recorded at sale.
+    requested_mode = profile.get("data_mode", "AUTO")
+    species = profile.get("species", "Cattle")
+    qs = _species_sales(user, profile["source"], species)
+    real_sales = _real_sales(qs)
+    demo_sales = _demo_sales(qs)
+    # Automatic fallback applies to every species. Explicit Demo mode also lets
+    # users inspect sample history when a sparse real dataset exists.
+    is_demo = _uses_demo(requested_mode, real_sales.exists(), demo_sales.exists())
+    if is_demo:
+        # Explicit demo requests read ONLY marked demo records. Never mix synthetic
+        # rows into the real model or present their scores as market accuracy.
+        qs = demo_sales
+    else:
+        qs = real_sales
+    profile = {**profile, "data_mode": "DEMO" if is_demo else "REAL"}
+    qs = qs.order_by("transfer_date", "pk")
+    rows, forecast_sales, blocked_weeks = _extract_price_sales(qs.values(*PRICE_FIELDS))
     history, comparable = price_history(rows, profile)
     matching_prices = [row[2] for row in rows if matches_profile(row[1], profile)]
     age_bounds, weight_bounds = profile_bounds(profile)
     is_range = bool(age_bounds and weight_bounds and (age_bounds[0] != age_bounds[1] or weight_bounds[0] != weight_bounds[1]))
     info = {"records": len(rows), "source": profile["source"], "status": "unavailable",
             "data_mode": "DEMO" if is_demo else "REAL", "is_demo": is_demo,
-            "requested_data_mode": requested_mode,
+            "requested_data_mode": requested_mode, "species": species, "unit": "PHP_PER_HEAD",
             "data_notice": ("Constructed synthetic seed data. Prices and model checks demonstrate the pipeline; they are not evidence of real market accuracy."
                             if is_demo else "Approved recorded real sales; marked demonstration data is excluded."),
             "history": history, "comparable_records": comparable, "profile": profile,
@@ -129,7 +202,7 @@ def estimate_price(user, profile):
     if age_bounds is None or weight_bounds is None:
         return {**info, "status": "history_only", "message": "Showing recorded prices for the selected filters. Choose age and weight ranges or exact values for a model estimate; unknown traits are not guessed."}
     if len(rows) < 80:
-        return {**info, "message": f"At least 80 complete {'synthetic demo' if is_demo else 'real'} approved cattle sales are required for an initial model comparison."}
+        return {**info, "message": f"At least 80 complete {'synthetic demo' if is_demo else 'real'} approved {species} sales are required for an initial model comparison."}
     # Reserve at least 20 later sales while retaining at least 60 earlier ones.
     split_index = min(len(rows) - 20, max(60, int(len(rows) * 0.8)))
     cutoff = rows[split_index][0]

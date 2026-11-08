@@ -1,12 +1,21 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/auth-context";
 import { Area, Brush, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { LineChart as LineChartIcon, RefreshCw, Table as TableIcon, TrendingUp } from "lucide-react";
 import api from "@/lib/axios";
 import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+
+type SpeciesReadiness = {
+  species: { name: string; data_mode: "REAL" | "DEMO"; is_demo: boolean; complete_sales: number; recent_complete_weeks: number; recent_complete_sales: number; status: "INSUFFICIENT_DATA" | "PROFILE_REQUIRED" }[];
+  required_sales: number;
+  required_weeks: number;
+  message: string;
+};
 
 type HistoryPoint = {
   date: string;
@@ -165,7 +174,9 @@ const ageRanges = [
   ["84:119", "7 to under 10 years"], ["120:360", "10 years or older"],
 ] as const;
 const weightRanges = [
-  ["1:199.99", "Under 200 kg"], ["200:349.99", "200 to under 350 kg"],
+  ["1:9.99", "Under 10 kg"], ["10:29.99", "10 to under 30 kg"],
+  ["30:59.99", "30 to under 60 kg"], ["60:99.99", "60 to under 100 kg"],
+  ["100:199.99", "100 to under 200 kg"], ["200:349.99", "200 to under 350 kg"],
   ["350:499.99", "350 to under 500 kg"], ["500:699.99", "500 to under 700 kg"],
   ["700:9999", "700 kg or more"],
 ] as const;
@@ -180,6 +191,15 @@ function traitPayload(selection: string, fields: FormData, exact: string, lower:
 }
 
 export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNAL" }) {
+  const { user } = useAuth();
+  const [species, setSpecies] = useState("Cattle");
+  const [dataMode, setDataMode] = useState<"AUTO" | "REAL" | "DEMO">("AUTO");
+  const speciesQuery = useQuery({
+    queryKey: ["livestock-price-species", user?.email, user?.role, user?.accessScope, user?.assignedBarangayId, source, dataMode],
+    enabled: Boolean(user),
+    queryFn: async () => (await api.get<SpeciesReadiness>("analytics/predictive/livestock-price-species/", { params: { source, data_mode: dataMode } })).data,
+  });
+  const selectedSpecies = speciesQuery.data?.species.find((item) => item.name.toLowerCase() === species.toLowerCase());
   const [breed, setBreed] = useState("Brahman");
   const [sex, setSex] = useState("MALE");
   const [ageSelection, setAgeSelection] = useState("24:47");
@@ -242,7 +262,7 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
     event.preventDefault();
     const fields = new FormData(event.currentTarget);
     if (!breed.trim()) {
-      setError("Select a cattle breed or enter a custom breed.");
+      setError("Select a livestock breed or enter a custom breed.");
       return;
     }
     const age = traitPayload(ageSelection, fields, "age_months", "age_min_months", "age_max_months");
@@ -258,8 +278,8 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
     setTablePage(0);
     setError("");
     try {
-      const { data } = await api.post<Result>("analytics/predictive/cattle-profile-price/", {
-        source, sex, breed: breed.trim(), ...age, ...weight, horizon_weeks: horizonWeeks, data_mode: "AUTO",
+      const { data } = await api.post<Result>("analytics/predictive/livestock-profile-price/", {
+        source, species, sex, breed: breed.trim(), ...age, ...weight, horizon_weeks: horizonWeeks, data_mode: dataMode,
       });
       setResult(data);
     } catch {
@@ -274,12 +294,49 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
       <div className="border-b border-emerald-100 bg-emerald-50/60 p-4 sm:p-5">
         <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
           <TrendingUp className="size-5 text-emerald-700" />
-          {source === "REGISTERED" ? "Registered" : "External"} cattle price by profile
+          {source === "REGISTERED" ? "Registered" : "External"} livestock price by profile
         </h2>
-        <p className="mt-1 text-sm text-slate-600">Compare recorded prices and forecast future weekly prices for a fixed cattle profile.</p>
+        <p className="mt-1 text-sm text-slate-600">Compare recorded prices and forecast future weekly prices for a fixed livestock profile.</p>
       </div>
       <div className="space-y-5 p-4 sm:p-5">
-        {result?.is_demo && <div role="note" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><strong>Using synthetic sample sales.</strong> This local source has no real approved sales yet, so the graph uses the isolated price seed. Prices and error scores are demonstration examples. Real approved sales take priority as soon as they are recorded.</div>}
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+          <div className="max-w-xl space-y-1.5">
+            <Label htmlFor="livestock-price-data-mode" className={labelClass}>Sales data</Label>
+            <Select value={dataMode} disabled={loading} onValueChange={(value) => { if (value === "AUTO" || value === "REAL" || value === "DEMO") { setDataMode(value); clearResult(); } }}>
+              <SelectTrigger id="livestock-price-data-mode" className={controlClass}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="AUTO">Automatic — recorded sales, otherwise demo</SelectItem>
+                <SelectItem value="DEMO">Demo sales</SelectItem>
+                <SelectItem value="REAL">Recorded real sales</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="max-w-xl space-y-1.5">
+            <Label htmlFor="livestock-price-species" className={labelClass}>Livestock species</Label>
+            <Select value={selectedSpecies?.name ?? species} disabled={loading || speciesQuery.isPending} onValueChange={(value) => {
+              setSpecies(value);
+              setBreed(value.toLowerCase() === "cattle" ? "Brahman" : "");
+              setAgeSelection(value.toLowerCase() === "cattle" ? "24:47" : "unknown");
+              setWeightSelection(value.toLowerCase() === "cattle" ? "350:499.99" : "unknown");
+              setTablePage(0);
+              clearResult();
+            }}>
+              <SelectTrigger id="livestock-price-species" className={controlClass}><SelectValue placeholder="Choose a species" /></SelectTrigger>
+              <SelectContent>{speciesQuery.data?.species.filter((item) => !["sheep", "poultry", "swine"].includes(item.name.trim().toLowerCase())).map((item) => <SelectItem key={item.name} value={item.name}>
+                {item.name}{item.is_demo ? " (Demo)" : ""} — {item.status === "INSUFFICIENT_DATA" ? "Insufficient data" : "Check profile"}
+              </SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          {speciesQuery.isPending ? <p role="status" className="text-sm text-slate-600">Checking recorded sales for each species…</p> : null}
+          {speciesQuery.isError ? <div role="alert" className="text-sm text-rose-700">Could not load species readiness. <button type="button" onClick={() => void speciesQuery.refetch()} className="underline">Try again</button></div> : null}
+          {selectedSpecies && speciesQuery.data ? <div aria-live="polite" className="space-y-1 text-sm text-slate-700">
+            {selectedSpecies.is_demo ? <p className="font-semibold text-amber-800">Using synthetic demo sales for {selectedSpecies.name}. Forecasts and scores demonstrate the model, not actual market accuracy.</p> : null}
+            <p className="font-semibold">{selectedSpecies.name}: {selectedSpecies.status === "INSUFFICIENT_DATA" ? "Insufficient data for a future price forecast" : "History requirements met — select a profile to check the forecast"}</p>
+            <p>{selectedSpecies.recent_complete_sales.toLocaleString()} / {speciesQuery.data.required_sales} recent complete {selectedSpecies.is_demo ? "demo" : "recorded real"} sales; {selectedSpecies.recent_complete_weeks} / {speciesQuery.data.required_weeks} consecutive complete weeks. {selectedSpecies.complete_sales.toLocaleString()} complete {selectedSpecies.is_demo ? "demo" : "recorded real"} sales overall.</p>
+            <p className="text-xs text-slate-500">{speciesQuery.data.message} Prices use PHP per head; species and pricing units are kept separate.</p>
+          </div> : null}
+        </div>
+        {result?.is_demo && <div role="note" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><strong>Using synthetic sample sales.</strong> The graph uses the selected marked demo sales. Prices and error scores are demonstration examples. Automatic mode prefers real sales; choose Demo sales to inspect sample records separately.</div>}
         <form onSubmit={submit} onChange={clearResult}>
           <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="Profile price forecast horizon">
             <span className="mr-1 text-sm font-medium text-slate-700">Forecast ahead:</span>
@@ -299,7 +356,8 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
             </div>
             <LivestockBreedField
               id="cattle-price-breed"
-              species="Cattle"
+              species={species}
+              key={species}
               value={breed}
               required
               controlClassName={controlClass}
@@ -344,7 +402,7 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
                 <input aria-label="Maximum weight in kilograms" name="weight_max_kg" type="number" required min={1} max={9999} step="0.01" placeholder="Max kg" className={`${controlClass} min-w-0`} />
               </div>}
             </div>
-            <p className="text-xs leading-relaxed text-slate-500 sm:col-span-2 lg:col-span-4">An example profile is selected; adjust it for the cattle you are comparing. Not sure of exact values? Choose a range or Any / unknown to view recorded comparisons.</p>
+            <p className="text-xs leading-relaxed text-slate-500 sm:col-span-2 lg:col-span-4">Select the traits of the livestock you are comparing. All prices are in pesos per head and use only the selected species and sale source. Not sure of exact values? Choose a range or Any / unknown to view recorded comparisons.</p>
             <button disabled={loading} className="flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 sm:col-span-2 lg:col-span-4">
               {loading && <RefreshCw className="size-4 animate-spin" />}
               {loading ? "Checking history and past forecasts..." : ageSelection === "unknown" || weightSelection === "unknown" ? "Show recorded price comparison" : "Show price history & weekly forecast"}
@@ -354,7 +412,7 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
         {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
         <div>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-bold text-slate-900">Cattle prices over time</h3>
+            <h3 className="font-bold text-slate-900">Livestock prices over time</h3>
             {chartData.length > 0 && <button
               type="button"
               onClick={() => setShowTableView(value => !value)}
@@ -366,12 +424,12 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
             </button>}
           </div>
           <div className="mt-2 space-y-1 text-sm text-slate-600">
-            <p><strong className="text-slate-700">Gray line:</strong> Average price of all cattle in the selected {source === "REGISTERED" ? "Registered" : "External"} sale records, including other breeds, sexes, ages, and weights.</p>
-            <p><strong className="text-emerald-800">Green line:</strong> Average price of only the cattle matching the breed, sex, age, and weight you selected.</p>
+            <p><strong className="text-slate-700">Gray line:</strong> Average price of all livestock in the selected {source === "REGISTERED" ? "Registered" : "External"} sale records, including other breeds, sexes, ages, and weights.</p>
+            <p><strong className="text-emerald-800">Green line:</strong> Average price of only the animals matching the breed, sex, age, and weight you selected.</p>
           </div>
           <details className="mt-2 text-xs text-slate-500">
-            <summary className="w-fit cursor-pointer font-medium">How cattle are matched</summary>
-            <p className="mt-1 leading-relaxed">Only approved sales with complete price and trait details are included. Selected ranges use their stated limits. An exact age includes cattle within 12 months of that age; an exact weight allows a 15% difference. Any / unknown includes all recorded values for that trait. A gap means there were no matching records that week. The current week may be incomplete.</p>
+            <summary className="w-fit cursor-pointer font-medium">How animals are matched</summary>
+            <p className="mt-1 leading-relaxed">Only approved sales with complete price and trait details are included. Selected ranges use their stated limits. An exact age includes animals within 12 months of that age; an exact weight allows a 15% difference. Any / unknown includes all recorded values for that trait. A gap means there were no matching records that week. The current week may be incomplete.</p>
           </details>
         </div>
         {chartData.length ? showTableView ? (
@@ -382,8 +440,8 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
                   <tr className="border-b border-slate-200">
                     <th scope="col" className="px-3 py-3 font-mono font-medium">Period</th>
                     <th scope="col" className="px-3 py-3 font-mono font-medium">Record type</th>
-                    <th scope="col" className="px-3 py-3 text-right font-mono font-medium">Average price of all cattle</th>
-                    <th scope="col" className="px-3 py-3 text-right font-mono font-medium">Average price of matching cattle</th>
+                    <th scope="col" className="px-3 py-3 text-right font-mono font-medium">Average price of all livestock</th>
+                    <th scope="col" className="px-3 py-3 text-right font-mono font-medium">Average price of matching livestock</th>
                     <th scope="col" className="px-3 py-3 text-right font-mono font-medium">Profile estimate</th>
                     <th scope="col" className="px-3 py-3 text-right font-mono font-medium">Low estimate</th>
                     <th scope="col" className="px-3 py-3 text-right font-mono font-medium">High estimate</th>
@@ -426,7 +484,7 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
               </div>
               <p className="text-xs font-semibold text-slate-600" aria-live="polite">{dateLabel(chartData[zoomStart]?.date)} - {dateLabel(chartData[zoomEnd]?.date)}</p>
             </div>
-          <div className="h-96 w-full" role="img" aria-label="Recorded weekly cattle prices and future prices for the selected fixed profile">
+          <div className="h-96 w-full" role="img" aria-label="Recorded weekly livestock prices and future prices for the selected fixed profile">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 25, right: 20, bottom: 20, left: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
@@ -435,8 +493,8 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
                 <Tooltip labelFormatter={(value) => `Week starting ${dateLabel(String(value))}`} formatter={(value, name) => [Array.isArray(value) ? `${money(Number(value[0]))} - ${money(Number(value[1]))}` : money(Number(value)), String(name)]} />
                 <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
                 <Area dataKey="error_band" name="Past-error band + profile span" stroke="none" fill="#f59e0b" fillOpacity={0.15} connectNulls={false} />
-                <Line dataKey="recorded_price" name="Average price of all cattle" stroke="#94a3b8" strokeWidth={2} dot={{ r: 2 }} connectNulls={false} />
-                <Line dataKey="similar_price" name="Average price of matching cattle" stroke="#047857" strokeWidth={2.5} dot={{ r: 4 }} connectNulls={false} />
+                <Line dataKey="recorded_price" name="Average price of all livestock" stroke="#94a3b8" strokeWidth={2} dot={{ r: 2 }} connectNulls={false} />
+                <Line dataKey="similar_price" name="Average price of matching livestock" stroke="#047857" strokeWidth={2.5} dot={{ r: 4 }} connectNulls={false} />
                 <Line dataKey="forecast_price" name="Fixed-profile weekly forecast" stroke="#d97706" strokeWidth={2.5} strokeDasharray="5 4" dot={{ r: 4 }} connectNulls={false} />
                 {result?.forecast?.points[0] && <ReferenceLine x={result.forecast.points[0].date} stroke="#d97706" strokeDasharray="3 3" label={{ value: "Forecast starts", position: "insideTopRight", fill: "#b45309", fontSize: 11 }} />}
                 <Brush
@@ -460,7 +518,7 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
           </div>
         ) : (
           <div role="status" className="grid h-64 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-            {loading ? "Loading recorded price history..." : result ? result.is_demo ? "No cattle-price demo seed records were found for this source." : "No eligible real cattle prices are available to plot for this source." : "Enter an animal profile to load the price history graph."}
+            {loading ? "Loading recorded price history..." : result ? result.is_demo ? "No livestock-price demo seed records were found for this source." : "No eligible real livestock prices are available to plot for this source." : "Enter an animal profile to load the price history graph."}
           </div>
         )}
         {result?.forecast && (
@@ -487,14 +545,14 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
             {result.estimated_price_php !== undefined && <p className="text-3xl font-bold text-emerald-800">{money(result.estimated_price_php)}</p>}
             {result.estimated_price_min_php !== undefined && result.estimated_price_max_php !== undefined && <p className="text-2xl font-bold text-emerald-800">{money(result.estimated_price_min_php)} - {money(result.estimated_price_max_php)} per head</p>}
             <p className="text-sm">{result.message}</p>
-            <p className="text-sm">Complete {result.is_demo ? "synthetic demo" : "real"} sales: {result.records} | Cattle matching your selections: {result.comparable_records}</p>
+            <p className="text-sm">Complete {result.is_demo ? "synthetic demo" : "real"} sales: {result.records} | Animals matching your selections: {result.comparable_records}</p>
             {result.recorded_price_min_php != null && result.recorded_price_max_php != null && <p className="text-sm">{result.is_demo ? "Synthetic matching prices" : "Recorded matching prices"}: {money(result.recorded_price_min_php)} - {money(result.recorded_price_max_php)} per head. Median: {money(result.recorded_price_median_php ?? 0)}. {result.is_demo ? "Constructed demonstration values." : "These are historical sale values."}</p>}
             {result.model && <p className="text-sm">Method: {result.model}. Error scores are in Model performance below.</p>}
             {result.period_start && <p className="text-xs">Records: {result.period_start} to {result.period_end} | Earlier training sales: {result.training_records} | Later comparison sales: {result.validation_records}</p>}
           </div>
         )}
         {result && <ModelPerformance result={result} />}
-        <p className="text-xs text-slate-500">History covers up to 104 recorded weeks. Ridge learns the relationship between traits and price; ARIMA forecasts the remaining weekly price movement. Real approved sales are used when available. In local development, an empty source can show clearly labeled synthetic samples; those samples are never mixed into real-sales training.</p>
+        <p className="text-xs text-slate-500">History covers up to 104 recorded weeks. Ridge learns the relationship between traits and price; ARIMA forecasts the remaining weekly price movement. Automatic mode prefers real approved sales and falls back to marked demo sales when none are present. You can also choose Demo sales directly. Synthetic samples are labelled and kept separate from real-sales training.</p>
       </div>
     </section>
   );

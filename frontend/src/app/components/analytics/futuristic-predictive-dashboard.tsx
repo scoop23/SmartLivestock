@@ -416,7 +416,7 @@ export function FuturisticPredictiveDashboard() {
   const [populationSelected, setPopulationSelected] = useState(false);
   const populationQuery = usePopulationForecast(horizonMonths);
   const [viewMode, setViewMode] = useState<"overview" | "backtest" | "models" | "checklist">("overview");
-  const [cattlePriceView, setCattlePriceView] = useState<"trend" | "profile">("trend");
+  const [cattlePriceView, setCattlePriceView] = useState<"trend" | "profile">("profile");
   const [showTableView, setShowTableView] = useState<boolean>(false);
   const [timelinePage, setTimelinePage] = useState(0);
   const [historyWindowMonths, setHistoryWindowMonths] = useState<number | "all">(12);
@@ -728,15 +728,15 @@ export function FuturisticPredictiveDashboard() {
                       </div>
                       {isCardValidated ? (
                         <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-mono font-bold">
-                          Checked with past records
+                          Cattle trend checked
                         </Badge>
                       ) : isCardAvailable ? (
                         <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-mono font-bold">
-                          Not checked yet
+                          Cattle trend not checked
                         </Badge>
                       ) : (
                         <Badge className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-mono">
-                          No estimate yet
+                          Cattle trend unavailable
                         </Badge>
                       )}
                     </div>
@@ -746,17 +746,17 @@ export function FuturisticPredictiveDashboard() {
                         {readableDomain(card.domain)} | {readableReportingType(card.reporting_type)}
                       </div>
                       <div className="mt-0.5 text-sm font-bold text-slate-900">
-                        Cattle Price per Head
+                        Livestock Price per Head
                       </div>
                       <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
                         <span>{formatTargetUnit(card.unit)}</span>
                         <span className="font-mono font-semibold text-emerald-700">
-                          {selectedPriceCard.usable_observations} weeks of records
+                          {selectedPriceCard.usable_observations} cattle weeks
                         </span>
                       </div>
                     </div>
 
-                    <div className="mt-3 flex rounded-lg border border-slate-200 bg-white p-1" role="group" aria-label="Cattle price source">
+                    <div className="mt-3 flex rounded-lg border border-slate-200 bg-white p-1" role="group" aria-label="Livestock price source">
                       {[card, externalCattlePriceCard].map((sourceCard) => {
                         const isSourceSelected = sourceCard.id === activeTargetId;
                         const sourceLabel = sourceCard.id === "registered_cattle_price" ? "Registered" : "External";
@@ -866,8 +866,8 @@ export function FuturisticPredictiveDashboard() {
       {/* C. MAIN FORECAST VISUALIZATION (THE MISSION CONTROL CENTERPIECE)  */}
       {/* ----------------------------------------------------------------- */}
       {isCattlePriceForecast && (
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Cattle price view">
-          {([ ["trend", "Weekly Price Trend"], ["profile", "Price by Animal Profile"] ] as const).map(([value, label]) => (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Livestock price view">
+          {([ ["trend", "Cattle Weekly Trend"], ["profile", "Livestock Price by Profile"] ] as const).map(([value, label]) => (
             <button key={value} type="button" aria-pressed={cattlePriceView === value} onClick={() => setCattlePriceView(value)} className={`rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors ${cattlePriceView === value ? "border-emerald-700 bg-emerald-700 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
               {label}
             </button>
@@ -1087,11 +1087,13 @@ export function FuturisticPredictiveDashboard() {
                     tick={{ fill: "#64748b", fontSize: 11, fontFamily: "monospace" }}
                     axisLine={{ stroke: "#e2e8f0" }}
                     tickLine={{ stroke: "#e2e8f0" }}
-                    angle={-45}
+                    angle={-40}
                     textAnchor="end"
-                    height={55}
+                    height={weeklyTargetSelected ? 90 : 65}
+                    tickMargin={10}
+                    tickFormatter={(label: string) => weeklyTargetSelected ? label.replace(/^Week of /, "") : label}
                     interval="preserveStartEnd"
-                    minTickGap={10}
+                    minTickGap={24}
                   />
                   <YAxis
                     stroke="#94a3b8"
@@ -1104,7 +1106,9 @@ export function FuturisticPredictiveDashboard() {
                     content={<MissionControlTooltip unit={formatTargetUnit(currentCard?.unit || "")} />}
                   />
                   <Legend
-                    wrapperStyle={{ paddingTop: "14px", fontSize: "12px" }}
+                    verticalAlign="top"
+                    align="center"
+                    wrapperStyle={{ paddingBottom: "16px", fontSize: "12px", lineHeight: "20px" }}
                     formatter={(val) => <span className="text-slate-700 font-medium">{val}</span>}
                   />
 

@@ -5,6 +5,8 @@ from .population_views import population_forecast_view
 from .market_views import farmer_market_prices
 
 urlpatterns = [
+    path("predictive/livestock-price-species/", views.livestock_price_species, name="livestock-price-species"),
+    path("predictive/livestock-profile-price/", views.cattle_profile_price, name="livestock-profile-price"),
     path("market-prices/", farmer_market_prices, name="farmer-market-prices"),
     path("predictive/population/", population_forecast_view, name="population-forecast"),
     path("predictive/cattle-profile-price/", views.cattle_profile_price, name="cattle-profile-price"),
