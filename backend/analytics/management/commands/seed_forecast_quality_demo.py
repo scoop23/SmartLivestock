@@ -18,6 +18,7 @@ from math import sin, pi
 from random import Random
 
 from django.core.management.base import BaseCommand, CommandError
+from django.core.management import call_command
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -260,6 +261,8 @@ class Command(BaseCommand):
                 created = self._seed_ideal(marker, mao_user, sellers, cattle_type, auction_user)
             else:
                 created = self._seed_poor(marker, mao_user, sellers, cattle_type, auction_user)
+            if scenario == "ideal":
+                call_command("seed_forecast_movement_demo", stdout=self.stdout)
         self.stdout.write(self.style.SUCCESS(
             f"Seeded the synthetic '{scenario}' forecast-quality scenario: "
             f"{created['milk']} milk session rows, {created['farmer_meat']} farmer meat events, "
@@ -305,6 +308,9 @@ class Command(BaseCommand):
             markers = [SEED_MARKER_FORECAST_QUALITY_IDEAL, SEED_MARKER_CATTLE_PRICE_DEMO]
         totals = {"production": 0, "slaughter": 0, "transfers": 0, "synthetic_animals": 0}
         with transaction.atomic():
+            if SEED_MARKER_FORECAST_QUALITY_IDEAL in markers:
+                from .seed_forecast_movement_demo import clean_owned_movements
+                totals["movement_inspections"] = clean_owned_movements()
             for m in markers:
                 milk_meat = ProductionRecord.objects.filter(notes__contains=m)
                 slaughter = SlaughterRecord.objects.filter(review_remarks__contains=m)

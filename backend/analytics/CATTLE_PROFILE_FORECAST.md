@@ -68,6 +68,28 @@ Use `--farmer-count 10` to limit the pool, or repeat `--farmer-email` to choose
 the owners yourself. Each selected farmer receives synthetic farm history;
 registered cattle sales rotate evenly across owners (at most one sale apart).
 
+The ideal seed also creates related movement examples: one registered and one
+external sale sampled per week. These inspections and approved clearances reuse
+the sale's animals, shippers, Auction creator and MAO reviewer; they create no
+inventory. Registered examples balance their farmer selection across weeks.
+Origins/destinations and historical inspection/approval times are explicitly
+simulated. Clearances authorize transport; they are not evidence of actual travel.
+Purposes use a repeatable illustrative mix of breeding, fattening and slaughter,
+with matching line classifications. They are not inferred buyer intentions.
+Use `seed_forecast_movement_demo --refresh-purposes --dry-run` to preview updating
+existing owned examples, then omit `--dry-run` to apply only those two fields.
+
+To add movement examples to an already-seeded database without reseeding animals:
+
+```powershell
+python manage.py seed_forecast_movement_demo --dry-run
+python manage.py seed_forecast_movement_demo
+```
+
+The movement command is repeatable and supports `--clean --dry-run` and `--clean`.
+Cleanup requires its ownership ledger and markers. Cleaning the ideal forecast
+seed removes its owned movement fixtures first, before linked animal records.
+
 ```powershell
 # Run from backend, against the intended local development database.
 $env:SMARTLIVESTOCK_ENV_FILE = '.env.local'
