@@ -36,6 +36,16 @@ from smartlivestock.workflows import (
 )
 
 
+def _locked_inspection_queryset(pk):
+    """Lock the parent before loading related workflow state in a fresh query.
+
+    Call inside transaction.atomic. Keeping joins out of the locking statement
+    also avoids PostgreSQL's nullable-join restriction.
+    """
+    get_object_or_404(LivestockInspection.objects.select_for_update().only("pk"), pk=pk)
+    return LivestockInspection.objects.filter(pk=pk)
+
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def verify_public_clearance(request):
@@ -366,6 +376,7 @@ def inspection_list_create(request):
 
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def inspection_detail(request, pk):
     """
     GET    /api/inspections/<pk>/ -> Retrieve inspection details
@@ -377,7 +388,7 @@ def inspection_detail(request, pk):
     user_role = role_name(user)
 
     inspection = get_object_or_404(
-        LivestockInspection.objects.select_related(
+        _locked_inspection_queryset(pk).select_related(
             "shipper", "created_by", "created_by__role", "clearance", "clearance__issued_by", "clearance__reviewed_by"
         ).prefetch_related("items", "items__livestock_type", "items__inventory"),
         pk=pk,
@@ -404,6 +415,8 @@ def inspection_detail(request, pk):
         require_action(user, "inspections", "edit_own")
         if inspection.created_by_id != user.id:
             raise PermissionDenied("Only the record creator can correct this record.")
+        if clearance is None:
+            return Response({"error": "Clearance record not initialized."}, status=status.HTTP_400_BAD_REQUEST)
         if current_status != "SUBJECT_TO_REVISION":
             return Response(
                 {"error": "Records can be edited only after MAO requests revision."},
@@ -449,13 +462,16 @@ def inspection_detail(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def inspection_resubmit(request, pk):
     """Return a corrected record to pending review; only its creator can resubmit."""
     require_action(request.user, "inspections", "edit_own")
-    inspection = get_object_or_404(LivestockInspection.objects.select_related("clearance"), pk=pk)
+    inspection = get_object_or_404(_locked_inspection_queryset(pk).select_related("clearance"), pk=pk)
     if inspection.created_by_id != request.user.id:
         raise PermissionDenied("Only the record creator can resubmit this record.")
-    clearance = inspection.clearance
+    clearance = getattr(inspection, "clearance", None)
+    if clearance is None:
+        return Response({"error": "Clearance record not initialized."}, status=status.HTTP_400_BAD_REQUEST)
     if clearance.status != LivestockInspectionClearance.StatusType.SUBJECT_TO_REVISION:
         return Response({"error": "Only records returned by MAO can be resubmitted."}, status=status.HTTP_409_CONFLICT)
     if not inspection.items.exists():
@@ -479,17 +495,20 @@ def inspection_resubmit(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def inspection_verify(request, pk):
     """Auction forwards farmer-created intake; Auction-created logs bypass this step."""
     if role_name(request.user) != AUCTION:
         raise PermissionDenied("Only Auction staff can submit Farmer requests to MAO.")
     inspection = get_object_or_404(
-        LivestockInspection.objects.select_related("clearance", "created_by__role"), pk=pk
+        _locked_inspection_queryset(pk).select_related("clearance", "created_by__role"), pk=pk
     )
     if role_name(inspection.created_by) != FARMER:
         return Response({"error": "Auction-created records are already submitted to MAO."},
                         status=status.HTTP_409_CONFLICT)
-    clearance = inspection.clearance
+    clearance = getattr(inspection, "clearance", None)
+    if clearance is None:
+        return Response({"error": "Clearance record not initialized."}, status=status.HTTP_400_BAD_REQUEST)
     validate_review_transition(domain="inspections", role=AUCTION,
                                current=clearance.status, target="VERIFIED")
     with transaction.atomic():
@@ -509,6 +528,7 @@ def inspection_verify(request, pk):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def inspection_review(request, pk):
     """
     POST /api/inspections/<pk>/review/
@@ -522,10 +542,13 @@ def inspection_review(request, pk):
         raise PermissionDenied("Only MAO personnel or Administrators can review and approve livestock inspections.")
 
     target_status = request.data.get("status")
-    remarks = request.data.get("remarks", "").strip()
+    remarks = request.data.get("remarks", "")
+    if not isinstance(target_status, str) or not isinstance(remarks, str):
+        return Response({"error": "Status and remarks must be text."}, status=status.HTTP_400_BAD_REQUEST)
+    remarks = remarks.strip()
 
     inspection = get_object_or_404(
-        LivestockInspection.objects.select_related("clearance", "created_by", "created_by__role", "shipper", "shipper__user")
+        _locked_inspection_queryset(pk).select_related("clearance", "created_by", "created_by__role", "shipper", "shipper__user")
         .prefetch_related("items", "items__inventory"),
         pk=pk,
     )
@@ -555,7 +578,16 @@ def inspection_review(request, pk):
 
             # Recheck linked inventory at approval time: lookup may have happened
             # earlier, so status, ownership and individual quantity must still match.
-            for item in inspection.items.all():
+            items = list(inspection.items.all())
+            # Fetch fresh animal state under locks; a concurrent transfer or
+            # mortality update must finish before approval checks eligibility.
+            animals = {
+                animal.pk: animal for animal in LivestockInventory.objects.select_for_update()
+                .filter(pk__in=[item.inventory_id for item in items if item.inventory_id]).order_by("pk")
+            }
+            for item in items:
+                if item.inventory_id:
+                    item.inventory = animals[item.inventory_id]
                 if item.inventory:
                     sold_after_transfer = (
                         item.inventory.operational_status == "SOLD"
@@ -568,6 +600,8 @@ def inspection_review(request, pk):
                     if (item.inventory.status != "APPROVED"
                             or (item.inventory.operational_status != "ACTIVE" and not sold_after_transfer)
                             or item.inventory.farmer_id != inspection.shipper_id
+                            or item.inventory.entry_type != LivestockInventory.EntryType.INDIVIDUAL
+                            or item.inventory.livestock_type_id != item.livestock_type_id
                             or item.inventory.quantity != 1):
                         return Response(
                             {"error": f"Animal {item.inventory.tag_number or item.inventory.id} is no longer eligible for clearance review."},

@@ -237,6 +237,7 @@ class LivestockInspectionWorkflowTests(TestCase):
                     "registration_status", "operational_status", "eligible", "ineligibility_reason",
                     "owner_id", "owner_name", "origin", "barangay", "photo_url",
                     "ownership_certificate_number",
+                    "owner_phone", "left_side_photo_url", "right_side_photo_url", "date_registered",
                 })
             else:
                 self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
