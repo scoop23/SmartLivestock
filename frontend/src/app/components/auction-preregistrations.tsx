@@ -260,6 +260,15 @@ export default function AuctionPreregistrations({
 
   async function update(row: Registration, form: HTMLFormElement, status?: string) {
     if (busy !== null) return;
+    if (status === "CHECKED") {
+      const findings = form.elements.namedItem("review_notes") as HTMLTextAreaElement | null;
+      if (!findings?.value.trim()) {
+        findings?.setCustomValidity("Enter the inspection reference and physical checks completed.");
+        findings?.reportValidity();
+        findings?.focus();
+        return;
+      }
+    }
     setBusy(row.id);
     try {
       const payload = new FormData(form);
@@ -781,21 +790,25 @@ export default function AuctionPreregistrations({
               )}
               {staff && ["SUBMITTED", "READY", "ARRIVED"].includes(row.registration_status) && (
                 <form className="space-y-4" onSubmit={event => event.preventDefault()}>
-                  <label className="block space-y-2 text-sm font-semibold text-slate-800">
-                    <span>
+                  <label className={`block space-y-2 text-sm font-semibold ${row.registration_status === "ARRIVED" ? "rounded-xl border border-amber-300 bg-amber-50/80 p-4 text-amber-950" : "text-slate-800"}`}>
+                    <span className="flex items-center justify-between gap-2">
                       {row.registration_status === "ARRIVED"
                         ? "Physical inspection findings"
                         : "Review notes"}
+                      {row.registration_status === "ARRIVED" && <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">Required *</span>}
                     </span>
                     <textarea
                       name="review_notes"
                       rows={3}
-                      aria-label={`Review notes for ${row.reference}`}
+                      required={row.registration_status === "ARRIVED"}
+                      aria-required={row.registration_status === "ARRIVED"}
+                      aria-label={`${row.registration_status === "ARRIVED" ? "Physical inspection findings" : "Review notes"} for ${row.reference}`}
+                      onInput={event => event.currentTarget.setCustomValidity("")}
                       placeholder={
                         row.registration_status === "ARRIVED"
                           ? "Enter the inspection reference and physical checks completed."
                           : "Explain any missing information or corrections needed."}
-                      className="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                      className={`w-full resize-y rounded-xl border bg-white px-3 py-2.5 text-sm font-normal outline-none focus:ring-2 ${row.registration_status === "ARRIVED" ? "border-amber-400 focus:border-amber-600 focus:ring-amber-200" : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-100"}`}
                     />
                     <span className="block text-xs font-normal text-slate-500">
                       {row.registration_status === "ARRIVED"

@@ -428,10 +428,11 @@ export default function ProductionBreedingTab({
   }
 
   const totalPages = Math.ceil(filteredRecords.length / pageSize) || 1;
+  const safePage = Math.min(currentPage, totalPages);
   const paginatedRecords = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
+    const start = (safePage - 1) * pageSize;
     return filteredRecords.slice(start, start + pageSize);
-  }, [filteredRecords, currentPage, pageSize]);
+  }, [filteredRecords, safePage, pageSize]);
 
   return (
     <div className="space-y-6">
@@ -776,7 +777,7 @@ export default function ProductionBreedingTab({
 
         {filteredRecords.length > 0 && (
           <ValidationPagination
-            currentPage={currentPage}
+            currentPage={safePage}
             totalPages={totalPages}
             totalItems={filteredRecords.length}
             pageSize={pageSize}

@@ -2,6 +2,7 @@
 
 import { QrCodePass } from "@/components/qr-code-pass";
 import AuctionPreregistrations from "@/app/components/auction-preregistrations";
+import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
 import {
@@ -402,6 +403,13 @@ export default function ProductionSalesTab({
     },
   });
 
+  const [salesPage, setSalesPage] = useState(1);
+  const [salesPageSize, setSalesPageSize] = useState(8);
+  useEffect(() => { setSalesPage(1); }, [species]);
+  const salesTotalPages = Math.max(1, Math.ceil(sales.length / salesPageSize));
+  const safeSalesPage = Math.min(salesPage, salesTotalPages);
+  const paginatedSales = sales.slice((safeSalesPage - 1) * salesPageSize, safeSalesPage * salesPageSize);
+
   const { data: dispositions = [] } = useQuery<DispositionItem[]>({
     queryKey: ["animal_dispositions"],
     queryFn: async () => {
@@ -579,7 +587,7 @@ export default function ProductionSalesTab({
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {sales.map((sale) => (
+                {paginatedSales.map((sale) => (
                   <div
                     key={sale.id}
                     className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
@@ -621,6 +629,9 @@ export default function ProductionSalesTab({
                 ))}
               </div>
             )}
+            {!isSalesLoading && sales.length > 0 && <div className="px-3 pb-3">
+              <ValidationPagination currentPage={safeSalesPage} totalPages={salesTotalPages} totalItems={sales.length} pageSize={salesPageSize} onPageChange={setSalesPage} onPageSizeChange={size => {setSalesPageSize(size); setSalesPage(1);}} pageSizeOptions={[4, 8, 16, 24]} />
+            </div>}
           </CardContent>
         </Card>
 

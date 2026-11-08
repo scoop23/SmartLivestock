@@ -1,5 +1,6 @@
 "use client";
 
+import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card,CardContent } from "@/components/ui/card";
@@ -26,6 +27,12 @@ export default function BirthingRecordsTable({
   onEditResubmit,
 }: BirthingRecordsTableProps) {
   const [progressRecord, setProgressRecord] = useState<CalvingRecordItem | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(8);
+  const totalPages = Math.max(1, Math.ceil(records.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedRecords = records.slice((safePage - 1) * pageSize, safePage * pageSize);
+
 
   if (isLoading) {
     return (
@@ -66,7 +73,7 @@ export default function BirthingRecordsTable({
     <Card className="border-slate-200 shadow-xs rounded-2xl overflow-hidden bg-white">
       <CardContent className="p-0">
         <div className="space-y-3 p-3 md:hidden">
-          {records.map((record) => (
+          {paginatedRecords.map((record) => (
             <article key={record.id} className="rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex min-w-0 items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -114,7 +121,7 @@ export default function BirthingRecordsTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {records.map((record) => {
+              {paginatedRecords.map((record) => {
                 const status = record.status || "PENDING";
                 return (
                   <tr key={record.id} className="hover:bg-slate-50/70 transition-colors">
@@ -248,6 +255,9 @@ export default function BirthingRecordsTable({
               })}
             </tbody>
           </table>
+        </div>
+        <div className="px-3 pb-3">
+          <ValidationPagination currentPage={safePage} totalPages={totalPages} totalItems={records.length} pageSize={pageSize} onPageChange={setCurrentPage} onPageSizeChange={size => {setPageSize(size); setCurrentPage(1);}} pageSizeOptions={[4, 8, 16, 24]} />
         </div>
         <CalvingProgressDialog
           record={progressRecord}
