@@ -254,7 +254,7 @@ def ownership_transfer_list_create(request):
 @transaction.atomic
 def ownership_transfer_detail(request, pk):
     user = request.user
-    qs = LivestockOwnershipTransfer.objects.select_for_update().select_related(
+    qs = LivestockOwnershipTransfer.objects.select_for_update(of=("self",)).select_related(
         "livestock__livestock_type", "previous_owner__user", "new_owner__user"
     )
     if role_name(user) == "FARMER":
@@ -268,7 +268,7 @@ def ownership_transfer_detail(request, pk):
         qs = scope_reviewer_queryset(qs, user)
     transfer = get_object_or_404(qs, pk=pk)
     if request.method == "GET":
-        return Response(LivestockOwnershipTransferSerializer(transfer).data)
+        return Response(LivestockOwnershipTransferSerializer(transfer, context={"request": request}).data)
     if role_name(user) not in {"FARMER", "AUCTION"} or transfer.created_by_id != user.pk or transfer.status != LivestockOwnershipTransfer.Status.SUBJECT_TO_REVISION:
         return Response({"detail": "Only the submitting Farmer or Auction Officer can correct a returned transfer request."}, status=status.HTTP_403_FORBIDDEN)
     serializer = LivestockOwnershipTransferSerializer(transfer, data=request.data, partial=True, context={"request": request})
