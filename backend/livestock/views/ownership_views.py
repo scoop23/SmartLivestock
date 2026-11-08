@@ -292,7 +292,9 @@ def ownership_transfer_detail(request, pk):
 @transaction.atomic
 def review_ownership_transfer(request, pk):
     transfer = get_object_or_404(
-        scope_reviewer_queryset(LivestockOwnershipTransfer.objects.select_for_update().select_related(
+        # Nullable seller/buyer/animal joins cannot be locked by PostgreSQL.
+        # Lock the transfer itself; approval locks its animal separately below.
+        scope_reviewer_queryset(LivestockOwnershipTransfer.objects.select_for_update(of=("self",)).select_related(
             "livestock", "previous_owner__user", "new_owner__user"
         ), request.user), pk=pk,
     )

@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import api from "@/lib/axios";
 import axios from "axios";
@@ -718,16 +719,15 @@ export function NewInspectionForm({
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-700">Purpose <span className="text-rose-500">*</span></label>
-                  <select
-                    value={purpose}
-                    onChange={(e) => setPurpose(e.target.value as "SLAUGHTER" | "BREEDING" | "FATTENING" | "OTHER")}
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F4A2F]"
-                  >
-                    <option value="SLAUGHTER">Slaughter (Katayan)</option>
-                    <option value="BREEDING">Breeding (Palahi)</option>
-                    <option value="FATTENING">Fattening (Papatabain)</option>
-                    <option value="OTHER">Other Purpose</option>
-                  </select>
+                  <Select value={purpose} onValueChange={value => setPurpose(value as "SLAUGHTER" | "BREEDING" | "FATTENING" | "OTHER")}>
+                    <SelectTrigger aria-label="Movement purpose" className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0F4A2F]"><SelectValue placeholder="Select movement purpose" /></SelectTrigger>
+                    <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl">
+                      <SelectItem value="SLAUGHTER">Slaughter (Katayan)</SelectItem>
+                      <SelectItem value="BREEDING">Breeding (Palahi)</SelectItem>
+                      <SelectItem value="FATTENING">Fattening (Papatabain)</SelectItem>
+                      <SelectItem value="OTHER">Other Purpose</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -932,17 +932,16 @@ export function NewInspectionForm({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-semibold text-slate-600">Species <span className="text-rose-500">*</span></label>
-                  <select
-                    value={lineSpecies}
-                    onChange={(e) => setLineSpecies(Number(e.target.value))}
-                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800"
-                  >
-                    {speciesOptions.map((opt) => (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={String(lineSpecies || speciesOptions[0]?.id || "")} onValueChange={value => setLineSpecies(Number(value))}>
+                    <SelectTrigger aria-label="Livestock species" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800"><SelectValue placeholder="Select livestock species" /></SelectTrigger>
+                    <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl">
+                      {speciesOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={String(opt.id)}>
+                          {opt.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1">
@@ -959,29 +958,27 @@ export function NewInspectionForm({
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-semibold text-slate-600">Sex <span className="text-rose-500">*</span></label>
-                  <select
-                    value={lineSex}
-                    onChange={(e) => setLineSex(e.target.value as "MALE" | "FEMALE" | "MIXED")}
-                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800"
-                  >
-                    <option value="MALE">Male</option>
-                    <option value="FEMALE">Female</option>
-                    <option value="MIXED">Mixed</option>
-                  </select>
+                  <Select value={lineSex} onValueChange={value => setLineSex(value as "MALE" | "FEMALE" | "MIXED")}>
+                    <SelectTrigger aria-label="Animal sex" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800"><SelectValue placeholder="Select animal sex" /></SelectTrigger>
+                    <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl">
+                      <SelectItem value="MALE">Male</SelectItem>
+                      <SelectItem value="FEMALE">Female</SelectItem>
+                      <SelectItem value="MIXED">Mixed</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-semibold text-slate-600">Class <span className="text-rose-500">*</span></label>
-                  <select
-                    value={lineClassification}
-                    onChange={(e) => setLineClassification(e.target.value as "SLAUGHTER" | "BREEDER" | "FATTENING" | "OTHER")}
-                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800"
-                  >
-                    <option value="SLAUGHTER">Slaughter</option>
-                    <option value="BREEDER">Breeder</option>
-                    <option value="FATTENING">Fattening</option>
-                    <option value="OTHER">Other</option>
-                  </select>
+                  <Select value={lineClassification} onValueChange={value => setLineClassification(value as "SLAUGHTER" | "BREEDER" | "FATTENING" | "OTHER")}>
+                    <SelectTrigger aria-label="Animal classification" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800"><SelectValue placeholder="Select animal classification" /></SelectTrigger>
+                    <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl">
+                      <SelectItem value="SLAUGHTER">Slaughter</SelectItem>
+                      <SelectItem value="BREEDER">Breeder</SelectItem>
+                      <SelectItem value="FATTENING">Fattening</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
