@@ -93,6 +93,7 @@ export default function DataOverviewPage() {
   const [filterSpecie, setFilterSpecie] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [showLivestockHistory, setShowLivestockHistory] = useState(false);
+  const [historyLifecycle, setHistoryLifecycle] = useState("ALL");
 
   // Record Detail Modal
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -910,7 +911,7 @@ export default function DataOverviewPage() {
       case "livestock":
         raw = livestockList.filter(item =>
           showLivestockHistory
-            ? (item.operationalStatus || "ACTIVE") !== "ACTIVE"
+            ? (item.operationalStatus || "ACTIVE") !== "ACTIVE" && (historyLifecycle === "ALL" || item.operationalStatus === historyLifecycle)
             : (item.operationalStatus || "ACTIVE") === "ACTIVE"
         );
         break;
@@ -967,6 +968,7 @@ export default function DataOverviewPage() {
   }, [
     activeTab,
     showLivestockHistory,
+    historyLifecycle,
     livestockList,
     batchList,
     productionList,
@@ -1320,9 +1322,15 @@ export default function DataOverviewPage() {
         ) : (
           <>
             {activeTab === "livestock" && (
-              <div className="mb-3 flex gap-2" role="group" aria-label="Animal record history">
+              <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Animal record history">
                 <Button variant={showLivestockHistory ? "outline" : "default"} onClick={() => setShowLivestockHistory(false)} aria-pressed={!showLivestockHistory}>Current animals</Button>
                 <Button variant={showLivestockHistory ? "default" : "outline"} onClick={() => setShowLivestockHistory(true)} aria-pressed={showLivestockHistory}>History</Button>
+                {showLivestockHistory && (["ALL", "SOLD", "DECEASED"] as const).map((status) => (
+                  <Button key={status} variant={historyLifecycle === status ? "secondary" : "outline"} aria-pressed={historyLifecycle === status} onClick={() => setHistoryLifecycle(status)}>
+                    {status === "ALL" ? "All history" : status === "SOLD" ? "Sold" : "Deceased"}
+                    {status !== "ALL" && ` (${livestockList.filter((item) => item.operationalStatus === status).length.toLocaleString()})`}
+                  </Button>
+                ))}
               </div>
             )}
             <DataOverviewToolbar

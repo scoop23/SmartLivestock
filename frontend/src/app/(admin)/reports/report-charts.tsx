@@ -98,7 +98,7 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
     inventory: "This report summarizes approved livestock inventory in the selected period. Charts break down recorded heads by species, sex, and operational status.",
     disease_mortality: "This report summarizes approved disease and mortality records. Disease charts describe reported case counts and affected heads, while mortality charts show recorded deaths over time and by species.",
     slaughter: "This report summarizes approved slaughter records, including animals processed and recorded carcass weights. Species distribution and monthly trends describe activity without combining head counts with kilograms.",
-    movement: "This report separates auction activity from livestock movement. Auction charts describe sale activity; movement charts describe origin, destination, and direction, including unresolved UNKNOWN locations.",
+    movement: "Movement charts use approved livestock inspections and clearances to show origin, destination, and direction. Unresolved locations remain UNKNOWN.",
     inspection: "This report summarizes approved inspections and clearance records. Status and trend charts describe official review outcomes and issuance activity in the selected period.",
   };
   const description = <p className="text-sm leading-6 text-slate-600">{descriptions[reportType]}</p>;
@@ -132,18 +132,8 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
     <ChartCard title="Average Recorded Carcass Weight by Species" note="Weighted average kilograms per slaughtered head, using records with a recorded carcass weight." empty={!rows.some((row) => row.carcass_weight_kg != null)}><Bars data={(() => { const totals = new Map<string, { weight: number; heads: number }>(); for (const row of rows) { if (row.carcass_weight_kg == null) continue; const key = label(row, "species"); const current = totals.get(key) ?? { weight: 0, heads: 0 }; current.weight += amount(row, "carcass_weight_kg"); current.heads += amount(row, "quantity"); totals.set(key, current); } return [...totals].map(([name, value]) => ({ name, value: value.heads ? value.weight / value.heads : 0 })).sort((a, b) => b.value - a.value); })()} unit="kg/head" /></ChartCard>
   </div></div>;
   if (reportType === "movement") {
-    const auction = records("AUCTION");
     const movement = records("MOVEMENT");
-    return <div className="space-y-4">{description}<div className="space-y-5">
-      <SectionTitle title="Auction Activity" detail="What livestock activity was processed through the auction operation?" />
-      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-        <ChartCard title="Auction Activity Over Time" note="Approved auction sale items processed per month." empty={!auction.length}><Trend data={monthly(auction, "quantity")} unit="heads" /></ChartCard>
-        <ChartCard title="Auction Records Over Time" note="Counts auction sale records per month, separate from the number of animals processed." empty={!auction.length}><Trend data={monthlyRecords(auction)} unit="records" /></ChartCard>
-        <ChartCard title="Auction Livestock by Species" note="Approved livestock sale quantity." empty={!auction.length}><Donut data={sumBy(auction, "species", "quantity")} /></ChartCard>
-        <ChartCard title="Auction Origins" note="Seller barangay from the linked farmer record." empty={!auction.length}><Bars data={sumBy(auction, "origin", "quantity").reverse()} horizontal unit="heads" /></ChartCard>
-        <ChartCard title="Auction Destinations" note="Recorded sale destination." empty={!auction.length}><Bars data={sumBy(auction, "destination", "quantity").reverse()} horizontal unit="heads" /></ChartCard>
-        <ChartCard title="Auction Purpose" empty={!auction.length}><Bars data={sumBy(auction, "purpose", "quantity")} unit="heads" /></ChartCard>
-      </div>
+  return <div className="space-y-4">{description}<div className="space-y-5">
       <SectionTitle title="Movement Analysis" detail="Where livestock moved. Unknown locations remain visible when text cannot be confidently matched to Padre Garcia." />
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         <ChartCard title="Movement Direction" note="Based on the shared municipality direction classifier; UNKNOWN stays visible." empty={!movement.length}><Donut force data={["INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN"].map((name) => ({ name, value: movement.filter((row) => row.direction === name).length }))} /></ChartCard>
@@ -156,15 +146,18 @@ export function ReportCharts({ report, reportType }: { report: OfficialReport; r
       </div>
     </div></div>;
   }
+  const inspectionRows = rows.filter((row) => row.record_kind !== "OWNERSHIP_TRANSFER");
+  const transfers = rows.filter((row) => row.record_kind === "OWNERSHIP_TRANSFER");
   return <div className="space-y-4">{description}
-    <SectionTitle title="Inspection & Clearance" detail="Official review and clearance status for eligible inspection records." />
+    <SectionTitle title="Livestock Inspection and Ownership Transfers" detail="Official review and clearance status for eligible inspection records." />
     <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-      <ChartCard title="Inspection Status" note="Only MAO-approved clearances are included in this official report." empty={!rows.length}><Donut data={countBy(rows, "clearance_status", "control_number")} /></ChartCard>
-      <ChartCard title="Inspections Over Time" note="Distinct approved clearance records by inspection month." empty={!rows.length}><Trend data={monthlyRecords(rows, "record_date", "control_number")} unit="inspections" /></ChartCard>
-      <ChartCard title="Inspection Purpose" empty={!rows.length}><Bars data={sumBy(rows, "purpose", "quantity")} unit="heads" /></ChartCard>
-      <ChartCard title="Inspection Origins" empty={!rows.length}><Bars data={sumBy(rows, "origin", "quantity").reverse()} horizontal unit="heads" /></ChartCard>
-      <ChartCard title="Inspection Destinations" empty={!rows.length}><Bars data={sumBy(rows, "destination", "quantity").reverse()} horizontal unit="heads" /></ChartCard>
-      <ChartCard title="Clearance Trend" note="Distinct approved clearances by issuance month." empty={!rows.some((row) => row.issued_date)}><Trend data={monthlyRecords(rows, "issued_date", "control_number")} unit="clearances" /></ChartCard>
+      <ChartCard title="Ownership Transfers Over Time" note="Approved animal transfers by transfer month." empty={!transfers.length}><Trend data={monthlyRecords(transfers)} unit="animal transfers" /></ChartCard>
+      <ChartCard title="Inspection Status" note="Only MAO-approved clearances are included in this official report." empty={!inspectionRows.length}><Donut data={countBy(inspectionRows, "clearance_status", "control_number")} /></ChartCard>
+      <ChartCard title="Inspections Over Time" note="Distinct approved clearance records by inspection month." empty={!inspectionRows.length}><Trend data={monthlyRecords(inspectionRows, "record_date", "control_number")} unit="inspections" /></ChartCard>
+      <ChartCard title="Inspection Purpose" empty={!inspectionRows.length}><Bars data={sumBy(inspectionRows, "purpose", "quantity")} unit="heads" /></ChartCard>
+      <ChartCard title="Inspection Origins" empty={!inspectionRows.length}><Bars data={sumBy(inspectionRows, "origin", "quantity").reverse()} horizontal unit="heads" /></ChartCard>
+      <ChartCard title="Inspection Destinations" empty={!inspectionRows.length}><Bars data={sumBy(inspectionRows, "destination", "quantity").reverse()} horizontal unit="heads" /></ChartCard>
+      <ChartCard title="Clearance Trend" note="Distinct approved clearances by issuance month." empty={!inspectionRows.some((row) => row.issued_date)}><Trend data={monthlyRecords(inspectionRows, "issued_date", "control_number")} unit="clearances" /></ChartCard>
     </div>
   </div>;
 }

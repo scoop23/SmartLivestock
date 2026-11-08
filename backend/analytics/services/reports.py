@@ -11,9 +11,9 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from diseases.models import DiseaseCase, MortalityRecord
 from analytics.services.surveillance_coverage import report_period_coverage
-from livestock.models import LivestockInventory
+from livestock.models import LivestockInventory, LivestockOwnershipTransfer
 from movements.models import LivestockInspection, LivestockInspectionClearance
-from production.models import LiveAnimalSale, SlaughterRecord
+from production.models import SlaughterRecord
 from smartlivestock.workflows import ADMIN, MAO, has_all_barangay_access, role_name
 
 from .movement_direction import classify_movement_direction
@@ -23,8 +23,8 @@ REPORT_TITLES = {
     "inventory": "Livestock Inventory Report",
     "disease_mortality": "Disease and Mortality Report",
     "slaughter": "Slaughter Report",
-    "movement": "Auction and Movement Report",
-    "inspection": "Inspection and Clearance Report",
+    "movement": "Livestock Movement Report",
+    "inspection": "Livestock Inspection and Ownership Transfers Report",
 }
 
 
@@ -76,28 +76,37 @@ def _base(report_type, start, end, filters):
         )
         query = _apply_species(query, species, "livestock_type__name")
         query = _apply_barangay(query, barangay, "farmer__barangay")
-        query = query.select_related("livestock_type", "farmer__user", "farmer__barangay").order_by("livestock_type__name", "tag_number", "pk")
+        query = query.select_related("livestock_type", "farmer__user", "farmer__barangay", "batch").order_by("livestock_type__name", "tag_number", "pk")
         rows = [{
             "tag_id": obj.tag_number or str(obj.pk), "species": obj.livestock_type.name,
             "breed": obj.breed or "", "sex": obj.sex or "", "quantity": obj.quantity,
             "barangay": obj.farmer.barangay.barangay_name if obj.farmer.barangay_id else "",
             "owner": obj.farmer.user.get_full_name() or obj.farmer.user.username,
+            "herd_code": obj.batch.batch_code if obj.batch_id else "",
+            "herd_name": obj.batch.batch_name if obj.batch_id else "",
             "registration_status": obj.status, "operational_status": obj.operational_status,
             "record_date": obj.created_at.date().isoformat(),
         } for obj in query]
         by_species = {}
         by_status = {}
+        herds = {}
         for row in rows:
+            if row["herd_code"]:
+                herd = herds.setdefault(row["herd_code"], {"herd_code": row["herd_code"], "herd_name": row["herd_name"], "owner": row["owner"], "barangay": row["barangay"], "total_heads": 0})
+                herd["total_heads"] += row["quantity"]
             by_species[row["species"]] = by_species.get(row["species"], 0) + row["quantity"]
             by_status[row["operational_status"]] = by_status.get(row["operational_status"], 0) + row["quantity"]
         return [
             ("tag_id", "Tag ID"), ("species", "Species"), ("breed", "Breed"), ("sex", "Sex"),
             ("quantity", "Heads"), ("barangay", "Barangay"), ("owner", "Farmer / Owner"),
+            ("herd_code", "Herd code"), ("herd_name", "Herd name"),
             ("registration_status", "Registration"), ("operational_status", "Operational status"),
             ("record_date", "Registered date"),
         ], rows, {"records": len(rows), "total_heads": sum(row["quantity"] for row in rows),
                  "barangays_represented": len({row["barangay"] for row in rows if row["barangay"]}),
-                 "heads_by_species": by_species, "heads_by_operational_status": by_status}
+                 "heads_by_species": by_species, "heads_by_operational_status": by_status,
+                 "herd_count": len(herds), "herds": sorted(herds.values(), key=lambda herd: herd["herd_code"]),
+                 "unassigned_heads": sum(row["quantity"] for row in rows if not row["herd_code"])}
 
     if report_type == "disease_mortality":
         diseases = DiseaseCase.objects.filter(status=approved, record_date__range=(start, end))
@@ -174,59 +183,27 @@ def _base(report_type, start, end, filters):
                             "barangay": obj.shipper.barangay.barangay_name if obj.shipper_id and obj.shipper.barangay_id else "",
                             "clearance_status": clearance.status, "issued_date": clearance.date_issued.isoformat() if clearance.date_issued else ""}
                 if report_type == "movement":
-                    # Inspection movements and auction sales are separate record
-                    # kinds because activity at the market is not itself proof of
-                    # geographic direction or regulatory clearance.
+                    # Movement is evidenced by an approved inspection clearance.
                     rows.append({"record_kind": "MOVEMENT", **base_row})
                 else:
                     rows.append({key: value for key, value in base_row.items()
                                  if key in ("control_number", "record_date", "origin", "destination", "purpose", "quantity", "clearance_status", "issued_date")})
         if report_type == "movement":
-            # Seeded and user-entered sales use the same approved queryset and
-            # filters, so synthetic records never need a special frontend path.
-            auction_query = LiveAnimalSale.objects.filter(status=approved, sale_date__range=(start, end))
-            auction_query = _apply_species(auction_query, species, "livestock__livestock_type__name", "batch__livestock_type__name")
-            auction_query = _apply_barangay(auction_query, barangay, "livestock__farmer__barangay", "batch__farmer__barangay")
-            if purpose:
-                auction_query = auction_query.filter(purpose__iexact=purpose)
-            auction_query = auction_query.select_related(
-                "livestock__livestock_type", "livestock__farmer__barangay",
-                "batch__livestock_type", "batch__farmer__barangay",
-            ).order_by("sale_date", "pk")
-            auction_rows = []
-            for sale in auction_query:
-                sale_species = sale.livestock.livestock_type.name if sale.livestock_id else (sale.batch.livestock_type.name if sale.batch_id else "")
-                sale_barangay = sale.livestock.farmer.barangay.barangay_name if sale.livestock_id and sale.livestock.farmer.barangay_id else (sale.batch.farmer.barangay.barangay_name if sale.batch_id and sale.batch.farmer.barangay_id else "")
-                auction_rows.append({
-                    "record_kind": "AUCTION", "record_date": sale.sale_date.isoformat(),
-                    "control_number": f"SALE-{sale.pk}", "origin": sale_barangay,
-                    "destination": sale.destination or "", "direction": "",
-                    "purpose": sale.purpose, "species": sale_species,
-                    "quantity": sale.quantity, "vehicle": "", "handler_license": "",
-                    "barangay": sale_barangay, "clearance_status": sale.status,
-                    "issued_date": "", "sale_method": sale.sale_method,
-                })
-            rows.extend(auction_rows)
-            rows.sort(key=lambda row: (row["record_date"], row["record_kind"], row["control_number"]))
             columns = [("record_kind", "Activity type"), ("record_date", "Date"), ("control_number", "Record / control number"), ("origin", "Origin / barangay"),
                        ("destination", "Destination"), ("direction", "Direction"), ("purpose", "Purpose"),
                        ("species", "Species"), ("quantity", "Heads / items"), ("vehicle", "Vehicle plate"),
-                       ("handler_license", "Handler license"), ("sale_method", "Sale method"), ("clearance_status", "Approval / clearance status")]
+                       ("handler_license", "Handler license"), ("clearance_status", "Approval / clearance status")]
         else:
             columns = [("control_number", "Control number"), ("record_date", "Inspection date"), ("origin", "Origin"),
                        ("destination", "Destination"), ("purpose", "Purpose"), ("quantity", "Livestock heads"),
                        ("clearance_status", "Clearance status"), ("issued_date", "Issued date")]
         if report_type == "movement":
-            auction = [row for row in rows if row["record_kind"] == "AUCTION"]
             movements = [row for row in rows if row["record_kind"] == "MOVEMENT"]
             summary = {
-                "records": len({row["control_number"] for row in movements}) + len(auction),
+                "records": len({row["control_number"] for row in movements}),
                 "movement_records": len({row["control_number"] for row in movements}),
                 "livestock_heads": sum(row["quantity"] for row in movements),
                 "movement_lines": len(movements),
-                "auction_activity": {"auction_records": len(auction),
-                                     "auction_items_processed": sum(row["quantity"] for row in auction),
-                                     "auction_species": len({row["species"] for row in auction if row["species"]})},
                 "movement_analysis": {"movement_records": len({row["control_number"] for row in movements}),
                                       "movement_lines": len(movements),
                                       "livestock_heads": sum(row["quantity"] for row in movements),
@@ -237,7 +214,28 @@ def _base(report_type, start, end, filters):
             }
             return columns, rows, summary
         inspection_count = len({row["control_number"] for row in rows})
-        return columns, rows, {"records": inspection_count, "approved_inspections": inspection_count,
+        for row in rows:
+            row["record_kind"] = "INSPECTION"
+        transfers = LivestockOwnershipTransfer.objects.filter(status="APPROVED", transfer_date__range=(start, end))
+        transfers = _apply_species(transfers, species, "livestock__livestock_type__name", "external_livestock_type")
+        transfers = _apply_barangay(transfers, barangay, "previous_owner__barangay")
+        if purpose and purpose.upper() != "OWNERSHIP TRANSFER":
+            transfers = transfers.none()
+        transfers = transfers.select_related("livestock__livestock_type", "previous_owner__barangay", "new_owner")
+        transfer_count = 0
+        for obj in transfers:
+            rows.append({"record_kind": "OWNERSHIP_TRANSFER", "control_number": obj.transfer_certificate_number,
+                         "record_date": obj.transfer_date.isoformat(), "origin": obj.external_seller_address or (obj.previous_owner.barangay.barangay_name if obj.previous_owner_id and obj.previous_owner.barangay_id else ""),
+                         "destination": obj.external_owner_address or (str(obj.new_owner) if obj.new_owner_id else ""),
+                         "purpose": "OWNERSHIP TRANSFER", "quantity": 1, "clearance_status": obj.status,
+                         "species": obj.livestock.livestock_type.name if obj.livestock_id else obj.external_livestock_type,
+                         "issued_date": ""})
+            transfer_count += 1
+        columns.insert(0, ("record_kind", "Record type"))
+        columns.insert(3, ("species", "Species"))
+        rows.sort(key=lambda row: row["record_date"])
+        return columns, rows, {"records": inspection_count + transfer_count, "approved_inspections": inspection_count,
+                               "ownership_transfers": transfer_count,
                                "clearance_records": inspection_count,
                                "livestock_heads": sum(row["quantity"] for row in rows),
                                "movement_lines": len(rows)}
@@ -283,10 +281,8 @@ def _analysis_metrics(report_type, rows):
             metrics["carcass_weight"] = (sum(weighted), "kg")
         return metrics
     if report_type == "movement":
-        auction = [row for row in rows if row.get("record_kind") == "AUCTION"]
         movement = [row for row in rows if row.get("record_kind") == "MOVEMENT"]
         return {
-            "auction_items": (sum(row["quantity"] for row in auction), "heads / items"),
             "movement_records": (_distinct_count(movement, "control_number"), "records"),
             "movement_heads": (sum(row["quantity"] for row in movement), "heads"),
             "inbound_lines": (sum(row.get("direction") == "INBOUND" for row in movement), "lines"),
@@ -294,7 +290,8 @@ def _analysis_metrics(report_type, rows):
         }
     if report_type == "inspection":
         return {
-            "inspections": (_distinct_count(rows, "control_number"), "records"),
+            "inspections": (_distinct_count([row for row in rows if row.get("record_kind") == "INSPECTION"], "control_number"), "records"),
+            "ownership_transfers": (sum(row.get("record_kind") == "OWNERSHIP_TRANSFER" for row in rows), "animal transfers"),
             "livestock_heads": (sum(row["quantity"] for row in rows), "heads"),
         }
     return {}
@@ -316,6 +313,8 @@ def _build_analysis(report_type, rows, previous_rows, previous_period, summary):
         species = _sum_by(rows, "species", "quantity")
         barangays = _sum_by([row for row in rows if row.get("barangay")], "barangay", "quantity")
         kpi("Registered livestock heads", summary["total_heads"], "heads in matching approved registrations")
+        kpi("Herds represented", summary["herd_count"], "herds containing matching approved active registrations")
+        kpi("Animals without a herd", summary["unassigned_heads"], "heads")
         kpi("Species represented", len(species))
         kpi("Barangays represented", len(barangays))
         if species:
@@ -365,34 +364,27 @@ def _build_analysis(report_type, rows, previous_rows, previous_period, summary):
             findings.append(f"{species[0][0]} had the highest recorded slaughter volume ({species[0][1]:,} heads).")
         ranking("Species by Slaughter Volume", species, "heads")
     elif report_type == "movement":
-        auction = [row for row in rows if row.get("record_kind") == "AUCTION"]
         movement = [row for row in rows if row.get("record_kind") == "MOVEMENT"]
-        kpi("Auction records", len(auction))
-        kpi("Auction items processed", sum(row["quantity"] for row in auction), "heads / items")
         kpi("Movement records", _distinct_count(movement, "control_number"))
         kpi("Inbound movement lines", sum(row.get("direction") == "INBOUND" for row in movement))
         kpi("Outbound movement lines", sum(row.get("direction") == "OUTBOUND" for row in movement))
         kpi("Internal movement lines", sum(row.get("direction") == "INTERNAL" for row in movement))
         kpi("Unknown direction lines", sum(row.get("direction") == "UNKNOWN" for row in movement))
-        auction_origins = _sum_by(auction, "origin", "quantity")
-        auction_destinations = _sum_by(auction, "destination", "quantity")
         movement_origins = _sum_by(movement, "origin", "quantity")
         movement_destinations = _sum_by(movement, "destination", "quantity")
-        ranking("Auction Origins by Items", auction_origins, "heads / items")
-        ranking("Auction Destinations by Items", auction_destinations, "heads / items")
         ranking("Movement Origins by Heads", movement_origins, "heads")
         ranking("Movement Destinations by Heads", movement_destinations, "heads")
-        if auction:
-            findings.append(f"Auction operations processed {sum(row['quantity'] for row in auction):,} livestock items across {len(auction)} approved sale records.")
         if movement:
-            findings.append(f"Movement analysis includes {_distinct_count(movement, 'control_number')} approved clearance records; direction totals are reported separately from auction sales.")
+            findings.append(f"Movement analysis includes {_distinct_count(movement, 'control_number')} approved inspection clearance records, classified by origin and destination.")
     elif report_type == "inspection":
-        count = _distinct_count(rows, "control_number")
+        count = summary.get("approved_inspections", 0)
         kpi("Inspections", count, "records")
         kpi("Approved inspections", count, "approval filter applied")
-        kpi("Clearance records", count)
+        kpi("Ownership transfers", summary.get("ownership_transfers", 0))
         purpose_ids = {}
         for index, row in enumerate(rows):
+            if row.get("record_kind") == "OWNERSHIP_TRANSFER":
+                continue
             purpose = row.get("purpose") or "Unknown"
             purpose_ids.setdefault(purpose, set()).add(row.get("control_number") or f"row-{index}")
         purposes = sorted(((name, len(ids)) for name, ids in purpose_ids.items()), key=lambda item: item[1], reverse=True)
@@ -426,15 +418,15 @@ def _build_analysis(report_type, rows, previous_rows, previous_period, summary):
         "inventory": "Inventory rows are approved livestock registrations selected by their registration date. Operational status reflects the latest saved state. The model does not store historical inventory snapshots, so this report cannot reconstruct holdings as of past dates.",
         "disease_mortality": "Disease statistics represent approved reported case records, not clinical diagnoses or epidemiological predictions. Mortality records are counted separately. Monthly reporting coverage is assessed by barangay and domain for full completed calendar months; confirmed zero reports are distinguished from unconfirmed periods.",
         "slaughter": "Slaughter statistics use approved slaughter records; animal counts and carcass kilograms are separate measures.",
-        "movement": "Auction activity comes from approved sale records. Movement direction and volume come from approved inspection/clearance records and remain separate from auction activity.",
-        "inspection": "Inspection statistics are based on records with MAO-approved clearances under the existing validation workflow.",
+        "movement": "Movement direction and volume come only from approved livestock inspection and clearance records, using their recorded origins and destinations.",
+        "inspection": "Includes MAO-approved inspection clearances and approved ownership transfer animal records. One certificate may cover multiple animal transfers. Seeded demonstration records are included when they match the selected filters.",
     }
 
 
     data_status = {
         "inventory": "Approved registrations; latest operational status",
-        "movement": "Approved auction sales and approved clearances",
-        "inspection": "MAO-approved clearance records",
+        "movement": "Approved livestock inspections and clearances",
+        "inspection": "MAO-approved inspection clearances and approved ownership transfers",
     }.get(report_type, "Approved source records")
 
     current_metrics = _analysis_metrics(report_type, rows)
@@ -590,6 +582,7 @@ def build_report(report_type, params, user):
     if filters["direction"] and filters["direction"].upper() not in {"INBOUND", "OUTBOUND", "INTERNAL", "UNKNOWN"}:
         raise ValidationError({"direction": "Choose INBOUND, OUTBOUND, INTERNAL, or UNKNOWN."})
     columns, rows, summary = _base(report_type, start, end, filters)
+    herd_summary = summary.pop("herds", [])
     # A previous-period comparison needs a second authorized dataset, using the
     # same report service and filters for an immediately preceding equal-length window.
     period_days = (end - start).days + 1
@@ -608,6 +601,6 @@ def build_report(report_type, params, user):
             "municipality": "Padre Garcia, Batangas", "period": {"date_from": start.isoformat(), "date_to": end.isoformat()},
             "generated_at": timezone.now().isoformat(), "generated_by": user.get_full_name() or user.username,
             "filters": filters, "period_label": "Registration period" if report_type == "inventory" else "Reporting period",
-            "summary": summary, "analysis": analysis,
+            "summary": summary, "analysis": analysis, "herd_summary": herd_summary,
             "columns": [{"key": key, "label": label} for key, label in columns],
             "rows": rows, "record_count": summary.get("records", len(rows))}

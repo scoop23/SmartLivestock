@@ -128,11 +128,25 @@ export function RoleAwareGISContainer({
 
   const { user } = useAuth();
   const ready = useClientReady();
+  const [reportTimelineDay, setReportTimelineDay] = useState(365);
+  const reportTimelineDates = useMemo(() => {
+    const today = new Date();
+    return Array.from({ length: 366 }, (_, index) => {
+      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (365 - index));
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    });
+  }, []);
+  const [reportAsOf, setReportAsOf] = useState(reportTimelineDates[365]);
+  useEffect(() => {
+    const timer = setTimeout(() => setReportAsOf(reportTimelineDates[reportTimelineDay]), 300);
+    return () => clearTimeout(timer);
+  }, [reportTimelineDay, reportTimelineDates]);
   const scopeKey = JSON.stringify([user?.email, user?.role, user?.accessScope, user?.assignedBarangayId]);
-  const telemetry = useQuery({
-    queryKey: ["gis-telemetry", scopeKey],
+  const telemetry = useQuery<GISTelemetryResponse>({
+    queryKey: ["gis-telemetry", scopeKey, reportAsOf],
     enabled: Boolean(user),
-    queryFn: async ({ signal }) => (await api.get<GISTelemetryResponse>('/api/analytics/gis/', { signal })).data,
+    placeholderData: (previous) => previous,
+    queryFn: async ({ signal }) => (await api.get<GISTelemetryResponse>('/api/analytics/gis/', { signal, params: { report_as_of: reportAsOf } })).data,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1500 * 2 ** attemptIndex, 8000),
   });
@@ -528,6 +542,17 @@ export function RoleAwareGISContainer({
 
       {/* 1. Full Viewport Interactive GIS Map Container */}
       <div className="relative w-full h-full flex-1 min-h-0 overflow-hidden">
+        {activeLayer === 'disease' && diseaseSubMode === 'surveillance' && (
+          <div className="absolute bottom-24 sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] w-[calc(100%-2rem)] max-w-md rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
+            <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-800">
+              <label htmlFor="report-alert-timeline">Report alerts through {reportTimelineDates[reportTimelineDay]}</label>
+              <button type="button" onClick={() => setReportTimelineDay(365)} className="rounded-md bg-emerald-100 px-2 py-1 text-emerald-800">Latest</button>
+            </div>
+            <input id="report-alert-timeline" type="range" min={0} max={365} value={reportTimelineDay} onChange={(event) => setReportTimelineDay(Number(event.target.value))} className="mt-2 w-full accent-emerald-600" aria-valuetext={reportAsOf} />
+            <div className="flex justify-between text-[10px] text-slate-500"><span>{reportTimelineDates[0]}</span><span>{reportTimelineDates[365]}</span></div>
+            <p className="mt-1 text-[10px] text-slate-500">90-day report window. Current approval and case outcomes apply; other map layers remain current.{isLoading ? ' Updating…' : ''}</p>
+          </div>
+        )}
         <GISMap
           barangaysByName={barangaysByName}
           movements={activeDisplayMovements}

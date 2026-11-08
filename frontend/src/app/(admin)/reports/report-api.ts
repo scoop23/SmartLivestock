@@ -61,6 +61,7 @@ export type OfficialReport = {
   generated_by: string;
   filters: ReportFilters;
   summary: Record<string, number | string | null | Record<string, number | string | null>>;
+  herd_summary?: { herd_code: string; herd_name: string; owner: string; barangay: string; total_heads: number }[];
   analysis: ReportAnalysis;
   columns: { key: string; label: string }[];
   rows: Record<string, string | number | null>[];

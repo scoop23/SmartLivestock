@@ -53,6 +53,9 @@ import {
 import React, { useMemo, useState, type FormEvent } from "react";
 import {
   CartesianGrid,
+  Area,
+  ComposedChart,
+  Legend,
   Cell,
   Line,
   LineChart,
@@ -91,14 +94,14 @@ const REPORT_OPTIONS: { value: ReportType; label: string; description: string; i
   },
   {
     value: "movement",
-    label: "Auction and movement",
-    description: "Auction and movement records.",
+    label: "Livestock movement",
+    description: "Approved livestock inspections and movement clearances.",
     icon: ArrowLeftRight,
   },
   {
     value: "inspection",
-    label: "Inspection and clearance",
-    description: "Inspection and clearance activity records.",
+    label: "Livestock Inspection and Ownership Transfers",
+    description: "Approved livestock inspections and ownership transfers.",
     icon: FileSpreadsheet,
   },
 ];
@@ -107,8 +110,8 @@ const REPORT_SUMMARY_DESCRIPTIONS: Record<ReportType, string> = {
   slaughter: "Based on approved slaughter records from slaughterhouses.",
   inventory: "Based on approved livestock population and inventory records.",
   disease_mortality: "Based on approved disease surveillance and mortality records.",
-  movement: "Based on approved auction and livestock movement records.",
-  inspection: "Based on approved inspection and clearance activity records.",
+  movement: "Based on approved livestock inspections and their recorded origins and destinations.",
+  inspection: "Based on approved inspection clearances and ownership transfers.",
 };
 
 const CHART_CONFIGS: Record<
@@ -137,7 +140,7 @@ const CHART_CONFIGS: Record<
   },
   disease_mortality: {
     trendTitle: "Surveillance Trend",
-    trendSubtitle: "Reported disease and mortality events over time.",
+    trendSubtitle: "Approved surveillance reports and recorded livestock deaths by month.",
     speciesTitle: "Cases by Species",
     speciesSubtitle: "Approved affected animals.",
     unit: "cases",
@@ -150,8 +153,8 @@ const CHART_CONFIGS: Record<
     unit: "heads",
   },
   inspection: {
-    trendTitle: "Inspection Trend",
-    trendSubtitle: "Approved inspections per month.",
+    trendTitle: "Inspection and Transfer Trend",
+    trendSubtitle: "Livestock heads in approved inspections and ownership transfers by month.",
     speciesTitle: "Inspections by Species",
     speciesSubtitle: "Approved animals inspected.",
     unit: "inspections",
@@ -334,7 +337,6 @@ function deriveSummaryKpis(report: OfficialReport, reportType: ReportType) {
       ];
     }
     case "movement": {
-      const auction = rows.filter((r) => r.record_kind === "AUCTION");
       const items = sumAmount("quantity");
       const species = countDistinct("species");
       return [
@@ -347,9 +349,9 @@ function deriveSummaryKpis(report: OfficialReport, reportType: ReportType) {
           textClass: "text-emerald-800",
         },
         {
-          label: "Auction records",
-          value: auction.length.toLocaleString(),
-          detail: "approved records",
+          label: "Inbound movement lines",
+          value: rows.filter((r) => r.direction === "INBOUND").length.toLocaleString(),
+          detail: "inspection lines",
           icon: FileText,
           bgClass: "bg-emerald-100/70",
           textClass: "text-emerald-800",
@@ -373,7 +375,7 @@ function deriveSummaryKpis(report: OfficialReport, reportType: ReportType) {
       ];
     }
     case "inspection": {
-      const count = countDistinct("control_number") || rows.length;
+      const count = Number(report.summary.approved_inspections) || 0;
       const heads = sumAmount("quantity");
       const purposes = countDistinct("purpose");
       return [
@@ -386,15 +388,15 @@ function deriveSummaryKpis(report: OfficialReport, reportType: ReportType) {
           textClass: "text-emerald-800",
         },
         {
-          label: "Clearance records",
-          value: (report.record_count ?? rows.length).toLocaleString(),
-          detail: "approved records",
+          label: "Ownership transfers",
+          value: (Number(report.summary.ownership_transfers) || 0).toLocaleString(),
+          detail: "approved animal transfers",
           icon: FileSpreadsheet,
           bgClass: "bg-emerald-100/70",
           textClass: "text-emerald-800",
         },
         {
-          label: "Animals inspected",
+          label: "Animals represented",
           value: heads.toLocaleString(),
           detail: "heads",
           icon: Scale,
@@ -498,23 +500,28 @@ function TrendChartComponent({
   dateFrom,
   dateTo,
   unit,
+  surveillance = false,
 }: {
   rows: OfficialReport["rows"];
   dateFrom: string;
   dateTo: string;
   unit: string;
+  surveillance?: boolean;
 }) {
   const totals = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { value: number; deaths: number }>();
     for (const row of rows) {
       const date = String(row.record_date ?? "");
       if (!date) continue;
       const key = date.slice(0, 7);
-      map.set(key, (map.get(key) ?? 0) + (Number(row.quantity) || 1));
+      const total = map.get(key) ?? { value: 0, deaths: 0 };
+      total.value += Number(row.quantity) || 1;
+      if (row.record_kind === "MORTALITY") total.deaths += Number(row.affected_or_dead) || 0;
+      map.set(key, total);
     }
     return [...map.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, value]) => ({ month, value }));
+      .map(([month, values]) => ({ month, ...values }));
   }, [rows]);
 
   const hasData = totals.length > 0 && totals.some((d) => d.value > 0);
@@ -577,20 +584,34 @@ function TrendChartComponent({
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={totals} margin={{ top: 10, right: 15, left: -10, bottom: 5 }}>
+        <ComposedChart data={totals} margin={{ top: 10, right: 15, left: -10, bottom: 5 }}>
+          <defs>
+            <linearGradient id="surveillanceReportsShade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#047857" stopOpacity={0.22} />
+              <stop offset="100%" stopColor="#047857" stopOpacity={0.02} />
+            </linearGradient>
+            <linearGradient id="surveillanceDeathsShade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#e11d48" stopOpacity={0.22} />
+              <stop offset="100%" stopColor="#e11d48" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#64748b" }} />
           <YAxis tick={{ fontSize: 11, fill: "#64748b" }} />
-          <Tooltip formatter={(v) => [`${Number(v).toLocaleString()} ${unit}`, "Total"]} />
-          <Line
+          <Tooltip formatter={(v, name) => [`${Number(v).toLocaleString()} ${surveillance ? (name === "Deaths" ? "deaths" : "reports") : unit}`, name]} />
+          {surveillance && <Legend />}
+          <Area
             type="monotone"
             dataKey="value"
+            name={surveillance ? "Surveillance reports" : "Total"}
+            fill="url(#surveillanceReportsShade)"
             stroke="#047857"
             strokeWidth={3}
             dot={{ r: 4, fill: "#047857" }}
             activeDot={{ r: 6 }}
           />
-        </LineChart>
+          {surveillance && <Area type="monotone" dataKey="deaths" name="Deaths" stroke="#e11d48" strokeWidth={3} fill="url(#surveillanceDeathsShade)" dot={{ r: 4, fill: "#e11d48" }} activeDot={{ r: 6 }} />}
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
@@ -1097,6 +1118,7 @@ export function OfficialReportsWorkspace({
                 dateFrom={report.period.date_from}
                 dateTo={report.period.date_to}
                 unit={chartConfig.unit}
+                surveillance={report.report_type === "disease_mortality"}
               />
             </div>
 
@@ -1114,6 +1136,16 @@ export function OfficialReportsWorkspace({
             <MonthlyReportingCoveragePanel coverage={report.analysis.reporting_coverage} />
           )}
 
+          {report.report_type === "inventory" && <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white p-4">
+            <h3 className="font-bold text-slate-900">Herd summary ({report.herd_summary?.length ?? 0})</h3>
+            <p className="text-xs text-slate-500">Counts include approved, currently active animals registered during the selected period. Herds are not counted as additional animals.</p>
+            <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-xs">
+              <thead><tr className="border-b border-slate-200">{["Herd code", "Herd name", "Owner", "Barangay", "Heads"].map(label => <th key={label} className="p-2 font-semibold">{label}</th>)}</tr></thead>
+              <tbody>{report.herd_summary?.map(herd => <tr key={herd.herd_code} className="border-b border-slate-100"><td className="p-2">{herd.herd_code}</td><td className="p-2">{herd.herd_name || "Not named"}</td><td className="p-2">{herd.owner}</td><td className="p-2">{herd.barangay}</td><td className="p-2 font-bold">{herd.total_heads}</td></tr>)}</tbody>
+            </table></div>
+            {!report.herd_summary?.length && <p className="mt-3 text-xs text-slate-500">No matching herd-linked animals in this selection.</p>}
+            <p className="mt-2 text-xs text-slate-600">Animals without a herd: {Number(report.summary.unassigned_heads ?? 0)}</p>
+          </Card>}
           {/* 6. Records Table Section */}
           <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200/90 bg-white py-0 shadow-xs">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3.5">

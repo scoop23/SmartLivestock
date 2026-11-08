@@ -702,6 +702,9 @@ export function GISMap({
     // 1. When on Disease Layer in 'surveillance' mode: Display full municipal Haversine risk triage
     // (Red = recent approved report alert, Orange = precautionary radius, Green = no qualifying report alert)
     if (activeLayer === 'disease' && diseaseSubMode === 'surveillance') {
+      if (data.is_report_alert_visible === false) {
+        return { fillColor: '#e2e8f0', fillOpacity: 0.25, color: '#94a3b8', weight: 1 };
+      }
       const isOutbreakColorActive = showAdjacentOutbreakColor && showAdjacentDiseaseAlerts;
       const risk = data.disease_risk;
       const hasReportAlert = (data.active_cases > 0) || ((data.fmd_active_cases ?? 0) > 0) || risk === 'high';
@@ -790,6 +793,9 @@ export function GISMap({
     const data = barangaysByNameRef.current[name];
     const layer = activeLayerRef.current;
     const subMode = diseaseSubModeRef.current;
+    if (layer === 'disease' && subMode === 'surveillance' && data?.is_report_alert_visible === false) {
+      return `<strong>Brgy. ${name}</strong><br/>Outside your local report-alert area.`;
+    }
     const simState = simulatedStatesRef.current?.[name];
     const scope = userScopeRef.current;
     const isInScope = data?.is_in_scope ?? (!scope || scope.can_view_all_barangays || scope.allowed_barangays.includes(name));
@@ -1019,7 +1025,9 @@ export function GISMap({
           : '🐄';
       let statText = isInScope ? `${lHeads}${lIcon}` : '—';
 
-      if (isSurveillance) {
+      if (isSurveillance && b.is_report_alert_visible === false) {
+        statText = '';
+      } else if (isSurveillance) {
         const risk = b.disease_risk;
         const hasReportAlert = (b.active_cases > 0) || ((b.fmd_active_cases ?? 0) > 0) || risk === 'high';
         const isMonitoring = !hasReportAlert && (risk === 'medium' || Boolean(b.is_in_monitoring_radius));
@@ -1069,9 +1077,9 @@ export function GISMap({
 
       const pillClass = isHighlightedScope
         ? 'permanent-centroid-pill highlight-own-farm'
-        : isSurveillance && hasReportAlert
+        : isSurveillance && b.is_report_alert_visible !== false && hasReportAlert
         ? 'permanent-centroid-pill outbreak-site'
-        : isSurveillance && isMonitoring
+        : isSurveillance && b.is_report_alert_visible !== false && isMonitoring
         ? 'permanent-centroid-pill monitoring-buffer'
         : isSubtleOut
         ? 'permanent-centroid-pill subtle-out-of-scope'
@@ -1117,6 +1125,11 @@ export function GISMap({
 
   const adjacentAlertList = useMemo(() => {
     if (!showAdjacentDiseaseAlerts) return [];
+    if (['FARMER', 'CBAT', 'SIBAT'].includes((userScope?.role || '').toUpperCase())) {
+      return Object.values(barangaysByName)
+        .filter((b) => b.is_report_alert_visible === true && (b.active_cases > 0 || (b.fmd_active_cases ?? 0) > 0 || b.disease_risk === 'high'))
+        .map((b) => ({ ...b, recent_diseases: b.recent_diseases || [] }));
+    }
     if (isFarmerRole) {
       if (adjacentDiseaseAlerts && adjacentDiseaseAlerts.length > 0) {
         return adjacentDiseaseAlerts;

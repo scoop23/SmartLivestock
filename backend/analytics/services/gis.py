@@ -393,7 +393,7 @@ def get_user_gis_scope(user) -> Dict[str, Any]:
 
 
 
-def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
+def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
     """Build map layers from role-scoped records; movement layer is approved-only."""
     """
     Computes real-time municipal GIS telemetry directly from PostgreSQL.
@@ -509,7 +509,7 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
 
     # 6. Separate historical totals from approved reports in the last 90 days.
     # Approval is a workflow state, not a clinical diagnosis. These are report alerts for follow-up.
-    today = timezone.localdate()
+    today = report_as_of or timezone.localdate()
     recent_reports = Q(
         record_date__gte=today - timedelta(days=90), record_date__lte=today,
         clinical_status__in=[DiseaseCase.ClinicalStatus.OPEN, DiseaseCase.ClinicalStatus.NOT_RECORDED],
@@ -904,12 +904,19 @@ def get_gis_aggregated_data(user=None) -> Dict[str, Any]:
     # Mask out-of-scope and unauthorized layer data across all 18 barangays
     adjacent_barangays_set = set(user_scope.get("adjacent_barangays", []))
     adjacent_disease_alerts = []
+    local_alert_names = None
+    if u_role in (FARMER, "CBAT", SIBAT):
+        home = (getattr(getattr(user, "farmer_profile", None), "barangay", None)
+                if u_role == FARMER else getattr(user, "assigned_barangay", None))
+        home_name = normalize_barangay_name(home.barangay_name) if home else None
+        local_alert_names = ({home_name} | set(BARANGAY_ADJACENCY.get(home_name, []))) if home_name else set()
 
     for b_name, b_entry in barangays_data.items():
         is_in_scope = (b_name in allowed_barangays_set) or user_scope["can_view_all_barangays"]
         is_adjacent = (u_role in (FARMER, "CBAT", SIBAT)) and (b_name in adjacent_barangays_set)
         b_entry["is_in_scope"] = is_in_scope
         b_entry["is_adjacent"] = is_adjacent
+        b_entry["is_report_alert_visible"] = local_alert_names is None or b_name in local_alert_names
 
         # If a barangay is out-of-scope for a geographically restricted user (e.g. SIBAT or Farmer):
         # Zero out private statistics so they cannot be inspected over the wire

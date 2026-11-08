@@ -1080,7 +1080,15 @@ def gis_summary(request):
     """
     from .services.gis import get_gis_aggregated_data
 
-    return Response(get_gis_aggregated_data(user=request.user))
+    from django.utils.dateparse import parse_date
+    raw_date = request.query_params.get("report_as_of")
+    try:
+        as_of = parse_date(raw_date) if raw_date else None
+    except ValueError:
+        as_of = None
+    if raw_date and (as_of is None or as_of > timezone.localdate()):
+        return Response({"detail": "Select a valid report-alert date no later than today."}, status=400)
+    return Response(get_gis_aggregated_data(user=request.user, report_as_of=as_of))
 
 
 @api_view(["POST"])

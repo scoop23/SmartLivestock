@@ -147,6 +147,15 @@ def excel_report(report):
         values = [column["label"]] + [str(row.get(column["key"], "")) for row in report["rows"][:200]]
         sheet.column_dimensions[get_column_letter(index)].width = min(36, max(13, max(map(len, values)) + 2))
     output = BytesIO()
+    if report.get("herd_summary"):
+        herds = workbook.create_sheet("Herd Summary")
+        herds.append(["Herd code", "Herd name", "Owner", "Barangay", "Matching active heads"])
+        for herd in report["herd_summary"]:
+            herds.append([herd[key] for key in ("herd_code", "herd_name", "owner", "barangay", "total_heads")])
+        herds.freeze_panes = "A2"
+        herds.auto_filter.ref = herds.dimensions
+        for col in range(1, 6):
+            herds.column_dimensions[get_column_letter(col)].width = 25
     workbook.save(output)
     return output.getvalue()
 
@@ -548,6 +557,11 @@ def pdf_report(report):
                                 style=TableStyle([("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#E8F0EA")),
                                                   ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5D0")),
                                                   ("VALIGN", (0, 0), (-1, -1), "TOP")])), Spacer(1, 12)])
+    if report.get("herd_summary"):
+        story.append(Paragraph("Herd Summary - Matching Active Registrations", section_style))
+        herd_rows = [[Paragraph(label, normal) for label in ("Herd code", "Herd name", "Owner", "Barangay", "Heads")]]
+        herd_rows.extend([[Paragraph(escape(str(herd[key])), normal) for key in ("herd_code", "herd_name", "owner", "barangay", "total_heads")] for herd in report["herd_summary"]])
+        story.extend([LongTable(herd_rows, repeatRows=1, style=TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E8F0EA")), ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#CBD5D0")), ("VALIGN", (0, 0), (-1, -1), "TOP")])), Spacer(1, 12)])
     story.append(Paragraph("Key Findings", section_style))
     if analysis["key_findings"]:
         story.extend(Paragraph("• " + escape(finding), normal) for finding in analysis["key_findings"])

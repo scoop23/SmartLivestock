@@ -50,6 +50,7 @@ export interface SpeciesCount {
 }
 
 export interface BarangayGISData {
+  is_report_alert_visible?: boolean;
   name: string;               // Normalized official GeoJSON key (e.g. "Banaba", "Quilo-quilo North")
   db_name: string;            // Name in database (e.g. "Banay-Banay")
   barangay_id: number | null; // Database primary key
