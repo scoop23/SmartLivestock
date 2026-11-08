@@ -11,6 +11,7 @@ DialogHeader,
 DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getAttachedPhoto } from "@/lib/photo-storage";
 import {
 AlertTriangle,
@@ -45,7 +46,8 @@ interface DiseaseMortalityReviewDialogProps {
     action: "APPROVED" | "SUBJECT_TO_REVISION",
     remarks: string,
     recordId: string,
-    classification?: { cause_category: string; classification_note: string }
+    classification?: { cause_category: string; classification_note: string },
+    fmdAssessment?: "SUSPECTED" | "NOT_SUSPECTED"
   ) => Promise<boolean>;
 }
 
@@ -90,6 +92,7 @@ function DiseaseMortalityReviewDialogContent({
   onConfirmAction,
 }: DiseaseMortalityReviewDialogProps) {
   const [remarks, setRemarks] = useState("");
+  const [fmdAssessment, setFmdAssessment] = useState<"" | "SUSPECTED" | "NOT_SUSPECTED">(record?.maoFmdAssessment || "");
   const [causeCategory, setCauseCategory] = useState("");
   const [classificationNote, setClassificationNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -131,6 +134,7 @@ function DiseaseMortalityReviewDialogContent({
 
   const handleAction = async (status: "APPROVED" | "SUBJECT_TO_REVISION") => {
     if (isSubmitting) return;
+    if (isDisease && status === "APPROVED" && !fmdAssessment) return;
     setIsSubmitting(true);
     try {
       const saved = await onConfirmAction(
@@ -140,6 +144,7 @@ function DiseaseMortalityReviewDialogContent({
         isMortality && status === "APPROVED" && causeCategory
           ? { cause_category: causeCategory, classification_note: classificationNote.trim() }
           : undefined,
+        isDisease && fmdAssessment ? fmdAssessment : undefined,
       );
       if (saved) onOpenChange(false);
     } finally {
@@ -225,6 +230,7 @@ function DiseaseMortalityReviewDialogContent({
           </div>
         )}
 
+        {isDisease && record.maoFmdAssessment && <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm font-bold text-sky-950">Admin/MAO final assessment: {record.maoFmdAssessment === "SUSPECTED" ? "Suspected FMD" : "Not suspected FMD"}</div>}
         {/* ══ EPIDEMIOLOGICAL SUSPECTED FMD CALLOUT (MAO Municipal Context) ══ */}
         {isDisease && (isFmdSuspected || hasFmdPattern) && (
           <div
@@ -681,6 +687,19 @@ function DiseaseMortalityReviewDialogContent({
                 </div>
               ) : (
                 <>
+                  {isDisease && <div className="space-y-1.5">
+                    <label htmlFor="mao-fmd-assessment" className="block text-xs font-black text-slate-800">Final FMD assessment</label>
+                    <Select value={fmdAssessment} onValueChange={value => setFmdAssessment(value as "SUSPECTED" | "NOT_SUSPECTED")} disabled={isSubmitting}>
+                      <SelectTrigger id="mao-fmd-assessment" className="w-full rounded-xl border-slate-300 bg-white text-sm">
+                        <SelectValue placeholder="Choose an assessment" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SUSPECTED">Suspected FMD</SelectItem>
+                        <SelectItem value="NOT_SUSPECTED">Not suspected FMD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {!fmdAssessment && <p className="text-xs text-amber-800">Choose an assessment before approving the disease report.</p>}
+                  </div>}
                   <div className="space-y-1.5">
                     <label className="text-xs font-black text-slate-800 block">
                       Official MAO Certification Remarks:
@@ -699,19 +718,19 @@ function DiseaseMortalityReviewDialogContent({
                         <label htmlFor="mortality-review-category" className="block text-xs font-bold text-slate-800">
                           Mortality cause category (optional)
                         </label>
-                        <select
-                          id="mortality-review-category"
-                          value={causeCategory}
-                          onChange={(event) => setCauseCategory(event.target.value)}
-                          className="w-full rounded-lg border border-indigo-200 bg-white p-2 text-sm text-slate-900"
-                        >
-                          <option value="">Leave unclassified</option>
-                          <option value="SUSPECTED_INFECTIOUS">Suspected infectious</option>
-                          <option value="INJURY_ACCIDENT">Injury or accident</option>
-                          <option value="REPRODUCTIVE_PERINATAL">Reproductive or perinatal</option>
-                          <option value="OTHER_REPORTED_CAUSE">Other reported cause</option>
-                          <option value="UNDETERMINED">Undetermined</option>
-                        </select>
+                        <Select value={causeCategory || "UNCLASSIFIED"} onValueChange={value => setCauseCategory(value === "UNCLASSIFIED" ? "" : value)} disabled={isSubmitting}>
+                          <SelectTrigger id="mortality-review-category" className="w-full rounded-lg border-indigo-200 bg-white text-sm text-slate-900">
+                            <SelectValue placeholder="Leave unclassified" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="UNCLASSIFIED">Leave unclassified</SelectItem>
+                            <SelectItem value="SUSPECTED_INFECTIOUS">Suspected infectious</SelectItem>
+                            <SelectItem value="INJURY_ACCIDENT">Injury or accident</SelectItem>
+                            <SelectItem value="REPRODUCTIVE_PERINATAL">Reproductive or perinatal</SelectItem>
+                            <SelectItem value="OTHER_REPORTED_CAUSE">Other reported cause</SelectItem>
+                            <SelectItem value="UNDETERMINED">Undetermined</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <p className="text-xs leading-relaxed text-slate-600">
                           Your chosen category is saved with approval and becomes a staff-confirmed training label.
                           Use Undetermined when the cause cannot be established. This category does not replace the reported cause.
@@ -766,7 +785,7 @@ function DiseaseMortalityReviewDialogContent({
               <Button
                 type="button"
                 onClick={() => handleAction("APPROVED")}
-                disabled={!canMaoReview || isSubmitting}
+                disabled={!canMaoReview || isSubmitting || (isDisease && !fmdAssessment)}
                 className="w-full py-6 bg-[#2D5A27] hover:bg-[#23471f] text-white rounded-2xl font-black uppercase text-xs sm:text-sm tracking-wider shadow-lg hover:shadow-xl transition-all gap-2 cursor-pointer"
               >
                 <ShieldCheck className="size-5 text-emerald-200" />

@@ -494,10 +494,24 @@ def review_disease_case(request, pk):
     user = request.user
     role_name = getattr(getattr(user, "role", None), "role_name", "")
 
+    mao_fmd = request.data.get("fmd_assessment")
+    if role_name in {"MAO", "ADMIN"} and new_status == "APPROVED" and mao_fmd is None:
+        return Response({"fmd_assessment": "Choose suspected FMD or not suspected FMD before approval."}, status=400)
+    if mao_fmd is not None:
+        if role_name not in {"MAO", "ADMIN"}:
+            raise PermissionDenied("Only MAO/Admin can record the final FMD assessment.")
+        if mao_fmd not in {"SUSPECTED", "NOT_SUSPECTED"}:
+            return Response({"fmd_assessment": "Choose SUSPECTED or NOT_SUSPECTED."}, status=400)
+
     if role_name == "FARMER":
         raise PermissionDenied("Farmers are not authorized to review disease cases.")
 
     if role_name in FIELD_REVIEWERS:
+        if inspection_details is not None:
+            inspection_details.pop("maoFmdAssessment", None)
+            previous_fmd = (record.inspection_details or {}).get("maoFmdAssessment")
+            if previous_fmd:
+                inspection_details["maoFmdAssessment"] = previous_fmd
         if new_status == DiseaseCase.DiseaseStatus.APPROVED:
             raise PermissionDenied(
                 "Field reviewers can only verify (status=VERIFIED). Final approval is reserved for MAO."
@@ -583,6 +597,8 @@ def review_disease_case(request, pk):
         )
         current_insp["maoReviewedAt"] = timezone.now().isoformat()
         record.inspection_details = current_insp
+    if mao_fmd is not None:
+        record.inspection_details = {**(record.inspection_details or {}), "maoFmdAssessment": mao_fmd}
     record.reviewed_at = timezone.now()
     record.save()
 

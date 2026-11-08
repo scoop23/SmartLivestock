@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
 Dialog,
 DialogContent,
@@ -178,7 +179,8 @@ function ReportIllnessDialogContent({
         inventory.entryType === "INDIVIDUAL" &&
         inventory.quantity === 1 &&
         ((isEditMode && String(inventory.id) === String(existingReport?.inventoryId)) ||
-        ((inventory.status === "VERIFIED" || inventory.status === "APPROVED") &&
+        (inventory.operationalStatus === "ACTIVE" &&
+        (inventory.status === "VERIFIED" || inventory.status === "APPROVED") &&
         (reportType !== "MORTALITY" ||
           (inventory.status === "APPROVED" && inventory.operationalStatus === "ACTIVE")))),
     ),
@@ -599,7 +601,11 @@ function ReportIllnessDialogContent({
                             onChange={() => toggleAnimal(id)}
                             className="size-4 shrink-0 accent-[#2D5A27]"
                           />
-                          <span className="min-w-0 text-xs font-semibold text-slate-800">
+                          <span className="min-w-0 flex-1 text-xs font-semibold text-slate-800">
+                            <span className="mb-1 flex flex-wrap gap-1">
+                              <Badge variant="outline" className={animal.operationalStatus === "ACTIVE" ? "border-emerald-200 bg-emerald-50 text-[10px] text-emerald-800" : "border-slate-300 bg-slate-100 text-[10px] text-slate-700"}>{(animal.operationalStatus || "UNKNOWN").replaceAll("_", " ")}</Badge>
+                              <Badge variant="outline" className={`text-[10px] ${animal.status === "APPROVED" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : animal.status === "VERIFIED" ? "border-blue-200 bg-blue-50 text-blue-800" : "border-slate-300 bg-slate-100 text-slate-700"}`}>{animal.status === "APPROVED" ? "MAO Approved" : animal.status === "VERIFIED" ? "CBAT Checked" : animal.status.replaceAll("_", " ")}</Badge>
+                            </span>
                             <span className="block break-words">{animal.tagNumber || `Animal #${animal.id}`} · {animal.livestockTypeName || "Livestock"}</span>
                             <span className="block text-[11px] font-normal text-slate-500">{animal.breed || "Breed not recorded"} · {animal.sex || "Sex not recorded"}{animal.batchCode ? ` · Herd ${animal.batchCode}` : " · Individual"}</span>
                           </span>

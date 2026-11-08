@@ -115,6 +115,7 @@ export interface SibatInspectionData {
   confirmedCount: number;
   confirmedSymptoms: string[];
   fmdAssessment?: "SUSPECTED" | "";
+  maoFmdAssessment?: "SUSPECTED" | "NOT_SUSPECTED";
   severity: string;
   biosecurityAction: string;
   remarks: string;
@@ -167,6 +168,7 @@ export interface ValidationIncidentItem {
   symptoms?: string[];
   farmerSymptoms?: string[];
   fmdAssessment?: "SUSPECTED" | "";
+  maoFmdAssessment?: "SUSPECTED" | "NOT_SUSPECTED";
   photoUrl?: string;
   photoName?: string;
   inspectorPhotoUrl?: string;
@@ -402,6 +404,7 @@ export async function fetchAdminIncidentRecords(): Promise<ValidationIncidentIte
         livestockBreed: dc.breed || undefined,
         livestockType: dc.livestock_type_name || "Livestock",
         conditionName: dc.name || "Disease Case",
+        maoFmdAssessment: inspDetails.maoFmdAssessment,
         fmdAssessment: (inspDetails.fmdAssessment as "SUSPECTED" | "") || "",
         symptoms:
           inspDetails.confirmedSymptoms && inspDetails.confirmedSymptoms.length > 0

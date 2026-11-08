@@ -973,12 +973,13 @@ function AdminDataValidationContent() {
     action: "APPROVED" | "SUBJECT_TO_REVISION",
     remarks: string,
     recordId: string,
-    classification?: { cause_category: string; classification_note: string }
+    classification?: { cause_category: string; classification_note: string },
+    fmdAssessment?: "SUSPECTED" | "NOT_SUSPECTED"
   ) => {
     try {
       if (recordId.startsWith("dis-")) {
         const cleanId = recordId.replace("dis-", "");
-        await api.post(`diseases/cases/${cleanId}/review/`, { status: action, remarks });
+        await api.post(`diseases/cases/${cleanId}/review/`, { status: action, remarks, ...(fmdAssessment ? { fmd_assessment: fmdAssessment } : {}) });
       } else if (recordId.startsWith("mor-")) {
         const cleanId = recordId.replace("mor-", "");
         await api.post(`diseases/mortality/${cleanId}/review/`, { status: action, remarks, ...classification });

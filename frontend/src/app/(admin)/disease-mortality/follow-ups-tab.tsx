@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { ValidationIncidentItem } from "../data-validation/validation-analytics";
 
 interface FollowUpEvent { id: number; event_type: string; observed_on: string; notes: string; created_by_name: string; created_by_role: string }
-interface CaseFollowUps { case_id: number; clinical_status: string; can_resolve: boolean; events: FollowUpEvent[] }
+interface CaseFollowUps { case_id: number; clinical_status: string; can_resolve: boolean; can_recover: boolean; events: FollowUpEvent[] }
 interface FollowUpQueueItem extends CaseFollowUps { record: ValidationIncidentItem }
 
 const today = () => {
@@ -159,10 +159,11 @@ export function FollowUpsTab({ records }: { records: ValidationIncidentItem[] })
         <label className="block space-y-1.5 text-xs font-bold text-slate-700">Field findings<Textarea value={notes} maxLength={2000} onChange={event => setNotes(event.target.value)} placeholder="Describe the animal's condition and findings supporting this outcome." className="min-h-28 resize-y bg-white" /><span className="block text-right text-[10px] font-normal text-slate-400">{notes.length}/2000</span></label>
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950"><AlertCircle className="mr-1.5 inline size-3.5" /><strong>Recovered</strong> confirms recovery. <strong>Closed</strong> ends follow-up without declaring recovery.</div>
         {error && <p role="alert" className="rounded-lg bg-rose-50 p-3 text-xs text-rose-800">{error}</p>}
+        {selectedCase && !selectedCase.can_recover && <p className="rounded-xl bg-slate-100 p-3 text-xs text-slate-700">Recovery is unavailable for deceased livestock. You can close this case with findings; its disease and review history will remain available.</p>}
         <DialogFooter className="gap-2 sm:justify-between">
           <Button variant="ghost" disabled={saving} onClick={closeOutcome} className="rounded-xl">Cancel</Button>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button disabled={saving || !selectedCase || !date || !notes.trim()} onClick={() => selectedCase && resolve(selectedCase.case_id, "RECOVERED")} className="rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800"><HeartPulse className="mr-2 size-4" />Mark recovered</Button>
+            <Button disabled={saving || !selectedCase?.can_recover || !date || !notes.trim()} onClick={() => selectedCase && resolve(selectedCase.case_id, "RECOVERED")} className="rounded-xl bg-emerald-700 font-bold hover:bg-emerald-800"><HeartPulse className="mr-2 size-4" />Mark recovered</Button>
             <Button variant="outline" disabled={saving || !selectedCase || !date || !notes.trim()} onClick={() => selectedCase && resolve(selectedCase.case_id, "CLOSED")} className="rounded-xl border-slate-300 font-bold"><CheckCircle2 className="mr-2 size-4" />Close case</Button>
           </div>
         </DialogFooter>

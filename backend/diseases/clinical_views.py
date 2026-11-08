@@ -41,6 +41,16 @@ class FollowUpSerializer(serializers.ModelSerializer):
         return event.created_by.get_full_name().strip() or event.created_by.username
 
 
+def _can_recover(case):
+    if case.livestock_id:
+        return case.livestock.operational_status != "DECEASED"
+    if case.batch_id:
+        animals = case.batch.animals.all()
+        return not (animals.filter(operational_status="DECEASED").exists()
+                    and not animals.exclude(operational_status="DECEASED").exists())
+    return False
+
+
 def _case_payload(case, user):
     available = case.status == DiseaseCase.DiseaseStatus.APPROVED and case.clinical_status not in {
         DiseaseCase.ClinicalStatus.RECOVERED, DiseaseCase.ClinicalStatus.CLOSED,
@@ -52,6 +62,7 @@ def _case_payload(case, user):
         "clinical_status": case.clinical_status,
         "can_submit_update": available and role_name(user) == "FARMER",
         "can_resolve": available and role_name(user) in {"CBAT", "MAO", "ADMIN"},
+        "can_recover": available and role_name(user) in {"CBAT", "MAO", "ADMIN"} and _can_recover(case),
         "events": FollowUpSerializer(case.follow_ups.select_related("created_by__role"), many=True).data,
     }
 
@@ -85,6 +96,9 @@ def disease_case_follow_ups(request, pk):
         return Response({"detail": "Follow-up and resolution are available after MAO approval."}, status=409)
     if case.clinical_status in {DiseaseCase.ClinicalStatus.RECOVERED, DiseaseCase.ClinicalStatus.CLOSED}:
         return Response({"detail": "This case already has an official resolution. Submit a new report for a new concern."}, status=409)
+
+    if event_type == DiseaseCaseFollowUp.EventType.RECOVERED and not _can_recover(case):
+        return Response({"detail": "Deceased livestock cannot be marked recovered. Historical disease evidence remains available; close the case with findings instead."}, status=409)
 
     # A farmer observation never changes official resolution or review approval.
     event = DiseaseCaseFollowUp.objects.create(case=case, created_by=request.user, **serializer.validated_data)
