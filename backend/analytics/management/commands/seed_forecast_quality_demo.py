@@ -19,12 +19,14 @@ from random import Random
 
 from django.core.management.base import BaseCommand, CommandError
 from django.core.management import call_command
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 
 from analytics.seed_markers import (
     SEED_MARKER_CATTLE_PRICE_DEMO,
+    SEED_MARKER_FORECAST_POPULATION_IDEAL,
+    SEED_MARKER_FORECAST_POPULATION_POOR,
     SEED_MARKER_FORECAST_QUALITY_IDEAL,
     SEED_MARKER_FORECAST_QUALITY_POOR,
     SEED_MARKER_PRODUCTION_V2,
@@ -143,6 +145,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--scenario", choices=("ideal", "poor"), required=True)
         parser.add_argument("--clean", action="store_true", help="Remove only the selected scenario's owned records.")
+        parser.add_argument("--dry-run", action="store_true", help="Preview cleanup counts without changing records; requires --clean.")
         parser.add_argument("--prices-only", action="store_true", help="Ideal only: create a focused 104-week cattle-profile demo for Registered and External prices, instead of the full market/production scenario.")
         parser.add_argument("--farmer-email", action="append", help="Use this Farmer account as a scenario owner; repeat for multiple demo farmers.")
         parser.add_argument("--farmer-count", type=int, help="Ideal only: optionally limit the number of active, approved farmers (default: all).")
@@ -151,6 +154,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         scenario = options["scenario"]
+        if options["dry_run"] and not options["clean"]:
+            raise CommandError("--dry-run currently previews cleanup only; also pass --clean.")
         if options["farmer_count"] is not None and options["farmer_count"] < 1:
             raise CommandError("--farmer-count must be at least 1.")
         if options["prices_only"] and scenario != "ideal":
@@ -162,10 +167,10 @@ class Command(BaseCommand):
         )
         if options["prices_only"]:
             marker = SEED_MARKER_CATTLE_PRICE_DEMO
-        assert_safe_seed_database(clean=options["clean"])
+        assert_safe_seed_database(clean=options["clean"], dry_run=options["dry_run"])
 
         if options["clean"]:
-            self._clean(marker)
+            self._clean(marker, dry_run=options["dry_run"])
             return
 
         other_marker = (
@@ -263,6 +268,14 @@ class Command(BaseCommand):
                 created = self._seed_poor(marker, mao_user, sellers, cattle_type, auction_user)
             if scenario == "ideal":
                 call_command("seed_forecast_movement_demo", stdout=self.stdout)
+            if not options["prices_only"]:
+                call_command(
+                    "seed_forecast_population_demo",
+                    scenario=scenario,
+                    farmer_email=[seller.user.email for seller in sellers],
+                    mao_email=mao_user.email,
+                    stdout=self.stdout,
+                )
         self.stdout.write(self.style.SUCCESS(
             f"Seeded the synthetic '{scenario}' forecast-quality scenario: "
             f"{created['milk']} milk session rows, {created['farmer_meat']} farmer meat events, "
@@ -302,33 +315,63 @@ class Command(BaseCommand):
                 return True
         return False
 
-    def _clean(self, marker):
+    def _clean(self, marker, *, dry_run=False):
         markers = [marker]
         if marker in (SEED_MARKER_FORECAST_QUALITY_IDEAL, SEED_MARKER_CATTLE_PRICE_DEMO):
             markers = [SEED_MARKER_FORECAST_QUALITY_IDEAL, SEED_MARKER_CATTLE_PRICE_DEMO]
-        totals = {"production": 0, "slaughter": 0, "transfers": 0, "synthetic_animals": 0}
+        database = connection.settings_dict
+        self.stdout.write(
+            f"Cleanup target: database={database['NAME']}; "
+            f"host={database.get('HOST') or 'local PostgreSQL socket'}; "
+            f"port={database.get('PORT') or 'default'}."
+        )
+        production_filter, review_filter, animal_filter = Q(), Q(), Q()
+        for owned_marker in markers:
+            production_filter |= Q(notes__contains=owned_marker)
+            review_filter |= Q(review_remarks__contains=owned_marker)
+            animal_filter |= Q(tag_number__startswith=f"{owned_marker}-") | Q(review_remarks__contains=owned_marker)
         with transaction.atomic():
-            if SEED_MARKER_FORECAST_QUALITY_IDEAL in markers:
+            # Preview every owned group first. A zero-match clean must not reset
+            # population tracking dates or change other bookkeeping records.
+            groups = {
+                "production": ProductionRecord.objects.filter(production_filter),
+                "slaughter": SlaughterRecord.objects.filter(review_filter),
+                "transfers": LivestockOwnershipTransfer.objects.filter(review_filter),
+                "synthetic_animals": LivestockInventory.objects.filter(animal_filter),
+            }
+            totals = {name: rows.count() for name, rows in groups.items()}
+            clean_movements = SEED_MARKER_FORECAST_QUALITY_IDEAL in markers
+            clean_population = marker != SEED_MARKER_CATTLE_PRICE_DEMO
+            if clean_movements:
                 from .seed_forecast_movement_demo import clean_owned_movements
-                totals["movement_inspections"] = clean_owned_movements()
-            for m in markers:
-                milk_meat = ProductionRecord.objects.filter(notes__contains=m)
-                slaughter = SlaughterRecord.objects.filter(review_remarks__contains=m)
-                sales = LivestockOwnershipTransfer.objects.filter(review_remarks__contains=m)
-                animals = LivestockInventory.objects.filter(
-                    Q(tag_number__startswith=f"{m}-") | Q(review_remarks__contains=m)
+                totals["movement_inspections"] = clean_owned_movements(dry_run=True)
+            if clean_population:
+                from .seed_forecast_population_demo import clean_owned_population
+                pop_marker = (
+                    SEED_MARKER_FORECAST_POPULATION_IDEAL
+                    if marker == SEED_MARKER_FORECAST_QUALITY_IDEAL
+                    else SEED_MARKER_FORECAST_POPULATION_POOR
                 )
-                totals["production"] += milk_meat.count()
-                totals["slaughter"] += slaughter.count()
-                totals["transfers"] += sales.count()
-                totals["synthetic_animals"] += animals.count()
-                milk_meat.delete()
-                slaughter.delete()
-                sales.delete()
-                animals.delete()
+                totals.update(clean_owned_population(marker=pop_marker, dry_run=True))
+            if not dry_run and any(totals.values()):
+                if clean_movements:
+                    clean_owned_movements()
+                if clean_population and (totals["population_animals"] or totals["population_changes"]):
+                    clean_owned_population(marker=pop_marker)
+                for rows in groups.values():
+                    rows.delete()
+        if not any(totals.values()):
+            self.stdout.write(self.style.WARNING(
+                f"No matching forecast demo rows found for {', '.join(markers)}. "
+                "Nothing was deleted or changed. The selected database may never have contained "
+                "this scenario, it may already be clean, or the remaining rows may belong to another seed command. "
+                "Check SMARTLIVESTOCK_ENV_FILE and the database used by your running backend."
+            ))
+            return
+        action = "Would remove" if dry_run else "Removed"
         self.stdout.write(self.style.SUCCESS(
-            f"Removed only forecast demo rows owned by {', '.join(markers)}: {totals}. "
-            "The reused Farmer, their account, and unrelated livestock or transfer records were not deleted."
+            f"{action} only forecast demo rows owned by {', '.join(markers)}: {totals}. "
+            "The reused Farmer, their account, and unrelated livestock or transfer records are preserved."
         ))
 
     @staticmethod

@@ -52,9 +52,13 @@ SEED_NOTES = {
     ),
     "seed_forecast_quality_demo": (
         "Forecast quality comparison",
-        "Select one isolated ideal or poor synthetic scenario for milk, meat, slaughter, and auction forecasts. "
+        "Select one isolated ideal or poor synthetic scenario for milk, meat, slaughter, auction, and registered population balance forecasts. "
         "The ideal auction series has 104 weeks averaging 2,500 synthetic external head-transfer rows per week, calibrated to the published 2022 species mix. "
         "The scenarios share analytics APIs; clean the current scenario before switching.",
+    ),
+    "seed_forecast_population_demo": (
+        "Active registered livestock population forecast",
+        "Seeds or cleans synthetic monthly registered livestock population balance history (registrations, births, sales, deaths, and removals) and PopulationTracking start date for the predictive analytics population forecast panel.",
     ),
     "seed_surveillance_demo": (
         "Disease and mortality alert walkthrough",
