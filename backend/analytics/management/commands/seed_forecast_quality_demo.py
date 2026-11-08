@@ -13,6 +13,7 @@ the dashboard can demonstrate cutoff-based backtesting.
 
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from hashlib import sha256
 from math import sin, pi
 from random import Random
 
@@ -52,6 +53,27 @@ SYNTHETIC_MARKET_ORIGINS = (
     ("Naga City", "Camarines Sur", "Bicol Region"),
     ("Quezon City", "Metro Manila", "NCR"),
 )
+
+
+def sample_sale_labels(key, day, species_code="CAT", owner_type="EXTERNAL_INDIVIDUAL"):
+    """Fictional display labels; seed provenance stays in internal remarks."""
+    value = int(sha256(key.encode()).hexdigest()[:12], 16)
+    first_names = ("Ramon", "Ernesto", "Roberto", "Danilo", "Eduardo", "Manuel", "Ricardo", "Antonio")
+    last_names = ("Mendoza", "Villanueva", "Ramos", "Castillo", "Reyes", "Garcia", "Torres", "Navarro")
+    seller = f"{first_names[value % 8]} {last_names[(value // 8) % 8]}"
+    buyer = f"{first_names[(value // 64) % 8]} {last_names[(value // 512) % 8]}"
+    if owner_type == LivestockOwnershipTransfer.OwnerType.COMPANY:
+        buyer = f"{last_names[(value // 512) % 8]} Livestock Trading"
+    elif owner_type == LivestockOwnershipTransfer.OwnerType.TRADER:
+        buyer += " Livestock Trading"
+    reference = sha256(key.encode()).hexdigest()[:10].upper()
+    return {
+        "external_seller_name": seller,
+        "external_owner_name": buyer,
+        "external_livestock_tag_number": f"{species_code}-{reference[:8]}",
+        "transfer_certificate_number": f"PG-COT-{day.year}-{reference}",
+        "original_certificate_number": f"COLC-{day.year}-{reference}",
+    }
 
 
 def weekly_counts_with_average(rng, average_heads, week_count):
@@ -122,11 +144,14 @@ class Command(BaseCommand):
         parser.add_argument("--clean", action="store_true", help="Remove only the selected scenario's owned records.")
         parser.add_argument("--prices-only", action="store_true", help="Ideal only: create a focused 104-week cattle-profile demo for Registered and External prices, instead of the full market/production scenario.")
         parser.add_argument("--farmer-email", action="append", help="Use this Farmer account as a scenario owner; repeat for multiple demo farmers.")
+        parser.add_argument("--farmer-count", type=int, help="Ideal only: optionally limit the number of active, approved farmers (default: all).")
         parser.add_argument("--mao-email", help="Use this active, approved MAO account as reviewer.")
         parser.add_argument("--auction-email", help="Use this active, approved Auction account to create transfer events.")
 
     def handle(self, *args, **options):
         scenario = options["scenario"]
+        if options["farmer_count"] is not None and options["farmer_count"] < 1:
+            raise CommandError("--farmer-count must be at least 1.")
         if options["prices_only"] and scenario != "ideal":
             raise CommandError("--prices-only is an ideal cattle-price demonstration; use --scenario ideal.")
         marker = (
@@ -197,11 +222,21 @@ class Command(BaseCommand):
             missing_emails = [email for email in farmer_emails if email.lower() not in found_emails]
             if missing_emails:
                 raise CommandError(f"No Farmer profile exists for: {', '.join(missing_emails)}")
+        elif scenario == "ideal":
+            eligible = list(farmer_queryset.filter(
+                user__is_active=True, user__account_status=User.AccountStatus.APPROVED,
+            ).order_by("pk"))
+            count = min(options["farmer_count"], len(eligible)) if options["farmer_count"] is not None else len(eligible)
+            sellers = Random(20261108).sample(eligible, count)
         else:
             seller = farmer_queryset.first()
             sellers = [seller] if seller else []
         if not sellers:
             raise CommandError("At least one Farmer record is required for synthetic farm-production and meat events.")
+        self.stdout.write("Scenario farmers: " + "; ".join(
+            f"{seller.user.get_full_name().strip() or seller.user.username} (farmer #{seller.pk})"
+            for seller in sellers
+        ))
 
         # Warn rather than silently overwrite or remove unrelated source rows.
         existing_counts = {
@@ -383,13 +418,14 @@ class Command(BaseCommand):
             )
             animal._demo_created_at = aware_at(day, 7)
             animal_rows.append(animal)
+            labels = sample_sale_labels(f"{marker}:registered:{serial}", day)
             transfer = LivestockOwnershipTransfer(
                 livestock=animal, previous_owner=seller,
                 owner_type=LivestockOwnershipTransfer.OwnerType.EXTERNAL_INDIVIDUAL,
-                external_owner_name=f"Synthetic buyer {serial}",
-                external_owner_address="Demonstration data only",
-                transfer_certificate_number=f"DEMO-{serial:08d}",
-                original_certificate_number=f"ORIGINAL-DEMO-{serial:08d}",
+                external_owner_name=labels["external_owner_name"],
+                external_owner_address="Padre Garcia, Batangas",
+                transfer_certificate_number=labels["transfer_certificate_number"],
+                original_certificate_number=labels["original_certificate_number"],
                 transfer_date=day, municipality="Padre Garcia", province="Batangas",
                 animal_description=f"Synthetic {cattle_type.name} transfer; {note}"[:500],
                 breed_at_transfer=profile["breed"],
@@ -416,19 +452,11 @@ class Command(BaseCommand):
         seller_city, seller_province, seller_region = seller_origin
         buyer_city, buyer_province, _ = buyer_origin
         self._demo_market_lot_serial += 1
-        seller_number = (self._demo_market_lot_serial % 24) + 1
         owner_type = rng.choice((
             LivestockOwnershipTransfer.OwnerType.EXTERNAL_INDIVIDUAL,
             LivestockOwnershipTransfer.OwnerType.COMPANY,
             LivestockOwnershipTransfer.OwnerType.TRADER,
         ))
-        if owner_type == LivestockOwnershipTransfer.OwnerType.COMPANY:
-            buyer_name = f"Synthetic Livestock Trading Co. {seller_number:02d}"
-        elif owner_type == LivestockOwnershipTransfer.OwnerType.TRADER:
-            buyer_name = f"Synthetic Market Trader {seller_number:02d}"
-        else:
-            buyer_name = f"Synthetic Livestock Buyer {seller_number:02d}"
-
         for index in range(heads):
             self._demo_market_animal_serial += 1
             serial = self._demo_market_animal_serial
@@ -436,21 +464,22 @@ class Command(BaseCommand):
             price = profile["purchase_price"] if profile and include_price else None
             if not profile and include_price and species["price_range"]:
                 price = Decimal(rng.randrange(*species["price_range"], 500))
+            labels = sample_sale_labels(f"{marker}:external:{serial}", day, species["code"], owner_type)
             transfer = LivestockOwnershipTransfer(
                 livestock=None,
                 previous_owner=None,
-                external_seller_name=f"Synthetic {seller_region} Trader {seller_number:02d}",
-                external_seller_address=f"Synthetic seller address, {seller_city}, {seller_province}",
+                external_seller_name=labels["external_seller_name"],
+                external_seller_address=f"{seller_city}, {seller_province}",
                 external_livestock_type=species["label"],
-                external_livestock_tag_number=f"DEMO-{species['code']}-{serial:07d}",
+                external_livestock_tag_number=labels["external_livestock_tag_number"],
                 origin_municipality=seller_city,
                 origin_province=seller_province,
                 owner_type=owner_type,
                 new_owner=None,
-                external_owner_name=buyer_name,
-                external_owner_address=f"Synthetic buyer address, {buyer_city}, {buyer_province}",
-                transfer_certificate_number=certificate_number,
-                original_certificate_number=f"ORIG-{certificate_number}",
+                external_owner_name=labels["external_owner_name"],
+                external_owner_address=f"{buyer_city}, {buyer_province}",
+                transfer_certificate_number=labels["transfer_certificate_number"],
+                original_certificate_number=labels["original_certificate_number"],
                 transfer_date=day,
                 municipality="Padre Garcia",
                 province="Batangas",
@@ -567,7 +596,7 @@ class Command(BaseCommand):
                 }
                 registered_animals, registered = self._sale_row(
                     marker=marker, user=auction_user, reviewer=user,
-                    seller=sellers[(week_index + breed_index + reg_idx) % len(sellers)],
+                    seller=sellers[self._demo_animal_serial % len(sellers)],
                     cattle_type=cattle_type, day=day, heads=1, price=None,
                     price_from_traits=True, profiles=[profile],
                     status=LivestockOwnershipTransfer.Status.APPROVED,

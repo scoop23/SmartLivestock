@@ -62,6 +62,12 @@ is unavailable and explains the unmet readiness condition.
 
 The `seed_forecast_quality_demo` command sets up the ideal scenario in one command:
 
+By default, the ideal scenario includes all existing active, approved farmers
+in a repeatably shuffled order and prints their names before creating data.
+Use `--farmer-count 10` to limit the pool, or repeat `--farmer-email` to choose
+the owners yourself. Each selected farmer receives synthetic farm history;
+registered cattle sales rotate evenly across owners (at most one sale apart).
+
 ```powershell
 # Run from backend, against the intended local development database.
 $env:SMARTLIVESTOCK_ENV_FILE = '.env.local'
