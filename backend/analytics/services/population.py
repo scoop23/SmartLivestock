@@ -1,15 +1,28 @@
 """Canonical current population. Herds and census are never extra heads."""
 from django.db.models import Count, F, IntegerField, Q, Sum, Value, Case, When
+from django.db.models.functions import Coalesce, TruncDate
 from django.utils import timezone
 
 from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory
 from smartlivestock.workflows import scope_reviewer_queryset
 
 
-def official_inventory(user=None):
-    return scope_reviewer_queryset(LivestockInventory.objects.all(), user).filter(
+def official_inventory(user=None, as_of_date=None):
+    qs = scope_reviewer_queryset(LivestockInventory.objects.all(), user).filter(
         entry_type=LivestockInventory.EntryType.INDIVIDUAL,
-        status="APPROVED", operational_status="ACTIVE", quantity__gt=0)
+        status="APPROVED", quantity__gt=0)
+    if as_of_date:
+        return (
+            qs.annotate(
+                effective_approval_date=TruncDate(Coalesce("reviewed_at", "created_at"))
+            )
+            .filter(effective_approval_date__lte=as_of_date)
+            .filter(
+                Q(operational_status=LivestockInventory.OperationalStatus.ACTIVE)
+                | Q(operational_status_changed_at__date__gt=as_of_date)
+            )
+        )
+    return qs.filter(operational_status="ACTIVE")
 
 
 def population_summary(*, user=None, today=None):

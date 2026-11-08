@@ -1,5 +1,6 @@
 'use client';
 
+import { FarmerPageTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { useClientReady } from "@/hooks/use-browser-state";
@@ -39,7 +40,7 @@ import { useClientReady } from "@/hooks/use-browser-state";
 import { useIsMobile } from '@/components/ui/use-mobile';
 import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ChevronDown, ChevronUp, Info, Loader2, Radio, ShieldAlert, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, Loader2, Pause, Play, Radio, ShieldAlert, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
@@ -260,6 +261,48 @@ export function RoleAwareGISContainer({
   const [movementDateIndex, setMovementDateIndex] = useState<number>(0);
   const [movementTimelineMode, setMovementTimelineMode] = useState<'single' | 'cumulative' | 'all'>('single');
   const [selectedMovementYear, setSelectedMovementYear] = useState<string>('ALL');
+
+  // Historical date scrubber state (Cattle Inventory, Mortality, Disease Surveillance)
+  const [showHistoricalTimeline, setShowHistoricalTimeline] = useState<boolean>(true);
+  const [isHistoricalPlaying, setIsHistoricalPlaying] = useState<boolean>(false);
+  const historicalDayRef = useRef(reportTimelineDay);
+  historicalDayRef.current = reportTimelineDay;
+
+  useEffect(() => {
+    if (!isHistoricalPlaying) return;
+
+    const timer = setInterval(() => {
+      const current = historicalDayRef.current;
+      if (current >= 365) {
+        setIsHistoricalPlaying(false);
+      } else {
+        const next = Math.min(365, current + 30);
+        setReportTimelineDay(next);
+        if (next >= 365) {
+          setIsHistoricalPlaying(false);
+        }
+      }
+    }, 1200);
+
+    return () => clearInterval(timer);
+  }, [isHistoricalPlaying]);
+
+  useEffect(() => {
+    if (!showHistoricalTimeline) {
+      setIsHistoricalPlaying(false);
+    }
+  }, [showHistoricalTimeline]);
+
+  const handleToggleHistoricalPlay = useCallback(() => {
+    if (isHistoricalPlaying) {
+      setIsHistoricalPlaying(false);
+    } else {
+      if (reportTimelineDay >= 365) {
+        setReportTimelineDay(0);
+      }
+      setIsHistoricalPlaying(true);
+    }
+  }, [isHistoricalPlaying, reportTimelineDay]);
 
   // Baseline on the current month, then show 12 months of scenario projections.
   const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(0);
@@ -571,6 +614,12 @@ export function RoleAwareGISContainer({
           </button>
         </div>
       )}
+      {isFarmer && (
+        <div className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-4 z-[900]">
+          <FarmerPageTutorial guide="map" ready={!telemetry.isPending && !telemetry.isError && !showInitialLoadingScreen}
+            className="min-h-11 gap-1.5 rounded-xl border-slate-200 bg-white text-emerald-900 shadow-lg hover:bg-emerald-50" />
+        </div>
+      )}
       {/* 0. Mobile Back Button Header */}
       <button
         type="button"
@@ -585,15 +634,185 @@ export function RoleAwareGISContainer({
 
       {/* 1. Full Viewport Interactive GIS Map Container */}
       <div className="relative w-full h-full flex-1 min-h-0 overflow-hidden">
-        {activeLayer === 'disease' && diseaseSubMode === 'surveillance' && (
-          <div className="absolute bottom-24 sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] w-[calc(100%-2rem)] max-w-md rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
+        {/* Historical Scrubber Timeline for Livestock Inventory, Mortality, and Disease Surveillance */}
+        {showHistoricalTimeline && (
+          activeLayer === 'cattle' ||
+          activeLayer === 'mortality' ||
+          (activeLayer === 'disease' && diseaseSubMode === 'surveillance')
+        ) && (
+          <div className="absolute bottom-24 sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-slate-200 bg-white/95 p-3 sm:p-3.5 shadow-xl backdrop-blur flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-800">
-              <label htmlFor="report-alert-timeline">Report alerts through {reportTimelineDates[reportTimelineDay]}</label>
-              <button type="button" onClick={() => setReportTimelineDay(365)} className="rounded-md bg-emerald-100 px-2 py-1 text-emerald-800">Latest</button>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className={`size-2 rounded-full shrink-0 ${isHistoricalPlaying ? 'bg-amber-500 animate-ping' : 'bg-emerald-600'}`} />
+                <label htmlFor="report-alert-timeline" className="truncate font-black text-slate-900">
+                  {activeLayer === 'cattle'
+                    ? `Livestock inventory as of ${reportTimelineDates[reportTimelineDay]}`
+                    : activeLayer === 'mortality'
+                    ? `Recorded mortalities through ${reportTimelineDates[reportTimelineDay]}`
+                    : `Report alerts through ${reportTimelineDates[reportTimelineDay]}`}
+                </label>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowHistoricalTimeline(false)}
+                  className="rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 transition-colors cursor-pointer"
+                  title="Hide timeline scrubber"
+                  aria-label="Hide timeline scrubber"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
             </div>
-            <input id="report-alert-timeline" type="range" min={0} max={365} value={reportTimelineDay} onChange={(event) => setReportTimelineDay(Number(event.target.value))} className="mt-2 w-full accent-emerald-600" aria-valuetext={reportAsOf} />
-            <div className="flex justify-between text-[10px] text-slate-500"><span>{reportTimelineDates[0]}</span><span>{reportTimelineDates[365]}</span></div>
-            <p className="mt-1 text-[10px] text-slate-500">90-day report window. Current approval and case outcomes apply; other map layers remain current.{isLoading ? ' Updating…' : ''}</p>
+
+            <div>
+              <input
+                id="report-alert-timeline"
+                type="range"
+                min={0}
+                max={365}
+                value={reportTimelineDay}
+                onChange={(event) => {
+                  if (isHistoricalPlaying) setIsHistoricalPlaying(false);
+                  setReportTimelineDay(Number(event.target.value));
+                }}
+                className="w-full accent-emerald-600 cursor-pointer"
+                aria-valuetext={reportAsOf}
+              />
+              <div className="flex justify-between items-center text-[10px] text-slate-500 mt-0.5">
+                <span>{reportTimelineDates[0]}</span>
+                <span className="font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 font-mono text-[11px]">
+                  {reportTimelineDates[reportTimelineDay]}
+                </span>
+                <span>{reportTimelineDates[365]}</span>
+              </div>
+            </div>
+
+            {/* Cycling & Step Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-slate-100">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isHistoricalPlaying) setIsHistoricalPlaying(false);
+                    setReportTimelineDay((prev) => Math.max(0, prev - 30));
+                  }}
+                  title="Step backward 30 days"
+                  aria-label="Step backward 30 days"
+                  className="size-7 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleToggleHistoricalPlay}
+                  title={isHistoricalPlaying ? "Pause cycling" : "Cycle through past 12 months"}
+                  aria-label={isHistoricalPlaying ? "Pause timeline cycle" : "Start timeline cycle"}
+                  className={`h-7 px-2.5 rounded-lg border flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
+                    isHistoricalPlaying
+                      ? 'bg-amber-600 text-white border-amber-700 ring-2 ring-amber-300'
+                      : 'bg-emerald-800 text-white border-emerald-900 hover:bg-emerald-900 shadow-xs'
+                  }`}
+                >
+                  {isHistoricalPlaying ? (
+                    <>
+                      <Pause className="size-3 fill-current" />
+                      <span>Pause</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="size-3 fill-current" />
+                      <span>Cycle</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isHistoricalPlaying) setIsHistoricalPlaying(false);
+                    setReportTimelineDay((prev) => Math.min(365, prev + 30));
+                  }}
+                  title="Step forward 30 days"
+                  aria-label="Step forward 30 days"
+                  className="size-7 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <ChevronRight className="size-3.5" />
+                </button>
+              </div>
+
+              {/* Quick Jump Presets */}
+              <div className="flex items-center gap-1 text-[10.5px]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isHistoricalPlaying) setIsHistoricalPlaying(false);
+                    setReportTimelineDay(0);
+                  }}
+                  className={`px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+                    reportTimelineDay === 0
+                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                  title="Jump to 1 year ago"
+                >
+                  1y ago
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isHistoricalPlaying) setIsHistoricalPlaying(false);
+                    setReportTimelineDay(183);
+                  }}
+                  className={`px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+                    reportTimelineDay >= 170 && reportTimelineDay <= 195
+                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                  title="Jump to 6 months ago"
+                >
+                  6m ago
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isHistoricalPlaying) setIsHistoricalPlaying(false);
+                    setReportTimelineDay(275);
+                  }}
+                  className={`px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+                    reportTimelineDay >= 265 && reportTimelineDay <= 285
+                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                  title="Jump to 3 months ago"
+                >
+                  3m ago
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isHistoricalPlaying) setIsHistoricalPlaying(false);
+                    setReportTimelineDay(365);
+                  }}
+                  className={`px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                    reportTimelineDay === 365
+                      ? 'bg-emerald-800 text-white border-emerald-900 font-bold'
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 font-semibold'
+                  }`}
+                  title="Jump to Latest (Today)"
+                >
+                  Latest
+                </button>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-slate-500">
+              {activeLayer === 'cattle'
+                ? 'Historical inventory. Shows approved active livestock on this date.'
+                : activeLayer === 'mortality'
+                ? 'Approved mortality records up to this date. Recent deaths reflect the 90-day window ending on this date.'
+                : '90-day report window. Current approval and case outcomes apply; other map layers remain current.'}
+              {isLoading ? ' Updating…' : ''}
+            </p>
           </div>
         )}
         <GISMap
@@ -693,7 +912,7 @@ export function RoleAwareGISContainer({
           )}
 
         {/* 2. Floating Controls */}
-        <div className="absolute top-[calc(0.75rem+env(safe-area-inset-top,0px))] left-[calc(4rem+env(safe-area-inset-left,0px))] lg:left-4 lg:top-4 z-[850] max-w-[calc(100vw-4.75rem)] lg:max-w-[calc(100vw-1.5rem)]">
+        <div data-tour="farmer-map-controls" className="absolute top-[calc(0.75rem+env(safe-area-inset-top,0px))] left-[calc(4rem+env(safe-area-inset-left,0px))] lg:left-4 lg:top-4 z-[850] max-w-[calc(100vw-4.75rem)] lg:max-w-[calc(100vw-1.5rem)]">
           <GISControls
             currentLayer={activeLayer}
             onLayerChange={(layer) => {
@@ -736,6 +955,9 @@ export function RoleAwareGISContainer({
             onToggleAdjacentOutbreakDots={() => setShowAdjacentOutbreakDots((prev) => !prev)}
             adjacentDiseaseAlertsCount={gisData?.adjacent_disease_alerts?.length ?? 0}
             onOpenForecaster={!isCbat && !isFarmer ? () => setShowForecasterDialog(true) : undefined}
+            showHistoricalTimeline={showHistoricalTimeline}
+            onToggleHistoricalTimeline={() => setShowHistoricalTimeline((prev) => !prev)}
+            reportAsOf={reportAsOf}
           />
           {supportsMovementFocus && activeLayer === 'movement' && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -758,7 +980,7 @@ export function RoleAwareGISContainer({
         </div>
 
         {/* 3. Floating Bottom-Left Dynamic Legend */}
-        <div className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] left-[calc(0.75rem+env(safe-area-inset-left,0px))] sm:bottom-4 sm:left-4 z-[850]">
+        <div data-tour="farmer-map-legend" className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] left-[calc(0.75rem+env(safe-area-inset-left,0px))] sm:bottom-4 sm:left-4 z-[850]">
           <GISLegend
             layer={activeLayer}
             viewMode={viewMode}

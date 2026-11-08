@@ -97,6 +97,9 @@ interface GISControlsProps {
   onToggleAdjacentOutbreakDots?: () => void;
   adjacentDiseaseAlertsCount?: number;
   onOpenForecaster?: () => void;
+  showHistoricalTimeline?: boolean;
+  onToggleHistoricalTimeline?: () => void;
+  reportAsOf?: string;
 }
 
 export function GISControls({
@@ -128,6 +131,9 @@ export function GISControls({
   onToggleAdjacentOutbreakDots,
   adjacentDiseaseAlertsCount = 0,
   onOpenForecaster,
+  showHistoricalTimeline = true,
+  onToggleHistoricalTimeline,
+  reportAsOf,
 }: GISControlsProps) {
   // Collapsible control panel state (collapsed by default for map-first view)
   const [isExpanded, setIsExpanded] = useState<boolean>(defaultExpanded);
@@ -415,6 +421,35 @@ export function GISControls({
               )}
             </button>
           )}
+        </div>
+      )}
+
+      {/* Historical Date Timeline Button for Cattle, Mortality, and Disease Surveillance */}
+      {(currentLayer === 'cattle' || currentLayer === 'mortality' || (currentLayer === 'disease' && diseaseSubMode === 'surveillance')) && onToggleHistoricalTimeline && (
+        <div className="flex flex-wrap items-center gap-2 max-w-fit animate-in fade-in slide-in-from-top-1 duration-150">
+          <button
+            type="button"
+            onClick={onToggleHistoricalTimeline}
+            aria-pressed={showHistoricalTimeline}
+            title={
+              showHistoricalTimeline
+                ? 'Hide timeline scrubber and view latest data'
+                : 'Scrub historical dates to view past records'
+            }
+            className={`min-h-[34px] sm:min-h-[30px] px-3 py-1 rounded-xl border shadow-md flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer pointer-events-auto backdrop-blur-md ${
+              showHistoricalTimeline
+                ? 'bg-emerald-800 text-white border-emerald-900 ring-2 ring-emerald-400/40 shadow-emerald-500/25 font-black'
+                : 'bg-white/95 text-slate-700 border-slate-200/90 hover:bg-emerald-50 hover:text-emerald-900 hover:border-emerald-300'
+            }`}
+          >
+            <Clock className={`size-3.5 ${showHistoricalTimeline ? 'text-white' : 'text-emerald-700'}`} />
+            <span>{showHistoricalTimeline ? 'Hide Timeline' : 'View Timeline'}</span>
+            {reportAsOf && showHistoricalTimeline && (
+              <span className="text-[10.5px] opacity-90 pl-1 border-l border-emerald-600 font-mono">
+                {reportAsOf}
+              </span>
+            )}
+          </button>
         </div>
       )}
 

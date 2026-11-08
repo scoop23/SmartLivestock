@@ -461,9 +461,12 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
             "inspections_count": 0,
         }
 
+    today = report_as_of or timezone.localdate()
+
     # Current territorial population uses the same approved, active animals as
-    # analytics. Sold/deceased/moved-out rows remain available in history.
-    inventory_qs = official_inventory(user)
+    # analytics. When report_as_of is specified, returns the inventory as of that date.
+    # Sold/deceased/moved-out rows remain available in history.
+    inventory_qs = official_inventory(user, as_of_date=today)
     
     species_by_barangay = (
         inventory_qs.values("farmer__barangay_id", "livestock_type__name")
@@ -499,7 +502,7 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
 
     batches_by_b = (
         scope_reviewer_queryset(LivestockBatch.objects.all(), user)
-        .filter(status=LivestockBatch.StatusType.ACTIVE)
+        .filter(status=LivestockBatch.StatusType.ACTIVE, created_at__date__lte=today)
         .values("farmer__barangay_id")
         .annotate(cnt=Count("id"))
     )
@@ -510,7 +513,6 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
 
     # 6. Separate historical totals from approved reports in the last 90 days.
     # Approval is a workflow state, not a clinical diagnosis. These are report alerts for follow-up.
-    today = report_as_of or timezone.localdate()
     recent_reports = Q(
         record_date__gte=today - timedelta(days=90), record_date__lte=today,
         clinical_status__in=[DiseaseCase.ClinicalStatus.OPEN, DiseaseCase.ClinicalStatus.NOT_RECORDED],
@@ -702,7 +704,7 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
     # Farmer -> SIBAT / CBAT field inspection -> MAO official approval.
     # Only APPROVED records are mapped to prevent unvetted declarations from distorting
     # municipal public health statistics.
-    recent_cutoff = timezone.localdate() - timedelta(days=90)
+    recent_cutoff = today - timedelta(days=90)
     mortality_qs = scope_reviewer_queryset(MortalityRecord.objects.all(), user).filter(
         status=MortalityRecord.MortalityRecordStatus.APPROVED,
     )
@@ -710,7 +712,7 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
         b_id=Coalesce("livestock__farmer__barangay_id", "batch__farmer__barangay_id"),
         species_name=Coalesce("livestock__livestock_type__name", "batch__livestock_type__name"),
         effective_date=Coalesce("record_date", TruncDate("created_at")),
-    )
+    ).filter(effective_date__lte=today)
 
     recent_mortality_total = 0
     mortality_species_map: Dict[str, int] = {}
@@ -739,8 +741,8 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
         # Global species count
         mortality_species_map[species] = mortality_species_map.get(species, 0) + deaths
 
-        # Recent deaths (within 90-day surveillance window)
-        if rec_date and rec_date >= recent_cutoff:
+        # Recent deaths (within 90-day surveillance window up to scrubbed date)
+        if rec_date and recent_cutoff <= rec_date <= today:
             b_entry["recent_mortality"] += deaths
             recent_mortality_total += deaths
 
@@ -881,11 +883,17 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
     farmer_stats = None
     if u_role == FARMER and hasattr(user, "farmer_profile") and user.farmer_profile:
         fp = user.farmer_profile
-        my_inv = LivestockInventory.objects.filter(
-            farmer=fp,
-            entry_type=LivestockInventory.EntryType.INDIVIDUAL,
-            status=LivestockInventory.StatusType.APPROVED,
-            operational_status=LivestockInventory.OperationalStatus.ACTIVE,
+        my_inv = (
+            LivestockInventory.objects.filter(
+                farmer=fp,
+                entry_type=LivestockInventory.EntryType.INDIVIDUAL,
+                status=LivestockInventory.StatusType.APPROVED,
+                created_at__date__lte=today,
+            )
+            .filter(
+                Q(operational_status=LivestockInventory.OperationalStatus.ACTIVE)
+                | Q(operational_status_changed_at__date__gt=today)
+            )
         )
         my_cattle = my_inv.filter(livestock_type__name__icontains="cattle").aggregate(s=Sum("quantity"))["s"] or 0
         my_total_livestock = my_inv.aggregate(s=Sum("quantity"))["s"] or 0
