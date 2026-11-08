@@ -24,10 +24,12 @@ import {
   Baby,
   Beef,
   Calendar,
+  Camera,
   Check,
   CheckCircle2,
   ClipboardCheck,
   Egg,
+  ExternalLink,
   FileText,
   Hourglass,
   Icon,
@@ -46,9 +48,11 @@ import {
   Sparkles,
   Sprout,
   Tag,
+  Trash2,
   User,
   Upload,
   X,
+  ZoomIn,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -204,6 +208,22 @@ function SibatReviewDialogContent({
   const inspectionInputRef = useRef<HTMLInputElement>(null);
   const inspectionPhoto = inspectionUpload?.submissionId === submission?.id ? inspectionUpload?.file : null;
   const setInspectionPhoto = (file: File | null) => setInspectionUpload(file && submission ? { submissionId: submission.id, file } : null);
+  const [inspectionPhotoPreview, setInspectionPhotoPreview] = useState<string | null>(null);
+  const [isPhotoLightboxOpen, setIsPhotoLightboxOpen] = useState(false);
+
+  useEffect(() => {
+    if (!inspectionPhoto) {
+      setInspectionPhotoPreview(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(inspectionPhoto);
+    setInspectionPhotoPreview(objectUrl);
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [inspectionPhoto]);
+
+  const activeInspectionPhotoUrl = inspectionPhotoPreview || submission?.inspectionPhotoUrl || null;
   const [isEditing, setIsEditing] = useState(false);
   const [isSuccessAnimated, setIsSuccessAnimated] = useState(false);
 
@@ -398,7 +418,8 @@ function SibatReviewDialogContent({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid-cols-1 bg-white text-slate-900 border border-slate-200/90 shadow-2xl w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] min-w-0 sm:w-full sm:max-w-4xl max-h-[96dvh] sm:max-h-[92vh] overflow-x-hidden overflow-y-auto p-3 sm:p-5 rounded-2xl sm:rounded-3xl gap-3 sm:gap-3.5 break-words [&>*]:min-w-0 [&>*]:max-w-full">
         {/* Validation Success Animation Overlay */}
         {isSuccessAnimated && (
@@ -601,8 +622,10 @@ function SibatReviewDialogContent({
 
         {/* ═══ Main 2-Column Grid ═══ */}
         <div className="grid min-w-0 grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 items-start [&>*]:min-w-0">
-          {/* LEFT COLUMN: Record details */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 flex flex-col justify-between">
+          {/* LEFT COLUMN: Record details & Inspection Photo Preview */}
+          <div className="flex flex-col gap-3 sm:gap-4 min-w-0">
+            {/* Record details */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -843,7 +866,93 @@ function SibatReviewDialogContent({
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Field Verification */}
+          {/* Inspection Photo Preview in the whitespace below Record Details */}
+          {activeInspectionPhotoUrl ? (
+            <div className="rounded-2xl border border-emerald-200/90 bg-white p-3.5 sm:p-4 shadow-2xs space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="size-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200/60">
+                    <Camera className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                        CBAT Inspection Photo
+                      </h4>
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                        {inspectionPhoto ? "Selected" : "Attached"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 truncate">
+                      {inspectionPhoto ? "Field verification photo ready for submission" : "Official inspection evidence"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsPhotoLightboxOpen(true)}
+                    className="h-7 px-2 text-xs text-emerald-800 hover:text-emerald-900 hover:bg-emerald-50 rounded-lg cursor-pointer font-bold"
+                    title="View full size"
+                  >
+                    <ZoomIn className="size-3.5 mr-1" /> View
+                  </Button>
+                  {inspectionPhoto && isPending && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setInspectionPhoto(null);
+                        if (inspectionInputRef.current) {
+                          inspectionInputRef.current.value = "";
+                        }
+                      }}
+                      className="h-7 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer font-bold"
+                      title="Remove selected photo"
+                    >
+                      <Trash2 className="size-3.5 mr-1" /> Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Photo Viewer Container */}
+              <div
+                className="relative w-full aspect-[16/10] sm:aspect-[16/9] max-h-60 overflow-hidden rounded-xl border border-slate-200 bg-slate-950/5 group cursor-pointer"
+                onClick={() => setIsPhotoLightboxOpen(true)}
+                title="Click to view full size"
+              >
+                <img
+                  src={activeInspectionPhotoUrl}
+                  alt="CBAT Inspection photo preview"
+                  className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-bold backdrop-blur-[2px]">
+                  <ZoomIn className="size-4" />
+                  <span>Click to enlarge photo</span>
+                </div>
+              </div>
+
+              {/* File info footer */}
+              <div className="flex items-center justify-between text-[11px] text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100">
+                <span className="truncate font-medium text-slate-700">
+                  {inspectionPhoto ? inspectionPhoto.name : "Inspection photo on record"}
+                </span>
+                {inspectionPhoto && (
+                  <span className="shrink-0 font-mono text-[10px] text-slate-400">
+                    {(inspectionPhoto.size / 1024).toFixed(0)} KB
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* RIGHT COLUMN: Field Verification */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 flex flex-col justify-between">
             <div className="space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-0.5">
@@ -919,7 +1028,38 @@ function SibatReviewDialogContent({
                     <Upload className="size-4 shrink-0" />{inspectionPhoto ? "Change photo" : "Choose photo"}
                   </Button>
                   <p className="text-xs text-slate-600">Attach a field photo showing the animal and its ear tag. This is saved with verification for MAO review.</p>
-                  {inspectionPhoto && <p className="break-all text-xs font-semibold text-emerald-800">Selected: {inspectionPhoto.name}</p>}
+                  {inspectionPhoto && (
+                    <div className="flex items-center justify-between gap-2 bg-white/95 p-2 rounded-xl border border-emerald-200 shadow-2xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {inspectionPhotoPreview && (
+                          <img
+                            src={inspectionPhotoPreview}
+                            alt="Selected thumbnail"
+                            className="size-8 rounded-lg object-cover border border-emerald-200 shrink-0"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-bold text-emerald-900">{inspectionPhoto.name}</p>
+                          <p className="text-[10px] text-emerald-700">Preview displayed below Record Details</p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setInspectionPhoto(null);
+                          if (inspectionInputRef.current) {
+                            inspectionInputRef.current.value = "";
+                          }
+                        }}
+                        className="h-7 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer shrink-0"
+                        title="Remove photo"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
               {/* Remarks Textarea */}
@@ -1385,5 +1525,56 @@ function SibatReviewDialogContent({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Lightbox Modal for Inspection Photo */}
+    <Dialog open={isPhotoLightboxOpen} onOpenChange={setIsPhotoLightboxOpen}>
+      <DialogContent className="max-w-4xl p-0 overflow-hidden bg-slate-950 border-slate-800 text-white">
+        <DialogHeader className="p-4 bg-slate-900 border-b border-slate-800 flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Camera className="size-4 text-emerald-400" />
+            <DialogTitle className="text-sm font-bold text-white">
+              CBAT Field Inspection Photo
+            </DialogTitle>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsPhotoLightboxOpen(false)}
+            className="h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg cursor-pointer"
+          >
+            <X className="size-4" />
+          </Button>
+        </DialogHeader>
+
+        <div className="relative bg-black flex items-center justify-center max-h-[75vh] overflow-hidden p-2 sm:p-4">
+          {activeInspectionPhotoUrl && (
+            <img
+              src={activeInspectionPhotoUrl}
+              alt="Full resolution field inspection photo"
+              className="max-h-[70vh] w-auto max-w-full object-contain rounded-xl shadow-2xl"
+            />
+          )}
+        </div>
+
+        <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+          <span className="truncate max-w-md">
+            {inspectionPhoto ? inspectionPhoto.name : "Inspection photo evidence"}
+          </span>
+          {activeInspectionPhotoUrl && (
+            <a
+              href={activeInspectionPhotoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 cursor-pointer"
+            >
+              <span>Open in new tab</span>
+              <ExternalLink className="size-3" />
+            </a>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  </>
   );
 }

@@ -62,6 +62,7 @@ export interface UnifiedSubmissionItem {
   targetWeight?: number;
   animals?: InventoryApiItem[];
   photoUrl?: string | null;
+  inspectionPhotoUrl?: string | null;
   lastVaccinationDate?: string | null;
   operationalStatus?: string;
   damTag?: string;
@@ -110,6 +111,19 @@ export interface RawInventoryRecord {
   weight?: number | null;
   photo?: string | null;
   photo_url?: string | null;
+  inspection_photo?: string | null;
+  inspection_photo_url?: string | null;
+  inspector_photo_url?: string | null;
+  review_history?: Array<{
+    id: number;
+    reviewer_name?: string;
+    reviewer_role?: string;
+    status?: string;
+    remarks?: string;
+    reviewed_at?: string;
+    is_backfilled?: boolean;
+    inspection_photo?: string | null;
+  }>;
   last_vaccination_date?: string | null;
   operational_status?: string;
   status: UnifiedStatus;
@@ -294,6 +308,14 @@ export const mapInventoryToUnified = (inv: RawInventoryRecord): UnifiedSubmissio
     ageClassification: inv.age_classification ?? "UNKNOWN",
     weight: inv.weight,
     photoUrl: inv.photo_url || inv.photo || null,
+    inspectionPhotoUrl:
+      (Array.isArray(inv.review_history)
+        ? [...inv.review_history].reverse().find((r) => r.inspection_photo)?.inspection_photo
+        : null) ||
+      inv.inspection_photo_url ||
+      inv.inspection_photo ||
+      inv.inspector_photo_url ||
+      null,
     entryType: inv.entry_type,
     batchId: inv.batch ?? null,
     batchCode: inv.batch_code || undefined,
