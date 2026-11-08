@@ -5,6 +5,7 @@ import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -35,6 +36,7 @@ import {
   Icon,
   Layers,
   LayoutGrid,
+  Loader2,
   MapPin,
   RotateCcw,
   Search,
@@ -70,6 +72,129 @@ type RegistryStatusFilter = "ALL" | "PENDING" | "VERIFIED" | "APPROVED" | "SUBJE
 type RegistryTab = "all" | "individual" | "herds" | "calving" | "census";
 
 type RegistryBatchRecord = BatchApiItem;
+
+function RegistryRecordsSkeleton({ viewMode }: { viewMode: "table" | "card" }) {
+  return (
+    <div className="space-y-4 animate-in fade-in duration-300">
+      {/* Loading Banner Card */}
+      <Card className="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50/70 via-teal-50/40 to-slate-50 p-4 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="relative flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-2xs">
+              <Loader2 className="size-4.5 animate-spin" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-black text-slate-900 tracking-tight">
+                  Loading farmer records…
+                </h4>
+                <span className="relative flex size-2">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                  <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">
+                Retrieving individual livestock passports, ear tags, and herd registries...
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 bg-white/80 border border-emerald-200/80 px-3 py-1.5 rounded-xl shadow-2xs self-start sm:self-auto">
+            <Tag className="size-3.5 text-emerald-600" />
+            <span>Synchronizing ledger…</span>
+          </div>
+        </div>
+      </Card>
+
+      {/* View-Specific Skeleton */}
+      {viewMode === "table" ? (
+        <Card className="rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/80">
+                <TableRow className="border-b border-slate-200/80 hover:bg-transparent">
+                  <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 pl-5">
+                    Ear Tag / Herd Tag
+                  </TableHead>
+                  <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5">
+                    Farmer
+                  </TableHead>
+                  <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5">
+                    Record Type
+                  </TableHead>
+                  <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-center">
+                    Date Submitted
+                  </TableHead>
+                  <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-center">
+                    Status
+                  </TableHead>
+                  <TableHead className="font-black text-xs uppercase tracking-wider text-slate-900 py-3.5 text-right pr-5">
+                    Action
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[...Array(6)].map((_, i) => (
+                  <TableRow key={i} className="border-b border-slate-100 hover:bg-transparent">
+                    {/* Ear Tag / Herd Tag */}
+                    <TableCell className="py-4 pl-5">
+                      <Skeleton className="h-4 w-28 rounded-md bg-slate-200" />
+                      <Skeleton className="h-3 w-40 rounded-md bg-slate-100 mt-1.5" />
+                    </TableCell>
+                    {/* Farmer */}
+                    <TableCell className="py-4">
+                      <Skeleton className="h-4 w-32 rounded-md bg-slate-200" />
+                      <Skeleton className="h-3 w-24 rounded-md bg-slate-100 mt-1.5" />
+                    </TableCell>
+                    {/* Record Type */}
+                    <TableCell className="py-4">
+                      <Skeleton className="h-6 w-24 rounded-lg bg-slate-100" />
+                    </TableCell>
+                    {/* Date Submitted */}
+                    <TableCell className="py-4 text-center">
+                      <Skeleton className="h-4 w-20 mx-auto rounded-md bg-slate-100" />
+                    </TableCell>
+                    {/* Status */}
+                    <TableCell className="py-4 text-center">
+                      <Skeleton className="h-6 w-24 mx-auto rounded-full bg-slate-100" />
+                    </TableCell>
+                    {/* Action */}
+                    <TableCell className="py-4 text-right pr-5">
+                      <Skeleton className="h-8 w-28 ml-auto rounded-xl bg-slate-100" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      ) : (
+        /* Cards View Skeleton */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <Skeleton className="h-5 w-24 rounded-lg bg-slate-200" />
+                <Skeleton className="h-5 w-20 rounded-full bg-slate-100" />
+              </div>
+              <div className="space-y-1.5 pt-1">
+                <Skeleton className="h-4 w-3/4 rounded-md bg-slate-200" />
+                <Skeleton className="h-3 w-1/2 rounded-md bg-slate-100" />
+              </div>
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                <Skeleton className="h-4 w-20 rounded-md bg-slate-100" />
+                <Skeleton className="h-4 w-16 rounded-md bg-slate-100" />
+              </div>
+              <Skeleton className="h-10 w-full rounded-xl bg-slate-100 mt-2" />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Livestock Records Registry for SIBAT / CBAT field officers.
@@ -449,7 +574,7 @@ function SibatLivestockRegistryContent() {
 
 
   const isLoading = inventoryQuery.isLoading || (!batchId && batchesQuery.isLoading);
-  const isInitialLoading = isEnteringRegistry || (isLoading && registryRecords.length === 0);
+  const isInitialLoading = isEnteringRegistry || isLoading;
   const keepLoadingScreenMounted = useLoadingScreenTransition(isInitialLoading);
   const failedSources = [
     ...(inventoryQuery.isError ? ["individual livestock"] : []),
@@ -495,7 +620,7 @@ function SibatLivestockRegistryContent() {
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           <ValidationLoadingScreen
             isLoading={isInitialLoading}
-            title="Preparing Livestock Validation"
+            title="Loading Farmer Records"
             subtitle="Synchronizing individual livestock registrations, herd submissions, and barangay records..."
             badgeLabel="Livestock Records Sync"
             authorityText="SIBAT Field Validation · Padre Garcia, Batangas"
@@ -737,10 +862,42 @@ function SibatLivestockRegistryContent() {
           /* ── CENSUS SUBMISSIONS VIEW ── */
           <div ref={censusListRef} className="space-y-6 scroll-mt-6">
             {isLoadingCensus ? (
-              <Card className="p-8 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-3" />
-                <p className="text-xs text-slate-500 font-semibold">Loading quarterly census submissions...</p>
-              </Card>
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <Card className="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50/70 via-teal-50/40 to-slate-50 p-4 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-2xs">
+                      <Loader2 className="size-4.5 animate-spin" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-black text-slate-900 tracking-tight">
+                          Loading Quarterly Census Records…
+                        </h4>
+                        <span className="relative flex size-2">
+                          <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                          <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Retrieving barangay livestock counts, survey batches, and validation statuses...
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-2 flex-1">
+                          <Skeleton className="h-5 w-48 rounded-md bg-slate-200" />
+                          <Skeleton className="h-3.5 w-64 rounded-md bg-slate-100" />
+                        </div>
+                        <Skeleton className="h-9 w-28 rounded-xl bg-slate-100" />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             ) : isCensusError ? (
               <Card className="p-6 text-center bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs shadow-2xs">
                 <p className="font-bold">Failed to load quarterly census submissions.</p>
@@ -964,9 +1121,7 @@ function SibatLivestockRegistryContent() {
 
         {/* Loading State */}
         {isLoading && pageRecords.length === 0 ? (
-          <Card className="p-12 text-center rounded-2xl border border-slate-200 bg-white">
-            <p className="text-sm font-semibold text-slate-500">Loading farmer records…</p>
-          </Card>
+          <RegistryRecordsSkeleton viewMode={viewMode} />
         ) : filteredRecords.length > 0 ? (
           /* Main Records List: Table View or Cards View */
           <div ref={recordsListRef} className="space-y-4">
