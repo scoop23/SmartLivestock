@@ -27,6 +27,7 @@ SUPPORTED_INTENTS = frozenset({
     "population_summary", "production_trend", "production_breakdown",
     "disease_by_barangay", "mortality_comparison", "pending_reviews",
     "farmer_livestock_count", "sales_summary", "mortality_rate", "forecast",
+    "market_price",
 })
 
 PRODUCTION_ALIASES = {
@@ -46,9 +47,9 @@ _MUNICIPAL_PRODUCTION_NOTICE = (
 )
 SUPPORTED_QUESTION_MESSAGE = (
     "I can answer current approved livestock counts, approved disease reports and recorded deaths, "
-    "approved livestock sale totals, recorded-death rate estimates, supported forecasts, current MAO review queues, "
-    "and current livestock counts for a specifically named farmer. I cannot provide private Farmer production records "
-    "or veterinary diagnosis and treatment."
+    "approved livestock sale totals, recorded cattle market prices, recorded-death rate estimates, supported forecasts, "
+    "current MAO review queues, and current livestock counts for a specifically named farmer. "
+    "I cannot provide private Farmer production records or veterinary diagnosis and treatment."
 )
 _BARANGAY_COMPARISON_PHRASES = (
     "by barangay", "per barangay", "across barangays", "across all barangays",
@@ -169,7 +170,7 @@ def _parse_period(text, today, intent):
     ) if standard_rate_window else text
     unsupported_may_date = r"\b(?:in|during|for|this|last|previous)\s+may\b|\bmay\s+(?:\d{1,2}(?:,\s*20\d{2})?|20\d{2})\b"
     if (re.search(unsupported_time, unsupported_time_text) or re.search(unsupported_may_date, text)
-            or (_contains(text, "today") and intent not in ("population_summary", "pending_reviews"))):
+            or (_contains(text, "today") and intent not in ("population_summary", "pending_reviews", "market_price"))):
         return None, "Use a supported calendar month, quarter, year, or an explicit YYYY-MM-DD date range."
 
     range_match = re.search(
@@ -239,6 +240,13 @@ def _parse_period(text, today, intent):
             return None, "The requested year is in the future."
         matches.append((date(year, 1, 1), min(date(year, 12, 31), today), f"year_{year}", f"Calendar year {year}"))
 
+    has_ngayon_alone = (
+        _contains(text, "ngayon")
+        and not any(_contains(text, phrase) for phrase in ("ngayong buwan", "ngayong quarter", "ngayong taon"))
+    ) or _contains(text, "ngayong araw") or _contains(text, "today")
+    if has_ngayon_alone and intent == "market_price":
+        matches.append((today, today, "today", "Today"))
+
     if len(matches) > 1:
         return None, "I found more than one time period. Please ask about one period at a time."
     if matches:
@@ -254,6 +262,8 @@ def _parse_period(text, today, intent):
         return None, "Use a supported calendar month, quarter, year, or an explicit YYYY-MM-DD date range."
     if intent in ("population_summary", "pending_reviews", "mortality_rate", "forecast"):
         return None, None
+    if intent == "market_price":
+        return _date_period(today, today, "Today", "today"), None
     # Activity questions without a period use an explicit, visible default.
     return _date_period(_month_start(today, 11), today, "Last 12 calendar months to date", "default_last_12_months"), None
 
@@ -617,22 +627,45 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         "mortality", "death", "deaths", "died", "namatay", "namamatay",
         "mamatay", "kamatayan", "pagkamatay",
     ))
+    has_livestock_term = (
+        any(_contains(normalized, alias) for aliases in SPECIES_ALIASES.values() for alias in aliases)
+        or any(_contains(normalized, term) for term in ("livestock", "hayop", "animal", "animals"))
+        or any(_contains(normalized, normalize_question(name)) for name in species_names)
+    )
+    has_benta = any(_contains(normalized, phrase) for phrase in (
+        "benta", "binenta", "nabenta", "sales", "sale", "sold", "mabebenta", "maibebenta", "ibebenta",
+    ))
+    asks_market_price_term = any(_contains(normalized, phrase) for phrase in (
+        "market price", "market prices", "presyo", "presyuhan", "presyo ng", "halaga ng baka",
+        "price of cattle", "price of cow", "cattle price", "cow price",
+    )) or (_contains(normalized, "price") and has_livestock_term and not has_benta)
+    asks_magkano_livestock = (
+        any(_contains(normalized, phrase) for phrase in ("magkano", "how much", "how much is"))
+        and has_livestock_term
+        and not has_benta
+    )
+    is_market_price = asks_market_price_term or asks_magkano_livestock
+
     signals = {
         "pending_reviews": any(_contains(normalized, phrase) for phrase in (
             "pending", "waiting", "awaiting", "review", "approval", "for mao", "ma approve", "hindi pa approved",
             "naghihintay", "nakapila", "nasa pila", "pag-apruba", "apruba", "pagsusuri",
         )),
-            "disease_by_barangay": any(_contains(normalized, phrase) for phrase in (
+        "disease_by_barangay": any(_contains(normalized, phrase) for phrase in (
             "disease", "diseases", "desease", "disese", "outbreak", "illness", "illnesses", "sickness", "sakit", "may sakit", "karamdaman", "nagkasakit",
         )),
         "mortality_rate": mentions_mortality and asks_rate,
         "mortality_comparison": mentions_mortality and not asks_rate,
-        "sales": any(_contains(normalized, phrase) for phrase in (
-            "sale", "sales", "sold", "livestock sale", "benta", "binenta", "nabenta", "magkano",
-            "mabebenta", "maibebenta", "ibebenta",
-        )),
+        "market_price": is_market_price,
+        "sales": (
+            any(_contains(normalized, phrase) for phrase in (
+                "sale", "sales", "sold", "livestock sale", "benta", "binenta", "nabenta",
+                "mabebenta", "maibebenta", "ibebenta",
+            ))
+            or (_contains(normalized, "magkano") and not is_market_price)
+        ),
         "forecast": asks_forecast,
-            "production": any(_contains(normalized, phrase) for phrase in (
+        "production": any(_contains(normalized, phrase) for phrase in (
             "production", "prodution", "produccion", "produksyon", "yield", "output", "milk", "dairy", "gatas", "egg", "eggs", "itlog", "wool", "meat", "karne",
         )),
         "population_summary": any(_contains(normalized, phrase) for phrase in (
@@ -640,8 +673,11 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         )),
     }
 
-    if not signals["pending_reviews"] and not signals["forecast"] and sum(signals[key] for key in ("disease_by_barangay", "mortality_comparison", "mortality_rate", "production", "sales")) > 1:
-        return {"status": "clarification", "message": "Please ask about one topic at a time: inventory, disease reports, deaths, sale records, or forecasts."}
+    if not signals["pending_reviews"] and not signals["forecast"] and sum(signals[key] for key in ("disease_by_barangay", "mortality_comparison", "mortality_rate", "production", "sales", "market_price")) > 1:
+        if signals["market_price"] and signals["sales"] and has_livestock_term and not has_benta:
+            signals["sales"] = False
+        if sum(signals[key] for key in ("disease_by_barangay", "mortality_comparison", "mortality_rate", "production", "sales", "market_price")) > 1:
+            return {"status": "clarification", "message": "Please ask about one topic at a time: inventory, disease reports, deaths, sale records, market prices, or forecasts."}
     if signals["disease_by_barangay"] and signals["mortality_comparison"]:
         return {"status": "clarification", "message": "Do you want a disease-case comparison or a mortality comparison? Please ask about one metric."}
     if asks_rate and not signals["mortality_rate"]:
@@ -669,6 +705,8 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
             return {"status": "clarification", "message": horizon_error}
     elif signals["mortality_rate"]:
         intent = "mortality_rate"
+    elif signals["market_price"]:
+        intent = "market_price"
     elif signals["disease_by_barangay"]:
         intent = "disease_by_barangay"
     elif signals["mortality_comparison"]:
@@ -718,6 +756,10 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
         return {"status": "clarification", "message": "The estimate can cover the whole municipality or one named barangay; it cannot compare areas or livestock types."}
     if intent == "sales_summary" and any(_contains(normalized, phrase) for phrase in _BARANGAY_COMPARISON_PHRASES + ("by species", "by livestock type", "per species")):
         return {"status": "clarification", "message": "Sales totals can be filtered to one named barangay or livestock type, but the assistant does not yet compare sales across groups."}
+    if intent == "market_price" and barangay:
+        return {"status": "clarification", "message": "Market prices are recorded from the municipal livestock auction and cannot be filtered to a specific barangay."}
+    if intent == "market_price" and any(_contains(normalized, phrase) for phrase in _BARANGAY_COMPARISON_PHRASES):
+        return {"status": "clarification", "message": "Market prices are municipality-wide auction summaries and cannot be compared across barangays."}
     if len(species) > 1:
         return {"status": "clarification", "message": "Please ask about one livestock type at a time so the result stays clear."}
     if not species:
@@ -811,7 +853,7 @@ def parse_question(question, *, today=None, barangays=(), species_names=()):
             "period": period,
             "barangay_id": barangay.get("id") if barangay else None,
             "barangay": barangay.get("name") if barangay else None,
-            "species": species[0] if species else None,
+            "species": species[0] if species else ("Cattle" if intent == "market_price" else None),
             "production_type": production_type,
             "group_by": group_by,
             "review_domain": review_domain,
@@ -880,6 +922,7 @@ def _period_meta(parameters):
 
 _GROQ_INTERPRETABLE_INTENTS = frozenset({
     "population_summary", "disease_by_barangay", "mortality_comparison",
+    "sales_summary", "market_price", "mortality_rate",
 })
 
 
@@ -891,7 +934,7 @@ def _candidate_preserves_explicit_filters(question, candidate, *, today, baranga
     species, species_error = _resolve_species(normalized, species_names)
     if species_error or len(species) > 1 or _unknown_species_reference(normalized, species_names):
         return False
-    expected_species = species[0] if species else None
+    expected_species = species[0] if species else ("Cattle" if candidate["intent"] == "market_price" else None)
     if parameters["species"] != expected_species:
         return False
 
@@ -925,108 +968,64 @@ def _candidate_preserves_explicit_filters(question, candidate, *, today, baranga
         expected_group = "barangay" if asks_by_barangay else "species" if asks_by_species else None
         if parameters["group_by"] != expected_group:
             return False
-    elif not expected_barangay and not asks_by_barangay:
+    elif candidate["intent"] in {"disease_by_barangay", "mortality_comparison"} and not expected_barangay and not asks_by_barangay:
         # These comparison handlers always group by barangay. Do not let Groq
         # turn a requested municipality-wide total into a barangay comparison.
         return False
+
+    elif candidate["intent"] != "population_summary" and (asks_by_barangay or asks_by_species):
+        if candidate["intent"] not in {"disease_by_barangay", "mortality_comparison"} or asks_by_species:
+            return False
 
     return True
 
 
 def _interpret_with_groq(question, rule_result, *, today, barangays, species_names):
-    """Use Groq only for supported queries or a wholly unrecognized question.
-
-    Model output is reparsed by the deterministic parser. If rules already
-    understood the question, any difference makes the rules win.
-    """
-    rules_understood = rule_result.get("status") == "parsed"
-    if rules_understood and rule_result.get("intent") not in _GROQ_INTERPRETABLE_INTENTS:
+    """Use a constrained spec only when rules did not recognize the intent."""
+    if rule_result.get("status") == "parsed":
         return rule_result, {
             "status": "skipped",
-            "message": "This question uses a private or unsupported query type, so its text was not sent to Groq.",
+            "message": "The rules recognized this question; no question text was sent to Groq.",
         }
-    if not rules_understood and rule_result.get("reason") != "unrecognized_intent":
+    if rule_result.get("reason") != "unrecognized_intent":
         return rule_result, {
             "status": "skipped",
             "message": "The rules detected a specific ambiguity or restriction, so Groq was not used to override it.",
         }
 
     from .nlp_interpretation import interpret_with_groq
-
-    outcome = interpret_with_groq(
-        question,
-        species_names=species_names,
-        barangays=barangays,
-    )
+    outcome = interpret_with_groq(question, species_names=species_names, barangays=barangays)
     if outcome["status"] == "unavailable":
-        if rules_understood:
-            return rule_result, {
-                "status": "rules_fallback",
-                "message": f"{outcome['message']} The validated rules-based result was used.",
-            }
-        return rule_result, {
-            "status": "unavailable",
-            "message": f"{outcome['message']} The rules could not match this question either.",
-        }
+        return rule_result, {"status": "unavailable", "message": outcome["message"]}
     if outcome["status"] in {"clarification", "unsupported"}:
-        if rules_understood:
-            return rule_result, {
-                "status": "rules_fallback",
-                "message": f"{outcome['message']} The validated rules-based result was used.",
-            }
-        rule_result["status"] = outcome["status"]
-        rule_result["message"] = outcome["message"]
-        return rule_result, {
-            "status": outcome["status"],
-            "message": outcome["message"],
-        }
+        return {**rule_result, "status": outcome["status"], "message": outcome["message"]}, outcome
 
     from .nlp_pipeline import interpret_question
-
     candidate = interpret_question(
-        outcome["canonical_question"],
-        today=today,
-        barangays=barangays,
-        species_names=species_names,
+        outcome["canonical_question"], today=today,
+        barangays=barangays, species_names=species_names,
     )
-    candidate_is_valid = (
+    valid = (
         candidate.get("status") == "parsed"
         and candidate.get("intent") == outcome["intent"]
         and candidate.get("intent") in _GROQ_INTERPRETABLE_INTENTS
         and _candidate_preserves_explicit_filters(
-            question,
-            candidate,
-            today=today,
-            barangays=barangays,
-            species_names=species_names,
+            question, candidate, today=today,
+            barangays=barangays, species_names=species_names,
         )
     )
-    if not candidate_is_valid:
-        if rules_understood:
-            return rule_result, {
-                "status": "rules_fallback",
-                "message": "Groq's interpretation did not pass the existing query rules; the rules-based result was used.",
-            }
-        message = (
-            "I could not verify Groq's interpretation against the supported query rules. "
-            "Please clarify the metric, species, barangay, or period you mean."
-        )
-        rule_result["status"] = "clarification"
-        rule_result["message"] = message
-        return rule_result, {"status": "clarification", "message": message}
-
-    if rules_understood and (
-        candidate["intent"] != rule_result["intent"]
-        or candidate["parameters"] != rule_result["parameters"]
-    ):
-        return rule_result, {
-            "status": "rules_fallback",
-            "message": "Groq interpreted a different intent or filter than the rules; the rules-based result was used.",
+    # Store only coarse operational metadata, never question text or entities.
+    logging.getLogger(__name__).info(
+        "NLP constrained fallback intent=%s accepted=%s", outcome["intent"], valid,
+    )
+    if not valid:
+        message = "I could not validate the interpreted metric, species, barangay, grouping or period. Please clarify your question."
+        return {**rule_result, "status": "clarification", "message": message}, {
+            "status": "clarification", "message": message,
         }
-
     return candidate, {
         "status": "used",
-        "message": "Groq proposed this query; SmartLivestock validated it with its existing rules before retrieving data.",
+        "message": "Groq identified a supported intent using a JSON query spec. Django validated its filters and used the existing authorized handler.",
     }
 
 
@@ -1034,6 +1033,7 @@ def _result_response(*, question, parsed, answer, results, visualization, covera
     parameters = parsed["parameters"]
     response = {
         "status": "answered",
+        "source": "dynamic" if parsed.get("ai_interpretation", {}).get("status") == "used" else "rules",
         "question": question,
         "intent": parsed["intent"],
         "answer": answer,
@@ -1507,6 +1507,108 @@ def execute_question(question, *, user, today=None, interpret_with_ai=False):
         response["as_of"] = workload["as_of"]
         response["period"] = None
         return response
+
+    if intent == "market_price":
+        from .farmer_market import market_prices
+
+        target_species = parameters.get("species") or "Cattle"
+        if target_species.lower() != "cattle":
+            response = _result_response(
+                question=question,
+                parsed=parsed,
+                answer=(
+                    f"Market price summaries are currently available for Cattle auction sales only. "
+                    f"SmartLivestock does not currently record market auction prices for {target_species}."
+                ),
+                results=[],
+                visualization={"type": "table", "x_key": "species", "y_key": "status", "columns": [
+                    {"key": "species", "label": "Livestock Type"},
+                    {"key": "status", "label": "Market Price Status"},
+                ]},
+                coverage_note="Market price transparency is currently derived from approved cattle auction sales.",
+            )
+            return response
+
+        data = market_prices()
+        latest = data.get("latest")
+        as_of_date = data.get("as_of", today.isoformat())
+
+        if latest and latest.get("average_price") is not None:
+            avg_price = latest["average_price"]
+            week_start = latest["week_start"]
+            week_end = latest["week_end"]
+            sales_count = latest.get("sales", 0)
+
+            answer_parts = [
+                f"As of {as_of_date}, the latest recorded average market price for Cattle is PHP {avg_price:,.2f} per head "
+                f"(recorded for the week of {week_start} to {week_end} across {sales_count} approved auction sales)."
+            ]
+            if latest.get("price_per_live_kg") is not None:
+                answer_parts.append(
+                    f" Average price per live kg is PHP {latest['price_per_live_kg']:,.2f} "
+                    f"(average live weight: {latest.get('average_live_weight_kg', 0)} kg)."
+                )
+            if data.get("change_from_previous_week") is not None:
+                chg = data["change_from_previous_week"]
+                direction = "up" if chg > 0 else "down" if chg < 0 else "unchanged"
+                if chg != 0:
+                    answer_parts.append(f" This is {direction} by PHP {abs(chg):,.2f} compared to the previous week.")
+
+            answer = "".join(answer_parts)
+
+            published_history = [p for p in data.get("history", []) if p.get("average_price") is not None]
+            recent_weeks = published_history[-5:] if published_history else [latest]
+
+            results = [
+                {
+                    "week": f"{p['week_start']} to {p['week_end']}",
+                    "average_price": p["average_price"],
+                    "sales": p.get("sales"),
+                    "price_per_live_kg": p.get("price_per_live_kg"),
+                    "average_live_weight_kg": p.get("average_live_weight_kg"),
+                }
+                for p in recent_weeks
+            ]
+            columns = [
+                {"key": "week", "label": "Week"},
+                {"key": "average_price", "label": "Avg Price (PHP)"},
+                {"key": "sales", "label": "Sales Count"},
+                {"key": "price_per_live_kg", "label": "Price/kg (PHP)"},
+                {"key": "average_live_weight_kg", "label": "Avg Weight (kg)"},
+            ]
+        else:
+            answer = (
+                f"As of {as_of_date}, no published weekly market price summaries are currently available for Cattle. "
+                f"Weekly summaries require at least {data.get('minimum_sales', 5)} approved sales to be published."
+            )
+            results = []
+            columns = [
+                {"key": "week", "label": "Week"},
+                {"key": "average_price", "label": "Avg Price (PHP)"},
+                {"key": "sales", "label": "Sales Count"},
+            ]
+
+        visualization = {
+            "type": "table",
+            "x_key": "week",
+            "y_key": "average_price",
+            "columns": columns,
+        }
+        coverage_note = data.get("price_basis") or (
+            "Average recorded price per animal from approved cattle sales recorded by Auction personnel. "
+            "These are sale prices, not asking prices."
+        )
+        if data.get("data_notice"):
+            coverage_note += f" {data['data_notice']}"
+
+        return _result_response(
+            question=question,
+            parsed=parsed,
+            answer=answer,
+            results=results,
+            visualization=visualization,
+            coverage_note=coverage_note,
+        )
 
     if intent == "sales_summary":
         rows = _sales_summary(parameters, user)

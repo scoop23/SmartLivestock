@@ -90,6 +90,7 @@ SUGGESTION_QUESTIONS = {
     "mortality_comparison": ("Recorded deaths", "Compare mortality across barangays this quarter."),
     "pending_reviews": ("MAO review queue", "Which submissions are waiting for MAO approval?"),
     "sales_summary": ("Livestock sales summary", "Summarize approved sales from last month."),
+    "market_price": ("Cattle market price", "What is the market price of cattle today?"),
     "mortality_rate": ("Recorded mortality rate", "What is the recorded death rate over the last 30 days?"),
     "forecast": ("Livestock forecast", "Forecast disease reports for the next two months."),
 }

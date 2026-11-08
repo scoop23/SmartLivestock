@@ -199,6 +199,38 @@ class AskSmartLivestockParserTests(TestCase):
             barangays=self.barangays, species_names=self.species,
         )["status"], "unsupported")
 
+    def test_market_price_intent_and_priority_over_sales(self):
+        res1 = parse_question(
+            "magkano ang baka ngayon", today=TODAY,
+            barangays=self.barangays, species_names=self.species,
+        )
+        self.assertEqual(res1["status"], "parsed")
+        self.assertEqual(res1["intent"], "market_price")
+        self.assertEqual(res1["parameters"]["species"], "Cattle")
+        self.assertEqual(res1["parameters"]["period"]["start"], TODAY.isoformat())
+
+        res2 = parse_question(
+            "presyo ng baka ngayon", today=TODAY,
+            barangays=self.barangays, species_names=self.species,
+        )
+        self.assertEqual(res2["status"], "parsed")
+        self.assertEqual(res2["intent"], "market_price")
+
+        res3 = parse_question(
+            "magkano ang baka", today=TODAY,
+            barangays=self.barangays, species_names=self.species,
+        )
+        self.assertEqual(res3["status"], "parsed")
+        self.assertEqual(res3["intent"], "market_price")
+
+        # When "benta" appears with livestock, sales_summary takes priority
+        res4 = parse_question(
+            "Magkano ang approved na benta ng baka last quarter?", today=TODAY,
+            barangays=self.barangays, species_names=self.species,
+        )
+        self.assertEqual(res4["status"], "parsed")
+        self.assertEqual(res4["intent"], "sales_summary")
+
 
 class AskSmartLivestockQueryTests(TestCase):
     def setUp(self):

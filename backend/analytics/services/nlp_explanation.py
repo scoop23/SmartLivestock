@@ -38,6 +38,7 @@ EXPLAINABLE_INTENTS = {
         "approved_sale_events", "distinct_animals", "known_sale_value_php",
         "priced_events", "missing_price_events",
     },
+    "market_price": {"week", "average_price", "sales", "price_per_live_kg", "average_live_weight_kg"},
 }
 # The system message describes the writing task; the user message below holds
 # aggregate JSON, not the person's original question. Exact numbers stay in the
