@@ -17,6 +17,19 @@ from smartlivestock.seed_safety import assert_safe_seed_database
 
 PREFIX = "forecast-movement-v1:"
 MARKER = "AI_SEED::FORECAST_MOVEMENT::V1"
+CALABARZON_DESTINATIONS = (
+    ("Batangas", ("Lipa City", "Batangas City", "Tanauan City")),
+    ("Cavite", ("Dasmarinas City", "Imus City", "Bacoor City")),
+    ("Laguna", ("Calamba City", "San Pablo City", "Santa Rosa City")),
+    ("Rizal", ("Antipolo City", "Taytay", "Cainta")),
+    ("Quezon", ("Lucena City", "Tayabas City", "Tiaong")),
+)
+
+
+def outbound_destination(index):
+    """Balance simulated outbound permits by province, then by locality."""
+    province, places = CALABARZON_DESTINATIONS[index % len(CALABARZON_DESTINATIONS)]
+    return f"{places[(index // len(CALABARZON_DESTINATIONS)) % len(places)]}, {province}"
 
 
 def movement_use(sale_id):
@@ -56,11 +69,12 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true", help="Preview without changing records.")
         parser.add_argument("--clean", action="store_true", help="Remove only this movement seed's owned records.")
         parser.add_argument("--refresh-purposes", action="store_true", help="Update only owned movement purpose/classification fields to the varied seed mix.")
+        parser.add_argument("--refresh-destinations", action="store_true", help="Spread owned registered-cattle outbound destinations evenly across CALABARZON; incoming origins stay unchanged.")
 
     def handle(self, *args, **options):
         assert_safe_seed_database(clean=options["clean"], dry_run=options["dry_run"])
-        if options["clean"] and options["refresh_purposes"]:
-            raise CommandError("Use --clean or --refresh-purposes separately.")
+        if sum(bool(options[name]) for name in ("clean", "refresh_purposes", "refresh_destinations")) > 1:
+            raise CommandError("Use --clean, --refresh-purposes or --refresh-destinations separately.")
         with transaction.atomic():
             if options["clean"]:
                 count = clean_owned_movements(dry_run=options["dry_run"])
@@ -78,6 +92,20 @@ class Command(BaseCommand):
                         LivestockInspection.objects.filter(pk=entry.object_id).update(purpose=purpose)
                         LivestockInspectionItem.objects.filter(inspection_id=entry.object_id, remarks__contains=MARKER).update(classification=classification)
                 self.stdout.write(f"{'Would refresh' if options['dry_run'] else 'Refreshed'} owned movement purposes: {dict(counts)}. Other fields unchanged.")
+                return
+            if options["refresh_destinations"]:
+                clean_owned_movements(dry_run=True)
+                ids = SurveillanceDemoOwnership.objects.filter(
+                    identifier__startswith=PREFIX, object_type="movement_inspection",
+                ).values_list("object_id", flat=True)
+                inspections = LivestockInspection.objects.filter(pk__in=ids, shipper__isnull=False).order_by("inspection_date", "pk")
+                counts = Counter()
+                for index, inspection in enumerate(inspections):
+                    destination = outbound_destination(index)
+                    counts[destination.rsplit(", ", 1)[1]] += 1
+                    if not options["dry_run"]:
+                        LivestockInspection.objects.filter(pk=inspection.pk).update(destination=destination)
+                self.stdout.write(f"{'Would refresh' if options['dry_run'] else 'Refreshed'} outbound destinations: {dict(counts)}. Incoming origins and other fields unchanged.")
                 return
             sales = LivestockOwnershipTransfer.objects.filter(
                 Q(review_remarks__contains=SEED_MARKER_FORECAST_QUALITY_IDEAL)
@@ -104,8 +132,11 @@ class Command(BaseCommand):
                     if source == "registered":
                         farmer_counts[sale.previous_owner_id] += 1
                     selected.append(sale)
-            created = skipped = 0
-            for index, sale in enumerate(selected):
+            created = skipped = outbound_index = 0
+            for sale in selected:
+                destination = outbound_destination(outbound_index) if sale.livestock_id else "Padre Garcia Livestock Auction Market, Batangas"
+                if sale.livestock_id:
+                    outbound_index += 1
                 key = f"{PREFIX}sale:{sale.pk}"
                 existing = SurveillanceDemoOwnership.objects.filter(identifier=f"{key}:inspection").first()
                 if existing:
@@ -129,7 +160,6 @@ class Command(BaseCommand):
                 owner = sale.previous_owner if internal else None
                 name = (owner.user.get_full_name().strip() or owner.user.username) if owner else sale.external_seller_name
                 origin = f"{owner.barangay.barangay_name}, Padre Garcia, Batangas" if owner and owner.barangay else "Padre Garcia, Batangas" if internal else ", ".join(filter(None, [sale.origin_municipality, sale.origin_province]))
-                destination = ("Lipa City, Batangas" if index % 4 == 0 else "Padre Garcia Livestock Auction Market, Batangas") if internal else "Padre Garcia Livestock Auction Market, Batangas"
                 purpose, classification = movement_use(sale.pk)
                 inspection = LivestockInspection.objects.create(
                     shipper=owner, shipper_name=name, destination=destination,

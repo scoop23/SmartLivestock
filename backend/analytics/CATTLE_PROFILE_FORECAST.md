@@ -78,6 +78,11 @@ Purposes use a repeatable illustrative mix of breeding, fattening and slaughter,
 with matching line classifications. They are not inferred buyer intentions.
 Use `seed_forecast_movement_demo --refresh-purposes --dry-run` to preview updating
 existing owned examples, then omit `--dry-run` to apply only those two fields.
+Registered-cattle outbound destinations are distributed evenly across Batangas,
+Cavite, Laguna, Rizal and Quezon, rotating among three localities per province.
+Incoming examples retain the source sale's origin and arrive at the local market.
+Use `seed_forecast_movement_demo --refresh-destinations --dry-run` to preview
+updating existing owned outbound destinations, then omit `--dry-run` to apply.
 
 To add movement examples to an already-seeded database without reseeding animals:
 
