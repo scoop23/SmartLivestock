@@ -130,6 +130,8 @@ export interface MovementRecord {
   type: 'export' | 'import';
   origin: string;
   destination: string;
+  origin_barangay?: string | null;
+  destination_barangay?: string | null;
   direction?: 'INTERNAL' | 'INBOUND' | 'OUTBOUND' | 'UNKNOWN';
   from: [number, number];
   to: [number, number];

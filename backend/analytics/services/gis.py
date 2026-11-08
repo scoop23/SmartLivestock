@@ -18,6 +18,7 @@ requests from the browser.
 
 import logging
 import math
+import re
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 from django.db.models import Count, F, Q, Sum
@@ -814,11 +815,18 @@ def get_gis_aggregated_data(user=None, report_as_of=None) -> Dict[str, Any]:
                     origin_b_name = b_name
                     break
 
+        destination_b_name = next((
+            name for name in OFFICIAL_BARANGAYS
+            if re.search(rf"(?<!\w){re.escape(name)}(?!\w)", destination, re.IGNORECASE)
+        ), None)
+
         movements_list.append({
             "id": insp.pk,
             "type": "import" if direction == "INBOUND" else "export",
             "origin": origin or "Padre Garcia",
             "destination": destination,
+            "origin_barangay": origin_b_name or None,
+            "destination_barangay": destination_b_name,
             "direction": direction,
             "from": origin_coords,
             "to": dest_coords,

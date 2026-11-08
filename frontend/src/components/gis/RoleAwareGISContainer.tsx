@@ -387,24 +387,37 @@ export function RoleAwareGISContainer({
     };
   }, [isPlaying, playbackSpeed]);
 
+  const barangayMovements = useMemo(() => {
+    const all = gisData?.movements || [];
+    if (backRoute !== '/auction' || !selectedBarangay) return all;
+    const name = selectedBarangay.name.trim().toLowerCase();
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const place = new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`, 'i');
+    return all.filter(movement =>
+      movement.origin_barangay?.toLowerCase() === name ||
+      movement.destination_barangay?.toLowerCase() === name ||
+      (movement.origin_barangay === undefined && place.test(movement.origin)) ||
+      (movement.destination_barangay === undefined && place.test(movement.destination))
+    );
+  }, [gisData?.movements, backRoute, selectedBarangay]);
+
   const movementYears = useMemo(() => {
-    if (!gisData?.movements) return [];
     const set = new Set<string>();
-    for (const m of gisData.movements) {
+    for (const m of gisData?.movements || []) {
       if (m.date) set.add(m.date.slice(0, 4));
     }
     return Array.from(set).sort((a, b) => b.localeCompare(a));
-  }, [gisData]);
+  }, [gisData?.movements]);
 
   const activeMovementYear = selectedMovementYear === 'ALL' || movementYears.includes(selectedMovementYear)
     ? selectedMovementYear
     : 'ALL';
   const periodMovements = useMemo(() => {
-    const allMoves = gisData?.movements || [];
+    const allMoves = barangayMovements;
     return activeMovementYear === 'ALL'
       ? allMoves
       : allMoves.filter((movement) => movement.date?.startsWith(`${activeMovementYear}-`));
-  }, [gisData?.movements, activeMovementYear]);
+  }, [barangayMovements, activeMovementYear]);
 
   const uniqueMovementDates = useMemo(() => {
     const set = new Set<string>();
@@ -415,7 +428,7 @@ export function RoleAwareGISContainer({
   }, [periodMovements]);
 
   const activeDisplayMovements = useMemo(() => {
-    const allMoves = periodMovements.length > 0 ? periodMovements : (gisData?.movements || []);
+    const allMoves = periodMovements;
     if (!showMovementTimeline || uniqueMovementDates.length === 0 || movementTimelineMode === 'all') {
       return allMoves;
     }
@@ -426,7 +439,7 @@ export function RoleAwareGISContainer({
       return allMoves.filter((m) => m.date && m.date <= targetDate);
     }
     return allMoves.filter((m) => m.date === targetDate);
-  }, [periodMovements, gisData?.movements, showMovementTimeline, uniqueMovementDates, movementDateIndex, movementTimelineMode]);
+  }, [periodMovements, showMovementTimeline, uniqueMovementDates, movementDateIndex, movementTimelineMode]);
 
   // Clear selected movement permit if it leaves the visible timeline date window
   if (selectedMovement && !activeDisplayMovements.some((m) => m.id === selectedMovement.id)) {
@@ -441,6 +454,7 @@ export function RoleAwareGISContainer({
   const handleSelectBarangay = useCallback((b: BarangayGISData) => {
     setSelectedMovement(null);
     setSelectedBarangay(b);
+    setMovementDateIndex(0);
     if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
       setSidebarOpen(true);
     } else {
@@ -451,14 +465,14 @@ export function RoleAwareGISContainer({
   const handleSelectMovement = useCallback((m: MovementRecord | null) => {
     setSelectedMovement(m);
     if (m) {
-      setSelectedBarangay(null);
+      if (backRoute !== '/auction') setSelectedBarangay(null);
       if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
         setSidebarOpen(true);
       } else {
         setMobileDrawerOpen(true);
       }
     }
-  }, [setSelectedBarangay]);
+  }, [setSelectedBarangay, backRoute]);
 
   const handleClearSelectedMovement = useCallback(() => {
     setSelectedMovement(null);
@@ -470,6 +484,8 @@ export function RoleAwareGISContainer({
       return;
     }
     setSelectedBarangay(null);
+    setSelectedMovement(null);
+    setMovementDateIndex(0);
   }, [gisData?.user_scope, setSelectedBarangay]);
 
   const handleResetBounds = useCallback(() => {
@@ -693,6 +709,12 @@ export function RoleAwareGISContainer({
             adjacentDiseaseAlertsCount={gisData?.adjacent_disease_alerts?.length ?? 0}
             onOpenForecaster={!isCbat && !isFarmer ? () => setShowForecasterDialog(true) : undefined}
           />
+          {backRoute === '/auction' && activeLayer === 'movement' && selectedBarangay && (
+            <div role="status" className="mt-2 inline-flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-white/95 px-3 py-2 text-xs text-emerald-950 shadow-sm">
+              <span><strong>{selectedBarangay.name}</strong> · {activeDisplayMovements.length} movement{activeDisplayMovements.length === 1 ? '' : 's'} shown</span>
+              <button type="button" onClick={handleClearSelectedBarangay} className="font-semibold text-emerald-700 underline underline-offset-2">Show all barangays</button>
+            </div>
+          )}
         </div>
 
         {/* 3. Floating Bottom-Left Dynamic Legend */}

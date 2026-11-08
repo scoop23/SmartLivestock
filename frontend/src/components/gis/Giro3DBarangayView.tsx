@@ -1274,8 +1274,8 @@ export function Giro3DBarangayView({
 
       const curve = new three.CatmullRomCurve3(curvePoints);
       const tubeRadius = isSelected
-        ? Math.min(Math.max(dist * 0.004, 50), 2200)
-        : Math.min(Math.max(dist * 0.0022, 28), 1200);
+        ? Math.min(Math.max(dist * 0.0018, 24), 1000)
+        : Math.min(Math.max(dist * 0.001, 14), 550);
 
       // Base atmospheric flight corridor tube
       const tubeGeom = new three.TubeGeometry(curve, 32, tubeRadius, 6, false);
@@ -1332,7 +1332,7 @@ export function Giro3DBarangayView({
       movementGroup.add(originRippleMesh);
       animatedRingsRef.current.push({
         mesh: originRippleMesh,
-        speed: isSelected ? 1.8 : 1.2,
+        speed: isSelected ? 0.6 : 0.4,
         phase: 0,
         maxScale: 2.4,
       });
@@ -1350,7 +1350,7 @@ export function Giro3DBarangayView({
       movementGroup.add(destRippleMesh);
       animatedRingsRef.current.push({
         mesh: destRippleMesh,
-        speed: isSelected ? 2.0 : 1.4,
+        speed: isSelected ? 0.65 : 0.45,
         phase: 0.5,
         maxScale: 2.6,
       });
@@ -1359,9 +1359,9 @@ export function Giro3DBarangayView({
       const pulseCount = isSelected ? 3 : 2;
       for (let pIdx = 0; pIdx < pulseCount; pIdx++) {
         const offset = pIdx / pulseCount;
-        // Travel duration scaled so short trips are quick and long cross-archipelago flights remain visible
-        const travelDuration = Math.min(Math.max(Math.sqrt(dist) * 0.01, 2.0), 4.8);
-        const speed = (isSelected ? 1.35 : 1.0) / travelDuration;
+        // Slower transport pulses keep routes readable while inspecting barangays.
+        const travelDuration = Math.min(Math.max(Math.sqrt(dist) * 0.03, 6.0), 14.4);
+        const speed = (isSelected ? 1.15 : 1.0) / travelDuration;
 
         // Leading glowing pulse head
         const headRadius = isSelected ? tubeRadius * 3.2 : tubeRadius * 2.4;
