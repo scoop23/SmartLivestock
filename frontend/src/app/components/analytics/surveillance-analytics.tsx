@@ -959,9 +959,6 @@ export default function SurveillanceAnalytics() {
 
   return (
     <div className="space-y-3 sm:space-y-3.5">
-      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-        {data.data_quality.synthetic_records}
-      </p>
       {/* ----------------------------------------------------------------- */}
       {/* A. COMMAND BANNER (Lush Mint & Emerald Surveillance Header)        */}
       {/* ----------------------------------------------------------------- */}

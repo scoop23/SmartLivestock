@@ -122,7 +122,7 @@ interface LivestockRegistrationDraft {
 
 const initialFormData = {
   entryType: "INDIVIDUAL" as EntryType,
-  livestockType: "Cattle",
+  livestockType: "",
   quantity: 1,
   tagNumber: "",
   isCustomTag: false,
@@ -135,10 +135,10 @@ const initialFormData = {
   feedType: "",
   isOtherFeed: false,
   customFeed: "",
-  breed: "Brahman",
+  breed: "",
   isOtherBreed: false,
   customBreed: "",
-  sex: "Female",
+  sex: "",
   birthDate: "",
   weight: "",
   isVaccinated: false,
@@ -274,6 +274,7 @@ function RegisterLivestockDialogContent({
     return [];
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const certificateInputRef = useRef<HTMLInputElement>(null);
   const batchFileInputRef = useRef<HTMLInputElement>(null);
   const [showAllAvatars, setShowAllAvatars] = useState(false);
   const [expandedAnimalIndex, setExpandedAnimalIndex] = useState<number | null>(0);
@@ -895,29 +896,25 @@ function RegisterLivestockDialogContent({
     },
   });
 
-  const validateStep = (stepNumber: number): boolean => {
-    setFormError("");
+  const stepError = (stepNumber: number): string | null => {
     if (stepNumber === 1) {
       if (!formData.livestockType) {
-        setFormError("Please select a livestock species.");
-        return false;
+        return "Please select a livestock species.";
       }
       if (formData.entryType === "INDIVIDUAL") {
         const earTagError = tagError(formData.tagNumber, [], formData.isCustomTag);
         if (earTagError) {
-          setFormError(earTagError);
-          return false;
+          return earTagError;
         }
         if (!formData.tagNumber.trim()) {
-          setFormError("Ear Tag number is required for individual animals.");
-          return false;
+          return "Ear Tag number is required for individual animals.";
         }
       }
-      return true;
+      return null;
     }
     if (stepNumber === 2) {
       // Herd Profile is optional
-      return true;
+      return null;
     }
     if (stepNumber === 3) {
       if (formData.entryType === "INDIVIDUAL") {
@@ -925,45 +922,54 @@ function RegisterLivestockDialogContent({
           ? formData.customBreed.trim()
           : resolveBreed(formData.livestockType, formData.breed);
         if (!selectedBreed) {
-          setFormError("Breed is required.");
-          return false;
+          return "Breed is required.";
         }
+        if (!formData.sex) return "Please select the animal's sex.";
+        if (formData.weight.trim() && (!Number.isFinite(Number(formData.weight)) || Number(formData.weight) <= 0)) return "Weight must be greater than zero.";
+        if (formData.birthDate && formData.birthDate > localCalendarDateToday()) return "Birth date cannot be in the future.";
         if (formData.isVaccinated && !formData.lastVaccinationDate) {
-          setFormError("Please select the last vaccination date or uncheck 'Vaccinated'.");
-          return false;
+          return "Please select the last vaccination date or uncheck 'Vaccinated'.";
         }
         if (formData.lastVaccinationDate && formData.lastVaccinationDate > localCalendarDateToday()) {
-          setFormError("Vaccination date cannot be in the future.");
-          return false;
+          return "Vaccination date cannot be in the future.";
         }
       } else {
         if (batchAnimals.length < 1) {
-          setFormError("At least 1 animal is required in a batch.");
-          return false;
+          return "At least 1 animal is required in a batch.";
         }
         for (let i = 0; i < batchAnimals.length; i++) {
+          const animal = batchAnimals[i];
+          if (!animal.breed.trim() || animal.breed === "Others") return `Breed is required for Animal #${i + 1}.`;
+          if (!animal.sex) return `Sex is required for Animal #${i + 1}.`;
+          if (animal.weight.trim() && (!Number.isFinite(Number(animal.weight)) || Number(animal.weight) <= 0)) return `Weight for Animal #${i + 1} must be greater than zero.`;
+          if (animal.birthDate && animal.birthDate > localCalendarDateToday()) return `Birth date for Animal #${i + 1} cannot be in the future.`;
           const otherTags = batchAnimals
             .filter((_, index) => index !== i)
             .map((animal) => animal.tagNumber);
           const earTagError = tagError(batchAnimals[i].tagNumber, otherTags);
           if (earTagError) {
-            setFormError(`Animal #${i + 1}: ${earTagError}`);
-            return false;
+            return `Animal #${i + 1}: ${earTagError}`;
           }
           if (!batchAnimals[i].tagNumber.trim()) {
-            setFormError(`Ear Tag is required for Animal #${i + 1}.`);
-            return false;
+            return `Ear Tag is required for Animal #${i + 1}.`;
           }
           if (batchAnimals[i].lastVaccinationDate && batchAnimals[i].lastVaccinationDate > localCalendarDateToday()) {
-            setFormError(`Vaccination date for Animal #${i + 1} cannot be in the future.`);
-            return false;
+            return `Vaccination date for Animal #${i + 1} cannot be in the future.`;
           }
         }
       }
-      return true;
+      return null;
     }
-    return true;
+    return null;
   };
+
+  const validateStep = (stepNumber: number): boolean => {
+    const error = stepError(stepNumber);
+    setFormError(error ?? "");
+    return error === null;
+  };
+
+  const currentStepError = stepError(currentStep);
 
   const handleNext = (e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -1060,24 +1066,15 @@ function RegisterLivestockDialogContent({
                 const isCurrent = currentStep === s.step;
                 const isCompleted = currentStep > s.step;
                 return (
-                  <button
+                  <div
                     key={s.step}
-                    type="button"
-                    onClick={() => {
-                      if (s.step < currentStep) {
-                        setCurrentStep(s.step as 1 | 2 | 3 | 4);
-                      } else if (s.step > currentStep) {
-                        if (validateStep(currentStep)) {
-                          setCurrentStep(s.step as 1 | 2 | 3 | 4);
-                        }
-                      }
-                    }}
+                    aria-current={isCurrent ? "step" : undefined}
                     className={`flex items-center gap-1.5 sm:gap-2 text-left transition-all p-1 rounded-xl shrink-0 ${
                       isCurrent
                         ? "text-emerald-950 font-black"
                         : isCompleted
-                          ? "text-emerald-700 font-bold hover:text-emerald-900 cursor-pointer"
-                          : "text-slate-400 font-medium cursor-not-allowed opacity-60"
+                          ? "text-emerald-700 font-bold"
+                          : "text-slate-400 font-medium opacity-60"
                     }`}
                   >
                     <div
@@ -1097,7 +1094,7 @@ function RegisterLivestockDialogContent({
                     {s.step < 4 && (
                       <ChevronRight className="size-3.5 text-slate-300 hidden sm:inline ml-1" />
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -1106,6 +1103,7 @@ function RegisterLivestockDialogContent({
           {/* Form Content Area */}
           <form onSubmit={handleAddSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white">
             <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-5">
+              {currentStepError && !formError && <p role="status" className="text-xs font-medium text-amber-800">{currentStepError}</p>}
               {/* Error Alert */}
               {formError && (
                 <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 font-bold flex items-center gap-2 animate-in fade-in-50 duration-200">
@@ -1369,15 +1367,31 @@ function RegisterLivestockDialogContent({
                         Optional
                       </Badge>
                     </div>
-                    <label className="block text-xs font-semibold">Registering a purchased animal?
-                      <select aria-label="Approved purchase" className="mt-1 h-10 w-full rounded-lg border bg-white px-2" value={formData.purchaseTransferId} onChange={e => setFormData({...formData, purchaseTransferId: e.target.value})}>
-                        <option value="">Not linked to a recorded purchase</option>
-                        {purchasesQuery.data?.map(p => <option key={p.id} value={p.id}>{p.transfer_certificate_number} ? {p.livestock_tag}</option>)}
-                      </select>
-                    </label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="registration-purchase" className="text-xs font-semibold">Registering a purchased animal?</Label>
+                      <Select value={formData.purchaseTransferId || "none"} onValueChange={value => setFormData(prev => ({...prev, purchaseTransferId: value === "none" ? "" : value}))}>
+                        <SelectTrigger id="registration-purchase" className="h-11 w-full rounded-xl border-slate-200 bg-white text-sm">
+                          <SelectValue placeholder="Not linked to a recorded purchase" />
+                        </SelectTrigger>
+                        <SelectContent className="z-[var(--z-popover-dialog)] rounded-xl">
+                          <SelectItem value="none">Not linked to a recorded purchase</SelectItem>
+                          {purchasesQuery.data?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.transfer_certificate_number} · {p.livestock_tag}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     {purchasesQuery.isError && <p className="text-xs text-rose-700">Could not load your purchases. Reopen this form to retry before registering a purchased animal.</p>}
                     <p className="text-xs text-slate-500">Choose your approved purchase and enter the renewed certificate below. Your application adds to active population only after approval.</p>
-                    <label className="block text-xs font-semibold">Certificate image (optional)<input type="file" accept="image/jpeg,image/png,image/webp" className="mt-1 block w-full" onChange={e => setCertificateFile(e.target.files?.[0] ?? null)} /></label>
+                    <div className="space-y-2">
+                      <Label htmlFor="registration-certificate-image" className="text-xs font-semibold">Certificate image (optional)</Label>
+                      <input id="registration-certificate-image" ref={certificateInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => setCertificateFile(e.target.files?.[0] ?? null)} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button type="button" className="group h-11 gap-2.5 rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-emerald-800 focus-visible:ring-emerald-500/30 cursor-pointer" onClick={() => certificateInputRef.current?.click()}>
+                          <span className="flex size-7 items-center justify-center rounded-lg bg-white/15 transition-colors group-hover:bg-white/20"><Upload className="size-4" /></span>
+                          {certificateFile ? "Change certificate image" : "Upload certificate image"}
+                        </Button>
+                        {certificateFile && <span className="max-w-full truncate text-xs text-slate-500" title={certificateFile.name}>{certificateFile.name}</span>}
+                      </div>
+                    </div>
                     <Input
                       id="ownershipCertificateNumber"
                       placeholder="e.g. COLC-2026-0001 or PG-2024-1234"
@@ -2510,6 +2524,8 @@ function RegisterLivestockDialogContent({
                   <Button
                     key={`wizard-btn-next-step-${currentStep}`}
                     type="button"
+                    disabled={Boolean(currentStepError) || addMutation.isPending}
+                    title={currentStepError ?? undefined}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
