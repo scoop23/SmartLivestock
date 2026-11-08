@@ -83,6 +83,19 @@ type FarmerAnimal = {
   transfer_eligible: boolean;
   sale_intent: { target_date: string | null; target_destination: string; notes: string } | null;
 };
+type TransferTraits = {
+  sex_at_transfer: string; age_at_transfer: string; breed_at_transfer: string;
+  weight_at_transfer_kg: string; animal_description: string; municipality_brand: string; owner_brand: string;
+};
+function recordedTraits(animal: FarmerAnimal): TransferTraits {
+  return {
+    sex_at_transfer: ["MALE", "FEMALE"].includes(animal.sex?.toUpperCase()) ? animal.sex.toUpperCase() : "",
+    age_at_transfer: animal.age || "", breed_at_transfer: animal.breed || "",
+    weight_at_transfer_kg: animal.weight || "",
+    animal_description: "",
+    municipality_brand: "", owner_brand: "",
+  };
+}
 type Transfer = {
   id: number;
   livestock: number | null;
@@ -253,6 +266,8 @@ export default function AuctionOwnershipTransfersPage() {
   const [ageAtTransfer, setAgeAtTransfer] = useState<string>("");
   const [breedAtTransfer, setBreedAtTransfer] = useState<string>("");
   const [weightAtTransfer, setWeightAtTransfer] = useState<string>("");
+  const [animalDescription, setAnimalDescription] = useState("");
+  const [animalTraits, setAnimalTraits] = useState<Record<number, TransferTraits>>({});
   const [editing, setEditing] = useState<Transfer | null>(null);
   const [outsideLivestock, setOutsideLivestock] = useState(false);
   const [showUserGuide, setShowUserGuide] = useState(false);
@@ -284,6 +299,7 @@ export default function AuctionOwnershipTransfersPage() {
     setFarmer(null);
     setFarmerAnimals([]);
     setSelectedAnimalIds([]);
+    setAnimalTraits({});
     setPreregistrationReference("");
     setIsPreregistrationHighlighted(false);
     setShowOutsideConfirmModal(false);
@@ -303,6 +319,7 @@ export default function AuctionOwnershipTransfersPage() {
 
   function autofillAnimalTraits(animal: FarmerAnimal | null) {
     if (!animal) {
+      setAnimalDescription("");
       setSexAtTransfer("");
       setAgeAtTransfer("");
       setBreedAtTransfer("");
@@ -313,6 +330,8 @@ export default function AuctionOwnershipTransfersPage() {
       const upper = animal.sex.toUpperCase();
       setSexAtTransfer(upper === "MALE" || upper === "FEMALE" ? upper : animal.sex);
     }
+    setAnimalDescription(recordedTraits(animal).animal_description);
+    setSexAtTransfer(recordedTraits(animal).sex_at_transfer);
     setAgeAtTransfer(animal.age || "");
     setBreedAtTransfer(animal.breed || "");
     setWeightAtTransfer(animal.weight ? String(animal.weight) : "");
@@ -374,6 +393,7 @@ export default function AuctionOwnershipTransfersPage() {
     setIsLoadingAnimals(true);
     setFarmerAnimals([]);
     setSelectedAnimalIds([]);
+    setAnimalTraits({});
     setOriginalCertificates({});
     try {
       const response = await api.get<FarmerAnimal[]>(`livestock/ownership-transfer-farmers/${seller.id}/livestock/`);
@@ -384,6 +404,7 @@ export default function AuctionOwnershipTransfersPage() {
         if (!editing || forceNew) autofillAnimalTraits(selectedAnimal);
       } else {
         setSelectedAnimalIds([]);
+    setAnimalTraits({});
       }
       setOriginalCertificates(
         Object.fromEntries(
@@ -417,6 +438,7 @@ export default function AuctionOwnershipTransfersPage() {
     setFarmer(null);
     setFarmerAnimals([]);
     setSelectedAnimalIds([]);
+    setAnimalTraits({});
     try {
       const response = await api.get<FarmerLookup[]>("livestock/ownership-transfer-farmers/", {
         params: { search: farmerSearch.trim() },
@@ -508,6 +530,12 @@ export default function AuctionOwnershipTransfersPage() {
       return api.post("livestock/ownership-transfers/", {
         ...values,
         livestock_ids: selectedAnimalIds,
+        animal_details: selectedAnimalIds.length > 1 ? Object.fromEntries(selectedAnimalIds.map(id => {
+          const animal = farmerAnimals.find(item => item.id === id);
+          if (!animal) throw new Error("Reload the selected animals before submitting.");
+          const traits = animalTraits[id] || recordedTraits(animal);
+          return [String(id), { ...traits, weight_at_transfer_kg: traits.weight_at_transfer_kg || null }];
+        })) : undefined,
         original_certificate_numbers: Object.fromEntries(
           selectedAnimalIds.map((id) => [String(id), originalCertificates[id] || ""])
         ),
@@ -526,6 +554,7 @@ export default function AuctionOwnershipTransfersPage() {
       setFarmer(null);
       setFarmerAnimals([]);
       setSelectedAnimalIds([]);
+    setAnimalTraits({});
       setFarmerSearch("");
       setBuyerSearch("");
       setBuyer(null);
@@ -539,7 +568,17 @@ export default function AuctionOwnershipTransfersPage() {
       setEditing(null);
       setOutsideLivestock(false);
     },
-    onError: () => toast.error("Could not record this transfer. Check the seller, animals, and certificate details."),
+    onError: (error: unknown) => {
+      const data = httpError(error)?.response?.data;
+      const messages = (value: unknown, path = ""): string[] => {
+        if (typeof value === "string") return [path ? `${path}: ${value}` : value];
+        if (Array.isArray(value)) return value.flatMap(item => messages(item, path));
+        if (value && typeof value === "object") return Object.entries(value).flatMap(([key, item]) => messages(item, path ? `${path}.${key}` : key.replaceAll("_", " ")));
+        return [];
+      };
+      toast.error("Could not record this transfer", { description: messages(data).join("; ") || (error instanceof Error ? error.message : "Please try again."), duration: 10000 });
+      setShowAdditionalDetails(true);
+    },
   });
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -579,6 +618,7 @@ export default function AuctionOwnershipTransfersPage() {
           ? ""
           : transfer.external_livestock_type || ""
       );
+      setAnimalDescription(transfer.animal_description || "");
       setSexAtTransfer(transfer.sex_at_transfer || "");
       setAgeAtTransfer(transfer.age_at_transfer || "");
       setBreedAtTransfer(transfer.breed_at_transfer || "");
@@ -599,6 +639,7 @@ export default function AuctionOwnershipTransfersPage() {
       const response = await api.get<FarmerLookup>(`livestock/ownership-transfer-farmers/${transfer.previous_owner}/`);
       setOwnerType(transfer.owner_type);
       setExternalLivestockType("");
+      setAnimalDescription(transfer.animal_description || "");
       setSexAtTransfer(transfer.sex_at_transfer || "");
       setAgeAtTransfer(transfer.age_at_transfer || "");
       setBreedAtTransfer(transfer.breed_at_transfer || "");
@@ -617,6 +658,10 @@ export default function AuctionOwnershipTransfersPage() {
   }
 
   const toggleAnimal = (animalId: number, checked: boolean) => {
+    if (checked) {
+      const animal = farmerAnimals.find(item => item.id === animalId);
+      setOriginalCertificates(current => ({ ...current, [animalId]: current[animalId] ?? animal?.ownership_certificate_number ?? "" }));
+    }
     setSelectedAnimalIds((current) => {
       const next = checked ? [...current, animalId] : current.filter((id) => id !== animalId);
       if (next.length === 1) {
@@ -757,6 +802,7 @@ export default function AuctionOwnershipTransfersPage() {
                     setFarmer(null);
                     setFarmerAnimals([]);
                     setSelectedAnimalIds([]);
+    setAnimalTraits({});
                   }}
                   className={`relative flex flex-col justify-between p-3.5 rounded-2xl text-left transition-all cursor-pointer ${
                     !outsideLivestock
@@ -872,6 +918,7 @@ export default function AuctionOwnershipTransfersPage() {
                           setFarmer(null);
                           setFarmerAnimals([]);
                           setSelectedAnimalIds([]);
+    setAnimalTraits({});
                           setFarmerResults([]);
                           setIsAnimalModalOpen(false);
                           autofillAnimalTraits(null);
@@ -960,7 +1007,7 @@ export default function AuctionOwnershipTransfersPage() {
 
               {/* Animal to transfer section */}
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-slate-700">Animal to Transfer</p>
+                <p className="text-xs font-semibold text-slate-700">{selectedAnimalIds.length > 1 ? "Animals to Transfer" : "Animal to Transfer"}</p>
 
                 {!outsideLivestock && selectedAnimalIds.length > 0 && (
                   <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-[#EAF5EC]/40 p-3 shadow-2xs">
@@ -969,12 +1016,23 @@ export default function AuctionOwnershipTransfersPage() {
                         <CowHeadIcon className="size-5" />
                       </div>
                       <div className="min-w-0">
+                        {selectedAnimalIds.length > 1 ? <>
+                          <p className="text-sm font-bold text-emerald-950">{selectedAnimalIds.length} animals selected</p>
+                          <p className="mt-1 text-[11px] text-slate-600">Multiple animals from this seller. Review each animal's details below.</p>
+                          <div className="mt-2 flex max-h-28 flex-wrap gap-1.5 overflow-y-auto" aria-label="Selected animals">
+                            {selectedAnimalIds.map(id => {
+                              const animal = farmerAnimals.find(item => item.id === id);
+                              return <span key={id} className="break-all rounded-lg border border-emerald-200 bg-white px-2 py-1 text-[11px] font-semibold text-emerald-900">{animal?.tag_number || `Animal #${id}`}{animal?.livestock_type_name ? ` - ${animal.livestock_type_name}` : ""}</span>;
+                            })}
+                          </div>
+                        </> : <>
                         <p className="truncate font-bold text-xs sm:text-sm text-slate-900">
                           {selectedAnimalForTransfer?.livestock_type_name || "Cattle"} – {selectedAnimalForTransfer?.tag_number || `#${selectedAnimalIds[0]}`}
                         </p>
                         <p className="truncate text-[11px] text-slate-600">
                           Breed: {selectedAnimalForTransfer?.breed || "Not recorded"} | Sex: {selectedAnimalForTransfer?.sex || "Not recorded"} | Age: {selectedAnimalForTransfer?.age || "Not recorded"}
                         </p>
+                        </>}
                       </div>
                     </div>
                     <Button
@@ -1032,7 +1090,7 @@ export default function AuctionOwnershipTransfersPage() {
                 </div>
               </div>
 
-              <form key={editing?.id ?? "new-transfer"} onSubmit={handleSubmit} className="space-y-4 pt-1">
+              <form key={editing?.id ?? "new-transfer"} onSubmit={handleSubmit} onInvalidCapture={() => setShowAdditionalDetails(true)} className="space-y-4 pt-1">
                 {/* Row 1: Buyer Type & Find Registered Buyer */}
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
                   <div className="sm:col-span-5 space-y-1.5">
@@ -1264,8 +1322,8 @@ export default function AuctionOwnershipTransfersPage() {
                   </button>
 
                   {/* Expandable Additional Details content */}
-                  {showAdditionalDetails && (
-                    <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-4">
+                  {(
+                    <div hidden={!showAdditionalDetails} className="mt-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <TransferFieldLabel
@@ -1299,6 +1357,36 @@ export default function AuctionOwnershipTransfersPage() {
                           />
                         </div>
 
+                        {!outsideLivestock && selectedAnimalIds.length > 1 ? (
+                          <div className="space-y-3 sm:col-span-2">
+                            <p className="text-xs text-slate-600">Each animal keeps its own transfer details. Prefilled values reflect the current inventory; verify them against the sale date and paper certificate. Blank means not recorded.</p>
+                            {selectedAnimalIds.map(id => {
+                              const animal = farmerAnimals.find(item => item.id === id);
+                              if (!animal) return null;
+                              const traits = animalTraits[id] || recordedTraits(animal);
+                              const update = (field: keyof TransferTraits, value: string) => setAnimalTraits(previous => ({ ...previous, [id]: { ...traits, [field]: value } }));
+                              return <details key={id} className="group space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/30 p-3">
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg text-sm font-bold text-emerald-950 focus-visible:outline-2 focus-visible:outline-emerald-600 [&::-webkit-details-marker]:hidden">
+                                  <span>{animal.tag_number || `Animal #${id}`} - {animal.livestock_type_name}</span>
+                                  <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
+                                </summary>
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                  <label className="space-y-1 text-xs font-semibold">Sex
+                                    <Select value={traits.sex_at_transfer || "NOT_RECORDED"} onValueChange={value => update("sex_at_transfer", value === "NOT_RECORDED" ? "" : value)}>
+                                      <SelectTrigger className="w-full bg-white"><SelectValue /></SelectTrigger>
+                                      <SelectContent><SelectItem value="NOT_RECORDED">Not recorded</SelectItem><SelectItem value="MALE">Male</SelectItem><SelectItem value="FEMALE">Female</SelectItem></SelectContent>
+                                    </Select>
+                                  </label>
+                                  {([
+                                    ["age_at_transfer", "Age at transfer"], ["breed_at_transfer", "Breed at transfer"],
+                                    ["weight_at_transfer_kg", "Weight (kg)"], ["animal_description", "Description recorded on certificate"],
+                                    ["municipality_brand", "Municipality brand"], ["owner_brand", "Owner brand"],
+                                  ] as const).map(([field, label]) => <label key={field} className="space-y-1 text-xs font-semibold">{label}<Input value={traits[field]} onChange={event => update(field, event.target.value)} type={field === "weight_at_transfer_kg" ? "number" : "text"} min={field === "weight_at_transfer_kg" ? "0" : undefined} step={field === "weight_at_transfer_kg" ? "0.01" : undefined} placeholder="Not recorded" className="bg-white" /></label>)}
+                                </div>
+                              </details>;
+                            })}
+                          </div>
+                        ) : <>
                         <div className="space-y-1.5">
                           <TransferFieldLabel
                             htmlFor="sex_at_transfer"
@@ -1381,7 +1469,8 @@ export default function AuctionOwnershipTransfersPage() {
                           <Input
                             id="animal_description"
                             name="animal_description"
-                            defaultValue={editing?.animal_description}
+                            value={animalDescription}
+                            onChange={event => setAnimalDescription(event.target.value)}
                             placeholder="Enter description from certificate"
                             className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
                           />
@@ -1416,6 +1505,8 @@ export default function AuctionOwnershipTransfersPage() {
                             className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
                           />
                         </div>
+
+                        </>}
 
                         {/* Non-registered buyer address */}
                         {ownerType !== "REGISTERED_FARMER" && (
@@ -1554,7 +1645,7 @@ export default function AuctionOwnershipTransfersPage() {
                         {!outsideLivestock && selectedAnimalIds.length > 0 && (
                           <div className="sm:col-span-2 space-y-2 pt-3 border-t border-slate-200">
                             <p className="text-xs font-semibold text-slate-700">
-                              Confirm original ownership certificate number:
+                              Confirm original ownership certificate (COLC) number:
                             </p>
                             {selectedAnimalIds.map((id) => {
                               const animal = farmerAnimals.find((item) => item.id === id);
@@ -1567,15 +1658,15 @@ export default function AuctionOwnershipTransfersPage() {
                                   <TransferFieldLabel
                                     htmlFor={`original-certificate-${id}`}
                                     label={`${animal.livestock_type_name} ${animal.tag_number || `#${id}`} certificate`}
-                                    help="Enter the original ownership certificate number."
+                                    help="Filled from the livestock's recorded COLC when available. Verify it against the original certificate."
                                   />
                                   <Input
                                     id={`original-certificate-${id}`}
-                                    value={originalCertificates[id] || ""}
+                                    value={originalCertificates[id] ?? animal.ownership_certificate_number ?? ""}
                                     onChange={(e) =>
                                       setOriginalCertificates((cur) => ({ ...cur, [id]: e.target.value }))
                                     }
-                                    placeholder="Original certificate number"
+                                    placeholder="COLC number (not recorded)"
                                     required
                                     className="h-9 bg-white border-slate-200 rounded-lg text-xs"
                                   />
@@ -1836,6 +1927,7 @@ export default function AuctionOwnershipTransfersPage() {
                       size="sm"
                       onClick={() => {
                         setSelectedAnimalIds([]);
+    setAnimalTraits({});
                         autofillAnimalTraits(null);
                       }}
                       className="h-7 text-[11px] text-slate-600 hover:text-slate-900"

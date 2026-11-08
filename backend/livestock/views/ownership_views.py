@@ -137,7 +137,10 @@ def ownership_transfer_farmer_livestock(request, farmer_id):
 def ownership_transfer_list_create(request):
     """Auction staff encode certificates; farmers and reviewers read their own or scoped history."""
     if request.method == "POST":
-        actor_role = require_action(request.user, "ownership_transfers", "create")
+        require_action(request.user, "ownership_transfers", "create")
+        # Django's is_staff flag grants admin-site access; retain the assigned
+        # business role when checking Auction-specific certificate operations.
+        actor_role = role_name(request.user)
         livestock_ids = request.data.get("livestock_ids")
         if livestock_ids is not None:
             if actor_role != "AUCTION":
@@ -149,14 +152,22 @@ def ownership_transfer_list_create(request):
 
             shared_fields = {
                 key: value for key, value in request.data.items()
-                if key not in {"livestock_ids", "original_certificate_numbers"}
+                if key not in {"livestock_ids", "original_certificate_numbers", "animal_details"}
             }
+            animal_details = request.data.get("animal_details", {})
+            if not isinstance(animal_details, dict):
+                raise ValidationError({"animal_details": "Provide animal details keyed by animal ID."})
+            trait_fields = {"sex_at_transfer", "age_at_transfer", "breed_at_transfer", "weight_at_transfer_kg", "animal_description", "municipality_brand", "owner_brand"}
             original_certificates = request.data.get("original_certificate_numbers", {})
             prepared = []
             # Validate every animal before saving any rows, so one invalid seller cannot leave a partial certificate.
             with transaction.atomic():
                 for livestock_id in livestock_ids:
                     animal_data = {**shared_fields, "livestock": livestock_id}
+                    details = animal_details.get(str(livestock_id), {})
+                    if not isinstance(details, dict):
+                        raise ValidationError({"animal_details": "Each animal's details must be an object."})
+                    animal_data.update({key: value for key, value in details.items() if key in trait_fields})
                     if isinstance(original_certificates, dict):
                         animal_data["original_certificate_number"] = original_certificates.get(str(livestock_id), "")
                     serializer = LivestockOwnershipTransferSerializer(data=animal_data, context={"request": request})

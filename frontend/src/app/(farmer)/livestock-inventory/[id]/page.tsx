@@ -84,6 +84,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { cn } from "@/lib/utils";
 import {
 CartesianGrid,
+Area,
+ComposedChart,
+ReferenceLine,
 Line,
 LineChart,
 ResponsiveContainer,
@@ -643,21 +646,24 @@ export default function LivestockDetailPage() {
       date: point.date,
       weight: point.weight,
       recordedWeight: point.weight,
-      predictedWeight: Math.max(0, intercept + slope * xs[index]),
+      predictedWeight: index === points.length - 1 ? Math.max(0, intercept + slope * xs[index]) : undefined,
       gain: 0,
       adg: 0,
       notes: "Recorded weigh-in",
     }));
     if (Number.isFinite(forecastWeight) && forecastWeight > 0) {
-      chartData.push({
-        date: new Date(forecastTimestamp).toISOString().slice(0, 10),
-        weight: lastPoint.weight,
-        recordedWeight: null,
-        predictedWeight: forecastWeight,
-        gain: 0,
-        adg: 0,
-        notes: "30-day linear estimate",
-      });
+      for (let day = 1; day <= 30; day++) {
+        const timestamp = lastPoint.timestamp + day * dayMs;
+        chartData.push({
+          date: new Date(timestamp).toISOString().slice(0, 10),
+          weight: lastPoint.weight,
+          recordedWeight: null,
+          predictedWeight: Math.max(0, intercept + slope * ((timestamp - firstTimestamp) / dayMs)),
+          gain: 0,
+          adg: 0,
+          notes: `Day ${day} linear estimate`,
+        });
+      }
     }
 
     return {
@@ -665,6 +671,7 @@ export default function LivestockDetailPage() {
       slope,
       chartData,
       recordCount: points.length,
+      forecastStart: lastPoint.date,
     };
   }, [weightLogs]);
 
@@ -753,6 +760,7 @@ export default function LivestockDetailPage() {
   }, [activeItem?.livestockTypeName]);
 
   // Target weight: optional benchmark for market or slaughter readiness
+  const [weightForecastDays, setWeightForecastDays] = useState<1 | 3 | 7>(7);
   const [targetWeightOverride, setTargetWeightOverride] = useState<{ id: string; val: number | null } | null>(null);
   const [isTargetWeightDialogOpen, setIsTargetWeightDialogOpen] = useState(false);
   const [targetWeightInput, setTargetWeightInput] = useState<string>("");
@@ -1865,7 +1873,7 @@ export default function LivestockDetailPage() {
                       </span>
                       {weightPrediction?.forecastWeight != null && (
                         <span className="inline-flex items-center gap-1.5">
-                          <span className="w-4 border-t-2 border-dashed border-blue-600" /> 30-day estimate
+                          <span className="w-4 border-t-2 border-dashed border-yellow-500" /> {weightForecastDays}-day estimate
                         </span>
                       )}
                     </div>
@@ -1886,15 +1894,28 @@ export default function LivestockDetailPage() {
                   </Button>
                 </div>
 
-                <div className="h-64 w-full pt-2">
+                <div className="flex justify-end gap-1" role="group" aria-label="Weight forecast horizon">
+                  {([1, 3, 7] as const).map((days) => (
+                    <Button key={days} size="sm" variant="outline" aria-pressed={weightForecastDays === days} onClick={() => setWeightForecastDays(days)} className={cn("rounded-lg text-xs", weightForecastDays === days && "border-yellow-400 bg-yellow-100 text-yellow-900 hover:bg-yellow-200")}>
+                      {days} {days === 1 ? "day" : "days"}
+                    </Button>
+                  ))}
+                </div>
+                <div className="h-80 sm:h-96 w-full pt-2">
                   {weightLogs.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={weightPrediction?.chartData ?? weightLogs.map((log) => ({ ...log, recordedWeight: log.weight }))}
-                        margin={{ top: 10, right: 20, left: -10, bottom: 0 }}
+                      <ComposedChart
+                        data={weightPrediction ? weightPrediction.chartData.filter((point) => point.recordedWeight !== null).concat(weightPrediction.chartData.filter((point) => point.recordedWeight === null).slice(0, weightForecastDays)) : weightLogs.map((log) => ({ ...log, recordedWeight: log.weight }))}
+                        margin={{ top: 30, right: 25, left: -10, bottom: 20 }}
                       >
+                        <defs>
+                          <linearGradient id="weightForecastGlow" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#eab308" stopOpacity={0.3} />
+                            <stop offset="100%" stopColor="#eab308" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                        <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748B" }} tickLine={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748B", fontFamily: "monospace" }} tickLine={false} angle={-45} textAnchor="end" height={65} interval="preserveStartEnd" minTickGap={15} />
                         <YAxis tick={{ fontSize: 11, fill: "#64748B" }} tickLine={false} unit="kg" />
                         <Tooltip
                           contentStyle={{
@@ -1905,6 +1926,12 @@ export default function LivestockDetailPage() {
                             fontSize: "12px",
                           }}
                         />
+                        {weightPrediction?.forecastWeight != null && (
+                          <>
+                            <ReferenceLine x={weightPrediction.forecastStart} stroke="#d97706" strokeDasharray="4 4" strokeWidth={1.5} label={{ value: "Estimate starts here", fill: "#b45309", fontSize: 10, position: "top", fontFamily: "monospace" }} />
+                            <Area type="linear" dataKey="predictedWeight" stroke="none" fill="url(#weightForecastGlow)" connectNulls legendType="none" tooltipType="none" />
+                          </>
+                        )}
                         <Line
                           type="monotone"
                           dataKey="recordedWeight"
@@ -1917,7 +1944,7 @@ export default function LivestockDetailPage() {
                           <Line
                             type="linear"
                             dataKey="predictedWeight"
-                            stroke="#2563EB"
+                            stroke="#eab308"
                             strokeWidth={2}
                             strokeDasharray="6 4"
                             dot={false}
@@ -1925,7 +1952,7 @@ export default function LivestockDetailPage() {
                             name="Estimated Weight (kg)"
                           />
                         )}
-                      </LineChart>
+                      </ComposedChart>
                     </ResponsiveContainer>
                   ) : (
                     <div className="h-full flex items-center justify-center text-xs text-slate-400">
@@ -2032,7 +2059,7 @@ export default function LivestockDetailPage() {
                     <span className="text-[10px] uppercase font-bold text-slate-500">
                       Carcass Valuation Benchmark
                     </span>
-                    <p className="font-black text-slate-900">₱{(projectedCarcassKg * 280).toLocaleString()}</p>
+                    <p className="text-xl font-black text-slate-900">₱{(projectedCarcassKg * 280).toLocaleString()}</p>
                     <p className="text-slate-500 text-[11px]">Based on Padre Garcia Auction meat index (₱280/kg).</p>
                   </div>
                 </div>
@@ -2171,7 +2198,7 @@ export default function LivestockDetailPage() {
                           </TableCell>
                           <TableCell>
                             <Badge
-                              className={`text-[10px] font-black ${log.status === "APPROVED"
+                              className={`text-[10px] font-black ${log.status === "APPROVED" || log.status === "RECORDED"
                                 ? "bg-emerald-100 text-emerald-900 border-emerald-200"
                                 : log.status === "VERIFIED"
                                   ? "bg-sky-100 text-sky-900 border-sky-200"

@@ -128,6 +128,8 @@ def batch_list_create(request):
             )
 
         livestock_type = get_object_or_404(LivestockType, pk=livestock_type_id)
+        if any(name in livestock_type.name.lower() for name in ("swine", "pig", "hog", "baboy")):
+            return Response({"livestock_type": "Swine herd registration is not available."}, status=status.HTTP_400_BAD_REQUEST)
 
         default_animal_status = LivestockInventory.StatusType.PENDING
         created_animals = []
@@ -537,6 +539,8 @@ def batch_add_animals(request, pk):
             {"error": "Only active herds can receive animals. Create a new herd instead."},
             status=status.HTTP_409_CONFLICT,
         )
+    if any(name in batch.livestock_type.name.lower() for name in ("swine", "pig", "hog", "baboy")):
+        return Response({"livestock_type": "Adding animals to Swine herds is not available."}, status=status.HTTP_400_BAD_REQUEST)
     # The marker is retained as historical metadata for older reports. It no
     # longer changes review rules: every animal starts pending and is reviewed
     # individually, regardless of the statuses of its herd-mates.
