@@ -763,7 +763,7 @@ export function NewInspectionForm({
                     value={origin}
                     onChange={(e) => setOrigin(e.target.value)}
                     required
-                    placeholder="Tanauan, Batangas"
+                    placeholder="Padre Garcia, Batangas"
                     className="h-10 rounded-xl bg-white border-slate-200 text-xs text-slate-800"
                   />
                 </div>
