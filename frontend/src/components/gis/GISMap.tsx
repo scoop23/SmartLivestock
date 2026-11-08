@@ -109,7 +109,9 @@ function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps
   const previousResetTrigger = useRef(resetTrigger);
 
   useEffect(() => {
+    let cancelled = false;
     import('leaflet').then((L) => {
+      if (cancelled) return;
       const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 640;
       const defaultPadding: [number, number] = isSmallScreen ? [12, 12] : [24, 24];
       const resetRequested = resetTrigger !== previousResetTrigger.current;
@@ -128,7 +130,15 @@ function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps
           const featureLayer = L.geoJSON(feature);
           const fBounds = featureLayer.getBounds();
           if (fBounds.isValid()) {
-            map.fitBounds(fBounds, { padding: isSmallScreen ? [24, 24] : [48, 48], maxZoom: 15, animate: false });
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            map.stop();
+            map.flyToBounds(fBounds, {
+              padding: isSmallScreen ? [40, 40] : [72, 72],
+              maxZoom: 13,
+              animate: !reducedMotion,
+              duration: 1.1,
+              easeLinearity: 0.25,
+            });
             return;
           }
         }
@@ -141,6 +151,7 @@ function FitBounds({ resetTrigger, userScope, selectedBarangay }: FitBoundsProps
         map.fitBounds(bounds, { padding: defaultPadding, animate: false });
       }
     });
+    return () => { cancelled = true; };
   }, [map, resetTrigger, userScope, selectedBarangay]);
 
   return null;

@@ -1274,14 +1274,14 @@ export function Giro3DBarangayView({
 
       const curve = new three.CatmullRomCurve3(curvePoints);
       const tubeRadius = isSelected
-        ? Math.min(Math.max(dist * 0.0018, 24), 1000)
-        : Math.min(Math.max(dist * 0.001, 14), 550);
+        ? Math.min(Math.max(dist * 0.004, 50), 2200)
+        : Math.min(Math.max(dist * 0.0022, 28), 1200);
 
       // Base atmospheric flight corridor tube
       const tubeGeom = new three.TubeGeometry(curve, 32, tubeRadius, 6, false);
       const tubeMat = new three.MeshBasicMaterial({
         color: hexColor,
-        opacity: isSelected ? 0.95 : 0.45,
+        opacity: isSelected ? 0.8 : 0.2,
         transparent: true,
       });
 
@@ -1306,7 +1306,7 @@ export function Giro3DBarangayView({
       destinationBeaconsRef.current.push(coneMesh);
 
       // Ground anchor ring at origin
-      const ringRadius = beaconRadius * 0.9;
+      const ringRadius = beaconRadius * 0.3;
       const ringGeom = new three.RingGeometry(ringRadius * 0.6, ringRadius, 16);
       const ringMat = new three.MeshBasicMaterial({
         color: '#10b981',
@@ -1334,11 +1334,11 @@ export function Giro3DBarangayView({
         mesh: originRippleMesh,
         speed: isSelected ? 0.6 : 0.4,
         phase: 0,
-        maxScale: 2.4,
+        maxScale: 1.6,
       });
 
       // Destination arrival landing ripple ring
-      const destRippleGeom = new three.RingGeometry(beaconRadius * 0.45, beaconRadius * 0.85, 24);
+      const destRippleGeom = new three.RingGeometry(beaconRadius * 0.15, beaconRadius * 0.28, 24);
       const destRippleMat = new three.MeshBasicMaterial({
         color: hexColor,
         side: three.DoubleSide,
@@ -1352,7 +1352,7 @@ export function Giro3DBarangayView({
         mesh: destRippleMesh,
         speed: isSelected ? 0.65 : 0.45,
         phase: 0.5,
-        maxScale: 2.6,
+        maxScale: 1.6,
       });
 
       // Animated streaming transport pulses flying along the curve toward the destination
@@ -1364,7 +1364,7 @@ export function Giro3DBarangayView({
         const speed = (isSelected ? 1.15 : 1.0) / travelDuration;
 
         // Leading glowing pulse head
-        const headRadius = isSelected ? tubeRadius * 3.2 : tubeRadius * 2.4;
+        const headRadius = isSelected ? tubeRadius * 2.4 : tubeRadius * 1.8;
         const headGeom = new three.SphereGeometry(headRadius, 12, 12);
         const headMat = new three.MeshBasicMaterial({
           color: isSelected ? '#ffffff' : (move.direction === 'INBOUND' ? '#bae6fd' : '#ffffff'),
