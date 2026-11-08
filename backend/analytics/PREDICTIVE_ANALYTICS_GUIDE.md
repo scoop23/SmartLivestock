@@ -378,8 +378,6 @@ Use `seed_forecast_quality_demo` to compare two synthetic examples in a dedicate
 ```cmd
 set "DATABASE_URL="
 set "SMARTLIVESTOCK_ENV_FILE=.env.local"
-set "SMARTLIVESTOCK_DEMO_ENV=development"
-set "SMARTLIVESTOCK_DEMO_DATABASE_ACK=development:smart_livestock"
 python manage.py seed_forecast_quality_demo --scenario ideal
 ```
 
@@ -390,9 +388,8 @@ The `poor` scenario creates sparse monthly observations, missing session or carc
 Only one quality scenario can be active at a time. Clean the selected scenario before switching. Cleanup deletes only transfer events and individual inventory rows carrying the selected scenario marker; it reuses and preserves the Farmer and user account:
 
 ```cmd
-set "SMARTLIVESTOCK_DEMO_ALLOW_CLEANUP=YES"
 python manage.py seed_forecast_quality_demo --scenario ideal --clean
 python manage.py seed_forecast_quality_demo --scenario poor
 ```
 
-Use `--scenario poor --clean` to remove only the poor scenario instead. Cleanup matches that scenario's distinct ownership marker across its production, slaughter, transfer, and synthetic inventory rows; it does not delete users, farmers, unrelated livestock, other seed fixtures, or unmarked records. The command refuses non-local databases and requires explicit development database acknowledgement. Existing source rows are left intact and will be combined by the forecast APIs, so use a dedicated empty local database to reproduce the scenarios cleanly. All generated records and simulated timestamps are synthetic and must not be presented as real municipal data, real reporting completeness, or proof of forecast accuracy.
+Use `--scenario poor --clean` to remove only the poor scenario instead. Cleanup matches that scenario's distinct ownership marker across its production, slaughter, transfer, and synthetic inventory rows; it does not delete users, farmers, unrelated livestock, other seed fixtures, or unmarked records. The command uses the configured Django database without extra demo environment flags. Existing source rows are left intact and will be combined by the forecast APIs, so use a dedicated empty local database to reproduce the scenarios cleanly. All generated records and simulated timestamps are synthetic and must not be presented as real municipal data, real reporting completeness, or proof of forecast accuracy.

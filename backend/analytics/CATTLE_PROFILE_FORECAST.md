@@ -65,8 +65,6 @@ The `seed_forecast_quality_demo` command sets up the ideal scenario in one comma
 ```powershell
 # Run from backend, against the intended local development database.
 $env:SMARTLIVESTOCK_ENV_FILE = '.env.local'
-$env:SMARTLIVESTOCK_DEMO_ENV = 'development'
-$env:SMARTLIVESTOCK_DEMO_DATABASE_ACK = 'development:smart_livestock'
 .\.venv\Scripts\python.exe manage.py seed_forecast_quality_demo --scenario ideal
 ```
 

@@ -3,22 +3,19 @@
 Local development use:
     SMARTLIVESTOCK_DEMO_PASSWORD=<secure-local-password> python manage.py seed_milk_anomaly_demo
 
-For PostgreSQL, explicitly set SMARTLIVESTOCK_DEMO_ENV=development or staging,
-SMARTLIVESTOCK_DEMO_DATABASE_ACK=<environment>:<database-name>. To use --clean,
-also set SMARTLIVESTOCK_DEMO_ALLOW_CLEANUP=YES. The command refuses production
-settings/databases and never deletes objects without an ownership-ledger entry.
+Select the database with SMARTLIVESTOCK_ENV_FILE / DATABASE_URL.
+Use --clean to remove only objects tracked in this seed's ownership ledger.
 """
 
 from datetime import timedelta
 from decimal import Decimal
 import os
-import sys
 
-from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.management.base import BaseCommand, CommandError
-from django.db import connections, transaction
+from django.db import transaction
 from django.utils import timezone
+from smartlivestock.seed_safety import assert_safe_seed_database
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 
 from livestock.models import Barangay, Farmer, LivestockInventory, LivestockType
@@ -107,31 +104,7 @@ class Command(BaseCommand):
             self.stdout.write("Demo milk scenarios are personal farmer logs. An unusual yield is advisory only; neither scenario creates a review task.")
 
     def _assert_safe_database(self, *, clean):
-        is_isolated_test_run = "test" in sys.argv and "memory" in str(connections["default"].settings_dict.get("NAME", "")).lower()
-        target_env = os.environ.get("SMARTLIVESTOCK_DEMO_ENV", "").lower()
-        is_render = any(os.environ.get(key) for key in ("RENDER", "RENDER_SERVICE_ID", "RENDER_EXTERNAL_HOSTNAME"))
-        if target_env == "production":
-            raise CommandError("Refusing to seed a database explicitly identified as production.")
-        if is_render and target_env != "staging":
-            raise CommandError("Refusing to seed on an unidentified Render service. Set SMARTLIVESTOCK_DEMO_ENV=staging and the exact database acknowledgement only after confirming this is a staging database.")
-        if not settings.DEBUG and target_env != "staging" and not is_isolated_test_run:
-            raise CommandError("Refusing to seed with DEBUG disabled unless the database is explicitly identified and acknowledged as staging.")
-        connection = connections["default"]
-        if target_env == "development" and connection.vendor == "postgresql":
-            host = str(connection.settings_dict.get("HOST") or "").lower()
-            if host not in {"localhost", "127.0.0.1", "::1"}:
-                raise CommandError("Development demo seeding requires local PostgreSQL. Confirm Django is connected to localhost before retrying. No database changes were made.")
-        is_memory_database = connection.vendor == "sqlite" and "memory" in str(connection.settings_dict.get("NAME", "")).lower()
-        if is_memory_database:
-            # Django's isolated in-memory test database is safe by construction.
-            pass
-        else:
-            db_name = str(connection.settings_dict.get("NAME") or "")
-            expected_ack = f"{target_env}:{db_name}"
-            if target_env not in {"development", "staging"} or os.environ.get("SMARTLIVESTOCK_DEMO_DATABASE_ACK") != expected_ack:
-                raise CommandError("This database needs explicit environment identification: set SMARTLIVESTOCK_DEMO_ENV=development|staging and SMARTLIVESTOCK_DEMO_DATABASE_ACK=<environment>:<database-name>. No database changes were made.")
-        if clean and os.environ.get("SMARTLIVESTOCK_DEMO_ALLOW_CLEANUP") != "YES":
-            raise CommandError("--clean requires SMARTLIVESTOCK_DEMO_ALLOW_CLEANUP=YES after confirming this is a development or staging database.")
+        assert_safe_seed_database(clean=clean)
 
     def _get_reference(self, model, lookup, value, label):
         matches = model.objects.filter(**{lookup: value})

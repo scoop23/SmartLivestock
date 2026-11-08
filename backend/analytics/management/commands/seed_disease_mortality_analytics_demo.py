@@ -15,6 +15,7 @@ from diseases.models import DiseaseCase, MortalityRecord
 from diseases.serializer import DiseaseCaseSerializer, MortalityRecordSerializer
 from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory, LivestockType
 from livestock.reconciliation import reconcile_approved_mortality
+from smartlivestock.seed_tags import next_seed_livestock_tag
 from smartlivestock.seed_safety import assert_safe_seed_database
 from smartlivestock.workflows import validate_review_transition
 from users.models import Notification, Role, User
@@ -238,7 +239,6 @@ class Command(BaseCommand):
                     owner=owner,
                     livestock_type=plan["cattle"],
                     reviewer=plan["reviewer"],
-                    tag=f"DM-B{plan['barangay'].pk}-D-{month_end:%Y%m}-{event_index + 1}",
                 )
                 self._create_approved_disease(
                     key=f"disease:{month_end:%Y-%m}:{event_index + 1}",
@@ -259,7 +259,6 @@ class Command(BaseCommand):
                     owner=owner,
                     livestock_type=plan["cattle"],
                     reviewer=plan["reviewer"],
-                    tag=f"DM-B{plan['barangay'].pk}-M-{month_end:%Y%m}-{event_index + 1}",
                 )
                 owner["mortality_animals"].append(mortality_animal)
                 self._create_approved_mortality(
@@ -399,14 +398,14 @@ class Command(BaseCommand):
         self._track(key, "user", user)
         return user
 
-    def _create_demo_animal(self, *, key, owner, livestock_type, reviewer, tag, batch=None, recorded_on=None):
+    def _create_demo_animal(self, *, key, owner, livestock_type, reviewer, batch=None, recorded_on=None):
         animal = LivestockInventory(
             farmer=owner["farmer"],
             batch=batch,
             livestock_type=livestock_type,
             entry_type=LivestockInventory.EntryType.INDIVIDUAL,
             quantity=1,
-            tag_number=tag,
+            tag_number=next_seed_livestock_tag(self, owner["user"]),
             breed="Synthetic demo cattle",
             sex="Female",
             status=LivestockInventory.StatusType.APPROVED,
@@ -594,7 +593,7 @@ class Command(BaseCommand):
                         self._create_demo_animal(
                             key=f"{key}:member-{member}", owner=owner,
                             livestock_type=target.livestock_type, reviewer=case.reviewed_by,
-                            tag=f"DM-H{farmer_id}-{member}", batch=herd, recorded_on=case.record_date,
+                            batch=herd, recorded_on=case.record_date,
                         )
                 herds[farmer_id] = herd
             herd = herds[farmer_id]

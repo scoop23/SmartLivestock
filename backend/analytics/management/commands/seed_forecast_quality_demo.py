@@ -30,6 +30,7 @@ from analytics.seed_markers import (
 )
 from livestock.models import Farmer, LivestockInventory, LivestockOwnershipTransfer, LivestockType
 from production.models import ProductionRecord, SlaughterRecord
+from smartlivestock.seed_tags import next_seed_livestock_tag
 from smartlivestock.seed_safety import assert_safe_seed_database
 from users.models import User
 
@@ -370,7 +371,7 @@ class Command(BaseCommand):
                 entry_type=LivestockInventory.EntryType.INDIVIDUAL, quantity=1,
                 birth_date=profile["birth_date"], breed=profile["breed"],
                 sex=profile["sex"], weight=profile["weight_kg"],
-                tag_number=f"{marker}-{serial:06d}",
+                tag_number=next_seed_livestock_tag(self, seller.user),
                 status=LivestockInventory.StatusType.APPROVED,
                 operational_status=(LivestockInventory.OperationalStatus.SOLD
                                     if status == LivestockOwnershipTransfer.Status.APPROVED
@@ -483,7 +484,7 @@ class Command(BaseCommand):
                 entry_type=LivestockInventory.EntryType.INDIVIDUAL,
                 quantity=1,
                 birth_date=arrival_day - timedelta(days=365 * (3 + animal_index % 4)),
-                tag_number=f"{marker}-F{farm_index + 1}-COW-{animal_index + 1:02d}",
+                tag_number=next_seed_livestock_tag(self, seller.user),
                 breed="Synthetic dairy cross",
                 sex="Female",
                 weight=Decimal(str(360 + animal_index * 18)),

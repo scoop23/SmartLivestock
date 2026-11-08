@@ -1,15 +1,13 @@
 """Seed an isolated, date-relative disease and mortality dashboard demo."""
 
-import os
-import sys
 from datetime import timedelta
 from types import SimpleNamespace
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from django.db import connections, models, transaction
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
+from smartlivestock.seed_safety import assert_safe_seed_database
 
 from analytics.models import SurveillanceDemoOwnership
 from analytics.services.surveillance import complete_week_windows
@@ -93,56 +91,7 @@ class Command(BaseCommand):
             self._seed(plan, today, weeks)
 
     def _assert_safe_database(self, *, clean, dry_run):
-        connection = connections["default"]
-        database_name = str(connection.settings_dict.get("NAME") or "")
-        in_test_run = "test" in sys.argv or (
-            connection.vendor == "sqlite" and "memory" in database_name.lower()
-        )
-        target_env = os.environ.get("SMARTLIVESTOCK_DEMO_ENV", "").lower()
-        is_render = any(
-            os.environ.get(key)
-            for key in ("RENDER", "RENDER_SERVICE_ID", "RENDER_EXTERNAL_HOSTNAME")
-        )
-
-        if target_env == "production":
-            raise CommandError("Refusing to run the surveillance demo seed against production.")
-        if is_render and target_env != "staging":
-            raise CommandError(
-                "Refusing to seed an unidentified Render service. Identify a confirmed staging "
-                "database with SMARTLIVESTOCK_DEMO_ENV=staging and its exact database acknowledgement."
-            )
-        if not settings.DEBUG and target_env != "staging" and not in_test_run:
-            raise CommandError(
-                "Refusing to seed with DEBUG disabled unless this database is explicitly identified as staging."
-            )
-        if target_env == "development" and connection.vendor == "postgresql":
-            host = str(connection.settings_dict.get("HOST") or "").lower()
-            if host not in {"localhost", "127.0.0.1", "::1"}:
-                raise CommandError(
-                    "Development seeding requires local PostgreSQL. No database changes were made."
-                )
-
-        is_test_memory_database = (
-            connection.vendor == "sqlite" and "memory" in database_name.lower()
-        )
-        if not is_test_memory_database and not in_test_run:
-            expected_ack = f"{target_env}:{database_name}"
-            if (
-                target_env not in {"development", "staging"}
-                or os.environ.get("SMARTLIVESTOCK_DEMO_DATABASE_ACK") != expected_ack
-            ):
-                raise CommandError(
-                    "This database needs explicit environment identification: set "
-                    "SMARTLIVESTOCK_DEMO_ENV=development|staging and "
-                    "SMARTLIVESTOCK_DEMO_DATABASE_ACK=<environment>:<database-name>. "
-                    "No database changes were made."
-                )
-        if clean and not dry_run and not in_test_run:
-            if os.environ.get("SMARTLIVESTOCK_DEMO_ALLOW_CLEANUP") != "YES":
-                raise CommandError(
-                    "--clean requires SMARTLIVESTOCK_DEMO_ALLOW_CLEANUP=YES after confirming "
-                    "this is a development or staging database."
-                )
+        assert_safe_seed_database(clean=clean, dry_run=dry_run)
 
     def _build_plan(self, today, weeks):
         farmer_role = Role.objects.filter(role_name=Role.UserRoles.FARMER).first()

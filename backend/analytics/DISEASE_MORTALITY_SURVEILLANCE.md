@@ -74,17 +74,14 @@ Apply the migrations first and identify the exact development or staging databas
 
 ```powershell
 $env:SMARTLIVESTOCK_ENV_FILE = ".env.local"
-$env:SMARTLIVESTOCK_DEMO_ENV = "development"
-$env:SMARTLIVESTOCK_DEMO_DATABASE_ACK = "development:smart_livestock"
 python manage.py migrate
 python manage.py seed_surveillance_demo --dry-run
 python manage.py seed_surveillance_demo
 ```
 
-The acknowledgement must match the database name Django actually uses. Development mode refuses non-local PostgreSQL. Production is refused; a remote staging database requires explicit staging identification and the exact database acknowledgement. To remove the fixture without recreating it, cleanup also requires `SMARTLIVESTOCK_DEMO_ALLOW_CLEANUP=YES`:
+The command uses the database selected by Django through `SMARTLIVESTOCK_ENV_FILE` / `DATABASE_URL`; no extra demo environment flags are required. To remove the owned fixture without recreating it:
 
 ```powershell
-$env:SMARTLIVESTOCK_DEMO_ALLOW_CLEANUP = "YES"
 python manage.py seed_surveillance_demo --clean
 ```
 
