@@ -143,6 +143,7 @@ export interface MovementRecord {
   clearance_status: string;
   control_number: string;
   items_breakdown?: MovementItemBreakdown[];
+  route_records?: MovementRecord[]; // 3D route group; individual permits remain unchanged.
 }
 
 export type MovementDatePreset = 'all' | '30d' | '90d' | 'this_year' | 'last_year';

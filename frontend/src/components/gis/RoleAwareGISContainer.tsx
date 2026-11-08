@@ -38,6 +38,7 @@ import { useClientReady } from "@/hooks/use-browser-state";
 
 import { useIsMobile } from '@/components/ui/use-mobile';
 import api from '@/lib/axios';
+import { Button } from '@/components/ui/button';
 import { ArrowLeft, ChevronDown, ChevronUp, Info, Loader2, Radio, ShieldAlert, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -54,6 +55,7 @@ import {
 import { GISControls } from './GISControls';
 import { GISLegend } from './GISLegend';
 import { GISMap } from './GISMap';
+import { movementEndpointMatches } from './movement-routes';
 import { GISSidebar } from './GISSidebar';
 import { GISTimeline } from './GISTimeline';
 
@@ -224,7 +226,14 @@ export function RoleAwareGISContainer({
   }, [scopeKey]);
   const [selectedMovement, setSelectedMovement] = useState<MovementRecord | null>(null);
   const [showMovementOverlay, setShowMovementOverlay] = useState<boolean>(false);
-  const [movementDisplayMode, setMovementDisplayMode] = useState<Movement3DDisplayMode>('both');
+  const supportsMovementFocus = backRoute === '/auction' || backRoute === '/admin';
+  const [movementModes, setMovementModes] = useState<Record<ViewMode, Movement3DDisplayMode>>({
+    '2D': 'both', '3D': supportsMovementFocus ? 'density' : 'both',
+  });
+  const movementDisplayMode = movementModes[viewMode];
+  const setMovementDisplayMode = useCallback((mode: Movement3DDisplayMode) => {
+    setMovementModes(previous => ({...previous, [viewMode]: mode}));
+  }, [viewMode]);
   const [sidebarChoice, setSidebarOpen] = useState<boolean | null>(null);
   const sidebarOpen = sidebarChoice ?? !isMobile;
   const [resetTrigger, setResetTrigger] = useState<number>(0);
@@ -389,17 +398,12 @@ export function RoleAwareGISContainer({
 
   const barangayMovements = useMemo(() => {
     const all = gisData?.movements || [];
-    if (backRoute !== '/auction' || !selectedBarangay) return all;
-    const name = selectedBarangay.name.trim().toLowerCase();
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const place = new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`, 'i');
+    if (!supportsMovementFocus || !selectedBarangay || activeLayer !== 'movement') return all;
     return all.filter(movement =>
-      movement.origin_barangay?.toLowerCase() === name ||
-      movement.destination_barangay?.toLowerCase() === name ||
-      (movement.origin_barangay === undefined && place.test(movement.origin)) ||
-      (movement.destination_barangay === undefined && place.test(movement.destination))
+      movementEndpointMatches(movement, selectedBarangay, 'origin') ||
+      movementEndpointMatches(movement, selectedBarangay, 'destination')
     );
-  }, [gisData?.movements, backRoute, selectedBarangay]);
+  }, [gisData?.movements, supportsMovementFocus, selectedBarangay, activeLayer]);
 
   const movementYears = useMemo(() => {
     const set = new Set<string>();
@@ -441,8 +445,16 @@ export function RoleAwareGISContainer({
     return allMoves.filter((m) => m.date === targetDate);
   }, [periodMovements, showMovementTimeline, uniqueMovementDates, movementDateIndex, movementTimelineMode]);
 
+  const movementLabelRecords = useMemo(() => {
+    const all = (gisData?.movements || []).filter(record => activeMovementYear === 'ALL' || record.date?.startsWith(`${activeMovementYear}-`));
+    const targetDate = uniqueMovementDates[movementDateIndex];
+    if (!showMovementTimeline || movementTimelineMode === 'all' || !targetDate) return all;
+    return all.filter(record => movementTimelineMode === 'cumulative' ? record.date <= targetDate : record.date === targetDate);
+  }, [gisData?.movements, activeMovementYear, uniqueMovementDates, movementDateIndex, showMovementTimeline, movementTimelineMode]);
+
   // Clear selected movement permit if it leaves the visible timeline date window
-  if (selectedMovement && !activeDisplayMovements.some((m) => m.id === selectedMovement.id)) {
+  if (selectedMovement && (!activeDisplayMovements.some((m) => m.id === selectedMovement.id) ||
+      selectedMovement.route_records?.some(record => !activeDisplayMovements.some(m => m.id === record.id)))) {
     setSelectedMovement(null);
   }
 
@@ -455,24 +467,25 @@ export function RoleAwareGISContainer({
     setSelectedMovement(null);
     setSelectedBarangay(b);
     setMovementDateIndex(0);
+    if (activeLayer === 'movement') setMovementDisplayMode('both');
     if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
       setSidebarOpen(true);
     } else {
       setMobileDrawerOpen(true);
     }
-  }, [setSelectedBarangay]);
+  }, [setSelectedBarangay, viewMode, activeLayer, setMovementDisplayMode]);
 
   const handleSelectMovement = useCallback((m: MovementRecord | null) => {
     setSelectedMovement(m);
     if (m) {
-      if (backRoute !== '/auction') setSelectedBarangay(null);
+      if (!supportsMovementFocus) setSelectedBarangay(null);
       if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
         setSidebarOpen(true);
       } else {
         setMobileDrawerOpen(true);
       }
     }
-  }, [setSelectedBarangay, backRoute]);
+  }, [setSelectedBarangay, supportsMovementFocus]);
 
   const handleClearSelectedMovement = useCallback(() => {
     setSelectedMovement(null);
@@ -486,17 +499,31 @@ export function RoleAwareGISContainer({
     setSelectedBarangay(null);
     setSelectedMovement(null);
     setMovementDateIndex(0);
-  }, [gisData?.user_scope, setSelectedBarangay]);
+    if (activeLayer === 'movement') setMovementDisplayMode('density');
+  }, [gisData?.user_scope, setSelectedBarangay, viewMode, activeLayer, setMovementDisplayMode]);
 
   const handleResetBounds = useCallback(() => {
     setResetTrigger((prev) => prev + 1);
     setSelectedBarangay(null);
     setSelectedMovement(null);
+    if (activeLayer === 'movement') setMovementDisplayMode('density');
     if (isCirclingSupported && viewMode === '3D') {
       setIsCircling(true);
     }
     toast.info('Map viewport refit to Padre Garcia boundary', { duration: 1500 });
-  }, [isCirclingSupported, viewMode, setSelectedBarangay]);
+  }, [isCirclingSupported, viewMode, setSelectedBarangay, activeLayer, setMovementDisplayMode]);
+
+  const handleShowAllBarangays = useCallback(() => {
+    if (gisData?.user_scope?.allowed_barangays?.length === 1) return;
+    const selectedDate = uniqueMovementDates[movementDateIndex];
+    const allDates = Array.from(new Set((gisData?.movements || [])
+      .filter(movement => activeMovementYear === 'ALL' || movement.date?.startsWith(`${activeMovementYear}-`))
+      .map(movement => movement.date).filter(Boolean))).sort();
+    setSelectedBarangay(null);
+    setSelectedMovement(null);
+    setMovementDateIndex(Math.max(0, allDates.indexOf(selectedDate)));
+    setMovementDisplayMode('both');
+  }, [gisData?.user_scope, gisData?.movements, uniqueMovementDates, movementDateIndex, activeMovementYear, setSelectedBarangay, setMovementDisplayMode]);
 
   const handleTogglePlay = useCallback(() => {
     setIsPlaying((prev) => !prev);
@@ -572,6 +599,7 @@ export function RoleAwareGISContainer({
         <GISMap
           barangaysByName={barangaysByName}
           movements={activeDisplayMovements}
+          movementLabelRecords={movementLabelRecords}
           activeLayer={activeLayer}
           viewMode={viewMode}
           diseaseSubMode={activeDiseaseSubMode}
@@ -709,10 +737,22 @@ export function RoleAwareGISContainer({
             adjacentDiseaseAlertsCount={gisData?.adjacent_disease_alerts?.length ?? 0}
             onOpenForecaster={!isCbat && !isFarmer ? () => setShowForecasterDialog(true) : undefined}
           />
-          {backRoute === '/auction' && activeLayer === 'movement' && selectedBarangay && (
+          {supportsMovementFocus && activeLayer === 'movement' && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" className="h-8 rounded-xl bg-white/95 text-xs" onClick={() => {
+                setSelectedBarangay(null);
+                setSelectedMovement(null);
+                setMovementDisplayMode(movementDisplayMode === 'density' || selectedBarangay ? 'both' : 'density');
+              }}>{movementDisplayMode === 'density' || selectedBarangay ? 'Show all routes' : 'Hide routes'}</Button>
+              {movementDisplayMode === 'density' && <span className="rounded-lg bg-white/95 px-2 py-1 text-xs text-slate-600">Click a barangay to explore its routes</span>}
+            </div>
+          )}
+          {supportsMovementFocus && activeLayer === 'movement' && selectedBarangay && (
             <div role="status" className="mt-2 inline-flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-white/95 px-3 py-2 text-xs text-emerald-950 shadow-sm">
               <span><strong>{selectedBarangay.name}</strong> · {activeDisplayMovements.length} movement{activeDisplayMovements.length === 1 ? '' : 's'} shown</span>
-              <button type="button" onClick={handleClearSelectedBarangay} className="font-semibold text-emerald-700 underline underline-offset-2">Show all barangays</button>
+              <span className="text-blue-700">{activeDisplayMovements.filter(movement => movement.direction === 'INBOUND').length} inbound</span>
+              <span className="text-rose-700">{activeDisplayMovements.filter(movement => movement.direction === 'OUTBOUND').length} outbound</span>
+              <button type="button" onClick={handleShowAllBarangays} className="font-semibold text-emerald-700 underline underline-offset-2">Show all barangays</button>
             </div>
           )}
         </div>
@@ -784,7 +824,7 @@ export function RoleAwareGISContainer({
             <span className="font-black tracking-tight">Map Details</span>
           {selectedMovement ? (
             <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-900 max-w-[80px] truncate">
-              Permit #{selectedMovement.id}
+              {selectedMovement.route_records ? `Route · ${selectedMovement.route_records.length} clearances` : `Permit #${selectedMovement.id}`}
             </span>
           ) : selectedBarangay ? (
             <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-900 max-w-[70px] truncate">

@@ -93,6 +93,45 @@ export function MovementDetailsModal({
     }
   })();
 
+  if (movement.route_records?.length) {
+    const records = movement.route_records;
+    const heads = records.reduce((total, record) => total + record.heads, 0);
+    return <div className="flex h-full flex-col overflow-hidden rounded-2xl bg-white text-slate-800 transition-all duration-500 animate-in fade-in zoom-in-[0.98] motion-reduce:animate-none">
+      <div className="relative flex shrink-0 items-center justify-between gap-3 overflow-hidden bg-slate-900 p-4 text-white">
+        {isHighlighted && <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 animate-shimmer-sweep motion-reduce:animate-none" />}
+        <div className="flex min-w-0 items-center gap-2">
+          <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl shadow-sm transition-all duration-500 ${isHighlighted ? 'scale-105 bg-blue-600 ring-2 ring-blue-400/60' : 'bg-emerald-700'}`}><Truck className="size-5" /></div>
+          <div><h3 className="text-sm font-bold">Movement route</h3><p className="mt-1 text-xs text-slate-300">{records.length} clearances · {heads} heads</p></div>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close route details"><X className="size-4" /></Button>
+      </div>
+      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        <div className={`min-w-0 space-y-3 overflow-hidden rounded-xl border p-3.5 text-xs transition-all duration-500 ${isHighlighted ? 'border-blue-400 bg-gradient-to-b from-blue-50/90 to-white shadow-md ring-2 ring-blue-400/50 animate-line-highlight motion-reduce:animate-none' : 'border-slate-200/90 bg-slate-50 shadow-2xs'}`}>
+          <span className={`inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold ${directionColor}`}>{directionLabel}</span>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className="min-w-0 rounded-lg border border-emerald-300 bg-emerald-50/90 p-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">Origin Hub</p><p className="mt-1 break-words font-bold text-emerald-950">{movement.origin}</p></div>
+            <div className="min-w-0 rounded-lg border border-blue-300 bg-blue-50/90 p-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-blue-800">Destination Terminal</p><p className="mt-1 break-words font-bold text-blue-950">{movement.destination}</p></div>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <div className="h-0.5 flex-1 bg-gradient-to-r from-emerald-500 to-blue-500" />
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-blue-200 bg-blue-100/70 px-2.5 py-0.5 text-[10px] font-bold text-blue-700"><Truck className={`size-3 ${isHighlighted ? 'animate-bounce motion-reduce:animate-none' : ''}`} />Transit Line Arc</span>
+            <div className="h-0.5 flex-1 bg-gradient-to-r from-blue-500 to-blue-600" />
+          </div>
+        </div>
+        <p className="text-xs text-slate-500">One line groups clearances with the same mapped endpoints. These are recorded permits, not live trips.</p>
+        {records.map(record => <details key={record.id} className="rounded-xl border border-slate-200 p-3 text-xs">
+          <summary className="cursor-pointer font-semibold text-emerald-800">{record.control_number || `Permit #${record.id}`}<span className="ml-2 font-normal text-slate-500">{record.date} · {record.heads} heads</span></summary>
+          <dl className="mt-3 space-y-1 text-slate-600">
+            <div><dt className="inline font-semibold">Shipper: </dt><dd className="inline">{record.shipper_name}</dd></div>
+            <div><dt className="inline font-semibold">Species: </dt><dd className="inline">{record.species}</dd></div>
+            <div><dt className="inline font-semibold">Purpose: </dt><dd className="inline">{record.purpose}</dd></div>
+            <div><dt className="inline font-semibold">Status: </dt><dd className="inline">{record.clearance_status}</dd></div>
+          </dl>
+        </details>)}
+      </div>
+    </div>;
+  }
+
   return (
     <div className="bg-white rounded-2xl flex flex-col h-full overflow-hidden text-slate-800 transition-all duration-500 animate-in fade-in zoom-in-[0.98]">
       {/* Header Bar */}

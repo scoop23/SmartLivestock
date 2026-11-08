@@ -10,6 +10,7 @@ import type MultiPolygon from 'ol/geom/MultiPolygon.js';
 import type Polygon from 'ol/geom/Polygon.js';
 import { useEffect,useRef,useState } from 'react';
 import type { Object3D } from 'three';
+import { groupMovementRoutes } from './movement-routes';
 import type { MapControls } from 'three/examples/jsm/controls/MapControls.js';
 import type { BarangayGISData,DiseaseSubMode,GISUserScope,MapLayer,Movement3DDisplayMode,MovementRecord,SimulationColorMode,SimulatedBarangayState } from './types';
 
@@ -576,7 +577,7 @@ export function Giro3DBarangayView({
                   simulatedStatesRef.current?.[name],
                   value,
                 ) : '#475569',
-                opacity: hovered ? 1 : inScope ? 0.94 : 0.48,
+                opacity: hovered || (activeLayer === 'movement' && inScope) ? 1 : inScope ? 0.94 : 0.48,
                 // The GIS choropleth should keep its data colors without depending on scene lights.
                 shading: false,
               },
@@ -754,7 +755,8 @@ export function Giro3DBarangayView({
             const height = displayedHeightsRef.current.get(feature) ?? 50;
             projectedLabelPoint.set(anchor[0], anchor[1], height + 30).project(instance.view.camera);
             const inFrontOfCamera = projectedLabelPoint.z >= -1 && projectedLabelPoint.z <= 1;
-            label.style.display = inFrontOfCamera ? 'block' : 'none';
+            const showName = activeLayer !== 'movement' || Boolean(feature.get('selected')) || Boolean(feature.get('hovered'));
+            label.style.display = inFrontOfCamera && showName ? 'block' : 'none';
             label.style.left = `${((projectedLabelPoint.x + 1) / 2) * bounds.width}px`;
             label.style.top = `${((1 - projectedLabelPoint.y) / 2) * bounds.height}px`;
           }
@@ -809,6 +811,28 @@ export function Giro3DBarangayView({
           if (performance.now() < suppressClickUntilRef.current) return;
           if (!instance) return;
 
+          // Barangay polygons win over route meshes crossing the same screen point.
+          if (featureCollection) {
+            const picked = instance.pickObjectsAt(event, { where: [featureCollection] })[0];
+            const pickedFeature = picked?.object.userData.feature as Feature<Geometry> | undefined;
+            if (pickedFeature) {
+              const name = String(pickedFeature.get('name') ?? '');
+              const data = barangaysByNameRef.current[name];
+              if (!data) return;
+              const inScope = data.is_in_scope ?? (
+                !userScope || userScope.can_view_all_barangays || userScope.allowed_barangays.includes(name)
+              );
+              if (!inScope) return;
+              for (const feature of featureByName.values()) feature.set('selected', feature === pickedFeature);
+              featureCollection.updateStyles();
+              refreshBorderColors();
+              onSelectMovementRef.current?.(null);
+              onSelectRef.current(data);
+              syncLabelPositionsRef.current?.();
+              return;
+            }
+          }
+
           // Ray-pick 3D movement arcs / beacon markers / rings across the Philippines
           const movementGroup = movementGroupRef.current;
           const three = threeModuleRef.current;
@@ -845,25 +869,7 @@ export function Giro3DBarangayView({
           onSelectMovementRef.current?.(null);
           syncLabelPositionsRef.current?.();
 
-          if (!featureCollection) return;
-          // Giro3D ray-picks the feature under the pointer; React receives the selected barangay data.
-          const picked = instance.pickObjectsAt(event, { where: [featureCollection] })[0];
-          const pickedFeature = picked?.object.userData.feature as Feature<Geometry> | undefined;
-          if (!pickedFeature) return;
 
-          const name = String(pickedFeature.get('name') ?? '');
-          const data = barangaysByNameRef.current[name];
-          if (!data) return;
-
-          const inScope = data.is_in_scope ?? (
-            !userScope || userScope.can_view_all_barangays || userScope.allowed_barangays.includes(name)
-          );
-          if (!inScope) return;
-
-          for (const feature of featureByName.values()) feature.set('selected', feature === pickedFeature);
-          featureCollection.updateStyles();
-          refreshBorderColors();
-          onSelectRef.current(data);
         };
         pointerMoveHandler = (event) => {
           if (!instance) return;
@@ -900,6 +906,7 @@ export function Giro3DBarangayView({
             hoveredFeatureRef.current = hoveredFeature;
             featureCollection.updateStyles();
             refreshBorderColors();
+            syncLabelPositionsRef.current?.();
           }
 
           if (hoveredFeature) {
@@ -922,6 +929,7 @@ export function Giro3DBarangayView({
             refreshBorderColors();
           }
           setHoverInfo(null);
+          syncLabelPositionsRef.current?.();
         };
         instance.domElement.addEventListener('click', clickHandler);
         instance.domElement.addEventListener('pointermove', pointerMoveHandler);
@@ -1229,7 +1237,7 @@ export function Giro3DBarangayView({
     }
 
     // Render 3D parabolic arcs, destination beacons, origin anchors, and animated flow pulses
-    for (const move of movements) {
+    for (const move of groupMovementRoutes(movements)) {
       if (!move.from || !move.to) continue;
       const [fromLat, fromLng] = move.from;
       const [toLat, toLng] = move.to;
@@ -1245,7 +1253,7 @@ export function Giro3DBarangayView({
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < 1) continue;
 
-      const isSelected = selectedMovement?.id === move.id;
+      const isSelected = selectedMovement?.id === move.id || Boolean(move.route_records?.some(record => record.id === selectedMovement?.id));
       const isApproved = move.clearance_status === 'APPROVED';
 
       // Directional & status color coding matching 2D transport flow styling
@@ -1260,6 +1268,9 @@ export function Giro3DBarangayView({
 
       // Parabolic apex altitude in 3D WebGL space: higher arc for long-range transport across the Philippines
       const apexHeight = Math.min(Math.max(dist * 0.16, 2200), 85000);
+      const tubeRadius = isSelected
+        ? Math.min(Math.max(dist * 0.004, 50), 2200)
+        : Math.min(Math.max(dist * 0.0022, 28), 1200);
 
       // Construct smooth parabolic curve points
       const sampleCount = 32;
@@ -1273,9 +1284,6 @@ export function Giro3DBarangayView({
       }
 
       const curve = new three.CatmullRomCurve3(curvePoints);
-      const tubeRadius = isSelected
-        ? Math.min(Math.max(dist * 0.004, 50), 2200)
-        : Math.min(Math.max(dist * 0.0022, 28), 1200);
 
       // Base atmospheric flight corridor tube
       const tubeGeom = new three.TubeGeometry(curve, 32, tubeRadius, 6, false);
@@ -1283,6 +1291,8 @@ export function Giro3DBarangayView({
         color: hexColor,
         opacity: isSelected ? 0.8 : 0.2,
         transparent: true,
+        depthTest: true,
+        depthWrite: false,
       });
 
       const tubeMesh = new three.Mesh(tubeGeom, tubeMat);
@@ -1298,6 +1308,8 @@ export function Giro3DBarangayView({
         color: hexColor,
         opacity: isSelected ? 1 : 0.85,
         transparent: true,
+        depthTest: true,
+        depthWrite: false,
       });
       const coneMesh = new three.Mesh(coneGeom, coneMat);
       coneMesh.position.set(endX, endY, beaconHeight / 2 + 10);
@@ -1313,6 +1325,8 @@ export function Giro3DBarangayView({
         side: three.DoubleSide,
         opacity: 0.8,
         transparent: true,
+        depthTest: true,
+        depthWrite: false,
       });
       const ringMesh = new three.Mesh(ringGeom, ringMat);
       ringMesh.position.set(startX, startY, 15);
@@ -1326,11 +1340,13 @@ export function Giro3DBarangayView({
         side: three.DoubleSide,
         opacity: 0.85,
         transparent: true,
+        depthTest: true,
+        depthWrite: false,
       });
       const originRippleMesh = new three.Mesh(originRippleGeom, originRippleMat);
       originRippleMesh.position.set(startX, startY, 18);
       movementGroup.add(originRippleMesh);
-      animatedRingsRef.current.push({
+      if (isSelected) animatedRingsRef.current.push({
         mesh: originRippleMesh,
         speed: isSelected ? 0.6 : 0.4,
         phase: 0,
@@ -1344,11 +1360,13 @@ export function Giro3DBarangayView({
         side: three.DoubleSide,
         opacity: 0.85,
         transparent: true,
+        depthTest: true,
+        depthWrite: false,
       });
       const destRippleMesh = new three.Mesh(destRippleGeom, destRippleMat);
       destRippleMesh.position.set(endX, endY, 18);
       movementGroup.add(destRippleMesh);
-      animatedRingsRef.current.push({
+      if (isSelected) animatedRingsRef.current.push({
         mesh: destRippleMesh,
         speed: isSelected ? 0.65 : 0.45,
         phase: 0.5,
@@ -1356,7 +1374,7 @@ export function Giro3DBarangayView({
       });
 
       // Animated streaming transport pulses flying along the curve toward the destination
-      const pulseCount = isSelected ? 3 : 2;
+      const pulseCount = isSelected ? 1 : 0;
       for (let pIdx = 0; pIdx < pulseCount; pIdx++) {
         const offset = pIdx / pulseCount;
         // Slower transport pulses keep routes readable while inspecting barangays.
@@ -1369,6 +1387,8 @@ export function Giro3DBarangayView({
         const headMat = new three.MeshBasicMaterial({
           color: isSelected ? '#ffffff' : (move.direction === 'INBOUND' ? '#bae6fd' : '#ffffff'),
           transparent: true,
+          depthTest: true,
+          depthWrite: false,
           opacity: 0.95,
         });
         const headMesh = new three.Mesh(headGeom, headMat);
@@ -1385,6 +1405,8 @@ export function Giro3DBarangayView({
           const tMat = new three.MeshBasicMaterial({
             color: hexColor,
             transparent: true,
+            depthTest: true,
+            depthWrite: false,
             opacity: trailOpacities[tIdx],
           });
           const tMesh = new three.Mesh(tGeom, tMat);
@@ -1433,7 +1455,7 @@ export function Giro3DBarangayView({
       destLabel.innerHTML = `
         <span style="color: #facc15; margin-right: 3px;">📍</span>
         <span>${cleanDest}</span>
-        <span style="margin-left: 4px; padding: 1px 4px; border-radius: 4px; background: rgba(250, 204, 21, 0.25); font-family: monospace; font-size: 10px; color: #fef08a;">${move.heads}</span>
+        <span style="margin-left: 4px; padding: 1px 4px; border-radius: 4px; background: rgba(250, 204, 21, 0.25); font-family: monospace; font-size: 10px; color: #fef08a;">${move.route_records ? move.route_records.reduce((total, record) => total + record.heads, 0) : move.heads}</span>
       `;
 
       destLabel.addEventListener('mouseenter', () => {

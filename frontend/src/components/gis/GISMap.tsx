@@ -51,6 +51,7 @@ import 'leaflet/dist/leaflet.css';
 import dynamic from 'next/dynamic';
 import React,{ useEffect,useLayoutEffect,useMemo,useRef,useState } from 'react';
 import { Giro3DBarangayView } from './Giro3DBarangayView';
+import { groupMovementRoutes, movementEndpointMatches } from './movement-routes';
 import {
 AdjacentDiseaseAlert,
 BarangayGISData,
@@ -77,6 +78,7 @@ const GeoJSON = dynamic(
   () => import('react-leaflet').then((m) => m.GeoJSON),
   { ssr: false }
 );
+const Pane = dynamic(() => import('react-leaflet').then(m => m.Pane), { ssr: false });
 const Polyline = dynamic(
   () => import('react-leaflet').then((m) => m.Polyline),
   { ssr: false }
@@ -342,6 +344,7 @@ function getRandomVisualPointsInBarangay(
 interface GISMapProps {
   barangaysByName: Record<string, BarangayGISData>;
   movements: MovementRecord[];
+  movementLabelRecords?: MovementRecord[];
   activeLayer: MapLayer;
   viewMode: ViewMode;
   diseaseSubMode: DiseaseSubMode;
@@ -369,6 +372,7 @@ interface GISMapProps {
 export function GISMap({
   barangaysByName,
   movements,
+  movementLabelRecords = movements,
   activeLayer,
   viewMode,
   diseaseSubMode,
@@ -978,6 +982,25 @@ export function GISMap({
     });
   };
 
+  const selectMovementAt = (event: LeafletMouseEvent, movement: MovementRecord) => {
+    if (performance.now() < suppressClickUntilRef.current) return;
+    const point: [number, number] = [event.latlng.lng, event.latlng.lat];
+    const feature = (padreGarciaGeojson as FeatureCollection).features.find(feature => {
+      const geometry = feature.geometry;
+      const polygons = geometry.type === 'Polygon' ? [geometry.coordinates]
+        : geometry.type === 'MultiPolygon' ? geometry.coordinates : [];
+      return polygons.some(rings => isPointInRing(point, rings[0]) && !rings.slice(1).some(ring => isPointInRing(point, ring)));
+    });
+    if (feature) {
+      const name = String(feature.properties?.name ?? '');
+      const data = barangaysByName[name];
+      const inScope = data?.is_in_scope ?? (!userScope || userScope.can_view_all_barangays || userScope.allowed_barangays.includes(name));
+      if (data && inScope) onSelectBarangay(data);
+      return;
+    }
+    onSelectMovement?.(movement);
+  };
+
   // Permanent Centroid Labels for all 18 barangays (responsive for mobile)
   const permanentLabels = useMemo(() => {
     if (!leafletLib) return [];
@@ -1072,10 +1095,8 @@ export function GISMap({
         const deaths = getMortalityDeaths(b, selectedLivestockType);
         statText = deaths > 0 ? `${deaths}☠️` : '0☠️';
       } else if (activeLayer === 'movement') {
-        const recordCount = (b.inspections_count ?? 0) > 0
-          ? b.inspections_count
-          : (b.movement_out > 0 ? 1 : 0);
-        statText = recordCount > 0 ? `${recordCount}🚛` : '—';
+        const outbound = movementLabelRecords.filter(record => record.direction === 'OUTBOUND' && movementEndpointMatches(record, b, 'origin'));
+        statText = `${outbound.reduce((total, record) => total + record.heads, 0)} out`;
       }
 
       const isGeographicallyRestricted = Boolean(scope && !scope.can_view_all_barangays);
@@ -1120,7 +1141,7 @@ export function GISMap({
         icon: customIcon,
       };
     });
-  }, [leafletLib, barangaysByName, activeLayer, diseaseSubMode, simulatedStates, simulationColorMode, viewMode, selectedLivestockType, userScope]);
+  }, [leafletLib, barangaysByName, activeLayer, diseaseSubMode, simulatedStates, simulationColorMode, viewMode, selectedLivestockType, userScope, movementLabelRecords]);
 
   const isFarmerRole = (userScope?.role || '').toUpperCase() === 'FARMER' || userScope?.scope === 'OWN_BARANGAY';
 
@@ -1473,7 +1494,7 @@ export function GISMap({
           simulationColorMode={simulationColorMode}
           selectedLivestockType={selectedLivestockType}
           userScope={userScope}
-          heightScale={heightScale}
+          heightScale={activeLayer === 'movement' ? heightScale * 0.55 : heightScale}
           suppressClickUntilRef={suppressClickUntilRef}
           movements={movements}
           selectedMovement={selectedMovement}
@@ -1608,154 +1629,28 @@ export function GISMap({
               );
             })}
 
-          {/* Movement Layer Polyline Arcs & External Destination Pins */}
-          {(activeLayer === 'movement' || showMovementOverlay) && (activeLayer !== 'movement' || movementDisplayMode !== 'density') &&
-            movements.map((move, moveIdx) => {
-              const isSelected = selectedMovement?.id === move.id;
-              const isApproved = move.clearance_status?.toUpperCase() === 'APPROVED';
-              const arcOffset = 0.10 + ((moveIdx % 3) * 0.05);
-              const arcPositions = computeCurvedArc(move.from, move.to, arcOffset);
-              const midPoint = arcPositions[Math.floor(arcPositions.length / 2)];
+          {/* Routes sit above polygon fills; hit testing still prioritizes barangays. */}
+          {(activeLayer === 'movement' || showMovementOverlay) && (activeLayer !== 'movement' || movementDisplayMode !== 'density') && (
+            <Pane name="movement-routes" style={{zIndex: 450}}>
+              {groupMovementRoutes(movements).map((move, index) => {
+                const isSelected = selectedMovement?.id === move.id;
 
-              const pathColor = isSelected
-                ? '#38bdf8'
-                : isApproved
-                ? move.direction === 'INBOUND'
-                  ? '#2563eb'
-                  : move.direction === 'INTERNAL'
-                  ? '#10b981'
-                  : '#ef4444'
-                : '#f59e0b';
+                const color = isSelected ? '#38bdf8' : move.direction === 'INBOUND' ? '#2563eb' : move.direction === 'INTERNAL' ? '#10b981' : '#ef4444';
+                const positions = computeCurvedArc(move.from, move.to, 0.1 + (index % 3) * 0.05);
+                return <React.Fragment key={`route-${move.id}`}>
+                  <Polyline positions={positions} pathOptions={{color, weight: isSelected ? 5 : 3, opacity: isSelected ? 1 : 0.8, dashArray: '10, 10', className: isSelected ? 'movement-polyline-flow-selected' : 'movement-polyline-flow'}} eventHandlers={{click: event => selectMovementAt(event, move)}}>
 
-              const arrowIcon = leafletLib
-                ? leafletLib.divIcon({
-                    className: 'movement-direction-arrow-container',
-                    html: `
-                      <div class="movement-arrow-badge ${isSelected ? 'is-selected' : ''}" style="background-color: ${pathColor};">
-                        <span>${move.direction === 'INBOUND' ? '📥' : move.direction === 'INTERNAL' ? '🔄' : '📤'} ${move.heads}</span>
-                      </div>
-                    `,
-                    iconSize: [46, 20],
-                    iconAnchor: [23, 10],
-                  })
-                : null;
-
-              return (
-                <React.Fragment key={`move-${move.id}-${moveIdx}`}>
-                  {/* Curved Path */}
-                  <Polyline
-                    positions={arcPositions}
-                    pathOptions={{
-                      color: pathColor,
-                      weight: isSelected ? 5.5 : 3.5,
-                      dashArray: isApproved ? '10, 10' : '6, 8',
-                      opacity: isSelected ? 1 : 0.85,
-                      className: isSelected ? 'movement-polyline-flow-selected' : 'movement-polyline-flow',
-                    }}
-                    eventHandlers={{
-                      click: () => {
-                        onSelectMovement?.(move);
-                      },
-                    }}
-                  >
-                    <Popup>
-                      <div className="p-2 space-y-1.5 text-xs">
-                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1">
-                          <p className="font-black text-slate-900">
-                            {move.direction === 'INBOUND'
-                              ? '📥 Inbound Transport'
-                              : move.direction === 'INTERNAL'
-                              ? '🔄 Local Intra-Municipal'
-                              : '📤 Outbound Transport'}
-                          </p>
-                          <span
-                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                              isApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                            }`}
-                          >
-                            {move.clearance_status || 'RECORDED'}
-                          </span>
-                        </div>
-                        <p className="font-bold text-emerald-800">
-                          {move.heads} {move.species} ({move.purpose})
-                        </p>
-                        <p className="text-[11px] text-slate-600">
-                          From: <strong>{move.origin}</strong>
-                        </p>
-                        <p className="text-[11px] text-slate-600">
-                          To: <strong>{move.destination}</strong>
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                          Date: {move.date} • Permit: {move.control_number || `#${move.id}`}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => onSelectMovement?.(move)}
-                          className="w-full mt-1 bg-slate-900 text-white text-[10px] font-bold py-1 px-2 rounded hover:bg-slate-800 transition-colors cursor-pointer"
-                        >
-                          View Full Permit Details →
-                        </button>
-                      </div>
-                    </Popup>
                   </Polyline>
+                  <CircleMarker center={move.to} radius={isSelected ? 6 : 4} pathOptions={{color: '#ffffff', fillColor: color, fillOpacity: 1, weight: 1.5}} eventHandlers={{click: event => selectMovementAt(event, move)}}>
 
-                  {/* Midpoint Directional Badge Marker */}
-                  {arrowIcon && (
-                    <Marker
-                      position={midPoint}
-                      icon={arrowIcon}
-                      eventHandlers={{
-                        click: () => {
-                          onSelectMovement?.(move);
-                        },
-                      }}
-                    />
-                  )}
-
-                  {/* Destination Terminal Marker */}
-                  <CircleMarker
-                    center={move.to}
-                    radius={isSelected ? 8 : 6}
-                    pathOptions={{
-                      fillColor: move.type === 'export' ? '#ef4444' : '#3b82f6',
-                      color: isSelected ? '#38bdf8' : '#ffffff',
-                      fillOpacity: 1,
-                      weight: isSelected ? 3 : 2,
-                    }}
-                    eventHandlers={{
-                      click: () => {
-                        onSelectMovement?.(move);
-                      },
-                    }}
-                  >
-                    <Tooltip permanent direction="top" className="barangay-hover-tooltip">
-                      {move.destination.split(',')[0]}
-                    </Tooltip>
                   </CircleMarker>
+                  <CircleMarker center={move.from} radius={isSelected ? 5 : 3} pathOptions={{color: '#ffffff', fillColor: color, fillOpacity: 1, weight: 1.5}} eventHandlers={{click: event => selectMovementAt(event, move)}}>
 
-                  {/* Origin Hub Marker */}
-                  <CircleMarker
-                    center={move.from}
-                    radius={isSelected ? 6 : 4.5}
-                    pathOptions={{
-                      fillColor: '#1E4D2B',
-                      color: isSelected ? '#38bdf8' : '#ffffff',
-                      fillOpacity: 1,
-                      weight: isSelected ? 2.5 : 1.5,
-                    }}
-                    eventHandlers={{
-                      click: () => {
-                        onSelectMovement?.(move);
-                      },
-                    }}
-                  >
-                    <Tooltip direction="bottom" className="barangay-hover-tooltip">
-                      Origin: {move.origin.split(',')[0]}
-                    </Tooltip>
                   </CircleMarker>
-                </React.Fragment>
-              );
-            })}
+                </React.Fragment>;
+              })}
+            </Pane>
+          )}
         </MapContainer>
       </div>
       )}

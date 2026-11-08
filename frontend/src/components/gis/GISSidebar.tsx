@@ -286,7 +286,7 @@ export function GISSidebar({
               <span aria-hidden="true" className="h-1.5 w-12 rounded-full bg-slate-300 transition-colors group-hover:bg-blue-500" />
               <span className="mt-2 flex w-full items-center justify-between gap-2">
                 <span className="truncate text-xs font-semibold text-slate-700">
-                  {selectedMovement ? `Permit #${selectedMovement.id}` : selectedBarangay ? `${selectedBarangay.name} details` : 'Map details'}
+                  {selectedMovement ? selectedMovement.route_records ? `Route · ${selectedMovement.route_records.length} clearances` : `Permit #${selectedMovement.id}` : selectedBarangay ? `${selectedBarangay.name} details` : 'Map details'}
                 </span>
                 <span className="shrink-0 text-[10px] text-slate-500">
                   {mobileSnapState === 'collapsed' ? 'Swipe up to expand' : mobileSnapState === 'expanded' ? 'Swipe down to close' : 'Drag to resize'}
