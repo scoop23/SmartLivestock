@@ -217,7 +217,7 @@ export function SlaughterDescriptiveAnalytics({
                 Padre Garcia Abattoir · Descriptive Analytics
               </span>
             </div>
-            <h2 className="text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
+            <h2 className="text-lg sm:text-2xl font-black tracking-tight text-slate-950 leading-tight">
               Daily Slaughter Throughput & Carcass Weights
             </h2>
             <p className="text-xs text-slate-600 font-mono">
@@ -308,7 +308,7 @@ export function SlaughterDescriptiveAnalytics({
           </div>
 
           {/* Card 3: Average Yield Per Head */}
-          <div className="group relative overflow-hidden rounded-xl border border-sky-200/80 bg-white/95 p-3.5 shadow-xs transition-all hover:border-sky-400 hover:shadow-md">
+          <div className="col-span-2 sm:col-span-1 group relative overflow-hidden rounded-xl border border-sky-200/80 bg-white/95 p-3.5 shadow-xs transition-all hover:border-sky-400 hover:shadow-md">
             <div className="flex items-center justify-between text-slate-600">
               <span className="font-mono text-[10px] font-bold tracking-wider text-sky-700 uppercase">
                 Avg Carcass Yield
@@ -334,11 +334,11 @@ export function SlaughterDescriptiveAnalytics({
         {/* =================================================================== */}
         {/* SUBSYSTEM NAVIGATION TABS                                           */}
         {/* =================================================================== */}
-        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100/90 p-1 font-mono text-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 sm:flex-wrap rounded-xl border border-slate-200 bg-slate-100/90 p-1 font-mono text-xs">
           <button
             type="button"
             onClick={() => setSelectedDomain("throughput")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-all ${
+            className={`flex items-center gap-1.5 shrink-0 rounded-lg px-3 py-1.5 font-bold transition-all ${
               selectedDomain === "throughput"
                 ? "bg-rose-600 text-white shadow-xs"
                 : "text-slate-600 hover:bg-white hover:text-slate-900"
@@ -351,7 +351,7 @@ export function SlaughterDescriptiveAnalytics({
           <button
             type="button"
             onClick={() => setSelectedDomain("species")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-all ${
+            className={`flex items-center gap-1.5 shrink-0 rounded-lg px-3 py-1.5 font-bold transition-all ${
               selectedDomain === "species"
                 ? "bg-rose-600 text-white shadow-xs"
                 : "text-slate-600 hover:bg-white hover:text-slate-900"
@@ -364,7 +364,7 @@ export function SlaughterDescriptiveAnalytics({
           <button
             type="button"
             onClick={() => setSelectedDomain("yields")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-all ${
+            className={`flex items-center gap-1.5 shrink-0 rounded-lg px-3 py-1.5 font-bold transition-all ${
               selectedDomain === "yields"
                 ? "bg-rose-600 text-white shadow-xs"
                 : "text-slate-600 hover:bg-white hover:text-slate-900"

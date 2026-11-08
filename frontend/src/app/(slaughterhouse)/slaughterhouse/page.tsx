@@ -247,6 +247,8 @@ export default function SlaughterhousePage() {
         variant="slaughterhouse"
         icon={<Scissors className="size-5" />}
         maxWidthClass="w-full"
+        wrapSubtitleOnMobile
+        mobileActionsInline
         action={
           <div className="flex items-center gap-2">
             <Button
@@ -254,11 +256,11 @@ export default function SlaughterhousePage() {
               size="icon"
               onClick={refresh}
               disabled={recordsQuery.isFetching}
-              className="w-11 h-11 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
+              className="w-10 h-10 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/20 text-white active:scale-95 cursor-pointer backdrop-blur-xs transition-all shadow-xs shrink-0"
               title="Refresh Slaughterhouse Records"
               aria-label="Refresh records"
             >
-              <RefreshCw className={`size-5 ${recordsQuery.isFetching ? "animate-spin" : ""}`} />
+              <RefreshCw className={`size-4.5 ${recordsQuery.isFetching ? "animate-spin" : ""}`} />
             </Button>
           </div>
         }
@@ -266,62 +268,38 @@ export default function SlaughterhousePage() {
 
       {/* Abattoir active status banner */}
       <div className="bg-gradient-to-r from-[#2D5A27] to-[#3E7A36] text-white shadow-lg border-b border-emerald-900/10">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-lg bg-white/20 shrink-0">
-              <Scissors className="w-4 h-4 text-white" />
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 rounded-xl bg-white/20 shrink-0">
+              <Scissors className="size-4 text-white" />
             </div>
-            <div>
-              <p className="text-xs font-black">
-                Municipal Abattoir Operations Active — Padre Garcia Slaughterhouse
-              </p>
-              <p className="text-[10px] text-emerald-100 font-semibold">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-xs sm:text-sm font-black text-white">
+                  Municipal Abattoir Operations Active — Padre Garcia Slaughterhouse
+                </p>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/60 text-emerald-200 border border-emerald-400/30">
+                  <span className="relative flex size-1.5">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex size-1.5 rounded-full bg-emerald-400" />
+                  </span>
+                  Live Abattoir
+                </span>
+              </div>
+              <p className="text-[10px] sm:text-[11px] text-emerald-100/90 font-medium mt-0.5 leading-snug">
                 Daily carcass throughput, meat inspection findings, and dressing yield logs. Submissions stay pending until MAO inspection review.
               </p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setPdfDialogOpen(true)}
-              className="bg-emerald-950/60 hover:bg-emerald-950 text-white border border-emerald-400/30 text-xs font-bold rounded-xl shadow-xs gap-1.5 cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Monthly PDF Report
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setImportDialog(true);
-                setValidation(null);
-                setImportSummary(null);
-              }}
-              className="bg-emerald-950/60 hover:bg-emerald-950 text-white border border-emerald-400/30 text-xs font-bold rounded-xl shadow-xs gap-1.5 cursor-pointer"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Import CSV/XLSX
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setRecordDialog(true)}
-              className="bg-white hover:bg-emerald-50 text-emerald-900 text-xs font-black rounded-xl shadow-md gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Daily Record
-            </Button>
           </div>
         </div>
       </div>
 
       {/* Upper Micro-Telemetry Banner with Live Realtime Clock */}
       <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-2 sm:px-6 md:px-8">
-        <div className="w-full flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-slate-500">
-          <div className="flex items-center gap-2 font-semibold text-slate-600">
-            <Building className="size-3.5 text-rose-600" />
-            <span>
+        <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-3 font-mono text-[11px] text-slate-500">
+          <div className="flex items-center gap-2 font-semibold text-slate-600 min-w-0">
+            <Building className="size-3.5 text-rose-600 shrink-0" />
+            <span className="truncate">
               FACILITY:{" "}
               <strong className="font-mono text-slate-900 uppercase">
                 PADRE GARCIA MUNICIPAL SLAUGHTERHOUSE
@@ -329,18 +307,76 @@ export default function SlaughterhousePage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700">
-              <Clock className="size-3.5 text-slate-400" />
-              <span className="tabular-nums font-bold">
-                {clockString || "Loading Manila time…"}
-              </span>
-            </div>
+          <div className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-slate-700 shrink-0">
+            <Clock className="size-3.5 text-slate-400" />
+            <span className="tabular-nums font-bold">
+              {clockString || "Loading Manila time…"}
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="w-full space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="w-full space-y-4 sm:space-y-6 p-3.5 sm:p-6 lg:p-8">
+
+        {/* =================================================================== */}
+        {/* PRIMARY ACTION CONTROLS (ABOVE CONTENT NOT IN HEADER)               */}
+        {/* =================================================================== */}
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-xs">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="size-9 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center shrink-0 border border-emerald-200/60">
+                <Scissors className="size-4.5 text-emerald-700" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-slate-900 leading-tight truncate">
+                  Slaughterhouse Operations
+                </h3>
+                <p className="text-[11px] text-slate-500 truncate">
+                  Log throughput, generate municipal reports, or import data
+                </p>
+              </div>
+            </div>
+
+            {/* Action buttons: mobile friendly layout */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+              {/* Secondary actions: 2 columns on mobile */}
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPdfDialogOpen(true)}
+                  className="h-9.5 sm:h-9 px-3 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold shadow-2xs gap-1.5 cursor-pointer justify-center"
+                >
+                  <Printer className="size-3.5 text-slate-600 shrink-0" />
+                  <span className="truncate">Monthly PDF Report</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setImportDialog(true);
+                    setValidation(null);
+                    setImportSummary(null);
+                  }}
+                  className="h-9.5 sm:h-9 px-3 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold shadow-2xs gap-1.5 cursor-pointer justify-center"
+                >
+                  <Upload className="size-3.5 text-slate-600 shrink-0" />
+                  <span className="truncate">Import CSV/XLSX</span>
+                </Button>
+              </div>
+
+              {/* Primary action: Full width on mobile */}
+              <Button
+                size="sm"
+                onClick={() => setRecordDialog(true)}
+                className="h-10 sm:h-9 px-4 rounded-xl bg-[#1b4332] hover:bg-[#143326] text-white text-xs font-black shadow-xs gap-1.5 cursor-pointer justify-center w-full sm:w-auto"
+              >
+                <Plus className="size-4 shrink-0" />
+                <span>Add Daily Record</span>
+              </Button>
+            </div>
+          </div>
+        </div>
 
         {/* =================================================================== */}
         {/* FUTURISTIC DESCRIPTIVE ANALYTICS HUD (MATCHING AUCTION PATTERN)     */}
@@ -413,12 +449,12 @@ export default function SlaughterhousePage() {
                   Official municipal abattoir throughput, dressing weights, and post-mortem inspection findings.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setPdfDialogOpen(true)}
-                  className="rounded-xl border-rose-200 text-rose-900 hover:bg-rose-50 font-bold"
+                  className="rounded-xl border-rose-200 text-rose-900 hover:bg-rose-50 font-bold justify-center"
                 >
                   <FileText className="mr-2 size-4 text-rose-700" />
                   Official Form
@@ -428,7 +464,7 @@ export default function SlaughterhousePage() {
                   size="sm"
                   onClick={() => exportRecords(filteredRecords)}
                   disabled={!filteredRecords.length}
-                  className="rounded-xl border-slate-200 font-bold hover:bg-slate-50"
+                  className="rounded-xl border-slate-200 font-bold hover:bg-slate-50 justify-center"
                 >
                   <Download className="mr-2 size-4" />
                   Export CSV
