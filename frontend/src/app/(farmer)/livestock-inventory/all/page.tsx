@@ -1,5 +1,6 @@
 "use client";
 
+import { FarmerPageTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -103,6 +104,8 @@ export default function AllLivestockInventoryPage() {
         subtitle="View and manage your animals."
         variant="farmer"
         maxWidthClass="w-full"
+        mobileActionsRow
+        action={<FarmerPageTutorial guide="animals" ready={!isLoading && !isError} />}
       />
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">

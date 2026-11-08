@@ -40,6 +40,24 @@ import ProductionFormFields,{
 ProductionFormState,
 } from "./production-form-fields";
 
+const outputTutorialSteps: Record<ProductionType, DriveStep[]> = {
+  milk: [
+    { element: "#milkQty", popover: { title: "Milk quantity in liters", description: "Enter the amount actually collected from the selected animal or herd for this entry. Use liters, not the number of containers." } },
+    { element: "#milkTime", popover: { title: "Milking session", description: "Choose the session that matches this collection. Check the date and session to avoid recording the same collection twice." } },
+  ],
+  meat: [
+    { element: "#meatQty", popover: { title: "Recorded meat yield in kilograms", description: "Enter the actual meat yield for this event. For an individual animal, this entry creates a pending slaughter notice; inventory changes follow the separate MAO approval workflow." } },
+    { element: "#meatPurpose", popover: { title: "Purpose of the meat output", description: "Choose the purpose that matches this slaughter or meat-yield event, such as household use or market distribution." } },
+  ],
+  eggs: [
+    { element: "#eggQty", popover: { title: "Number of eggs collected", description: "Enter the number of eggs collected for this entry. Count individual eggs, not trays or dozens." } },
+    { element: "#collectionTime", popover: { title: "Collection session", description: "Choose when these eggs were collected. Keep separate collection entries distinct to avoid duplicate counts." } },
+  ],
+  wool: [
+    { element: "#woolQty", popover: { title: "Wool collected in kilograms", description: "Enter the actual wool collected during this shearing event in kilograms. Check the selected animal or herd and the collection date." } },
+  ],
+};
+
 const DEFAULT_FARM_LOG_NOTE = "Your Record has been added to your personal farm log. No approval or Verification is required.";
 import SelectLivestockDialog from "./select-livestock-dialog";
 
@@ -203,11 +221,13 @@ function ProductionWizardContent({
   const firstStep = profileMode || mode === "edit" ? 2 : 0;
   const minimumStep = profileMode ? 2 : 0;
   const [step, setStep] = useState(firstStep);
-  const autoTutorialStarted = useRef(false);
+  const autoTutorialStarted = useRef(new Set<string>());
+  const wizardTour = useRef<ReturnType<typeof startGuidedTutorial>>(undefined);
   const [selectOpen, setSelectOpen] = useState(false);
   const [isCertified, setIsCertified] = useState(false);
 
   const startWizardTour = useCallback(() => {
+    if (document.querySelector(".driver-overlay")) return;
     const steps: DriveStep[] = [
       {
         element: '[data-tour="production-wizard-progress"]',
@@ -231,13 +251,13 @@ function ProductionWizardContent({
           : step === 2
             ? [
                 { element: '[data-tour="production-wizard-date"]', popover: { title: "Set the record date", description: "Choose when this farm production was collected or recorded.", side: "bottom" as const, align: "start" as const } },
-                { element: '[data-tour="production-wizard-fields"]', popover: { title: "Enter production details", description: "Saving an individual meat-yield entry creates a pending official slaughter notice. Inventory changes only after MAO approval.", side: "top" as const, align: "center" as const } },
+                ...outputTutorialSteps[productionType],
                 { element: '[data-tour="production-wizard-notes"]', popover: { title: "Add optional notes", description: "Add context for your own farm history.", side: "top" as const, align: "start" as const } },
               ]
             : [
                 { element: '[data-tour="production-wizard-review"]', popover: { title: "Review the entry", description: "Check the livestock, date, and production values before saving.", side: "top" as const, align: "center" as const } },
                 { element: '[data-tour="production-wizard-certification"]', popover: { title: "Confirm the declaration", description: "Check this confirmation only when the information reflects what you are reporting.", side: "top" as const, align: "center" as const } },
-                { element: '[data-tour="production-wizard-submit"]', popover: { title: "Save farm log", description: "The production log is saved as a personal Farmer record. A linked slaughter notice follows its separate MAO review workflow.", side: "top" as const, align: "center" as const } },
+                { element: '[data-tour="production-wizard-submit"]', popover: { title: "Save farm log", description: productionType === "meat" ? "The meat-yield log is saved in your farm history. A linked individual-animal slaughter notice follows its separate MAO review workflow." : "Save this production entry to your personal farm history after checking the livestock, date, quantity, and unit.", side: "top" as const, align: "center" as const } },
               ]),
       ...(step < 3
         ? [{
@@ -247,7 +267,7 @@ function ProductionWizardContent({
         : []),
     ];
 
-    startGuidedTutorial({
+    wizardTour.current = startGuidedTutorial({
       showProgress: true,
       animate: true,
       allowClose: true,
@@ -255,22 +275,27 @@ function ProductionWizardContent({
       prevBtnText: "Back",
       doneBtnText: "Finish",
       progressText: "{{current}} of {{total}}",
-      steps,
+      steps: steps.filter((item) => typeof item.element !== "string" ||
+        Array.from(document.querySelectorAll(item.element)).some((element) => element.getClientRects().length > 0)),
+      onDestroyed: () => { wizardTour.current = undefined; },
     });
-  }, [step]);
+  }, [step, productionType]);
 
   useEffect(() => {
     if (!open) {
-      autoTutorialStarted.current = false;
+      autoTutorialStarted.current.clear();
       return;
     }
-    if (mode !== "create" || !getAutomaticTutorialsEnabled() || autoTutorialStarted.current) return;
+    const tutorialStep = step < 2 ? `selection:${step}` : `${productionType}:${step}`;
+    if (mode !== "create" || !getAutomaticTutorialsEnabled() || autoTutorialStarted.current.has(tutorialStep)) return;
     const timer = window.setTimeout(() => {
-      autoTutorialStarted.current = true;
       startWizardTour();
+      if (wizardTour.current) autoTutorialStarted.current.add(tutorialStep);
     }, 650);
     return () => window.clearTimeout(timer);
-  }, [mode, open, startWizardTour]);
+  }, [mode, open, step, productionType, startWizardTour]);
+
+  useEffect(() => () => { wizardTour.current?.destroy(); }, [open, step, productionType]);
   const livestockProductionTypes = getProductionTypesForLivestock(clickedInventory?.livestockTypeName);
   const availableTypes = fixedProductionType
     ? livestockProductionTypes.filter((type) => type === fixedProductionType)

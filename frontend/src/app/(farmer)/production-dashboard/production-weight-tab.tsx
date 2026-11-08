@@ -1,5 +1,8 @@
 "use client";
 
+import { FarmerRecordsTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
+
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -288,8 +291,9 @@ export default function ProductionWeightTab({
 
   return (
     <div className="space-y-6">
+      {!autoOpen && <FarmerRecordsTutorial guide="weightRecords" ready={!isLoading} />}
       {/* Top Weight & Calculated Growth KPIs */}
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+      <div data-tour="weight-records-summary" className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <KpiCard
           title="Average Herd Weight"
           value={avgWeight !== "—" ? `${avgWeight} kg` : "—"}
@@ -461,7 +465,7 @@ export default function ProductionWeightTab({
           </div>
 
           {/* Filter, Search & Sort Toolbar */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 pt-3 mt-1">
+          <div data-tour="weight-records-filters" className="flex flex-col sm:flex-row items-center gap-3 pt-3 mt-1">
             <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
               <Input
@@ -525,7 +529,7 @@ export default function ProductionWeightTab({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table data-tour="weight-records-table">
                 <TableHeader className="bg-slate-50/75">
                   <TableRow className="border-slate-100">
                     <TableHead className="font-bold text-xs text-slate-700">Animal / Tag #</TableHead>

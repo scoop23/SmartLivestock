@@ -1,5 +1,6 @@
 "use client";
 
+import { FarmerPageTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1133,7 +1134,10 @@ export default function ProductionAnalyticsPage() {
         subtitle="Explore your farm’s recorded output, breeding countdowns, feeding rations, and predictive forecasting."
         variant="farmer"
         maxWidthClass="w-full"
+        mobileActionsRow
         action={
+          <div className="flex items-center gap-2">
+          <FarmerPageTutorial guide="productionAnalytics" ready={!isInventoryLoading && !isRecordsLoading && !isRecordsError && !isBreedingLoading && !isFeedingLoading} />
           <Button
             variant="ghost"
             size="icon"
@@ -1143,6 +1147,7 @@ export default function ProductionAnalyticsPage() {
           >
             <RefreshCw className={`size-4.5 ${isRecordsFetching ? "animate-spin" : ""}`} />
           </Button>
+          </div>
         }
       />
 
@@ -1169,7 +1174,7 @@ export default function ProductionAnalyticsPage() {
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
           {/* ── DOMAIN TITLE HEADER (WHEN INSIDE A DOMAIN) ───────────────────── */}
           {selectedDomain !== null && DOMAIN_CONFIG[selectedDomain] && (
-            <div className="space-y-1.5 pb-2 animate-in fade-in-50 duration-200">
+            <div data-tour="production-analytics-domain" className="space-y-1.5 pb-2 animate-in fade-in-50 duration-200">
               <div className="flex items-center gap-2">
                 <Badge
                   variant="outline"
@@ -1189,7 +1194,7 @@ export default function ProductionAnalyticsPage() {
           )}
 
           {/* ── TOP NAVIGATION ACTIONS (ACTIVITIES ON LEFT, HISTORY ON RIGHT) ───────────── */}
-          <div className="flex items-center justify-between gap-2">
+          <div data-tour="production-analytics-navigation" className="flex items-center justify-between gap-2">
             {selectedDomain !== null ? (
               <Button
                 asChild
@@ -1257,7 +1262,7 @@ export default function ProductionAnalyticsPage() {
               </div>
 
               {/* Interactive Domain Selection Cards Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <div data-tour="production-analytics-domains" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {/* 1. Milk */}
                 <button
                   type="button"
@@ -1446,7 +1451,7 @@ export default function ProductionAnalyticsPage() {
               </div>
             </div>
           ) : (
-            <div className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+            <div data-tour="production-analytics-results" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
 
 
               {/* ── DYNAMIC 4 KPIS PER ACTIVE DOMAIN ─────────────────────────── */}

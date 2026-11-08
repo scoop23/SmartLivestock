@@ -984,7 +984,7 @@ export default function ProductionDashboardView({
       {isFocusedProductionHistory && focusedActivity ? (
         <>
           <section className="space-y-4">
-            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+            <div data-tour="production-records-period" className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-sm font-black text-slate-900">Production overview</h2>
                 <p className="mt-1 text-xs text-slate-500">

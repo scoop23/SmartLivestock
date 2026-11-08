@@ -1,5 +1,7 @@
 "use client";
 
+import { ProductionRecordingTutorial } from "../production-recording-tutorial";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -130,7 +132,7 @@ export default function FeedingRegistrationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
+      <DialogContent data-recording-form="feeding" className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
         <DialogHeader className="border-b border-slate-100 pb-3">
           <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
             <Wheat className="size-6 text-amber-600" />
@@ -139,6 +141,7 @@ export default function FeedingRegistrationDialog({
           <DialogDescription className="text-xs text-slate-500">
             Record daily feed intake, ration mix, and optional feed cost for your animals or herds.
           </DialogDescription>
+        <ProductionRecordingTutorial kind="feeding" open={open} />
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-3">
@@ -149,7 +152,7 @@ export default function FeedingRegistrationDialog({
           )}
 
           {/* Target Type Switcher: Animal vs Batch */}
-          <div className="space-y-1.5">
+          <div data-tour="feeding-target" className="space-y-1.5">
             <Label className="text-xs font-bold text-slate-700">Target Feeding Group</Label>
             <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-2xl">
               <button
@@ -181,7 +184,7 @@ export default function FeedingRegistrationDialog({
 
           {/* Individual Animal Selector */}
           {targetType === "INDIVIDUAL" && (
-            <div className="space-y-1.5">
+            <div data-tour="feeding-recipient" className="space-y-1.5">
               <p className="text-right text-[11px] text-slate-500">{inventories.length} active animals</p>
               <LivestockPickerField
                 id="feeding-livestock"
@@ -197,7 +200,7 @@ export default function FeedingRegistrationDialog({
 
           {/* Herd Batch Selector */}
           {targetType === "BATCH" && (
-            <div className="space-y-1.5">
+            <div data-tour="feeding-recipient" className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">
                 Select Herd / Batch <span className="text-rose-500">*</span>
               </Label>
@@ -232,7 +235,7 @@ export default function FeedingRegistrationDialog({
               <Input
                 type="date"
                 max={localCalendarDateToday()}
-                value={feedingDate}
+                data-tour="feeding-date" value={feedingDate}
                 onChange={(e) => setFeedingDate(e.target.value)}
                 className="h-11 rounded-xl bg-slate-50 border-slate-200"
                 required
@@ -242,7 +245,7 @@ export default function FeedingRegistrationDialog({
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">Feeding Schedule / Time</Label>
               <Select value={feedingTime} onValueChange={(val) => setFeedingTime(val as FeedingPayload["feeding_time"])}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200">
+                <SelectTrigger data-tour="feeding-time" className="h-11 rounded-xl bg-slate-50 border-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -262,7 +265,7 @@ export default function FeedingRegistrationDialog({
                 Feed Category <span className="text-rose-500">*</span>
               </Label>
               <Select value={feedType} onValueChange={(val) => setFeedType(val as FeedingPayload["feed_type"])}>
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-slate-200">
+                <SelectTrigger data-tour="feeding-type" className="h-11 rounded-xl bg-slate-50 border-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -279,7 +282,7 @@ export default function FeedingRegistrationDialog({
               <Label className="text-xs font-bold text-slate-700">Feed Description / Brand</Label>
               <Input
                 placeholder="e.g. Napier Grass, Starter Mash, Darak"
-                value={feedName}
+                data-tour="feeding-name" value={feedName}
                 onChange={(e) => setFeedName(e.target.value)}
                 className="h-11 rounded-xl bg-slate-50 border-slate-200"
               />
@@ -298,7 +301,7 @@ export default function FeedingRegistrationDialog({
                 step="0.1"
                 min="0.1"
                 placeholder="e.g. 15.5"
-                value={quantityKg}
+                data-tour="feeding-quantity" value={quantityKg}
                 onChange={(e) => setQuantityKg(e.target.value)}
                 className="h-11 rounded-xl bg-slate-50 border-slate-200 font-semibold"
                 required
@@ -315,7 +318,7 @@ export default function FeedingRegistrationDialog({
                 step="0.01"
                 min="0"
                 placeholder="e.g. 120.00"
-                value={cost}
+                data-tour="feeding-cost" value={cost}
                 onChange={(e) => setCost(e.target.value)}
                 className="h-11 rounded-xl bg-slate-50 border-slate-200"
               />
@@ -327,7 +330,7 @@ export default function FeedingRegistrationDialog({
             <Label className="text-xs font-bold text-slate-700">Feeding Notes (Optional)</Label>
             <Textarea
               placeholder="Appetite observations, feeding mix details, pasture condition..."
-              value={notes}
+              data-tour="feeding-notes" value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="rounded-xl bg-slate-50 border-slate-200 text-xs min-h-[70px]"
             />
@@ -344,7 +347,7 @@ export default function FeedingRegistrationDialog({
               Cancel
             </Button>
             <Button
-              type="submit"
+              data-tour="feeding-save" type="submit"
               size="sm"
               disabled={isSubmitting}
               className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs gap-1.5"

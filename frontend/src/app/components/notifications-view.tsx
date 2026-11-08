@@ -1,5 +1,6 @@
 "use client";
 
+import { FarmerPageTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
 import { PageHeader } from "@/app/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -312,12 +313,13 @@ export function NotificationsView({
         showNotifications={false}
         hideIconOnMobile
         showTutorialToggle={false}
+        action={variant === "farmer" ? <FarmerPageTutorial guide="notifications" ready={!isLoading} /> : undefined}
         mobileActionsInline
       />
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Action Controls matching mock */}
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+        <div data-tour="notification-controls" className="flex items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
           {/* Purple Select Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -467,7 +469,7 @@ export function NotificationsView({
 
                   return (
                     <div
-                      key={notif.id}
+                      data-tour="notification-item" key={notif.id}
                       className={cn(
                         "group bg-white rounded-xl border transition-all duration-150 p-3.5 sm:px-5 sm:py-4 shadow-2xs hover:shadow-xs",
                         isChecked

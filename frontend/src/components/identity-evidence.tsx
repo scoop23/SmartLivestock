@@ -105,10 +105,12 @@ export function IdentityChecks({ attempt }: { attempt: IdentityAttempt | null })
 export function IdentityEvidencePanel({
   userId,
   canAssess = false,
+  showCaptureImages = true,
   onSelectUserId,
 }: {
   userId: number;
   canAssess?: boolean;
+  showCaptureImages?: boolean;
   onSelectUserId?: (targetUserId: number) => void;
 }) {
   const { user } = useAuth();
@@ -279,7 +281,7 @@ export function IdentityEvidencePanel({
       {query.data.provider_review.name_comparison.name_match_score !== null ? <p>Didit name match score: {query.data.provider_review.name_comparison.name_match_score}/100</p> : null}
       <p className="text-xs text-slate-700">Compare spelling and name order with the ID. A mismatch needs human review; it does not automatically reject the registration.</p>
     </section> : null}
-    {canAssess && query.data.provider_review?.images.length ? <section className="space-y-2">
+    {canAssess && showCaptureImages && query.data.provider_review?.images.length ? <section className="space-y-2">
       <h4 className="font-semibold">ID and selfie captured by Didit</h4>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {query.data.provider_review.images.map((image) => <figure key={image.label} className="space-y-1 rounded-lg border bg-white p-2">
@@ -291,10 +293,10 @@ export function IdentityEvidencePanel({
       </div>
       <p className="text-xs text-slate-600">These temporary Didit images are shown to MAO/Admin for this review and are not saved by SmartLivestock.</p>
     </section> : null}
-    {canAssess && query.data.provider_review && !query.data.provider_review.images.length ? <p className="text-xs text-slate-600">No Didit capture images are available for this attempt yet. Use the uploaded registration ID for manual inspection.</p> : null}
+    {canAssess && showCaptureImages && query.data.provider_review && !query.data.provider_review.images.length ? <p className="text-xs text-slate-600">No Didit capture images are available for this attempt yet. Use the uploaded registration ID for manual inspection.</p> : null}
     {canAssess && query.data.provider_review_error ? <p role="status" className="text-xs text-amber-800">{query.data.provider_review_error}</p> : null}
     {latest.document_capture === "DIDIT_HOSTED" ? <div className="space-y-2 text-xs">
-      <p>The ID was submitted through Didit. These provider results and images support human review and do not establish legal identity. If images are unavailable, arrange alternative ID inspection before approval.</p>
+      <p>{showCaptureImages ? "The ID was submitted through Didit. These provider results and images support human review and do not establish legal identity. If images are unavailable, arrange alternative ID inspection before approval." : "The ID was submitted through Didit. Review the verification results and record the required manual checks before approval."}</p>
     </div> : <p className="text-xs">The provider captures its own ID image. Compare the applicant’s uploaded registration ID during manual review; these summaries do not prove the files are identical or establish legal identity.</p>}
     <p className="break-all text-xs text-slate-600">Provider reference: {latest.provider_reference || "Not started"} · Updated {new Date(latest.updated_at).toLocaleString()}</p>
     <p className="text-xs">Biometric consent: {latest.consent_at ? `Recorded (${latest.policy_version})` : "Not given; no provider checks started"}</p>

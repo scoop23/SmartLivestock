@@ -1,5 +1,6 @@
 "use client";
 
+import { FarmerPageTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
 import { PageHeader } from "@/app/components/page-header";
 import { Card } from "@/components/ui/card";
 import api from "@/lib/axios";
@@ -19,12 +20,12 @@ export default function OwnershipHistoryPage() {
     queryFn: async () => (await api.get<Transfer[]>("livestock/ownership-transfers/")).data,
   });
   return <>
-    <PageHeader title="Livestock Ownership History" subtitle="Transfer certificates for livestock linked to your account." variant="farmer" maxWidthClass="w-full" />
-    <main className="w-full space-y-4 p-4 sm:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
+    <PageHeader title="Livestock Ownership History" subtitle="Transfer certificates for livestock linked to your account." variant="farmer" maxWidthClass="w-full" mobileActionsRow action={<FarmerPageTutorial guide="ownership" ready={!isLoading && !isError} />} />
+    <main data-tour="ownership-history-list" className="w-full space-y-4 p-4 sm:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
       {isLoading ? <p className="text-sm text-slate-500">Loading ownership history…</p> : null}
       {isError ? <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-800">Ownership history could not be loaded. Please try again.</p> : null}
       {!isLoading && !isError && data.length === 0 ? <Card className="border-dashed p-8 text-center text-sm text-slate-500">No ownership transfer records are available for your account.</Card> : null}
-      {data.map((transfer) => <Card key={transfer.id} className="space-y-3 p-4 sm:p-5">
+      {data.map((transfer) => <Card data-tour="ownership-transfer-card" key={transfer.id} className="space-y-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0"><h2 className="break-words font-bold text-slate-900">{transfer.livestock_type_name} {transfer.livestock_tag || `#${transfer.livestock}`}</h2>
             <p className="mt-1 text-sm text-slate-600">{transfer.previous_owner_name} → {transfer.new_owner_name}</p></div>

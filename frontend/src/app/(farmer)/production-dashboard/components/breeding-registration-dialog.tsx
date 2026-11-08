@@ -1,5 +1,7 @@
 "use client";
 
+import { ProductionRecordingTutorial } from "../production-recording-tutorial";
+
 import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { Button } from "@/components/ui/button";
 import {
@@ -136,7 +138,7 @@ export default function BreedingRegistrationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl sm:max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 bg-white">
+      <DialogContent data-recording-form="breeding" className="max-w-2xl sm:max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 bg-white">
         <DialogHeader className="pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
             <div className="size-10 rounded-2xl bg-violet-100 text-violet-800 flex items-center justify-center font-bold">
@@ -151,11 +153,12 @@ export default function BreedingRegistrationDialog({
               </DialogDescription>
             </div>
           </div>
+        <ProductionRecordingTutorial kind="breeding" open={open} />
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           {/* Section 1: Dam Picker */}
-          <div className="space-y-1.5">
+          <div data-tour="breeding-dam" className="space-y-1.5">
             <Label className="text-xs font-bold text-slate-700">
               Mother / Breeding Dam <span className="text-rose-500">*</span>
             </Label>
@@ -194,7 +197,7 @@ export default function BreedingRegistrationDialog({
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
                 <Input
                   type="date"
-                  value={breedingDate}
+                  data-tour="breeding-date" value={breedingDate}
                   max={localCalendarDateToday()}
                   onChange={(e) => setBreedingDate(e.target.value)}
                   className="pl-9 h-10 rounded-xl text-xs bg-slate-50/70"
@@ -206,7 +209,7 @@ export default function BreedingRegistrationDialog({
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">Breeding Method</Label>
               <Select value={breedingType} onValueChange={(val) => setBreedingType(val as BreedingPayload["breeding_type"])}>
-                <SelectTrigger className="h-10 rounded-xl text-xs bg-slate-50/70">
+                <SelectTrigger data-tour="breeding-method" className="h-10 rounded-xl text-xs bg-slate-50/70">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
@@ -219,7 +222,7 @@ export default function BreedingRegistrationDialog({
           </div>
 
           {/* Section 3: Sire Details */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div data-tour="breeding-sire" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">Registered Sire Bull</Label>
               <Select
@@ -293,7 +296,7 @@ export default function BreedingRegistrationDialog({
                 <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
                 <Input
                   placeholder="e.g. Dr. Santos / MAO AI Tech"
-                  value={technician}
+                  data-tour="breeding-technician" value={technician}
                   onChange={(e) => setTechnician(e.target.value)}
                   className="pl-9 h-10 rounded-xl text-xs bg-slate-50/70"
                 />
@@ -303,7 +306,7 @@ export default function BreedingRegistrationDialog({
           </div>
 
           {/* Calculated Expected Due Date Banner */}
-          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-between">
+          <div data-tour="breeding-due" className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <Sparkles className="size-5 text-amber-700 shrink-0" />
               <div>
@@ -321,7 +324,7 @@ export default function BreedingRegistrationDialog({
             <Label className="text-xs font-bold text-slate-700">Breeding Notes (optional)</Label>
             <Textarea
               placeholder="e.g. Second AI attempt, semen straw source, or morning standing heat details..."
-              value={notes}
+              data-tour="breeding-notes" value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="rounded-xl text-xs min-h-[64px] bg-slate-50/70"
               maxLength={500}
@@ -338,7 +341,7 @@ export default function BreedingRegistrationDialog({
               Cancel
             </Button>
             <Button
-              type="submit"
+              data-tour="breeding-save" type="submit"
               disabled={!damId || isSubmitting}
               className="rounded-xl h-10 px-5 text-xs font-black bg-[#2D5A27] hover:bg-[#23471f] text-white shadow-xs"
             >

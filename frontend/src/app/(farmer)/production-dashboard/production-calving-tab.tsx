@@ -1,5 +1,8 @@
 "use client";
 
+import { FarmerRecordsTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
+
+
 import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/ui/kpi-card";
 import api from "@/lib/axios";
@@ -234,8 +237,9 @@ export default function ProductionCalvingTab({
 
   return (
     <div className="space-y-6">
+      {!autoOpen && <FarmerRecordsTutorial guide="birthRecords" ready={!isLoading} />}
       {/* Top Birthing KPIs */}
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+      <div data-tour="birth-records-summary" className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <KpiCard
           title={`Total ${terms.offspringPlural}`}
           value={totalCalves.toString()}

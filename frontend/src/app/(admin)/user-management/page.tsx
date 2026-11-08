@@ -997,6 +997,7 @@ export default function UserManagementPage() {
                     <IdentityEvidencePanel
                       userId={selectedUser.id}
                       canAssess
+                      showCaptureImages={false}
                       onSelectUserId={(targetId) => {
                         const match = users.find((u) => u.id === targetId);
                         if (match) setSelectedUser(match);

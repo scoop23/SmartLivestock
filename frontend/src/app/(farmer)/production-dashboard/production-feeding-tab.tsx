@@ -1,5 +1,8 @@
 "use client";
 
+import { FarmerRecordsTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
+
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -233,8 +236,9 @@ export default function ProductionFeedingTab({
 
   return (
     <div className="space-y-6">
+      {!autoOpen && <FarmerRecordsTutorial guide="feedingRecords" ready={!isRecordsLoading && !isAnalyticsLoading} />}
       {/* ── KPI METRICS CARDS ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="feeding-records-summary" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           title="Total Feed Provided"
           value={
@@ -377,7 +381,7 @@ export default function ProductionFeedingTab({
           </div>
 
           {/* Filters Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-3">
+          <div data-tour="feeding-records-filters" className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
               <Input
@@ -438,7 +442,7 @@ export default function ProductionFeedingTab({
             <div className="divide-y divide-slate-100">
               {filteredRecords.map((item) => (
                 <div
-                  key={item.id}
+                  data-tour="feeding-history-record" key={item.id}
                   className="p-4 hover:bg-slate-50/70 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                 >
                   <div className="flex items-start gap-3 min-w-0">
@@ -510,7 +514,7 @@ export default function ProductionFeedingTab({
                       onClick={() => deleteMutation.mutate(item.id)}
                       disabled={deleteMutation.isPending}
                       className="size-8 p-0 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                      title="Delete feeding entry"
+                      data-tour="feeding-record-delete" title="Delete feeding entry"
                     >
                       <Trash2 className="size-3.5" />
                     </Button>

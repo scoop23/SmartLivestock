@@ -1,5 +1,6 @@
 "use client";
 
+import { FarmerPageTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
 import { PageHeader } from "@/app/components/page-header";
 import { useParams,useRouter,useSearchParams } from "next/navigation";
 import { useMemo } from "react";
@@ -89,9 +90,11 @@ export default function SpeciesProductionPage() {
         subtitle={activitySubtitle}
         variant="farmer"
         maxWidthClass="w-full"
+        mobileActionsRow
+        action={activityMode === "history" && activity ? undefined : <FarmerPageTutorial guide="productionActivity" ready={!isLoading} autoStart={!activity && activityMode !== "record"} />}
       />
 
-      <div className="p-4 md:p-8 w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
+      <div data-tour="activity-workspace" className="p-4 md:p-8 w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
         {!isLoading && approvedInventories.length === 0 && !(species.toLowerCase() === "cattle" && activity === "sales" && activityMode === "history") ? (
           <EnterpriseEmptyState />
         ) : (

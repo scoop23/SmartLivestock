@@ -42,7 +42,6 @@ import {
   TrendingUp,
   User,
   X,
-  Zap,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -179,98 +178,6 @@ type SurveillanceResponse = {
   };
 };
 
-type ForecastMetric = { mae: number | null; rmse: number | null; prediction_coverage: number; periods: number };
-type ReportingCoverage = {
-  status: string;
-  scope_barangay_count: number;
-  eligible_month_count: number;
-  missing_month_count: number;
-  first_month: string | null;
-  coverage_history_start_month?: string;
-  last_completed_month: string;
-  older_covered_month_count?: number;
-  historical_gap_month_count?: number;
-  trailing_missing_months?: string[];
-  unconfirmed_months?: string[];
-  stale_months?: string[];
-  inconsistent_months?: string[];
-  pending_approval_months?: string[];
-  missing_approval_time_months?: string[];
-  unassigned_record_months?: string[];
-};
-type ForecastExperimentTarget = {
-  target: string;
-  unit: string;
-  horizon_months: number;
-  status: string;
-  training_status: string;
-  candidate_status: string;
-  candidate_reason: string;
-  baseline_candidate: string;
-  simple_baseline_candidate: string;
-  calendar_only_candidate: string;
-  enhanced_candidate: string;
-  training_sample_count: number;
-  feature_training_sample_count: number;
-  minimum_training_samples: number;
-  candidate_forecast: number | null;
-  candidate_forecast_month: string | null;
-  candidate_quality_note: string | null;
-  features_used: string[];
-  imputed_features: string[];
-  eligible_target_periods: number;
-  valid_evaluation_periods: number;
-  evaluation_periods: number;
-  evaluation_start_month: string | null;
-  evaluation_end_month: string | null;
-  latest_eligible_target_period: string | null;
-  excluded_period_counts: Record<string, number>;
-  target_months_without_records_not_scored: number;
-  current_partial_month_rows_excluded: number;
-  target_rows_without_review_time_excluded_from_training: number;
-  baseline: ForecastMetric;
-  simple_baseline: ForecastMetric;
-  calendar_linear_baseline: ForecastMetric;
-  enhanced: ForecastMetric;
-  comparison_conclusion: string;
-  periods: {
-    cutoff: string;
-    target_month: string;
-    target: string;
-    unit: string;
-    horizon_months: number;
-    actual: number;
-    baseline_model: string;
-    baseline_prediction: number | null;
-    simple_baseline_model: string;
-    simple_baseline_prediction: number | null;
-    calendar_linear_prediction: number | null;
-    enhanced_prediction: number | null;
-    enhanced_candidate_status: string;
-    baseline_absolute_error: number | null;
-    simple_baseline_absolute_error: number | null;
-    calendar_linear_absolute_error: number | null;
-    enhanced_absolute_error: number | null;
-    baseline_squared_error: number | null;
-    enhanced_squared_error: number | null;
-    available_surveillance_features: string[];
-  }[];
-  enhanced_model_adopted: false;
-  reporting_coverage: ReportingCoverage;
-};
-
-type ForecastExperimentResponse = {
-  status: string;
-  evaluation_method: string;
-  availability_rule: string;
-  missing_data_rule: string;
-  feature_rule: string;
-  minimum_periods_for_directional_signal: number;
-  enhanced_model_adopted: false;
-  reason: string;
-  targets: Record<string, ForecastExperimentTarget>;
-};
-
 type DailyTelemetryRow = {
   date: string;
   label: string;
@@ -291,8 +198,6 @@ type WeeklyTelemetryRow = {
 };
 
 const number = (value: number) => value.toLocaleString("en-PH");
-const metric = (value: number | null) =>
-  value == null ? "Unavailable" : value.toLocaleString("en-PH", { maximumFractionDigits: 3 });
 const formatDate = (value: string) =>
   new Date(`${value}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 
@@ -778,7 +683,6 @@ export default function SurveillanceAnalytics() {
   const [associationPage, setAssociationPage] = useState(1);
   const [associationFilter, setAssociationFilter] = useState<"ALL" | "direct" | "same_herd" | "same_barangay">("ALL");
   const [associationSearch, setAssociationSearch] = useState("");
-  const [runForecastExperiment, setRunForecastExperiment] = useState(false);
 
   const query = useQuery({
     queryKey: ["disease-mortality-surveillance", user?.email, user?.accessScope, user?.assignedBarangayId],
@@ -787,16 +691,6 @@ export default function SurveillanceAnalytics() {
       return data;
     },
     staleTime: 60_000,
-  });
-
-  const experimentQuery = useQuery({
-    queryKey: ["surveillance-forecast-experiment", user?.email, user?.accessScope, user?.assignedBarangayId],
-    queryFn: async ({ signal }) => {
-      const { data } = await api.get<ForecastExperimentResponse>("analytics/surveillance/forecast-experiment/", { signal });
-      return data;
-    },
-    enabled: runForecastExperiment,
-    retry: false,
   });
 
   const data = query.data;
@@ -2213,103 +2107,6 @@ export default function SurveillanceAnalytics() {
           </div>
         </CardContent>
       </Card>
-
-      {/* ----------------------------------------------------------------- */}
-      {/* G. TECHNICAL AUDIT: MACHINE LEARNING FORECAST & ALERT VALIDATION  */}
-      {/* ----------------------------------------------------------------- */}
-      <details className="group rounded-2xl border border-slate-200/80 bg-white transition-colors shadow-2xs overflow-hidden">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-slate-700 outline-none hover:bg-slate-50/80 select-none">
-          <span className="flex items-center gap-2">
-            <Zap className="size-4 text-rose-600 shrink-0" />
-            <span className="font-extrabold text-slate-900">How Alerts and Forecasts Are Checked</span>
-            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-[10px] font-mono font-bold text-slate-600">
-              Technical details
-            </Badge>
-          </span>
-          <span className="text-xs font-semibold text-slate-500 group-open:hidden">+ Show details</span>
-          <span className="hidden text-xs font-semibold text-slate-500 group-open:inline">− Hide details</span>
-        </summary>
-        <div className="border-t border-slate-200 p-3.5 sm:p-4 bg-white rounded-b-2xl space-y-2.5 text-xs leading-relaxed text-slate-700">
-          <p>
-            <strong>Note for MAO Officers:</strong> Surveillance indicators display real, observed municipal records. Monthly production forecasts use the established municipal time-series models independently.
-          </p>
-          <div className="space-y-1 border-t border-slate-100 pt-2 text-xs text-slate-600 font-mono">
-            <p>
-              <strong>Past alert check:</strong> {data.historical_backtest.status.replaceAll("_", " ")} · {number(data.historical_backtest.usable_evaluation_periods)} periods checked. {data.historical_backtest.reason}
-            </p>
-            <p>
-              <strong>Current monthly forecast method:</strong> {data.monthly_forecast_comparison.baseline}
-            </p>
-            <p>
-              <strong>Test forecast method:</strong> for comparison only; it does not replace the current forecast.
-            </p>
-          </div>
-
-          <div className="pt-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setRunForecastExperiment(true)}
-              disabled={experimentQuery.isFetching}
-              className="h-7 text-xs font-bold cursor-pointer"
-            >
-              {experimentQuery.isFetching
-                ? "Checking past records..."
-                : experimentQuery.data
-                ? "Refresh comparison"
-                : "Compare forecast methods"}
-            </Button>
-          </div>
-
-          {experimentQuery.isError && (
-            <p role="alert" className="text-rose-700 text-xs font-semibold">
-              The comparison could not be completed. Check your access or try again later.
-            </p>
-          )}
-
-          {experimentQuery.isPending && runForecastExperiment && (
-            <p role="status" className="text-xs text-slate-500">
-              Comparing one-month forecasts using approved records. This can take a moment.
-            </p>
-          )}
-
-          {experimentQuery.data && (
-            <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs font-mono">
-              <p>
-                <strong>Result:</strong> {experimentQuery.data.status.replaceAll("_", " ")}. {experimentQuery.data.reason}
-              </p>
-              <p className="text-slate-600">
-                {experimentQuery.data.evaluation_method} The test method will not replace the current forecast automatically.
-              </p>
-              <div className="grid gap-2.5 lg:grid-cols-3 pt-1">
-                {Object.values(experimentQuery.data.targets).map((target) => (
-                  <div key={target.target} className="rounded-xl border border-slate-200 bg-white p-2.5 space-y-1">
-                    <p className="font-bold text-slate-900">
-                      {target.target.replaceAll("_", " ")} ({target.unit}; {target.horizon_months} months ahead)
-                    </p>
-                    <p className="text-slate-600">
-                      Records used: {target.training_status.replaceAll("_", " ")} ({target.training_sample_count}/
-                      {target.minimum_training_samples} samples)
-                    </p>
-                    <p className="text-slate-600">
-                      Reporting coverage: {target.reporting_coverage.status.replaceAll("_", " ")} · {target.reporting_coverage.eligible_month_count} complete month(s), {target.reporting_coverage.missing_month_count} gap(s)
-                    </p>
-                    <p className="text-slate-600">Test method: {target.candidate_status.replaceAll("_", " ")}</p>
-                    <p className="text-slate-800 font-semibold">
-                      Test forecast:{" "}
-                      {target.candidate_forecast == null ? "Unavailable" : `${metric(target.candidate_forecast)} ${target.unit}`}
-                    </p>
-                    <p className="text-slate-600">
-                      Average error (lower is better): current {metric(target.baseline.mae)} | test {metric(target.enhanced.mae)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </details>
 
       {/* ----------------------------------------------------------------- */}
       {/* H. SPATIAL BIOSURVEILLANCE WORKSPACE CALLOUT                      */}

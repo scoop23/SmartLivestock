@@ -1,5 +1,8 @@
 "use client";
 
+import { FarmerRecordsTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
+
+
 import ProductionValuation from "./production-valuation";
 
 import { Badge } from "@/components/ui/badge";
@@ -285,8 +288,12 @@ export default function ProductionHistory({
 
   return (
     <div className="space-y-6">
+      <FarmerRecordsTutorial
+        guide={typeFilter === "milk" ? "milkRecords" : typeFilter === "meat" ? "meatRecords" : typeFilter === "eggs" ? "eggRecords" : typeFilter === "wool" ? "woolRecords" : "productionHistory"}
+        ready={!isLoading && !isError} autoStart={!initialRecordId}
+      />
       {/* Search and Filters Header */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div data-tour="production-history-controls" className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex flex-col sm:flex-row gap-3 p-3 ">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -393,7 +400,7 @@ export default function ProductionHistory({
                   }}
                   className="w-full text-left transition-all cursor-pointer group focus:outline-none"
                 >
-                  <Card
+                  <Card data-tour="production-history-record"
                     className={`transition-all duration-200 ${
                       isSelected
                         ? "border-emerald-600 ring-2 ring-emerald-600/30 bg-emerald-50/20 shadow-md"
@@ -472,6 +479,7 @@ export default function ProductionHistory({
             })}
 
             {filtered.length > 0 && (
+              <div data-tour="production-history-pagination">
               <ValidationPagination
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -484,6 +492,7 @@ export default function ProductionHistory({
                 }}
                 pageSizeOptions={[5, 10, 25, 50]}
               />
+              </div>
             )}
         </div>
       )}

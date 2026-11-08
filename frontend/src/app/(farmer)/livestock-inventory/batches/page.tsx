@@ -1,5 +1,6 @@
 "use client";
 
+import { FarmerPageTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
 import { PageHeader } from "@/app/components/page-header";
 import { QrCodePass } from "@/components/qr-code-pass";
 import { Badge } from "@/components/ui/badge";
@@ -879,6 +880,8 @@ export default function BatchOverviewPage() {
         subtitle="Monitor herd growth, weight gains, and individual animal records in each cohort."
         variant="farmer"
         maxWidthClass="w-full"
+        mobileActionsRow
+        action={<FarmerPageTutorial guide="herds" ready={!isBatchesLoading && !isBatchesError} />}
       />
 
       <div className="w-full px-3.5 pt-4 sm:px-6">

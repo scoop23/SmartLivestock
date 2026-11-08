@@ -1,5 +1,6 @@
 "use client";
 
+import { FarmerPageTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
 import { ActivityPhotoCarousel } from "@/app/components/community/activity-photo-carousel";
 import {
 CommunityEmptyState,
@@ -600,7 +601,10 @@ function FarmerSchedulingContent() {
         subtitle="Browse farmer programs, register for an activity, and manage your bookings."
         variant="farmer"
         maxWidthClass="w-full"
+        mobileActionsRow
         action={
+          <div className="flex items-center gap-2">
+          <FarmerPageTutorial guide="programs" ready={!loading} />
           <Button
             variant="ghost"
             size="icon"
@@ -612,6 +616,7 @@ function FarmerSchedulingContent() {
           >
             <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
           </Button>
+          </div>
         }
       />
 
@@ -776,7 +781,7 @@ function FarmerSchedulingContent() {
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
             <div className="relative w-full sm:w-64 md:w-72">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-              <Input
+              <Input data-tour="program-search"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}

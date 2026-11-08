@@ -1,5 +1,10 @@
 "use client";
 
+import { FarmerRecordsTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
+
+
+import { ProductionRecordingTutorial } from "./production-recording-tutorial";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -291,8 +296,9 @@ export default function ProductionTreatmentsTab({
 
   return (
     <div className="space-y-6">
+      {!autoOpen && <FarmerRecordsTutorial guide="treatmentRecords" ready={!isLoading} />}
       {/* ── 1. Telemetry KPI Cards using KpiCard ── */}
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+      <div data-tour="treatment-records-summary" className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <KpiCard
           title="Total Treatments"
           value={isLoading ? <Skeleton className="h-8 w-20" /> : `${totalTreatmentsCount} Records`}
@@ -417,7 +423,7 @@ export default function ProductionTreatmentsTab({
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
           <Input
-            placeholder="Search treatments by animal, medication, reason..."
+            data-tour="treatment-records-search" placeholder="Search treatments by animal, medication, reason..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10 rounded-xl text-xs bg-slate-50 border-slate-200 focus:bg-white"
@@ -497,7 +503,7 @@ export default function ProductionTreatmentsTab({
             </p>
           </div>
         ) : (
-          <Table>
+          <Table data-tour="treatment-records-table">
             <TableHeader className="bg-slate-50/75 border-b border-slate-200">
               <TableRow>
                 <TableHead className="font-bold text-xs text-slate-700">Animal Tag</TableHead>
@@ -618,7 +624,7 @@ export default function ProductionTreatmentsTab({
           if (!open && onClose) onClose();
         }}
       >
-        <DialogContent className="sm:max-w-lg rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
+        <DialogContent data-recording-form="treatment" className="max-h-[90dvh] overflow-y-auto sm:max-w-lg rounded-3xl p-6 bg-white border-slate-100 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
               <Pill className="size-5 text-teal-600" />
@@ -627,7 +633,8 @@ export default function ProductionTreatmentsTab({
             <DialogDescription className="text-xs text-slate-500">
               Record veterinary medication, antibiotic administration, or health care for an animal in your herd.
             </DialogDescription>
-          </DialogHeader>
+          <ProductionRecordingTutorial kind="treatment" open={isLogDialogOpen} />
+        </DialogHeader>
 
           <form
             onSubmit={(e) => {
@@ -643,7 +650,7 @@ export default function ProductionTreatmentsTab({
                 onValueChange={setSelectedLivestockId}
                 required
               >
-                <SelectTrigger className="rounded-xl mt-1 text-xs">
+                <SelectTrigger data-tour="treatment-animal" className="rounded-xl mt-1 text-xs">
                   <SelectValue placeholder="Choose an animal from your approved herd" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl max-h-56">
@@ -661,7 +668,7 @@ export default function ProductionTreatmentsTab({
                 <Label className="text-xs font-bold text-slate-700">Treatment Date *</Label>
                 <Input
                   type="date"
-                  value={treatmentDate}
+                  data-tour="treatment-date" value={treatmentDate}
                   onChange={(e) => setTreatmentDate(e.target.value)}
                   max={localCalendarDateToday()}
                   className="rounded-xl mt-1 text-xs"
@@ -672,7 +679,7 @@ export default function ProductionTreatmentsTab({
               <div>
                 <Label className="text-xs font-bold text-slate-700">Category *</Label>
                 <Select value={treatmentType} onValueChange={setTreatmentType}>
-                  <SelectTrigger className="rounded-xl mt-1 text-xs">
+                  <SelectTrigger data-tour="treatment-category" className="rounded-xl mt-1 text-xs">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -694,7 +701,7 @@ export default function ProductionTreatmentsTab({
                 <Label className="text-xs font-bold text-slate-700">Medication / Product *</Label>
                 <Input
                   placeholder="e.g. Penicillin, Ivermectin"
-                  value={medicationName}
+                  data-tour="treatment-product" value={medicationName}
                   onChange={(e) => setMedicationName(e.target.value)}
                   className="rounded-xl mt-1 text-xs"
                   required
@@ -705,7 +712,7 @@ export default function ProductionTreatmentsTab({
                 <Label className="text-xs font-bold text-slate-700">Dosage</Label>
                 <Input
                   placeholder="e.g. 10 mL, 2 boluses"
-                  value={dosage}
+                  data-tour="treatment-dosage" value={dosage}
                   onChange={(e) => setDosage(e.target.value)}
                   className="rounded-xl mt-1 text-xs"
                 />
@@ -716,7 +723,7 @@ export default function ProductionTreatmentsTab({
               <div>
                 <Label className="text-xs font-bold text-slate-700">Route of Administration</Label>
                 <Select value={route} onValueChange={setRoute}>
-                  <SelectTrigger className="rounded-xl mt-1 text-xs">
+                  <SelectTrigger data-tour="treatment-route" className="rounded-xl mt-1 text-xs">
                     <SelectValue placeholder="Select route" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -734,7 +741,7 @@ export default function ProductionTreatmentsTab({
                 <Label className="text-xs font-bold text-slate-700">Administered By</Label>
                 <Input
                   placeholder="e.g. Dr. Santos / Farm Staff"
-                  value={administeredBy}
+                  data-tour="treatment-provider" value={administeredBy}
                   onChange={(e) => setAdministeredBy(e.target.value)}
                   className="rounded-xl mt-1 text-xs"
                 />
@@ -745,7 +752,7 @@ export default function ProductionTreatmentsTab({
               <Label className="text-xs font-bold text-slate-700">Reason / Diagnosis</Label>
               <Input
                 placeholder="e.g. Respiratory symptoms, routine parasite control"
-                value={reason}
+                data-tour="treatment-reason" value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 className="rounded-xl mt-1 text-xs"
               />
@@ -756,7 +763,7 @@ export default function ProductionTreatmentsTab({
                 <Label className="text-xs font-bold text-slate-700">Follow-up Date (Optional)</Label>
                 <Input
                   type="date"
-                  value={followUpDate}
+                  data-tour="treatment-follow-up" value={followUpDate}
                   onChange={(e) => setFollowUpDate(e.target.value)}
                   min={localCalendarDateToday()}
                   className="rounded-xl mt-1 text-xs"
@@ -767,7 +774,7 @@ export default function ProductionTreatmentsTab({
                 <Label className="text-xs font-bold text-slate-700">Field Notes</Label>
                 <Input
                   placeholder="Observations, withdrawal period"
-                  value={notes}
+                  data-tour="treatment-notes" value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="rounded-xl mt-1 text-xs"
                 />
@@ -784,7 +791,7 @@ export default function ProductionTreatmentsTab({
                 Cancel
               </Button>
               <Button
-                type="submit"
+                data-tour="treatment-save" type="submit"
                 disabled={logTreatmentMutation.isPending || !selectedLivestockId || !medicationName.trim()}
                 className="rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white"
               >

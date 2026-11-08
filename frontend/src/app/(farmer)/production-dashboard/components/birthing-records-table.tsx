@@ -74,7 +74,7 @@ export default function BirthingRecordsTable({
       <CardContent className="p-0">
         <div className="space-y-3 p-3 md:hidden">
           {paginatedRecords.map((record) => (
-            <article key={record.id} className="rounded-xl border border-slate-200 bg-white p-3">
+            <article data-tour="birth-history-record" key={record.id} className="rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex min-w-0 items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="break-words font-bold text-slate-900">{record.calf_tag || `Event #${record.id}`}</p>
@@ -91,7 +91,7 @@ export default function BirthingRecordsTable({
                 type="button"
                 variant="outline"
                 className="mt-3 min-h-10 w-full gap-2 border-slate-200 text-slate-700"
-                onClick={() => setProgressRecord(record)}
+                data-tour="birth-record-progress" onClick={() => setProgressRecord(record)}
               >
                 <ListChecks className="size-4 text-emerald-700" />
                 View progress
@@ -124,7 +124,7 @@ export default function BirthingRecordsTable({
               {paginatedRecords.map((record) => {
                 const status = record.status || "PENDING";
                 return (
-                  <tr key={record.id} className="hover:bg-slate-50/70 transition-colors">
+                  <tr data-tour="birth-history-record" key={record.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2">
                         <div className="size-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
@@ -226,7 +226,7 @@ export default function BirthingRecordsTable({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => setProgressRecord(record)}
+                        data-tour="birth-record-progress" onClick={() => setProgressRecord(record)}
                         className="mb-2 gap-1.5 rounded-lg border-slate-200 text-[10px] font-bold text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800"
                       >
                         <ListChecks className="size-3.5" />
@@ -240,7 +240,7 @@ export default function BirthingRecordsTable({
                           type="button"
                           size="sm"
                           variant="outline"
-                          onClick={() => onEditResubmit?.(record)}
+                          data-tour="birth-record-resubmit" onClick={() => onEditResubmit?.(record)}
                           className="text-[10px] font-bold text-rose-700 border-rose-200 hover:bg-rose-50 gap-1 rounded-lg cursor-pointer"
                         >
                           <PencilLine className="size-3.5" />

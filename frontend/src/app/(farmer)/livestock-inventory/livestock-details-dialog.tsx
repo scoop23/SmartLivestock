@@ -592,7 +592,7 @@ export default function LivestockDetailsDialog({
         element: '[data-tour="details-header"]',
         popover: {
           title: "Animal identity and status",
-          description: "The top of the dialog displays the animal’s ear tag, RFID active status, livestock type, breed, sex, and official review badges.",
+          description: "The top of the dialog displays the animal’s ear tag, livestock type, breed, sex, and official review badges.",
           side: "bottom",
           align: isMobile ? "center" : "start",
         },

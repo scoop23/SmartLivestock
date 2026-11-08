@@ -1,5 +1,8 @@
 "use client";
 
+import { FarmerRecordsTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
+
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -436,8 +439,9 @@ export default function ProductionBreedingTab({
 
   return (
     <div className="space-y-6">
+      {!autoOpen && <FarmerRecordsTutorial guide="breedingRecords" ready={!isRecordsLoading && !isAnalyticsLoading} />}
       {/* 1. Farmbrite-Style KPI Telemetry Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      <div data-tour="breeding-records-summary" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard
           title="Confirmed Pregnancies"
           value={analytics ? `${analytics.active_gestations} Dams` : "0 Dams"}
@@ -512,7 +516,7 @@ export default function ProductionBreedingTab({
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
           <Input
-            placeholder="Search dam, sire tag, technician..."
+            data-tour="breeding-records-search" placeholder="Search dam, sire tag, technician..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9 h-10 rounded-xl text-xs bg-slate-50/70 border-slate-200"
@@ -545,7 +549,7 @@ export default function ProductionBreedingTab({
       {/* 2.5 Status Filter Chips Strip with Interactive Horizontal Scrollbar */}
       <div className="space-y-1.5">
         <div
-          ref={filterContainerRef}
+          data-tour="breeding-status-filters" ref={filterContainerRef}
           onScroll={updateFilterScrollMetrics}
           onWheel={handleFilterWheel}
           className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-1"
@@ -645,7 +649,7 @@ export default function ProductionBreedingTab({
             const progress = record.gestation_progress_pct ?? 0;
 
             return (
-              <Card key={record.id} className="border-slate-200 rounded-3xl overflow-hidden bg-white shadow-xs hover:border-violet-300 transition-all">
+              <Card data-tour="breeding-history-card" key={record.id} className="border-slate-200 rounded-3xl overflow-hidden bg-white shadow-xs hover:border-violet-300 transition-all">
                 <CardHeader className="p-4 sm:p-5 pb-3 border-b border-slate-100 flex flex-row items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
                     <div className="size-10 rounded-2xl bg-violet-50 text-violet-800 flex items-center justify-center font-bold text-xs shrink-0 border border-violet-100">
@@ -740,7 +744,7 @@ export default function ProductionBreedingTab({
                   )}
 
                   {/* Status Transition Action Pills */}
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                  <div data-tour="breeding-record-actions" className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
                     <span className="text-[11px] text-slate-400 font-semibold">Update status:</span>
                     <div className="flex items-center gap-1.5">
                       {record.status === "PENDING_CHECK" && (

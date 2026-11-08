@@ -1,5 +1,8 @@
 "use client";
 
+import { FarmerRecordsTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
+
+
 import { QrCodePass } from "@/components/qr-code-pass";
 import AuctionPreregistrations from "@/app/components/auction-preregistrations";
 import { ValidationPagination } from "@/app/(admin)/data-validation/components/validation-pagination";
@@ -499,6 +502,7 @@ export default function ProductionSalesTab({
 
   return (
     <div className="space-y-6">
+      {!autoOpenIntent && <FarmerRecordsTutorial guide="salesRecords" ready={!isSalesLoading} autoStart={!showMarketTabs || salesView === "sales"} />}
       <Tabs id="market-price-reference" value={showMarketTabs ? salesView : "sales"} onValueChange={selectSalesView} className="scroll-mt-24 gap-0">
         {showMarketTabs && <TabsList aria-label="Cattle sales and market prices" className="relative grid h-auto w-full max-w-xl grid-cols-2 rounded-xl border border-slate-200 bg-slate-100 p-1">
           <span aria-hidden="true" className={`pointer-events-none absolute inset-y-1 left-1 rounded-lg bg-emerald-700 shadow-sm transition-transform duration-300 ease-out motion-reduce:transition-none ${salesView === "market" ? "translate-x-full" : "translate-x-0"}`} style={{width: "calc((100% - 0.5rem) / 2)"}} />
@@ -566,13 +570,13 @@ export default function ProductionSalesTab({
       {/* Sales History & Intent Pipeline */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Sales Table */}
-        <Card className="lg:col-span-2 border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+        <Card data-tour="sales-history-panel" className="lg:col-span-2 border-slate-200 shadow-sm rounded-2xl overflow-hidden">
           <CardHeader className="p-5 pb-3 border-b border-slate-100">
             <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <ShoppingBag className="size-4 text-emerald-700" /> Live Animal Sales History
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
-              Auction transfer certificates are the official record of completed market sales. See <Link href="/livestock-inventory/ownership-history" className="font-semibold text-emerald-800 underline underline-offset-2">ownership history</Link>.
+              Auction transfer certificates are the official record of completed market sales. See <Link data-tour="sales-ownership-link" href="/livestock-inventory/ownership-history" className="font-semibold text-emerald-800 underline underline-offset-2">ownership history</Link>.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -636,7 +640,7 @@ export default function ProductionSalesTab({
         </Card>
 
         {/* Intent Declarations & Movement Pipeline */}
-        <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+        <Card data-tour="sales-intent-panel" className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
           <CardHeader className="p-5 pb-3 border-b border-slate-100">
             <CardTitle className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Truck className="size-4 text-amber-700" /> Declared Intent & Pipeline

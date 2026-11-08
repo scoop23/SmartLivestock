@@ -1,5 +1,6 @@
 "use client";
 
+import { FarmerPageTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
 import { PageHeader } from "@/app/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -402,6 +403,8 @@ export default function LivestockHistoryPage() {
         subtitle="Past livestock records stay here for reference after an animal is sold, deceased, slaughtered, or moved out."
         variant="farmer"
         maxWidthClass="w-full"
+        mobileActionsRow
+        action={<FarmerPageTutorial guide="livestockHistory" ready={!isLoading && !isError} />}
       />
       <main className="w-full space-y-5 p-4 sm:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both ease-out motion-reduce:animate-none">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -468,7 +471,7 @@ export default function LivestockHistoryPage() {
               </Card>
             )}
             <p className="text-sm font-semibold text-slate-600">{history.length} past animal record{history.length === 1 ? "" : "s"}</p>
-            <div className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div data-tour="livestock-history-results" className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
               {history.map((animal) => (
                 <HistoryRecord
                   key={animal.id}

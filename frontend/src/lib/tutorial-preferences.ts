@@ -28,7 +28,7 @@ export function markTutorialSeen(tutorialKey: string): void {
   window.localStorage.setItem(tutorialKey, "done");
 }
 
-export function startGuidedTutorial(config: Config): void {
+export function startGuidedTutorial(config: Config): ReturnType<typeof driver> | undefined {
   if (!getAutomaticTutorialsEnabled()) {
     if (window.localStorage.getItem(TUTORIALS_OFF_NOTICE_KEY) !== "shown") {
       window.localStorage.setItem(TUTORIALS_OFF_NOTICE_KEY, "shown");
@@ -131,4 +131,5 @@ export function startGuidedTutorial(config: Config): void {
   });
 
   driverInstance.drive();
+  return driverInstance;
 }

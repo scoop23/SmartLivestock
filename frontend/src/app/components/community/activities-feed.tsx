@@ -1,5 +1,6 @@
 "use client";
 
+import { FarmerPageTutorial } from "@/app/components/tutorials/farmer-page-tutorial";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { PageHeader } from "@/app/components/page-header";
@@ -198,7 +199,10 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
         subtitle={headerSubtitle}
         variant={role}
         maxWidthClass="w-full"
+        mobileActionsRow={isFarmer}
         action={
+          <div className="flex items-center gap-2">
+          {isFarmer && <FarmerPageTutorial guide="announcements" ready={!loading && !error} />}
           <Button
             variant="ghost"
             size="icon"
@@ -210,6 +214,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
           >
             <RefreshCw className={`size-5 ${isFetching ? "animate-spin" : ""}`} />
           </Button>
+          </div>
         }
       />
 
@@ -255,7 +260,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
           {/* Category Filter Dropdown */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger
+              <SelectTrigger data-tour="announcement-category"
                 className={`w-full sm:w-60 h-10 bg-slate-50 border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100 transition-colors focus:ring-2 ${
                   isAuction
                     ? "focus:ring-[#7C3AED]"
@@ -443,7 +448,7 @@ export function ActivitiesFeed({ role }: { role: CommunityRole }) {
                   ];
 
                   return (
-                    <Card
+                    <Card data-tour="announcement-item"
                       key={item.id}
                       onClick={() => setSelected(item)}
                       className={`group flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-within:ring-2 ${
