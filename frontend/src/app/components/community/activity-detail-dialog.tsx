@@ -153,7 +153,7 @@ export function ActivityDetailDialog({
                     Audience:{" "}
                     <strong className="font-semibold text-slate-700">
                       {activity.audience === "SIBAT_BARANGAY" && activity.target_barangay_name
-                        ? `SIBAT — ${activity.target_barangay_name} Only`
+                        ? `CBAT — ${activity.target_barangay_name} Only`
                         : AUDIENCE_LABEL[activity.audience] || activity.audience}
                     </strong>
                   </span>

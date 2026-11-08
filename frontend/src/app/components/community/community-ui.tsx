@@ -59,13 +59,13 @@ export const ROLE_ACCENT: Record<
 };
 
 export const AUDIENCE_LABEL: Record<string, string> = {
-  FARMER_AND_SIBAT: "Farmer and SIBAT",
+  FARMER_AND_SIBAT: "Farmer and CBAT",
   FARMER_ONLY: "Farmer Only",
-  SIBAT_ONLY: "SIBAT Only",
-  ALL: "All (Farmer, SIBAT, Auction, Slaughterhouse)",
-  SIBAT_BARANGAY: "SIBAT — Their Barangay Only",
+  SIBAT_ONLY: "CBAT Only",
+  ALL: "All (Farmer, CBAT, Auction, Slaughterhouse)",
+  SIBAT_BARANGAY: "CBAT — Their Barangay Only",
   FARMER: "Farmer Only",
-  SIBAT: "SIBAT Only",
+  SIBAT: "CBAT Only",
 };
 
 /** Visual tone per activity category so the feed is scannable at a glance. */

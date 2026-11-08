@@ -177,7 +177,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
       return;
     }
     if (form.audience === "SIBAT_BARANGAY" && !form.target_barangay_id) {
-      setError("Please select a target barangay for SIBAT — Their Barangay Only.");
+      setError("Please select a target barangay for CBAT — Their Barangay Only.");
       return;
     }
     setBusy(true);
@@ -268,7 +268,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
     <>
       <PageHeader
         title="Announcements"
-        subtitle="Share municipal programs, events, and important updates with farmers and SIBAT."
+        subtitle="Share municipal programs, events, and important updates with farmers and CBAT."
         icon={<Megaphone className={`size-5 ${role === "admin" ? "text-slate-800" : "text-white"}`} />}
         variant={isCbat ? "cbat" : role}
         maxWidthClass="w-full"
@@ -365,11 +365,11 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="FARMER_AND_SIBAT" className="text-xs sm:text-sm font-medium">FARMER AND SIBAT</SelectItem>
+                      <SelectItem value="FARMER_AND_SIBAT" className="text-xs sm:text-sm font-medium">FARMER AND CBAT</SelectItem>
                       <SelectItem value="FARMER_ONLY" className="text-xs sm:text-sm font-medium">FARMER</SelectItem>
-                      <SelectItem value="SIBAT_ONLY" className="text-xs sm:text-sm font-medium">SIBAT</SelectItem>
+                      <SelectItem value="SIBAT_ONLY" className="text-xs sm:text-sm font-medium">CBAT</SelectItem>
                       <SelectItem value="ALL" className="text-xs sm:text-sm font-medium">ALL with (SLAUGHTERHOUSE AND AUCTION)</SelectItem>
-                      <SelectItem value="SIBAT_BARANGAY" className="text-xs sm:text-sm font-medium">SIBAT — THEIR BARANGAY ONLY</SelectItem>
+                      <SelectItem value="SIBAT_BARANGAY" className="text-xs sm:text-sm font-medium">CBAT — THEIR BARANGAY ONLY</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -379,7 +379,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                     <label htmlFor="activity-target-barangay" className="text-xs sm:text-sm font-bold text-slate-800">
                       Target Barangay <span className="text-rose-600">*</span>
                     </label>
-                    <p className="text-xs font-medium text-slate-600">Only SIBAT assigned to this barangay (and officers with all-barangay access) will see this announcement.</p>
+                    <p className="text-xs font-medium text-slate-600">Only CBAT assigned to this barangay (and officers with all-barangay access) will see this announcement.</p>
                     <Select
                       value={form.target_barangay_id || "none"}
                       onValueChange={(val) => setForm({ ...form, target_barangay_id: val === "none" ? "" : val })}
@@ -552,7 +552,7 @@ export function ActivitiesEditor({ role }: { role: CommunityRole }) {
                       <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
                         <span className="text-xs sm:text-sm font-semibold text-slate-500">
                           {item.audience === "SIBAT_BARANGAY" && item.target_barangay_name
-                            ? `SIBAT · ${item.target_barangay_name}`
+                            ? `CBAT · ${item.target_barangay_name}`
                             : AUDIENCE_LABEL[item.audience] || item.audience}
                         </span>
 
