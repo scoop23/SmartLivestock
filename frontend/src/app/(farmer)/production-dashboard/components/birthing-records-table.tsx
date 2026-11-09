@@ -197,7 +197,7 @@ export default function BirthingRecordsTable({
                       ) : status === "VERIFIED" ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-sky-50 text-sky-800 border border-sky-200">
                           <span className="size-1.5 rounded-full bg-sky-500" />
-                          SIBAT Verified
+                          CBAT Verified
                         </span>
                       ) : status === "SUBJECT_TO_REVISION" || status === "SUBJECT_FOR_REVISION" ? (
                         <span className="inline-flex flex-col items-start gap-1">
@@ -214,7 +214,7 @@ export default function BirthingRecordsTable({
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200">
                           <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
-                          Awaiting SIBAT
+                          Awaiting CBAT
                         </span>
                       )}
                     </td>

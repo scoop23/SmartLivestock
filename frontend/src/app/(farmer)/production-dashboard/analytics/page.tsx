@@ -80,6 +80,10 @@ import {
   formatQty,
   type ProductionType,
 } from "../production-analytics";
+import {
+  getPresetDateRange,
+  type DateRangePreset,
+} from "../../farmer/farmer-analytics";
 import { getProductionTypesForLivestock } from "../production-wizard";
 
 const TYPE_ICON = {
@@ -579,14 +583,64 @@ export default function ProductionAnalyticsPage() {
     queryFn: async () => (await api.get("production/calving/")).data,
   });
 
+  // Date range filter state
+  const [preset, setPreset] = useState<DateRangePreset>("ALL");
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
+
+  const { effectiveStartDate, effectiveEndDate } = useMemo(() => {
+    if (preset === "CUSTOM") {
+      return {
+        effectiveStartDate: customStartDate,
+        effectiveEndDate: customEndDate,
+      };
+    }
+    const range = getPresetDateRange(preset);
+    return {
+      effectiveStartDate: range.startDate,
+      effectiveEndDate: range.endDate,
+    };
+  }, [preset, customStartDate, customEndDate]);
+
+  const handleResetFilter = () => {
+    setPreset("ALL");
+    setCustomStartDate("");
+    setCustomEndDate("");
+  };
+
+  const isFiltered = preset !== "ALL" || Boolean(effectiveStartDate || effectiveEndDate);
+
+  const activeRangeText = useMemo(() => {
+    if (preset === "ALL") return "All Time";
+    if (preset === "30D") return "Last 30 Days";
+    if (preset === "6M") return "Last 6 Months";
+    if (preset === "YTD") return `This Year (${new Date().getFullYear()})`;
+    if (customStartDate && customEndDate) return `${customStartDate} to ${customEndDate}`;
+    if (customStartDate) return `From ${customStartDate}`;
+    if (customEndDate) return `Until ${customEndDate}`;
+    return "Custom Range";
+  }, [preset, customStartDate, customEndDate]);
+
+  // Filtered Production Records
+  const filteredRecords = useMemo(() => {
+    if (!isFiltered) return records;
+    return records.filter((r) => {
+      const d = (r.recordDate || "").slice(0, 10);
+      if (!d) return false;
+      if (effectiveStartDate && d < effectiveStartDate) return false;
+      if (effectiveEndDate && d > effectiveEndDate) return false;
+      return true;
+    });
+  }, [records, isFiltered, effectiveStartDate, effectiveEndDate]);
+
   // Computed Production Metrics
-  const analytics = useMemo(() => computeProductionAnalytics(records), [records]);
+  const analytics = useMemo(() => computeProductionAnalytics(filteredRecords), [filteredRecords]);
   const summaries = eligibleProductionTypes.map((type) => ({
     type,
     summary: analytics.by_type[type]?.summary,
   }));
 
-  const totalCount = records.length;
+  const totalCount = filteredRecords.length;
 
   // Real indicative benchmark valuation
   const BENCHMARK_RATES: Record<string, number> = {
@@ -597,14 +651,14 @@ export default function ProductionAnalyticsPage() {
   };
 
   const totalEstimatedValue = useMemo(() => {
-    return records.reduce((sum, r) => {
+    return filteredRecords.reduce((sum, r) => {
       if (r.valuationSnapshot?.estimated_value) {
         return sum + Number(r.valuationSnapshot.estimated_value);
       }
       const rate = BENCHMARK_RATES[r.productionType] || 0;
       return sum + (Number(r.quantity) || 0) * rate;
     }, 0);
-  }, [records]);
+  }, [filteredRecords]);
 
   const currentAnalytics = analytics.by_type[activeType] ?? EMPTY_TYPE_ANALYTICS;
 
@@ -635,11 +689,20 @@ export default function ProductionAnalyticsPage() {
   const projectedCarcassRevenue = Math.round(projectedCarcassKg * 280);
 
   // Milk & Meat yield forecasting
-  const milkRecords = records.filter((r) => r.productionType === "milk");
-  const meatRecords = records.filter((r) => r.productionType === "meat");
+  const milkRecords = useMemo(
+    () => filteredRecords.filter((r) => r.productionType === "milk"),
+    [filteredRecords],
+  );
+  const meatRecords = useMemo(
+    () => filteredRecords.filter((r) => r.productionType === "meat"),
+    [filteredRecords],
+  );
   const milkSummary = analytics.by_type["milk"]?.summary;
   const meatSummary = analytics.by_type["meat"]?.summary;
-  const totalMilkRecent = milkRecords.reduce((acc, r) => acc + Number(r.quantity), 0);
+  const totalMilkRecent = useMemo(
+    () => milkRecords.reduce((acc, r) => acc + Number(r.quantity), 0),
+    [milkRecords],
+  );
   const femaleCattleCount = activeAnimals.filter(
     (i) =>
       (i.sex?.toUpperCase().startsWith("F") || !i.sex) &&
@@ -1452,7 +1515,154 @@ export default function ProductionAnalyticsPage() {
             </div>
           ) : (
             <div data-tour="production-analytics-results" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+              {/* Date Filter Toolbar Bar */}
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white/95 rounded-3xl border border-slate-200/90 p-4 shadow-holo-card">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-2xl bg-emerald-100/70 text-emerald-800 border border-emerald-200/80">
+                    <Calendar className="size-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">Analytics Period</span>
+                    <span className="text-[11px] text-slate-500 font-medium block">
+                      {preset === "ALL"
+                        ? "Showing all historical records"
+                        : `Filtered to: ${activeRangeText}`}
+                    </span>
+                  </div>
+                </div>
 
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Preset Buttons */}
+                  <div className="inline-flex items-center rounded-xl bg-slate-100/90 p-1 text-xs font-semibold text-slate-600 border border-slate-200/80 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setPreset("ALL")}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        preset === "ALL"
+                          ? "bg-white text-emerald-900 shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      All Time
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreset("30D")}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        preset === "30D"
+                          ? "bg-white text-emerald-900 shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      30 Days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreset("6M")}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        preset === "6M"
+                          ? "bg-white text-emerald-900 shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      6 Months
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreset("YTD")}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        preset === "YTD"
+                          ? "bg-white text-emerald-900 shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      This Year
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreset("CUSTOM")}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        preset === "CUSTOM"
+                          ? "bg-white text-emerald-900 shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Calendar className="size-3" />
+                      Custom
+                    </button>
+                  </div>
+
+                  {/* Custom Date Pickers */}
+                  {preset === "CUSTOM" && (
+                    <div className="flex items-center gap-2 bg-white border border-slate-200/90 rounded-2xl p-1.5 shadow-2xs animate-in fade-in slide-in-from-right-1 duration-200">
+                      <label className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100/80 focus-within:bg-white border border-slate-200/90 focus-within:border-emerald-700 focus-within:ring-2 focus-within:ring-emerald-700/20 rounded-xl px-2.5 py-1 transition-all cursor-pointer">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">From</span>
+                        <input
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          onClick={(e) => {
+                            try {
+                              (e.currentTarget as HTMLInputElement).showPicker?.();
+                            } catch {}
+                          }}
+                          className="w-32 sm:w-36 text-xs font-semibold text-slate-800 bg-transparent border-0 p-0 outline-none focus:ring-0 cursor-pointer"
+                        />
+                      </label>
+
+                      <span className="text-slate-300 font-bold px-0.5">—</span>
+
+                      <label className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100/80 focus-within:bg-white border border-slate-200/90 focus-within:border-emerald-700 focus-within:ring-2 focus-within:ring-emerald-700/20 rounded-xl px-2.5 py-1 transition-all cursor-pointer">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">To</span>
+                        <input
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          onClick={(e) => {
+                            try {
+                              (e.currentTarget as HTMLInputElement).showPicker?.();
+                            } catch {}
+                          }}
+                          className="w-32 sm:w-36 text-xs font-semibold text-slate-800 bg-transparent border-0 p-0 outline-none focus:ring-0 cursor-pointer"
+                        />
+                      </label>
+
+                      {(customStartDate || customEndDate) && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleResetFilter}
+                          className="h-8 w-8 p-0 text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 cursor-pointer"
+                          title="Clear custom range"
+                        >
+                          <RotateCcw className="size-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Active Filter Notification Bar */}
+              {isFiltered && (
+                <div className="flex items-center justify-between px-4 py-2 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl text-xs text-emerald-900 animate-in fade-in duration-200 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="size-4 text-emerald-700" />
+                    <span>
+                      Production data filtered to: <strong className="font-bold">{activeRangeText}</strong> ({filteredRecords.length} {filteredRecords.length === 1 ? "record" : "records"} matching)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetFilter}
+                    className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 underline underline-offset-2 cursor-pointer flex items-center gap-1"
+                  >
+                    <RotateCcw className="size-3" />
+                    Reset to All Time
+                  </button>
+                </div>
+              )}
 
               {/* ── DYNAMIC 4 KPIS PER ACTIVE DOMAIN ─────────────────────────── */}
               <section aria-label="Farm performance metrics" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1462,7 +1672,7 @@ export default function ProductionAnalyticsPage() {
                       title="Milk Production Output"
                       variant="emerald"
                       icon={<Milk className="size-5" />}
-                      badge={`${milkSummary?.record_count ?? 0} LOGS RECORDED`}
+                      badge={isFiltered ? `${milkRecords.length} LOGS IN RANGE` : `${milkSummary?.record_count ?? 0} LOGS RECORDED`}
                       badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
                       value={
                         <div className="flex items-baseline gap-2 mt-0.5">
@@ -1472,7 +1682,7 @@ export default function ProductionAnalyticsPage() {
                           <span className="text-xs font-mono text-emerald-700 font-bold">Liters</span>
                         </div>
                       }
-                      description="Cumulative recorded farm milking output"
+                      description={isFiltered ? "Milking output in selected date range" : "Cumulative recorded farm milking output"}
                       wrapText
                     />
 
@@ -1525,7 +1735,7 @@ export default function ProductionAnalyticsPage() {
                       title="Benchmark Dairy Value"
                       variant="sky"
                       icon={<PhilippinePeso className="size-5" />}
-                      badge="OFFICIAL BENCHMARK"
+                      badge={isFiltered ? "PERIOD VALUATION" : "OFFICIAL BENCHMARK"}
                       badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 tracking-wider"
                       value={
                         <div className="flex items-baseline gap-1 mt-0.5">
@@ -1534,7 +1744,11 @@ export default function ProductionAnalyticsPage() {
                           </span>
                         </div>
                       }
-                      description="Historical dairy revenue valuation (@ ₱50/L)"
+                      description={
+                        isFiltered
+                          ? "Dairy revenue valuation for selected period (@ ₱50/L)"
+                          : "Historical dairy revenue valuation (@ ₱50/L)"
+                      }
                       wrapText
                     />
                   </>
@@ -1790,13 +2004,27 @@ export default function ProductionAnalyticsPage() {
                         <div className="size-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto">
                           <Milk className="size-6" />
                         </div>
-                        <p className="font-display text-base font-bold text-slate-900">No milk logs recorded yet</p>
-                        <p className="mx-auto max-w-md text-xs text-slate-500 font-medium">
-                          Record daily milking yields to view live trend charts, or explore the Supervised ML Forecaster below.
+                        <p className="font-display text-base font-bold text-slate-900">
+                          {isFiltered ? "No milk logs recorded in this period" : "No milk logs recorded yet"}
                         </p>
-                        <Button asChild className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs cursor-pointer">
-                          <Link href="/production-dashboard">Go to Production Activities</Link>
-                        </Button>
+                        <p className="mx-auto max-w-md text-xs text-slate-500 font-medium">
+                          {isFiltered
+                            ? "Try expanding your date range or reset to All Time to view all recorded logs."
+                            : "Record daily milking yields to view live trend charts, or explore the Supervised ML Forecaster below."}
+                        </p>
+                        {isFiltered ? (
+                          <Button
+                            onClick={handleResetFilter}
+                            className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs cursor-pointer gap-1.5"
+                          >
+                            <RotateCcw className="size-3.5" />
+                            Reset Filter
+                          </Button>
+                        ) : (
+                          <Button asChild className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs cursor-pointer">
+                            <Link href="/production-dashboard">Go to Production Activities</Link>
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   ) : (

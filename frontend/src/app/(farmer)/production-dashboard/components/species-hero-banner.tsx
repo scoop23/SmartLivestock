@@ -144,7 +144,7 @@ export default function SpeciesHeroBanner({
               <div className="text-xs font-bold text-white flex items-center gap-1 mt-1">
                 {pendingCount > 0 ? (
                   <span className="text-amber-300 flex items-center gap-1 font-bold text-[11px]">
-                    <Clock className="size-3.5" /> {pendingCount} Pending SIBAT
+                    <Clock className="size-3.5" /> {pendingCount} Pending CBAT
                   </span>
                 ) : (
                   <span className="text-emerald-300 flex items-center gap-1 font-bold text-[11px]">
@@ -177,7 +177,7 @@ export default function SpeciesHeroBanner({
           <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-emerald-200/80">
             <span className="flex items-center gap-1.5 font-semibold text-[10px]">
               <ShieldCheck className="size-3.5 text-emerald-400" />
-              SIBAT Monitored Holding
+              CBAT Monitored Holding
             </span>
             <span className="text-[10px] text-emerald-300/70 font-mono">
               MAO Census

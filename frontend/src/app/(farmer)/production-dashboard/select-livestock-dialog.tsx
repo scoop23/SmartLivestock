@@ -379,7 +379,7 @@ export default function SelectLivestockDialog({
               <Button type="button" variant="outline" onClick={() => void diseaseReportsQuery.refetch()}>Retry check</Button>
             </div>
           ) : eligibleItems.length === 0 ? (
-            <EmptyState text={emptyStateText ?? (productionType === "milk" ? "No approved female livestock of a milk-capable species is available." : "No approved livestock is available for production logging. Livestock with SIBAT-verified disease reports are excluded.")} />
+            <EmptyState text={emptyStateText ?? (productionType === "milk" ? "No approved female livestock of a milk-capable species is available." : "No approved livestock is available for production logging. Livestock with CBAT-verified disease reports are excluded.")} />
           ) : filtered.length === 0 ? (
             <EmptyState text="No livestock matches the current search and species filter." />
           ) : (
@@ -531,7 +531,7 @@ export default function SelectLivestockDialog({
                   ? "Disease report status could not be checked, so this livestock cannot be selected for production right now."
                   : "The disease reports could not be checked right now. Do you still want to continue recording?"
                 : diseaseWarning?.blocked
-                  ? `A SIBAT-verified disease report is linked to ${diseaseWarning?.item.tagNumber || diseaseWarning?.item.batchCode || "this livestock"}. It cannot be selected for production.`
+                  ? `A CBAT-verified disease report is linked to ${diseaseWarning?.item.tagNumber || diseaseWarning?.item.batchCode || "this livestock"}. It cannot be selected for production.`
                   : `A pending disease report is linked to ${diseaseWarning?.item.tagNumber || diseaseWarning?.item.batchCode || "this livestock"}. Continuing does not change or bypass the disease report review.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -541,7 +541,7 @@ export default function SelectLivestockDialog({
                 <li key={report.id} className="flex items-start justify-between gap-3">
                   <span className="font-medium text-amber-950">{report.name}</span>
                   <span className="shrink-0 text-xs font-semibold text-amber-800">
-                    {report.status === "VERIFIED" ? "SIBAT verified" : "Pending review"}
+                    {report.status === "VERIFIED" ? "CBAT verified" : "Pending review"}
                   </span>
                 </li>
               ))}

@@ -52,7 +52,7 @@ export default function CalvingProgressDialog({ record, open, onOpenChange }: Ca
       current: false,
     },
     {
-      title: "SIBAT field verification",
+      title: "CBAT field verification",
       detail: fieldReviewComplete
         ? `Field verification completed${reviewedAt && status === "VERIFIED" ? ` · ${reviewedAt}` : ""}`
         : "Waiting for an on-farm field review",
@@ -135,7 +135,7 @@ export default function CalvingProgressDialog({ record, open, onOpenChange }: Ca
                     </div>
                   )}
                   {record.reviewed_by_name && (
-                    (status === "VERIFIED" && step.title === "SIBAT field verification") ||
+                    (status === "VERIFIED" && step.title === "CBAT field verification") ||
                     ((maoReviewComplete || needsCorrection) && step.title === "MAO review")
                   ) && (
                     <p className="mt-1 text-xs text-slate-500">

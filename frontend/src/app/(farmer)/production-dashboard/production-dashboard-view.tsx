@@ -1367,7 +1367,7 @@ export default function ProductionDashboardView({
               {diseaseWarning?.lookupFailed
                 ? "We could not check this animal’s disease reports, so production recording is temporarily unavailable. Please try again."
                 : diseaseWarning?.blocked
-                  ? "This animal has a disease report verified by SIBAT, so it cannot be selected for a production record."
+                  ? "This animal has a disease report verified by CBAT, so it cannot be selected for a production record."
                   : "This animal has a disease report pending review. You can continue recording, and the disease report will remain pending."}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1377,7 +1377,7 @@ export default function ProductionDashboardView({
                 <li key={report.id} className="flex items-start justify-between gap-3">
                   <span className="font-medium text-amber-950">{report.name}</span>
                   <span className="shrink-0 text-xs font-semibold text-amber-800">
-                    {report.status === "VERIFIED" ? "SIBAT verified" : "Pending review"}
+                    {report.status === "VERIFIED" ? "CBAT verified" : "Pending review"}
                   </span>
                 </li>
               ))}

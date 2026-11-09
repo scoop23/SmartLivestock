@@ -100,7 +100,7 @@ function CalvingResubmitDialogContent({
                 Correct & Resubmit {terms.eventName} Record
               </DialogTitle>
               <DialogDescription className="text-xs">
-                Fix the details flagged by the reviewer, then resubmit for SIBAT field verification.
+                Fix the details flagged by the reviewer, then resubmit for CBAT field verification.
               </DialogDescription>
             </div>
           </div>

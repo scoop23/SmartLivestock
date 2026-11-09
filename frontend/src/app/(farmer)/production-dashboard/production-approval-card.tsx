@@ -259,7 +259,7 @@ export default function ProductionApprovalCard({
                   </p>
                 </div>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  SIBAT / MAO
+                  CBAT / MAO
                 </span>
               </div>
 
@@ -306,7 +306,7 @@ export default function ProductionApprovalCard({
                 <div className="flex items-center gap-1.5 text-sky-800">
                   <MessageSquareQuote className="size-4" />
                   <p className="text-xs font-bold uppercase tracking-wider">
-                    {record.reviewedByRole === "CBAT" ? "CBAT" : "SIBAT"} Inspection Notes
+                    CBAT Inspection Notes
                   </p>
                 </div>
                 <p className="text-xs text-sky-900 italic">
