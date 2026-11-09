@@ -490,12 +490,15 @@ export default function AuctionAnalyticsPage() {
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "#064E3B",
-                      color: "#fff",
+                      color: "#FFFFFF",
                       borderRadius: "10px",
-                      border: "none",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
                       fontSize: "11px",
                       fontWeight: "bold",
+                      boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.25)",
                     }}
+                    labelStyle={{ color: "#FFFFFF", fontWeight: "bold" }}
+                    itemStyle={{ color: "#86EFAC", fontWeight: "bold" }}
                     formatter={(val: any) => [`${val ?? 0} heads`, "Auctioned"]}
                   />
                   <Area
@@ -552,12 +555,16 @@ export default function AuctionAnalyticsPage() {
                       </Pie>
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "#0F5A38",
-                          color: "#fff",
+                          backgroundColor: "#064E3B",
+                          color: "#FFFFFF",
                           borderRadius: "10px",
-                          border: "none",
+                          border: "1px solid rgba(255, 255, 255, 0.15)",
                           fontSize: "11px",
+                          fontWeight: "bold",
+                          boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.25)",
                         }}
+                        labelStyle={{ color: "#FFFFFF", fontWeight: "bold" }}
+                        itemStyle={{ color: "#86EFAC", fontWeight: "bold" }}
                         formatter={(val: any) => [`${val ?? 0} heads`, "Cattle"]}
                       />
                     </PieChart>

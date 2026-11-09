@@ -11,7 +11,7 @@ export interface KpiCardProps {
   title: string;
   value: React.ReactNode;
   icon?: React.ReactNode;
-  description?: string;
+  description?: React.ReactNode;
   badge?: React.ReactNode;
   badgeClassName?: string;
   variant?: KpiVariant;
@@ -166,7 +166,7 @@ export const KpiCard: React.FC<KpiCardProps> = ({
               <p className={cn("text-xs sm:text-sm font-bold text-stone-700 leading-tight", wrapText ? "whitespace-normal break-words" : "line-clamp-2")}>{title}</p>
 
               {description && (
-                <p className={cn("text-xs text-stone-500 font-medium mt-0.5", wrapText ? "whitespace-normal break-words" : "truncate")}>{description}</p>
+                <div className={cn("text-xs text-stone-500 font-medium mt-0.5", wrapText ? "whitespace-normal break-words" : "truncate")}>{description}</div>
               )}
             </div>
           </div>
@@ -245,9 +245,9 @@ export const KpiCard: React.FC<KpiCardProps> = ({
 
           {/* Optional extra description */}
           {description && (
-            <p className={cn("text-[11px] sm:text-xs text-stone-500 font-medium mt-0.5 leading-snug", wrapText ? "whitespace-normal break-words" : "truncate")}>
+            <div className={cn("text-[11px] sm:text-xs text-stone-500 font-medium mt-0.5 leading-snug", wrapText ? "whitespace-normal break-words" : "truncate")}>
               {description}
-            </p>
+            </div>
           )}
         </div>
 

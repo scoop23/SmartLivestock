@@ -38,13 +38,6 @@ export default function FarmerStats({
   const milkGrowth = data?.milk_growth_pct ?? null;
   const milkRecordsThisMonth = data?.milk_records_this_month ?? 0;
 
-  const livestockBadge =
-    cattleCount === 0
-      ? "NO ACTIVE ANIMALS"
-      : pendingCount > 0
-      ? `${approvedCount} APPROVED • ${verifiedCount} VERIFIED • ${pendingCount} PENDING`
-      : `${approvedCount} APPROVED • ${verifiedCount} VERIFIED`;
-
   const milkBadge = milkRecordsThisMonth === 0
     ? "NO ENTRIES"
     : `${milkRecordsThisMonth} ${milkRecordsThisMonth === 1 ? "ENTRY" : "ENTRIES"}`;
@@ -62,8 +55,6 @@ export default function FarmerStats({
           title="Active Livestock"
           variant="emerald"
           icon={<Icon iconNode={cowHead} className="size-5" />}
-          badge={livestockBadge}
-          badgeClassName="font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-wider"
           value={
             <div className="flex items-baseline gap-2 mt-0.5">
               <span className="font-display text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -72,7 +63,31 @@ export default function FarmerStats({
               <span className="text-xs font-mono text-emerald-700 font-bold">Heads</span>
             </div>
           }
-          description="Animals currently on your farm"
+          description={
+            <div className="space-y-1.5 mt-0.5">
+              <span className="block text-[11px] sm:text-xs text-stone-500 font-medium">Animals currently on your farm</span>
+              {cattleCount > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100/70 text-emerald-800 border border-emerald-200/80 whitespace-nowrap">
+                    <span className="size-1.5 rounded-full bg-emerald-600" />
+                    {approvedCount} Approved
+                  </span>
+                  {verifiedCount > 0 && (
+                    <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-sky-100/70 text-sky-800 border border-sky-200/80 whitespace-nowrap">
+                      <span className="size-1.5 rounded-full bg-sky-600" />
+                      {verifiedCount} Verified
+                    </span>
+                  )}
+                  {pendingCount > 0 && (
+                    <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100/70 text-amber-800 border border-amber-200/80 whitespace-nowrap">
+                      <span className="size-1.5 rounded-full bg-amber-600" />
+                      {pendingCount} Pending
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          }
           wrapText
         />
       </div>
