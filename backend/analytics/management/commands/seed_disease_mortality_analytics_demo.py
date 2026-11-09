@@ -1,7 +1,7 @@
 """Seed irregular synthetic disease and mortality events with monthly coverage."""
 
 from calendar import monthrange
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from types import SimpleNamespace
 
 from django.core.management.base import BaseCommand, CommandError
@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from analytics.models import SurveillanceCoverageReport, SurveillanceDemoOwnership
 from analytics.seed_markers import SEED_MARKER_DISEASE, SEED_MARKER_MORTALITY
-from diseases.models import DiseaseCase, MortalityRecord
+from diseases.models import DiseaseCase, DiseaseCaseFollowUp, MortalityRecord
 from diseases.serializer import DiseaseCaseSerializer, MortalityRecordSerializer
 from livestock.models import Barangay, Farmer, LivestockBatch, LivestockInventory, LivestockType
 from livestock.reconciliation import reconcile_approved_mortality
@@ -28,6 +28,7 @@ OBJECT_MODELS = {
     "livestock": LivestockInventory,
     "herd": LivestockBatch,
     "disease": DiseaseCase,
+    "follow_up": DiseaseCaseFollowUp,
     "mortality": MortalityRecord,
     "coverage": SurveillanceCoverageReport,
     "notification": Notification,
@@ -38,13 +39,15 @@ MONTHS = 24
 def demo_time(day, hour):
     """Explicit simulated availability, never evidence of real historical review."""
     return timezone.make_aware(datetime.combine(day, time(hour)), timezone.get_current_timezone())
-DISEASE_CASES_PER_MONTH = (1, 2, 0, 1, 2, 0, 3, 1, 0, 1, 2, 0, 2, 1, 0, 3, 1, 0, 2, 1, 0, 2, 1, 0)
+# Deliberately increasing synthetic reporting, with early quiet months.
+# This is a demonstration scenario, not evidence of a real disease trend.
+DISEASE_CASES_PER_MONTH = (0, 1, 0, 1, 1, 2, 1, 2, 2, 3, 2, 3, 3, 4, 3, 4, 4, 5, 4, 5, 6, 6, 7, 8)
 MORTALITY_RECORDS_PER_MONTH = (0, 1, 0, 0, 1, 0, 2, 0, 1, 0, 0, 1, 0, 1, 0, 2, 0, 1, 0, 1, 0, 1, 0, 0)
 
 
 class Command(BaseCommand):
     help = (
-        "Create 24 months of irregular, clearly marked synthetic disease and mortality events "
+        "Create 24 months of increasing synthetic disease reports with simulated resolutions and irregular mortality events "
         "across every existing barangay, with mixed individual/herd disease reports and two inactive demo farmers per barangay."
     )
 
@@ -99,6 +102,11 @@ class Command(BaseCommand):
             )
             if not clean:
                 self.stdout.write(f"Scope: all {Barangay.objects.count()} existing barangays; existing coverage confirmations are preserved.")
+                self.stdout.write(
+                    f"Disease reports per barangay by month: {DISEASE_CASES_PER_MONTH}. "
+                    "Rotate recovered after 21 days, closed after 45 days, and unresolved; "
+                    "future resolutions are not created. Follow-ups are owned synthetic fixtures."
+                )
             self.stdout.write("No database changes were made.")
             return
 
@@ -240,12 +248,18 @@ class Command(BaseCommand):
                     livestock_type=plan["cattle"],
                     reviewer=plan["reviewer"],
                 )
-                self._create_approved_disease(
+                case = self._create_approved_disease(
                     key=f"disease:{month_end:%Y-%m}:{event_index + 1}",
                     farmer_user=owner["user"],
                     animal=disease_animal,
                     record_date=self._event_day(month_end, month_index, event_index, offset=3),
                     verifier=verifier,
+                    reviewer=plan["reviewer"],
+                )
+                self._seed_disease_resolution(
+                    case=case,
+                    key=f"disease:{month_end:%Y-%m}:{event_index + 1}",
+                    outcome_index=(month_index + event_index) % 3,
                     reviewer=plan["reviewer"],
                 )
                 self._track_notifications("disease_case", f"disease:{month_end:%Y-%m}:{event_index + 1}")
@@ -290,6 +304,11 @@ class Command(BaseCommand):
         self.stdout.write(
             "All records are synthetic and explicitly marked; disease labels are not diagnoses. "
             "They are intended for analytics display, not real-world surveillance evidence."
+        )
+        self.stdout.write(
+            "Disease reports increase over the simulated timeline. Some recover after 21 days, "
+            "some close after 45 days, and others remain open. Only resolutions due by today are recorded. "
+            "Historical GIS currently uses present clinical status, not status reconstructed at each past date."
         )
         self.stdout.write(
             "Synthetic coverage confirmations demonstrate explicit quiet months; they are not operational attestations. "
@@ -453,6 +472,33 @@ class Command(BaseCommand):
             marker=SEED_MARKER_DISEASE,
             label="synthetic disease observation; not a confirmed or diagnosed case",
         )
+        return case
+
+    def _seed_disease_resolution(self, *, case, key, outcome_index, reviewer):
+        """Record explicitly simulated outcomes only for this command's new owned cases."""
+        if outcome_index == 2:
+            return
+        recovered = outcome_index == 0
+        resolved_on = case.record_date + timedelta(days=21 if recovered else 45)
+        if resolved_on > timezone.localdate():
+            return
+        outcome = (
+            DiseaseCaseFollowUp.EventType.RECOVERED if recovered
+            else DiseaseCaseFollowUp.EventType.CLOSED
+        )
+        follow_up = DiseaseCaseFollowUp.objects.create(
+            case=case, event_type=outcome, observed_on=resolved_on, created_by=reviewer,
+            notes=(
+                f"{SEED_MARKER_DISEASE} SIMULATED_HISTORICAL_AVAILABILITY: "
+                f"Synthetic {outcome.lower()} outcome for demonstration only; "
+                "not evidence of an actual field assessment or historical review."
+            ),
+        )
+        self._track(f"{key}:resolution", "follow_up", follow_up)
+        DiseaseCaseFollowUp.objects.filter(pk=follow_up.pk).update(
+            created_at=demo_time(resolved_on, 17),
+        )
+        DiseaseCase.objects.filter(pk=case.pk).update(clinical_status=outcome)
 
     def _create_approved_mortality(self, *, key, farmer_user, animal, record_date, verifier, reviewer):
         serializer = MortalityRecordSerializer(
@@ -745,7 +791,7 @@ class Command(BaseCommand):
                             f"#{related_id} is related but is not owned by this seed. No rows were deleted."
                         )
 
-        for object_type in ("notification", "coverage", "mortality", "disease", "livestock", "herd", "farmer", "user"):
+        for object_type in ("notification", "coverage", "follow_up", "mortality", "disease", "livestock", "herd", "farmer", "user"):
             model = OBJECT_MODELS[object_type]
             ids = owned_ids.get(model, set())
             if ids:
