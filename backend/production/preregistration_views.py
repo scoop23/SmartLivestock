@@ -19,7 +19,17 @@ from users.notification_views import create_notification, notify_role
 
 
 def scoped(request):
-    qs = AnimalDisposition.objects.select_related("livestock__farmer__user", "sale_transfer__reviewed_by")
+    qs = AnimalDisposition.objects.select_related(
+        "livestock__farmer__user",
+        "livestock__farmer__barangay",
+        "livestock__livestock_type",
+        "livestock__batch",
+        "sale_transfer__reviewed_by",
+    ).prefetch_related(
+        "livestock__disease_cases",
+        "livestock__weight_records",
+        "livestock__batch__disease_cases",
+    )
     role = role_name(request.user)
     if role == "FARMER":
         return qs.filter(livestock__farmer__user=request.user)
@@ -38,6 +48,49 @@ def preregistration_detail(request, pk):
     role = role_name(request.user)
     old = record.registration_status
     notes = str(request.data.get("review_notes", "")).strip()
+
+    # Allow AUCTION and ADMIN to edit the animal's physical specifications directly
+    animal_specs = request.data.get("animal_specs")
+    if animal_specs and isinstance(animal_specs, dict) and role in {"AUCTION", "ADMIN"}:
+        from decimal import Decimal
+        animal = record.livestock
+        if "tag_number" in animal_specs:
+            animal.tag_number = str(animal_specs["tag_number"]).strip()
+        if "weight" in animal_specs:
+            w = animal_specs["weight"]
+            if w is None or str(w).strip() == "":
+                animal.weight = None
+            else:
+                dec_w = Decimal(str(w))
+                animal.weight = dec_w
+                from production.models import WeightRecord
+                WeightRecord.objects.create(
+                    livestock=animal,
+                    weight=dec_w,
+                    weighing_date=timezone.localdate(),
+                    notes="Auction gate physical inspection scale check",
+                    created_by=request.user,
+                )
+        if "birth_date" in animal_specs:
+            bd = animal_specs["birth_date"]
+            animal.birth_date = None if not bd else bd
+        if "breed" in animal_specs:
+            animal.breed = str(animal_specs["breed"]).strip()
+        if "sex" in animal_specs:
+            animal.sex = str(animal_specs["sex"]).strip()
+        if "last_vaccination_date" in animal_specs:
+            vd = animal_specs["last_vaccination_date"]
+            animal.last_vaccination_date = None if not vd else vd
+        if "batch" in animal_specs or "batch_id" in animal_specs:
+            bid = animal_specs.get("batch") if "batch" in animal_specs else animal_specs.get("batch_id")
+            if bid:
+                animal.batch_id = int(bid)
+            else:
+                animal.batch = None
+        animal.save()
+        if not request.data.get("registration_status"):
+            return Response(AnimalDispositionSerializer(record, context={"request": request}).data)
+
     if role == "FARMER":
         if old != "NEEDS_CORRECTION":
             raise ValidationError("Only returned preregistrations can be corrected.")
@@ -51,15 +104,24 @@ def preregistration_detail(request, pk):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         target = "SUBMITTED"
-    elif role == "AUCTION":
+    elif role in {"AUCTION", "ADMIN"}:
         target = request.data.get("registration_status")
-        allowed = {"SUBMITTED": {"READY", "NEEDS_CORRECTION"}, "READY": {"ARRIVED", "NEEDS_CORRECTION"}, "ARRIVED": {"CHECKED"}}
+        allowed = {
+            "SUBMITTED": {"READY", "NEEDS_CORRECTION"},
+            "READY": {"ARRIVED", "NEEDS_CORRECTION", "RELEASED"},
+            "ARRIVED": {"CHECKED", "RELEASED"},
+            "CHECKED": {"RELEASED"},
+        }
         if target not in allowed.get(old, set()):
             raise ValidationError("This preregistration has changed or this action is not available.")
         if target == "NEEDS_CORRECTION" and not notes:
             raise ValidationError({"review_notes": "Explain what the farmer needs to correct."})
         if target == "CHECKED" and not notes:
             raise ValidationError({"review_notes": "Record the inspection reference and physical checks completed."})
+        if target == "RELEASED":
+            if not notes:
+                notes = "Unsold at auction; gate pass clearance issued for withdrawal by registered owner."
+            record.intent = "NONE"
         if target in {"READY", "ARRIVED", "CHECKED"}:
             animal = record.livestock
             if animal.status != "APPROVED" or animal.operational_status != "ACTIVE":
@@ -69,10 +131,11 @@ def preregistration_detail(request, pk):
         raise PermissionDenied("Only auction staff can review preregistrations.")
     record.registration_status = target
     record.workflow_history = [*(record.workflow_history or []), {"from": old, "to": target, "by": request.user.get_full_name() or request.user.username, "at": timezone.now().isoformat(), "notes": notes}]
-    record.save(update_fields=["registration_status", "review_notes", "workflow_history"])
-    if role == "AUCTION":
+    record.save(update_fields=["registration_status", "intent", "review_notes", "workflow_history"])
+    if role in {"AUCTION", "ADMIN"}:
+        notif_title = f"AP-{record.pk:06d}: Auction Gate Pass Issued" if target == "RELEASED" else f"AP-{record.pk:06d}: {record.get_registration_status_display()}"
         create_notification(user=record.livestock.farmer.user, notification_type=Notification.NotificationType.GENERAL,
-            title=f"AP-{record.pk:06d}: {record.get_registration_status_display()}", message=notes or record.get_registration_status_display(), link="/production-dashboard/Cattle?activity=sales&mode=history&eligibleSpecies=Cattle")
+            title=notif_title, message=notes or record.get_registration_status_display(), link="/production-dashboard/Cattle?activity=sales&mode=history&eligibleSpecies=Cattle")
     else:
         notify_role(role_name="AUCTION", notification_type=Notification.NotificationType.GENERAL, title="Preregistration resubmitted", message=f"AP-{record.pk:06d} has been corrected.", link="/auction-preregistrations")
     return Response(AnimalDispositionSerializer(record, context={"request": request}).data)

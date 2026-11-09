@@ -612,6 +612,7 @@ class AnimalDisposition(models.Model):
         ARRIVED = "ARRIVED", "Arrival confirmed"
         CHECKED = "CHECKED", "Physical checks completed"
         COMPLETED = "COMPLETED", "Sale approved"
+        RELEASED = "RELEASED", "Withdrawn / Released Unsold"
 
     registration_status = models.CharField(max_length=24, choices=RegistrationStatus.choices, default=RegistrationStatus.SUBMITTED)
     original_certificate_number = models.CharField(max_length=100, blank=True)

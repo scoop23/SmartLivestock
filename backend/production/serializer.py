@@ -1002,19 +1002,124 @@ class AnimalDispositionSerializer(serializers.ModelSerializer):
     reference = serializers.SerializerMethodField()
     farmer_id = serializers.IntegerField(source="livestock.farmer_id", read_only=True)
     farmer_name = serializers.CharField(source="livestock.farmer.user.get_full_name", read_only=True)
+    farmer_address = serializers.CharField(source="livestock.farmer.address", read_only=True, default="")
+    farmer_contact = serializers.CharField(source="livestock.farmer.user.phone_number", read_only=True, default="")
+    farmer_rsbsa = serializers.CharField(source="livestock.farmer.rsbsa_number", read_only=True, default="")
+    colc_number = serializers.CharField(source="livestock.ownership_certificate_number", read_only=True, default="")
+    gate_pass_number = serializers.SerializerMethodField()
     has_document = serializers.SerializerMethodField()
+
+    weight = serializers.DecimalField(source="livestock.weight", max_digits=6, decimal_places=2, read_only=True, allow_null=True)
+    birth_date = serializers.DateField(source="livestock.birth_date", read_only=True, allow_null=True)
+    breed = serializers.CharField(source="livestock.breed", read_only=True, allow_blank=True)
+    sex = serializers.CharField(source="livestock.sex", read_only=True, allow_blank=True)
+    last_vaccination_date = serializers.DateField(source="livestock.last_vaccination_date", read_only=True, allow_null=True)
+    batch_id = serializers.IntegerField(source="livestock.batch_id", read_only=True, allow_null=True)
+    batch_code = serializers.CharField(source="livestock.batch.batch_code", read_only=True, allow_null=True)
+    batch_name = serializers.CharField(source="livestock.batch.batch_name", read_only=True, allow_null=True)
+    barangay_name = serializers.CharField(source="livestock.farmer.barangay.barangay_name", read_only=True, allow_null=True)
+    livestock_created_at = serializers.DateTimeField(source="livestock.created_at", read_only=True, allow_null=True)
+    age = serializers.SerializerMethodField()
+    age_classification = serializers.SerializerMethodField()
+    health_diagnostic = serializers.SerializerMethodField()
 
     def get_reference(self, obj):
         return f"AP-{obj.pk:06d}"
 
+    def get_gate_pass_number(self, obj):
+        from django.utils import timezone
+        year = obj.target_date.year if obj.target_date else timezone.localdate().year
+        return f"GP-{year}-{obj.pk:06d}"
+
     def get_has_document(self, obj):
         return bool(obj.supporting_document)
+
+    def get_age(self, obj):
+        from django.utils import timezone
+        if not obj.livestock:
+            return None
+        return obj.livestock.age_as_of(timezone.localdate())
+
+    def get_age_classification(self, obj):
+        from django.utils import timezone
+        if not obj.livestock:
+            return "UNKNOWN"
+        return obj.livestock.age_classification_as_of(timezone.localdate())
+
+    def get_health_diagnostic(self, obj):
+        if not obj.livestock:
+            return {
+                "has_active_disease": False,
+                "has_past_disease": False,
+                "active_diseases": [],
+                "past_diseases": [],
+                "quarantine_warning": False,
+                "vaccination_status": "UNVACCINATED",
+                "vaccination_days_ago": None,
+                "previous_weight": None,
+                "weight_delta": None,
+                "weight_delta_percent": None,
+            }
+        animal = obj.livestock
+        cases = list(animal.disease_cases.all())
+        if animal.batch_id:
+            try:
+                cases.extend(list(animal.batch.disease_cases.all()))
+            except Exception:
+                pass
+
+        active_cases = [c for c in cases if c.clinical_status == "OPEN" or (c.clinical_status == "NOT_RECORDED" and c.status in {"PENDING", "VERIFIED", "APPROVED"})]
+        past_cases = [c for c in cases if c.clinical_status in {"RECOVERED", "CLOSED"}]
+
+        from django.utils import timezone
+        today = timezone.localdate()
+        vacc_status = "UNVACCINATED"
+        days_since_vacc = None
+        if animal.last_vaccination_date:
+            days_since_vacc = (today - animal.last_vaccination_date).days
+            vacc_status = "CURRENT" if days_since_vacc <= 180 else "OVERDUE"
+
+        # Previous weight comparison
+        weight_records = list(animal.weight_records.all())
+        previous_weight = None
+        weight_delta = None
+        weight_delta_percent = None
+
+        if len(weight_records) > 1:
+            prev_rec = weight_records[1]
+            previous_weight = float(prev_rec.weight)
+        elif len(weight_records) == 1:
+            previous_weight = float(weight_records[0].weight)
+
+        if animal.weight is not None and previous_weight is not None and previous_weight > 0:
+            current_w = float(animal.weight)
+            weight_delta = round(current_w - previous_weight, 2)
+            weight_delta_percent = round((weight_delta / previous_weight) * 100, 1)
+
+        return {
+            "has_active_disease": len(active_cases) > 0,
+            "has_past_disease": len(past_cases) > 0,
+            "active_diseases": [{"id": c.id, "name": c.name, "date": str(c.record_date or ""), "status": c.status, "clinical_status": c.clinical_status} for c in active_cases],
+            "past_diseases": [{"id": c.id, "name": c.name, "date": str(c.record_date or ""), "status": c.status, "clinical_status": c.clinical_status} for c in past_cases],
+            "quarantine_warning": len(active_cases) > 0,
+            "vaccination_status": vacc_status,
+            "vaccination_days_ago": days_since_vacc,
+            "previous_weight": previous_weight,
+            "weight_delta": weight_delta,
+            "weight_delta_percent": weight_delta_percent,
+        }
 
     def validate_supporting_document(self, value):
         from users.document_security import validate_document
         if value.size > 5 * 1024 * 1024:
             raise ValidationError("Upload a file no larger than 5 MB.")
         return validate_document(value, "Supporting document")
+
+    def validate_target_date(self, value):
+        from django.utils import timezone
+        if value and value < timezone.localdate():
+            raise ValidationError("Target date cannot be in the past.")
+        return value
 
     class Meta:
         model = AnimalDisposition
@@ -1027,9 +1132,12 @@ class AnimalDispositionSerializer(serializers.ModelSerializer):
             "target_date",
             "target_destination",
             "notes",
-            "created_at", "reference", "farmer_id", "farmer_name", "registration_status",
+            "created_at", "reference", "farmer_id", "farmer_name", "farmer_address", "farmer_contact", "farmer_rsbsa", "colc_number", "gate_pass_number", "registration_status",
             "original_certificate_number", "supporting_document", "has_document",
             "review_notes", "workflow_history", "sale_transfer",
+            "weight", "birth_date", "breed", "sex", "last_vaccination_date",
+            "batch_id", "batch_code", "batch_name", "barangay_name",
+            "livestock_created_at", "age", "age_classification", "health_diagnostic",
         )
         read_only_fields = ("created_at", "registration_status", "review_notes", "workflow_history", "sale_transfer")
         extra_kwargs = {"supporting_document": {"write_only": True}}

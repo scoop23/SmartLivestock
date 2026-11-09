@@ -835,6 +835,8 @@ def animal_disposition_list_create(request):
     records = records.select_related(
         "livestock__livestock_type",
         "livestock__farmer__user",
+        "livestock__farmer__barangay",
+        "livestock__batch",
         "created_by",
     ).order_by("-created_at")
 

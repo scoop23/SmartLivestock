@@ -1,20 +1,33 @@
 "use client";
 
-import Link from "next/link";
 import {
   ArrowRight,
   Calendar,
   Check,
+  CheckCircle2,
   ChevronDown,
   ClipboardList,
   Clock,
   Eye,
   FileCheck2,
   FileText,
+  HeartPulse,
+  Hourglass,
+  Layers,
+  LogOut,
+  Pencil,
+  Printer,
   QrCode,
+  Scale,
   Search,
+  Shield,
+  ShieldAlert,
+  Tag,
+  TrendingDown,
+  TrendingUp,
   X,
 } from "lucide-react";
+import { AuctionPullOutGatePassDialog, type PullOutGatePassData } from "@/app/components/auction-pull-out-gate-pass-dialog";
 import { QrCodePass } from "@/components/qr-code-pass";
 import { UniversalQrScannerDialog } from "@/components/universal-qr-scanner-dialog";
 import { useEffect, useState } from "react";
@@ -24,6 +37,9 @@ import axios from "axios";
 import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { LivestockBreedField } from "@/components/livestock-breed-field";
+import { formatCalendarDate } from "@/lib/livestock-age";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +49,19 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+export interface HealthDiagnostic {
+  has_active_disease: boolean;
+  has_past_disease: boolean;
+  active_diseases: Array<{ id: number; name: string; date: string; status: string; clinical_status: string }>;
+  past_diseases: Array<{ id: number; name: string; date: string; status: string; clinical_status: string }>;
+  quarantine_warning: boolean;
+  vaccination_status: "CURRENT" | "OVERDUE" | "UNVACCINATED";
+  vaccination_days_ago: number | null;
+  previous_weight: number | null;
+  weight_delta: number | null;
+  weight_delta_percent: number | null;
+}
+
 type Registration = {
   id: number;
   reference: string;
@@ -41,6 +70,11 @@ type Registration = {
   livestock_type_name?: string;
   farmer_id: number;
   farmer_name: string;
+  farmer_address?: string;
+  farmer_contact?: string;
+  farmer_rsbsa?: string;
+  colc_number?: string;
+  gate_pass_number?: string;
   intent: string;
   target_date: string | null;
   target_destination: string;
@@ -50,6 +84,19 @@ type Registration = {
   registration_status: string;
   review_notes: string;
   sale_transfer: number | null;
+  weight?: string | number | null;
+  birth_date?: string | null;
+  breed?: string;
+  sex?: string;
+  last_vaccination_date?: string | null;
+  batch_id?: number | null;
+  batch_code?: string | null;
+  batch_name?: string | null;
+  barangay_name?: string | null;
+  livestock_created_at?: string | null;
+  age?: { years: number; months: number; total_months: number } | null;
+  age_classification?: "CALF" | "YEARLING" | "ADULT" | "UNKNOWN";
+  health_diagnostic?: HealthDiagnostic | null;
 };
 
 const labels: Record<string, string> = {
@@ -59,6 +106,7 @@ const labels: Record<string, string> = {
   ARRIVED: "Arrival confirmed",
   CHECKED: "Physical checks completed",
   COMPLETED: "Sale approved",
+  RELEASED: "Withdrawn / Released Unsold",
 };
 
 function formatDisplayDate(dateStr: string | null): string {
@@ -112,6 +160,13 @@ function renderStatusBadge(status: string) {
           <span>Sale Approved</span>
         </span>
       );
+    case "RELEASED":
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-200/90 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-800">
+          <LogOut className="size-3 text-purple-600" />
+          <span>Released / Unsold</span>
+        </span>
+      );
     default:
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">
@@ -144,6 +199,66 @@ export default function AuctionPreregistrations({
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
   const [preview, setPreview] = useState<{ url: string; type: string } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [gatePassTarget, setGatePassTarget] = useState<PullOutGatePassData | null>(null);
+  const [showReleaseConfirmDialog, setShowReleaseConfirmDialog] = useState<Registration | null>(null);
+  const [releaseNotes, setReleaseNotes] = useState("");
+
+  // Specifications editing state
+  const [isEditingSpecs, setIsEditingSpecs] = useState(false);
+  const [editTagNumber, setEditTagNumber] = useState("");
+  const [editBreed, setEditBreed] = useState("");
+  const [editSex, setEditSex] = useState("Female");
+  const [editWeight, setEditWeight] = useState("");
+  const [editLastVaccinationDate, setEditLastVaccinationDate] = useState("");
+  const [editBatchId, setEditBatchId] = useState<number | null>(null);
+  const [savingSpecs, setSavingSpecs] = useState(false);
+
+  const { data: availableBatches = [] } = useQuery({
+    queryKey: ["livestock-batches-options"],
+    queryFn: async () => {
+      const res = await api.get<{ results?: Array<{ id: number; batch_code: string; batch_name?: string }> } | Array<{ id: number; batch_code: string; batch_name?: string }>>("livestock/batches/");
+      const data = res.data;
+      if (Array.isArray(data)) return data;
+      return data?.results ?? [];
+    },
+    enabled: staff,
+    staleTime: 60_000,
+  });
+
+  function startEditingSpecs(row: Registration) {
+    setEditTagNumber(row.tag_number || "");
+    setEditBreed(row.breed || "");
+    setEditSex(row.sex || "Female");
+    setEditWeight(row.weight != null ? String(row.weight) : "");
+    setEditLastVaccinationDate(row.last_vaccination_date || "");
+    setEditBatchId(row.batch_id ?? null);
+    setIsEditingSpecs(true);
+  }
+
+  async function handleSaveSpecs(row: Registration) {
+    setSavingSpecs(true);
+    try {
+      const payload = {
+        animal_specs: {
+          tag_number: editTagNumber,
+          breed: editBreed,
+          sex: editSex,
+          weight: editWeight ? Number(editWeight) : null,
+          last_vaccination_date: editLastVaccinationDate || null,
+          batch_id: editBatchId,
+        },
+      };
+      const response = await api.patch<Registration>(`production/auction-preregistrations/${row.id}/`, payload);
+      toast.success("Animal specifications updated successfully.");
+      setSelected(response.data);
+      setIsEditingSpecs(false);
+      void client.invalidateQueries({ queryKey: ["auction-preregistration-list"] });
+    } catch {
+      toast.error("Failed to update animal specifications.");
+    } finally {
+      setSavingSpecs(false);
+    }
+  }
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
 
@@ -289,6 +404,31 @@ export default function AuctionPreregistrations({
     }
   }
 
+  async function handleConfirmRelease() {
+    if (!showReleaseConfirmDialog) return;
+    const row = showReleaseConfirmDialog;
+    setBusy(row.id);
+    try {
+      const response = await api.patch<Registration>(`production/dispositions/${row.id}/`, {
+        registration_status: "RELEASED",
+        review_notes: releaseNotes.trim() || "Unsold at auction; gate pass clearance issued for withdrawal by registered owner.",
+      });
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ["animal_dispositions"] }),
+        client.invalidateQueries({ queryKey: ["auction-preregistration-list"] }),
+      ]);
+      toast.success(`Animal ${row.tag_number || row.reference} released. Gate pass ready.`);
+      setShowReleaseConfirmDialog(null);
+      setReleaseNotes("");
+      setSelected(null);
+      setGatePassTarget(response.data || row);
+    } catch (error) {
+      toast.error("Could not release this animal.", { description: errorMessage(error) });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function download(row: Registration, kind: "document" | "certificate") {
     try {
       const response = await api.get(`production/dispositions/${row.id}/${kind}/`, { responseType: "blob" });
@@ -398,6 +538,7 @@ export default function AuctionPreregistrations({
               <option value="READY">Ready for Sale</option>
               <option value="NEEDS_CORRECTION">Needs Correction</option>
               <option value="COMPLETED">Sale Approved</option>
+              <option value="RELEASED">Released / Unsold (Pull-Out)</option>
             </select>
             <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
           </div>
@@ -525,18 +666,32 @@ export default function AuctionPreregistrations({
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3.5">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setPreview(null);
-                              setSelected(row);
-                            }}
-                            className="h-8 rounded-xl border-[#1E4D2B] bg-white px-3 text-xs font-bold text-[#1E4D2B] shadow-2xs transition-colors hover:bg-[#EAF5EC] hover:text-[#163b21] gap-1.5"
-                          >
-                            <Eye className="size-3.5" />
-                            <span>View</span>
-                          </Button>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setPreview(null);
+                                setSelected(row);
+                              }}
+                              className="h-8 rounded-xl border-[#1E4D2B] bg-white px-3 text-xs font-bold text-[#1E4D2B] shadow-2xs transition-colors hover:bg-[#EAF5EC] hover:text-[#163b21] gap-1.5"
+                            >
+                              <Eye className="size-3.5" />
+                              <span>View</span>
+                            </Button>
+                            {row.registration_status === "RELEASED" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setGatePassTarget(row)}
+                                className="h-8 rounded-xl border-amber-300 bg-amber-50 px-2.5 text-xs font-bold text-amber-900 shadow-2xs transition-colors hover:bg-amber-100 gap-1.5"
+                                title="Print Official Gate Pass (Katibayan sa Paglalabas)"
+                              >
+                                <Printer className="size-3.5 text-amber-700" />
+                                <span>Gate Pass</span>
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -593,6 +748,7 @@ export default function AuctionPreregistrations({
           if (!open && busy === null && openingId === null) {
             setSelected(null);
             setPreview(null);
+            setIsEditingSpecs(false);
           }
         }}
       >
@@ -622,16 +778,25 @@ export default function AuctionPreregistrations({
                 <span className="text-xs text-slate-500">Advance paperwork and arrival review</span>
               </div>
               <ol className="flex flex-wrap gap-2" aria-label="Preregistration progress">
-                {["SUBMITTED", "READY", "ARRIVED", "CHECKED", "COMPLETED"].map((step, index) => {
-                  const current = ["SUBMITTED", "READY", "ARRIVED", "CHECKED", "COMPLETED"].indexOf(
-                    row.registration_status
-                  );
+                {(row.registration_status === "RELEASED"
+                  ? ["SUBMITTED", "READY", "ARRIVED", "CHECKED", "RELEASED"]
+                  : ["SUBMITTED", "READY", "ARRIVED", "CHECKED", "COMPLETED"]
+                ).map((step, index) => {
+                  const steps = row.registration_status === "RELEASED"
+                    ? ["SUBMITTED", "READY", "ARRIVED", "CHECKED", "RELEASED"]
+                    : ["SUBMITTED", "READY", "ARRIVED", "CHECKED", "COMPLETED"];
+                  const current = steps.indexOf(row.registration_status);
+                  const isReleased = step === "RELEASED" && row.registration_status === "RELEASED";
                   return (
                     <li
                       key={step}
                       aria-current={step === row.registration_status ? "step" : undefined}
-                      className={`rounded-lg px-3 py-2 text-xs ${
-                        index <= current ? "bg-emerald-700 text-white" : "bg-slate-100 text-slate-500"
+                      className={`rounded-lg px-3 py-2 text-xs font-semibold ${
+                        isReleased
+                          ? "bg-purple-700 text-white"
+                          : index <= current
+                          ? "bg-emerald-700 text-white"
+                          : "bg-slate-100 text-slate-500"
                       }`}
                     >
                       {index + 1}.{" "}
@@ -643,6 +808,7 @@ export default function AuctionPreregistrations({
                             ARRIVED: "Arrived",
                             CHECKED: "Checked",
                             COMPLETED: "Sale approved",
+                            RELEASED: "Released Unsold",
                           } as Record<string, string>
                         )[step]
                       }
@@ -650,52 +816,453 @@ export default function AuctionPreregistrations({
                   );
                 })}
               </ol>
-              <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-                <section className="space-y-3 rounded-xl border border-slate-200 p-4">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Farmer and animal
-                  </h3>
-                  <dl className="space-y-3 text-sm">
-                    <div>
-                      <dt className="text-xs text-slate-500">Farmer</dt>
-                      <dd className="mt-1 break-words font-semibold text-slate-900">
-                        {row.farmer_name || "Not recorded"}
-                      </dd>
+              {/* ── ANIMAL SPECIFICATIONS & DETAILS ── */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="size-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                      <Tag className="size-4" />
                     </div>
-                    <div>
-                      <dt className="text-xs text-slate-500">Animal tag</dt>
-                      <dd className="mt-1 break-words font-mono font-semibold text-emerald-800">
-                        {row.tag_number}
-                      </dd>
+                    <div className="min-w-0">
+                      <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                        {isEditingSpecs ? "Edit Animal Specifications" : "Animal Specifications & Details"}
+                      </h3>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {isEditingSpecs
+                          ? "Modify verified ear tag, scale weight, herd, breed, sex, and vaccination"
+                          : "Physical attributes and verified measurements for this livestock entry."}
+                      </p>
                     </div>
-                  </dl>
-                </section>
-                <section className="space-y-3 rounded-xl border border-slate-200 p-4">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Visit and paperwork
-                  </h3>
-                  <dl className="grid gap-3 text-sm">
-                    <div>
-                      <dt className="text-xs text-slate-500">Planned arrival</dt>
-                      <dd className="mt-1 font-semibold text-slate-900">
-                        {row.target_date || "Not specified"}
-                      </dd>
+                  </div>
+
+                  {staff && (
+                    <Button
+                      type="button"
+                      variant={isEditingSpecs ? "outline" : "ghost"}
+                      size="sm"
+                      onClick={() => {
+                        if (isEditingSpecs) {
+                          setIsEditingSpecs(false);
+                        } else {
+                          startEditingSpecs(row);
+                        }
+                      }}
+                      className={`h-7 text-xs font-semibold gap-1.5 px-2.5 rounded-lg shrink-0 cursor-pointer ${
+                        isEditingSpecs
+                          ? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      }`}
+                    >
+                      {isEditingSpecs ? (
+                        <>
+                          <X className="size-3 text-amber-700" />
+                          Cancel Edit
+                        </>
+                      ) : (
+                        <>
+                          <Pencil className="size-3 text-emerald-800" />
+                          Edit Specs
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                {/* ── BIOSECURITY & HEALTH DIAGNOSTIC ALERT ── */}
+                {row.health_diagnostic?.has_active_disease ? (
+                  <div className="flex items-start gap-3 rounded-xl border border-rose-300 bg-rose-50/90 p-3 text-rose-950 shadow-2xs">
+                    <div className="size-8 rounded-lg bg-rose-200/80 text-rose-800 flex items-center justify-center shrink-0 mt-0.5">
+                      <ShieldAlert className="size-4.5" />
                     </div>
-                    <div>
-                      <dt className="text-xs text-slate-500">Destination</dt>
-                      <dd className="mt-1 break-words text-slate-900">
-                        {row.target_destination || "Not specified"}
-                      </dd>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-wide text-rose-800">
+                          Biosecurity & Disease Hazard Alert
+                        </span>
+                        <span className="rounded-full bg-rose-200 px-2 py-0.2 text-[10px] font-black uppercase text-rose-900">
+                          Active Case
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-rose-900 leading-relaxed">
+                        This livestock has an active disease case on record:{" "}
+                        <strong className="font-bold text-rose-950">
+                          {row.health_diagnostic.active_diseases.map(d => `${d.name} (${d.status}${d.date ? ` • ${d.date}` : ""})`).join(", ")}
+                        </strong>
+                        . Requires immediate physical clinical assessment and possible quarantine isolation before pen admission.
+                      </p>
                     </div>
-                    <div>
-                      <dt className="text-xs text-slate-500">Original certificate number</dt>
-                      <dd className="mt-1 break-words font-mono text-slate-900">
-                        {row.original_certificate_number || "Not provided"}
-                      </dd>
+                  </div>
+                ) : row.health_diagnostic?.has_past_disease ? (
+                  <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/90 p-3 text-amber-950 shadow-2xs">
+                    <div className="size-8 rounded-lg bg-amber-200/80 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
+                      <HeartPulse className="size-4.5" />
                     </div>
-                  </dl>
-                </section>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-wide text-amber-800">
+                          Past Health & Disease History
+                        </span>
+                        <span className="rounded-full bg-amber-200 px-2 py-0.2 text-[10px] font-black uppercase text-amber-900">
+                          Resolved
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-amber-900 leading-relaxed">
+                        Past medical history:{" "}
+                        <strong className="font-semibold text-amber-950">
+                          {row.health_diagnostic.past_diseases.map(d => `${d.name} (${d.clinical_status === "RECOVERED" ? "Recovered" : "Closed"}${d.date ? ` • ${d.date}` : ""})`).join(", ")}
+                        </strong>
+                        . Inspect for secondary symptoms, respiratory sounds, or gait abnormalities.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between rounded-xl border border-emerald-200/80 bg-emerald-50/50 px-3 py-2 text-xs font-medium text-emerald-900">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                      <span>Cross-Check Diagnostic: Clean biosecurity status (no reported disease cases on file)</span>
+                    </div>
+                    <span className="text-[10.5px] font-bold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                      Biosecurity Cleared
+                    </span>
+                  </div>
+                )}
+
+                {isEditingSpecs ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
+                      {/* 1. Ear Tag Input */}
+                      <div className="flex flex-col justify-between rounded-xl border border-emerald-300 bg-emerald-50/20 p-2.5 sm:p-3 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800">
+                            Ear Tag #
+                          </Label>
+                          <Tag className="size-3.5 text-emerald-600" />
+                        </div>
+                        <Input
+                          value={editTagNumber}
+                          onChange={e => setEditTagNumber(e.target.value)}
+                          placeholder="e.g. SALLIY-001"
+                          className="h-8 text-xs font-bold rounded-lg mt-1.5 bg-white border-slate-200 focus-visible:ring-emerald-600"
+                        />
+                        <span className="mt-1 text-[9.5px] font-mono text-slate-400">
+                          Ear tag confirmed on inspection
+                        </span>
+                      </div>
+
+                      {/* 2. Assigned Herd Select */}
+                      <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                            Assigned Herd
+                          </Label>
+                          <Layers className="size-3.5 text-slate-400" />
+                        </div>
+                        <select
+                          value={editBatchId ?? ""}
+                          onChange={e => setEditBatchId(e.target.value ? Number(e.target.value) : null)}
+                          className="h-8 w-full text-xs font-medium rounded-lg border border-slate-200 bg-white px-2 mt-1.5"
+                        >
+                          <option value="">None (Individual Animal)</option>
+                          {availableBatches.map(b => (
+                            <option key={b.id} value={b.id}>
+                              {b.batch_code} {b.batch_name ? `(${b.batch_name})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="mt-1 text-[9.5px] font-mono text-slate-400">
+                          Optional herd enrollment
+                        </span>
+                      </div>
+
+                      {/* 3. Scale Weight Input */}
+                      <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                            Scale Weight
+                          </Label>
+                          <Scale className="size-3.5 text-slate-400" />
+                        </div>
+                        <div className="relative mt-1.5">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={editWeight}
+                            onChange={e => setEditWeight(e.target.value)}
+                            placeholder="0.00"
+                            className="h-8 text-xs font-bold rounded-lg pr-8 bg-white border-slate-200"
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-400">
+                            kg
+                          </span>
+                        </div>
+                        <span className="mt-1 text-[9.5px] font-mono text-slate-400">
+                          Recorded scale weight
+                        </span>
+                      </div>
+
+                      {/* 4. Breed & Sex */}
+                      <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                            Breed & Sex
+                          </Label>
+                          <Hourglass className="size-3.5 text-slate-400" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                          <select
+                            value={editSex}
+                            onChange={e => setEditSex(e.target.value)}
+                            className="h-8 w-full text-xs font-medium rounded-lg border border-slate-200 bg-white px-2"
+                          >
+                            <option value="Female">Female</option>
+                            <option value="Male">Male</option>
+                          </select>
+                          <LivestockBreedField
+                            id="auction-review-breed"
+                            species={row.livestock_type_name}
+                            value={editBreed}
+                            onChange={setEditBreed}
+                            placeholder="Breed"
+                            controlClassName="h-8 rounded-lg text-xs"
+                          />
+                        </div>
+                        <span className="mt-1 text-[9.5px] font-mono text-slate-400">
+                          Physical classification
+                        </span>
+                      </div>
+
+                      {/* 5. Vaccination Status Input */}
+                      <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                            Last Vaccination
+                          </Label>
+                          <Shield className="size-3.5 text-slate-400" />
+                        </div>
+                        <Input
+                          type="date"
+                          value={editLastVaccinationDate}
+                          onChange={e => setEditLastVaccinationDate(e.target.value)}
+                          max={new Date().toISOString().split("T")[0]}
+                          className="h-8 text-xs rounded-lg mt-1.5 bg-white border-slate-200"
+                        />
+                        <span className="mt-1 text-[9.5px] font-mono text-slate-400">
+                          Leave blank if unrecorded
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Save / Cancel buttons */}
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsEditingSpecs(false)}
+                        disabled={savingSpecs}
+                        className="h-8 px-3 text-xs font-semibold rounded-lg cursor-pointer"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => void handleSaveSpecs(row)}
+                        disabled={savingSpecs}
+                        className="h-8 px-4 text-xs bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-lg cursor-pointer shadow-xs"
+                      >
+                        {savingSpecs ? "Saving..." : "Save Specifications"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  /* View Mode: 5 Cards Grid */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
+                    {/* 1. Ear Tag ID */}
+                    <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                          EAR TAG ID
+                        </span>
+                        <Tag className="size-3.5 text-slate-400" />
+                      </div>
+                      <div className="mt-2">
+                        <p className="text-base sm:text-lg font-bold font-mono tracking-tight text-slate-900 break-words">
+                          {row.tag_number || "Unassigned"}
+                        </p>
+                        <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-emerald-700">
+                          <Check className="size-3 stroke-[2.5]" />
+                          <span>Standard Tag & Barcode Confirmed</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. Assigned Herd */}
+                    <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                          ASSIGNED HERD
+                        </span>
+                        <Layers className="size-3.5 text-slate-400" />
+                      </div>
+                      <div className="mt-2">
+                        <p className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
+                          {row.batch_name
+                            ? `${row.batch_code} (${row.batch_name})`
+                            : row.batch_code || "None (Individual)"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          {row.batch_id ? "Enrolled in herd batch" : "Not grouped in a herd"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 3. Scale Weight */}
+                    <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                          SCALE WEIGHT
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {row.health_diagnostic?.weight_delta != null && row.health_diagnostic.weight_delta !== 0 && (
+                            <span
+                              className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                row.health_diagnostic.weight_delta > 0
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-rose-50 text-rose-700 border border-rose-200"
+                              }`}
+                            >
+                              {row.health_diagnostic.weight_delta > 0 ? (
+                                <TrendingUp className="size-2.5" />
+                              ) : (
+                                <TrendingDown className="size-2.5" />
+                              )}
+                              {row.health_diagnostic.weight_delta > 0 ? "+" : ""}
+                              {row.health_diagnostic.weight_delta} kg
+                            </span>
+                          )}
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                              row.weight != null
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            {row.weight != null ? "Weighed" : "Unweighed"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <p className="text-base sm:text-lg font-bold tracking-tight text-slate-900">
+                          {row.weight != null
+                            ? `${Number(row.weight).toLocaleString("en-US", {
+                                minimumFractionDigits: 1,
+                                maximumFractionDigits: 2,
+                              })} kg`
+                            : "—"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          {row.health_diagnostic?.previous_weight != null && row.weight != null && Number(row.weight) !== row.health_diagnostic.previous_weight
+                            ? `Baseline: ${row.health_diagnostic.previous_weight} kg (${row.health_diagnostic.weight_delta_percent && row.health_diagnostic.weight_delta_percent > 0 ? `+` : ``}${row.health_diagnostic.weight_delta_percent}% delta)`
+                            : row.livestock_created_at
+                            ? `Registered: ${formatCalendarDate(row.livestock_created_at)}`
+                            : "Verified on-site weight"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 4. Breed & Sex */}
+                    <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                          BREED & SEX
+                        </span>
+                        <Hourglass className="size-3.5 text-slate-400" />
+                      </div>
+                      <div className="mt-2">
+                        <p className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
+                          {row.breed || "Standard"} • {row.sex || "Unspecified"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-500 truncate">
+                          Species: {row.livestock_type_name || "Livestock"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 5. Vaccination Status */}
+                    <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                          VACCINATION STATUS
+                        </span>
+                        <Shield className="size-3.5 text-slate-400" />
+                      </div>
+                      <div className="mt-2">
+                        <p className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
+                          {row.last_vaccination_date
+                            ? `Vaccinated: ${formatCalendarDate(row.last_vaccination_date)}`
+                            : "Unvaccinated / Pending"}
+                        </p>
+                        <div className="mt-1 flex items-center gap-1.5 text-[11px]">
+                          {row.health_diagnostic?.vaccination_status === "CURRENT" ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] border border-emerald-200">
+                              <Check className="size-2.5" />
+                              Current ({row.health_diagnostic.vaccination_days_ago}d ago)
+                            </span>
+                          ) : row.health_diagnostic?.vaccination_status === "OVERDUE" ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[10px] border border-amber-200">
+                              <Clock className="size-2.5" />
+                              Overdue ({row.health_diagnostic.vaccination_days_ago}d ago)
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 text-[11px]">
+                              No vaccination record on file
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {/* ── VISIT AND PAPERWORK ── */}
+              <section className="space-y-3 rounded-xl border border-slate-200 p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Visit and paperwork
+                </h3>
+                <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs text-slate-500">Farmer / Owner</dt>
+                    <dd className="mt-1 break-words font-semibold text-slate-900">
+                      {row.farmer_name || "Not recorded"}
+                      {row.barangay_name && (
+                        <span className="ml-1.5 text-xs font-normal text-slate-500">
+                          (Brgy. {row.barangay_name})
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-slate-500">Planned arrival</dt>
+                    <dd className="mt-1 font-semibold text-slate-900">
+                      {row.target_date || "Not specified"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-slate-500">Destination</dt>
+                    <dd className="mt-1 break-words text-slate-900">
+                      {row.target_destination || "Not specified"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-slate-500">Original certificate number</dt>
+                    <dd className="mt-1 break-words font-mono text-slate-900">
+                      {row.original_certificate_number || "Not provided"}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
               {!staff && (
                 <QrCodePass
                   code={row.reference}
@@ -720,46 +1287,33 @@ export default function AuctionPreregistrations({
                   Staff feedback: {row.review_notes}
                 </p>
               )}
-              <section className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Supporting document</h3>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {row.has_document
-                      ? "View the submitted copy and compare it with the animal details."
-                      : "No supporting document was uploaded."}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {row.has_document && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={previewLoading}
-                        onClick={() => void viewDocument(row)}
-                      >
-                        {previewLoading ? "Opening..." : "View document"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void download(row, "document")}
-                      >
-                        Download document
-                      </Button>
-                    </>
-                  )}
-                  {row.sale_transfer && (
+              {row.has_document && (
+                <section className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Supporting document</h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      View the submitted copy and compare it with the animal details.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => void download(row, "certificate")}
+                      disabled={previewLoading}
+                      onClick={() => void viewDocument(row)}
                     >
-                      Download approved transfer PDF
+                      {previewLoading ? "Opening..." : "View document"}
                     </Button>
-                  )}
-                </div>
-              </section>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void download(row, "document")}
+                    >
+                      Download document
+                    </Button>
+                  </div>
+                </section>
+              )}
               {preview && (
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                   <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
@@ -816,11 +1370,6 @@ export default function AuctionPreregistrations({
                         : "Required when returning the submission for correction."}
                     </span>
                   </label>
-                  {row.registration_status === "ARRIVED" && (
-                    <Button asChild size="sm" variant="outline">
-                      <Link href="/auction-inspections/new">Open inspection form</Link>
-                    </Button>
-                  )}
                   <DialogFooter className="sticky -bottom-5 z-10 gap-3 border-t border-slate-200 bg-white py-4 sm:-bottom-7 sm:justify-between">
                     <Button
                       type="button"
@@ -829,6 +1378,7 @@ export default function AuctionPreregistrations({
                       onClick={() => {
                         setSelected(null);
                         setPreview(null);
+                        setIsEditingSpecs(false);
                       }}
                       className="h-auto min-h-11 rounded-xl px-5"
                     >
@@ -884,7 +1434,12 @@ export default function AuctionPreregistrations({
                 >
                   <label className="block text-xs font-medium">
                     Planned date
-                    <Input type="date" name="target_date" defaultValue={row.target_date || ""} />
+                    <Input
+                      type="date"
+                      name="target_date"
+                      min={new Date().toISOString().split("T")[0]}
+                      defaultValue={row.target_date || ""}
+                    />
                   </label>
                   <label className="block text-xs font-medium">
                     Destination
@@ -923,37 +1478,133 @@ export default function AuctionPreregistrations({
                     onClick={() => {
                       setSelected(null);
                       setPreview(null);
+                      setIsEditingSpecs(false);
                     }}
                     className="min-h-11 rounded-xl px-5"
                   >
                     Close
                   </Button>
-                  {staff && row.registration_status === "CHECKED" && onRecordSale && (
-                    <Button
-                      disabled={busy !== null}
-                      onClick={async () => {
-                        setBusy(row.id);
-                        try {
-                          await onRecordSale(row);
-                        } catch {
-                          toast.error("Could not open the sale form.");
-                        } finally {
-                          setBusy(null);
-                        }
-                      }}
-                      className="h-auto min-h-12 w-full gap-3 whitespace-normal rounded-xl border border-emerald-600 bg-emerald-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:ring-emerald-500 disabled:opacity-60 sm:w-auto"
-                    >
-                      <FileCheck2 aria-hidden="true" className="size-5 shrink-0" />
-                      <span>{busy === row.id ? "Opening sale form..." : "Record Completed Sale"}</span>
-                      <ArrowRight aria-hidden="true" className="size-4 shrink-0" />
-                    </Button>
-                  )}
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {staff && (row.registration_status === "CHECKED" || row.registration_status === "ARRIVED") && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={busy !== null}
+                        onClick={() => {
+                          setShowReleaseConfirmDialog(row);
+                          setReleaseNotes("Unsold at auction; gate pass clearance issued for withdrawal by registered owner.");
+                        }}
+                        className="h-auto min-h-12 gap-2 rounded-xl border-amber-300 bg-amber-50 px-4 text-xs font-bold text-amber-900 hover:bg-amber-100 shadow-2xs"
+                      >
+                        <LogOut className="size-4 text-amber-700" />
+                        <span>Release Unsold (Pull-Out)</span>
+                      </Button>
+                    )}
+
+                    {row.registration_status === "RELEASED" && (
+                      <Button
+                        type="button"
+                        onClick={() => setGatePassTarget(row)}
+                        className="h-auto min-h-12 gap-2 rounded-xl bg-amber-700 px-5 text-sm font-bold text-white shadow-xs hover:bg-amber-800"
+                      >
+                        <Printer className="size-4.5" />
+                        <span>Print Gate Pass Clearance</span>
+                      </Button>
+                    )}
+
+                    {staff && row.registration_status === "CHECKED" && onRecordSale && (
+                      <Button
+                        disabled={busy !== null}
+                        onClick={async () => {
+                          setBusy(row.id);
+                          try {
+                            await onRecordSale(row);
+                          } catch {
+                            toast.error("Could not open the sale form.");
+                          } finally {
+                            setBusy(null);
+                          }
+                        }}
+                        className="h-auto min-h-12 gap-3 whitespace-normal rounded-xl border border-emerald-600 bg-emerald-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:ring-emerald-500 disabled:opacity-60"
+                      >
+                        <FileCheck2 aria-hidden="true" className="size-5 shrink-0" />
+                        <span>{busy === row.id ? "Opening..." : "Record Completed Sale"}</span>
+                        <ArrowRight aria-hidden="true" className="size-4 shrink-0" />
+                      </Button>
+                    )}
+                  </div>
                 </DialogFooter>
               )}
             </article>
           ))}
         </DialogContent>
       </Dialog>
+
+      {/* Release / Pull-Out Confirmation Dialog */}
+      <Dialog open={showReleaseConfirmDialog !== null} onOpenChange={(open) => !open && setShowReleaseConfirmDialog(null)}>
+        <DialogContent className="max-w-md rounded-2xl p-6">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-100 text-amber-800">
+                <LogOut className="size-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-slate-900">
+                  Release Unsold Animal (Pull-Out)
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  {showReleaseConfirmDialog?.reference} · Tag: {showReleaseConfirmDialog?.tag_number}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-2 text-xs text-slate-700">
+            <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 leading-relaxed text-amber-900">
+              The animal will be marked as <strong>UNSOLD / RELEASED</strong> and cleared to return to its registered farm in <strong>{showReleaseConfirmDialog?.barangay_name || "Padre Garcia"}</strong>. An official <strong>Auction Gate Pass Clearance</strong> will be generated immediately.
+            </p>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">Remarks / Reason for Withdrawal</Label>
+              <textarea
+                value={releaseNotes}
+                onChange={(e) => setReleaseNotes(e.target.value)}
+                placeholder="Unsold at auction; gate pass clearance issued for withdrawal by registered owner."
+                className="w-full min-h-[70px] rounded-xl border border-slate-200 p-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-600"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex items-center justify-between sm:justify-between pt-3 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy !== null}
+              onClick={() => setShowReleaseConfirmDialog(null)}
+              className="h-9 rounded-xl text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => void handleConfirmRelease()}
+              className="h-9 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold px-4 gap-1.5 shadow-xs"
+            >
+              <LogOut className="size-3.5" />
+              {busy !== null ? "Releasing..." : "Confirm Release & Open Gate Pass"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Official Auction Pull-Out Gate Pass Dialog */}
+      <AuctionPullOutGatePassDialog
+        open={Boolean(gatePassTarget)}
+        onOpenChange={(open) => !open && setGatePassTarget(null)}
+        record={gatePassTarget}
+        allRecords={rows}
+      />
 
       {staff && (
         <UniversalQrScannerDialog
