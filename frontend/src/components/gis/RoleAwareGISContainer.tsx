@@ -641,7 +641,7 @@ export function RoleAwareGISContainer({
           activeLayer === 'mortality' ||
           (activeLayer === 'disease' && diseaseSubMode === 'surveillance')
         ) && (
-          <div className="absolute bottom-24 sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-slate-200 bg-white/95 p-3 sm:p-3.5 shadow-xl backdrop-blur flex flex-col gap-2">
+          <div className={`${chromeStyles.chrome} absolute bottom-24 sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-slate-200 bg-white/95 p-3 sm:p-3.5 shadow-xl backdrop-blur flex flex-col gap-2`}>
             <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-800">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className={`size-2 rounded-full shrink-0 ${isHistoricalPlaying ? 'bg-amber-500 animate-ping' : 'bg-emerald-600'}`} />
@@ -993,7 +993,7 @@ export function RoleAwareGISContainer({
 
         {/* 4. Disease Simulation Timeline Player (Admin/MAO only) */}
         {canUseSimulation && activeLayer === 'disease' && diseaseSubMode === 'simulation' && (
-          <div className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] px-2 sm:px-4 w-full max-w-xl">
+          <div className={`${chromeStyles.chrome} absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] px-2 sm:px-4 w-full max-w-xl`}>
             <GISTimeline
               currentMonthIndex={currentMonthIndex}
               onMonthChange={setCurrentMonthIndex}
@@ -1014,7 +1014,7 @@ export function RoleAwareGISContainer({
 
         {/* 4b. Movement Historical Timeline Scrubber (When in Movement Layer AND timeline opened) */}
         {activeLayer === 'movement' && showMovementTimeline && movementYears.length > 0 && (
-          <div className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] px-2 sm:px-4 w-full max-w-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className={`${chromeStyles.chrome} absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-[900] px-2 sm:px-4 w-full max-w-lg animate-in fade-in slide-in-from-bottom-2 duration-200`}>
             <MovementTimelinePlayer
               movements={periodMovements}
               activeDateIndex={movementDateIndex}

@@ -4,6 +4,7 @@
   color: #f3f1e7;
 }
 
+.chrome:where([class*="bg-white"]),
 .chrome :where([class*="bg-white"]) {
   background: linear-gradient(145deg, rgb(40 43 32 / 97%), rgb(24 29 25 / 97%));
   border-color: rgb(224 225 192 / 24%);
@@ -43,3 +44,23 @@
 .chrome :where(input, select) { color: #f3f1e7; background-color: #33382d; }
 .chrome :where(option) { color: #f3f1e7; background-color: #252b23; }
 .chrome :where(*) { scrollbar-width: thin; scrollbar-color: #757a60 transparent; }
+
+.chrome :where([class*="bg-sky-50"], [class*="bg-amber-50"], [class*="bg-blue-100"]) {
+  background-color: rgb(219 222 187 / 9%);
+}
+.chrome :where([class*="border-sky-"], [class*="border-amber-"]) {
+  border-color: rgb(224 225 192 / 22%);
+}
+.chrome :where([class*="text-amber-"], [class*="text-orange-"]) { color: #e4c781; }
+.chrome input[type="range"] { accent-color: #b9d49a; background-color: #454b3c; }
+.chrome button[aria-pressed="true"] {
+  background: #46583b;
+  color: #f3f1e7;
+  border-color: #b9d49a;
+}
+.chrome button[data-variant="outline"] {
+  background-color: #33382d;
+  color: #dedfd2;
+  border-color: rgb(224 225 192 / 24%);
+}
+.chrome button[data-variant="outline"][aria-pressed="true"] { background-color: #46583b; }
