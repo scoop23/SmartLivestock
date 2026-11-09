@@ -507,7 +507,18 @@ function SibatInspectionDialogContent({
   const [confirmationAction, setConfirmationAction] = useState<"VERIFIED" | "FLAGGED" | null>(null);
   const [validationError, setValidationError] = useState("");
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [isRemarksHighlighted, setIsRemarksHighlighted] = useState(false);
+  const remarksHighlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const remarksInputRef = useRef<HTMLTextAreaElement | null>(null);
   const dialogContentRef = useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (remarksHighlightTimeoutRef.current) {
+        clearTimeout(remarksHighlightTimeoutRef.current);
+      }
+    };
+  }, []);
 
   React.useEffect(() => {
     dialogContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -1156,6 +1167,19 @@ function SibatInspectionDialogContent({
               <button
                 type="button"
                 onClick={() => {
+                  if (currentStep === 2 && !inspectorRemarks.trim()) {
+                    setValidationError("Field verification remarks are required. Please input your examination findings.");
+                    setIsRemarksHighlighted(true);
+                    remarksInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    remarksInputRef.current?.focus();
+                    if (remarksHighlightTimeoutRef.current) {
+                      clearTimeout(remarksHighlightTimeoutRef.current);
+                    }
+                    remarksHighlightTimeoutRef.current = setTimeout(() => {
+                      setIsRemarksHighlighted(false);
+                    }, 2000);
+                    return;
+                  }
                   setValidationError("");
                   setCurrentStep(3);
                 }}
@@ -1859,9 +1883,19 @@ function SibatInspectionDialogContent({
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                    <span>Field Verification Remarks:</span>
+                    <span className={isRemarksHighlighted ? "text-rose-700 font-extrabold" : ""}>
+                      Field Verification Remarks:
+                    </span>
                     <span className="text-rose-600 font-black">*</span>
-                    <span className="text-[10px] text-rose-600 font-semibold">(Required)</span>
+                    <span
+                      className={`text-[10px] transition-all duration-200 ${
+                        isRemarksHighlighted
+                          ? "bg-rose-600 text-white px-2 py-0.5 rounded-md font-black shadow-xs ring-2 ring-rose-400 animate-pulse"
+                          : "text-rose-600 font-semibold"
+                      }`}
+                    >
+                      (Required)
+                    </span>
                   </label>
                   {!isReadOnly && (
                     <div className="flex items-center gap-1 text-[10px] text-amber-600 font-bold">
@@ -1871,15 +1905,31 @@ function SibatInspectionDialogContent({
                 </div>
 
                 <Textarea
+                  ref={remarksInputRef}
                   placeholder={isReadOnly ? "No field remarks recorded." : "Enter detailed clinical findings, veterinarian advisory, prescription details, or carcass disposal notes..."}
                   value={inspectorRemarks}
                   disabled={isReadOnly}
                   onChange={(e) => {
                     if (isReadOnly) return;
                     setInspectorRemarks(e.target.value);
+                    if (e.target.value.trim()) {
+                      setIsRemarksHighlighted(false);
+                      setValidationError("");
+                    }
                   }}
-                  className="bg-white border-sky-200 rounded-2xl text-xs font-medium resize-none h-20 p-3 focus-visible:ring-2 focus-visible:ring-[#1A365D] disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed"
+                  className={`rounded-2xl text-xs font-medium resize-none h-20 p-3 transition-all duration-200 disabled:bg-slate-100 disabled:text-slate-800 disabled:cursor-not-allowed ${
+                    isRemarksHighlighted
+                      ? "bg-rose-50/80 border-rose-500 ring-2 ring-rose-500/80 text-rose-950 placeholder:text-rose-400 focus-visible:ring-rose-500 shadow-sm"
+                      : "bg-white border-sky-200 focus-visible:ring-2 focus-visible:ring-[#1A365D]"
+                  }`}
                 />
+
+                {isRemarksHighlighted && (
+                  <p className="text-xs font-bold text-rose-600 flex items-center gap-1.5 animate-in fade-in duration-200">
+                    <AlertTriangle className="size-3.5 shrink-0 text-rose-600" />
+                    Field verification remarks are required. Please enter examination findings.
+                  </p>
+                )}
 
                 {!isReadOnly && (
                   <div className="flex flex-wrap gap-1.5 pt-0.5">
@@ -1890,7 +1940,11 @@ function SibatInspectionDialogContent({
                       <button
                         key={idx}
                         type="button"
-                        onClick={() => setInspectorRemarks(preset)}
+                        onClick={() => {
+                          setInspectorRemarks(preset);
+                          setIsRemarksHighlighted(false);
+                          setValidationError("");
+                        }}
                         className="text-[10px] px-2.5 py-1 rounded-lg bg-white hover:bg-sky-100 text-sky-950 font-bold border border-sky-200 transition-all text-left cursor-pointer"
                       >
                         {preset}
@@ -1924,9 +1978,19 @@ function SibatInspectionDialogContent({
                   onClick={() => {
                     if (!inspectorRemarks.trim()) {
                       setValidationError("Field verification remarks are required. Please input your examination findings.");
+                      setIsRemarksHighlighted(true);
+                      remarksInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      remarksInputRef.current?.focus();
+                      if (remarksHighlightTimeoutRef.current) {
+                        clearTimeout(remarksHighlightTimeoutRef.current);
+                      }
+                      remarksHighlightTimeoutRef.current = setTimeout(() => {
+                        setIsRemarksHighlighted(false);
+                      }, 2000);
                       return;
                     }
                     setValidationError("");
+                    setIsRemarksHighlighted(false);
                     setCurrentStep(3);
                   }}
                   className="w-full sm:w-auto min-h-11 gap-2 rounded-xl bg-[#1A365D] font-bold text-white hover:bg-[#132742] justify-center"
