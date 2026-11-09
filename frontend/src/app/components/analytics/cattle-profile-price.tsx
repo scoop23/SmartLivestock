@@ -4,7 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { Area, Brush, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { LineChart as LineChartIcon, RefreshCw, Table as TableIcon, TrendingUp } from "lucide-react";
+import { CalendarDays, Database, LineChart as LineChartIcon, RefreshCw, Scale, Table as TableIcon, TrendingUp } from "lucide-react";
 import api from "@/lib/axios";
 import { LivestockBreedField } from "@/components/livestock-breed-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -127,7 +127,7 @@ function ModelPerformance({ result }: { result: Result }) {
   const forecast = result.forecast;
   // These are backend evaluation scores. Opening this view or zooming the graph
   // does not retrain the model or recompute scores from the displayed chart.
-  return <details className="rounded-xl border border-slate-200 bg-white p-4">
+  return <details className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
     <summary className="cursor-pointer text-sm font-bold text-slate-900">Model performance (optional): MAE, RMSE, R²</summary>
     <div className="mt-4 space-y-5 text-sm text-slate-600">
       {result.is_demo && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950"><strong>Synthetic demonstration scores.</strong> The seed has deliberately constructed patterns. These values demonstrate the checks and do not measure real market accuracy.</p>}
@@ -166,8 +166,8 @@ function ModelPerformance({ result }: { result: Result }) {
   </details>;
 }
 
-const controlClass = "h-11 data-[size=default]:h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-none";
-const labelClass = "h-5 text-sm font-medium leading-5 text-slate-700";
+const controlClass = "h-11 data-[size=default]:h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 shadow-2xs focus-visible:border-emerald-600 focus-visible:ring-emerald-600/20";
+const labelClass = "h-5 text-xs font-bold leading-5 text-slate-600";
 const ageRanges = [
   ["1:11", "Under 1 year"], ["12:23", "1 to under 2 years"],
   ["24:47", "2 to under 4 years"], ["48:83", "4 to under 7 years"],
@@ -290,17 +290,27 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-xs">
-      <div className="border-b border-emerald-100 bg-emerald-50/60 p-4 sm:p-5">
-        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-          <TrendingUp className="size-5 text-emerald-700" />
-          {source === "REGISTERED" ? "Registered" : "External"} livestock price by profile
-        </h2>
-        <p className="mt-1 text-sm text-slate-600">Compare recorded prices and forecast future weekly prices for a fixed livestock profile.</p>
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs">
+      <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/80 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="rounded-lg bg-emerald-100 p-1.5 text-emerald-800"><TrendingUp className="size-4" aria-hidden="true" /></div>
+            <h2 className="text-base font-bold text-slate-900 sm:text-lg">Livestock price forecast</h2>
+          </div>
+          <p className="max-w-2xl text-xs leading-relaxed text-slate-500">Compare recorded prices and estimate future weekly prices for your selected animal profile.</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+            <span>Source: <strong className="text-slate-700">{source === "REGISTERED" ? "Registered" : "External"}</strong></span>
+            <span>Unit: <strong className="text-slate-700">PHP / head</strong></span>
+            <span>Interval: <strong className="text-slate-700">Weekly</strong></span>
+          </div>
+        </div>
+        <span className="self-start rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">{species}</span>
       </div>
       <div className="space-y-5 p-4 sm:p-5">
-        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-          <div className="max-w-xl space-y-1.5">
+        <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600"><Database className="size-3.5 text-emerald-700" aria-hidden="true" /> Sales history &amp; readiness</div>
+          <div className="grid gap-4 md:grid-cols-2">
+          <div className="min-w-0 space-y-1.5">
             <Label htmlFor="livestock-price-data-mode" className={labelClass}>Sales data</Label>
             <Select value={dataMode} disabled={loading} onValueChange={(value) => { if (value === "AUTO" || value === "REAL" || value === "DEMO") { setDataMode(value); clearResult(); } }}>
               <SelectTrigger id="livestock-price-data-mode" className={controlClass}><SelectValue /></SelectTrigger>
@@ -311,7 +321,7 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
               </SelectContent>
             </Select>
           </div>
-          <div className="max-w-xl space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <Label htmlFor="livestock-price-species" className={labelClass}>Livestock species</Label>
             <Select value={selectedSpecies?.name ?? species} disabled={loading || speciesQuery.isPending} onValueChange={(value) => {
               setSpecies(value);
@@ -327,18 +337,30 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
               </SelectItem>)}</SelectContent>
             </Select>
           </div>
+          </div>
           {speciesQuery.isPending ? <p role="status" className="text-sm text-slate-600">Checking recorded sales for each species…</p> : null}
           {speciesQuery.isError ? <div role="alert" className="text-sm text-rose-700">Could not load species readiness. <button type="button" onClick={() => void speciesQuery.refetch()} className="underline">Try again</button></div> : null}
           {selectedSpecies && speciesQuery.data ? <div aria-live="polite" className="space-y-1 text-sm text-slate-700">
             {selectedSpecies.is_demo ? <p className="font-semibold text-amber-800">Using synthetic demo sales for {selectedSpecies.name}. Forecasts and scores demonstrate the model, not actual market accuracy.</p> : null}
             <p className="font-semibold">{selectedSpecies.name}: {selectedSpecies.status === "INSUFFICIENT_DATA" ? "Insufficient data for a future price forecast" : "History requirements met — select a profile to check the forecast"}</p>
-            <p>{selectedSpecies.recent_complete_sales.toLocaleString()} / {speciesQuery.data.required_sales} recent complete {selectedSpecies.is_demo ? "demo" : "recorded real"} sales; {selectedSpecies.recent_complete_weeks} / {speciesQuery.data.required_weeks} consecutive complete weeks. {selectedSpecies.complete_sales.toLocaleString()} complete {selectedSpecies.is_demo ? "demo" : "recorded real"} sales overall.</p>
+            <div className="grid gap-3 py-3 sm:grid-cols-3">
+              {[
+                { label: "Recent complete sales", value: selectedSpecies.recent_complete_sales.toLocaleString(), note: `${speciesQuery.data.required_sales} required`, icon: Database },
+                { label: "Consecutive weeks", value: selectedSpecies.recent_complete_weeks.toLocaleString(), note: `${speciesQuery.data.required_weeks} required`, icon: CalendarDays },
+                { label: "Complete sales overall", value: selectedSpecies.complete_sales.toLocaleString(), note: selectedSpecies.is_demo ? "Synthetic demo records" : "Recorded real sales", icon: Scale },
+              ].map(({ label, value, note, icon: Icon }) => <div key={label} className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+                <div className="flex items-center justify-between gap-2"><span className="text-[11px] font-semibold text-slate-500">{label}</span><Icon className="size-4 shrink-0 text-emerald-600" aria-hidden="true" /></div>
+                <p className="mt-2 text-2xl font-extrabold tabular-nums tracking-tight text-slate-900">{value}</p>
+                <p className="mt-1 text-[11px] text-slate-500">{note}</p>
+              </div>)}
+            </div>
             <p className="text-xs text-slate-500">{speciesQuery.data.message} Prices use PHP per head; species and pricing units are kept separate.</p>
           </div> : null}
         </div>
         {result?.is_demo && <div role="note" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><strong>Using synthetic sample sales.</strong> The graph uses the selected marked demo sales. Prices and error scores are demonstration examples. Automatic mode prefers real sales; choose Demo sales to inspect sample records separately.</div>}
-        <form onSubmit={submit} onChange={clearResult}>
-          <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="Profile price forecast horizon">
+        <form onSubmit={submit} onChange={clearResult} className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600"><Scale className="size-3.5 text-emerald-700" aria-hidden="true" /> Animal profile</div>
+          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-2.5" role="group" aria-label="Profile price forecast horizon">
             <span className="mr-1 text-sm font-medium text-slate-700">Forecast ahead:</span>
             {[1, 3, 6, 12].map(weeks => (
               <button key={weeks} type="button" disabled={loading} aria-pressed={horizonWeeks === weeks} onClick={() => { setHorizonWeeks(weeks); clearResult(); }} className={`rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50 ${horizonWeeks === weeks ? "border-emerald-700 bg-emerald-700 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
@@ -403,16 +425,16 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
               </div>}
             </div>
             <p className="text-xs leading-relaxed text-slate-500 sm:col-span-2 lg:col-span-4">Select the traits of the livestock you are comparing. All prices are in pesos per head and use only the selected species and sale source. Not sure of exact values? Choose a range or Any / unknown to view recorded comparisons.</p>
-            <button disabled={loading} className="flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 sm:col-span-2 lg:col-span-4">
+            <button disabled={loading} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white shadow-2xs transition-colors hover:bg-emerald-800 disabled:opacity-50 sm:col-span-2 lg:col-span-4">
               {loading && <RefreshCw className="size-4 animate-spin" />}
               {loading ? "Checking history and past forecasts..." : ageSelection === "unknown" || weightSelection === "unknown" ? "Show recorded price comparison" : "Show price history & weekly forecast"}
             </button>
           </fieldset>
         </form>
         {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
-        <div>
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-bold text-slate-900">Livestock prices over time</h3>
+            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><LineChartIcon className="size-4 text-emerald-700" aria-hidden="true" /> Livestock prices over time</h3>
             {chartData.length > 0 && <button
               type="button"
               onClick={() => setShowTableView(value => !value)}
@@ -425,7 +447,7 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
           </div>
           <div className="mt-2 space-y-1 text-sm text-slate-600">
             <p><strong className="text-slate-700">Gray line:</strong> Average price of all livestock in the selected {source === "REGISTERED" ? "Registered" : "External"} sale records, including other breeds, sexes, ages, and weights.</p>
-            <p><strong className="text-emerald-800">Green line:</strong> Average price of only the animals matching the breed, sex, age, and weight you selected.</p>
+            <p><strong className="text-teal-800">Teal line:</strong> Average price of only the animals matching the breed, sex, age, and weight you selected.</p>
           </div>
           <details className="mt-2 text-xs text-slate-500">
             <summary className="w-fit cursor-pointer font-medium">How animals are matched</summary>
@@ -484,18 +506,18 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
               </div>
               <p className="text-xs font-semibold text-slate-600" aria-live="polite">{dateLabel(chartData[zoomStart]?.date)} - {dateLabel(chartData[zoomEnd]?.date)}</p>
             </div>
-          <div className="h-96 w-full" role="img" aria-label="Recorded weekly livestock prices and future prices for the selected fixed profile">
+          <div className="h-80 w-full sm:h-96" role="img" aria-label="Recorded weekly livestock prices and future prices for the selected fixed profile">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 25, right: 20, bottom: 20, left: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                 <XAxis dataKey="date" tickFormatter={dateLabel} minTickGap={45} tick={{ fontSize: 11 }} />
                 <YAxis width={75} domain={isZoomed ? ["auto", "auto"] : [0, "auto"]} tickFormatter={(value: number) => money(value)} tick={{ fontSize: 11 }} />
                 <Tooltip labelFormatter={(value) => `Week starting ${dateLabel(String(value))}`} formatter={(value, name) => [Array.isArray(value) ? `${money(Number(value[0]))} - ${money(Number(value[1]))}` : money(Number(value)), String(name)]} />
-                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-                <Area dataKey="error_band" name="Past-error band + profile span" stroke="none" fill="#f59e0b" fillOpacity={0.15} connectNulls={false} />
+                <Legend verticalAlign="top" wrapperStyle={{ fontSize: 12, lineHeight: "20px", paddingBottom: 12 }} />
+                <Area dataKey="error_band" name="Past-error band + profile span" stroke="none" fill="#10b981" fillOpacity={0.15} connectNulls={false} />
                 <Line dataKey="recorded_price" name="Average price of all livestock" stroke="#94a3b8" strokeWidth={2} dot={{ r: 2 }} connectNulls={false} />
-                <Line dataKey="similar_price" name="Average price of matching livestock" stroke="#047857" strokeWidth={2.5} dot={{ r: 4 }} connectNulls={false} />
-                <Line dataKey="forecast_price" name="Fixed-profile weekly forecast" stroke="#d97706" strokeWidth={2.5} strokeDasharray="5 4" dot={{ r: 4 }} connectNulls={false} />
+                <Line dataKey="similar_price" name="Average price of matching livestock" stroke="#0f766e" strokeWidth={2.5} dot={{ r: 4 }} connectNulls={false} />
+                <Line dataKey="forecast_price" name="Fixed-profile weekly forecast" stroke="#059669" strokeWidth={2.5} strokeDasharray="5 4" dot={{ r: 4 }} connectNulls={false} />
                 {result?.forecast?.points[0] && <ReferenceLine x={result.forecast.points[0].date} stroke="#d97706" strokeDasharray="3 3" label={{ value: "Forecast starts", position: "insideTopRight", fill: "#b45309", fontSize: 11 }} />}
                 <Brush
                   dataKey="date"
@@ -522,7 +544,7 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
           </div>
         )}
         {result?.forecast && (
-          <div aria-live="polite" className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div aria-live="polite" className={`space-y-3 rounded-xl border p-4 ${result.forecast.status === "forecast" ? "border-emerald-200 bg-emerald-50/60" : "border-amber-200 bg-amber-50/60"}`}>
             <h3 className="font-bold text-slate-900">{result.is_demo ? "Synthetic demo: " : ""}{result.forecast.status === "forecast" ? `${result.forecast.horizon_weeks}-week profile price forecast` : "Weekly forecast not available yet"}</h3>
             <p className="text-sm">{result.forecast.message}</p>
             <p className="text-xs text-slate-600">{result.forecast.assumption} Future weeks start next Monday. {result.forecast.training_cutoff && dateLabel(result.forecast.training_cutoff) !== "Not available" ? `Training uses records available before ${dateLabel(result.forecast.training_cutoff)}.` : "Training date is not available yet."}</p>
@@ -532,8 +554,8 @@ export function CattleProfilePrice({ source }: { source: "REGISTERED" | "EXTERNA
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <caption className="sr-only">Future weekly prices and past-error bands</caption>
-                  <thead><tr className="border-b border-amber-200"><th scope="col" className="py-2 pr-4">Week starting</th><th scope="col" className="py-2 pr-4">{result.is_range ? "Scenario center" : "Price per head"}</th><th scope="col" className="py-2">Past-error band + profile span</th></tr></thead>
-                  <tbody>{result.forecast.points.map(point => <tr key={point.date} className="border-b border-amber-100"><td className="py-2 pr-4 whitespace-nowrap">{dateLabel(point.date)}</td><td className="py-2 pr-4">{money(point.predicted_price)}</td><td className="py-2 whitespace-nowrap">{money(point.lower)} - {money(point.upper)}</td></tr>)}</tbody>
+                  <thead><tr className="border-b border-slate-200 bg-white/70 text-slate-600"><th scope="col" className="py-2 pr-4">Week starting</th><th scope="col" className="py-2 pr-4">{result.is_range ? "Scenario center" : "Price per head"}</th><th scope="col" className="py-2">Past-error band + profile span</th></tr></thead>
+                  <tbody>{result.forecast.points.map(point => <tr key={point.date} className="border-b border-slate-200/70"><td className="py-2 pr-4 whitespace-nowrap">{dateLabel(point.date)}</td><td className="py-2 pr-4">{money(point.predicted_price)}</td><td className="py-2 whitespace-nowrap">{money(point.lower)} - {money(point.upper)}</td></tr>)}</tbody>
                 </table>
               </div>
             </>}

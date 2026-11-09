@@ -1229,40 +1229,14 @@ export default function SurveillanceAnalytics() {
             <div className="space-y-3 sm:space-y-3.5">
               {/* Stepper & MAO Field Guide Top Row */}
               <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-3 sm:p-3.5 rounded-xl border border-slate-200/80 bg-white shadow-2xs">
-                {/* Left: 4-Step Investigation Stepper */}
-                <div className="space-y-1.5 shrink-0">
+                {/* Left: Heading & Context */}
+                <div className="space-y-0.5 shrink-0">
                   <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight">
                     Disease Reports and Related Deaths
                   </h3>
-                  <div className="flex items-center gap-2 sm:gap-3.5 text-xs overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="flex size-5.5 items-center justify-center rounded-full bg-slate-900 text-white font-bold text-[11px] shadow-xs">
-                        1
-                      </span>
-                      <span className="font-bold text-slate-900 text-xs">Investigate</span>
-                    </div>
-                    <ArrowRight className="size-3 text-slate-400 shrink-0" />
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="flex size-5.5 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
-                        2
-                      </span>
-                      <span className="font-medium text-slate-600 text-xs">Check Animal Records</span>
-                    </div>
-                    <ArrowRight className="size-3 text-slate-400 shrink-0" />
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="flex size-5.5 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
-                        3
-                      </span>
-                      <span className="font-medium text-slate-600 text-xs">Check Movement</span>
-                    </div>
-                    <ArrowRight className="size-3 text-slate-400 shrink-0" />
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="flex size-5.5 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
-                        4
-                      </span>
-                      <span className="font-medium text-slate-600 text-xs">Take Action</span>
-                    </div>
-                  </div>
+                  <p className="text-xs text-slate-500">
+                    Chronological audit log of approved field morbidity and associated mortality cases
+                  </p>
                 </div>
 
                 {/* Right: MAO Field Guide with High-Definition Cattle Portrait (Longer Layout) */}
