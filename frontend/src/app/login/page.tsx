@@ -396,7 +396,7 @@ export default function LoginPage() {
 
             {/* Glowing Gradient Title */}
             <h1 className="text-base lg:text-lg xl:text-xl 2xl:text-3xl font-black text-white tracking-tight leading-[1.15] drop-shadow-md line-clamp-1">
-              SmartLivestock Information &amp; Surveillance
+              SmartLivestock Information &amp; Production
             </h1>
 
             {/* Gradient "System" Accent */}
