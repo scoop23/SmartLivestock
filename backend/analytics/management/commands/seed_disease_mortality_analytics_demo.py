@@ -313,12 +313,6 @@ class Command(BaseCommand):
         ):
             for month_end in months:
                 month_start = date(month_end.year, month_end.month, 1)
-                if SurveillanceCoverageReport.objects.filter(
-                    barangay=plan["barangay"], domain=domain, report_month=month_start,
-                ).exists():
-                    preserved_count += 1
-                    continue
-
                 events = model.objects.filter(
                     record_date__year=month_start.year,
                     record_date__month=month_start.month,
@@ -326,16 +320,30 @@ class Command(BaseCommand):
                     Q(livestock__farmer__barangay=plan["barangay"])
                     | Q(batch__farmer__barangay=plan["barangay"])
                 )
+                record_count = events.count()
+                approved_count = events.filter(status=approved_status).count()
+                existing_report = SurveillanceCoverageReport.objects.filter(
+                    barangay=plan["barangay"], domain=domain, report_month=month_start,
+                ).order_by("-confirmed_at", "-pk").first()
+                if existing_report is not None:
+                    if (
+                        existing_report.status == SurveillanceCoverageReport.Status.NO_REPORTS_RECEIVED
+                        and record_count > 0
+                        and approved_count == record_count
+                    ):
+                        existing_report.status = SurveillanceCoverageReport.Status.REPORTS_COMPLETE
+                        existing_report.save(update_fields=["status"])
+                    preserved_count += 1
+                    continue
+
                 if events.filter(
                     Q(review_remarks__isnull=True)
                     | ~Q(review_remarks__contains=marker)
-                ).exists():
-                    # Do not create a synthetic attestation over real or other
-                    # seed records in the same barangay and month.
+                ).exists() and approved_count != record_count:
+                    # Do not create a synthetic attestation over unapproved
+                    # records in the same barangay and month.
                     skipped_count += 1
                     continue
-                record_count = events.count()
-                approved_count = events.filter(status=approved_status).count()
                 if record_count and approved_count != record_count:
                     skipped_count += 1
                     continue
