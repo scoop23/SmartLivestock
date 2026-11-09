@@ -28,6 +28,7 @@ from .ownership_views import (
     ownership_transfer_farmer_detail,
     ownership_transfer_farmer_livestock,
     review_ownership_transfer,
+    next_transfer_certificate_number,
 )
 from .gate_views import gate_registration_list_create, gate_verification_list_create
 
@@ -55,6 +56,7 @@ __all__ = [
     "ownership_transfer_farmer_detail",
     "ownership_transfer_farmer_livestock",
     "review_ownership_transfer",
+    "next_transfer_certificate_number",
     "gate_registration_list_create",
     "gate_verification_list_create",
 ]

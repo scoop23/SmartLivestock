@@ -468,6 +468,10 @@ class LivestockInventorySerializer(serializers.Serializer):
         user = self.context["request"].user
         validated_data["created_by"] = user
         validated_data["farmer"] = user.farmer_profile
+        if validated_data.get("purchase_transfer") is not None:
+            # Linked purchases from an already-approved system transfer skip CBAT/SIBAT
+            # field verification and go directly to MAO for approval and COLC generation.
+            validated_data["status"] = LivestockInventory.StatusType.VERIFIED
         if validated_data.get("ownership_certificate_number"):
             validated_data["ownership_certificate_recorded_by"] = user
             validated_data["ownership_certificate_recorded_at"] = timezone.now()
@@ -1039,16 +1043,19 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
     livestock_type_name = serializers.SerializerMethodField()
     livestock_operational_status = serializers.SerializerMethodField()
     previous_owner_name = serializers.SerializerMethodField()
+    previous_owner_address = serializers.SerializerMethodField()
     new_owner = serializers.PrimaryKeyRelatedField(read_only=True)
     new_owner_name = serializers.SerializerMethodField(read_only=True)
+    new_owner_address = serializers.SerializerMethodField(read_only=True)
     new_owner_identifier = serializers.CharField(write_only=True, required=False)
+    transfer_certificate_number = serializers.CharField(max_length=100, required=False, allow_blank=True)
     can_edit = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = LivestockOwnershipTransfer
         fields = (
             "id", "livestock", "livestock_tag", "livestock_type_name", "livestock_operational_status",
-            "previous_owner", "previous_owner_name", "owner_type", "new_owner", "new_owner_name",
+            "previous_owner", "previous_owner_name", "previous_owner_address", "owner_type", "new_owner", "new_owner_name", "new_owner_address",
             "new_owner_identifier", "external_owner_name", "external_owner_address", "can_edit",
             "external_seller_name", "external_seller_address", "external_livestock_type", "external_livestock_tag_number",
             "origin_municipality", "origin_province",
@@ -1059,7 +1066,7 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             "status", "reviewed_by", "reviewed_at", "review_remarks", "created_at",
         )
         read_only_fields = (
-            "previous_owner", "previous_owner_name", "new_owner_name", "status",
+            "previous_owner", "previous_owner_name", "previous_owner_address", "new_owner_name", "new_owner_address", "status",
             "reviewed_by", "reviewed_at", "review_remarks", "created_at",
         )
 
@@ -1068,6 +1075,15 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             user = obj.new_owner.user
             return user.get_full_name().strip() or user.username or user.email
         return obj.external_owner_name
+
+    def get_new_owner_address(self, obj):
+        if obj.new_owner_id:
+            parts = [obj.new_owner.address]
+            if obj.new_owner.barangay:
+                parts.append(obj.new_owner.barangay.barangay_name)
+            parts.append(f"{obj.municipality or 'Padre Garcia'}, {obj.province or 'Batangas'}")
+            return ", ".join(p.strip() for p in parts if p and p.strip())
+        return obj.external_owner_address or f"{obj.municipality}, {obj.province}".strip(", ")
 
     def get_livestock_tag(self, obj):
         return obj.livestock.tag_number if obj.livestock_id else obj.external_livestock_tag_number
@@ -1083,6 +1099,15 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             return obj.external_seller_name
         user = obj.previous_owner.user
         return user.get_full_name().strip() or user.username
+
+    def get_previous_owner_address(self, obj):
+        if obj.previous_owner_id:
+            parts = [obj.previous_owner.address]
+            if obj.previous_owner.barangay:
+                parts.append(obj.previous_owner.barangay.barangay_name)
+            parts.append(f"{obj.origin_municipality or 'Padre Garcia'}, {obj.origin_province or 'Batangas'}")
+            return ", ".join(p.strip() for p in parts if p and p.strip())
+        return obj.external_seller_address or f"{obj.origin_municipality}, {obj.origin_province}".strip(", ")
 
     def get_can_edit(self, obj):
         request = self.context.get("request")
@@ -1205,4 +1230,12 @@ class LivestockOwnershipTransferSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "transfer_date": "Transfer date cannot precede the animal's latest approved ownership transfer."
             })
+
+        cert_num = attrs.get("transfer_certificate_number")
+        if not cert_num or not str(cert_num).strip():
+            from smartlivestock.seed_tags import generate_unique_transfer_certificate_number
+            attrs["transfer_certificate_number"] = generate_unique_transfer_certificate_number(reference_date=transfer_date)
+        else:
+            attrs["transfer_certificate_number"] = str(cert_num).strip()
+
         return attrs

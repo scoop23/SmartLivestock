@@ -34,7 +34,7 @@ from analytics.seed_markers import (
     SEED_MARKER_SLAUGHTER,
 )
 from livestock.models import Farmer, LivestockInventory, LivestockOwnershipTransfer, LivestockType
-from production.models import ProductionRecord, SlaughterRecord
+from production.models import AnimalDisposition, ProductionRecord, SlaughterRecord
 from smartlivestock.seed_tags import next_seed_colc_number, next_seed_livestock_tag
 from smartlivestock.seed_safety import assert_safe_seed_database
 from users.models import User
@@ -75,7 +75,7 @@ def sample_sale_labels(key, day, species_code="CAT", owner_type="EXTERNAL_INDIVI
         "external_seller_name": seller,
         "external_owner_name": buyer,
         "external_livestock_tag_number": f"{species_code}-{reference[:8]}",
-        "transfer_certificate_number": f"PG-COT-{day.year}-{reference}",
+        "transfer_certificate_number": f"BTG-{day.year}-{reference[:6]}",
         "original_certificate_number": f"COLC-{day.year}-{reference}",
     }
 
@@ -359,6 +359,7 @@ class Command(BaseCommand):
             # Preview every owned group first. A zero-match clean must not reset
             # population tracking dates or change other bookkeeping records.
             groups = {
+                "dispositions": AnimalDisposition.objects.filter(production_filter),
                 "production": ProductionRecord.objects.filter(production_filter),
                 "slaughter": SlaughterRecord.objects.filter(review_filter),
                 "transfers": LivestockOwnershipTransfer.objects.filter(review_filter),
@@ -409,6 +410,32 @@ class Command(BaseCommand):
         for row in rows:
             row.created_at = row._demo_created_at
         model.objects.bulk_update(rows, ["created_at"], batch_size=500)
+
+    def _create_sale_dispositions(self, marker, transfers):
+        """Create Farmer -> Auction sale intent declarations for registered animal transfers."""
+        disposition_rows = []
+        for transfer in transfers:
+            if not transfer.livestock_id or not transfer.previous_owner_id:
+                continue
+            is_completed = transfer.status == LivestockOwnershipTransfer.Status.APPROVED
+            disp = AnimalDisposition(
+                livestock_id=transfer.livestock_id,
+                intent=AnimalDisposition.IntentType.FOR_SALE,
+                target_date=transfer.transfer_date,
+                target_destination="Padre Garcia Livestock Auction Market",
+                notes=f"{marker} Synthetic farmer sale intent passed to Auction."[:255],
+                original_certificate_number=transfer.original_certificate_number,
+                registration_status=(
+                    AnimalDisposition.RegistrationStatus.COMPLETED
+                    if is_completed
+                    else AnimalDisposition.RegistrationStatus.CHECKED
+                ),
+                sale_transfer=transfer if is_completed else None,
+                created_by=transfer.previous_owner.user,
+            )
+            disp._demo_created_at = aware_at(transfer.transfer_date, 7)
+            disposition_rows.append(disp)
+        self._create_rows(AnimalDisposition, disposition_rows)
 
     @staticmethod
     def _months_back(month_count):
@@ -500,6 +527,8 @@ class Command(BaseCommand):
             species_code = "CAR" if cattle_type.name.casefold() == "carabao" else "CAT"
             identity_marker = marker if species_code == "CAT" else f"{marker}:{species_code}"
             labels = sample_sale_labels(f"{identity_marker}:registered:{serial}", day, species_code)
+            # Ownership transfer is recorded and finalized by Auction personnel (user),
+            # while the animal's prior registration/COLC was approved by MAO (reviewer).
             transfer = LivestockOwnershipTransfer(
                 livestock=animal, previous_owner=seller,
                 owner_type=LivestockOwnershipTransfer.OwnerType.EXTERNAL_INDIVIDUAL,
@@ -514,7 +543,7 @@ class Command(BaseCommand):
                 sex_at_transfer=profile["sex"],
                 age_at_transfer=profile["age_at_transfer"],
                 purchase_price=per_animal_prices[index],
-                status=status, reviewed_by=(reviewer or user) if review_time else None,
+                status=status, reviewed_by=user if review_time else None,
                 reviewed_at=review_time,
                 review_remarks=f"{marker} Synthetic fixture; {note}"[:1000],
                 created_by=user,
@@ -575,7 +604,7 @@ class Command(BaseCommand):
                 purchase_price=price,
                 status=LivestockOwnershipTransfer.Status.APPROVED,
                 created_by=auction_user,
-                reviewed_by=reviewer,
+                reviewed_by=auction_user,
                 reviewed_at=review_time,
                 review_remarks=(
                     f"{marker} Synthetic benchmark-calibrated external-market fixture; one row represents one head."
@@ -715,6 +744,7 @@ class Command(BaseCommand):
 
             self._create_rows(LivestockInventory, animals)
             self._create_rows(LivestockOwnershipTransfer, transfers)
+            self._create_sale_dispositions(marker, transfers)
             count += len(transfers)
         return {"milk": 0, "farmer_meat": 0, "slaughter": 0, "sales": count}
 
@@ -913,6 +943,7 @@ class Command(BaseCommand):
             ))
         self._create_rows(LivestockInventory, dairy_animals + sale_animals)
         self._create_rows(LivestockOwnershipTransfer, sale_rows)
+        self._create_sale_dispositions(marker, sale_rows)
         carabao_type, _ = LivestockType.objects.get_or_create(name="Carabao")
         carabao_result = self._seed_price_profiles(
             marker, user, sellers, carabao_type, auction_user, species_code="CAR", weeks=2,

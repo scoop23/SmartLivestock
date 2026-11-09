@@ -26,11 +26,12 @@ ROLE_MATRIX = {
     # Farmers may declare sale intent; completed market sales are recorded by Auction as ownership transfers.
     "sales": {"create": set(), "read_all": {SIBAT, CBAT, MAO, ADMIN, AUCTION}, "review": {MAO, ADMIN}, "delete_own": {FARMER}},
     "calving": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}},
-    "batches": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}},
+    "batches": {"create": {FARMER}, "read_all": {SIBAT, CBAT, MAO, ADMIN, AUCTION}, "review": {SIBAT, CBAT, MAO, ADMIN}, "edit_own": {FARMER}},
     "census": {"create": {SIBAT, CBAT}, "read_all": {SIBAT, CBAT, MAO, ADMIN}, "review": {MAO, ADMIN}, "edit_own": {SIBAT, CBAT}},
     "inspections": {"create": {AUCTION}, "read_all": {AUCTION, MAO, ADMIN}, "edit_own": {AUCTION}, "review": {MAO, ADMIN}, "delete_own": {AUCTION, MAO, ADMIN}},
-    # Auction encodes the certificate; farmers and reviewers retain access to their own or scoped records.
-    "ownership_transfers": {"create": {AUCTION}, "read_all": {MAO, ADMIN}, "read_own": {AUCTION}, "review": {MAO, ADMIN}},
+    # Farmer passes sale intent to Auction; Auction encodes and finalizes the transfer certificate.
+    # MAO only approves livestock inspections; MAO has read-only access to ownership transfers.
+    "ownership_transfers": {"create": {AUCTION}, "read_all": {MAO, ADMIN}, "read_own": {AUCTION}, "review": {AUCTION, ADMIN}},
     # Facility-entered daily totals are reviewed by MAO and remain separate from
     # individual-animal slaughter reconciliation.
     "slaughter_records": {"create": {SLAUGHTERHOUSESTAFF}, "read_all": {SLAUGHTERHOUSESTAFF, MAO, ADMIN}, "edit_own": {SLAUGHTERHOUSESTAFF}, "review": {MAO, ADMIN}},
@@ -54,11 +55,11 @@ REVIEW_TRANSITIONS: dict[str, tuple[TransitionRule, ...]] = {
     for domain in ("inventory", "calving", "batches", "disease", "mortality")
 }
 
-# Auction encodes the completed transfer certificate; MAO is the sole reviewer.
+# Farmer passes animal to Auction; Auction records and finalizes the transfer certificate.
+# Only Livestock Inspections are reviewed/approved by MAO.
 REVIEW_TRANSITIONS["ownership_transfers"] = (
-    TransitionRule(MAO, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
-    # Let MAO finish legacy transfers that were already verified by SIBAT.
-    TransitionRule(MAO, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(AUCTION, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
+    TransitionRule(AUCTION, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     TransitionRule(ADMIN, "PENDING", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
     TransitionRule(ADMIN, "VERIFIED", frozenset({"APPROVED", "SUBJECT_TO_REVISION"})),
 )

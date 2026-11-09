@@ -48,6 +48,7 @@ import {
   Icon,
   Info,
   Pencil,
+  Printer,
   QrCode,
   Save,
   Search,
@@ -56,6 +57,7 @@ import {
   User,
   X,
 } from "lucide-react";
+import { OwnershipTransferCertificateDialog } from "@/app/components/ownership-transfer-certificate-dialog";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -273,6 +275,7 @@ export default function AuctionOwnershipTransfersPage() {
   const [showUserGuide, setShowUserGuide] = useState(false);
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false);
   const [viewTransfer, setViewTransfer] = useState<Transfer | null>(null);
+  const [certificateTarget, setCertificateTarget] = useState<Transfer | null>(null);
   const [pendingSubmission, setPendingSubmission] = useState<OwnershipTransferSubmission | null>(null);
   const [submissionSuccess, setSubmissionSuccess] = useState("");
   const sellerAnimalRef = useRef<HTMLDivElement>(null);
@@ -303,6 +306,7 @@ export default function AuctionOwnershipTransfersPage() {
     setPreregistrationReference("");
     setIsPreregistrationHighlighted(false);
     setShowOutsideConfirmModal(false);
+    setShowAdditionalDetails(true);
   }
 
   const {
@@ -351,6 +355,14 @@ export default function AuctionOwnershipTransfersPage() {
     queryFn: async () => (await api.get<Transfer[]>("livestock/ownership-transfers/")).data,
   });
 
+  const { data: nextCertData, refetch: refetchNextCert } = useQuery({
+    queryKey: ["next-transfer-certificate-number"],
+    queryFn: async () => (await api.get<{ certificate_number: string }>("livestock/ownership-transfers/next-certificate-number/")).data,
+    staleTime: 10000,
+  });
+
+  const [usePaperBooklet, setUsePaperBooklet] = useState(false);
+  const [manualCertNumber, setManualCertNumber] = useState("");
   const [preregistrationReference, setPreregistrationReference] = useState("");
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("preregistration");
@@ -544,6 +556,10 @@ export default function AuctionOwnershipTransfersPage() {
     onSuccess: async (_data, submission) => {
       await queryClient.invalidateQueries({ queryKey: ["auction-ownership-transfers"] });
       await queryClient.invalidateQueries({ queryKey: ["ownership-transfers"] });
+      await queryClient.invalidateQueries({ queryKey: ["next-transfer-certificate-number"] });
+      void refetchNextCert();
+      setUsePaperBooklet(false);
+      setManualCertNumber("");
       setSubmissionSuccess(
         submission.isCorrection
           ? "Your corrected ownership transfer has been sent to MAO for review."
@@ -1092,8 +1108,8 @@ export default function AuctionOwnershipTransfersPage() {
 
               <form key={editing?.id ?? "new-transfer"} onSubmit={handleSubmit} onInvalidCapture={() => setShowAdditionalDetails(true)} className="space-y-4 pt-1">
                 {/* Row 1: Buyer Type & Find Registered Buyer */}
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
-                  <div className="sm:col-span-5 space-y-1.5">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
+                  <div className="md:col-span-5 space-y-1.5">
                     <TransferFieldLabel
                       htmlFor="owner_type"
                       label="Buyer Type *"
@@ -1107,7 +1123,7 @@ export default function AuctionOwnershipTransfersPage() {
                         setBuyerResults([]);
                       }}
                     >
-                      <SelectTrigger id="owner_type" className="h-10 bg-white border-slate-200 rounded-xl text-xs">
+                      <SelectTrigger id="owner_type" className="h-10 bg-white border-slate-200 rounded-xl text-xs sm:text-sm">
                         <SelectValue placeholder="Choose buyer type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1121,7 +1137,7 @@ export default function AuctionOwnershipTransfersPage() {
                     <input type="hidden" name="owner_type" value={ownerType} />
                   </div>
 
-                  <div className="sm:col-span-7 space-y-1.5">
+                  <div className="md:col-span-7 space-y-1.5">
                     {ownerType === "REGISTERED_FARMER" ? (
                       <>
                         <TransferFieldLabel
@@ -1130,61 +1146,63 @@ export default function AuctionOwnershipTransfersPage() {
                           help="Search using the buyer's name, email, username, RSBSA number, or Farmer ID, then select the matching approved Farmer."
                         />
                         {buyer ? (
-                          <div className="flex items-center justify-between gap-2 h-10 px-3 bg-white border border-emerald-300 rounded-xl text-xs">
+                          <div className="flex items-center justify-between gap-2 min-h-10 px-3 py-1 bg-white border border-emerald-300 rounded-xl text-xs sm:text-sm">
                             <div className="flex items-center gap-2 truncate">
                               <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-                              <span className="font-bold text-slate-900">{buyer.name}</span>
-                              <span className="text-slate-500 font-normal">· {buyer.barangay}</span>
+                              <span className="font-bold text-slate-900 truncate">{buyer.name}</span>
+                              <span className="text-slate-500 font-normal truncate">· {buyer.barangay}</span>
                             </div>
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
                               onClick={() => setBuyer(null)}
-                              className="h-7 text-xs text-slate-500 hover:text-red-600"
+                              className="h-7 text-xs text-slate-500 hover:text-red-600 shrink-0"
                             >
                               Change
                             </Button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2">
-                            <div className="relative flex-1">
+                          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                            <div className="relative flex-1 min-w-[160px]">
                               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
                               <Input
                                 id="buyer-search"
                                 value={buyerSearch}
                                 onChange={(e) => setBuyerSearch(e.target.value)}
-                                placeholder="Buyer name, email, username, or RSBSA..."
+                                placeholder="Buyer name, email, or RSBSA..."
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") {
                                     e.preventDefault();
                                     void searchBuyers();
                                   }
                                 }}
-                                className="pl-9 h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400 focus-visible:ring-emerald-500"
+                                className="pl-9 h-10 bg-white border-slate-200 rounded-xl text-xs sm:text-sm placeholder:text-slate-400 focus-visible:ring-emerald-500"
                               />
                             </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => void searchBuyers()}
-                              disabled={isSearchingBuyers || !buyerSearch.trim()}
-                              className="h-10 px-3 rounded-xl border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 gap-1.5 shrink-0"
-                            >
-                              <Search className="size-3.5" />
-                              <span>Find</span>
-                            </Button>
-                            <Button
-                              type="button"
-                              onClick={() => {
-                                setScannerTarget("buyer");
-                                setIsScannerOpen(true);
-                              }}
-                              className="h-10 px-3 rounded-xl border border-emerald-200 bg-[#EAF5EC] text-xs font-bold text-[#1E4D2B] hover:bg-emerald-100 gap-1.5 shrink-0"
-                            >
-                              <QrCode className="size-3.5 text-[#1E4D2B]" />
-                              <span>Scan QR</span>
-                            </Button>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => void searchBuyers()}
+                                disabled={isSearchingBuyers || !buyerSearch.trim()}
+                                className="h-10 px-3 rounded-xl border-slate-200 bg-white text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-50 gap-1.5 shrink-0"
+                              >
+                                <Search className="size-3.5" />
+                                <span>Find</span>
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={() => {
+                                  setScannerTarget("buyer");
+                                  setIsScannerOpen(true);
+                                }}
+                                className="h-10 px-3 rounded-xl border border-emerald-200 bg-[#EAF5EC] text-xs sm:text-sm font-bold text-[#1E4D2B] hover:bg-emerald-100 gap-1.5 shrink-0"
+                              >
+                                <QrCode className="size-3.5 text-[#1E4D2B]" />
+                                <span>Scan QR</span>
+                              </Button>
+                            </div>
                           </div>
                         )}
                         {buyerResults.length > 0 && (
@@ -1230,7 +1248,7 @@ export default function AuctionOwnershipTransfersPage() {
                           maxLength={255}
                           defaultValue={editing?.external_owner_name}
                           placeholder="Enter buyer or organization name"
-                          className="h-10 bg-white border-slate-200 rounded-xl text-xs"
+                          className="h-10 bg-white border-slate-200 rounded-xl text-xs sm:text-sm"
                         />
                       </div>
                     )}
@@ -1238,24 +1256,56 @@ export default function AuctionOwnershipTransfersPage() {
                 </div>
 
                 {/* Row 2: Certificate No, Transfer Date, Agreed Price */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                  <div className="space-y-1.5">
-                    <TransferFieldLabel
-                      htmlFor="transfer_certificate_number"
-                      label="Paper Transfer Certificate No. *"
-                      help="Enter the number printed on the completed transfer certificate."
-                    />
-                    <Input
-                      id="transfer_certificate_number"
-                      name="transfer_certificate_number"
-                      required
-                      defaultValue={editing?.transfer_certificate_number}
-                      placeholder="e.g., AUC-2026-027"
-                      className="h-10 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
+                  <div className="md:col-span-5 space-y-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <TransferFieldLabel
+                          htmlFor="transfer_certificate_number"
+                          label="Transfer Certificate No. *"
+                          help="SmartLivestock automatically generates the official sequential NO. BTG certificate number according to Batangas Provincial Treasury standards. Toggle to enter a physical paper booklet number if encoding an older booklet."
+                        />
+                        {!usePaperBooklet && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                            <Sparkles className="size-3 text-emerald-600" />
+                            Auto NO. BTG
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextState = !usePaperBooklet;
+                          setUsePaperBooklet(nextState);
+                          if (!nextState) setManualCertNumber("");
+                        }}
+                        className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 underline transition-colors cursor-pointer shrink-0"
+                      >
+                        {usePaperBooklet ? "Use auto-generated" : "Paper booklet override"}
+                      </button>
+                    </div>
+                    {usePaperBooklet ? (
+                      <Input
+                        id="transfer_certificate_number"
+                        name="transfer_certificate_number"
+                        required
+                        value={manualCertNumber}
+                        onChange={(e) => setManualCertNumber(e.target.value)}
+                        placeholder="e.g., BTG 1942301"
+                        className="h-10 bg-white border-slate-200 rounded-xl text-xs sm:text-sm placeholder:text-slate-400 font-mono font-bold"
+                      />
+                    ) : (
+                      <Input
+                        id="transfer_certificate_number"
+                        name="transfer_certificate_number"
+                        readOnly
+                        value={editing?.transfer_certificate_number || nextCertData?.certificate_number || "BTG-2026-000001"}
+                        className="h-10 bg-emerald-50/60 border-emerald-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-emerald-950 px-3 cursor-not-allowed select-all"
+                      />
+                    )}
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="md:col-span-3 space-y-1.5">
                     <TransferFieldLabel
                       htmlFor="transfer_date"
                       label="Transfer Date *"
@@ -1269,19 +1319,19 @@ export default function AuctionOwnershipTransfersPage() {
                         type="date"
                         required
                         defaultValue={editing?.transfer_date ?? getLocalDateInputValue()}
-                        className="h-10 pl-9 bg-white border-slate-200 rounded-xl text-xs"
+                        className="h-10 pl-9 bg-white border-slate-200 rounded-xl text-xs sm:text-sm"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="md:col-span-4 space-y-1.5">
                     <TransferFieldLabel
                       htmlFor="purchase_price"
                       label="Agreed Price (Optional)"
                       help="Enter the recorded sale price in Philippine pesos."
                     />
                     <div className="relative">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs sm:text-sm font-bold text-slate-400">
                         ₱
                       </span>
                       <Input
@@ -1291,8 +1341,8 @@ export default function AuctionOwnershipTransfersPage() {
                         min="0"
                         step="0.01"
                         defaultValue={editing?.purchase_price ?? ""}
-                        placeholder="Enter agreed price"
-                        className="h-10 pl-7 bg-white border-slate-200 rounded-xl text-xs placeholder:text-slate-400"
+                        placeholder="e.g. 15,000.00"
+                        className="h-10 pl-7 bg-white border-slate-200 rounded-xl text-xs sm:text-sm placeholder:text-slate-400"
                       />
                     </div>
                   </div>
@@ -1310,9 +1360,13 @@ export default function AuctionOwnershipTransfersPage() {
                         className={`size-4 text-[#1E4D2B] transition-transform ${showAdditionalDetails ? "rotate-180" : ""}`}
                       />
                       <div>
-                        <p className="text-xs font-bold text-slate-900">Additional Details (Optional)</p>
+                        <p className="text-xs font-bold text-slate-900">
+                          {outsideLivestock ? "Outside Seller & Animal Details *" : "Additional Details (Optional)"}
+                        </p>
                         <p className="text-[11px] text-slate-600">
-                          Add other information from the certificate (e.g., municipality, brand, etc.).
+                          {outsideLivestock
+                            ? "Enter the outside seller name, address, animal species, and certificate details."
+                            : "Add other information from the certificate (e.g., municipality, brand, etc.)."}
                         </p>
                       </div>
                     </div>
@@ -1681,12 +1735,12 @@ export default function AuctionOwnershipTransfersPage() {
                 </div>
 
                 {/* Bottom Action Buttons */}
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <div className="flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-slate-100">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => toast.info("Draft preserved in current session.")}
-                    className="h-10 rounded-xl border-slate-300 bg-white px-5 text-xs font-semibold text-slate-700 hover:bg-slate-50 gap-2 shadow-2xs"
+                    className="min-h-10 rounded-xl border-slate-300 bg-white px-5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 gap-2 shadow-2xs"
                   >
                     <Save className="size-4 text-slate-500" />
                     <span>Save as Draft</span>
@@ -1699,7 +1753,7 @@ export default function AuctionOwnershipTransfersPage() {
                       submit.isPending ||
                       isLoadingAnimals
                     }
-                    className="h-10 rounded-xl bg-[#0F4A2F] px-6 text-xs font-bold text-white hover:bg-[#0B3D26] shadow-sm gap-2 transition-colors disabled:opacity-50"
+                    className="min-h-10 rounded-xl bg-[#0F4A2F] px-6 text-xs sm:text-sm font-bold text-white hover:bg-[#0B3D26] shadow-sm gap-2 transition-colors disabled:opacity-50"
                   >
                     <span>{submit.isPending ? "Submitting…" : "Review & Submit"}</span>
                     <ArrowRight className="size-4" />
@@ -1799,15 +1853,27 @@ export default function AuctionOwnershipTransfersPage() {
                           {renderTransferStatus(transfer.status)}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setViewTransfer(transfer)}
-                            className="h-7 rounded-xl border-[#1E4D2B] bg-white px-2.5 text-xs font-bold text-[#1E4D2B] shadow-2xs transition-colors hover:bg-[#EAF5EC] hover:text-[#163b21] gap-1"
-                          >
-                            <Eye className="size-3.5" />
-                            <span>View</span>
-                          </Button>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setViewTransfer(transfer)}
+                              className="h-7 rounded-xl border-[#1E4D2B] bg-white px-2.5 text-xs font-bold text-[#1E4D2B] shadow-2xs transition-colors hover:bg-[#EAF5EC] hover:text-[#163b21] gap-1"
+                            >
+                              <Eye className="size-3.5" />
+                              <span>View</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setCertificateTarget(transfer)}
+                              className="h-7 rounded-xl border-pink-200 bg-pink-50 px-2.5 text-xs font-bold text-pink-900 shadow-2xs transition-colors hover:bg-pink-100 gap-1"
+                              title="Print Certificate (NO. BTG)"
+                            >
+                              <Printer className="size-3.5 text-pink-700" />
+                              <span>Certificate</span>
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1862,22 +1928,36 @@ export default function AuctionOwnershipTransfersPage() {
               </div>
             </div>
           )}
-          <DialogFooter className="flex items-center justify-between sm:justify-between pt-2">
-            {viewTransfer?.can_edit ? (
+          <DialogFooter className="flex items-center justify-between sm:justify-between pt-2 gap-2">
+            <div className="flex items-center gap-2">
+              {viewTransfer?.can_edit && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const t = viewTransfer;
+                    setViewTransfer(null);
+                    void correctReturnedTransfer(t);
+                  }}
+                  className="h-8 text-xs border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 rounded-xl"
+                >
+                  Correct and resubmit
+                </Button>
+              )}
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
                 onClick={() => {
                   const t = viewTransfer;
                   setViewTransfer(null);
-                  void correctReturnedTransfer(t);
+                  setCertificateTarget(t);
                 }}
-                className="h-8 text-xs border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 rounded-xl"
+                className="h-8 text-xs rounded-xl bg-pink-700 text-white hover:bg-pink-800 px-3 gap-1.5 shadow-xs"
               >
-                Correct and resubmit
+                <Printer className="size-3.5" />
+                <span>Print Certificate</span>
               </Button>
-            ) : <span />}
+            </div>
             <Button
               type="button"
               onClick={() => setViewTransfer(null)}
@@ -2200,6 +2280,14 @@ export default function AuctionOwnershipTransfersPage() {
           if (scannerTarget === "seller") void selectFarmerById(farmerId);
           else void selectBuyerById(farmerId);
         }}
+      />
+
+      {/* Official Accountable Form No. 52 Certificate Dialog */}
+      <OwnershipTransferCertificateDialog
+        open={Boolean(certificateTarget)}
+        onOpenChange={(open) => !open && setCertificateTarget(null)}
+        transfer={certificateTarget}
+        allTransfers={transfers}
       />
     </div>
   );

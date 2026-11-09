@@ -32,6 +32,7 @@ urlpatterns = [
     path("ownership-transfer-farmers/", views.ownership_transfer_farmer_list, name="ownership_transfer_farmer_list"),
     path("ownership-transfer-farmers/<int:farmer_id>/", views.ownership_transfer_farmer_detail, name="ownership_transfer_farmer_detail"),
     path("ownership-transfer-farmers/<int:farmer_id>/livestock/", views.ownership_transfer_farmer_livestock, name="ownership_transfer_farmer_livestock"),
+    path("ownership-transfers/next-certificate-number/", views.next_transfer_certificate_number, name="next_transfer_certificate_number"),
     path("ownership-transfers/<int:pk>/", views.ownership_transfer_detail, name="ownership_transfer_detail"),
     path("ownership-transfers/<int:pk>/review/", views.review_ownership_transfer, name="review_ownership_transfer"),
 ]

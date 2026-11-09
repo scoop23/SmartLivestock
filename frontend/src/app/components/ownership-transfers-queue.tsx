@@ -31,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { fetchInspections, type InspectionRecord } from "@/app/(auction)/auction-inspections/auction-analytics";
 import { MovementLivestockInspectionsTab } from "./movement-livestock-inspections-tab";
+import { OwnershipTransferCertificateDialog } from "./ownership-transfer-certificate-dialog";
 import api from "@/lib/axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -46,6 +47,7 @@ import {
   FileCheck2,
   FileSpreadsheet,
   FileText,
+  Printer,
   RefreshCw,
   RotateCcw,
   Search,
@@ -98,11 +100,13 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
   const isMao = reviewer === "MAO";
   const [activeReviewTab, setActiveReviewTab] = useState<"ownership" | "inspections">(() => {
     if (typeof window !== "undefined") {
-      const tabParam = new URLSearchParams(window.location.search).get("tab");
-      const hasInspectionParam = new URLSearchParams(window.location.search).has("inspectionId");
-      if (tabParam === "inspections" || hasInspectionParam) return "inspections";
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      const hasTransferParam = params.has("transferId") || params.has("saleId");
+      if (tabParam === "ownership" || hasTransferParam) return "ownership";
+      if (tabParam === "inspections" || params.has("inspectionId")) return "inspections";
     }
-    return "ownership";
+    return reviewer === "MAO" ? "inspections" : "ownership";
   });
 
   // Keep active tab synced with search params (e.g. from notifications)
@@ -118,11 +122,12 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
     }
   }, [searchParams]);
 
-  // MAO review default tab: PENDING (focus directly on transfers awaiting MAO approval)
-  const [statusFilter, setStatusFilter] = useState<string>("PENDING");
+  // Ownership transfers are finalized by Auction; default filter to ALL records
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [speciesFilter, setSpeciesFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
+  const [certificateTarget, setCertificateTarget] = useState<Transfer | null>(null);
   const [revisionTarget, setRevisionTarget] = useState<Transfer | null>(null);
   const [revisionRemarks, setRevisionRemarks] = useState("");
   const [approveConfirmTarget, setApproveConfirmTarget] = useState<Transfer | null>(null);
@@ -456,6 +461,20 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
               <FileSpreadsheet className="size-3.5 text-emerald-600" />
               <span>Export CSV</span>
             </Button>
+
+            {activeReviewTab === "ownership" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCertificateTarget(selectedTransfer || filtered[0] || data[0] || null)}
+                disabled={!filtered.length && !data.length}
+                className="h-9 gap-1.5 rounded-xl border-slate-200 bg-white/95 text-xs font-bold text-slate-700 shadow-2xs hover:bg-pink-50 hover:text-pink-800 hover:border-pink-300"
+                title="Print Official Certificate of Transfer (Accountable Form No. 52)"
+              >
+                <Printer className="size-3.5 text-pink-600" />
+                <span>Print Certificate (Form 52)</span>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -788,7 +807,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                     const isApproved = t.status === "APPROVED";
                     const isRevision = t.status === "SUBJECT_TO_REVISION" || t.status === "REJECTED";
                     const isPending = ["PENDING", "VERIFIED"].includes(t.status);
-                    const isActionable = isMao && isPending;
+                    const isActionable = false;
 
                     return (
                       <TableRow
@@ -853,7 +872,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                           {isApproved ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]">
                               <Check className="size-3 stroke-[2.5]" />
-                              Approved by MAO
+                              Completed at Auction
                             </span>
                           ) : isRevision ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FEE2E2] text-[#DC2626] border border-[#FECDD3]">
@@ -913,6 +932,18 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                               <Eye className="size-3.5 text-slate-500" />
                               <span>View Details</span>
                             </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCertificateTarget(t)}
+                              className="h-8 px-2.5 text-xs font-bold bg-pink-50/70 border-pink-200 text-pink-900 hover:bg-pink-100 hover:border-pink-300 rounded-lg shadow-2xs gap-1 cursor-pointer"
+                              title="Print Official Certificate of Transfer (Accountable Form No. 52)"
+                            >
+                              <Printer className="size-3.5 text-pink-700" />
+                              <span>Print Form 52</span>
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -960,8 +991,7 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
             <span>About Livestock Ownership Transfers</span>
           </div>
           <p className="leading-relaxed">
-            Every livestock ownership transfer recorded by the Padre Garcia Auction Market is sent here for official MAO approval.
-            Approving a transfer officially registers the animal under the new owner and marks the seller&apos;s animal as <strong className="text-slate-900 font-bold">SOLD</strong> in their herd inventory.
+            Farmers declare sale intent and pass their livestock to the Padre Garcia Auction Market, where Auction Personnel verify and complete the ownership transfer certificate, marking the seller&apos;s animal as <strong className="text-slate-900 font-bold">SOLD</strong>. MAO reviews and approves <strong className="text-slate-900 font-bold">Movement / Livestock Inspections</strong>.
           </p>
         </div>
           </>
@@ -1014,9 +1044,9 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-900 flex items-start gap-2.5">
                   <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
-                    <strong className="font-bold block">Officially Approved</strong>
+                    <strong className="font-bold block">Completed at Auction Market</strong>
                     <span>
-                      This certificate has been approved by the Municipal Agriculture Office. The animal is now officially registered under the new owner.
+                      This ownership transfer was recorded and finalized by Padre Garcia Auction Market personnel.
                     </span>
                   </div>
                 </div>
@@ -1146,35 +1176,17 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
                   Close
                 </Button>
 
-                {isMao && ["PENDING", "VERIFIED"].includes(selectedTransfer.status) ? (
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={review.isPending}
-                      onClick={() => {
-                        const target = selectedTransfer;
-                        setSelectedTransfer(null);
-                        setRevisionTarget(target);
-                        setRevisionRemarks("");
-                      }}
-                      className="flex-1 sm:flex-none text-xs text-rose-700 border-rose-200 hover:bg-rose-50"
-                    >
-                      <RotateCcw className="size-3.5 mr-1" />
-                      Return for Correction
-                    </Button>
-
-                    <Button
-                      type="button"
-                      disabled={review.isPending}
-                      onClick={() => setApproveConfirmTarget(selectedTransfer)}
-                      className="flex-1 sm:flex-none text-xs bg-[#1E4D2B] hover:bg-[#163b21] text-white font-bold shadow-xs cursor-pointer transition-all hover:scale-[1.02] active:scale-98"
-                    >
-                      <Check className="size-3.5 mr-1" />
-                      Approve Transfer
-                    </Button>
-                  </div>
-                ) : null}
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const t = selectedTransfer;
+                    setCertificateTarget(t);
+                  }}
+                  className="w-full sm:w-auto text-xs font-bold bg-[#1E4D2B] hover:bg-[#163a20] text-white gap-1.5"
+                >
+                  <Printer className="size-3.5" />
+                  Print Official Form 52 Certificate
+                </Button>
               </DialogFooter>
             </div>
           )}
@@ -1358,6 +1370,14 @@ export function OwnershipTransfersQueue({ reviewer }: { reviewer: "SIBAT" | "MAO
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Official Form 52 Certificate Dialog */}
+      <OwnershipTransferCertificateDialog
+        open={Boolean(certificateTarget)}
+        onOpenChange={(open) => !open && setCertificateTarget(null)}
+        transfer={certificateTarget}
+        allTransfers={data}
+      />
     </>
   );
 }

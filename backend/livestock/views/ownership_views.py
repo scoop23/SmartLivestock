@@ -132,10 +132,90 @@ def ownership_transfer_farmer_livestock(request, farmer_id):
     } for animal in animals])
 
 
+def _finalize_auction_transfer(transfer: LivestockOwnershipTransfer, actor: User) -> None:
+    """Finalize an Auction-recorded ownership transfer immediately without requiring MAO approval."""
+    now = timezone.now()
+    if transfer.livestock_id:
+        animal = LivestockInventory.objects.select_for_update().get(pk=transfer.livestock_id)
+        if not transfer.original_certificate_number and animal.ownership_certificate_number:
+            transfer.original_certificate_number = animal.ownership_certificate_number
+        animal.operational_status = LivestockInventory.OperationalStatus.SOLD
+        animal.operational_status_changed_at = now
+        animal.batch = None
+        animal.ownership_certificate_number = ""
+        animal.ownership_certificate_recorded_by = None
+        animal.ownership_certificate_recorded_at = None
+        animal.save(update_fields=[
+            "operational_status",
+            "operational_status_changed_at",
+            "batch",
+            "ownership_certificate_number",
+            "ownership_certificate_recorded_by",
+            "ownership_certificate_recorded_at",
+        ])
+
+    transfer.status = LivestockOwnershipTransfer.Status.APPROVED
+    transfer.reviewed_by = actor
+    transfer.reviewed_at = now
+    transfer.save(update_fields=[
+        "original_certificate_number",
+        "status",
+        "reviewed_by",
+        "reviewed_at",
+    ])
+
+    if transfer.livestock_id:
+        for prereg in AnimalDisposition.objects.select_for_update().filter(
+            livestock_id=transfer.livestock_id,
+            livestock__farmer_id=transfer.previous_owner_id,
+            intent="FOR_SALE",
+            sale_transfer__isnull=True,
+        ).exclude(registration_status="COMPLETED"):
+            old_state = prereg.registration_status
+            prereg.registration_status = "COMPLETED"
+            prereg.sale_transfer = transfer
+            prereg.workflow_history = [
+                *(prereg.workflow_history or []),
+                {
+                    "from": old_state,
+                    "to": "COMPLETED",
+                    "by": actor.get_full_name() or actor.username,
+                    "at": now.isoformat(),
+                    "notes": f"Transfer {transfer.transfer_certificate_number} recorded by Auction",
+                },
+            ]
+            prereg.save(update_fields=["registration_status", "sale_transfer", "workflow_history"])
+
+    buyer_name = (
+        transfer.new_owner.user.get_full_name().strip() or transfer.new_owner.user.username
+        if transfer.new_owner_id else transfer.external_owner_name
+    )
+    notified_farmers = [transfer.previous_owner] if transfer.previous_owner_id else []
+    if transfer.new_owner_id:
+        notified_farmers.append(transfer.new_owner)
+    animal_name = (
+        transfer.livestock.tag_number or transfer.livestock.livestock_type.name
+        if transfer.livestock_id else transfer.external_livestock_type
+    )
+    for farmer in notified_farmers:
+        is_buyer = farmer.pk == transfer.new_owner_id
+        create_notification(
+            user=farmer.user,
+            notification_type=Notification.NotificationType.GENERAL,
+            title="Livestock Ownership Transfer Completed",
+            message=(
+                f"Auction recorded you as the new owner of {animal_name}. Register it in your inventory to receive your new COLC from MAO."
+                if is_buyer else
+                f"Ownership transfer for {animal_name} was completed at the Auction Market and marked SOLD in your inventory history. Buyer: {buyer_name}."
+            ),
+            link="/livestock-inventory" if is_buyer or not transfer.livestock_id else f"/livestock-inventory/{transfer.livestock_id}",
+        )
+
+
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def ownership_transfer_list_create(request):
-    """Auction staff encode certificates; farmers and reviewers read their own or scoped history."""
+    """Auction staff encode and finalize certificates; farmers and reviewers read their own or scoped history."""
     if request.method == "POST":
         require_action(request.user, "ownership_transfers", "create")
         # Django's is_staff flag grants admin-site access; retain the assigned
@@ -154,6 +234,9 @@ def ownership_transfer_list_create(request):
                 key: value for key, value in request.data.items()
                 if key not in {"livestock_ids", "original_certificate_numbers", "animal_details"}
             }
+            if not shared_fields.get("transfer_certificate_number") or not str(shared_fields.get("transfer_certificate_number", "")).strip():
+                from smartlivestock.seed_tags import generate_unique_transfer_certificate_number
+                shared_fields["transfer_certificate_number"] = generate_unique_transfer_certificate_number()
             animal_details = request.data.get("animal_details", {})
             if not isinstance(animal_details, dict):
                 raise ValidationError({"animal_details": "Provide animal details keyed by animal ID."})
@@ -186,15 +269,7 @@ def ownership_transfer_list_create(request):
                     for serializer in prepared
                 ]
                 for transfer in transfers:
-                    notify_role(
-                        role_name="MAO",
-                        notification_type=Notification.NotificationType.GENERAL,
-                        title="Ownership Transfer Awaiting Review",
-                        message=f"Transfer certificate {transfer.transfer_certificate_number} includes {transfer.livestock.tag_number or 'a livestock animal'} and is ready for MAO review.",
-                        link=f"/ownership-transfers?transferId={transfer.pk}",
-                        related_entity_type="ownership_transfer",
-                        related_entity_id=transfer.pk,
-                    )
+                    _finalize_auction_transfer(transfer, request.user)
             return Response(LivestockOwnershipTransferSerializer(transfers, many=True).data, status=status.HTTP_201_CREATED)
 
         serializer = LivestockOwnershipTransferSerializer(data=request.data, context={"request": request})
@@ -207,17 +282,9 @@ def ownership_transfer_list_create(request):
             # the caller is already inside a transaction.
             with transaction.atomic():
                 transfer = serializer.save(previous_owner=farmer, created_by=request.user)
+                _finalize_auction_transfer(transfer, request.user)
         except IntegrityError as exc:
             raise ValidationError({"detail": "This animal already has a pending transfer."}) from exc
-        notify_role(
-            role_name="MAO",
-            notification_type=Notification.NotificationType.GENERAL,
-            title="Ownership Transfer Awaiting Review",
-            message=f"Transfer certificate {transfer.transfer_certificate_number} for {transfer.livestock.tag_number if transfer.livestock_id else transfer.external_livestock_type} is ready for MAO review.",
-            link=f"/ownership-transfers?transferId={transfer.pk}",
-            related_entity_type="ownership_transfer",
-            related_entity_id=transfer.pk,
-        )
         return Response(LivestockOwnershipTransferSerializer(transfer).data, status=status.HTTP_201_CREATED)
 
     user = request.user
@@ -285,6 +352,17 @@ def ownership_transfer_detail(request, pk):
         link=f"/ownership-transfers?transferId={transfer.pk}",
         related_entity_type="ownership_transfer", related_entity_id=transfer.pk)
     return Response(LivestockOwnershipTransferSerializer(transfer).data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def next_transfer_certificate_number(request):
+    """Return the next auto-generated sequential Accountable Form No. 52 certificate number (BTG-YYYY-XXXXXX)."""
+    actor_role = role_name(request.user)
+    if actor_role not in {"AUCTION", "MAO", "ADMIN"}:
+        raise ValidationError({"detail": "You do not have permission to inspect certificate numbers."})
+    from smartlivestock.seed_tags import generate_unique_transfer_certificate_number
+    return Response({"certificate_number": generate_unique_transfer_certificate_number()})
 
 
 @api_view(["POST"])

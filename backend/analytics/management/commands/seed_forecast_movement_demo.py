@@ -107,11 +107,18 @@ class Command(BaseCommand):
                         LivestockInspection.objects.filter(pk=inspection.pk).update(destination=destination)
                 self.stdout.write(f"{'Would refresh' if options['dry_run'] else 'Refreshed'} outbound destinations: {dict(counts)}. Incoming origins and other fields unchanged.")
                 return
+            from users.models import User
+            mao_reviewer = (
+                User.objects.filter(role__role_name="MAO", account_status="APPROVED", is_active=True).first()
+                or User.objects.filter(is_superuser=True, is_active=True).first()
+            )
+            if not mao_reviewer:
+                raise CommandError("An active MAO reviewer account is required to approve movement inspections.")
             sales = LivestockOwnershipTransfer.objects.filter(
                 Q(review_remarks__contains=SEED_MARKER_FORECAST_QUALITY_IDEAL)
                 | Q(review_remarks__contains=SEED_MARKER_CATTLE_PRICE_DEMO),
                 status="APPROVED", created_by__role__role_name="AUCTION",
-                reviewed_by__role__role_name="MAO", reviewed_at__isnull=False,
+                reviewed_at__isnull=False,
             ).select_related("livestock__livestock_type", "previous_owner__barangay", "previous_owner__user", "created_by", "reviewed_by").order_by("transfer_date", "pk")
             weeks = defaultdict(lambda: {"registered": [], "external": []})
             for sale in sales:
@@ -179,7 +186,7 @@ class Command(BaseCommand):
                 clearance = LivestockInspectionClearance.objects.create(
                     inspection=inspection, control_number=f"PG-LIC-{day.year}-{sale.pk:08d}",
                     shipper_address=origin, origin=origin, status="APPROVED",
-                    issued_by=sale.reviewed_by, reviewed_by=sale.reviewed_by,
+                    issued_by=mao_reviewer, reviewed_by=mao_reviewer,
                     reviewed_at=historical_time(day, 12), date_issued=day, time_issued=time(13),
                     review_remarks=f"{MARKER} Source sale #{sale.pk}. Simulated historical inspection, review and issuance; no real journey asserted.",
                 )

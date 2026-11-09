@@ -54,10 +54,12 @@ import {
   MoreVertical,
   PieChart as PieChartIcon,
   Plus,
+  Printer,
   RefreshCw,
   RotateCcw,
   Search,
 } from "lucide-react";
+import { OwnershipTransferCertificateDialog } from "@/app/components/ownership-transfer-certificate-dialog";
 import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
@@ -126,6 +128,7 @@ export default function AuctionOwnershipTransferRegistryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
+  const [certificateTarget, setCertificateTarget] = useState<Transfer | null>(null);
 
   // 100% Connected to the live Django REST backend endpoint
   const {
@@ -721,6 +724,18 @@ export default function AuctionOwnershipTransferRegistryPage() {
                               View
                             </Button>
 
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCertificateTarget(t)}
+                              className="h-8 px-2.5 text-xs font-semibold bg-pink-50 hover:bg-pink-100 text-pink-900 border-pink-200 rounded-lg gap-1.5 shadow-xs"
+                              title="Print Certificate (NO. BTG)"
+                            >
+                              <Printer className="size-3.5 text-pink-700" />
+                              Certificate
+                            </Button>
+
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
@@ -736,6 +751,10 @@ export default function AuctionOwnershipTransferRegistryPage() {
                                 <DropdownMenuItem onClick={() => setSelectedTransfer(t)}>
                                   <Eye className="mr-2 size-3.5" />
                                   View details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setCertificateTarget(t)}>
+                                  <Printer className="mr-2 size-3.5 text-pink-700" />
+                                  Print Certificate (NO. BTG)
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => {
@@ -972,10 +991,42 @@ export default function AuctionOwnershipTransferRegistryPage() {
                   </p>
                 </div>
               )}
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedTransfer(null)}
+                  className="h-8 rounded-xl text-xs"
+                >
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const t = selectedTransfer;
+                    setSelectedTransfer(null);
+                    setCertificateTarget(t);
+                  }}
+                  className="h-8 bg-[#1E4D2B] hover:bg-[#163a20] text-white text-xs font-bold px-3.5 rounded-xl gap-1.5 shadow-xs"
+                >
+                  <Printer className="size-3.5" />
+                  Print Official Certificate
+                </Button>
+              </div>
             </div>
           </DialogContent>
         )}
       </Dialog>
+
+      {/* Official Accountable Form No. 52 Certificate Dialog */}
+      <OwnershipTransferCertificateDialog
+        open={Boolean(certificateTarget)}
+        onOpenChange={(open) => !open && setCertificateTarget(null)}
+        transfer={certificateTarget}
+        allTransfers={rawData}
+      />
     </div>
   );
 }
